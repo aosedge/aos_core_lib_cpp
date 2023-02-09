@@ -8,6 +8,7 @@ project("aos_core_lib_cpp")
 
 option(WITH_TEST "build with test" OFF)
 option(WITH_COVERAGE "build with coverage" OFF)
+option(WITH_DOC "build with documenation" OFF)
 
 message(STATUS)
 message(STATUS "${CMAKE_PROJECT_NAME} configuration:")
@@ -16,6 +17,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX          = ${CMAKE_INSTALL_PREFIX}")
 message(STATUS)
 message(STATUS "WITH_TEST                     = ${WITH_TEST}")
 message(STATUS "WITH_COVERAGE                 = ${WITH_COVERAGE}")
+message(STATUS "WITH_DOC                      = ${WITH_DOC}")
 message(STATUS)
 
 # ######################################################################################################################
@@ -69,3 +71,21 @@ include_directories(src/common)
 
 add_subdirectory(src/sm)
 add_subdirectory(src/iam)
+
+# ######################################################################################################################
+# Doc
+# ######################################################################################################################
+
+if(WITH_DOC)
+    find_package(Doxygen)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/doxygen.cfg ${CMAKE_CURRENT_BINARY_DIR}/doxygen.cfg @ONLY)
+
+    add_custom_target(
+        doc
+        ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/doxygen.cfg
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
+endif()

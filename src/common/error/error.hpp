@@ -20,6 +20,9 @@
 
 namespace aos {
 
+/**
+ * Aos errors.
+ */
 enum class Error {
     eNone,
 };

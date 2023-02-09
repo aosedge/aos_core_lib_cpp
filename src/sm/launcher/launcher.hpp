@@ -24,10 +24,24 @@ namespace aos {
 namespace sm {
 namespace launcher {
 
+/** @addtogroup sm Service Manager
+ *  @{
+ */
+
+/**
+ * Launches service instances.
+ */
 class Launcher {
 public:
+    /**
+     * Runs instances.
+     *
+     * @return Error
+     */
     Error RunInstances();
 };
+
+/** @}*/
 
 } // namespace launcher
 } // namespace sm
