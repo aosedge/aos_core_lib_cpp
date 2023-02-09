@@ -24,10 +24,24 @@ namespace aos {
 namespace iam {
 namespace certhandler {
 
+/** @addtogroup iam Identification and Access Manager
+ *  @{
+ */
+
+/**
+ * Handles keys and certificates.
+ */
 class CertHandler {
 public:
+    /**
+     * Creates key.
+     *
+     * @return Error
+     */
     Error CreateKey();
 };
+
+/** @}*/
 
 } // namespace certhandler
 } // namespace iam
