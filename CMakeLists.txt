@@ -7,6 +7,7 @@ project("aos_core_lib_cpp")
 # ######################################################################################################################
 
 option(WITH_TEST "build with test" OFF)
+option(WITH_COVERAGE "build with coverage" OFF)
 
 message(STATUS)
 message(STATUS "${CMAKE_PROJECT_NAME} configuration:")
@@ -14,6 +15,7 @@ message(STATUS "CMAKE_BUILD_TYPE              = ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_INSTALL_PREFIX          = ${CMAKE_INSTALL_PREFIX}")
 message(STATUS)
 message(STATUS "WITH_TEST                     = ${WITH_TEST}")
+message(STATUS "WITH_COVERAGE                 = ${WITH_COVERAGE}")
 message(STATUS)
 
 # ######################################################################################################################
@@ -41,6 +43,18 @@ if(WITH_TEST)
     include(GoogleTest)
 
     enable_testing()
+endif()
+
+if(WITH_COVERAGE)
+    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
+
+    include(CodeCoverage)
+
+    append_coverage_compiler_flags()
+
+    set(COVERAGE_EXCLUDES "build/*" "/usr/*" "*_test.cpp")
+
+    setup_target_for_coverage_lcov(NAME coverage EXECUTABLE ctest)
 endif()
 
 # ######################################################################################################################
