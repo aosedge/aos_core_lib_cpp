@@ -1,0 +1,6 @@
+BasedOnStyle: WebKit
+ColumnLimit: 120
+FixNamespaceComments: true
+NamespaceIndentation: None
+Cpp11BracedListStyle: true
+AllowShortFunctionsOnASingleLine: InlineOnly
