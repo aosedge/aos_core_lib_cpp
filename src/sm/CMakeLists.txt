@@ -23,3 +23,16 @@ install(
     ARCHIVE DESTINATION lib
     PUBLIC_HEADER DESTINATION include/aoscore/sm
 )
+
+# ######################################################################################################################
+# Test
+# ######################################################################################################################
+
+if(WITH_TEST)
+    set(TEST_SOURCES launcher/launcher_test.cpp)
+
+    add_executable(${TARGET}_test ${TEST_SOURCES})
+    target_link_libraries(${TARGET}_test GTest::gtest_main ${TARGET})
+
+    gtest_discover_tests(${TARGET}_test)
+endif()
