@@ -32,6 +32,8 @@ set(CMAKE_CXX_STANDARD 14)
 # Dependencies
 # ######################################################################################################################
 
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
+
 if(WITH_TEST)
     include(FetchContent)
 
@@ -48,8 +50,6 @@ if(WITH_TEST)
 endif()
 
 if(WITH_COVERAGE)
-    set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
-
     include(CodeCoverage)
 
     append_coverage_compiler_flags()
@@ -69,6 +69,7 @@ include_directories(src/common)
 # Targets
 # ######################################################################################################################
 
+add_subdirectory(src/common)
 add_subdirectory(src/sm)
 add_subdirectory(src/iam)
 
