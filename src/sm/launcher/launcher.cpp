@@ -27,7 +27,7 @@ namespace launcher {
 
 Error Launcher::RunInstances()
 {
-    return Error::eNone;
+    return ErrorEnum::eNone;
 }
 
 } // namespace launcher

@@ -44,7 +44,7 @@ install(
 # ######################################################################################################################
 
 if(WITH_TEST)
-    set(TEST_SOURCES utils/utils_test.cpp)
+    set(TEST_SOURCES utils/utils_test.cpp error/error_test.cpp)
 
     add_executable(${TARGET}_test ${TEST_SOURCES})
     target_link_libraries(${TARGET}_test GTest::gtest_main)

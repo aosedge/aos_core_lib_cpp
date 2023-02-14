@@ -26,5 +26,5 @@ TEST(certhandler, CreateKey)
 {
     CertHandler handler;
 
-    EXPECT_EQ(handler.CreateKey(), Error::eNone);
+    EXPECT_TRUE(handler.CreateKey().IsNone());
 }

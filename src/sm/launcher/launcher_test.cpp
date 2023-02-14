@@ -26,5 +26,5 @@ TEST(launcher, RunInstances)
 {
     Launcher launcher;
 
-    EXPECT_EQ(launcher.RunInstances(), Error::eNone);
+    EXPECT_TRUE(launcher.RunInstances().IsNone());
 }

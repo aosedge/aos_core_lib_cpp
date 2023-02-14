@@ -27,7 +27,7 @@ namespace certhandler {
 
 Error CertHandler::CreateKey()
 {
-    return Error::eNone;
+    return ErrorEnum::eNone;
 }
 
 } // namespace certhandler
