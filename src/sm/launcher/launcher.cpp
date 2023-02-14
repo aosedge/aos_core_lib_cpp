@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #include "launcher.hpp"
+#include "log.hpp"
 
 namespace aos {
 namespace sm {
@@ -27,6 +28,8 @@ namespace launcher {
 
 Error Launcher::RunInstances()
 {
+    LOG_DBG() << "Run instances";
+
     return ErrorEnum::eNone;
 }
 

@@ -15,24 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "certhandler.hpp"
-#include "log.hpp"
+#ifndef LOG_HPP_
+#define LOG_HPP_
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+#include "log/log.hpp"
 
-/***********************************************************************************************************************
- * Public
- **********************************************************************************************************************/
+#define LOG_DBG() LOG_MODULE_DBG(LogModuleEnum::eIAMCertHandler)
+#define LOG_INF() LOG_MODULE_INF(LogModuleEnum::eIAMCertHandler)
+#define LOG_WRN() LOG_MODULE_WRN(LogModuleEnum::eIAMCertHandler)
+#define LOG_ERR() LOG_MODULE_ERR(LogModuleEnum::eIAMCertHandler)
 
-Error CertHandler::CreateKey()
-{
-    LOG_DBG() << "Create key";
-
-    return ErrorEnum::eNone;
-}
-
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+#endif

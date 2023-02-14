@@ -15,24 +15,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "certhandler.hpp"
-#include "log.hpp"
+#ifndef LOG_CONFIG_HPP_
+#define LOG_CONFIG_HPP_
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+/**
+ * Log levels.
+ *
+ */
+#define CONFIG_LOG_LEVEL_DISABLE 0
+#define CONFIG_LOG_LEVEL_ERROR   1
+#define CONFIG_LOG_LEVEL_WARNING 2
+#define CONFIG_LOG_LEVEL_INFO    3
+#define CONFIG_LOG_LEVEL_DEBUG   4
 
-/***********************************************************************************************************************
- * Public
- **********************************************************************************************************************/
+/**
+ * Configures log level.
+ *
+ */
+#ifndef CONFIG_LOG_LEVEL
+#define CONFIG_LOG_LEVEL CONFIG_LOG_LEVEL_DEBUG
+#endif
 
-Error CertHandler::CreateKey()
-{
-    LOG_DBG() << "Create key";
+/**
+ * Max log line size.
+ *
+ */
+#ifndef CONFIG_LOG_LINE_SIZE
+#define CONFIG_LOG_LINE_SIZE 120
+#endif
 
-    return ErrorEnum::eNone;
-}
-
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+#endif
