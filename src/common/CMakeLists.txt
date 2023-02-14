@@ -31,3 +31,23 @@ target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)
 # ######################################################################################################################
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.hpp DESTINATION include/aoscore/common)
+
+install(
+    DIRECTORY .
+    DESTINATION include/aoscore/common
+    FILES_MATCHING
+    PATTERN "*.hpp"
+)
+
+# ######################################################################################################################
+# Test
+# ######################################################################################################################
+
+if(WITH_TEST)
+    set(TEST_SOURCES utils/utils_test.cpp)
+
+    add_executable(${TARGET}_test ${TEST_SOURCES})
+    target_link_libraries(${TARGET}_test GTest::gtest_main)
+
+    gtest_discover_tests(${TARGET}_test)
+endif()
