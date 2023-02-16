@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "config.hpp"
-#include "utils/stringer.hpp"
+#include "aos/common/config/log.hpp"
+#include "aos/common/stringer.hpp"
 
 /**
  * Helper macro to display debug log.

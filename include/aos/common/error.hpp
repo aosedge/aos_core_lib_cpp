@@ -8,7 +8,7 @@
 #ifndef ERROR_HPP_
 #define ERROR_HPP_
 
-#include "utils/stringer.hpp"
+#include "aos/common/stringer.hpp"
 
 namespace aos {
 

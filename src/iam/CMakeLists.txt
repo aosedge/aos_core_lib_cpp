@@ -23,12 +23,13 @@ add_library(${TARGET} STATIC ${SOURCES})
 # Install
 # ######################################################################################################################
 
-set_target_properties(${TARGET} PROPERTIES PUBLIC_HEADER "certhandler/certhandler.hpp")
+install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
 
 install(
-    TARGETS ${TARGET}
-    ARCHIVE DESTINATION lib
-    PUBLIC_HEADER DESTINATION include/aoscore/iam
+    DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/iam
+    DESTINATION include/aos
+    FILES_MATCHING
+    PATTERN "*.hpp"
 )
 
 # ######################################################################################################################

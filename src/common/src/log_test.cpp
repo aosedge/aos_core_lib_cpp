@@ -9,8 +9,8 @@
 
 #include <gtest/gtest.h>
 
-#include "log.hpp"
-#include "utils/stringer.hpp"
+#include "aos/common/log.hpp"
+#include "aos/common/stringer.hpp"
 
 using namespace aos;
 

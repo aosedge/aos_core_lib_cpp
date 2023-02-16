@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "launcher.hpp"
+#include "aos/sm/launcher.hpp"
 
 using aos::Error;
 using aos::sm::launcher::Launcher;

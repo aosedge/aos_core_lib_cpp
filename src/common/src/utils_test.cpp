@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "stringer.hpp"
+#include "aos/common/stringer.hpp"
 
 class TestType {
 public:

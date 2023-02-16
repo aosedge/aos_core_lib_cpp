@@ -23,12 +23,13 @@ add_library(${TARGET} STATIC ${SOURCES})
 # Install
 # ######################################################################################################################
 
-set_target_properties(${TARGET} PROPERTIES PUBLIC_HEADER "launcher/launcher.hpp")
+install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
 
 install(
-    TARGETS ${TARGET}
-    ARCHIVE DESTINATION lib
-    PUBLIC_HEADER DESTINATION include/aoscore/sm
+    DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/sm
+    DESTINATION include/aos
+    FILES_MATCHING
+    PATTERN "*.hpp"
 )
 
 # ######################################################################################################################

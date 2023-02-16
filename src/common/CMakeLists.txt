@@ -37,21 +37,21 @@ target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)
 # Install
 # ######################################################################################################################
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.hpp DESTINATION include/aoscore/common)
-
 install(
-    DIRECTORY .
-    DESTINATION include/aoscore/common
+    DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/common
+    DESTINATION include/aos
     FILES_MATCHING
     PATTERN "*.hpp"
 )
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.hpp DESTINATION include/aos/common)
 
 # ######################################################################################################################
 # Test
 # ######################################################################################################################
 
 if(WITH_TEST)
-    set(TEST_SOURCES utils/utils_test.cpp error/error_test.cpp log/log_test.cpp)
+    set(TEST_SOURCES src/utils_test.cpp src/error_test.cpp src/log_test.cpp)
 
     add_executable(${TARGET}_test ${TEST_SOURCES})
     target_link_libraries(${TARGET}_test GTest::gtest_main)

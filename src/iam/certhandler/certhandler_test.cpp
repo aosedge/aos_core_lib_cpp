@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "certhandler.hpp"
+#include "aos/iam/certhandler.hpp"
 
 using aos::Error;
 using aos::iam::certhandler::CertHandler;

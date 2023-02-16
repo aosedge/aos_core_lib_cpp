@@ -8,7 +8,7 @@
 #ifndef LAUNCHER_HPP_
 #define LAUNCHER_HPP_
 
-#include "error/error.hpp"
+#include "aos/common/error.hpp"
 
 namespace aos {
 namespace sm {
