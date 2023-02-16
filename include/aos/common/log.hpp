@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LOG_COMMON_HPP_
-#define LOG_COMMON_HPP_
+#ifndef AOS_LOG_HPP_
+#define AOS_LOG_HPP_
 
 #include <stdio.h>
 #include <string.h>

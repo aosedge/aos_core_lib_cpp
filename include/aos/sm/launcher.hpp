@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LAUNCHER_HPP_
-#define LAUNCHER_HPP_
+#ifndef AOS_LAUNCHER_HPP_
+#define AOS_LAUNCHER_HPP_
 
 #include "aos/common/error.hpp"
 

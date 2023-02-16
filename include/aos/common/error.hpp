@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef ERROR_HPP_
-#define ERROR_HPP_
+#ifndef AOS_ERROR_HPP_
+#define AOS_ERROR_HPP_
 
 #include "aos/common/stringer.hpp"
 

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef CONFIG_LOG_HPP_
-#define CONFIG_LOG_HPP_
+#ifndef AOS_CONFIG_LOG_HPP_
+#define AOS_CONFIG_LOG_HPP_
 
 /**
  * Log levels.

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef STRINGER_HPP_
-#define STRINGER_HPP_
+#ifndef AOS_STRINGER_HPP_
+#define AOS_STRINGER_HPP_
 
 #include "utils.hpp"
 

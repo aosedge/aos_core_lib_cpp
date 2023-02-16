@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef VERSION_HPP
-#define VERSION_HPP
+#ifndef AOS_VERSION_HPP_
+#define AOS_VERSION_HPP_
 
 #define AOS_CORE_VERSION "${GIT_VERSION}"
 

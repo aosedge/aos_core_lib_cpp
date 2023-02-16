@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef CERTHANDLER_HPP_
-#define CERTHANDLER_HPP_
+#ifndef AOS_CERTHANDLER_HPP_
+#define AOS_CERTHANDLER_HPP_
 
 #include "aos/common/error.hpp"
 

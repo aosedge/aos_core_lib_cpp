@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef UTILS_HPP_
-#define UTILS_HPP_
+#ifndef AOS_UTILS_HPP_
+#define AOS_UTILS_HPP_
 
 #include <cstddef>
 
