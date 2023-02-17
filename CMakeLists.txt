@@ -80,6 +80,12 @@ add_subdirectory(src/common)
 add_subdirectory(src/sm)
 add_subdirectory(src/iam)
 
+if(WITH_TEST)
+    add_subdirectory(tests/common)
+    add_subdirectory(tests/sm)
+    add_subdirectory(tests/iam)
+endif()
+
 # ######################################################################################################################
 # Doc
 # ######################################################################################################################

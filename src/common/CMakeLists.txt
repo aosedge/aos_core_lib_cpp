@@ -45,16 +45,3 @@ install(
 )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.hpp DESTINATION include/aos/common)
-
-# ######################################################################################################################
-# Test
-# ######################################################################################################################
-
-if(WITH_TEST)
-    set(TEST_SOURCES src/utils_test.cpp src/error_test.cpp src/log_test.cpp)
-
-    add_executable(${TARGET}_test ${TEST_SOURCES})
-    target_link_libraries(${TARGET}_test GTest::gtest_main)
-
-    gtest_discover_tests(${TARGET}_test)
-endif()

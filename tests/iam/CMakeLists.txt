@@ -5,29 +5,17 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aossmcpp)
+set(TARGET aosiamcpp_tesp)
 
 # ######################################################################################################################
 # Sources
 # ######################################################################################################################
 
-set(SOURCES launcher/launcher.cpp)
+set(SOURCES certhandler/certhandler_test.cpp)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_library(${TARGET} STATIC ${SOURCES})
-
-# ######################################################################################################################
-# Install
-# ######################################################################################################################
-
-install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
-
-install(
-    DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/sm
-    DESTINATION include/aos
-    FILES_MATCHING
-    PATTERN "*.hpp"
-)
+add_executable(${TARGET} ${SOURCES})
+target_link_libraries(${TARGET} GTest::gtest_main aosiamcpp)
