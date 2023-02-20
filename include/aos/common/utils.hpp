@@ -10,6 +10,8 @@
 
 #include <cstddef>
 
+namespace aos {
+
 /**
  * Defines array size.
  */
@@ -33,5 +35,7 @@ struct Pair {
     F first;
     S second;
 };
+
+} // namespace aos
 
 #endif

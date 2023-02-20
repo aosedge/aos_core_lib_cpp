@@ -10,6 +10,8 @@
 
 #include "utils.hpp"
 
+namespace aos {
+
 /**
  * Interface used to convert derived type to string.
  */
@@ -129,5 +131,7 @@ public:
 private:
     EnumType mValue;
 };
+
+} // namespace aos
 
 #endif

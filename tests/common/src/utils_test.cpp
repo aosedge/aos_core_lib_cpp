@@ -13,17 +13,17 @@ class TestType {
 public:
     enum class Enum { eTestDefault, eTestType1, eTestType2, eTestTypeSize };
 
-    static Pair<const char* const*, size_t> GetStrings()
+    static aos::Pair<const char* const*, size_t> GetStrings()
     {
         static const char* const cTestTypeStrings[static_cast<size_t>(Enum::eTestTypeSize)]
             = {"default", "type1", "type2"};
 
-        return Pair<const char* const*, size_t>(cTestTypeStrings, static_cast<size_t>(Enum::eTestTypeSize));
+        return aos::Pair<const char* const*, size_t>(cTestTypeStrings, static_cast<size_t>(Enum::eTestTypeSize));
     };
 };
 
-typedef EnumStringer<TestType> TestInstance;
-typedef TestType::Enum         TestEnum;
+typedef aos::EnumStringer<TestType> TestInstance;
+typedef TestType::Enum              TestEnum;
 
 TEST(common, EnumStringer)
 {
