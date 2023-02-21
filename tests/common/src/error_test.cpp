@@ -39,6 +39,14 @@ TEST(common, Error)
 
     // Error string
 
-    EXPECT_EQ(Error(ErrorEnum::eNone).ToString(), "none");
-    EXPECT_EQ(Error(ErrorEnum::eFailed).ToString(), "failed");
+    EXPECT_EQ(strcmp(Error(ErrorEnum::eNone).ToString(), "none"), 0);
+    EXPECT_EQ(strcmp(Error(ErrorEnum::eFailed).ToString(), "failed"), 0);
+
+    // Errno handling
+
+    EXPECT_TRUE(Error(0).IsNone());
+    EXPECT_FALSE(Error(EINVAL).IsNone());
+    EXPECT_TRUE(Error(ENODEV).Is(ENODEV));
+
+    EXPECT_EQ(strcmp(Error(EAGAIN).ToString(), "Resource temporarily unavailable"), 0);
 }
