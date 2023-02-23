@@ -11,7 +11,7 @@ set(TARGET aoscommoncpp_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES src/utils_test.cpp src/error_test.cpp src/log_test.cpp src/thread_test.cpp)
+set(SOURCES src/stringer_test.cpp src/error_test.cpp src/log_test.cpp src/thread_test.cpp)
 
 # ######################################################################################################################
 # Test
