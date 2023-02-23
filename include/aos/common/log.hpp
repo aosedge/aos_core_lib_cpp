@@ -69,8 +69,8 @@ public:
     };
 };
 
-typedef LogLevelType::Enum         LogLevelEnum;
-typedef EnumStringer<LogLevelType> LogLevel;
+using LogLevelEnum = LogLevelType::Enum;
+using LogLevel = EnumStringer<LogLevelType>;
 
 /**
  * Log module types.
@@ -88,13 +88,13 @@ public:
     };
 };
 
-typedef LogModuleType::Enum         LogModuleEnum;
-typedef EnumStringer<LogModuleType> LogModule;
+using LogModuleEnum = LogModuleType::Enum;
+using LogModule = EnumStringer<LogModuleType>;
 
 /**
  * Log line callback. Should be set in application to display log using application logging mechanism.
  */
-typedef void (*LogCallback)(LogModule module, LogLevel level, const char* message);
+using LogCallback = void (*)(LogModule module, LogLevel level, const char* message);
 
 /**
  * Implements log functionality.

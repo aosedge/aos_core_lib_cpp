@@ -32,7 +32,7 @@ public:
     };
 };
 
-typedef ErrorType::Enum ErrorEnum;
+using ErrorEnum = ErrorType::Enum;
 
 /**
  * Aos errors.

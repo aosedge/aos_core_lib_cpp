@@ -31,7 +31,7 @@ public:
 template <class T>
 class EnumStringer : public Stringer {
 public:
-    typedef typename T::Enum EnumType;
+    using EnumType = typename T::Enum;
 
     /**
      * Construct a new EnumStringer object with default type.

@@ -22,8 +22,8 @@ public:
     };
 };
 
-typedef aos::EnumStringer<TestType> TestInstance;
-typedef TestType::Enum              TestEnum;
+using TestInstance = aos::EnumStringer<TestType>;
+using TestEnum = TestType::Enum;
 
 TEST(common, EnumStringer)
 {
