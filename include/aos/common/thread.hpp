@@ -11,13 +11,14 @@
 #include <pthread.h>
 
 #include "aos/common/error.hpp"
+#include "aos/common/noncopyable.hpp"
 
 namespace aos {
 
 /**
  * Aos thread.
  */
-class Thread {
+class Thread : private NonCopyable {
 public:
     /**
      * Constructs Aos thread instance.
@@ -57,15 +58,12 @@ private:
     void* (*mAdapter)(void*);
     void*     mArg;
     pthread_t mPThread;
-
-    Thread(Thread const&) = delete;
-    Thread& operator=(Thread const&) = delete;
 };
 
 /**
  * Aos mutex.
  */
-class Mutex {
+class Mutex : private NonCopyable {
 public:
     /**
      * Constructs Aos mutex.
@@ -101,15 +99,12 @@ public:
 
 private:
     pthread_mutex_t mPMutex;
-
-    Mutex(Mutex const&) = delete;
-    Mutex& operator=(Mutex const&) = delete;
 };
 
 /**
  * Aos lock guard.
  */
-class LockGuard {
+class LockGuard : private NonCopyable {
 public:
     /**
      * Creates lock guard instance.
@@ -137,15 +132,12 @@ public:
 private:
     Mutex& mMutex;
     Error  mError;
-
-    LockGuard(LockGuard const&) = delete;
-    LockGuard& operator=(LockGuard const&) = delete;
 };
 
 /**
  * Aos unique lock.
  */
-class UniqueLock {
+class UniqueLock : private NonCopyable {
 public:
     /**
      * Creates unique lock instance.
@@ -210,15 +202,12 @@ private:
     Mutex& mMutex;
     bool   mIsLocked;
     Error  mError;
-
-    UniqueLock(UniqueLock const&) = delete;
-    UniqueLock& operator=(UniqueLock const&) = delete;
 };
 
 /**
  * Aos conditional variable.
  */
-class ConditionalVariable {
+class ConditionalVariable : private NonCopyable {
 public:
     /**
      * Creates conditional variable.
@@ -286,9 +275,6 @@ private:
     Mutex&         mMutex;
     pthread_cond_t mCondVar;
     Error          mError;
-
-    ConditionalVariable(const ConditionalVariable&) = delete;
-    ConditionalVariable& operator=(ConditionalVariable const&) = delete;
 };
 
 } // namespace aos

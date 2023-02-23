@@ -14,11 +14,8 @@
 
 using namespace aos;
 
-class TestLog {
+class TestLog : private NonCopyable {
 public:
-    TestLog(TestLog const&) = delete;
-    void operator=(TestLog const&) = delete;
-
     static void LogCallback(LogModule module, LogLevel level, const char* message)
     {
         auto& instance = GetInstance();

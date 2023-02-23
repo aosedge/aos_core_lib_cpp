@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "aos/common/config/log.hpp"
+#include "aos/common/noncopyable.hpp"
 #include "aos/common/stringer.hpp"
 
 /**
@@ -98,11 +99,8 @@ typedef void (*LogCallback)(LogModule module, LogLevel level, const char* messag
 /**
  * Implements log functionality.
  */
-class Log {
+class Log : private NonCopyable {
 public:
-    Log(Log const&) = delete;
-    void operator=(Log const&) = delete;
-
     /**
      * Constructs a new Log object.
      *
