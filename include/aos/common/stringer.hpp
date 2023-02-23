@@ -64,7 +64,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator==(const EnumStringer<T>& stringer) { return GetValue() == stringer.GetValue(); };
+    bool operator==(const EnumStringer<T>& stringer) const { return GetValue() == stringer.GetValue(); };
 
     /**
      * Compares if EnumStringer doesn't equal to another EnumStringer.
@@ -72,7 +72,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator!=(const EnumStringer<T>& stringer) { return GetValue() != stringer.GetValue(); };
+    bool operator!=(const EnumStringer<T>& stringer) const { return GetValue() != stringer.GetValue(); };
 
     /**
      * Compares if EnumStringer equals to specified EnumStringer type.
@@ -80,7 +80,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator==(EnumType type) { return GetValue() == type; };
+    bool operator==(EnumType type) const { return GetValue() == type; };
 
     /**
      * Compares if EnumStringer doesn't equal to specified EnumStringer type.
@@ -88,7 +88,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator!=(EnumType type) { return GetValue() != type; };
+    bool operator!=(EnumType type) const { return GetValue() != type; };
 
     /**
      * Compares if specified EnumStringer type equals to EnumStringer.
