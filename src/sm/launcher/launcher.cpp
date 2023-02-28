@@ -12,12 +12,37 @@ namespace aos {
 namespace sm {
 namespace launcher {
 
+using namespace runner;
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::RunInstances()
+Error Launcher::Init(InstanceStatusReceiverItf& statusReceiver, RunnerItf& runner, StorageItf& storage)
 {
+    LOG_DBG() << "Initialize launcher";
+
+    mStatusReceiver = &statusReceiver;
+    mRunner = &runner;
+    mStorage = &storage;
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::RunInstances(const Array<InstanceInfo>& instances, bool forceRestart)
+{
+    (void)instances;
+    (void)forceRestart;
+
+    LOG_DBG() << "Run instances";
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
+{
+    (void)instances;
+
     LOG_DBG() << "Run instances";
 
     return ErrorEnum::eNone;
