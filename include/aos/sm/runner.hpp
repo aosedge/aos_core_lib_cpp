@@ -20,7 +20,7 @@ namespace runner {
  * Instance run status.
  */
 struct RunStatus {
-    char             mInstanceID[CONFIG_INSTANCE_ID_LEN + 1];
+    char             mInstanceID[AOS_CONFIG_INSTANCE_ID_LEN + 1];
     InstanceRunState mState;
     Error            mError;
 };

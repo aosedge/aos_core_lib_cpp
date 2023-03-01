@@ -119,7 +119,7 @@ TEST(common, Log)
 
     std::string longString;
 
-    for (auto i = 0; i < CONFIG_LOG_LINE_SIZE;) {
+    for (auto i = 0; i < AOS_CONFIG_LOG_LINE_SIZE;) {
         auto word = "word ";
 
         i += std::string(word).length();
@@ -128,7 +128,7 @@ TEST(common, Log)
 
     LOG_DBG() << longString.c_str();
 
-    longString.resize(CONFIG_LOG_LINE_SIZE - 4);
+    longString.resize(AOS_CONFIG_LOG_LINE_SIZE - 4);
     longString += "...";
 
     EXPECT_TRUE(testLog.CheckLog(LogModuleEnum::eDefault, LogLevelEnum::eDebug, longString.c_str()));

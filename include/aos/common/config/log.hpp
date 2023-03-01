@@ -12,26 +12,26 @@
  * Log levels.
  *
  */
-#define CONFIG_LOG_LEVEL_DISABLE 0
-#define CONFIG_LOG_LEVEL_ERROR   1
-#define CONFIG_LOG_LEVEL_WARNING 2
-#define CONFIG_LOG_LEVEL_INFO    3
-#define CONFIG_LOG_LEVEL_DEBUG   4
+#define AOS_CONFIG_LOG_LEVEL_DISABLE 0
+#define AOS_CONFIG_LOG_LEVEL_ERROR   1
+#define AOS_CONFIG_LOG_LEVEL_WARNING 2
+#define AOS_CONFIG_LOG_LEVEL_INFO    3
+#define AOS_CONFIG_LOG_LEVEL_DEBUG   4
 
 /**
  * Configures log level.
  *
  */
-#ifndef CONFIG_LOG_LEVEL
-#define CONFIG_LOG_LEVEL CONFIG_LOG_LEVEL_DEBUG
+#ifndef AOS_CONFIG_LOG_LEVEL
+#define AOS_CONFIG_LOG_LEVEL AOS_CONFIG_LOG_LEVEL_DEBUG
 #endif
 
 /**
  * Max log line size.
  *
  */
-#ifndef CONFIG_LOG_LINE_SIZE
-#define CONFIG_LOG_LINE_SIZE 120
+#ifndef AOS_CONFIG_LOG_LINE_SIZE
+#define AOS_CONFIG_LOG_LINE_SIZE 120
 #endif
 
 #endif

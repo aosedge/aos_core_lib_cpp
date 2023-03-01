@@ -18,7 +18,7 @@
 /**
  * Helper macro to display debug log.
  */
-#if CONFIG_LOG_LEVEL >= CONFIG_LOG_LEVEL_DEBUG
+#if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_DEBUG
 #define LOG_MODULE_DBG(module) aos::Log(module, aos::LogLevelEnum::eDebug)
 #else
 #define LOG_MODULE_DBG(module) true ? (void)0 : aos::LogVoid() & aos::Log(module, aos::LogLevelEnum::eDebug)
@@ -27,7 +27,7 @@
 /**
  * Helper macro to display info log.
  */
-#if CONFIG_LOG_LEVEL >= CONFIG_LOG_LEVEL_INFO
+#if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_INFO
 #define LOG_MODULE_INF(module) aos::Log(module, aos::LogLevelEnum::eInfo)
 #else
 #define LOG_MODULE_INF(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eInfo)
@@ -36,7 +36,7 @@
 /**
  * Helper macro to display warning log.
  */
-#if CONFIG_LOG_LEVEL >= CONFIG_LOG_LEVEL_WARNING
+#if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_WARNING
 #define LOG_MODULE_WRN(module) aos::Log(module, aos::LogLevelEnum::eWarning)
 #else
 #define LOG_MODULE_WRN(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eWarning)
@@ -45,7 +45,7 @@
 /**
  * Helper macro to display error log.
  */
-#if CONFIG_LOG_LEVEL >= CONFIG_LOG_LEVEL_ERROR
+#if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_ERROR
 #define LOG_MODULE_ERR(module) aos::Log(module, aos::LogLevelEnum::eError)
 #else
 #define LOG_MODULE_ERR(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eError)
@@ -196,7 +196,7 @@ public:
     };
 
 private:
-    static size_t constexpr cLineSize = CONFIG_LOG_LINE_SIZE;
+    static size_t constexpr cLineSize = AOS_CONFIG_LOG_LINE_SIZE;
 
     char      mBuffer[cLineSize];
     LogModule mModule;

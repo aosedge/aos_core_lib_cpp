@@ -20,8 +20,8 @@ namespace aos {
  * Instance identification.
  */
 struct InstanceIdent {
-    char     mServiceID[CONFIG_SERVICE_ID_LEN + 1];
-    char     mSubjectID[CONFIG_SUBJECT_ID_LEN + 1];
+    char     mServiceID[AOS_CONFIG_SERVICE_ID_LEN + 1];
+    char     mSubjectID[AOS_CONFIG_SUBJECT_ID_LEN + 1];
     uint64_t mInstance;
 };
 
@@ -32,8 +32,8 @@ struct InstanceInfo {
     InstanceIdent mInstanceIdent;
     uint32_t      mUID;
     uint64_t      mPriority;
-    char          mStoragePath[CONFIG_FILE_PATH_LEN + 1];
-    char          mStatePath[CONFIG_FILE_PATH_LEN + 1];
+    char          mStoragePath[AOS_CONFIG_FILE_PATH_LEN + 1];
+    char          mStatePath[AOS_CONFIG_FILE_PATH_LEN + 1];
 };
 
 /**
@@ -60,7 +60,7 @@ using InstanceRunState = EnumStringer<InstanceRunStateType>;
 struct InstanceStatus {
     InstanceIdent    mInstanceIdent;
     uint64_t         mAosVersion;
-    uint8_t          mStateCheckSum[CONFIG_STATE_CHECKSUM_LEN];
+    uint8_t          mStateCheckSum[AOS_CONFIG_STATE_CHECKSUM_LEN];
     InstanceRunState mRunState;
     Error            mError;
 };

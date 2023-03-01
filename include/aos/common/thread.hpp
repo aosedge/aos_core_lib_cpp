@@ -30,6 +30,7 @@ public:
     template <typename T>
     explicit Thread(T routine, void* arg = nullptr)
         : mArg(arg)
+        , mPThread(0)
     {
         static auto sRoutine = routine;
 
