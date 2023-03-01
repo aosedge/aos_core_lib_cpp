@@ -16,12 +16,37 @@
 
 namespace aos {
 
+/*
+ * Service ID len.
+ */
+constexpr auto cServiceIDLen = AOS_CONFIG_SERVICE_ID_LEN;
+
+/*
+ * Subject ID len.
+ */
+constexpr auto cSubjectIDLen = AOS_CONFIG_SUBJECT_ID_LEN;
+
+/*
+ * Instance ID len.
+ */
+constexpr auto cInstanceIDLen = AOS_CONFIG_INSTANCE_ID_LEN;
+
+/*
+ * File path len.
+ */
+constexpr auto cFilePathLen = AOS_CONFIG_FILE_PATH_LEN;
+
+/*
+ * Instance state check sum len.
+ */
+constexpr auto cStateCheckSumLen = AOS_CONFIG_STATE_CHECKSUM_LEN;
+
 /**
  * Instance identification.
  */
 struct InstanceIdent {
-    char     mServiceID[AOS_CONFIG_SERVICE_ID_LEN + 1];
-    char     mSubjectID[AOS_CONFIG_SUBJECT_ID_LEN + 1];
+    char     mServiceID[cServiceIDLen + 1];
+    char     mSubjectID[cSubjectIDLen + 1];
     uint64_t mInstance;
 };
 
@@ -32,8 +57,8 @@ struct InstanceInfo {
     InstanceIdent mInstanceIdent;
     uint32_t      mUID;
     uint64_t      mPriority;
-    char          mStoragePath[AOS_CONFIG_FILE_PATH_LEN + 1];
-    char          mStatePath[AOS_CONFIG_FILE_PATH_LEN + 1];
+    char          mStoragePath[cFilePathLen + 1];
+    char          mStatePath[cFilePathLen + 1];
 };
 
 /**
@@ -60,7 +85,7 @@ using InstanceRunState = EnumStringer<InstanceRunStateType>;
 struct InstanceStatus {
     InstanceIdent    mInstanceIdent;
     uint64_t         mAosVersion;
-    uint8_t          mStateCheckSum[AOS_CONFIG_STATE_CHECKSUM_LEN];
+    uint8_t          mStateCheckSum[cStateCheckSumLen];
     InstanceRunState mRunState;
     Error            mError;
 };
