@@ -117,12 +117,12 @@ public:
     {
         auto strings = T::GetStrings();
 
-        if (strings.first == nullptr) {
+        if (strings.mFirst == nullptr) {
             return nullptr;
         }
 
-        if (static_cast<size_t>(mValue) < strings.second) {
-            return strings.first[static_cast<size_t>(mValue)];
+        if (static_cast<size_t>(mValue) < strings.mSecond) {
+            return strings.mFirst[static_cast<size_t>(mValue)];
         }
 
         return "unknown";

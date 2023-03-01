@@ -29,11 +29,11 @@ constexpr size_t ArraySize(T (&)[n])
 template <typename F, typename S>
 struct Pair {
     Pair(F f, S s)
-        : first(f)
-        , second(s) {};
+        : mFirst(f)
+        , mSecond(s) {};
 
-    F first;
-    S second;
+    F mFirst;
+    S mSecond;
 };
 
 } // namespace aos
