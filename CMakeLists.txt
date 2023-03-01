@@ -31,8 +31,10 @@ message(STATUS)
 # Compiler flags
 # ######################################################################################################################
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -Wextra -Wpedantic")
-set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -Wextra -Wpedantic")
+set(common_flags "-Wall -Werror -Wextra -Wpedantic")
+
+set(CMAKE_CXX_FLAGS "${common_flags} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_STANDARD 14)
 
 # ######################################################################################################################
