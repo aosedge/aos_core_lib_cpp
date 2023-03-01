@@ -7,6 +7,9 @@
 
 cmake_minimum_required(VERSION 3.14)
 
+# Check compiler using static library instead of applicion
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+
 project("aos_core_lib_cpp")
 
 # ######################################################################################################################
