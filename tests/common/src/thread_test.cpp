@@ -32,7 +32,7 @@ private:
     Mutex mMutex;
 };
 
-static void calcDec(void* arg)
+static void* calcDec(void* arg)
 {
     auto calc = static_cast<TestCalculator*>(arg);
 
@@ -41,6 +41,8 @@ static void calcDec(void* arg)
     for (auto i = 0; i < cNumIteration; i++) {
         calc->Inc();
     }
+
+    return nullptr;
 }
 
 TEST(common, Thread)
@@ -49,7 +51,7 @@ TEST(common, Thread)
 
     TestCalculator calc;
 
-    Thread incThread([&calc](void*) {
+    Thread<> incThread([&calc]() {
         for (auto i = 0; i < cNumIteration; i++) {
             LockGuard lock(calc.GetMutex());
             EXPECT_TRUE(lock.GetError().IsNone());
@@ -59,7 +61,7 @@ TEST(common, Thread)
             usleep(1000);
         }
     });
-    Thread distThread([&](void*) {
+    Thread<> distThread([&]() {
         for (auto i = 0; i < cNumIteration; i++) {
             LockGuard lock(calc.GetMutex());
 
@@ -81,7 +83,7 @@ TEST(common, Thread)
 
     // Test static function
 
-    Thread decThread(calcDec, &calc);
+    Thread<> decThread(calcDec, &calc);
 
     EXPECT_TRUE(decThread.Run().IsNone());
     EXPECT_TRUE(decThread.Join().IsNone());
@@ -96,7 +98,7 @@ TEST(common, CondVar)
     auto                ready = false;
     auto                processed = false;
 
-    Thread worker([&](void*) {
+    Thread<> worker([&]() {
         UniqueLock lock(mutex);
         EXPECT_TRUE(lock.GetError().IsNone());
 

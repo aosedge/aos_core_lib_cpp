@@ -10,32 +10,51 @@
 
 #include <pthread.h>
 
+#include "aos/common/config/thread.hpp"
 #include "aos/common/error.hpp"
 #include "aos/common/noncopyable.hpp"
 
 namespace aos {
 
+constexpr auto cDefaultThreadStackSize = AOS_CONFIG_DEFAULT_THREAD_STACK_SIZE;
+
 /**
  * Aos thread.
  */
+template <size_t cStackSize = cDefaultThreadStackSize>
 class Thread : private NonCopyable {
 public:
     /**
-     * Constructs Aos thread instance.
+     * Constructs Aos thread and use function pointer as argument.
      *
      * @param routine function to be called in thread.
      * @param arg optional argument that is passed to the thread function.
      */
+    explicit Thread(void* (*func)(void*), void* arg = nullptr)
+        : mAdapter(func)
+        , mArg(arg)
+        , mPThread(0)
+    {
+        mStack[0] = 0;
+    }
 
+    /**
+     * Constructs Aos thread instance and use lambda as argument.
+     *
+     * @param routine function to be called in thread.
+     * @param arg optional argument that is passed to the thread function.
+     */
     template <typename T>
-    explicit Thread(T routine, void* arg = nullptr)
-        : mArg(arg)
+    explicit Thread(T routine)
+        : mArg(nullptr)
         , mPThread(0)
     {
         static auto sRoutine = routine;
 
-        mAdapter = [](void* arg) -> void* {
-            sRoutine(arg);
+        mStack[0] = 0;
+
+        mAdapter = [](void*) -> void* {
+            sRoutine();
 
             return nullptr;
         };
@@ -46,7 +65,22 @@ public:
      *
      * @return Error.
      */
-    Error Run() { return pthread_create(&mPThread, nullptr, mAdapter, mArg); }
+    Error Run()
+    {
+        pthread_attr_t attr;
+
+        auto ret = pthread_attr_init(&attr);
+        if (ret != 0) {
+            return ret;
+        }
+
+        ret = pthread_attr_setstack(&attr, mStack, cStackSize);
+        if (ret != 0) {
+            return ret;
+        }
+
+        return pthread_create(&mPThread, &attr, mAdapter, mArg);
+    }
 
     /**
      * Waits thread function is finished.
@@ -58,6 +92,7 @@ public:
 private:
     void* (*mAdapter)(void*);
     void*     mArg;
+    uint8_t   mStack[cStackSize + sizeof(int) - cStackSize % sizeof(int)];
     pthread_t mPThread;
 };
 
