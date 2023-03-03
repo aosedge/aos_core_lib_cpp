@@ -11,9 +11,10 @@
 /**
  * Configures default thread stack size.
  *
+ * Use minimal stack size PTHREAD_STACK_MIN + 2k for storing thread functor.
  */
 #ifndef AOS_CONFIG_DEFAULT_THREAD_STACK_SIZE
-#define AOS_CONFIG_DEFAULT_THREAD_STACK_SIZE 16384
+#define AOS_CONFIG_DEFAULT_THREAD_STACK_SIZE (16384 + 2048)
 #endif
 
 #endif

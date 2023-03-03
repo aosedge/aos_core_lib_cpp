@@ -51,7 +51,7 @@ TEST(common, Thread)
 
     TestCalculator calc;
 
-    Thread<> incThread([&calc]() {
+    Thread<> incThread([&calc](void*) {
         for (auto i = 0; i < cNumIteration; i++) {
             LockGuard lock(calc.GetMutex());
             EXPECT_TRUE(lock.GetError().IsNone());
@@ -61,7 +61,7 @@ TEST(common, Thread)
             usleep(1000);
         }
     });
-    Thread<> distThread([&]() {
+    Thread<> distThread([&](void*) {
         for (auto i = 0; i < cNumIteration; i++) {
             LockGuard lock(calc.GetMutex());
 
@@ -98,7 +98,7 @@ TEST(common, CondVar)
     auto                ready = false;
     auto                processed = false;
 
-    Thread<> worker([&]() {
+    Thread<> worker([&](void*) {
         UniqueLock lock(mutex);
         EXPECT_TRUE(lock.GetError().IsNone());
 

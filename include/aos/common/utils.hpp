@@ -19,7 +19,18 @@ template <typename T, size_t n>
 constexpr size_t ArraySize(T (&)[n])
 {
     return n;
-}
+};
+
+/**
+ * Calculates aligned by machine word size.
+ *
+ * @param size input size.
+ * @return constexpr size_t aligned size.
+ */
+constexpr size_t AlignedSize(size_t size)
+{
+    return (size + sizeof(int) - 1) / sizeof(int) * sizeof(int);
+};
 
 /**
  * Implements struct of pair fields.

@@ -8,15 +8,88 @@
 #ifndef AOS_THREAD_HPP_
 #define AOS_THREAD_HPP_
 
+#include <cstdint>
 #include <pthread.h>
 
 #include "aos/common/config/thread.hpp"
 #include "aos/common/error.hpp"
 #include "aos/common/noncopyable.hpp"
+#include "aos/common/utils.hpp"
 
 namespace aos {
 
 constexpr auto cDefaultThreadStackSize = AOS_CONFIG_DEFAULT_THREAD_STACK_SIZE;
+
+/**
+ * Defines callable interface used by thread.
+ */
+class CallableItf {
+public:
+    /**
+     * Returns size of function.
+     *
+     * @return size_t.
+     */
+    virtual size_t Size() const = 0;
+
+    /**
+     * Call function operator.
+     */
+    virtual void operator()() const = 0;
+};
+
+/**
+ * Thread function instance.
+ *
+ * @tparam T type of thread function instance.
+ */
+template <typename T>
+class Function : public CallableItf {
+public:
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Constructs thread function instance.
+     *
+     * @param functor functor used as function.
+     * @param arg  optional argument that will be passed to functor.
+     */
+    Function(T& functor, void* arg = nullptr)
+        : mFunctor(functor)
+        , mArg(arg)
+    {
+    }
+
+    /**
+     * Implements call function operator.
+     */
+    void operator()() const override { mFunctor(mArg); }
+
+    /**
+     * Returns size of function.
+     *
+     * @return size_t.
+     */
+    size_t Size() const override { return sizeof(Function); };
+
+    /**
+     * Own placement new operator.
+     *
+     * @param size size of object.
+     * @param mem pointer to memory region.
+     * @return void*.
+     */
+    static void* operator new(size_t size, void* mem)
+    {
+        (void)size;
+
+        return mem;
+    }
+
+private:
+private:
+    T     mFunctor;
+    void* mArg;
+};
 
 /**
  * Aos thread.
@@ -25,39 +98,19 @@ template <size_t cStackSize = cDefaultThreadStackSize>
 class Thread : private NonCopyable {
 public:
     /**
-     * Constructs Aos thread and use function pointer as argument.
-     *
-     * @param routine function to be called in thread.
-     * @param arg optional argument that is passed to the thread function.
-     */
-    explicit Thread(void* (*func)(void*), void* arg = nullptr)
-        : mAdapter(func)
-        , mArg(arg)
-        , mPThread(0)
-    {
-        mStack[0] = 0;
-    }
-
-    /**
      * Constructs Aos thread instance and use lambda as argument.
      *
-     * @param routine function to be called in thread.
+     * @param functor function to be called in thread.
      * @param arg optional argument that is passed to the thread function.
      */
     template <typename T>
-    explicit Thread(T routine)
-        : mArg(nullptr)
-        , mPThread(0)
+    explicit Thread(T functor, void* arg = nullptr)
+        : mPThread(0)
     {
-        static auto sRoutine = routine;
+        static_assert(AlignedSize(sizeof(T)) < AlignedSize(cStackSize), "not enough space to store functor");
 
-        mStack[0] = 0;
-
-        mAdapter = [](void*) -> void* {
-            sRoutine();
-
-            return nullptr;
-        };
+        // cppcheck-suppress noDestructor // We don't need destructor since we create object on the static buffer.
+        mCallable = new (mStack) Function<T>(functor, arg);
     }
 
     /**
@@ -74,12 +127,13 @@ public:
             return ret;
         }
 
-        ret = pthread_attr_setstack(&attr, mStack, cStackSize);
+        ret = pthread_attr_setstack(
+            &attr, &mStack[AlignedSize(mCallable->Size())], AlignedSize(cStackSize) - AlignedSize(mCallable->Size()));
         if (ret != 0) {
             return ret;
         }
 
-        return pthread_create(&mPThread, &attr, mAdapter, mArg);
+        return pthread_create(&mPThread, &attr, ThreadFunction, this);
     }
 
     /**
@@ -90,10 +144,16 @@ public:
     Error Join() { return pthread_join(mPThread, nullptr); }
 
 private:
-    void* (*mAdapter)(void*);
-    void*     mArg;
-    uint8_t   mStack[cStackSize + sizeof(int) - cStackSize % sizeof(int)];
-    pthread_t mPThread;
+    uint8_t      mStack[AlignedSize(cStackSize)];
+    pthread_t    mPThread;
+    CallableItf* mCallable;
+
+    static void* ThreadFunction(void* arg)
+    {
+        (*static_cast<Thread*>(arg)->mCallable)();
+
+        return nullptr;
+    }
 };
 
 /**
