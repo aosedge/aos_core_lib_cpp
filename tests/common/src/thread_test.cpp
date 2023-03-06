@@ -51,30 +51,34 @@ TEST(common, Thread)
 
     TestCalculator calc;
 
-    Thread<> incThread([&calc](void*) {
-        for (auto i = 0; i < cNumIteration; i++) {
-            LockGuard lock(calc.GetMutex());
-            EXPECT_TRUE(lock.GetError().IsNone());
+    Thread<> incThread;
+    Thread<> distThread;
 
-            calc.Inc();
+    EXPECT_TRUE(incThread
+                    .Run([&calc](void*) {
+                        for (auto i = 0; i < cNumIteration; i++) {
+                            LockGuard lock(calc.GetMutex());
+                            EXPECT_TRUE(lock.GetError().IsNone());
 
-            usleep(1000);
-        }
-    });
-    Thread<> distThread([&](void*) {
-        for (auto i = 0; i < cNumIteration; i++) {
-            LockGuard lock(calc.GetMutex());
+                            calc.Inc();
 
-            calc.SetIncrementer(0);
+                            usleep(1000);
+                        }
+                    })
+                    .IsNone());
+    EXPECT_TRUE(distThread
+                    .Run([&](void*) {
+                        for (auto i = 0; i < cNumIteration; i++) {
+                            LockGuard lock(calc.GetMutex());
 
-            usleep(1000);
+                            calc.SetIncrementer(0);
 
-            calc.SetIncrementer(1);
-        }
-    });
+                            usleep(1000);
 
-    EXPECT_TRUE(incThread.Run().IsNone());
-    EXPECT_TRUE(distThread.Run().IsNone());
+                            calc.SetIncrementer(1);
+                        }
+                    })
+                    .IsNone());
 
     EXPECT_TRUE(incThread.Join().IsNone());
     EXPECT_TRUE(distThread.Join().IsNone());
@@ -83,9 +87,9 @@ TEST(common, Thread)
 
     // Test static function
 
-    Thread<> decThread(calcDec, &calc);
+    Thread<> decThread;
 
-    EXPECT_TRUE(decThread.Run().IsNone());
+    EXPECT_TRUE(decThread.Run(calcDec, &calc).IsNone());
     EXPECT_TRUE(decThread.Join().IsNone());
 
     EXPECT_EQ(calc.GetResult(), 0);
@@ -98,20 +102,22 @@ TEST(common, CondVar)
     auto                ready = false;
     auto                processed = false;
 
-    Thread<> worker([&](void*) {
-        UniqueLock lock(mutex);
-        EXPECT_TRUE(lock.GetError().IsNone());
+    Thread<> worker;
 
-        EXPECT_TRUE(condVar.Wait([&] { return ready; }).IsNone());
+    EXPECT_TRUE(worker
+                    .Run([&](void*) {
+                        UniqueLock lock(mutex);
+                        EXPECT_TRUE(lock.GetError().IsNone());
 
-        processed = true;
+                        EXPECT_TRUE(condVar.Wait([&] { return ready; }).IsNone());
 
-        EXPECT_TRUE(lock.Unlock().IsNone());
+                        processed = true;
 
-        EXPECT_TRUE(condVar.NotifyOne().IsNone());
-    });
+                        EXPECT_TRUE(lock.Unlock().IsNone());
 
-    EXPECT_TRUE(worker.Run().IsNone());
+                        EXPECT_TRUE(condVar.NotifyOne().IsNone());
+                    })
+                    .IsNone());
 
     {
         LockGuard lock(mutex);

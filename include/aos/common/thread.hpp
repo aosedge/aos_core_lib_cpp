@@ -102,27 +102,28 @@ class Thread : private NonCopyable {
 public:
     /**
      * Constructs Aos thread instance and use lambda as argument.
-     *
-     * @param functor function to be called in thread.
-     * @param arg optional argument that is passed to the thread function.
      */
-    template <typename T>
-    explicit Thread(T functor, void* arg = nullptr)
-        : mPThread(0)
+    Thread()
+        : mStack()
+        , mPThread(0)
+        , mCallable(nullptr)
     {
-        static_assert(AlignedSize(sizeof(T)) < AlignedSize(cStackSize), "not enough space to store functor");
-
-        // cppcheck-suppress noDestructor // We don't need destructor since we create object on the static buffer.
-        mCallable = new (mStack) Function<T>(functor, arg);
     }
 
     /**
      * Runs thread function.
      *
+     * @param functor function to be called in thread.
+     * @param arg optional argument that is passed to the thread function.
      * @return Error.
      */
-    Error Run()
+    template <typename T>
+    Error Run(T functor, void* arg = nullptr)
     {
+        static_assert(AlignedSize(sizeof(T)) < AlignedSize(cStackSize), "not enough space to store functor");
+
+        mCallable = new (mStack) Function<T>(functor, arg);
+
         pthread_attr_t attr;
 
         auto ret = pthread_attr_init(&attr);
