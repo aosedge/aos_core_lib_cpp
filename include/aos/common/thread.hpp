@@ -18,7 +18,10 @@
 
 namespace aos {
 
-constexpr auto cDefaultThreadStackSize = AOS_CONFIG_DEFAULT_THREAD_STACK_SIZE;
+/**
+ * Default tread stack size.
+ */
+constexpr auto cDefaultThreadStackSize = AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE;
 
 /**
  * Defines callable interface used by thread.

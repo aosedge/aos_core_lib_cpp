@@ -19,27 +19,27 @@ namespace aos {
 /*
  * Service ID len.
  */
-constexpr auto cServiceIDLen = AOS_CONFIG_SERVICE_ID_LEN;
+constexpr auto cServiceIDLen = AOS_CONFIG_TYPES_SERVICE_ID_LEN;
 
 /*
  * Subject ID len.
  */
-constexpr auto cSubjectIDLen = AOS_CONFIG_SUBJECT_ID_LEN;
+constexpr auto cSubjectIDLen = AOS_CONFIG_TYPES_SUBJECT_ID_LEN;
 
 /*
  * Instance ID len.
  */
-constexpr auto cInstanceIDLen = AOS_CONFIG_INSTANCE_ID_LEN;
+constexpr auto cInstanceIDLen = AOS_CONFIG_TYPES_INSTANCE_ID_LEN;
 
 /*
  * File path len.
  */
-constexpr auto cFilePathLen = AOS_CONFIG_FILE_PATH_LEN;
+constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 
 /*
  * Instance state check sum len.
  */
-constexpr auto cStateCheckSumLen = AOS_CONFIG_STATE_CHECKSUM_LEN;
+constexpr auto cStateCheckSumLen = AOS_CONFIG_TYPES_STATE_CHECKSUM_LEN;
 
 /**
  * Instance identification.
