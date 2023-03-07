@@ -105,7 +105,7 @@ public:
      */
     Thread()
         : mStack()
-        , mPThread(0)
+        , mPThread()
         , mCallable(nullptr)
     {
     }
