@@ -266,8 +266,7 @@ public:
      */
     Error Lock()
     {
-        mError = mMutex.Lock();
-        if (!mError.IsNone()) {
+        if (!(mError = mMutex.Lock()).IsNone()) {
             return mError;
         }
 
@@ -281,8 +280,7 @@ public:
      */
     Error Unlock()
     {
-        mError = mMutex.Unlock();
-        if (!mError.IsNone()) {
+        if (!(mError = mMutex.Unlock()).IsNone()) {
             return mError;
         }
 
