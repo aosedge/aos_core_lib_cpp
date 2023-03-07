@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aosiamcpp_tesp)
+set(TARGET aosiamcpp_test)
 
 # ######################################################################################################################
 # Sources
@@ -19,3 +19,5 @@ set(SOURCES certhandler/certhandler_test.cpp)
 
 add_executable(${TARGET} ${SOURCES})
 target_link_libraries(${TARGET} GTest::gtest_main aosiamcpp)
+
+gtest_discover_tests(${TARGET})
