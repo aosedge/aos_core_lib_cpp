@@ -14,6 +14,7 @@
 #include "aos/common/config/thread.hpp"
 #include "aos/common/error.hpp"
 #include "aos/common/noncopyable.hpp"
+#include "aos/common/ringbuffer.hpp"
 #include "aos/common/utils.hpp"
 
 namespace aos {
@@ -22,6 +23,16 @@ namespace aos {
  * Default tread stack size.
  */
 constexpr auto cDefaultThreadStackSize = AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE;
+
+/**
+ * Default thread pool queue size.
+ */
+constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE;
+
+/**
+ * Default thread pool max task size.
+ */
+constexpr auto cDefaultThreadPoolMaxTaskSize = AOS_CONFIG_THREAD_POOL_DEFAULT_MAX_TASK_SIZE;
 
 /**
  * Defines callable interface used by thread.
@@ -373,6 +384,163 @@ private:
     Mutex&         mMutex;
     pthread_cond_t mCondVar;
     Error          mError;
+};
+
+/**
+ * Aos thread pool.
+ *
+ * @tparam cNumThreads number of threads used to perform tasks.
+ * @tparam cQueueSize tasks queue size.
+ * @tparam cMaxTaskSize max task size.
+ */
+template <size_t cNumThreads = 1, size_t cQueueSize = cDefaultThreadPoolQueueSize,
+    size_t cMaxTaskSize = cDefaultThreadPoolMaxTaskSize>
+class ThreadPool : private NonCopyable {
+public:
+    /**
+     * Creates thread pool instance.
+     */
+    ThreadPool()
+        : mTaskCondVar(mMutex)
+        , mWaitCondVar(mMutex)
+        , mShutdown(false)
+        , mPendingTaskCount(0)
+    {
+    }
+
+    /**
+     * Adds task to task queue.
+     *
+     * @tparam T task type.
+     * @param functor task functor.
+     * @param arg argument passed to task functor when executed.
+     * @return Error.
+     */
+    template <typename T>
+    Error AddTask(T functor, void* arg = nullptr)
+    {
+        static_assert(sizeof(Function<T>) < cMaxTaskSize, "task is bigger than max task size");
+
+        UniqueLock lock(mMutex);
+
+        auto err = mBuffer.PushValue(Function<T>(functor, arg));
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        mPendingTaskCount++;
+
+        lock.Unlock();
+
+        if (!(err = mTaskCondVar.NotifyOne()).IsNone()) {
+            return err;
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Runs thread pool.
+     *
+     * @return Error.
+     */
+    Error Run()
+    {
+        LockGuard lock(mMutex);
+
+        mShutdown = false;
+
+        for (auto& thread : mThreads) {
+            auto err = thread.Run([this](void*) {
+                uint8_t taskBuffer[cMaxTaskSize];
+
+                while (true) {
+                    UniqueLock lock(mMutex);
+
+                    auto err = mTaskCondVar.Wait([this]() { return mShutdown || !mBuffer.IsEmpty(); });
+                    assert(err.IsNone());
+
+                    if (mShutdown) {
+                        return;
+                    }
+
+                    err = mBuffer.Pop(taskBuffer, static_cast<CallableItf*>(mBuffer.Head())->Size());
+                    assert(err.IsNone());
+
+                    lock.Unlock();
+
+                    (*static_cast<CallableItf*>(static_cast<void*>(taskBuffer)))();
+
+                    err = mTaskCondVar.NotifyOne();
+                    assert(err.IsNone());
+
+                    lock.Lock();
+
+                    mPendingTaskCount--;
+
+                    lock.Unlock();
+
+                    err = mWaitCondVar.NotifyAll();
+                    assert(err.IsNone());
+                }
+            });
+            if (!err.IsNone()) {
+                return err;
+            }
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Waits for all current tasks are finished.
+     */
+    Error Wait()
+    {
+        LockGuard lock(mMutex);
+
+        auto err = mWaitCondVar.Wait([this]() { return mPendingTaskCount == 0; });
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Shutdowns all pool threads.
+     */
+    Error Shutdown()
+    {
+        UniqueLock lock(mMutex);
+
+        mShutdown = true;
+
+        lock.Unlock();
+
+        auto err = mTaskCondVar.NotifyAll();
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        for (auto& thread : mThreads) {
+            auto joinErr = thread.Join();
+            if (!joinErr.IsNone() && err.IsNone()) {
+                err = joinErr;
+            }
+        }
+
+        return err;
+    }
+
+private:
+    Thread<>                     mThreads[cNumThreads];
+    Mutex                        mMutex;
+    ConditionalVariable          mTaskCondVar;
+    ConditionalVariable          mWaitCondVar;
+    LinearRingBuffer<cQueueSize> mBuffer;
+    bool                         mShutdown;
+    int                          mPendingTaskCount;
 };
 
 } // namespace aos

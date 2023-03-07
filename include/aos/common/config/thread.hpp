@@ -17,4 +17,18 @@
 #define AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE (16384 + 2048)
 #endif
 
+/**
+ * Configures default thread pool queue size.
+ */
+#ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE
+#define AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE 1024
+#endif
+
+/**
+ * Configures max thread pool task size.
+ */
+#ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_MAX_TASK_SIZE
+#define AOS_CONFIG_THREAD_POOL_DEFAULT_MAX_TASK_SIZE 256
+#endif
+
 #endif

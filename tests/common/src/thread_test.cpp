@@ -139,3 +139,25 @@ TEST(common, CondVar)
     EXPECT_TRUE(processed);
     EXPECT_TRUE(worker.Join().IsNone());
 }
+
+TEST(common, ThreadPool)
+{
+    ThreadPool<3, 32 * 32 * 3> threadPool;
+    auto                       value1 = 0, value2 = 0, value3 = 0;
+    auto                       i = 0;
+
+    for (; i < 32; i++) {
+        EXPECT_TRUE(threadPool.AddTask([&value1](void*) { value1++; }).IsNone());
+        EXPECT_TRUE(threadPool.AddTask([&value2](void*) { value2++; }).IsNone());
+        EXPECT_TRUE(threadPool.AddTask([&value3](void*) { value3++; }).IsNone());
+    }
+
+    EXPECT_TRUE(threadPool.Run().IsNone());
+    EXPECT_TRUE(threadPool.Wait().IsNone());
+
+    EXPECT_EQ(value1, i);
+    EXPECT_EQ(value2, i);
+    EXPECT_EQ(value3, i);
+
+    EXPECT_TRUE(threadPool.Shutdown().IsNone());
+}
