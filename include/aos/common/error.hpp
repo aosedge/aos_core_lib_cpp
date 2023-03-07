@@ -21,12 +21,12 @@ namespace aos {
  */
 class ErrorType {
 public:
-    enum class Enum { eNone, eFailed, eRuntime, eNoMemory, eOutOfRange, eNotFound, eNumErrors };
+    enum class Enum { eNone, eFailed, eRuntime, eNoMemory, eOutOfRange, eNotFound, eInvalidArgument, eNumErrors };
 
     static Pair<const char* const*, size_t> GetStrings()
     {
         static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)]
-            = {"none", "failed", "runtime error", "not enough memory", "out of range", "not found"};
+            = {"none", "failed", "runtime error", "not enough memory", "out of range", "invalid argument", "not found"};
 
         return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
     };
