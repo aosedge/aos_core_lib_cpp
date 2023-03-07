@@ -40,9 +40,22 @@ using ErrorEnum = ErrorType::Enum;
 class Error : public EnumStringer<ErrorType> {
 public:
     /**
+     * Constructs default error instance.
+     */
+    Error()
+        : mErrno(0)
+    {
+    }
+
+    // cppcheck-suppress noExplicitConstructor
+    /**
      * Constructs error instance from ErrorType::Enum.
      */
-    using EnumStringer<ErrorType>::EnumStringer;
+    Error(ErrorEnum err)
+        : EnumStringer(err)
+        , mErrno(0)
+    {
+    }
 
     // cppcheck-suppress noExplicitConstructor
     /**
@@ -50,9 +63,9 @@ public:
      *
      * @param e errno.
      */
-    Error(int e)
-        : EnumStringer(e == 0 ? ErrorEnum::eNone : ErrorEnum::eRuntime)
-        , mErrno(e)
+    Error(int errNo)
+        : EnumStringer(errNo == 0 ? ErrorEnum::eNone : ErrorEnum::eRuntime)
+        , mErrno(errNo)
     {
     }
 
