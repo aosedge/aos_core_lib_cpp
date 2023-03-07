@@ -103,6 +103,12 @@ public:
         return EnumStringer<ErrorType>::ToString();
     }
 
+    /**
+     * Returns errno
+     * @return int
+     */
+    int Errno() const { return mErrno; }
+
 private:
     int mErrno;
 };
