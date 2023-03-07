@@ -36,11 +36,6 @@ constexpr auto cInstanceIDLen = AOS_CONFIG_TYPES_INSTANCE_ID_LEN;
  */
 constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 
-/*
- * Instance state check sum len.
- */
-constexpr auto cStateCheckSumLen = AOS_CONFIG_TYPES_STATE_CHECKSUM_LEN;
-
 /**
  * Instance identification.
  */
@@ -85,7 +80,6 @@ using InstanceRunState = EnumStringer<InstanceRunStateType>;
 struct InstanceStatus {
     InstanceIdent    mInstanceIdent;
     uint64_t         mAosVersion;
-    uint8_t          mStateCheckSum[cStateCheckSumLen];
     InstanceRunState mRunState;
     Error            mError;
 };

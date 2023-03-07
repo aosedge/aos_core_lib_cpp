@@ -30,13 +30,6 @@
 #endif
 
 /**
- * Instance state checksum len.
- */
-#ifndef AOS_CONFIG_TYPES_STATE_CHECKSUM_LEN
-#define AOS_CONFIG_TYPES_STATE_CHECKSUM_LEN 28
-#endif
-
-/**
  * Instance ID len.
  */
 #ifndef AOS_CONFIG_TYPES_INSTANCE_ID_LEN
