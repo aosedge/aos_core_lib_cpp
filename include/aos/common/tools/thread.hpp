@@ -8,6 +8,7 @@
 #ifndef AOS_THREAD_HPP_
 #define AOS_THREAD_HPP_
 
+#include <assert.h>
 #include <cstdint>
 #include <pthread.h>
 
