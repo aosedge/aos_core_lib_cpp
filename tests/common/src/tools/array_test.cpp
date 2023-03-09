@@ -91,7 +91,7 @@ TEST(common, Array)
 
     static const int cArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
-    const auto& constArray = Array<const int>(cArray, ArraySize(cArray));
+    const auto constArray = Array<const int>(cArray, ArraySize(cArray));
 
     EXPECT_EQ(constArray.Size(), ArraySize(cArray));
     EXPECT_EQ(constArray.MaxSize(), ArraySize(cArray));
@@ -206,4 +206,23 @@ TEST(common, ArrayStruct)
 
     EXPECT_EQ(array[0].arr1, Array<uint32_t>(test1, ArraySize(test1)));
     EXPECT_EQ(array[0].arr2, Array<uint32_t>(test1, ArraySize(test1)));
+}
+
+TEST(common, SortArray)
+{
+    int intValues[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+
+    auto array = Array<int>(intValues, ArraySize(intValues));
+
+    array.Sort();
+
+    for (size_t i = 0; i < ArraySize(intValues); i++) {
+        EXPECT_EQ(array[i], i);
+    }
+
+    array.Sort([](int a, int b) { return a < b; });
+
+    for (size_t i = 0; i < ArraySize(intValues); i++) {
+        EXPECT_EQ(array[i], ArraySize(intValues) - i - 1);
+    }
 }
