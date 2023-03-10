@@ -16,6 +16,17 @@
 namespace aos {
 
 /**
+ * Returns only base name from file path.
+ */
+
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+/**
+ * Creates AOS_ERROR with file name and line number information.
+ */
+#define AOS_ERROR(err) aos::Error(err, __FILENAME__, __LINE__)
+
+/**
  * Error types.
  *
  */
@@ -44,6 +55,8 @@ public:
      */
     Error()
         : mErrno(0)
+        , mFileName(nullptr)
+        , mLineNumber(0)
     {
     }
 
@@ -51,9 +64,11 @@ public:
     /**
      * Constructs error instance from ErrorType::Enum.
      */
-    Error(ErrorEnum err)
+    Error(ErrorEnum err, const char* fileName = nullptr, int lineNumber = 0)
         : EnumStringer(err)
         , mErrno(0)
+        , mFileName(fileName)
+        , mLineNumber(lineNumber)
     {
     }
 
@@ -63,9 +78,11 @@ public:
      *
      * @param e errno.
      */
-    Error(int errNo)
+    Error(int errNo, const char* fileName = nullptr, int lineNumber = 0)
         : EnumStringer(errNo == 0 ? ErrorEnum::eNone : ErrorEnum::eRuntime)
         , mErrno(errNo)
+        , mFileName(fileName)
+        , mLineNumber(lineNumber)
     {
     }
 
@@ -109,13 +126,35 @@ public:
      */
     int Errno() const { return mErrno; }
 
+    /**
+     * Returns error file name.
+     *
+     * @return const char* file name.
+     */
+    const char* FileName() const { return mFileName; }
+
+    int LineNumber() const { return mLineNumber; }
+
 private:
-    int mErrno;
+    int         mErrno;
+    const char* mFileName;
+    int         mLineNumber;
 };
 
+/**
+ * Container that holds value and return error.
+ *
+ * @tparam T value type.
+ */
 template <typename T>
 struct RetWithError {
-    RetWithError(T value, Error error)
+    /**
+     * Constructs return value with error instance.
+     *
+     * @param value return value.
+     * @param error return error.
+     */
+    RetWithError(T value, const Error& error)
         : mValue(value)
         , mError(error)
     {

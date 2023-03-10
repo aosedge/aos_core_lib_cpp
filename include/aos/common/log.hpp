@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "aos/common/config/log.hpp"
+#include "aos/common/error.hpp"
 #include "aos/common/noncopyable.hpp"
 #include "aos/common/stringer.hpp"
 
@@ -194,6 +195,17 @@ public:
 
         return *this;
     };
+
+    Log& operator<<(const Error& err)
+    {
+        *this << err.ToString();
+
+        if (err.FileName() != nullptr) {
+            *this << " (" << err.FileName() << ":" << err.LineNumber() << ")";
+        }
+
+        return *this;
+    }
 
 private:
     static size_t constexpr cLineSize = AOS_CONFIG_LOG_LINE_SIZE;

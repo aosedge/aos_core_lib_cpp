@@ -144,4 +144,12 @@ TEST(common, Log)
 
     EXPECT_EQ(LogModule(LogModuleEnum::eSMLauncher).ToString(), "launcher");
     EXPECT_EQ(LogModule(LogModuleEnum::eIAMCertHandler).ToString(), "certhandler");
+
+    // Test error with function name and line number
+
+    auto err = Error(ErrorEnum::eFailed, "file.cpp", 123);
+
+    LOG_ERR() << "This is error: " << err;
+    EXPECT_TRUE(
+        testLog.CheckLog(LogModuleEnum::eDefault, LogLevelEnum::eError, "This is error: failed (file.cpp:123)"));
 }
