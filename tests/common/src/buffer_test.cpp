@@ -28,4 +28,14 @@ TEST(common, Buffer)
     bufferA = bufferB;
 
     EXPECT_EQ(strcmp(static_cast<char*>(bufferA.Get()), static_cast<char*>(bufferB.Get())), 0);
+
+    // Test sub buffer
+
+    auto subBuffer = bufferA.SubBuffer(16);
+
+    EXPECT_EQ(subBuffer.Size(), 16);
+
+    strcpy(static_cast<char*>(subBuffer.Get()), "offset string");
+
+    EXPECT_EQ(strcmp(static_cast<char*>(bufferA.Get()) + 16, static_cast<char*>(subBuffer.Get())), 0);
 }
