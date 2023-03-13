@@ -35,7 +35,9 @@ public:
      * @param forceRestart forces restart already started instance.
      * @return Error.
      */
-    virtual Error RunInstances(const Array<InstanceInfo>& instances, bool forceRestart = false) = 0;
+    virtual Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
+        const Array<InstanceInfo>& instances, bool forceRestart)
+        = 0;
 };
 
 /**
@@ -95,11 +97,14 @@ public:
     /**
      * Runs specified instances.
      *
-     * @param instances instance info array.
+     * @param services services info array.
+     * @param layers layers info array.
+     * @param instances instances info array.
      * @param forceRestart forces restart already started instance.
      * @return Error.
      */
-    Error RunInstances(const Array<InstanceInfo>& instances, bool forceRestart) override;
+    Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
+        const Array<InstanceInfo>& instances, bool forceRestart) override;
 
     /**
      * Updates run instances status.

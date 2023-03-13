@@ -29,8 +29,11 @@ Error Launcher::Init(InstanceStatusReceiverItf& statusReceiver, RunnerItf& runne
     return ErrorEnum::eNone;
 }
 
-Error Launcher::RunInstances(const Array<InstanceInfo>& instances, bool forceRestart)
+Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
+    const Array<InstanceInfo>& instances, bool forceRestart)
 {
+    (void)services;
+    (void)layers;
     (void)instances;
     (void)forceRestart;
 
