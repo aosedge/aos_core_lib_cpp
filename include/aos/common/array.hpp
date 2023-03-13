@@ -24,6 +24,16 @@ template <typename T>
 class Array {
 public:
     /**
+     * Crates empty array instance.
+     */
+    Array()
+        : mItems(nullptr)
+        , mSize(0)
+        , mMaxSize(0)
+    {
+    }
+
+    /**
      * Crates array instance over the buffer.
      *
      * @param buffer underlying buffer.
@@ -269,13 +279,6 @@ public:
     const T* end(void) const { return &mItems[mSize]; }
 
 protected:
-    Array()
-        : mItems(nullptr)
-        , mSize(0)
-        , mMaxSize(0)
-    {
-    }
-
     void SetBuffer(const Buffer& buffer, size_t size = 0)
     {
         mMaxSize = buffer.Size() / sizeof(T);
