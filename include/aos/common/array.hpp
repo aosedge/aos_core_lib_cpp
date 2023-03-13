@@ -36,12 +36,12 @@ public:
     }
 
     /**
-     * Creates array instance from const C array.
+     * Creates array instance from C array.
      *
      * @param items const C array.
      * @param size C array size.
      */
-    Array(const T* items, size_t size)
+    Array(T* items, size_t size)
         : mItems(items)
         , mSize(size)
         , mMaxSize(size)
