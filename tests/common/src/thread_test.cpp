@@ -143,13 +143,29 @@ TEST(common, CondVar)
 TEST(common, ThreadPool)
 {
     ThreadPool<3, 32 * 32 * 3> threadPool;
+    Mutex                      mutex;
     auto                       value1 = 0, value2 = 0, value3 = 0;
     auto                       i = 0;
 
     for (; i < 32; i++) {
-        EXPECT_TRUE(threadPool.AddTask([&value1](void*) { value1++; }).IsNone());
-        EXPECT_TRUE(threadPool.AddTask([&value2](void*) { value2++; }).IsNone());
-        EXPECT_TRUE(threadPool.AddTask([&value3](void*) { value3++; }).IsNone());
+        EXPECT_TRUE(threadPool
+                        .AddTask([&value1, &mutex](void*) {
+                            LockGuard lock(mutex);
+                            value1++;
+                        })
+                        .IsNone());
+        EXPECT_TRUE(threadPool
+                        .AddTask([&value2, &mutex](void*) {
+                            LockGuard lock(mutex);
+                            value2++;
+                        })
+                        .IsNone());
+        EXPECT_TRUE(threadPool
+                        .AddTask([&value3, &mutex](void*) {
+                            LockGuard lock(mutex);
+                            value3++;
+                        })
+                        .IsNone());
     }
 
     EXPECT_TRUE(threadPool.Run().IsNone());
