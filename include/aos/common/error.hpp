@@ -22,9 +22,9 @@ namespace aos {
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 /**
- * Creates AOS_ERROR with file name and line number information.
+ * Wraps aos:Error with file name and line number information.
  */
-#define AOS_ERROR(err) aos::Error(err, __FILENAME__, __LINE__)
+#define AOS_ERROR_WRAP(err) aos::Error(err, __FILENAME__, __LINE__)
 
 /**
  * Error types.
@@ -70,6 +70,40 @@ public:
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
+    }
+
+    /**
+     * Constructs error instance from another error.
+     */
+    Error(const Error& err, const char* fileName = nullptr, int lineNumber = 0)
+        : EnumStringer(err.GetValue())
+        , mErrno(err.mErrno)
+        , mFileName(fileName)
+        , mLineNumber(lineNumber)
+    {
+        if (!mFileName) {
+            mFileName = err.mFileName;
+            mLineNumber = err.mLineNumber;
+        }
+    }
+
+    /**
+     * Assigns error from another error.
+     *
+     * @param err error to copy from.
+     */
+    Error& operator=(const Error& err)
+    {
+        EnumStringer::operator=(err.GetValue());
+
+        mErrno = err.mErrno;
+
+        if (!mFileName) {
+            mFileName = err.mFileName;
+            mLineNumber = err.mLineNumber;
+        }
+
+        return *this;
     }
 
     // cppcheck-suppress noExplicitConstructor

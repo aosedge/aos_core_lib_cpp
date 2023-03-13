@@ -47,6 +47,29 @@ TEST(common, Error)
     EXPECT_TRUE(Error(0).IsNone());
     EXPECT_FALSE(Error(EINVAL).IsNone());
     EXPECT_TRUE(Error(ENODEV).Is(ENODEV));
-
     EXPECT_EQ(strcmp(Error(EAGAIN).ToString(), "Resource temporarily unavailable"), 0);
+
+    // Error wrap
+
+    auto funcErr = AOS_ERROR_WRAP(failedFunction());
+    EXPECT_EQ(funcErr.LineNumber(), __LINE__ - 1);
+    EXPECT_EQ(strcmp(funcErr.ToString(), "failed"), 0);
+
+    auto enumErr = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    EXPECT_EQ(enumErr.LineNumber(), __LINE__ - 1);
+    EXPECT_EQ(strcmp(enumErr.ToString(), "not enough memory"), 0);
+
+    auto copyErr(enumErr);
+    EXPECT_EQ(copyErr.LineNumber(), enumErr.LineNumber());
+    EXPECT_EQ(strcmp(copyErr.ToString(), enumErr.ToString()), 0);
+
+    Error assignErr;
+
+    assignErr = copyErr;
+    EXPECT_EQ(assignErr.LineNumber(), enumErr.LineNumber());
+    EXPECT_EQ(strcmp(assignErr.ToString(), enumErr.ToString()), 0);
+
+    auto errnoErr = AOS_ERROR_WRAP(EAGAIN);
+    EXPECT_EQ(errnoErr.LineNumber(), __LINE__ - 1);
+    EXPECT_EQ(strcmp(errnoErr.ToString(), "Resource temporarily unavailable"), 0);
 }
