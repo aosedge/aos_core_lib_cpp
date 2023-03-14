@@ -78,7 +78,7 @@ public:
      */
     Array& operator=(const Array& array)
     {
-        assert(mMaxSize <= array.mMaxSize);
+        assert(array.mMaxSize <= mMaxSize);
 
         mSize = array.mSize;
 
