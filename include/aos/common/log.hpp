@@ -12,9 +12,9 @@
 #include <string.h>
 
 #include "aos/common/config/log.hpp"
+#include "aos/common/enum.hpp"
 #include "aos/common/error.hpp"
 #include "aos/common/noncopyable.hpp"
-#include "aos/common/stringer.hpp"
 
 /**
  * Helper macro to display debug log.
@@ -61,12 +61,11 @@ class LogLevelType {
 public:
     enum class Enum { eDebug, eInfo, eWarning, eError, eNumLevels };
 
-    static Pair<const char* const*, size_t> GetStrings()
+    static const Array<const String> GetStrings()
     {
-        static const char* const cLogLevelStrings[static_cast<size_t>(Enum::eNumLevels)]
-            = {"debug", "info", "warning", "error"};
+        static const String cLogLevelStrings[] = {"debug", "info", "warning", "error"};
 
-        return Pair<const char* const*, size_t>(cLogLevelStrings, static_cast<size_t>(Enum::eNumLevels));
+        return Array<const String>(cLogLevelStrings, ArraySize(cLogLevelStrings));
     };
 };
 
@@ -80,12 +79,11 @@ class LogModuleType {
 public:
     enum class Enum { eDefault, eSMLauncher, eIAMCertHandler, eNumModules };
 
-    static Pair<const char* const*, size_t> GetStrings()
+    static const Array<const String> GetStrings()
     {
-        static const char* const cLogLevelStrings[static_cast<size_t>(Enum::eNumModules)]
-            = {"default", "launcher", "certhandler"};
+        static const String cLogModuleStrings[] = {"default", "launcher", "certhandler"};
 
-        return Pair<const char* const*, size_t>(cLogLevelStrings, static_cast<size_t>(Enum::eNumModules));
+        return Array<const String>(cLogModuleStrings, ArraySize(cLogModuleStrings));
     };
 };
 
@@ -168,7 +166,7 @@ public:
      * @param stringer object to log.
      * @return Log&
      */
-    Log& operator<<(const Stringer& stringer) { return *this << stringer.ToString(); };
+    Log& operator<<(const Stringer& stringer) { return *this << stringer.ToString().CStr(); };
 
     /**
      * Logs int.

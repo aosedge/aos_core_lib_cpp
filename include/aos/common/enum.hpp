@@ -5,25 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_STRINGER_HPP_
-#define AOS_STRINGER_HPP_
+#ifndef AOS_ENUM_HPP_
+#define AOS_ENUM_HPP_
 
-#include "utils.hpp"
+#include "aos/common/string.hpp"
 
 namespace aos {
-
-/**
- * Interface used to convert derived type to string.
- */
-class Stringer {
-public:
-    /**
-     * Returns string representation of derived class.
-     *
-     * @return string.
-     */
-    virtual const char* ToString() const = 0;
-};
 
 /**
  * Template used to convert enum to strings.
@@ -113,16 +100,12 @@ public:
      *
      * @return string.
      */
-    const char* ToString() const override
+    const String ToString() const override
     {
         auto strings = T::GetStrings();
 
-        if (strings.mFirst == nullptr) {
-            return nullptr;
-        }
-
-        if (static_cast<size_t>(mValue) < strings.mSecond) {
-            return strings.mFirst[static_cast<size_t>(mValue)];
+        if (static_cast<size_t>(mValue) < strings.Size()) {
+            return strings[static_cast<size_t>(mValue)];
         }
 
         return "unknown";

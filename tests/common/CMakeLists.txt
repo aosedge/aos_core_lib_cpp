@@ -12,7 +12,7 @@ set(TARGET aoscommoncpp_test)
 # ######################################################################################################################
 
 set(SOURCES
-    src/stringer_test.cpp
+    src/enum_test.cpp
     src/error_test.cpp
     src/log_test.cpp
     src/thread_test.cpp

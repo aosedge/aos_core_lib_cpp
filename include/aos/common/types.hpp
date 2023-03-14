@@ -11,8 +11,8 @@
 #include <cstdint>
 
 #include "aos/common/config/types.hpp"
+#include "aos/common/enum.hpp"
 #include "aos/common/error.hpp"
-#include "aos/common/stringer.hpp"
 
 namespace aos {
 
@@ -63,11 +63,11 @@ class InstanceRunStateType {
 public:
     enum class Enum { eActive, eFailed, eNumStates };
 
-    static Pair<const char* const*, size_t> GetStrings()
+    static const Array<const String> GetStrings()
     {
-        static const char* const cInstanceRunStateStrings[static_cast<size_t>(Enum::eNumStates)] = {"active", "failed"};
+        static const String cInstanceRunStateStrings[] = {"active", "failed"};
 
-        return Pair<const char* const*, size_t>(cInstanceRunStateStrings, static_cast<size_t>(Enum::eNumStates));
+        return Array<const String>(cInstanceRunStateStrings, ArraySize(cInstanceRunStateStrings));
     };
 };
 

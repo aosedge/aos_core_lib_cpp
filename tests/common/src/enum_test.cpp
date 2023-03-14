@@ -7,22 +7,23 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/stringer.hpp"
+#include "aos/common/enum.hpp"
+
+using namespace aos;
 
 class TestType {
 public:
     enum class Enum { eTestDefault, eTestType1, eTestType2, eTestTypeSize };
 
-    static aos::Pair<const char* const*, size_t> GetStrings()
+    static const Array<const String> GetStrings()
     {
-        static const char* const cTestTypeStrings[static_cast<size_t>(Enum::eTestTypeSize)]
-            = {"default", "type1", "type2"};
+        static const String cTestTypeStrings[] = {"default", "type1", "type2"};
 
-        return aos::Pair<const char* const*, size_t>(cTestTypeStrings, static_cast<size_t>(Enum::eTestTypeSize));
+        return Array<const String>(cTestTypeStrings, ArraySize(cTestTypeStrings));
     };
 };
 
-using TestInstance = aos::EnumStringer<TestType>;
+using TestInstance = EnumStringer<TestType>;
 using TestEnum = TestType::Enum;
 
 TEST(common, EnumStringer)
@@ -47,7 +48,7 @@ TEST(common, EnumStringer)
     EXPECT_TRUE(TestEnum::eTestType1 == TestEnum(TestEnum::eTestType1));
     EXPECT_TRUE(TestEnum::eTestType2 != TestEnum(TestEnum::eTestType1));
 
-    EXPECT_EQ(strcmp(TestInstance().ToString(), "default"), 0);
-    EXPECT_EQ(strcmp(TestInstance(TestEnum::eTestType1).ToString(), "type1"), 0);
-    EXPECT_EQ(strcmp(TestInstance(static_cast<TestEnum>(-1)).ToString(), "unknown"), 0);
+    EXPECT_EQ(strcmp(TestInstance().ToString().CStr(), "default"), 0);
+    EXPECT_EQ(strcmp(TestInstance(TestEnum::eTestType1).ToString().CStr(), "type1"), 0);
+    EXPECT_EQ(strcmp(TestInstance(static_cast<TestEnum>(-1)).ToString().CStr(), "unknown"), 0);
 }

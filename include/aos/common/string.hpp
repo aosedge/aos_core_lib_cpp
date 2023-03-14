@@ -318,6 +318,19 @@ private:
     DynamicBuffer mBuffer;
 };
 
+/**
+ * Interface used to convert derived type to string.
+ */
+class Stringer {
+public:
+    /**
+     * Returns string representation of derived class.
+     *
+     * @return string.
+     */
+    virtual const String ToString() const = 0;
+};
+
 } // namespace aos
 
 #endif

@@ -10,7 +10,6 @@
 #include <gtest/gtest.h>
 
 #include "aos/common/log.hpp"
-#include "aos/common/stringer.hpp"
 
 using namespace aos;
 
@@ -69,7 +68,7 @@ public:
     {
     }
 
-    const char* ToString() const override { return mStr; }
+    const String ToString() const override { return String(mStr); }
 
 private:
     const char* mStr;
