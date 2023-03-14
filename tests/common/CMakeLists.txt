@@ -19,6 +19,7 @@ set(SOURCES
     src/buffer_test.cpp
     src/array_test.cpp
     src/ringbuffer_test.cpp
+    src/string_test.cpp
 )
 
 # ######################################################################################################################

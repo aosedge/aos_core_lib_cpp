@@ -272,6 +272,79 @@ public:
         return RetWithError<T*>(&mItems[mSize], ErrorEnum::eNone);
     }
 
+    /**
+     * Checks if array equals to another array.
+     *
+     * @param array to compare with.
+     * @return bool.
+     */
+    bool operator==(const Array& array) const
+    {
+        if (array.Size() != mSize) {
+            return false;
+        }
+
+        return memcmp(array.Get(), mItems, mSize * sizeof(T)) == 0;
+    };
+
+    /**
+     * Checks if array doesn't equal to another array.
+     *
+     * @param array to compare with.
+     * @return bool.
+     */
+    bool operator!=(const Array& array) const { return !operator==(array); };
+
+    /**
+     * Inserts items from range.
+     *
+     * @param pos insert position.
+     * @param from append from begin.
+     * @param till append till end.
+     * @return Error.
+     */
+    Error Insert(T* pos, const T* from, const T* till)
+    {
+        auto size = till - from;
+
+        if (mSize + size > mMaxSize) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        if (pos < begin() || pos > end()) {
+            return ErrorEnum::eInvalidArgument;
+        }
+
+        // TODO: implement insert in the middle.
+        assert(pos == end());
+
+        memcpy(pos, from, size);
+
+        mSize += size;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Appends array.
+     *
+     * @param array array to append with.
+     * @return Array&.
+     */
+    Array& Append(const Array& array)
+    {
+        auto err = Insert(end(), array.begin(), array.end());
+        assert(err.IsNone());
+    }
+
+    /**
+     * Appends array operator.
+     *
+     * @param array array to append with.
+     * @return Array&.
+     */
+    Array& operator+=(const Array& array) { return Append(array); }
+
     // Used for range based loop.
     T*       begin(void) { return &mItems[0]; }
     T*       end(void) { return &mItems[mSize]; }
@@ -279,9 +352,14 @@ public:
     const T* end(void) const { return &mItems[mSize]; }
 
 protected:
-    void SetBuffer(const Buffer& buffer, size_t size = 0)
+    void SetBuffer(const Buffer& buffer, size_t size = 0, size_t maxSize = 0)
     {
-        mMaxSize = buffer.Size() / sizeof(T);
+        if (maxSize == 0) {
+            mMaxSize = buffer.Size() / sizeof(T);
+        } else {
+            mMaxSize = maxSize;
+        }
+
         mSize = size;
 
         assert(mMaxSize != 0);
