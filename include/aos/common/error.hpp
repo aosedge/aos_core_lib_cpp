@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "aos/common/stringer.hpp"
+#include "aos/common/utils.hpp"
 
 namespace aos {
 
@@ -27,34 +27,21 @@ namespace aos {
 #define AOS_ERROR_WRAP(err) aos::Error(err, __FILENAME__, __LINE__)
 
 /**
- * Error types.
- *
- */
-class ErrorType {
-public:
-    enum class Enum { eNone, eFailed, eRuntime, eNoMemory, eOutOfRange, eNotFound, eInvalidArgument, eNumErrors };
-
-    static Pair<const char* const*, size_t> GetStrings()
-    {
-        static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)]
-            = {"none", "failed", "runtime error", "not enough memory", "out of range", "invalid argument", "not found"};
-
-        return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
-    };
-};
-
-using ErrorEnum = ErrorType::Enum;
-
-/**
  * Aos errors.
  */
-class Error : public EnumStringer<ErrorType> {
+class Error {
 public:
+    /**
+     * Error enum.
+     */
+    enum class Enum { eNone, eFailed, eRuntime, eNoMemory, eOutOfRange, eNotFound, eInvalidArgument, eNumErrors };
+
     /**
      * Constructs default error instance.
      */
     Error()
-        : mErrno(0)
+        : mErr(Enum::eNone)
+        , mErrno(0)
         , mFileName(nullptr)
         , mLineNumber(0)
     {
@@ -64,8 +51,8 @@ public:
     /**
      * Constructs error instance from ErrorType::Enum.
      */
-    Error(ErrorEnum err, const char* fileName = nullptr, int lineNumber = 0)
-        : EnumStringer(err)
+    Error(Enum err, const char* fileName = nullptr, int lineNumber = 0)
+        : mErr(err)
         , mErrno(0)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
@@ -76,7 +63,7 @@ public:
      * Constructs error instance from another error.
      */
     Error(const Error& err, const char* fileName = nullptr, int lineNumber = 0)
-        : EnumStringer(err.GetValue())
+        : mErr(err.mErr)
         , mErrno(err.mErrno)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
@@ -94,8 +81,7 @@ public:
      */
     Error& operator=(const Error& err)
     {
-        EnumStringer::operator=(err.GetValue());
-
+        mErr = err.mErr;
         mErrno = err.mErrno;
 
         if (!mFileName) {
@@ -113,7 +99,7 @@ public:
      * @param e errno.
      */
     Error(int errNo, const char* fileName = nullptr, int lineNumber = 0)
-        : EnumStringer(errNo == 0 ? ErrorEnum::eNone : ErrorEnum::eRuntime)
+        : mErr(errNo == 0 ? Enum::eNone : Enum::eRuntime)
         , mErrno(errNo)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
@@ -123,7 +109,7 @@ public:
     /**
      * Checks if error is none.
      */
-    bool IsNone() const { return GetValue() == ErrorEnum::eNone; }
+    bool IsNone() const { return mErr == Enum::eNone; }
 
     /**
      * Checks if error has specified type.
@@ -131,27 +117,44 @@ public:
      * @param e error to check.
      * @return bool result.
      */
-    bool Is(const Error& e) const
+    bool Is(const Error& err) const
     {
         if (mErrno != 0) {
-            return mErrno == e.mErrno;
+            return mErrno == err.mErrno;
         }
 
-        return GetValue() == e.GetValue();
+        return mErr == err.mErr;
     }
 
     /**
-     * Implements own ToString method.
+     * Returns error enum.
      *
-     * @return const char* string.
+     * @return Error::Enum.
      */
-    const char* ToString() const override
+    Error::Enum Value() const { return mErr; };
+
+    /**
+     * Returns error message.
+     *
+     * @return const char* error message.
+     */
+    const char* Message() const
     {
         if (mErrno != 0) {
             return strerror(mErrno);
         }
 
-        return EnumStringer<ErrorType>::ToString();
+        auto strings = GetStrings();
+
+        if (strings.mFirst == nullptr) {
+            return nullptr;
+        }
+
+        if (static_cast<size_t>(mErr) < strings.mSecond) {
+            return strings.mFirst[static_cast<size_t>(mErr)];
+        }
+
+        return "unknown";
     }
 
     /**
@@ -167,13 +170,71 @@ public:
      */
     const char* FileName() const { return mFileName; }
 
+    /**
+     * Returns error line number.
+     *
+     * @return int line number.
+     */
     int LineNumber() const { return mLineNumber; }
 
+    /**
+     * Compares if error equals to specified error value.
+     *
+     * @param err error value to compare with.
+     * @return bool result.
+     */
+    bool operator==(Enum value) const { return mErr == value; };
+
+    /**
+     * Compares if error doesn't equal to specified error value.
+     *
+     * @param err error value to compare with.
+     * @return bool result.
+     */
+    bool operator!=(Enum value) const { return mErr != value; };
+
+    /**
+     * Compares if specified error value equals to error.
+     *
+     * @param value specified error value.
+     * @param err error to compare.
+     * @return bool result.
+     */
+    friend bool operator==(Enum value, const Error& err) { return err.mErr == value; };
+
+    /**
+     * Compares if specified error value doesn't equal to error.
+     *
+     * @param value specified error value.
+     * @param err error to compare.
+     * @return bool result.
+     */
+    friend bool operator!=(Enum value, const Error& err) { return err.mErr != value; };
+
 private:
+    /**
+     * Returns error string array.
+     *
+     * @return Pair<const char* const*, size_t> error string array.
+     */
+    static Pair<const char* const*, size_t> GetStrings()
+    {
+        static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)]
+            = {"none", "failed", "runtime error", "not enough memory", "out of range", "invalid argument", "not found"};
+
+        return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
+    };
+
+    Enum        mErr;
     int         mErrno;
     const char* mFileName;
     int         mLineNumber;
 };
+
+/**
+ * Error enum.
+ */
+using ErrorEnum = Error::Enum;
 
 /**
  * Container that holds value and return error.

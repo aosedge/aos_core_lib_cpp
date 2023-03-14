@@ -27,6 +27,10 @@ TEST(common, Error)
 
     EXPECT_TRUE(Error(ErrorEnum::eFailed).Is(ErrorEnum::eFailed));
     EXPECT_TRUE(Error(ErrorEnum::eFailed).Is(Error(ErrorEnum::eFailed)));
+    EXPECT_TRUE(Error(ErrorEnum::eFailed) == ErrorEnum::eFailed);
+    EXPECT_TRUE(Error(ErrorEnum::eFailed) != ErrorEnum::eNone);
+    EXPECT_TRUE(ErrorEnum::eFailed == Error(ErrorEnum::eFailed));
+    EXPECT_TRUE(ErrorEnum::eNone != Error(ErrorEnum::eFailed));
 
     // Function handling
 
@@ -39,37 +43,37 @@ TEST(common, Error)
 
     // Error string
 
-    EXPECT_EQ(strcmp(Error(ErrorEnum::eNone).ToString(), "none"), 0);
-    EXPECT_EQ(strcmp(Error(ErrorEnum::eFailed).ToString(), "failed"), 0);
+    EXPECT_EQ(strcmp(Error(ErrorEnum::eNone).Message(), "none"), 0);
+    EXPECT_EQ(strcmp(Error(ErrorEnum::eFailed).Message(), "failed"), 0);
 
     // Errno handling
 
     EXPECT_TRUE(Error(0).IsNone());
     EXPECT_FALSE(Error(EINVAL).IsNone());
     EXPECT_TRUE(Error(ENODEV).Is(ENODEV));
-    EXPECT_EQ(strcmp(Error(EAGAIN).ToString(), "Resource temporarily unavailable"), 0);
+    EXPECT_EQ(strcmp(Error(EAGAIN).Message(), "Resource temporarily unavailable"), 0);
 
     // Error wrap
 
     auto funcErr = AOS_ERROR_WRAP(failedFunction());
     EXPECT_EQ(funcErr.LineNumber(), __LINE__ - 1);
-    EXPECT_EQ(strcmp(funcErr.ToString(), "failed"), 0);
+    EXPECT_EQ(strcmp(funcErr.Message(), "failed"), 0);
 
     auto enumErr = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     EXPECT_EQ(enumErr.LineNumber(), __LINE__ - 1);
-    EXPECT_EQ(strcmp(enumErr.ToString(), "not enough memory"), 0);
+    EXPECT_EQ(strcmp(enumErr.Message(), "not enough memory"), 0);
 
     auto copyErr(enumErr);
     EXPECT_EQ(copyErr.LineNumber(), enumErr.LineNumber());
-    EXPECT_EQ(strcmp(copyErr.ToString(), enumErr.ToString()), 0);
+    EXPECT_EQ(strcmp(copyErr.Message(), enumErr.Message()), 0);
 
     Error assignErr;
 
     assignErr = copyErr;
     EXPECT_EQ(assignErr.LineNumber(), enumErr.LineNumber());
-    EXPECT_EQ(strcmp(assignErr.ToString(), enumErr.ToString()), 0);
+    EXPECT_EQ(strcmp(assignErr.Message(), enumErr.Message()), 0);
 
     auto errnoErr = AOS_ERROR_WRAP(EAGAIN);
     EXPECT_EQ(errnoErr.LineNumber(), __LINE__ - 1);
-    EXPECT_EQ(strcmp(errnoErr.ToString(), "Resource temporarily unavailable"), 0);
+    EXPECT_EQ(strcmp(errnoErr.Message(), "Resource temporarily unavailable"), 0);
 }

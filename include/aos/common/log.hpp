@@ -198,7 +198,7 @@ public:
 
     Log& operator<<(const Error& err)
     {
-        *this << err.ToString();
+        *this << err.Message();
 
         if (err.FileName() != nullptr) {
             *this << " (" << err.FileName() << ":" << err.LineNumber() << ")";
