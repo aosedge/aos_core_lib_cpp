@@ -78,7 +78,7 @@ public:
      */
     Array& operator=(const Array& array)
     {
-        assert(array.mMaxSize <= mMaxSize);
+        assert(!mItems || array.mMaxSize <= mMaxSize);
 
         mSize = array.mSize;
 
@@ -86,7 +86,12 @@ public:
             return *this;
         }
 
-        memcpy(mItems, array.mItems, array.mSize * sizeof(T));
+        if (mItems) {
+            memcpy(mItems, array.mItems, array.mSize * sizeof(T));
+        } else {
+            mItems = array.mItems;
+            mMaxSize = array.mMaxSize;
+        }
 
         return *this;
     }
@@ -134,6 +139,10 @@ public:
     {
         if (size > mMaxSize) {
             return ErrorEnum::eNoMemory;
+        }
+
+        if (size > mSize) {
+            memset(end(), 0, (size - mSize) * sizeof(T));
         }
 
         mSize = size;
@@ -251,7 +260,9 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        mItems[mSize++] = item;
+        memcpy(static_cast<void*>(end()), static_cast<const void*>(&item), sizeof(T));
+
+        mSize++;
 
         return ErrorEnum::eNone;
     }
@@ -261,15 +272,19 @@ public:
      *
      * @return RetWithError<T*>..
      */
-    RetWithError<T*> PopBack()
+    RetWithError<T> PopBack()
     {
         if (IsEmpty()) {
-            RetWithError<T*>(nullptr, ErrorEnum::eNotFound);
+            RetWithError<T>(T(), ErrorEnum::eNotFound);
         }
+
+        RetWithError<T> result(mItems[mSize - 1], ErrorEnum::eNone);
 
         mSize--;
 
-        return RetWithError<T*>(&mItems[mSize], ErrorEnum::eNone);
+        memset(end(), 0, sizeof(T));
+
+        return result;
     }
 
     /**
@@ -299,8 +314,8 @@ public:
      * Inserts items from range.
      *
      * @param pos insert position.
-     * @param from append from begin.
-     * @param till append till end.
+     * @param from insert from this position.
+     * @param till insert till this position.
      * @return Error.
      */
     Error Insert(T* pos, const T* from, const T* till)
@@ -366,7 +381,11 @@ protected:
         assert(mSize <= mMaxSize);
 
         mItems = static_cast<T*>(buffer.Get());
+
+        memset(static_cast<void*>(begin()), 0, mSize * sizeof(T));
     }
+
+    void SetSize(size_t size) { mSize = size; }
 
 private:
     T*     mItems;

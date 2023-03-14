@@ -80,7 +80,7 @@ TEST(common, Array)
         auto ret2 = dynamicArray.PopBack();
         EXPECT_TRUE(ret2.mError.IsNone());
 
-        EXPECT_EQ(*ret1.mValue, *ret2.mValue);
+        EXPECT_EQ(ret1.mValue, ret2.mValue);
     }
 
     // Test const array
