@@ -30,8 +30,8 @@
  * Max log line size.
  *
  */
-#ifndef AOS_CONFIG_LOG_LINE_SIZE
-#define AOS_CONFIG_LOG_LINE_SIZE 120
+#ifndef AOS_CONFIG_LOG_LINE_LEN
+#define AOS_CONFIG_LOG_LINE_LEN 120
 #endif
 
 #endif

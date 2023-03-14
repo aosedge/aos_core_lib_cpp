@@ -8,9 +8,6 @@
 #ifndef AOS_LOG_HPP_
 #define AOS_LOG_HPP_
 
-#include <stdio.h>
-#include <string.h>
-
 #include "aos/common/config/log.hpp"
 #include "aos/common/enum.hpp"
 #include "aos/common/error.hpp"
@@ -93,13 +90,18 @@ using LogModule = EnumStringer<LogModuleType>;
 /**
  * Log line callback. Should be set in application to display log using application logging mechanism.
  */
-using LogCallback = void (*)(LogModule module, LogLevel level, const char* message);
+using LogCallback = void (*)(LogModule module, LogLevel level, const String& message);
 
 /**
  * Implements log functionality.
  */
 class Log : private NonCopyable {
 public:
+    /**
+     * Max log line length.
+     */
+    static size_t constexpr cMaxLineLen = AOS_CONFIG_LOG_LINE_LEN;
+
     /**
      * Constructs a new Log object.
      *
@@ -109,10 +111,7 @@ public:
     Log(LogModule module, LogLevel level)
         : mModule(module)
         , mLevel(level)
-        , mCurrentLen(0)
-    {
-        mBuffer[0] = '\0';
-    };
+        , mCurrentLen(0) {};
 
     /**
      * Destroys the Log object and calls log callback.
@@ -122,7 +121,7 @@ public:
         auto callback = GetCallback();
 
         if (callback != nullptr) {
-            callback(mModule, mLevel, mBuffer);
+            callback(mModule, mLevel, mLogLine);
         }
     }
 
@@ -139,23 +138,20 @@ public:
      * @param str string to log.
      * @return Log&
      */
-    Log& operator<<(const char* str)
+    Log& operator<<(const String& str)
     {
-        auto n = cLineSize - mCurrentLen - 1;
-        auto l = strlen(str);
+        auto freeSize = mLogLine.MaxSize() - mLogLine.Size();
 
-        if (l > n) {
-            strncpy(&mBuffer[mCurrentLen], str, n);
+        if (str.Size() > freeSize) {
+            auto err = mLogLine.Insert(mLogLine.end(), str.begin(), str.begin() + freeSize);
+            assert(err.IsNone());
 
-            mBuffer[mCurrentLen + n] = '\0';
-            l = n;
+            AddPeriods();
 
-            addPeriods();
-        } else {
-            strcpy(&mBuffer[mCurrentLen], str);
+            return *this;
         }
 
-        mCurrentLen += l;
+        mLogLine += str;
 
         return *this;
     };
@@ -176,22 +172,9 @@ public:
      */
     Log& operator<<(int i)
     {
-        auto n = cLineSize - mCurrentLen;
+        StaticString<32> tmpStr;
 
-        auto l = snprintf(&mBuffer[mCurrentLen], n, "%d", i);
-        if (l < 0) {
-            return *this;
-        }
-
-        if (static_cast<size_t>(l) > n) {
-            addPeriods();
-
-            l = n;
-        }
-
-        mCurrentLen += l;
-
-        return *this;
+        return *this << tmpStr.Convert(i);
     };
 
     Log& operator<<(const Error& err)
@@ -206,12 +189,10 @@ public:
     }
 
 private:
-    static size_t constexpr cLineSize = AOS_CONFIG_LOG_LINE_SIZE;
-
-    char      mBuffer[cLineSize];
-    LogModule mModule;
-    LogLevel  mLevel;
-    size_t    mCurrentLen;
+    StaticString<cMaxLineLen> mLogLine;
+    LogModule                 mModule;
+    LogLevel                  mLevel;
+    size_t                    mCurrentLen;
 
     static LogCallback& GetCallback()
     {
@@ -220,10 +201,11 @@ private:
         return sLogCallback;
     }
 
-    void addPeriods()
+    void AddPeriods()
     {
-        if (cLineSize > 3) {
-            strcpy(&mBuffer[cLineSize - 4], "...");
+        if (mLogLine.Size() > 3) {
+            mLogLine.Resize(mLogLine.Size() - 3);
+            mLogLine += "...";
         }
     }
 };

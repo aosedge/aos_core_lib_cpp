@@ -15,7 +15,7 @@ using namespace aos;
 
 class TestLog : private NonCopyable {
 public:
-    static void LogCallback(LogModule module, LogLevel level, const char* message)
+    static void LogCallback(LogModule module, LogLevel level, const String& message)
     {
         auto& instance = GetInstance();
 
@@ -31,7 +31,7 @@ public:
         return sInstance;
     }
 
-    bool CheckLog(LogModule module, LogLevel level, const char* message)
+    bool CheckLog(LogModule module, LogLevel level, const String& message)
     {
         if (module != mLogModule) {
             return false;
@@ -41,7 +41,7 @@ public:
             return false;
         }
 
-        if (mLogMessage == nullptr || strcmp(message, mLogMessage) != 0) {
+        if (mLogMessage != message) {
             return false;
         }
 
@@ -52,13 +52,12 @@ private:
     TestLog()
         : mLogModule()
         , mLogLevel()
-        , mLogMessage(nullptr)
     {
     }
 
-    LogModule   mLogModule;
-    LogLevel    mLogLevel;
-    const char* mLogMessage;
+    LogModule                      mLogModule;
+    LogLevel                       mLogLevel;
+    StaticString<Log::cMaxLineLen> mLogMessage;
 };
 
 class TestStringer : public Stringer {
@@ -118,7 +117,7 @@ TEST(common, Log)
 
     std::string longString;
 
-    for (auto i = 0; i < AOS_CONFIG_LOG_LINE_SIZE;) {
+    for (size_t i = 0; i <= Log::cMaxLineLen;) {
         auto word = "word ";
 
         i += std::string(word).length();
@@ -127,7 +126,7 @@ TEST(common, Log)
 
     LOG_DBG() << longString.c_str();
 
-    longString.resize(AOS_CONFIG_LOG_LINE_SIZE - 4);
+    longString.resize(Log::cMaxLineLen - 3);
     longString += "...";
 
     EXPECT_TRUE(testLog.CheckLog(LogModuleEnum::eDefault, LogLevelEnum::eDebug, longString.c_str()));
