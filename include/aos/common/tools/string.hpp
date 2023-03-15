@@ -39,6 +39,11 @@ public:
         }
     }
 
+    /**
+     * Constructs string from other string.
+     *
+     * @param str string.
+     */
     String(const String& str)
         : Array(str)
     {
@@ -47,6 +52,12 @@ public:
         }
     }
 
+    /**
+     * Assigns string to string.
+     *
+     * @param str string.
+     * @return String&.
+     */
     String& operator=(const String& str)
     {
         Array::operator=(str);
@@ -241,11 +252,36 @@ public:
         String::SetBuffer(mBuffer, 0, cMaxSize);
     }
 
+    /**
+     * Creates static string from another static string.
+     *
+     * @param str string to create from.
+     */
+    StaticString(const StaticString& str)
+        : String()
+    {
+        String::SetBuffer(mBuffer, cMaxSize);
+        String::operator=(str);
+    }
+
+    /**
+     * Assigns static string from another static string.
+     *
+     * @param str string to create from.
+     */
+    StaticString& operator=(const StaticString& str)
+    {
+        String::SetBuffer(mBuffer, cMaxSize);
+        String::operator=(str);
+
+        return *this;
+    }
+
     // cppcheck-suppress noExplicitConstructor
     /**
      * Creates static string from another string.
      *
-     * @param str initial value.
+     * @param str string to create from.
      */
     StaticString(const String& str)
     {
@@ -253,13 +289,25 @@ public:
         String::operator=(str);
     }
 
+    // cppcheck-suppress noExplicitConstructor
     /**
-     * Assigns string to static string.
+     * Creates static string from C string.
      *
-     * @param str string to assign.
+     * @param str initial value.
+     */
+    StaticString(const char* str)
+    {
+        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::operator=(str);
+    }
+
+    /**
+     * Assigns C string to static string.
+     *
+     * @param str C string.
      * @return StaticString&.
      */
-    StaticString& operator=(const String& str)
+    StaticString& operator=(const char* str)
     {
         String::operator=(str);
 
@@ -289,6 +337,31 @@ public:
         String::SetBuffer(mBuffer, 0, cMaxSize);
     }
 
+    /**
+     * Creates dynamic string from another dynamic string.
+     *
+     * @param str string to create from.
+     */
+    DynamicString(const DynamicString& str)
+        : String()
+    {
+        String::SetBuffer(mBuffer, cMaxSize);
+        String::operator=(str);
+    }
+
+    /**
+     * Assigns dynamic string from another dynamic string.
+     *
+     * @param str string to create from.
+     */
+    DynamicString& operator=(const DynamicString& str)
+    {
+        String::SetBuffer(mBuffer, cMaxSize);
+        String::operator=(str);
+
+        return *this;
+    }
+
     // cppcheck-suppress noExplicitConstructor
     /**
      * Creates dynamic string from another string.
@@ -301,13 +374,25 @@ public:
         String::operator=(str);
     }
 
+    // cppcheck-suppress noExplicitConstructor
     /**
-     * Assigns string to static string.
+     * Creates dynamic string from C string.
      *
-     * @param str string to assign.
+     * @param str initial value.
+     */
+    DynamicString(const char* str)
+    {
+        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::operator=(str);
+    }
+
+    /**
+     * Assigns C string to dynamic string.
+     *
+     * @param str C string.
      * @return DynamicString&.
      */
-    DynamicString& operator=(const String& str)
+    DynamicString& operator=(const char* str)
     {
         String::operator=(str);
 

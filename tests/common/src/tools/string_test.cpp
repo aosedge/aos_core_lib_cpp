@@ -67,4 +67,31 @@ TEST(common, String)
 
     EXPECT_EQ(strErr.Convert(Error(ErrorEnum::eFailed)), "failed");
     EXPECT_EQ(strErr.Convert(Error(ErrorEnum::eRuntime, "file1", 123)), "runtime error (file1:123)");
+
+    // Copy static string to static string
+
+    StaticString<64> dst;
+    StaticString<32> src("test string");
+
+    dst = src;
+
+    EXPECT_EQ(dst, src);
+}
+
+TEST(common, StringArray)
+{
+    struct TestStruct {
+        StaticString<32> str1;
+        StaticString<32> str2;
+    };
+
+    StaticArray<TestStruct, 8> strArray;
+
+    strArray.Resize(1);
+
+    strArray[0].str1 = "test1";
+    strArray[0].str2 = "test2";
+
+    EXPECT_EQ(strArray[0].str1, "test1");
+    EXPECT_EQ(strArray[0].str2, "test2");
 }
