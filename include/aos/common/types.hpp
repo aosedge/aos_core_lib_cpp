@@ -68,6 +68,21 @@ constexpr auto cVendorVersionLen = AOS_CONFIG_TYPES_VENDOR_VERSION_LEN;
 constexpr auto cDescriptionLen = AOS_CONFIG_TYPES_DESCRIPTION_LEN;
 
 /**
+ * Max number of instances.
+ */
+constexpr auto cMaxNumInstances = AOS_CONFIG_TYPES_MAX_NUM_INSTANCES;
+
+/**
+ * Max number of services.
+ */
+constexpr auto cMaxNumServices = AOS_CONFIG_TYPES_MAX_NUM_SERVICES;
+
+/**
+ * Max number of layers.
+ */
+constexpr auto cMaxNumLayers = AOS_CONFIG_TYPES_MAX_NUM_LAYERS;
+
+/**
  * SHA256 size.
  */
 constexpr auto cSHA256Size = 32;

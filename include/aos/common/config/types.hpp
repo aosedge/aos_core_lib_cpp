@@ -79,6 +79,27 @@
 #endif
 
 /**
+ * Max number of services.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICES
+#define AOS_CONFIG_TYPES_MAX_NUM_SERVICES 16
+#endif
+
+/**
+ * Max number of layers.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_LAYERS
+#define AOS_CONFIG_TYPES_MAX_NUM_LAYERS 16
+#endif
+
+/**
+ * Max number of instances.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_INSTANCES
+#define AOS_CONFIG_TYPES_MAX_NUM_INSTANCES 16
+#endif
+
+/**
  * Error message len.
  */
 #ifndef AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN
