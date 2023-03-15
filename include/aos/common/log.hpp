@@ -58,11 +58,11 @@ class LogLevelType {
 public:
     enum class Enum { eDebug, eInfo, eWarning, eError, eNumLevels };
 
-    static const Array<const String> GetStrings()
+    static const Array<const char* const> GetStrings()
     {
-        static const String cLogLevelStrings[] = {"debug", "info", "warning", "error"};
+        static const char* const cLogLevelStrings[] = {"debug", "info", "warning", "error"};
 
-        return Array<const String>(cLogLevelStrings, ArraySize(cLogLevelStrings));
+        return Array<const char* const>(cLogLevelStrings, ArraySize(cLogLevelStrings));
     };
 };
 
@@ -76,11 +76,11 @@ class LogModuleType {
 public:
     enum class Enum { eDefault, eSMLauncher, eIAMCertHandler, eNumModules };
 
-    static const Array<const String> GetStrings()
+    static const Array<const char* const> GetStrings()
     {
-        static const String cLogModuleStrings[] = {"default", "launcher", "certhandler"};
+        static const char* const cErrorTypeStrings[] = {"default", "launcher", "certhandler"};
 
-        return Array<const String>(cLogModuleStrings, ArraySize(cLogModuleStrings));
+        return Array<const char* const>(cErrorTypeStrings, ArraySize(cErrorTypeStrings));
     };
 };
 

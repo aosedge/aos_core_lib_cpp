@@ -104,11 +104,11 @@ class InstanceRunStateType {
 public:
     enum class Enum { eActive, eFailed, eNumStates };
 
-    static const Array<const String> GetStrings()
+    static const Array<const char* const> GetStrings()
     {
-        static const String cInstanceRunStateStrings[] = {"active", "failed"};
+        static const char* const cInstanceRunStateStrings[] = {"active", "failed"};
 
-        return Array<const String>(cInstanceRunStateStrings, ArraySize(cInstanceRunStateStrings));
+        return Array<const char* const>(cInstanceRunStateStrings, ArraySize(cInstanceRunStateStrings));
     };
 };
 
