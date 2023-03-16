@@ -13,7 +13,7 @@ using namespace aos;
 
 TEST(common, LinearRingBuffer)
 {
-    LinearRingBuffer<30> ringBuffer;
+    StaticRingBuffer<30> ringBuffer;
 
     EXPECT_TRUE(ringBuffer.IsEmpty());
 
