@@ -8,7 +8,6 @@
 #ifndef AOS_BUFFER_HPP_
 #define AOS_BUFFER_HPP_
 
-#include <assert.h>
 #include <cstdint>
 #include <string.h>
 
@@ -32,19 +31,6 @@ public:
      * @return size_t.
      */
     size_t Size() const { return mSize; }
-
-    /**
-     * Returns new buffer created inside current buffet.
-     *
-     * @param offset
-     * @return Buffer
-     */
-    Buffer SubBuffer(size_t offset) const
-    {
-        assert(offset < mSize);
-
-        return Buffer(static_cast<char*>(mBuffer) + offset, mSize - offset);
-    }
 
 protected:
     Buffer()
