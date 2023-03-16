@@ -8,29 +8,24 @@
 #ifndef AOS_RINGBUFFER_HPP_
 #define AOS_RINGBUFFER_HPP_
 
+#include <assert.h>
+#include <cstdint>
+
+#include "aos/common/tools/buffer.hpp"
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/noncopyable.hpp"
 
 namespace aos {
 
 /**
- * Linear ring buffer class.
- *
- * @tparam cBufferSize
+ * Ring buffer instance.
  */
-template <size_t cBufferSize>
-class LinearRingBuffer {
+class RingBuffer {
 public:
     /**
-     * Creates linear ring buffer instance.
+     * Creates ring buffer instance.
      */
-    LinearRingBuffer()
-        : mBuffer()
-        , mHead(mBuffer)
-        , mTail(mBuffer)
-        , mBufferEnd(mBuffer + cBufferSize)
-        , mSize(0)
-    {
-    }
+    RingBuffer() = default;
 
     /**
      * Pushes data from external buffer.
@@ -41,28 +36,25 @@ public:
      */
     Error Push(const void* data, size_t size)
     {
-        if (size > mBufferEnd - mBuffer - mSize
-            || ((mTail + size > mBufferEnd) && (size > static_cast<size_t>(mHead - mBuffer)))) {
+        if (size > MaxSize() - mSize) {
             return ErrorEnum::eNoMemory;
         }
 
-        // handle end of the buffer case
-        if (mTail + size > mBufferEnd) {
-            mBufferEnd = mTail;
-            mTail = mBuffer;
+        size_t copiedSize = 0;
 
-            if (mSize == 0) {
-                mHead = mBuffer;
-            }
+        // handle end of the buffer case
+        if (mTail + size > mEnd) {
+            copiedSize = mEnd - mTail;
+            memcpy(mTail, data, copiedSize);
+            mTail = mBegin;
         }
 
-        memcpy(mTail, data, size);
-
-        mTail += size;
+        memcpy(mTail, &(static_cast<const uint8_t*>(data))[copiedSize], size - copiedSize);
         mSize += size;
+        mTail += size - copiedSize;
 
-        if (mTail == mBufferEnd) {
-            mTail = mBuffer;
+        if (mTail == mEnd) {
+            mTail = mBegin;
         }
 
         return ErrorEnum::eNone;
@@ -80,18 +72,23 @@ public:
             return ErrorEnum::eInvalidArgument;
         }
 
-        memcpy(data, mHead, size);
+        size_t copiedSize = 0;
 
-        mHead += size;
-        mSize -= size;
+        // handle end of the buffer case
+        if (mHead + size > mEnd) {
+            copiedSize = mEnd - mHead;
 
-        if (mHead > mBufferEnd) {
-            return ErrorEnum::eOutOfRange;
+            memcpy(data, mHead, copiedSize);
+
+            mHead = mBegin;
         }
 
-        if (mHead == mBufferEnd) {
-            mHead = mBuffer;
-            mBufferEnd = mBuffer + cBufferSize;
+        memcpy(&(static_cast<uint8_t*>(data))[copiedSize], mHead, size - copiedSize);
+        mSize -= size;
+        mHead += size - copiedSize;
+
+        if (mHead == mEnd) {
+            mHead = mBegin;
         }
 
         return ErrorEnum::eNone;
@@ -108,6 +105,23 @@ public:
     Error PushValue(const T& value)
     {
         return Push(&value, sizeof(T));
+    }
+
+    /**
+     * Pops value from buffer.
+     *
+     * @tparam T data type.
+     * @return T value.
+     */
+    template <typename T>
+    T PopValue()
+    {
+        T tmp;
+
+        auto err = Pop(&tmp);
+        assert(err.IsNone());
+
+        return tmp;
     }
 
     /**
@@ -137,13 +151,6 @@ public:
     }
 
     /**
-     * Returns point to buffer head.
-
-     * @return void*.
-     */
-    void* Head() const { return mHead; }
-
-    /**
      * Checks if buffer is empty.
      *
      * @return bool.
@@ -162,23 +169,49 @@ public:
      *
      * @return size_t.
      */
-    size_t MaxSize() const { return cBufferSize; };
+    size_t MaxSize() const { return mEnd - mBegin; };
 
     /**
      * Clears buffer.
      */
     void Clear()
     {
-        mHead = mTail = mBuffer;
+        mHead = mTail = mBegin;
+        mSize = 0;
+    }
+
+protected:
+    void SetBuffer(Buffer& buffer)
+    {
+        mBegin = static_cast<uint8_t*>(buffer.Get());
+        mEnd = mBegin + buffer.Size();
+        mHead = mTail = mBegin;
         mSize = 0;
     }
 
 private:
-    uint8_t  mBuffer[cBufferSize];
-    uint8_t* mHead;
-    uint8_t* mTail;
-    uint8_t* mBufferEnd;
-    size_t   mSize;
+    uint8_t* mBegin {};
+    uint8_t* mEnd {};
+    uint8_t* mHead {};
+    uint8_t* mTail {};
+    size_t   mSize {};
+};
+
+/**
+ * Static ring buffer.
+ *
+ * @tparam cMaxSize max ring buffer size.
+ */
+template <size_t cMaxSize>
+class StaticRingBuffer : public RingBuffer, private NonCopyable {
+public:
+    /**
+     * Creates static ring buffer.
+     */
+    StaticRingBuffer() { SetBuffer(mBuffer); }
+
+private:
+    StaticBuffer<cMaxSize> mBuffer;
 };
 
 } // namespace aos

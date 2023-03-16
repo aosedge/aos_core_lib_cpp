@@ -429,16 +429,16 @@ public:
 
         UniqueLock lock(mMutex);
 
-        auto err = mBuffer.PushValue(Function<T>(functor, arg));
-        if (!err.IsNone()) {
-            return err;
-        }
+        auto task = Function<T>(functor, arg);
+
+        mBuffer.Push(&task);
 
         mPendingTaskCount++;
 
         lock.Unlock();
 
-        if (!(err = mTaskCondVar.NotifyOne()).IsNone()) {
+        auto err = mTaskCondVar.NotifyOne();
+        if (!err.IsNone()) {
             return err;
         }
 
@@ -470,7 +470,11 @@ public:
                         return;
                     }
 
-                    err = mBuffer.Pop(taskBuffer, static_cast<CallableItf*>(mBuffer.Head())->Size());
+                    err = mBuffer.Pop(taskBuffer, sizeof(CallableItf));
+                    assert(err.IsNone());
+
+                    err = mBuffer.Pop(&taskBuffer[sizeof(CallableItf)],
+                        static_cast<CallableItf*>(static_cast<void*>(taskBuffer))->Size() - sizeof(CallableItf));
                     assert(err.IsNone());
 
                     lock.Unlock();
@@ -544,7 +548,7 @@ private:
     Mutex                        mMutex;
     ConditionalVariable          mTaskCondVar;
     ConditionalVariable          mWaitCondVar;
-    LinearRingBuffer<cQueueSize> mBuffer;
+    StaticRingBuffer<cQueueSize> mBuffer;
     bool                         mShutdown;
     int                          mPendingTaskCount;
 };

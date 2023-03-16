@@ -11,9 +11,9 @@
 
 using namespace aos;
 
-TEST(common, LinearRingBuffer)
+TEST(common, RingBuffer)
 {
-    LinearRingBuffer<30> ringBuffer;
+    StaticRingBuffer<30> ringBuffer;
 
     EXPECT_TRUE(ringBuffer.IsEmpty());
 
