@@ -123,6 +123,11 @@ struct InstanceInfo {
 };
 
 /**
+ * Instance info static array.
+ */
+using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
+
+/**
  * Instance run state.
  */
 class InstanceRunStateType {
@@ -151,6 +156,11 @@ struct InstanceStatus {
 };
 
 /**
+ * Instance status static array.
+ */
+using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
+
+/**
  * Version info.
  */
 struct VersionInfo {
@@ -175,6 +185,11 @@ struct ServiceInfo {
 };
 
 /**
+ * Service info static array.
+ */
+using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
+
+/**
  * Layer info.
  */
 
@@ -188,6 +203,11 @@ struct LayerInfo {
     uint8_t                       mSHA512[cSHA512Size];
     size_t                        mSize;
 };
+
+/**
+ * Layer info static array.
+ */
+using LayerInfoStaticArray = StaticArray<LayerInfo, cMaxNumLayers>;
 
 } // namespace aos
 
