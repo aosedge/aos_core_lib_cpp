@@ -48,6 +48,42 @@ struct Pair {
     S mSecond;
 };
 
+/**
+ * Returns min from two value.
+ */
+template <typename T>
+constexpr T Min(T a, T b)
+{
+    return (a < b) ? a : b;
+};
+
+/**
+ * Returns max from two value.
+ */
+template <typename T>
+constexpr T Max(T a, T b)
+{
+    return (a > b) ? a : b;
+};
+
+/**
+ * Returns min value.
+ */
+template <typename T, typename... Args>
+constexpr T Min(T value, Args... args)
+{
+    return Min(value, Min(args...));
+};
+
+/**
+ * Returns max value.
+ */
+template <typename T, typename... Args>
+constexpr T Max(T value, Args... args)
+{
+    return Max(value, Max(args...));
+}
+
 } // namespace aos
 
 #endif
