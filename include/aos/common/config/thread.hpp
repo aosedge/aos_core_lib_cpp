@@ -9,6 +9,13 @@
 #define AOS_CONFIG_THREAD_HPP_
 
 /**
+ * Configures max thread task size.
+ */
+#ifndef AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE
+#define AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE 256
+#endif
+
+/**
  * Configures default thread stack size.
  *
  * Use minimal stack size PTHREAD_STACK_MIN + 2k for storing thread functor.
@@ -18,17 +25,17 @@
 #endif
 
 /**
+ * Configures thread stack alignment.
+ */
+#ifndef AOS_CONFIG_THREAD_STACK_ALIGN
+#define AOS_CONFIG_THREAD_STACK_ALIGN sizeof(int)
+#endif
+
+/**
  * Configures default thread pool queue size.
  */
 #ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE
 #define AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE 1024
-#endif
-
-/**
- * Configures max thread pool task size.
- */
-#ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_MAX_TASK_SIZE
-#define AOS_CONFIG_THREAD_POOL_DEFAULT_MAX_TASK_SIZE 256
 #endif
 
 #endif

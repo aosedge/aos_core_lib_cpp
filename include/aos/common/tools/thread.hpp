@@ -13,6 +13,7 @@
 #include <pthread.h>
 
 #include "aos/common/config/thread.hpp"
+#include "aos/common/tools/buffer.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/ringbuffer.hpp"
@@ -21,19 +22,24 @@
 namespace aos {
 
 /**
+ * Default thread max function size.
+ */
+constexpr auto cDefaultThreadMaxFunctionSize = AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE;
+
+/**
  * Default tread stack size.
  */
 constexpr auto cDefaultThreadStackSize = AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE;
 
 /**
+ * Configures thread stack alignment.
+ */
+constexpr auto cThreadStackAlign = AOS_CONFIG_THREAD_STACK_ALIGN;
+
+/**
  * Default thread pool queue size.
  */
 constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE;
-
-/**
- * Default thread pool max task size.
- */
-constexpr auto cDefaultThreadPoolMaxTaskSize = AOS_CONFIG_THREAD_POOL_DEFAULT_MAX_TASK_SIZE;
 
 /**
  * Defines callable interface used by thread.
@@ -101,7 +107,6 @@ public:
     }
 
 private:
-private:
     T     mFunctor;
     void* mArg;
 };
@@ -109,7 +114,7 @@ private:
 /**
  * Aos thread.
  */
-template <size_t cStackSize = cDefaultThreadStackSize>
+template <size_t cStackSize = cDefaultThreadStackSize, size_t cMaxFunctionSize = cDefaultThreadMaxFunctionSize>
 class Thread : private NonCopyable {
 public:
     /**
@@ -132,9 +137,9 @@ public:
     template <typename T>
     Error Run(T functor, void* arg = nullptr)
     {
-        static_assert(AlignedSize(sizeof(T)) < AlignedSize(cStackSize), "not enough space to store functor");
+        static_assert(sizeof(Function<T>) <= cMaxFunctionSize, "not enough space to store functor");
 
-        mCallable = new (mStack) Function<T>(functor, arg);
+        mCallable = new (mFunction.Get()) Function<T>(functor, arg);
 
         pthread_attr_t attr;
 
@@ -143,8 +148,7 @@ public:
             return ret;
         }
 
-        ret = pthread_attr_setstack(
-            &attr, &mStack[AlignedSize(mCallable->Size())], AlignedSize(cStackSize) - AlignedSize(mCallable->Size()));
+        ret = pthread_attr_setstack(&attr, mStack, ArraySize(mStack));
         if (ret != 0) {
             return ret;
         }
@@ -160,9 +164,10 @@ public:
     Error Join() { return pthread_join(mPThread, nullptr); }
 
 private:
-    uint8_t      mStack[AlignedSize(cStackSize)];
-    pthread_t    mPThread;
-    CallableItf* mCallable;
+    alignas(cThreadStackAlign) uint8_t mStack[AlignedSize(cStackSize, cThreadStackAlign)];
+    StaticBuffer<cMaxFunctionSize> mFunction;
+    pthread_t                      mPThread;
+    CallableItf*                   mCallable;
 
     static void* ThreadFunction(void* arg)
     {
@@ -395,7 +400,7 @@ private:
  * @tparam cMaxTaskSize max task size.
  */
 template <size_t cNumThreads = 1, size_t cQueueSize = cDefaultThreadPoolQueueSize,
-    size_t cMaxTaskSize = cDefaultThreadPoolMaxTaskSize>
+    size_t cMaxTaskSize = cDefaultThreadMaxFunctionSize>
 class ThreadPool : private NonCopyable {
 public:
     /**

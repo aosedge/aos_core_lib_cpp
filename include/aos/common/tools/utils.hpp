@@ -15,21 +15,22 @@ namespace aos {
 /**
  * Defines array size.
  */
-template <typename T, size_t n>
-constexpr size_t ArraySize(T (&)[n])
+template <typename T, size_t cSize>
+constexpr size_t ArraySize(T (&)[cSize])
 {
-    return n;
+    return cSize;
 };
 
 /**
  * Calculates aligned by machine word size.
  *
  * @param size input size.
+ * @param align alignment.
  * @return constexpr size_t aligned size.
  */
-constexpr size_t AlignedSize(size_t size)
+constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int))
 {
-    return (size + sizeof(int) - 1) / sizeof(int) * sizeof(int);
+    return (size + align - 1) / align * align;
 };
 
 /**
