@@ -28,4 +28,6 @@ TEST(common, Buffer)
     bufferA = bufferB;
 
     EXPECT_EQ(strcmp(static_cast<char*>(bufferA.Get()), static_cast<char*>(bufferB.Get())), 0);
+
+    StaticBuffer<512> bufferC(bufferA);
 }
