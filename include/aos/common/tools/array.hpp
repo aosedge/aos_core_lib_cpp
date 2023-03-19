@@ -393,26 +393,97 @@ private:
     size_t mMaxSize;
 };
 
-template <typename T, size_t cMaxSize>
-class StaticArray : public Array<T> {
-public:
-    explicit StaticArray(size_t size = 0) { Array<T>::SetBuffer(mBuffer, size); }
-
-private:
-    StaticBuffer<cMaxSize * sizeof(T)> mBuffer;
-};
-
+/**
+ * Dynamic array instance.
+ *
+ * @tparam T type of items.
+ * @tparam cMaxSize max size.
+ */
 template <typename T, size_t cMaxSize>
 class DynamicArray : public Array<T> {
 public:
+    /**
+     * Create dynamic array.
+     *
+     * @param size current array size.
+     */
     explicit DynamicArray(size_t size = 0)
         : mBuffer(cMaxSize * sizeof(T))
     {
         Array<T>::SetBuffer(mBuffer, size);
     }
 
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Creates dynamic array from another array.
+     *
+     * @param array array to create from.
+     */
+    DynamicArray(const Array<T>& array)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+    }
+
 private:
     DynamicBuffer mBuffer;
+};
+
+/**
+ * Static array instance.
+ *
+ * @tparam T type of items.
+ * @tparam cMaxSize max size.
+ */
+template <typename T, size_t cMaxSize>
+class StaticArray : public Array<T> {
+public:
+    /**
+     * Creates static array.
+     *
+     * @param size current array size.
+     */
+    explicit StaticArray(size_t size = 0) { Array<T>::SetBuffer(mBuffer, size); }
+
+    /**
+     * Creates static array from another static array.
+     *
+     * @param array array to create from.
+     */
+    StaticArray(const StaticArray& array)
+        : Array<T>()
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+    }
+
+    /**
+     * Assigns static array from another static array.
+     *
+     * @param array array to create from.
+     */
+    StaticArray& operator=(const StaticArray& array)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+
+        return *this;
+    }
+
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Creates static array from another array.
+     *
+     * @param array array to create from.
+     */
+    StaticArray(const Array<T>& array)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+    }
+
+private:
+    StaticBuffer<cMaxSize * sizeof(T)> mBuffer;
 };
 
 } // namespace aos
