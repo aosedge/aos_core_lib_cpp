@@ -8,6 +8,7 @@
 #ifndef AOS_BUFFER_HPP_
 #define AOS_BUFFER_HPP_
 
+#include <assert.h>
 #include <cstdint>
 #include <string.h>
 
@@ -18,6 +19,21 @@ namespace aos {
  */
 class Buffer {
 public:
+    /**
+     * Copies one buffer to another.
+     *
+     * @param buffer to copy from.
+     * @return Buffer&.
+     */
+    Buffer& operator=(const Buffer& buffer)
+    {
+        assert(mSize >= buffer.mSize);
+
+        memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
+
+        return *this;
+    }
+
     /**
      * Returns pointer to the hold buffer.
      *
@@ -45,8 +61,11 @@ protected:
     {
     }
 
-    void Resize(size_t size) { mSize = size; }
-    void SetBuffer(void* buffer) { mBuffer = buffer; }
+    void SetBuffer(void* buffer, size_t size)
+    {
+        mBuffer = buffer;
+        mSize = size;
+    }
 
 private:
     void*  mBuffer;
@@ -68,35 +87,27 @@ public:
     {
     }
 
+    // cppcheck-suppress noExplicitConstructor
     /**
-     * Creates dynamic buffer from existing instance.
+     * Constructs dynamic buffer from another buffer.
      *
-     * @param buffer existing dynamic buffer instance.
+     * @param buffer buffer to crate from.
      */
-    DynamicBuffer(const DynamicBuffer& buffer)
+    DynamicBuffer(const Buffer& buffer)
         : Buffer(operator new(buffer.Size()), buffer.Size())
     {
-        memcpy(Get(), buffer.Get(), Size());
+        Buffer::operator=(buffer);
     }
 
     /**
-     * Assigns existing buffer instance to the current one.
+     * Copies one buffer to another.
      *
-     * @param buffer existing dynamic buffer instance.
-     * @return DynamicBuffer&.
+     * @param buffer to copy from.
+     * @return Buffer&.
      */
-    DynamicBuffer& operator=(const DynamicBuffer& buffer)
+    DynamicBuffer& operator=(const Buffer& buffer)
     {
-        if (&buffer == this) {
-            return *this;
-        }
-
-        operator delete(Get());
-
-        SetBuffer(operator new(buffer.Size()));
-        Resize(buffer.Size());
-
-        memcpy(Get(), buffer.Get(), Size());
+        Buffer::operator=(buffer);
 
         return *this;
     }
@@ -113,10 +124,31 @@ public:
     /**
      * Creates static buffer instance with fixed size.
      */
-    StaticBuffer()
+    StaticBuffer() { SetBuffer(mBuffer, cSize); }
+
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Constructs static buffer from another buffer.
+     *
+     * @param buffer buffer to crate from.
+     */
+    StaticBuffer(const Buffer& buffer)
     {
-        SetBuffer(mBuffer);
-        Resize(cSize);
+        SetBuffer(mBuffer, cSize);
+        Buffer::operator=(buffer);
+    }
+
+    /**
+     * Copies one buffer to another.
+     *
+     * @param buffer to copy from.
+     * @return Buffer&.
+     */
+    StaticBuffer& operator=(const Buffer& buffer)
+    {
+        Buffer::operator=(buffer);
+
+        return *this;
     }
 
 private:
