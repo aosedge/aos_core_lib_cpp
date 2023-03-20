@@ -364,6 +364,41 @@ public:
      */
     Array& operator+=(const Array& array) { return Append(array); }
 
+    /**
+     * Finds element in array.
+     *
+     * @param item element to find.
+     * @return RetWithError<T*>.
+     */
+    RetWithError<T*> Find(const T& item) const
+    {
+        for (auto it = mItems; it != end(); it++) {
+            if (*it == item) {
+                return it;
+            }
+        }
+
+        return {nullptr, ErrorEnum::eNotFound};
+    }
+
+    /**
+     * Finds element in array that match argument.
+     *
+     * @param match match function.
+     * @return RetWithError<T*>.
+     */
+    template <typename P>
+    RetWithError<T*> Find(P match) const
+    {
+        for (auto it = mItems; it != end(); it++) {
+            if (match(*it)) {
+                return it;
+            }
+        }
+
+        return {nullptr, ErrorEnum::eNotFound};
+    }
+
     // Used for range based loop.
     T*       begin(void) { return &mItems[0]; }
     T*       end(void) { return &mItems[mSize]; }
