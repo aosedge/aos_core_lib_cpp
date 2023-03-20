@@ -399,6 +399,52 @@ public:
         return {nullptr, ErrorEnum::eNotFound};
     }
 
+    /**
+     * Removes item from array.
+     *
+     * @param item item to remove.
+     * @return RetWithError<T*> pointer to next after deleted item.
+     */
+    RetWithError<T*> Remove(T* item)
+    {
+        if (item < begin() || item > end()) {
+            return {nullptr, ErrorEnum::eInvalidArgument};
+        }
+
+        for (auto i = 0; i < end() - item - 1; i++) {
+            new (item + i) T(*(item + 1 + i));
+        }
+
+        mSize--;
+
+        return item;
+    }
+
+    /**
+     * Removes element from array that match argument.
+     *
+     * @param match match function.
+     * @return RetWithError<T*> pointer to end of new array.
+     */
+    template <typename P>
+    RetWithError<T*> Remove(P match)
+    {
+        for (auto it = begin(); it != end();) {
+            if (match(*it)) {
+                auto result = Remove(it);
+                if (!result.mError.IsNone()) {
+                    return result;
+                }
+
+                it = result.mValue;
+            } else {
+                it++;
+            }
+        }
+
+        return end();
+    }
+
     // Used for range based loop.
     T*       begin(void) { return &mItems[0]; }
     T*       end(void) { return &mItems[mSize]; }
