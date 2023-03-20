@@ -98,3 +98,30 @@ TEST(common, Array)
         EXPECT_EQ(value, cArray[i++]);
     }
 }
+
+TEST(common, ArrayInsert)
+{
+    StaticArray<int, 32> array;
+
+    // Insert at the end
+
+    int ins1[] = {8, 8, 8, 8, 8};
+
+    array.Insert(array.end(), ins1, ins1 + ArraySize(ins1));
+    EXPECT_EQ(array.Size(), ArraySize(ins1));
+    EXPECT_EQ(memcmp(array.begin(), ins1, ArraySize(ins1)), 0);
+
+    // Insert in the middle
+
+    int ins2[] = {3, 3, 3};
+
+    array.Insert(&array[2], ins2, ins2 + ArraySize(ins2));
+
+    int ins3[] = {5, 5, 5, 5, 5};
+    array.Insert(&array[6], ins3, ins3 + ArraySize(ins3));
+
+    int result[] = {8, 8, 3, 3, 3, 8, 5, 5, 5, 5, 5, 8, 8};
+
+    EXPECT_EQ(array.Size(), ArraySize(result));
+    EXPECT_EQ(memcmp(array.begin(), result, ArraySize(result)), 0);
+}
