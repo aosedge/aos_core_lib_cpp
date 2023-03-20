@@ -9,6 +9,7 @@
 #define AOS_ARRAY_HPP_
 
 #include <assert.h>
+#include <new>
 
 #include "aos/common/tools/buffer.hpp"
 #include "aos/common/tools/error.hpp"
@@ -270,7 +271,7 @@ public:
     /**
      * Pops item from the end of array.
      *
-     * @return RetWithError<T*>..
+     * @return RetWithError<T*>.
      */
     RetWithError<T> PopBack()
     {
@@ -330,10 +331,13 @@ public:
             return ErrorEnum::eInvalidArgument;
         }
 
-        // TODO: implement insert in the middle.
-        assert(pos == end());
+        for (auto i = 0; i < end() - pos; i++) {
+            new (pos + size + i) T(*(pos + i));
+        }
 
-        memcpy(pos, from, size);
+        for (auto i = 0; i < size; i++) {
+            new (pos + i) T(*(from + i));
+        }
 
         mSize += size;
 
