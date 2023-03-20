@@ -150,3 +150,35 @@ TEST(common, ArrayFind)
     EXPECT_TRUE(result.mError.IsNone());
     EXPECT_EQ(*result.mValue, 8);
 }
+
+TEST(common, ArrayRemove)
+{
+    int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+    Array<int> array(inputArray, ArraySize(inputArray));
+
+    // Remove one element
+
+    {
+        auto result = array.Remove(&array[4]);
+        EXPECT_TRUE(result.mError.IsNone());
+        EXPECT_EQ(*result.mValue, 5);
+
+        int resultArray[] = {0, 1, 2, 3, 5, 6, 7, 8, 9};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
+
+    // Remove matching condition
+
+    {
+        auto result = array.Remove([](const int& value) { return value == 6 ? true : false; });
+
+        EXPECT_TRUE(result.mError.IsNone());
+        EXPECT_EQ(result.mValue, array.end());
+
+        int resultArray[] = {0, 1, 2, 3, 5, 7, 8, 9};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
+}
