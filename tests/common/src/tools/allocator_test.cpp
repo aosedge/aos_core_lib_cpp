@@ -42,3 +42,42 @@ TEST(common, Allocator)
         }
     }
 }
+
+TEST(common, New)
+{
+    StaticAllocator<256> allocator;
+
+    auto freeSize = allocator.MaxSize();
+
+    auto val1 = new (&allocator) uint8_t();
+    freeSize -= sizeof(uint8_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    auto val2 = new (&allocator) uint16_t();
+    freeSize -= sizeof(uint16_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    auto val3 = new (&allocator) uint32_t();
+    freeSize -= sizeof(uint32_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    auto val4 = new (&allocator) uint64_t();
+    freeSize -= sizeof(uint64_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    operator delete(val4, &allocator);
+    freeSize += sizeof(uint64_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    operator delete(val3, &allocator);
+    freeSize += sizeof(uint32_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    operator delete(val2, &allocator);
+    freeSize += sizeof(uint16_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+
+    operator delete(val1, &allocator);
+    freeSize += sizeof(uint8_t);
+    EXPECT_EQ(allocator.FreeSize(), freeSize);
+}
