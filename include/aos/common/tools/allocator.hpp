@@ -182,4 +182,51 @@ private:
 
 } // namespace aos
 
+/**
+ * Overloads placement new operator to allocate object on Aos buffer.
+ *
+ * @param size allocate size.
+ * @param allocator allocator.
+ * @return void* allocated space.
+ */
+inline void* operator new(size_t size, aos::Allocator* allocator)
+{
+    assert(allocator);
+
+    auto data = allocator->Allocate(size);
+    assert(data);
+
+    return data;
+}
+
+/**
+ * Overloads placement sized new operator to allocate object on Aos buffer.
+ *
+ * @param size allocate size.
+ * @param allocator allocator.
+ * @return void* allocated space.
+ */
+inline void* operator new[](size_t size, aos::Allocator* allocator)
+{
+    assert(allocator);
+
+    auto data = allocator->Allocate(size);
+    assert(data);
+
+    return data;
+}
+
+/**
+ * Overloads placement delete operator to release object on Aos buffer.
+ *
+ * @param data pointer to allocated data.
+ * @param allocator allocator.
+ */
+inline void operator delete(void* data, aos::Allocator* allocator)
+{
+    assert(allocator);
+
+    allocator->Free(data);
+}
+
 #endif
