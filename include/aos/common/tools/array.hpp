@@ -199,10 +199,10 @@ public:
     RetWithError<T*> At(size_t index)
     {
         if (index >= mSize) {
-            return RetWithError<T*>(nullptr, ErrorEnum::eOutOfRange);
+            return {nullptr, ErrorEnum::eOutOfRange};
         }
 
-        return RetWithError<T*>(&mItems[index], ErrorEnum::eNone);
+        return &mItems[index];
     }
 
     /**
@@ -214,10 +214,10 @@ public:
     RetWithError<const T*> At(size_t index) const
     {
         if (index >= mSize) {
-            return RetWithError<const T*>(nullptr, ErrorEnum::eOutOfRange);
+            return {nullptr, ErrorEnum::eOutOfRange};
         }
 
-        return RetWithError<const T*>(&mItems[index], ErrorEnum::eNone);
+        return &mItems[index];
     }
 
     /**

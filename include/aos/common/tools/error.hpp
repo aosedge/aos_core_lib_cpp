@@ -265,7 +265,26 @@ struct RetWithError {
     {
     }
 
-    T     mValue;
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Constructs return value no error.
+     *
+     * @param value return value.
+     */
+    RetWithError(T value)
+        : mValue(value)
+        , mError(ErrorEnum::eNone)
+    {
+    }
+
+    /**
+     * Holds returned value.
+     */
+    T mValue;
+
+    /**
+     * Holds returned error.
+     */
     Error mError;
 };
 
