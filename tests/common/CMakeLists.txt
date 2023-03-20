@@ -20,6 +20,7 @@ set(SOURCES
     src/tools/array_test.cpp
     src/tools/ringbuffer_test.cpp
     src/tools/string_test.cpp
+    src/tools/allocator_test.cpp
 )
 
 # ######################################################################################################################
