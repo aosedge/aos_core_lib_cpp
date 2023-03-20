@@ -84,6 +84,70 @@ constexpr T Max(T value, Args... args)
     return Max(value, Max(args...));
 }
 
+/**
+ * Remove reference template.
+ *
+ * @tparam T reference type.
+ */
+template <typename T>
+struct RemoveRef {
+    typedef T type;
+};
+
+/**
+ * Remove reference template.
+ *
+ * @tparam T reference type.
+ */
+template <typename T>
+struct RemoveRef<T&> {
+    typedef T type;
+};
+
+/**
+ * Remove reference template.
+ *
+ * @tparam T reference type.
+ */
+template <typename T>
+struct RemoveRef<T&&> {
+    typedef T type;
+};
+
+/**
+ * Remove const template.
+ *
+ * @tparam T const type.
+ */
+template <typename T>
+struct RemoveConst {
+    typedef T type;
+};
+
+/**
+ * Remove const template.
+ *
+ * @tparam T const type.
+ */
+template <typename T>
+struct RemoveConst<const T> {
+    typedef T type;
+};
+
+template <class T>
+using RemoveConstType = typename RemoveConst<T>::type;
+
+/**
+ * Move template.
+ *
+ * @tparam T object to move.
+ */
+template <typename T>
+inline typename RemoveRef<T>::type&& Move(T&& object)
+{
+    return static_cast<typename RemoveRef<T>::type&&>(object);
+}
+
 } // namespace aos
 
 #endif
