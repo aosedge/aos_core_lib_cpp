@@ -162,7 +162,7 @@ public:
      * @param stringer object to log.
      * @return Log&
      */
-    Log& operator<<(const Stringer& stringer) { return *this << stringer.ToString().CStr(); };
+    Log& operator<<(const Stringer& stringer) { return *this << stringer.ToString(); };
 
     /**
      * Logs int.
