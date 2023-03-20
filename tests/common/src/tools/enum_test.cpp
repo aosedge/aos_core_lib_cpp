@@ -15,11 +15,11 @@ class TestType {
 public:
     enum class Enum { eTestDefault, eTestType1, eTestType2, eTestTypeSize };
 
-    static const Array<const String> GetStrings()
+    static const Array<const char* const> GetStrings()
     {
-        static const String cTestTypeStrings[] = {"default", "type1", "type2"};
+        static const char* const cTestTypeStrings[] = {"default", "type1", "type2"};
 
-        return Array<const String>(cTestTypeStrings, ArraySize(cTestTypeStrings));
+        return Array<const char* const>(cTestTypeStrings, ArraySize(cTestTypeStrings));
     };
 };
 
@@ -48,7 +48,7 @@ TEST(common, EnumStringer)
     EXPECT_TRUE(TestEnum::eTestType1 == TestEnum(TestEnum::eTestType1));
     EXPECT_TRUE(TestEnum::eTestType2 != TestEnum(TestEnum::eTestType1));
 
-    EXPECT_EQ(strcmp(TestInstance().ToString().CStr(), "default"), 0);
-    EXPECT_EQ(strcmp(TestInstance(TestEnum::eTestType1).ToString().CStr(), "type1"), 0);
-    EXPECT_EQ(strcmp(TestInstance(static_cast<TestEnum>(-1)).ToString().CStr(), "unknown"), 0);
+    EXPECT_EQ(TestInstance().ToString().CStr(), "default");
+    EXPECT_EQ(TestInstance(TestEnum::eTestType1).ToString().CStr(), "type1");
+    EXPECT_EQ(TestInstance(static_cast<TestEnum>(-1)).ToString().CStr(), "unknown");
 }
