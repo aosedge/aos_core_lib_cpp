@@ -125,3 +125,28 @@ TEST(common, ArrayInsert)
     EXPECT_EQ(array.Size(), ArraySize(result));
     EXPECT_EQ(memcmp(array.begin(), result, ArraySize(result)), 0);
 }
+
+TEST(common, ArrayFind)
+{
+    int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+    Array<int> array(inputArray, ArraySize(inputArray));
+
+    // Found
+
+    auto result = array.Find(4);
+    EXPECT_TRUE(result.mError.IsNone());
+    EXPECT_EQ(*result.mValue, 4);
+
+    // Not found
+
+    result = array.Find(13);
+    EXPECT_TRUE(result.mError.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(result.mValue, nullptr);
+
+    // Found matched
+
+    result = array.Find([](const int& value) { return value == 8 ? true : false; });
+    EXPECT_TRUE(result.mError.IsNone());
+    EXPECT_EQ(*result.mValue, 8);
+}
