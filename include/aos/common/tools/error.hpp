@@ -31,6 +31,8 @@ namespace aos {
  */
 class Error {
 public:
+    // NOTE: new error type should be added also to private GetStrings() method below and covered
+    // with unit test: TEST(common, ErrorMessages).
     /**
      * Error enum.
      */
@@ -43,6 +45,7 @@ public:
         eNotFound,
         eInvalidArgument,
         eTimeout,
+        eWrongState,
         eNumErrors
     };
 
@@ -233,8 +236,17 @@ private:
      */
     static Pair<const char* const*, size_t> GetStrings()
     {
-        static const char* const sErrorTypeStrings[] = {"none", "failed", "runtime error", "not enough memory",
-            "out of range", "not found", "invalid argument", "timeout"};
+        static const char* const sErrorTypeStrings[] = {
+            "none",
+            "failed",
+            "runtime error",
+            "not enough memory",
+            "out of range",
+            "not found",
+            "invalid argument",
+            "timeout",
+            "wrong state",
+        };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
     };
