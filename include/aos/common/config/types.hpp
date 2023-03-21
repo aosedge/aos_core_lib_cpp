@@ -78,4 +78,18 @@
 #define AOS_CONFIG_TYPES_DESCRIPTION_LEN 200
 #endif
 
+/**
+ * Error message len.
+ */
+#ifndef AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN
+#define AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN 256
+#endif
+
+/**
+ * File chunk size.
+ */
+#ifndef AOS_CONFIG_TYPES_FILE_CHUNK_SIZE
+#define AOS_CONFIG_TYPES_FILE_CHUNK_SIZE 1024
+#endif
+
 #endif

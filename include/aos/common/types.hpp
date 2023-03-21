@@ -78,6 +78,16 @@ constexpr auto cSHA256Size = 32;
 constexpr auto cSHA512Size = 64;
 
 /**
+ * Error message len.
+ */
+constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
+
+/**
+ * File chunk size.
+ */
+constexpr auto cFileChunkSize = AOS_CONFIG_TYPES_FILE_CHUNK_SIZE;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
