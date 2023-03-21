@@ -88,7 +88,7 @@ public:
         }
 
         if (mItems) {
-            memcpy(mItems, array.mItems, array.mSize * sizeof(T));
+            memcpy(static_cast<void*>(mItems), static_cast<void*>(array.mItems), array.mSize * sizeof(T));
         } else {
             mItems = array.mItems;
             mMaxSize = array.mMaxSize;
