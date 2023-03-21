@@ -77,3 +77,15 @@ TEST(common, Error)
     EXPECT_EQ(errnoErr.LineNumber(), __LINE__ - 1);
     EXPECT_EQ(strcmp(errnoErr.Message(), "Resource temporarily unavailable"), 0);
 }
+
+TEST(common, ErrorMessages)
+{
+    EXPECT_EQ(Error(ErrorEnum::eNone).Message(), "none");
+    EXPECT_EQ(Error(ErrorEnum::eFailed).Message(), "failed");
+    EXPECT_EQ(Error(ErrorEnum::eRuntime).Message(), "runtime error");
+    EXPECT_EQ(Error(ErrorEnum::eNoMemory).Message(), "not enough memory");
+    EXPECT_EQ(Error(ErrorEnum::eOutOfRange).Message(), "out of range");
+    EXPECT_EQ(Error(ErrorEnum::eInvalidArgument).Message(), "invalid argument");
+    EXPECT_EQ(Error(ErrorEnum::eNotFound).Message(), "not found");
+    EXPECT_EQ(Error(ErrorEnum::eWrongState).Message(), "wrong state");
+}
