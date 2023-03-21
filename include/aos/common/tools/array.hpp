@@ -498,6 +498,18 @@ public:
         Array<T>::SetBuffer(mBuffer, size);
     }
 
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Creates dynamic array from another array.
+     *
+     * @param array array to create from.
+     */
+    DynamicArray(const Array<T>& array)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+    }
+
 private:
     DynamicBuffer mBuffer;
 };
@@ -517,6 +529,18 @@ public:
      * @param size current array size.
      */
     explicit StaticArray(size_t size = 0) { Array<T>::SetBuffer(mBuffer, size); }
+
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Creates static array from another array.
+     *
+     * @param array array to create from.
+     */
+    StaticArray(const Array<T>& array)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+    }
 
 private:
     StaticBuffer<cMaxSize * sizeof(T)> mBuffer;
