@@ -75,7 +75,7 @@ public:
      * @param arg  optional argument that will be passed to functor.
      */
     Function(T& functor, void* arg = nullptr)
-        : mFunctor(functor)
+        : mFunctor(Move(functor))
         , mArg(arg)
     {
     }
