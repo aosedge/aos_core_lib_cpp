@@ -56,7 +56,7 @@ public:
     /**
      * Call function operator.
      */
-    virtual void operator()() const = 0;
+    virtual void operator()() = 0;
 };
 
 /**
@@ -83,7 +83,7 @@ public:
     /**
      * Implements call function operator.
      */
-    void operator()() const override { mFunctor(mArg); }
+    void operator()() override { mFunctor(mArg); }
 
     /**
      * Returns size of function.
