@@ -11,8 +11,8 @@
 #include <cstdint>
 
 #include "aos/common/config/types.hpp"
-#include "aos/common/enum.hpp"
-#include "aos/common/error.hpp"
+#include "aos/common/tools/enum.hpp"
+#include "aos/common/tools/error.hpp"
 
 namespace aos {
 

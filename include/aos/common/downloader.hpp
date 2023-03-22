@@ -8,9 +8,9 @@
 #ifndef AOS_DOWNLOADER_HPP_
 #define AOS_DOWNLOADER_HPP_
 
-#include "aos/common/enum.hpp"
-#include "aos/common/error.hpp"
-#include "aos/common/string.hpp"
+#include "aos/common/tools/enum.hpp"
+#include "aos/common/tools/error.hpp"
+#include "aos/common/tools/string.hpp"
 
 namespace aos {
 

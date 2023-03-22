@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/ringbuffer.hpp"
+#include "aos/common/tools/ringbuffer.hpp"
 
 using namespace aos;
 

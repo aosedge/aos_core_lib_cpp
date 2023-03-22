@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/error.hpp"
+#include "aos/common/tools/error.hpp"
 
 using namespace aos;
 

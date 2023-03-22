@@ -8,7 +8,7 @@
 #ifndef LOG_HPP_
 #define LOG_HPP_
 
-#include "aos/common/log.hpp"
+#include "aos/common/tools/log.hpp"
 
 #define LOG_DBG() LOG_MODULE_DBG(LogModuleEnum::eIAMCertHandler)
 #define LOG_INF() LOG_MODULE_INF(LogModuleEnum::eIAMCertHandler)

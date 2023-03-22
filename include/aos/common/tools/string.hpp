@@ -8,7 +8,7 @@
 #ifndef AOS_STRING_HPP_
 #define AOS_STRING_HPP_
 
-#include <aos/common/array.hpp>
+#include <aos/common/tools/array.hpp>
 #include <stdio.h>
 #include <string.h>
 

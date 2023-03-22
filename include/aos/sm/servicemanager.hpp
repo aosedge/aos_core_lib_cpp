@@ -8,7 +8,7 @@
 #ifndef AOS_SERVICEMANAGER_HPP_
 #define AOS_SERVICEMANAGER_HPP_
 
-#include "aos/common/noncopyable.hpp"
+#include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 
 namespace aos {

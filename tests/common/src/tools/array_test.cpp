@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/array.hpp"
+#include "aos/common/tools/array.hpp"
 
 using namespace aos;
 

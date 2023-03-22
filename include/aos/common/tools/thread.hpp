@@ -12,10 +12,10 @@
 #include <pthread.h>
 
 #include "aos/common/config/thread.hpp"
-#include "aos/common/error.hpp"
-#include "aos/common/noncopyable.hpp"
-#include "aos/common/ringbuffer.hpp"
-#include "aos/common/utils.hpp"
+#include "aos/common/tools/error.hpp"
+#include "aos/common/tools/noncopyable.hpp"
+#include "aos/common/tools/ringbuffer.hpp"
+#include "aos/common/tools/utils.hpp"
 
 namespace aos {
 

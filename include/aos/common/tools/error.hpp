@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "aos/common/utils.hpp"
+#include "aos/common/tools/utils.hpp"
 
 namespace aos {
 

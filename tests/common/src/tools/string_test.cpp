@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/string.hpp"
+#include "aos/common/tools/string.hpp"
 
 using namespace aos;
 

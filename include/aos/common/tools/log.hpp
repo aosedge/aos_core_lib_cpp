@@ -9,9 +9,9 @@
 #define AOS_LOG_HPP_
 
 #include "aos/common/config/log.hpp"
-#include "aos/common/enum.hpp"
-#include "aos/common/error.hpp"
-#include "aos/common/noncopyable.hpp"
+#include "aos/common/tools/enum.hpp"
+#include "aos/common/tools/error.hpp"
+#include "aos/common/tools/noncopyable.hpp"
 
 /**
  * Helper macro to display debug log.

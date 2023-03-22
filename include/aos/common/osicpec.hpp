@@ -8,8 +8,8 @@
 #ifndef AOS_OCISPEC_HPP_
 #define AOS_OCISPEC_HPP_
 
-#include "aos/common/string.hpp"
-#include "aos/common/types.hpp"
+#include "aos/common/tools/string.hpp"
+#include "aos/common/tools/types.hpp"
 
 namespace aos {
 namespace oci {

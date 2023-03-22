@@ -12,14 +12,14 @@ set(TARGET aoscommoncpp_test)
 # ######################################################################################################################
 
 set(SOURCES
-    src/enum_test.cpp
-    src/error_test.cpp
-    src/log_test.cpp
-    src/thread_test.cpp
-    src/buffer_test.cpp
-    src/array_test.cpp
-    src/ringbuffer_test.cpp
-    src/string_test.cpp
+    src/tools/enum_test.cpp
+    src/tools/error_test.cpp
+    src/tools/log_test.cpp
+    src/tools/thread_test.cpp
+    src/tools/buffer_test.cpp
+    src/tools/array_test.cpp
+    src/tools/ringbuffer_test.cpp
+    src/tools/string_test.cpp
 )
 
 # ######################################################################################################################

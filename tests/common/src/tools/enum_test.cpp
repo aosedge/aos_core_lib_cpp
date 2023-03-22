@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/enum.hpp"
+#include "aos/common/tools/enum.hpp"
 
 using namespace aos;
 

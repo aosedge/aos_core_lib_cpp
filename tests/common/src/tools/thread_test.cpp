@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/thread.hpp"
+#include "aos/common/tools/thread.hpp"
 
 using namespace aos;
 

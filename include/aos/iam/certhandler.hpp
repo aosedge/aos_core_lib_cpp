@@ -8,7 +8,7 @@
 #ifndef AOS_CERTHANDLER_HPP_
 #define AOS_CERTHANDLER_HPP_
 
-#include "aos/common/error.hpp"
+#include "aos/common/tools/error.hpp"
 
 namespace aos {
 namespace iam {

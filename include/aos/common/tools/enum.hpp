@@ -8,7 +8,7 @@
 #ifndef AOS_ENUM_HPP_
 #define AOS_ENUM_HPP_
 
-#include "aos/common/string.hpp"
+#include "aos/common/tools/string.hpp"
 
 namespace aos {
 
