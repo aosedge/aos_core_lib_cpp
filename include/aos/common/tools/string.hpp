@@ -292,7 +292,7 @@ public:
     {
         *(static_cast<char*>(mBuffer.Get())) = 0;
         *(static_cast<char*>(mBuffer.Get()) + cMaxSize) = 0;
-        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::SetBuffer(mBuffer, cMaxSize);
     }
 
     /**
@@ -328,7 +328,7 @@ public:
      */
     StaticString(const String& str)
     {
-        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::SetBuffer(mBuffer, cMaxSize);
         String::operator=(str);
     }
 
@@ -340,7 +340,7 @@ public:
      */
     StaticString(const char* str)
     {
-        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::SetBuffer(mBuffer, cMaxSize);
         String::operator=(str);
     }
 
@@ -377,7 +377,7 @@ public:
     {
         *(static_cast<char*>(mBuffer.Get())) = 0;
         *(static_cast<char*>(mBuffer.Get()) + cMaxSize) = 0;
-        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::SetBuffer(mBuffer, cMaxSize);
     }
 
     /**
@@ -413,7 +413,7 @@ public:
      */
     DynamicString(const String& str)
     {
-        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::SetBuffer(mBuffer, cMaxSize);
         String::operator=(str);
     }
 
@@ -425,7 +425,7 @@ public:
      */
     DynamicString(const char* str)
     {
-        String::SetBuffer(mBuffer, 0, cMaxSize);
+        String::SetBuffer(mBuffer, cMaxSize);
         String::operator=(str);
     }
 

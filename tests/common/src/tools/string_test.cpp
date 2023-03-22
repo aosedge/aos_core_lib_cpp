@@ -18,7 +18,9 @@ TEST(common, String)
     EXPECT_TRUE(str.IsEmpty());
     EXPECT_EQ(str.Size(), 0);
 
-    auto cStr = "test C string";
+    char cStr[20];
+
+    strcpy(cStr, "test C string");
 
     str = cStr;
 

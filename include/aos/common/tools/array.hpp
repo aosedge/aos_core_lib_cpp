@@ -40,10 +40,10 @@ public:
      * @param buffer underlying buffer.
      * @param size current array size.
      */
-    explicit Array(const Buffer& buffer, size_t size = 0)
-        : mSize(size)
+    explicit Array(const Buffer& buffer)
+        : mSize(0)
     {
-        SetBuffer(buffer, size);
+        SetBuffer(buffer);
     }
 
     /**
@@ -79,7 +79,7 @@ public:
      */
     Array& operator=(const Array& array)
     {
-        assert(!mItems || array.mMaxSize <= mMaxSize);
+        assert(mItems && array.mSize <= mMaxSize);
 
         mSize = array.mSize;
 
@@ -87,12 +87,7 @@ public:
             return *this;
         }
 
-        if (mItems) {
-            memcpy(mItems, array.mItems, array.mSize * sizeof(T));
-        } else {
-            mItems = array.mItems;
-            mMaxSize = array.mMaxSize;
-        }
+        memcpy(static_cast<void*>(mItems), static_cast<void*>(array.mItems), array.mSize * sizeof(T));
 
         return *this;
     }
@@ -136,14 +131,16 @@ public:
      * @param size new size.
      * @return Error.
      */
-    Error Resize(size_t size)
+    Error Resize(size_t size, const T& value = T())
     {
         if (size > mMaxSize) {
             return ErrorEnum::eNoMemory;
         }
 
         if (size > mSize) {
-            memset(end(), 0, (size - mSize) * sizeof(T));
+            for (auto it = end(); it != end() + size - mSize; it++) {
+                memcpy(end(), &value, sizeof(T));
+            }
         }
 
         mSize = size;
@@ -452,7 +449,7 @@ public:
     const T* end(void) const { return &mItems[mSize]; }
 
 protected:
-    void SetBuffer(const Buffer& buffer, size_t size = 0, size_t maxSize = 0)
+    void SetBuffer(const Buffer& buffer, size_t maxSize = 0)
     {
         if (maxSize == 0) {
             mMaxSize = buffer.Size() / sizeof(T);
@@ -460,14 +457,9 @@ protected:
             mMaxSize = maxSize;
         }
 
-        mSize = size;
-
         assert(mMaxSize != 0);
-        assert(mSize <= mMaxSize);
 
         mItems = static_cast<T*>(buffer.Get());
-
-        memset(static_cast<void*>(begin()), 0, mSize * sizeof(T));
     }
 
     void SetSize(size_t size) { mSize = size; }
@@ -489,13 +481,11 @@ class DynamicArray : public Array<T> {
 public:
     /**
      * Create dynamic array.
-     *
-     * @param size current array size.
      */
-    explicit DynamicArray(size_t size = 0)
+    explicit DynamicArray()
         : mBuffer(cMaxSize * sizeof(T))
     {
-        Array<T>::SetBuffer(mBuffer, size);
+        Array<T>::SetBuffer(mBuffer);
     }
 
     // cppcheck-suppress noExplicitConstructor
@@ -525,10 +515,8 @@ class StaticArray : public Array<T> {
 public:
     /**
      * Creates static array.
-     *
-     * @param size current array size.
      */
-    explicit StaticArray(size_t size = 0) { Array<T>::SetBuffer(mBuffer, size); }
+    explicit StaticArray() { Array<T>::SetBuffer(mBuffer); }
 
     /**
      * Creates static array from another static array.
