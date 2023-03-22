@@ -9,10 +9,10 @@
 #define AOS_ARRAY_HPP_
 
 #include <assert.h>
-#include <new>
 
 #include "aos/common/tools/buffer.hpp"
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/new.hpp"
 
 namespace aos {
 
