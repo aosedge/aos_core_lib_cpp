@@ -20,9 +20,9 @@ namespace runner {
  * Instance run status.
  */
 struct RunStatus {
-    char             mInstanceID[cInstanceIDLen + 1];
-    InstanceRunState mState;
-    Error            mError;
+    StaticString<cInstanceIDLen> mInstanceID;
+    InstanceRunState                 mState;
+    Error                            mError;
 };
 
 /**
@@ -37,7 +37,7 @@ public:
      * @param runtimeDir directory with runtime spec.
      * @return RunStatus.
      */
-    virtual RunStatus StartInstance(const char* instanceID, const char* runtimeDir) = 0;
+    virtual RunStatus StartInstance(const String& instanceID, const String& runtimeDir) = 0;
 
     /**
      * Stops instance.
@@ -45,7 +45,7 @@ public:
      * @param instanceID instance ID>
      * @return Error.
      */
-    virtual Error StopInstance(const char* instanceID) = 0;
+    virtual Error StopInstance(const String& instanceID) = 0;
 };
 
 /**
