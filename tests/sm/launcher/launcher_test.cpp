@@ -32,7 +32,7 @@ public:
 
 class TestRunner : public RunnerItf {
 public:
-    RunStatus StartInstance(const char* instanceID, const char* runtimeDir)
+    RunStatus StartInstance(const String& instanceID, const String& runtimeDir)
     {
         (void)instanceID;
         (void)runtimeDir;
@@ -40,7 +40,7 @@ public:
         return RunStatus {};
     }
 
-    Error StopInstance(const char* instanceID)
+    Error StopInstance(const String& instanceID)
     {
         (void)instanceID;
 
