@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <cstdint>
+#include <new>
 #include <pthread.h>
 
 #include "aos/common/config/thread.hpp"
@@ -91,20 +92,6 @@ public:
      * @return size_t.
      */
     size_t Size() const override { return sizeof(Function); };
-
-    /**
-     * Own placement new operator.
-     *
-     * @param size size of object.
-     * @param mem pointer to memory region.
-     * @return void*.
-     */
-    static void* operator new(size_t size, void* mem)
-    {
-        (void)size;
-
-        return mem;
-    }
 
 private:
     T     mFunctor;
