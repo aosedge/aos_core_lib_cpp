@@ -92,4 +92,11 @@
 #define AOS_CONFIG_TYPES_FILE_CHUNK_SIZE 1024
 #endif
 
+/**
+ * Timer signal event notification.
+ */
+#ifndef AOS_CONFIG_TIMER_SIGEV_NOTIFY
+#define AOS_CONFIG_TIMER_SIGEV_NOTIFY SIGEV_THREAD
+#endif
+
 #endif
