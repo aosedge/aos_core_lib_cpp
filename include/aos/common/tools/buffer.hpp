@@ -55,12 +55,6 @@ protected:
     {
     }
 
-    Buffer(void* buffer, size_t size)
-        : mBuffer(buffer)
-        , mSize(size)
-    {
-    }
-
     void SetBuffer(void* buffer, size_t size)
     {
         mBuffer = buffer;
@@ -82,10 +76,7 @@ public:
      *
      * @param size buffer size.
      */
-    explicit DynamicBuffer(size_t size)
-        : Buffer(operator new(size), size)
-    {
-    }
+    explicit DynamicBuffer(size_t size) { SetBuffer(operator new(size), size); }
 
     // cppcheck-suppress noExplicitConstructor
     /**
@@ -94,8 +85,8 @@ public:
      * @param buffer buffer to crate from.
      */
     DynamicBuffer(const Buffer& buffer)
-        : Buffer(operator new(buffer.Size()), buffer.Size())
     {
+        SetBuffer(operator new(buffer.Size()), buffer.Size());
         Buffer::operator=(buffer);
     }
 
