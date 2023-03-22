@@ -87,7 +87,9 @@ public:
             return *this;
         }
 
-        memcpy(static_cast<void*>(mItems), static_cast<void*>(array.mItems), array.mSize * sizeof(T));
+        for (size_t i = 0; i < array.Size(); i++) {
+            new (&mItems[i]) T(array.mItems[i]);
+        }
 
         return *this;
     }
@@ -95,7 +97,14 @@ public:
     /**
      * Clears array.
      */
-    void Clear() { mSize = 0; }
+    void Clear()
+    {
+        for (auto it = begin(); it != end(); it++) {
+            it->~T();
+        }
+
+        mSize = 0;
+    }
 
     /**
      * Checks if array is empty.
@@ -139,7 +148,7 @@ public:
 
         if (size > mSize) {
             for (auto it = end(); it != end() + size - mSize; it++) {
-                memcpy(end(), &value, sizeof(T));
+                new (it) T(value);
             }
         }
 
@@ -258,7 +267,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        memcpy(static_cast<void*>(end()), static_cast<const void*>(&item), sizeof(T));
+        new (end()) T(item);
 
         mSize++;
 
@@ -280,8 +289,6 @@ public:
 
         mSize--;
 
-        memset(end(), 0, sizeof(T));
-
         return result;
     }
 
@@ -297,7 +304,13 @@ public:
             return false;
         }
 
-        return memcmp(array.Get(), mItems, mSize * sizeof(T)) == 0;
+        for (size_t i = 0; i < mSize; i++) {
+            if (mItems[i] != array.mItems[i]) {
+                return false;
+            }
+        }
+
+        return true;
     };
 
     /**
@@ -409,7 +422,9 @@ public:
         }
 
         for (auto i = 0; i < end() - item - 1; i++) {
-            new (item + i) T(*(item + 1 + i));
+            (item + i)->~T();
+            new (item + i) T(*(item + i + 1));
+            (item + i + 1)->~T();
         }
 
         mSize--;
