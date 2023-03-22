@@ -34,7 +34,18 @@ public:
     /**
      * Error enum.
      */
-    enum class Enum { eNone, eFailed, eRuntime, eNoMemory, eOutOfRange, eNotFound, eInvalidArgument, eNumErrors };
+    enum class Enum {
+        eNone,
+        eFailed,
+        eRuntime,
+        eNoMemory,
+        eOutOfRange,
+        eNotFound,
+        eInvalidArgument,
+        eFile,
+        eTimeout,
+        eNumErrors
+    };
 
     /**
      * Constructs default error instance.
@@ -220,7 +231,8 @@ private:
     static Pair<const char* const*, size_t> GetStrings()
     {
         static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)]
-            = {"none", "failed", "runtime error", "not enough memory", "out of range", "invalid argument", "not found"};
+            = {"none", "failed", "runtime error", "not enough memory", "out of range", "invalid argument", "file error",
+                "timeout", "not found"};
 
         return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
     };
