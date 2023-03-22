@@ -48,7 +48,36 @@ public:
     }
 };
 
-class TestStorage : public StorageItf { };
+class TestStorage : public StorageItf {
+public:
+    virtual Error AddInstance(const InstanceInfo& instance) override
+    {
+        (void)instance;
+
+        return ErrorEnum::eNone;
+    }
+
+    virtual Error UpdateInstance(const InstanceInfo& instance) override
+    {
+        (void)instance;
+
+        return ErrorEnum::eNone;
+    }
+
+    virtual Error RemoveInstance(const InstanceIdent& instanceIdent) override
+    {
+        (void)instanceIdent;
+
+        return ErrorEnum::eNone;
+    }
+
+    virtual Error GetAllInstances(Array<InstanceInfo>& instances) override
+    {
+        (void)instances;
+
+        return ErrorEnum::eNone;
+    }
+};
 
 TEST(launcher, RunInstances)
 {

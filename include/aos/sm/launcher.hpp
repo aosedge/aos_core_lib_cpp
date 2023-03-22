@@ -67,6 +67,42 @@ public:
  */
 class StorageItf {
 public:
+    /**
+     * Adds new instance to storage.
+     *
+     * @param instance instance to add.
+     * @return Error.
+     */
+    virtual Error AddInstance(const InstanceInfo& instance) = 0;
+
+    /**
+     * Updates previously stored instance.
+     *
+     * @param instance instance to update.
+     * @return Error.
+     */
+    virtual Error UpdateInstance(const InstanceInfo& instance) = 0;
+
+    /**
+     * Removes previously stored instance.
+     *
+     * @param instanceID instance ID to remove.
+     * @return Error.
+     */
+    virtual Error RemoveInstance(const InstanceIdent& instanceIdent) = 0;
+
+    /**
+     * Returns all stored instances.
+     *
+     * @param instances array to return stored instances.
+     * @return Error.
+     */
+    virtual Error GetAllInstances(Array<InstanceInfo>& instances) = 0;
+
+    /**
+     * Destroys storage interface.
+     */
+    virtual ~StorageItf() = default;
 };
 
 /**
