@@ -25,14 +25,18 @@ TEST(common, Array)
 
     // Static array
 
-    StaticArray<int, cNumItems> staticArray(3);
+    StaticArray<int, cNumItems> staticArray;
+
+    EXPECT_TRUE(staticArray.Resize(3).IsNone());
 
     EXPECT_EQ(staticArray.Size(), 3);
     EXPECT_EQ(staticArray.MaxSize(), cNumItems);
 
     // Dynamic array
 
-    DynamicArray<int, cNumItems> dynamicArray(cNumItems);
+    DynamicArray<int, cNumItems> dynamicArray;
+
+    EXPECT_TRUE(dynamicArray.Resize(cNumItems).IsNone());
 
     EXPECT_EQ(dynamicArray.Size(), cNumItems);
     EXPECT_EQ(dynamicArray.MaxSize(), cNumItems);
