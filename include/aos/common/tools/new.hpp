@@ -11,7 +11,7 @@
 #include <new>
 #include <stddef.h>
 
-#include "aos/common/config/new.hpp"
+#include "aos/common/tools/config.hpp"
 
 #if AOS_CONFIG_NEW_USE_AOS
 
