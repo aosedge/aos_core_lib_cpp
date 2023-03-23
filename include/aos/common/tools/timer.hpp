@@ -13,7 +13,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "aos/common/config.hpp"
+#include "aos/common/tools/config.hpp"
 #include "aos/common/tools/function.hpp"
 
 namespace aos {

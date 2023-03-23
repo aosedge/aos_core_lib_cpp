@@ -5,8 +5,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CONFIG_THREAD_HPP_
-#define AOS_CONFIG_THREAD_HPP_
+#ifndef AOS_TOOLS_CONFIG_HPP_
+#define AOS_TOOLS_CONFIG_HPP_
+
+/**
+ * Log levels.
+ *
+ */
+#define AOS_CONFIG_LOG_LEVEL_DISABLE 0
+#define AOS_CONFIG_LOG_LEVEL_ERROR   1
+#define AOS_CONFIG_LOG_LEVEL_WARNING 2
+#define AOS_CONFIG_LOG_LEVEL_INFO    3
+#define AOS_CONFIG_LOG_LEVEL_DEBUG   4
+
+/**
+ * Configures log level.
+ *
+ */
+#ifndef AOS_CONFIG_LOG_LEVEL
+#define AOS_CONFIG_LOG_LEVEL AOS_CONFIG_LOG_LEVEL_DEBUG
+#endif
+
+/**
+ * Max log line size.
+ *
+ */
+#ifndef AOS_CONFIG_LOG_LINE_LEN
+#define AOS_CONFIG_LOG_LINE_LEN 120
+#endif
 
 /**
  * Configures function max size.
@@ -36,6 +62,20 @@
  */
 #ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE
 #define AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE 16
+#endif
+
+/**
+ * Enables Aos custom new operators.
+ */
+#ifndef AOS_CONFIG_NEW_USE_AOS
+#define AOS_CONFIG_NEW_USE_AOS 0
+#endif
+
+/**
+ * Timer signal event notification.
+ */
+#ifndef AOS_CONFIG_TIMER_SIGEV_NOTIFY
+#define AOS_CONFIG_TIMER_SIGEV_NOTIFY SIGEV_THREAD
 #endif
 
 #endif

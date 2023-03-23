@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "aos/common/config/types.hpp"
+#include "aos/common/config.hpp"
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
 

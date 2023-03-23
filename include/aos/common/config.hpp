@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CONFIG_TYPES_HPP_
-#define AOS_CONFIG_TYPES_HPP_
+#ifndef AOS_COMMON_CONFIG_HPP_
+#define AOS_COMMON_CONFIG_HPP_
 
 /**
  * Service/layer description len.
@@ -111,13 +111,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_FILE_CHUNK_SIZE
 #define AOS_CONFIG_TYPES_FILE_CHUNK_SIZE 1024
-#endif
-
-/**
- * Timer signal event notification.
- */
-#ifndef AOS_CONFIG_TIMER_SIGEV_NOTIFY
-#define AOS_CONFIG_TIMER_SIGEV_NOTIFY SIGEV_THREAD
 #endif
 
 #endif

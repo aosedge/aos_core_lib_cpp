@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <pthread.h>
 
-#include "aos/common/config/thread.hpp"
+#include "aos/common/tools/config.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/function.hpp"
 #include "aos/common/tools/noncopyable.hpp"
