@@ -23,6 +23,7 @@ set(SOURCES
     src/tools/allocator_test.cpp
     src/tools/memory_test.cpp
     src/tools/queue_test.cpp
+    src/tools/function_test.cpp
 )
 
 # ######################################################################################################################

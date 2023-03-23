@@ -35,6 +35,13 @@
 #endif
 
 /**
+ * Configures function max size.
+ */
+#ifndef AOS_CONFIG_FUNCTION_MAX_SIZE
+#define AOS_CONFIG_FUNCTION_MAX_SIZE 256
+#endif
+
+/**
  * Configures max thread task size.
  */
 #ifndef AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE
