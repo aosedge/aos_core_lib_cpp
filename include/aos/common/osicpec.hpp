@@ -9,7 +9,7 @@
 #define AOS_OCISPEC_HPP_
 
 #include "aos/common/tools/string.hpp"
-#include "aos/common/tools/types.hpp"
+#include "aos/common/types.hpp"
 
 namespace aos {
 namespace oci {
@@ -17,12 +17,12 @@ namespace oci {
 /**
  * Spec parameter max len.
  */
-constexpr auto cParamLen = 64;
+constexpr auto cMaxParamLen = 64;
 
 /**
  * Spec parameter max count.
  */
-constexpr auto cParamCount = 8;
+constexpr auto cMaxParamCount = 8;
 
 /**
  * Spec version max len.
