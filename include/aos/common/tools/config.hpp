@@ -42,13 +42,6 @@
 #endif
 
 /**
- * Configures max thread task size.
- */
-#ifndef AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE
-#define AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE 256
-#endif
-
-/**
  * Configures default thread stack size.
  *
  * Use minimal stack size PTHREAD_STACK_MIN + 2k for storing thread functor.
@@ -68,7 +61,7 @@
  * Configures default thread pool queue size.
  */
 #ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE
-#define AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE 1024
+#define AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE 16
 #endif
 
 /**
