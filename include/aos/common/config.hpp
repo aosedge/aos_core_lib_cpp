@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CONFIG_TYPES_HPP_
-#define AOS_CONFIG_TYPES_HPP_
+#ifndef AOS_COMMON_CONFIG_HPP_
+#define AOS_COMMON_CONFIG_HPP_
 
 /**
  * Service/layer description len.
