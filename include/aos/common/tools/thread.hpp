@@ -13,18 +13,12 @@
 #include <pthread.h>
 
 #include "aos/common/config/thread.hpp"
-#include "aos/common/tools/buffer.hpp"
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/function.hpp"
 #include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/ringbuffer.hpp"
-#include "aos/common/tools/utils.hpp"
+#include "aos/common/tools/queue.hpp"
 
 namespace aos {
-
-/**
- * Default thread max function size.
- */
-constexpr auto cDefaultThreadMaxFunctionSize = AOS_CONFIG_THREAD_DEFAULT_MAX_FUNCTION_SIZE;
 
 /**
  * Default tread stack size.
@@ -42,79 +36,9 @@ constexpr auto cThreadStackAlign = AOS_CONFIG_THREAD_STACK_ALIGN;
 constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE;
 
 /**
- * Defines callable interface used by thread.
- */
-class CallableItf {
-public:
-    /**
-     * Returns size of function.
-     *
-     * @return size_t.
-     */
-    virtual size_t Size() const = 0;
-
-    /**
-     * Call function operator.
-     */
-    virtual void operator()() const = 0;
-};
-
-/**
- * Thread function instance.
- *
- * @tparam T type of thread function instance.
- */
-template <typename T>
-class Function : public CallableItf {
-public:
-    // cppcheck-suppress noExplicitConstructor
-    /**
-     * Constructs thread function instance.
-     *
-     * @param functor functor used as function.
-     * @param arg  optional argument that will be passed to functor.
-     */
-    Function(T& functor, void* arg = nullptr)
-        : mFunctor(functor)
-        , mArg(arg)
-    {
-    }
-
-    /**
-     * Implements call function operator.
-     */
-    void operator()() const override { mFunctor(mArg); }
-
-    /**
-     * Returns size of function.
-     *
-     * @return size_t.
-     */
-    size_t Size() const override { return sizeof(Function); };
-
-    /**
-     * Own placement new operator.
-     *
-     * @param size size of object.
-     * @param mem pointer to memory region.
-     * @return void*.
-     */
-    static void* operator new(size_t size, void* mem)
-    {
-        (void)size;
-
-        return mem;
-    }
-
-private:
-    T     mFunctor;
-    void* mArg;
-};
-
-/**
  * Aos thread.
  */
-template <size_t cStackSize = cDefaultThreadStackSize, size_t cMaxFunctionSize = cDefaultThreadMaxFunctionSize>
+template <size_t cStackSize = cDefaultThreadStackSize, size_t cFunctionMaxSize = cDefaultFunctionMaxSize>
 class Thread : private NonCopyable {
 public:
     /**
@@ -123,7 +47,6 @@ public:
     Thread()
         : mStack()
         , mPThread()
-        , mCallable(nullptr)
     {
     }
 
@@ -137,9 +60,10 @@ public:
     template <typename T>
     Error Run(T functor, void* arg = nullptr)
     {
-        static_assert(sizeof(Function<T>) <= cMaxFunctionSize, "not enough space to store functor");
-
-        mCallable = new (mFunction.Get()) Function<T>(functor, arg);
+        auto err = mFunction.Capture(functor, arg);
+        if (!err.IsNone()) {
+            return err;
+        }
 
         pthread_attr_t attr;
 
@@ -165,9 +89,8 @@ public:
 
 private:
     alignas(cThreadStackAlign) uint8_t mStack[AlignedSize(cStackSize, cThreadStackAlign)];
-    StaticBuffer<cMaxFunctionSize> mFunction;
-    pthread_t                      mPThread;
-    CallableItf*                   mCallable;
+    StaticFunction<cFunctionMaxSize> mFunction;
+    pthread_t                        mPThread;
 
     static void* ThreadFunction(void* arg)
     {
@@ -401,7 +324,7 @@ private:
  * @tparam cMaxTaskSize max task size.
  */
 template <size_t cNumThreads = 1, size_t cQueueSize = cDefaultThreadPoolQueueSize,
-    size_t cMaxTaskSize = cDefaultThreadMaxFunctionSize>
+    size_t cMaxTaskSize = cDefaultFunctionMaxSize>
 class ThreadPool : private NonCopyable {
 public:
     /**
@@ -426,19 +349,21 @@ public:
     template <typename T>
     Error AddTask(T functor, void* arg = nullptr)
     {
-        static_assert(sizeof(Function<T>) < cMaxTaskSize, "task is bigger than max task size");
+        LockGuard lock(mMutex);
 
-        UniqueLock lock(mMutex);
-
-        auto task = Function<T>(functor, arg);
-
-        mBuffer.Push(&task);
+        auto err = mQueue.Push(Function());
+        if (!err.IsNone()) {
+            return err;
+        }
 
         mPendingTaskCount++;
 
-        lock.Unlock();
+        err = mTaskCondVar.NotifyOne();
+        if (!err.IsNone()) {
+            return err;
+        }
 
-        auto err = mTaskCondVar.NotifyOne();
+        err = mQueue.Back().mValue.Capture(functor, arg);
         if (!err.IsNone()) {
             return err;
         }
@@ -459,28 +384,32 @@ public:
 
         for (auto& thread : mThreads) {
             auto err = thread.Run([this](void*) {
-                uint8_t taskBuffer[cMaxTaskSize];
+                StaticFunction<cMaxTaskSize> task;
 
                 while (true) {
                     UniqueLock lock(mMutex);
 
-                    auto err = mTaskCondVar.Wait([this]() { return mShutdown || !mBuffer.IsEmpty(); });
+                    auto err = mTaskCondVar.Wait([this]() { return mShutdown || !mQueue.IsEmpty(); });
                     assert(err.IsNone());
 
                     if (mShutdown) {
                         return;
                     }
 
-                    err = mBuffer.Pop(taskBuffer, sizeof(CallableItf));
-                    assert(err.IsNone());
+                    auto result = mQueue.Front();
+                    assert(result.mError.IsNone());
 
-                    err = mBuffer.Pop(&taskBuffer[sizeof(CallableItf)],
-                        static_cast<CallableItf*>(static_cast<void*>(taskBuffer))->Size() - sizeof(CallableItf));
+                    task = result.mValue;
+
+                    err = mQueue.Pop();
                     assert(err.IsNone());
 
                     lock.Unlock();
 
-                    (*static_cast<CallableItf*>(static_cast<void*>(taskBuffer)))();
+                    if (task) {
+                        task();
+                        task.Reset();
+                    }
 
                     err = mTaskCondVar.NotifyOne();
                     assert(err.IsNone());
@@ -526,6 +455,7 @@ public:
         UniqueLock lock(mMutex);
 
         mShutdown = true;
+        mQueue.Clear();
 
         lock.Unlock();
 
@@ -545,13 +475,13 @@ public:
     }
 
 private:
-    Thread<>                     mThreads[cNumThreads];
-    Mutex                        mMutex;
-    ConditionalVariable          mTaskCondVar;
-    ConditionalVariable          mWaitCondVar;
-    StaticRingBuffer<cQueueSize> mBuffer;
-    bool                         mShutdown;
-    int                          mPendingTaskCount;
+    Thread<>                                              mThreads[cNumThreads];
+    Mutex                                                 mMutex;
+    ConditionalVariable                                   mTaskCondVar;
+    ConditionalVariable                                   mWaitCondVar;
+    StaticQueue<StaticFunction<cMaxTaskSize>, cQueueSize> mQueue;
+    bool                                                  mShutdown;
+    int                                                   mPendingTaskCount;
 };
 
 } // namespace aos
