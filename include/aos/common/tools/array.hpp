@@ -19,7 +19,6 @@ namespace aos {
 /**
  * Array instance.
  * @tparam T array type.
- * @tparam cMaxSize max array size.
  */
 template <typename T>
 class Array {
@@ -27,12 +26,7 @@ public:
     /**
      * Crates empty array instance.
      */
-    Array()
-        : mItems(nullptr)
-        , mSize(0)
-        , mMaxSize(0)
-    {
-    }
+    Array() = default;
 
     /**
      * Crates array instance over the buffer.
@@ -40,11 +34,7 @@ public:
      * @param buffer underlying buffer.
      * @param size current array size.
      */
-    explicit Array(const Buffer& buffer)
-        : mSize(0)
-    {
-        SetBuffer(buffer);
-    }
+    explicit Array(const Buffer& buffer) { SetBuffer(buffer); }
 
     /**
      * Creates array instance from C array.
@@ -64,12 +54,7 @@ public:
      *
      * @param array another array instance.
      */
-    Array(const Array& array)
-        : mItems(array.mItems)
-        , mSize(array.mSize)
-        , mMaxSize(array.mMaxSize)
-    {
-    }
+    Array(const Array& array) = default;
 
     /**
      * Assigns existing array to the current one.
@@ -201,59 +186,87 @@ public:
      * Provides access to array item by index with boundaries check.
      *
      * @param index item index.
-     * @return RetWithError<T*>.
+     * @return RetWithError<T&>.
      */
-    RetWithError<T*> At(size_t index)
+    RetWithError<T&> At(size_t index)
     {
         if (index >= mSize) {
-            return {nullptr, ErrorEnum::eOutOfRange};
+            return {mItems[index], ErrorEnum::eOutOfRange};
         }
 
-        return &mItems[index];
+        return mItems[index];
     }
 
     /**
      * Provides access to array const item by index with boundaries check.
      *
      * @param index item index.
-     * @return RetWithError<const T*>.
+     * @return RetWithError<const T&>.
      */
-    RetWithError<const T*> At(size_t index) const
+    RetWithError<const T&> At(size_t index) const
     {
         if (index >= mSize) {
-            return {nullptr, ErrorEnum::eOutOfRange};
+            return {mItems[index], ErrorEnum::eOutOfRange};
         }
 
-        return &mItems[index];
+        return mItems[index];
     }
 
     /**
      * Returns array first item.
      *
-     * @return RetWithError<T*>.
+     * @return RetWithError<T&>.
      */
-    RetWithError<T*> Front() { return At(0); }
+    RetWithError<T&> Front()
+    {
+        if (IsEmpty()) {
+            return {mItems[0], ErrorEnum::eNotFound};
+        }
+
+        return mItems[0];
+    }
 
     /**
      * Returns array const first item.
      *
-     * @return RetWithError<const T*>.
+     * @return RetWithError<const T&>.
      */
-    RetWithError<const T*> Front() const { return At(0); }
+    RetWithError<const T&> Front() const
+    {
+        if (IsEmpty()) {
+            return {mItems[0], ErrorEnum::eNotFound};
+        }
+
+        return mItems[0];
+    }
 
     /**
      * Returns array last item.
      *
-     * @return RetWithError<T*>.
+     * @return RetWithError<T&>.
      */
-    RetWithError<T*> Back() { return At(mSize - 1); }
+    RetWithError<T&> Back()
+    {
+        if (IsEmpty()) {
+            return {mItems[0], ErrorEnum::eNotFound};
+        }
+
+        return mItems[mSize - 1];
+    }
 
     /**
      * Returns array const last item.
      *
-     * @return RetWithError<const T*>.
+     * @return RetWithError<const T&>.
      */
-    RetWithError<const T*> Back() const { return At(mSize - 1); }
+    RetWithError<const T&> Back() const
+    {
+        if (IsEmpty()) {
+            return {mItems[0], ErrorEnum::eNotFound};
+        }
+
+        return mItems[mSize - 1];
+    }
 
     /**
      * Pushes item at the end of array.
@@ -277,19 +290,17 @@ public:
     /**
      * Pops item from the end of array.
      *
-     * @return RetWithError<T*>.
+     * @return Error.
      */
-    RetWithError<T> PopBack()
+    Error PopBack()
     {
         if (IsEmpty()) {
-            RetWithError<T>(T(), ErrorEnum::eNotFound);
+            return ErrorEnum::eNotFound;
         }
-
-        RetWithError<T> result(mItems[mSize - 1], ErrorEnum::eNone);
 
         mSize--;
 
-        return result;
+        return ErrorEnum::eNone;
     }
 
     /**
@@ -480,9 +491,9 @@ protected:
     void SetSize(size_t size) { mSize = size; }
 
 private:
-    T*     mItems;
-    size_t mSize;
-    size_t mMaxSize;
+    T*     mItems = nullptr;
+    size_t mSize = 0;
+    size_t mMaxSize = 0;
 };
 
 /**
@@ -531,7 +542,7 @@ public:
     /**
      * Creates static array.
      */
-    explicit StaticArray() { Array<T>::SetBuffer(mBuffer); }
+    StaticArray() { Array<T>::SetBuffer(mBuffer); }
 
     /**
      * Creates static array from another static array.
