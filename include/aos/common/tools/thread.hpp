@@ -171,7 +171,8 @@ private:
 
     static void* ThreadFunction(void* arg)
     {
-        (*static_cast<Thread*>(arg)->mCallable)();
+        static_cast<Thread*>(arg)->mFunction();
+        static_cast<Thread*>(arg)->mFunction.Reset();
 
         return nullptr;
     }
