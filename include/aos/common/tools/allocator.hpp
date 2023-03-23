@@ -45,14 +45,14 @@ public:
          *
          * @return uint8_t* pointer to allocated data.
          */
-        uint8_t* Data() { return mData; }
+        uint8_t* Data() const { return mData; }
 
         /**
          * Returns allocated size.
          *
          * @return size_t allocated size.
          */
-        size_t Size() { return mSize; }
+        size_t Size() const { return mSize; }
 
     private:
         uint8_t* mData;
@@ -138,9 +138,9 @@ private:
             return mBuffer;
         }
 
-        auto lastAllocation = mAllocations->Back().mValue;
+        auto const& lastAllocation = mAllocations->Back().mValue;
 
-        return static_cast<uint8_t*>(lastAllocation->Data()) + lastAllocation->Size();
+        return static_cast<uint8_t*>(lastAllocation.Data()) + lastAllocation.Size();
     }
 
     uint8_t*           mBuffer = {};
