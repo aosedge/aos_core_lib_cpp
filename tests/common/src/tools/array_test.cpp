@@ -64,7 +64,7 @@ TEST(common, Array)
         auto ret2 = dynamicArray.At(i);
         EXPECT_TRUE(ret2.mError.IsNone());
 
-        EXPECT_EQ(*ret1.mValue, *ret2.mValue);
+        EXPECT_EQ(ret1.mValue, ret2.mValue);
     }
 
     // Range base loop
@@ -78,11 +78,11 @@ TEST(common, Array)
     // Check pop operation
 
     for (i = cNumItems - 1; i >= 0; i--) {
-        auto ret1 = bufferArray.PopBack();
-        EXPECT_TRUE(ret1.mError.IsNone());
+        auto ret1 = bufferArray.Back();
+        EXPECT_TRUE(bufferArray.PopBack().IsNone());
 
-        auto ret2 = dynamicArray.PopBack();
-        EXPECT_TRUE(ret2.mError.IsNone());
+        auto ret2 = dynamicArray.Back();
+        EXPECT_TRUE(dynamicArray.PopBack().IsNone());
 
         EXPECT_EQ(ret1.mValue, ret2.mValue);
     }
@@ -185,4 +185,25 @@ TEST(common, ArrayRemove)
         EXPECT_EQ(array.Size(), ArraySize(resultArray));
         EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
     }
+}
+
+TEST(common, ArrayStruct)
+{
+    struct TestStruct {
+        StaticArray<uint32_t, 32> arr1;
+        StaticArray<uint32_t, 32> arr2;
+    };
+
+    StaticArray<TestStruct, 8> array;
+
+    array.Resize(1);
+
+    uint32_t test1[] = {0, 1, 2, 3, 4};
+    uint32_t test2[] = {5, 6, 7, 8, 9};
+
+    array[0].arr1 = Array<uint32_t>(test1, ArraySize(test1));
+    array[0].arr2 = Array<uint32_t>(test1, ArraySize(test2));
+
+    EXPECT_EQ(array[0].arr1, Array<uint32_t>(test1, ArraySize(test1)));
+    EXPECT_EQ(array[0].arr2, Array<uint32_t>(test1, ArraySize(test1)));
 }
