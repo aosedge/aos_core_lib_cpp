@@ -16,6 +16,11 @@ static void OwnUniquePtr(UniquePtr<uint32_t> uPtr)
     EXPECT_TRUE(uPtr);
 }
 
+static void TakeSharedPtr(SharedPtr<uint32_t> shPtr)
+{
+    EXPECT_TRUE(shPtr);
+}
+
 TEST(common, UniquePtr)
 {
     StaticAllocator<256> allocator;
@@ -56,6 +61,52 @@ TEST(common, UniquePtr)
     // Check reset
 
     uPtr2.Reset();
+
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+}
+
+TEST(common, SharedPtr)
+{
+    StaticAllocator<256> allocator;
+
+    // Basic test
+
+    {
+        SharedPtr<uint32_t> shPtr(&allocator, new (&allocator) uint32_t());
+        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+    }
+
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+
+    // Test share
+
+    {
+        SharedPtr<uint32_t> shPtr;
+
+        EXPECT_FALSE(shPtr);
+        EXPECT_TRUE(shPtr == nullptr);
+        EXPECT_TRUE(nullptr == shPtr);
+
+        {
+            shPtr = SharedPtr<uint32_t>(&allocator, new (&allocator) uint32_t());
+        }
+
+        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+
+        TakeSharedPtr(shPtr);
+    }
+
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+
+    // Make shared
+
+    auto shPtr2 = MakeShared<uint32_t>(&allocator);
+
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+
+    // Check reset
+
+    shPtr2.Reset();
 
     EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
