@@ -37,6 +37,7 @@ public:
         Allocation(uint8_t* data, size_t size)
             : mData(data)
             , mSize(size)
+            , mSharedCount(0)
         {
         }
 
@@ -54,9 +55,36 @@ public:
          */
         size_t Size() const { return mSize; }
 
+        /**
+         * Increases shared count.
+         *
+         * @param mutex mutex to lock context.
+         * @return size_t chared count value;
+         */
+        size_t Take(Mutex& mutex)
+        {
+            LockGuard lock(mutex);
+
+            return ++mSharedCount;
+        }
+
+        /**
+         * Decreases shared count.
+         *
+         * @param mutex mutex to lock context.
+         * @return size_t chared count value;
+         */
+        size_t Give(Mutex& mutex)
+        {
+            LockGuard lock(mutex);
+
+            return --mSharedCount;
+        }
+
     private:
         uint8_t* mData;
         size_t   mSize;
+        size_t   mSharedCount;
     };
 
     /**
@@ -91,9 +119,49 @@ public:
         LockGuard lock(mMutex);
 
         auto curEnd = mAllocations->end();
-        auto newEnd = mAllocations->Remove([data](Allocation& allocation) { return allocation.Data() == data; }).mValue;
+        auto newEnd
+            = mAllocations->Remove([data](const Allocation& allocation) { return allocation.Data() == data; }).mValue;
 
         assert(newEnd && curEnd != newEnd);
+    }
+
+    /**
+     * Finds allocation by data.
+     *
+     * @param data allocated data.
+     * @return void* pointer to allocation.
+     */
+    RetWithError<Allocation*> FindAllocation(const void* data)
+    {
+        LockGuard lock(mMutex);
+
+        return mAllocations->Find([data](const Allocation& allocation) { return allocation.Data() == data; });
+    }
+
+    /**
+     * Increases allocation shared count.
+     *
+     * @param allocation allocation to increase shared count.
+     * @return size_t allocation shared count.
+     */
+    size_t TakeAllocation(Allocation* allocation)
+    {
+        assert(allocation);
+
+        return allocation->Take(mMutex);
+    }
+
+    /**
+     * Decreases allocation shared count.
+     *
+     * @param allocation allocation to increase shared count.
+     * @return size_t allocation shared count.
+     */
+    size_t GiveAllocation(Allocation* allocation)
+    {
+        assert(allocation);
+
+        return allocation->Give(mMutex);
     }
 
     /**
