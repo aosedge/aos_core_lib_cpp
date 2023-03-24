@@ -114,7 +114,7 @@ public:
 /**
  * Service manager interface.
  */
-class ServiceManagerItf : public NonCopyable {
+class ServiceManagerItf {
 public:
     /**
      * Installs services.
