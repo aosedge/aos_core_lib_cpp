@@ -336,7 +336,7 @@ public:
         }
 
         for (size_t i = 0; i < mSize; i++) {
-            if (mItems[i] != array.mItems[i]) {
+            if (!(mItems[i] == array.mItems[i])) {
                 return false;
             }
         }
