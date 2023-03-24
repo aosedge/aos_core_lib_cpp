@@ -188,20 +188,20 @@ public:
     int LineNumber() const { return mLineNumber; }
 
     /**
-     * Compares if error equals to specified error value.
+     * Compares if error equals to another error value.
      *
-     * @param err error value to compare with.
+     * @param err error to compare with.
      * @return bool result.
      */
-    bool operator==(Enum value) const { return mErr == value; };
+    bool operator==(const Error& err) const { return mErr == err.mErr; };
 
     /**
-     * Compares if error doesn't equal to specified error value.
+     * Compares if error doesn't equal to another error value.
      *
-     * @param err error value to compare with.
+     * @param err error to compare with.
      * @return bool result.
      */
-    bool operator!=(Enum value) const { return mErr != value; };
+    bool operator!=(const Error& err) const { return mErr != err.mErr; };
 
     /**
      * Compares if specified error value equals to error.
