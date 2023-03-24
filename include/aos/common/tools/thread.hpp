@@ -476,7 +476,7 @@ public:
     }
 
 private:
-    Thread<cDefaultThreadStackSize>                       mThreads[cNumThreads];
+    Thread<cMaxTaskSize, cThreadStackSize>                mThreads[cNumThreads];
     Mutex                                                 mMutex;
     ConditionalVariable                                   mTaskCondVar;
     ConditionalVariable                                   mWaitCondVar;
