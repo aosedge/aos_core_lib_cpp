@@ -189,11 +189,6 @@ public:
     }
 
 private:
-    StaticString<cMaxLineLen> mLogLine;
-    LogModule                 mModule;
-    LogLevel                  mLevel;
-    size_t                    mCurrentLen;
-
     static LogCallback& GetCallback()
     {
         static LogCallback sLogCallback;
@@ -208,6 +203,11 @@ private:
             mLogLine += "...";
         }
     }
+
+    StaticString<cMaxLineLen> mLogLine;
+    LogModule                 mModule;
+    LogLevel                  mLevel;
+    size_t                    mCurrentLen;
 };
 
 /**
