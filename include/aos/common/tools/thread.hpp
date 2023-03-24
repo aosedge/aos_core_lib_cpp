@@ -38,7 +38,7 @@ constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEU
 /**
  * Aos thread.
  */
-template <size_t cStackSize = cDefaultThreadStackSize, size_t cFunctionMaxSize = cDefaultFunctionMaxSize>
+template <size_t cFunctionMaxSize = cDefaultFunctionMaxSize, size_t cStackSize = cDefaultThreadStackSize>
 class Thread : private NonCopyable {
 public:
     /**
@@ -320,11 +320,12 @@ private:
  * Aos thread pool.
  *
  * @tparam cNumThreads number of threads used to perform tasks.
+ * @tparam cThreadStackSize stack size of threads used to perform tasks.
  * @tparam cQueueSize tasks queue size.
  * @tparam cMaxTaskSize max task size.
  */
 template <size_t cNumThreads = 1, size_t cQueueSize = cDefaultThreadPoolQueueSize,
-    size_t cMaxTaskSize = cDefaultFunctionMaxSize>
+    size_t cMaxTaskSize = cDefaultFunctionMaxSize, size_t cThreadStackSize = cDefaultThreadStackSize>
 class ThreadPool : private NonCopyable {
 public:
     /**
@@ -475,7 +476,7 @@ public:
     }
 
 private:
-    Thread<>                                              mThreads[cNumThreads];
+    Thread<cDefaultThreadStackSize>                       mThreads[cNumThreads];
     Mutex                                                 mMutex;
     ConditionalVariable                                   mTaskCondVar;
     ConditionalVariable                                   mWaitCondVar;
