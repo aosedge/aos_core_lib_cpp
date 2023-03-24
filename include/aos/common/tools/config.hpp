@@ -38,16 +38,16 @@
  * Configures function max size.
  */
 #ifndef AOS_CONFIG_FUNCTION_MAX_SIZE
-#define AOS_CONFIG_FUNCTION_MAX_SIZE 256
+#define AOS_CONFIG_FUNCTION_MAX_SIZE 64
 #endif
 
 /**
  * Configures default thread stack size.
  *
- * Use minimal stack size PTHREAD_STACK_MIN + 2k for storing thread functor.
+ * Use minimal stack size PTHREAD_STACK_MIN.
  */
 #ifndef AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE
-#define AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE (16384 + 2048)
+#define AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE 16384
 #endif
 
 /**
