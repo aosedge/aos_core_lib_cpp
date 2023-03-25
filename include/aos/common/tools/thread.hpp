@@ -41,12 +41,12 @@ constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEU
 template <size_t cFunctionMaxSize = cDefaultFunctionMaxSize, size_t cStackSize = cDefaultThreadStackSize>
 class Thread : private NonCopyable {
 public:
+    // cppcheck-suppress uninitMemberVar
     /**
      * Constructs Aos thread instance and use lambda as argument.
      */
     Thread()
-        : mStack()
-        , mPThread()
+        : mPThread()
     {
     }
 
