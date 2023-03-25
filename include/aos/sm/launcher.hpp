@@ -11,9 +11,11 @@
 #include <assert.h>
 
 #include "aos/common/tools/array.hpp"
+#include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/runner.hpp"
+#include "aos/sm/servicemanager.hpp"
 
 namespace aos {
 namespace sm {
@@ -110,15 +112,7 @@ public:
  */
 class Launcher : public LauncherItf, public runner::RunStatusReceiverItf, private NonCopyable {
 public:
-    /**
-     * Create launcher instance.
-     */
-    Launcher()
-        : mStatusReceiver(nullptr)
-        , mRunner(nullptr)
-        , mStorage(nullptr)
-    {
-    }
+    ~Launcher() { mThread.Join(); }
 
     /**
      * Initializes launcher.
@@ -128,7 +122,8 @@ public:
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(InstanceStatusReceiverItf& statusReceiver, runner::RunnerItf& runner, StorageItf& storage);
+    Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
+        InstanceStatusReceiverItf& statusReceiver, StorageItf& storage);
 
     /**
      * Runs specified instances.
@@ -140,7 +135,7 @@ public:
      * @return Error.
      */
     Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
-        const Array<InstanceInfo>& instances, bool forceRestart) override;
+        const Array<InstanceInfo>& instances, bool forceRestart = false) override;
 
     /**
      * Updates run instances status.
@@ -151,9 +146,26 @@ public:
     Error UpdateRunStatus(const Array<runner::RunStatus>& instances) override;
 
 private:
-    InstanceStatusReceiverItf* mStatusReceiver;
-    runner::RunnerItf*         mRunner;
-    StorageItf*                mStorage;
+    // Increase launcher thread task size to 256: it should capture 3 shared ptr and bool value.
+    static constexpr auto cThreadTaskSize = 256;
+    static constexpr auto cNumLaunchThreads = 3;
+
+    void ProcessInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart);
+    void ProcessServices(SharedPtr<const Array<ServiceInfo>> services);
+    void ProcessLayers(SharedPtr<const Array<LayerInfo>> layers);
+
+    servicemanager::ServiceManagerItf* mServiceManager {};
+    runner::RunnerItf*                 mRunner {};
+    InstanceStatusReceiverItf*         mStatusReceiver {};
+    StorageItf*                        mStorage {};
+
+    StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)>
+        mAllocator;
+
+    bool                    mLaunchInProgress = false;
+    Mutex                   mMutex;
+    Thread<cThreadTaskSize> mThread;
+    ThreadPool<>            mLaunchPool;
 };
 
 /** @}*/
