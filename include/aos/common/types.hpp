@@ -14,6 +14,7 @@
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/fs.hpp"
+#include "aos/common/tools/log.hpp"
 
 namespace aos {
 
@@ -125,6 +126,20 @@ struct InstanceIdent {
      * @return bool.
      */
     bool operator!=(const InstanceIdent& instance) const { return !operator==(instance); }
+
+    /**
+     * Outputs instance ident to log.
+     *
+     * @param log log to output.
+     * @param instanceIdent instance ident.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
+    {
+        return log << "{" << instanceIdent.mServiceID << ":" << instanceIdent.mSubjectID << ":"
+                   << instanceIdent.mInstance << "}";
+    }
 };
 
 /**
