@@ -70,6 +70,13 @@ public:
     const Error& RunError() const { return mRunError; };
 
     /**
+     * Returns instance service Aos version.
+     *
+     * @return uint64_t Aos version.
+     */
+    uint64_t AosVersion() const { return 0; };
+
+    /**
      * Compares instances.
      *
      * @param instance instance to compare.

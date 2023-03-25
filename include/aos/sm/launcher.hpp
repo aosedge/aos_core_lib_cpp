@@ -14,6 +14,8 @@
 #include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
+#include "aos/sm/config.hpp"
+#include "aos/sm/instance.hpp"
 #include "aos/sm/runner.hpp"
 #include "aos/sm/servicemanager.hpp"
 
@@ -112,6 +114,14 @@ public:
  */
 class Launcher : public LauncherItf, public runner::RunStatusReceiverItf, private NonCopyable {
 public:
+    /**
+     * Creates launcher instance.
+     */
+    Launcher() = default;
+
+    /**
+     * Destroys launcher instance.
+     */
     ~Launcher() { mThread.Join(); }
 
     /**
@@ -146,13 +156,17 @@ public:
     Error UpdateRunStatus(const Array<runner::RunStatus>& instances) override;
 
 private:
-    // Increase launcher thread task size to 256: it should capture 3 shared ptr and bool value.
+    static constexpr auto cNumLaunchThreads = AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cThreadTaskSize = 256;
-    static constexpr auto cNumLaunchThreads = 3;
 
-    void ProcessInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart);
-    void ProcessServices(SharedPtr<const Array<ServiceInfo>> services);
-    void ProcessLayers(SharedPtr<const Array<LayerInfo>> layers);
+    void  ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
+    void  ProcessServices(const Array<ServiceInfo>& services);
+    void  ProcessLayers(const Array<LayerInfo>& layers);
+    void  SendRunStatus();
+    void  StopInstances(const Array<InstanceInfo>& instances, bool forceRestart);
+    void  StartInstances(const Array<InstanceInfo>& instances);
+    Error StartInstance(const InstanceInfo& info);
+    Error StopInstance(const InstanceIdent& ident);
 
     servicemanager::ServiceManagerItf* mServiceManager {};
     runner::RunnerItf*                 mRunner {};
@@ -165,7 +179,9 @@ private:
     bool                    mLaunchInProgress = false;
     Mutex                   mMutex;
     Thread<cThreadTaskSize> mThread;
-    ThreadPool<>            mLaunchPool;
+    ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize> mLaunchPool;
+
+    StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
 };
 
 /** @}*/
