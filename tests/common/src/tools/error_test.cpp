@@ -87,5 +87,6 @@ TEST(common, ErrorMessages)
     EXPECT_EQ(Error(ErrorEnum::eOutOfRange).Message(), "out of range");
     EXPECT_EQ(Error(ErrorEnum::eInvalidArgument).Message(), "invalid argument");
     EXPECT_EQ(Error(ErrorEnum::eNotFound).Message(), "not found");
+    EXPECT_EQ(Error(ErrorEnum::eAlreadyExist).Message(), "already exist");
     EXPECT_EQ(Error(ErrorEnum::eWrongState).Message(), "wrong state");
 }

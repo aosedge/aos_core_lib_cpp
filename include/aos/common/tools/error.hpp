@@ -46,6 +46,7 @@ public:
         eInvalidArgument,
         eFile,
         eTimeout,
+        eAlreadyExist,
         eWrongState,
         eNumErrors
     };
@@ -243,6 +244,7 @@ private:
             "invalid argument",
             "file error",
             "timeout",
+            "already exist",
             "wrong state",
         };
 

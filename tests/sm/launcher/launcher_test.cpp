@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <chrono>
 #include <future>
 
@@ -133,31 +134,66 @@ class MockStorage : public sm::launcher::StorageItf {
 public:
     Error AddInstance(const InstanceInfo& instance) override
     {
-        (void)instance;
+        std::lock_guard<std::mutex> lock(mMutex);
+
+        if (std::find_if(mInstances.begin(), mInstances.end(),
+                [&instance](const InstanceInfo& info) { return instance.mInstanceIdent == info.mInstanceIdent; })
+            != mInstances.end()) {
+            return ErrorEnum::eAlreadyExist;
+        }
+
+        mInstances.push_back(instance);
 
         return ErrorEnum::eNone;
     }
 
     Error UpdateInstance(const InstanceInfo& instance) override
     {
-        (void)instance;
+        std::lock_guard<std::mutex> lock(mMutex);
+
+        auto it = std::find_if(mInstances.begin(), mInstances.end(),
+            [&instance](const InstanceInfo& info) { return instance.mInstanceIdent == info.mInstanceIdent; });
+        if (it == mInstances.end()) {
+            return ErrorEnum::eNotFound;
+        }
+
+        *it = instance;
 
         return ErrorEnum::eNone;
     }
 
     Error RemoveInstance(const InstanceIdent& instanceIdent) override
     {
-        (void)instanceIdent;
+        std::lock_guard<std::mutex> lock(mMutex);
+
+        auto it = std::find_if(mInstances.begin(), mInstances.end(),
+            [&instanceIdent](const InstanceInfo& instance) { return instance.mInstanceIdent == instanceIdent; });
+        if (it == mInstances.end()) {
+            return ErrorEnum::eNotFound;
+        }
+
+        mInstances.erase(it);
 
         return ErrorEnum::eNone;
     }
 
     Error GetAllInstances(Array<InstanceInfo>& instances) override
     {
-        (void)instances;
+        std::lock_guard<std::mutex> lock(mMutex);
+
+        for (const auto& instance : mInstances) {
+            auto err = instances.PushBack(instance);
+            if (!err.IsNone()) {
+                return err;
+            }
+        }
 
         return ErrorEnum::eNone;
     }
+
+private:
+    std::vector<InstanceInfo> mInstances;
+    std::mutex                mMutex;
 };
 
 /***********************************************************************************************************************
@@ -205,7 +241,25 @@ TEST(launcher, RunInstances)
                   << std::endl;
     });
 
+    auto feature = statusReceiver.GetFeature();
+
     EXPECT_TRUE(launcher.Init(serviceManager, runner, statusReceiver, storage).IsNone());
+
+    EXPECT_TRUE(launcher.RunLastInstances().IsNone());
+
+    // Wait for initial instance status
+
+    EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
+    EXPECT_TRUE(CompareInstanceStatuses(feature.get(), Array<InstanceStatus>()));
+
+    // Test different scenarios
+
+    struct TestData {
+        std::vector<InstanceInfo>   mInstances;
+        std::vector<ServiceInfo>    mServices;
+        std::vector<LayerInfo>      mLayers;
+        std::vector<InstanceStatus> mStatus;
+    };
 
     std::vector<TestData> testData = {
         // Run instances first time
@@ -250,7 +304,7 @@ TEST(launcher, RunInstances)
     // Run instances
 
     for (auto& testItem : testData) {
-        auto feature = statusReceiver.GetFeature();
+        feature = statusReceiver.GetFeature();
 
         EXPECT_TRUE(launcher
                         .RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
@@ -262,6 +316,18 @@ TEST(launcher, RunInstances)
         EXPECT_TRUE(CompareInstanceStatuses(
             feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
     }
+
+    // Reset
+
+    feature = statusReceiver.GetFeature();
+
+    EXPECT_TRUE(launcher.RunLastInstances().IsNone());
+
+    // Wait for initial instance status
+
+    EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
+    EXPECT_TRUE(CompareInstanceStatuses(
+        feature.get(), Array<InstanceStatus>(testData.back().mStatus.data(), testData.back().mStatus.size())));
 }
 
 } // namespace launcher
