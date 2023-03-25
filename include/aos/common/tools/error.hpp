@@ -45,6 +45,7 @@ public:
         eNotFound,
         eInvalidArgument,
         eTimeout,
+        eAlreadyExist,
         eWrongState,
         eNumErrors
     };
@@ -245,6 +246,7 @@ private:
             "not found",
             "invalid argument",
             "timeout",
+            "already exist",
             "wrong state",
         };
 

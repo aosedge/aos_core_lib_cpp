@@ -42,6 +42,13 @@ public:
     virtual Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
         const Array<InstanceInfo>& instances, bool forceRestart)
         = 0;
+
+    /**
+     * Runs last instances.
+     *
+     * @return Error.
+     */
+    virtual Error RunLastInstances() = 0;
 };
 
 /**
@@ -146,6 +153,13 @@ public:
      */
     Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
         const Array<InstanceInfo>& instances, bool forceRestart = false) override;
+
+    /**
+     * Runs previously  instances.
+     *
+     * @return Error.
+     */
+    Error RunLastInstances() override;
 
     /**
      * Updates run instances status.

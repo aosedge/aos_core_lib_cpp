@@ -73,7 +73,49 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
             instances.Reset();
 
             SendRunStatus();
+
+            LockGuard lock(mMutex);
+
+            mLaunchInProgress = false;
         });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::RunLastInstances()
+{
+    UniqueLock lock(mMutex);
+
+    LOG_DBG() << "Run last instances";
+
+    if (mLaunchInProgress) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    mLaunchInProgress = true;
+
+    lock.Unlock();
+
+    assert(mAllocator.FreeSize() == mAllocator.MaxSize());
+
+    auto instances = SharedPtr<Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray());
+
+    auto err = mStorage->GetAllInstances(*instances);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    err = mThread.Run([this, instances](void*) mutable {
+        ProcessInstances(*instances, true);
+        SendRunStatus();
+
+        LockGuard lock(mMutex);
+
+        mLaunchInProgress = false;
+    });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -96,6 +138,8 @@ Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
 
 void Launcher::ProcessServices(const Array<ServiceInfo>& services)
 {
+    LOG_DBG() << "Process services";
+
     auto err = mServiceManager->InstallServices(services);
     if (!err.IsNone()) {
         LOG_ERR() << "Can't install services: " << err;
@@ -105,10 +149,14 @@ void Launcher::ProcessServices(const Array<ServiceInfo>& services)
 void Launcher::ProcessLayers(const Array<LayerInfo>& layers)
 {
     (void)layers;
+
+    LOG_DBG() << "Process layers";
 }
 
 void Launcher::ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart)
 {
+    LOG_DBG() << "Process instances";
+
     auto err = mLaunchPool.Run();
     if (!err.IsNone()) {
         LOG_ERR() << "Can't run launcher thread pool: " << err;
@@ -123,8 +171,6 @@ void Launcher::ProcessInstances(const Array<InstanceInfo>& instances, bool force
 void Launcher::SendRunStatus()
 {
     LockGuard lock(mMutex);
-
-    mLaunchInProgress = false;
 
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
@@ -155,11 +201,11 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
         auto err = mLaunchPool.AddTask([this, ident = instance.Info().mInstanceIdent](void*) mutable {
             auto err = StopInstance(ident);
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't stop instance " << ident << ":" << err;
+                LOG_ERR() << "Can't stop instance " << ident << ": " << err;
             }
         });
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't stop instance " << instance << ":" << err;
+            LOG_ERR() << "Can't stop instance " << instance << ": " << err;
         }
     }
 
@@ -180,11 +226,11 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
         auto err = mLaunchPool.AddTask([this, &info](void*) {
             auto err = StartInstance(info);
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't start instance " << info.mInstanceIdent << ":" << err;
+                LOG_ERR() << "Can't start instance " << info.mInstanceIdent << ": " << err;
             }
         });
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't start instance " << info.mInstanceIdent << ":" << err;
+            LOG_ERR() << "Can't start instance " << info.mInstanceIdent << ": " << err;
         }
     }
 
@@ -195,16 +241,23 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 
 Error Launcher::StartInstance(const InstanceInfo& info)
 {
-    Instance instance(info);
+    auto err = mStorage->AddInstance(info);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't store instance " << info.mInstanceIdent << ": " << err;
+    }
 
-    auto err = instance.Start();
+    UniqueLock lock(mMutex);
+
+    err = mCurrentInstances.PushBack(Instance(info));
     if (!err.IsNone()) {
         return err;
     }
 
-    LockGuard lock(mMutex);
+    auto& instance = mCurrentInstances.Back().mValue;
 
-    err = mCurrentInstances.PushBack(instance);
+    lock.Unlock();
+
+    err = instance.Start();
     if (!err.IsNone()) {
         return err;
     }
@@ -216,22 +269,26 @@ Error Launcher::StartInstance(const InstanceInfo& info)
 
 Error Launcher::StopInstance(const InstanceIdent& ident)
 {
+    auto err = mStorage->RemoveInstance(ident);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't remove instance " << ident << " from storage: " << err;
+    }
 
     UniqueLock lock(mMutex);
 
-    auto result = mCurrentInstances.Find(
+    auto findInstance = mCurrentInstances.Find(
         [&ident](const Instance& instance) { return instance.Info().mInstanceIdent == ident; });
-    if (!result.mError.IsNone()) {
-        return result.mError;
+    if (!findInstance.mError.IsNone()) {
+        return findInstance.mError;
     }
 
-    auto instance = *result.mValue;
+    auto instance = *findInstance.mValue;
 
-    mCurrentInstances.Remove(result.mValue);
+    mCurrentInstances.Remove(findInstance.mValue);
 
     lock.Unlock();
 
-    auto err = instance.Stop();
+    err = instance.Stop();
     if (!err.IsNone()) {
         return err;
     }
