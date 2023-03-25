@@ -82,7 +82,14 @@ public:
     /**
      * Clears array.
      */
-    void Clear() { mSize = 0; }
+    void Clear()
+    {
+        for (auto it = begin(); it != end(); it++) {
+            it->~T();
+        }
+
+        mSize = 0;
+    }
 
     /**
      * Checks if array is empty.
@@ -426,7 +433,9 @@ public:
         }
 
         for (auto i = 0; i < end() - item - 1; i++) {
-            new (item + i) T(*(item + 1 + i));
+            (item + i)->~T();
+            new (item + i) T(*(item + i + 1));
+            (item + i + 1)->~T();
         }
 
         mSize--;
