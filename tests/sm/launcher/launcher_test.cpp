@@ -5,34 +5,49 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <chrono>
+#include <future>
+
 #include <gtest/gtest.h>
 
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/log.hpp"
 #include "aos/sm/launcher.hpp"
 
 using namespace aos;
 using namespace aos::sm::launcher;
 using namespace aos::sm::runner;
+using namespace aos::sm::servicemanager;
 
-class TestStatusReceiver : public InstanceStatusReceiverItf {
+static constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
+
+class TestServiceManager : public ServiceManagerItf {
 public:
-    Error InstancesRunStatus(const Array<InstanceStatus>& instances) override
+    Error InstallServices(const Array<ServiceInfo>& services) override
     {
-        (void)instances;
+        (void)services;
 
         return ErrorEnum::eNone;
     }
-    Error InstancesUpdateStatus(const Array<InstanceStatus>& instances) override
-    {
-        (void)instances;
 
-        return ErrorEnum::eNone;
+    RetWithError<ServiceData> GetService(const String serviceID) override
+    {
+        (void)serviceID;
+
+        return ServiceData {};
+    }
+
+    RetWithError<ImageParts> GetImageParts(const ServiceData& service) override
+    {
+        (void)service;
+
+        return ImageParts {};
     }
 };
 
 class TestRunner : public RunnerItf {
 public:
-    RunStatus StartInstance(const String& instanceID, const String& runtimeDir)
+    RunStatus StartInstance(const String& instanceID, const String& runtimeDir) override
     {
         (void)instanceID;
         (void)runtimeDir;
@@ -40,7 +55,7 @@ public:
         return RunStatus {};
     }
 
-    Error StopInstance(const String& instanceID)
+    Error StopInstance(const String& instanceID) override
     {
         (void)instanceID;
 
@@ -48,30 +63,49 @@ public:
     }
 };
 
-class TestStorage : public StorageItf {
+class TestStatusReceiver : public InstanceStatusReceiverItf {
 public:
-    virtual Error AddInstance(const InstanceInfo& instance) override
+    std::promise<const Array<InstanceStatus>> mPromise;
+
+    Error InstancesRunStatus(const Array<InstanceStatus>& status) override
+    {
+        mPromise.set_value(status);
+
+        return ErrorEnum::eNone;
+    }
+
+    Error InstancesUpdateStatus(const Array<InstanceStatus>& status) override
+    {
+        mPromise.set_value(status);
+
+        return ErrorEnum::eNone;
+    }
+};
+
+class TestStorage : public sm::launcher::StorageItf {
+public:
+    Error AddInstance(const InstanceInfo& instance) override
     {
         (void)instance;
 
         return ErrorEnum::eNone;
     }
 
-    virtual Error UpdateInstance(const InstanceInfo& instance) override
+    Error UpdateInstance(const InstanceInfo& instance) override
     {
         (void)instance;
 
         return ErrorEnum::eNone;
     }
 
-    virtual Error RemoveInstance(const InstanceIdent& instanceIdent) override
+    Error RemoveInstance(const InstanceIdent& instanceIdent) override
     {
         (void)instanceIdent;
 
         return ErrorEnum::eNone;
     }
 
-    virtual Error GetAllInstances(Array<InstanceInfo>& instances) override
+    Error GetAllInstances(Array<InstanceInfo>& instances) override
     {
         (void)instances;
 
@@ -81,10 +115,25 @@ public:
 
 TEST(launcher, RunInstances)
 {
-    Launcher           launcher;
-    TestStatusReceiver statusReceiver;
+    TestServiceManager serviceManager;
     TestRunner         runner;
+    TestStatusReceiver statusReceiver;
     TestStorage        storage;
 
-    EXPECT_TRUE(launcher.Init(statusReceiver, runner, storage).IsNone());
+    Launcher launcher;
+
+    EXPECT_TRUE(launcher.Init(serviceManager, runner, statusReceiver, storage).IsNone());
+
+    InstanceInfo instances[] = {{{"service1", "subject1", 0}, 0, 0, "", ""},
+        {{"service1", "subject1", 1}, 0, 0, "", ""}, {{"service1", "subject1", 2}, 0, 0, "", ""}};
+
+    auto feature = statusReceiver.mPromise.get_future();
+
+    EXPECT_TRUE(launcher
+                    .RunInstances(
+                        Array<ServiceInfo>(), Array<LayerInfo>(), Array<InstanceInfo>(instances, ArraySize(instances)))
+                    .IsNone());
+
+    EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
+    EXPECT_EQ(feature.get(), Array<InstanceStatus>());
 }
