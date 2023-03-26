@@ -11,13 +11,13 @@ set(TARGET aossmcpp_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES launcher/launcher_test.cpp)
+set(SOURCES ${CMAKE_SOURCE_DIR}/src/sm/launcher/launcher.cpp launcher/launcher_test.cpp)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} GTest::gtest_main aossmcpp)
+target_link_libraries(${TARGET} GTest::gtest_main)
 
 gtest_discover_tests(${TARGET})

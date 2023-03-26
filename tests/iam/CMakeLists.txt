@@ -11,13 +11,13 @@ set(TARGET aosiamcpp_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES certhandler/certhandler_test.cpp)
+set(SOURCES ${CMAKE_SOURCE_DIR}/src/iam/certhandler/certhandler.cpp certhandler/certhandler_test.cpp)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} GTest::gtest_main aosiamcpp)
+target_link_libraries(${TARGET} GTest::gtest_main)
 
 gtest_discover_tests(${TARGET})
