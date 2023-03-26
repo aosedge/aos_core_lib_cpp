@@ -9,7 +9,7 @@
 #ifndef AOS_INSTANCE_HPP_
 #define AOS_INSTANCE_HPP_
 
-#include "aos/common/types.hpp"
+#include "aos/sm/service.hpp"
 
 namespace aos {
 namespace sm {
@@ -56,6 +56,14 @@ public:
     const InstanceInfo& Info() const { return mInfo; };
 
     /**
+     * Sets corresponding service.
+     *
+     * @param service service.
+     * @param err service error.
+     */
+    void SetService(const Service* service, const Error& err = ErrorEnum::eNone);
+
+    /**
      * Returns instance run state.
      *
      * @return const InstanceRunState& run state.
@@ -63,7 +71,7 @@ public:
     const InstanceRunState& RunState() const { return mRunState; };
 
     /**
-     * Returns instance run error.
+     * Returns instance error.
      *
      * @return const Error& run error.
      */
@@ -74,7 +82,14 @@ public:
      *
      * @return uint64_t Aos version.
      */
-    uint64_t AosVersion() const { return 0; };
+    uint64_t AosVersion() const
+    {
+        if (mService) {
+            return mService->Data().mVersionInfo.mAosVersion;
+        }
+
+        return 0;
+    };
 
     /**
      * Compares instances.
@@ -125,6 +140,8 @@ private:
 
     StaticString<cInstanceIDLen> mInstanceID;
     InstanceInfo                 mInfo;
+    uint64_t                     mAosVersion = 0;
+    const Service*               mService;
     InstanceRunState             mRunState;
     Error                        mRunError;
 };

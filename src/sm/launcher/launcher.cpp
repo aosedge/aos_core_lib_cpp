@@ -19,12 +19,13 @@ using namespace runner;
  **********************************************************************************************************************/
 
 Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
-    InstanceStatusReceiverItf& statusReceiver, StorageItf& storage)
+    OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage)
 {
     LOG_DBG() << "Initialize launcher";
 
     mServiceManager = &serviceManager;
     mRunner = &runner;
+    mOCIManager = &ociManager;
     mStatusReceiver = &statusReceiver;
     mStorage = &storage;
 
@@ -67,9 +68,9 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
             layers.Reset();
 
             ProcessServices(*services);
-            services.Reset();
 
-            ProcessInstances(*instances, forceRestart);
+            ProcessInstances(*instances, *services, forceRestart);
+            services.Reset();
             instances.Reset();
 
             SendRunStatus();
@@ -109,7 +110,7 @@ Error Launcher::RunLastInstances()
     }
 
     err = mThread.Run([this, instances](void*) mutable {
-        ProcessInstances(*instances, true);
+        ProcessInstances(*instances, Array<ServiceInfo>(), true);
         SendRunStatus();
 
         LockGuard lock(mMutex);
@@ -153,7 +154,8 @@ void Launcher::ProcessLayers(const Array<LayerInfo>& layers)
     LOG_DBG() << "Process layers";
 }
 
-void Launcher::ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart)
+void Launcher::ProcessInstances(
+    const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart)
 {
     LOG_DBG() << "Process instances";
 
@@ -162,7 +164,8 @@ void Launcher::ProcessInstances(const Array<InstanceInfo>& instances, bool force
         LOG_ERR() << "Can't run launcher thread pool: " << err;
     }
 
-    StopInstances(instances, forceRestart);
+    StopInstances(instances, services, forceRestart);
+    CacheServices(instances);
     StartInstances(instances);
 
     mLaunchPool.Shutdown();
@@ -175,6 +178,9 @@ void Launcher::SendRunStatus()
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
+        LOG_DBG() << "Instance status " << instance << ", AosVersion: " << instance.AosVersion()
+                  << ", run state: " << instance.RunState() << ", run error: " << instance.RunError();
+
         status->PushBack(
             {instance.Info().mInstanceIdent, instance.AosVersion(), instance.RunState(), instance.RunError()});
     }
@@ -187,15 +193,26 @@ void Launcher::SendRunStatus()
     }
 }
 
-void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRestart)
+void Launcher::StopInstances(
+    const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart)
 {
     UniqueLock lock(mMutex);
 
     for (auto& instance : mCurrentInstances) {
         auto found = instances.Find(instance.Info()).mError.IsNone();
 
-        if (!forceRestart && found) {
-            continue;
+        // Stop instance if: forceRestart or not in instances array or not active state or Aos version changed
+        if (!forceRestart && found && instance.RunState() == InstanceRunStateEnum::eActive) {
+            auto findService = services.Find([&instance](const ServiceInfo& service) {
+                return instance.Info().mInstanceIdent.mServiceID == service.mServiceID;
+            });
+            if (!findService.mError.IsNone()) {
+                continue;
+            }
+
+            if (instance.AosVersion() == findService.mValue->mVersionInfo.mAosVersion) {
+                continue;
+            }
         }
 
         auto err = mLaunchPool.AddTask([this, ident = instance.Info().mInstanceIdent](void*) mutable {
@@ -239,6 +256,61 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
     mLaunchPool.Wait();
 }
 
+void Launcher::CacheServices(const Array<InstanceInfo>& instances)
+{
+    LockGuard lock(mMutex);
+
+    mCurrentServices.Clear();
+
+    for (const auto& instance : instances) {
+        if (mCurrentServices
+                .Find([&instance](const Service& service) {
+                    return service.Data().mServiceID == instance.mInstanceIdent.mServiceID;
+                })
+                .mError.IsNone()) {
+            continue;
+        }
+
+        auto findService = mServiceManager->GetService(instance.mInstanceIdent.mServiceID);
+        if (!findService.mError.IsNone()) {
+            LOG_ERR() << "Can't get service " << instance.mInstanceIdent.mServiceID << ": " << findService.mError;
+            continue;
+        }
+
+        auto err = mCurrentServices.EmplaceBack(findService.mValue, *mServiceManager, *mOCIManager);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Can't cache service " << instance.mInstanceIdent.mServiceID << ": " << err;
+            continue;
+        }
+
+        err = mCurrentServices.Back().mValue.LoadSpecs();
+        if (!err.IsNone()) {
+            LOG_ERR() << "Can't load OCI spec for service " << instance.mInstanceIdent.mServiceID << ": " << err;
+            continue;
+        }
+    }
+
+    UpdateInstanceServices();
+}
+
+void Launcher::UpdateInstanceServices()
+{
+    for (auto& instance : mCurrentInstances) {
+        auto findService = mCurrentServices.Find([&instance](const Service& service) {
+            return instance.Info().mInstanceIdent.mServiceID == service.Data().mServiceID;
+        });
+        if (!findService.mError.IsNone()) {
+            LOG_ERR() << "Can't get service for instance " << instance << ": " << findService.mError;
+
+            instance.SetService(nullptr);
+
+            continue;
+        }
+
+        instance.SetService(findService.mValue);
+    }
+}
+
 Error Launcher::StartInstance(const InstanceInfo& info)
 {
     auto err = mStorage->AddInstance(info);
@@ -248,12 +320,20 @@ Error Launcher::StartInstance(const InstanceInfo& info)
 
     UniqueLock lock(mMutex);
 
-    err = mCurrentInstances.PushBack(Instance(info));
+    err = mCurrentInstances.PushBack(Instance(info, *mOCIManager, *mRunner));
     if (!err.IsNone()) {
         return err;
     }
 
     auto& instance = mCurrentInstances.Back().mValue;
+
+    auto findService = GetService(info.mInstanceIdent.mServiceID);
+
+    instance.SetService(findService.mValue, findService.mError);
+
+    if (!findService.mError.IsNone()) {
+        return findService.mError;
+    }
 
     lock.Unlock();
 

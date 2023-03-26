@@ -12,7 +12,7 @@ set(TARGET aossmcpp_test)
 # ######################################################################################################################
 
 set(SOURCES ${CMAKE_SOURCE_DIR}/src/sm/launcher/launcher.cpp ${CMAKE_SOURCE_DIR}/src/sm/launcher/instance.cpp
-            launcher/launcher_test.cpp
+            ${CMAKE_SOURCE_DIR}/src/sm/launcher/service.cpp launcher/launcher_test.cpp
 )
 
 # ######################################################################################################################

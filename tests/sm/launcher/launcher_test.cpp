@@ -56,16 +56,29 @@ class MockServiceManager : public ServiceManagerItf {
 public:
     Error InstallServices(const Array<ServiceInfo>& services) override
     {
-        (void)services;
+        std::lock_guard<std::mutex> lock(mMutex);
+
+        mServicesData.clear();
+
+        std::transform(
+            services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
+                return ServiceData {service.mVersionInfo, service.mServiceID, service.mProviderID, ""};
+            });
 
         return ErrorEnum::eNone;
     }
 
     RetWithError<ServiceData> GetService(const String serviceID) override
     {
-        (void)serviceID;
+        std::lock_guard<std::mutex> lock(mMutex);
 
-        return ServiceData {};
+        auto it = std::find_if(mServicesData.begin(), mServicesData.end(),
+            [&serviceID](const ServiceData& service) { return service.mServiceID == serviceID; });
+        if (it == mServicesData.end()) {
+            return {ServiceData(), ErrorEnum::eNotFound};
+        }
+
+        return *it;
     }
 
     RetWithError<ImageParts> GetImageParts(const ServiceData& service) override
@@ -74,6 +87,10 @@ public:
 
         return ImageParts {};
     }
+
+private:
+    std::mutex               mMutex;
+    std::vector<ServiceData> mServicesData;
 };
 
 /**
@@ -92,6 +109,45 @@ public:
     Error StopInstance(const String& instanceID) override
     {
         (void)instanceID;
+
+        return ErrorEnum::eNone;
+    }
+};
+
+/**
+ * Mock OCI manager.
+ */
+
+class MockOCIManager : public OCISpecItf {
+public:
+    Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
+    {
+        (void)path;
+        (void)imageSpec;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SaveImageSpec(const String& path, const oci::ImageSpec& imageSpec) override
+    {
+        (void)path;
+        (void)imageSpec;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error LoadRuntimeSpec(const String& path, oci::RuntimeSpec& runtimeSpec) override
+    {
+        (void)path;
+        (void)runtimeSpec;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SaveRuntimeSpec(const String& path, const oci::RuntimeSpec& runtimeSpec) override
+    {
+        (void)path;
+        (void)runtimeSpec;
 
         return ErrorEnum::eNone;
     }
@@ -229,6 +285,7 @@ TEST(launcher, RunInstances)
 {
     MockServiceManager serviceManager;
     MockRunner         runner;
+    MockOCIManager     ociManager;
     MockStatusReceiver statusReceiver;
     MockStorage        storage;
 
@@ -243,7 +300,7 @@ TEST(launcher, RunInstances)
 
     auto feature = statusReceiver.GetFeature();
 
-    EXPECT_TRUE(launcher.Init(serviceManager, runner, statusReceiver, storage).IsNone());
+    EXPECT_TRUE(launcher.Init(serviceManager, runner, ociManager, statusReceiver, storage).IsNone());
 
     EXPECT_TRUE(launcher.RunLastInstances().IsNone());
 
@@ -269,12 +326,14 @@ TEST(launcher, RunInstances)
                 {{"service1", "subject1", 1}, 0, 0, "", ""},
                 {{"service1", "subject1", 2}, 0, 0, "", ""},
             },
-            {},
+            std::vector<ServiceInfo> {
+                {{1, "1.0", ""}, "service1", "provider1", 0, "", {}, {}, 0},
+            },
             {},
             std::vector<InstanceStatus> {
-                {{"service1", "subject1", 0}, 0, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 1}, 0, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 2}, 0, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 0}, 1, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 1}, 1, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 2}, 1, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
             },
         },
         // Empty instances
@@ -291,12 +350,14 @@ TEST(launcher, RunInstances)
                 {{"service1", "subject1", 5}, 0, 0, "", ""},
                 {{"service1", "subject1", 6}, 0, 0, "", ""},
             },
-            {},
+            std::vector<ServiceInfo> {
+                {{2, "1.0", ""}, "service1", "provider1", 0, "", {}, {}, 0},
+            },
             {},
             std::vector<InstanceStatus> {
-                {{"service1", "subject1", 4}, 0, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 5}, 0, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 6}, 0, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 4}, 2, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 5}, 2, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 6}, 2, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
             },
         },
     };

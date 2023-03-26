@@ -33,6 +33,18 @@ Instance::Instance(const InstanceInfo& info)
     LOG_INF() << "Create instance: " << mInfo.mInstanceIdent << ", ID: " << *this;
 }
 
+void Instance::SetService(const Service* service, const Error& err)
+{
+    mService = service;
+    mRunError = err;
+
+    if (mService) {
+        mAosVersion = mService->Data().mVersionInfo.mAosVersion;
+
+        LOG_DBG() << "Set service " << *service << " for instance " << *this << ", Aos version: " << mAosVersion;
+    }
+}
+
 Error Instance::Start()
 {
     LOG_DBG() << "Start instance: " << *this;

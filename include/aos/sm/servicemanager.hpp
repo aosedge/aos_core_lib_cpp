@@ -39,6 +39,22 @@ struct ServiceData {
      * Image path.
      */
     StaticString<cFilePathLen> mImagePath;
+
+    /**
+     * Compares service data.
+     *
+     * @param data data to compare.
+     * @return bool.
+     */
+    bool operator==(const ServiceData& data) const { return data.mVersionInfo == mVersionInfo; }
+
+    /**
+     * Compares service data.
+     *
+     * @param data data to compare.
+     * @return bool.
+     */
+    bool operator!=(const ServiceData& data) const { return !operator==(data); }
 };
 
 /**

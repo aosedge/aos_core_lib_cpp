@@ -10,6 +10,7 @@
 
 #include <assert.h>
 
+#include "aos/common/ocispec.hpp"
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
@@ -17,6 +18,7 @@
 #include "aos/sm/config.hpp"
 #include "aos/sm/instance.hpp"
 #include "aos/sm/runner.hpp"
+#include "aos/sm/service.hpp"
 #include "aos/sm/servicemanager.hpp"
 
 namespace aos {
@@ -139,7 +141,7 @@ public:
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
+    Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner, OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, StorageItf& storage);
 
     /**
@@ -173,12 +175,28 @@ private:
     static constexpr auto cNumLaunchThreads = AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cThreadTaskSize = 256;
 
-    void  ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
-    void  ProcessServices(const Array<ServiceInfo>& services);
-    void  ProcessLayers(const Array<LayerInfo>& layers);
-    void  SendRunStatus();
-    void  StopInstances(const Array<InstanceInfo>& instances, bool forceRestart);
-    void  StartInstances(const Array<InstanceInfo>& instances);
+    void ProcessInstances(
+        const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart = false);
+    void ProcessServices(const Array<ServiceInfo>& services);
+    void ProcessLayers(const Array<LayerInfo>& layers);
+    void SendRunStatus();
+    void StopInstances(const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart);
+    void StartInstances(const Array<InstanceInfo>& instances);
+    void CacheServices(const Array<InstanceInfo>& instances);
+    void UpdateInstanceServices();
+
+    RetWithError<const Service*> GetService(const String& serviceID) const
+    {
+        auto findService = mCurrentServices.Find(
+            [&serviceID](const Service& service) { return service.Data().mServiceID == serviceID; });
+
+        if (!findService.mError.IsNone()) {
+            return {nullptr, findService.mError};
+        }
+
+        return findService.mValue;
+    }
+
     Error StartInstance(const InstanceInfo& info);
     Error StopInstance(const InstanceIdent& ident);
 
@@ -186,6 +204,7 @@ private:
     runner::RunnerItf*                 mRunner {};
     InstanceStatusReceiverItf*         mStatusReceiver {};
     StorageItf*                        mStorage {};
+    OCISpecItf*                        mOCIManager {};
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)>
         mAllocator;
@@ -195,6 +214,7 @@ private:
     Thread<cThreadTaskSize> mThread;
     ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize> mLaunchPool;
 
+    StaticArray<Service, cMaxNumServices>   mCurrentServices;
     StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
 };
 
