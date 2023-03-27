@@ -60,9 +60,9 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const cLogLevelStrings[] = {"debug", "info", "warning", "error"};
+        static const char* const sLogLevelStrings[] = {"debug", "info", "warning", "error"};
 
-        return Array<const char* const>(cLogLevelStrings, ArraySize(cLogLevelStrings));
+        return Array<const char* const>(sLogLevelStrings, ArraySize(sLogLevelStrings));
     };
 };
 
@@ -78,9 +78,9 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const cErrorTypeStrings[] = {"default", "launcher", "certhandler"};
+        static const char* const sLogModuleTypeStrings[] = {"default", "launcher", "certhandler"};
 
-        return Array<const char* const>(cErrorTypeStrings, ArraySize(cErrorTypeStrings));
+        return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));
     };
 };
 
