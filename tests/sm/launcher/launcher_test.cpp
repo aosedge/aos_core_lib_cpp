@@ -15,6 +15,7 @@
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/log.hpp"
 #include "aos/sm/launcher.hpp"
+#include "tests/utils/utils.hpp"
 
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
@@ -255,31 +256,6 @@ private:
 };
 
 /***********************************************************************************************************************
- * Functions
- **********************************************************************************************************************/
-
-bool CompareInstanceStatuses(const Array<InstanceStatus> status1, const Array<InstanceStatus> status2)
-{
-    if (status1.Size() != status2.Size()) {
-        return false;
-    }
-
-    for (const auto& instance : status1) {
-        if (!status2.Find(instance).mError.IsNone()) {
-            return false;
-        }
-    }
-
-    for (const auto& instance : status2) {
-        if (!status1.Find(instance).mError.IsNone()) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
@@ -309,7 +285,7 @@ TEST(launcher, RunInstances)
     // Wait for initial instance status
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(CompareInstanceStatuses(feature.get(), Array<InstanceStatus>()));
+    EXPECT_TRUE(TestUtils::CompareArrays(feature.get(), Array<InstanceStatus>()));
 
     // Test different scenarios
 
@@ -376,7 +352,7 @@ TEST(launcher, RunInstances)
                         .IsNone());
 
         EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-        EXPECT_TRUE(CompareInstanceStatuses(
+        EXPECT_TRUE(TestUtils::CompareArrays(
             feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
     }
 
@@ -389,7 +365,7 @@ TEST(launcher, RunInstances)
     // Wait for initial instance status
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(CompareInstanceStatuses(
+    EXPECT_TRUE(TestUtils::CompareArrays(
         feature.get(), Array<InstanceStatus>(testData.back().mStatus.data(), testData.back().mStatus.size())));
 }
 
