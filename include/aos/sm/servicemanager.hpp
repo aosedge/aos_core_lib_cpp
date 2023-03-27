@@ -9,6 +9,7 @@
 #define AOS_SERVICEMANAGER_HPP_
 
 #include "aos/common/downloader.hpp"
+#include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
@@ -59,6 +60,11 @@ struct ServiceData {
      */
     bool operator!=(const ServiceData& data) const { return !operator==(data); }
 };
+
+/**
+ * Service data static array.
+ */
+using ServiceDataStaticArray = StaticArray<ServiceData, cMaxNumServices>;
 
 /**
  * Image parts.
@@ -213,11 +219,18 @@ public:
 
 private:
     static constexpr auto cNumInstallThreads = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
+    static constexpr auto cServicesDir = AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR;
+    static constexpr auto cImageConfigFile = "image.json";
+    static constexpr auto cServiceConfigFile = "service.json";
+    static constexpr auto cServiceRootFS = "rootfs";
+
+    Error RemoveService(const ServiceData& service);
+    Error InstallService(const ServiceInfo& service);
 
     DownloaderItf* mDownloader {};
     StorageItf*    mStorage {};
 
-    Mutex                                           mMutex;
+    StaticAllocator<sizeof(ServiceDataStaticArray)> mAllocator;
     ThreadPool<cNumInstallThreads, cMaxNumServices> mInstallPool;
 };
 

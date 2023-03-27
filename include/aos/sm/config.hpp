@@ -29,4 +29,11 @@
 #define AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS 5
 #endif
 
+/**
+ * Aos service dir.
+ */
+#ifndef AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR
+#define AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/var/aos/sm/services"
+#endif
+
 #endif
