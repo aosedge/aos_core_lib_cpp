@@ -8,8 +8,11 @@
 #ifndef AOS_SERVICEMANAGER_HPP_
 #define AOS_SERVICEMANAGER_HPP_
 
+#include "aos/common/downloader.hpp"
 #include "aos/common/tools/noncopyable.hpp"
+#include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
+#include "aos/sm/config.hpp"
 
 namespace aos {
 namespace sm {
@@ -160,6 +163,62 @@ public:
      * Destroys storage interface.
      */
     virtual ~ServiceManagerItf() = default;
+};
+
+class ServiceManager : public ServiceManagerItf, private NonCopyable {
+public:
+    /**
+     * Creates service manager.
+     */
+    ServiceManager() = default;
+
+    /**
+     * Destroys service manager.
+     */
+    ~ServiceManager() { mInstallPool.Shutdown(); }
+
+    /**
+     * Initializes service manager.
+     *
+     * @param statusReceiver status receiver instance.
+     * @param runner runner instance.
+     * @param storage storage instance.
+     * @return Error.
+     */
+    Error Init(DownloaderItf& downloader, StorageItf& storage);
+
+    /**
+     * Installs services.
+     *
+     * @param services to install.
+     * @return Error
+     */
+    Error InstallServices(const Array<ServiceInfo>& services) override;
+
+    /**
+     * Returns service item by service ID.
+     *
+     * @param serviceID service ID.
+     * @return RetWithError<ServiceItem>.
+     */
+    RetWithError<ServiceData> GetService(const String& serviceID) override;
+
+    /**
+     * Returns service image parts.
+     *
+     * @param service service item.
+     * @return RetWithError<ImageParts>.
+     */
+    RetWithError<ImageParts> GetImageParts(const ServiceData& service) override;
+
+private:
+    static constexpr auto cNumInstallThreads = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
+
+    DownloaderItf* mDownloader {};
+    StorageItf*    mStorage {};
+
+    Mutex                                           mMutex;
+    ThreadPool<cNumInstallThreads, cMaxNumServices> mInstallPool;
 };
 
 /** @}*/

@@ -74,11 +74,22 @@ using LogLevel = EnumStringer<LogLevelType>;
  */
 class LogModuleType {
 public:
-    enum class Enum { eDefault, eSMLauncher, eIAMCertHandler, eNumModules };
+    enum class Enum {
+        eDefault,
+        eSMLauncher,
+        eSMServiceManager,
+        eIAMCertHandler,
+        eNumModules,
+    };
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sLogModuleTypeStrings[] = {"default", "launcher", "certhandler"};
+        static const char* const sLogModuleTypeStrings[] = {
+            "default",
+            "launcher",
+            "servicemanager",
+            "certhandler",
+        };
 
         return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));
     };
