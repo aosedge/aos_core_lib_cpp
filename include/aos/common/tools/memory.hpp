@@ -111,7 +111,7 @@ protected:
  * @tparam T holding object type.
  */
 template <typename T>
-class UniquePtr : public SmartPtr<T>, public NonCopyable {
+class UniquePtr : public SmartPtr<T>, private NonCopyable {
 public:
     /**
      * Creates unique pointer.

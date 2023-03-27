@@ -21,7 +21,7 @@ namespace aos {
 /**
  * Allocator instance.
  */
-class Allocator : public NonCopyable {
+class Allocator : private NonCopyable {
 public:
     /**
      * Allocation instance.
