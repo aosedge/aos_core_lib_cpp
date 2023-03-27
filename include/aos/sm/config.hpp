@@ -22,4 +22,11 @@
 #define AOS_CONFIG_LAUNCHER_RUNTIME_DIR "/run/aos/runtime"
 #endif
 
+/**
+ * Number of parallel service installs.
+ */
+#ifndef AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS
+#define AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS 5
+#endif
+
 #endif

@@ -11,8 +11,15 @@ set(TARGET aossmcpp_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES ${CMAKE_SOURCE_DIR}/src/sm/launcher/launcher.cpp ${CMAKE_SOURCE_DIR}/src/sm/launcher/instance.cpp
-            ${CMAKE_SOURCE_DIR}/src/sm/launcher/service.cpp launcher/launcher_test.cpp
+set(SOURCES
+    # launcher
+    ${CMAKE_SOURCE_DIR}/src/sm/launcher/launcher.cpp
+    ${CMAKE_SOURCE_DIR}/src/sm/launcher/instance.cpp
+    ${CMAKE_SOURCE_DIR}/src/sm/launcher/service.cpp
+    launcher/launcher_test.cpp
+    # servicemanager
+    ${CMAKE_SOURCE_DIR}/src/sm/servicemanager/servicemanager.cpp
+    servicemanager/servicemanager_test.cpp
 )
 
 # ######################################################################################################################
