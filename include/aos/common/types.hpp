@@ -13,6 +13,7 @@
 #include "aos/common/config.hpp"
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/fs.hpp"
 
 namespace aos {
 
@@ -45,11 +46,6 @@ constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
  * Instance ID len.
  */
 constexpr auto cInstanceIDLen = AOS_CONFIG_TYPES_INSTANCE_ID_LEN;
-
-/*
- * File path len.
- */
-constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 
 /*
  * URL len.

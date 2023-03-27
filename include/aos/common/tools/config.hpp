@@ -71,4 +71,11 @@
 #define AOS_CONFIG_NEW_USE_AOS 0
 #endif
 
+/**
+ * File/directory path len.
+ */
+#ifndef AOS_CONFIG_FS_FILE_PATH_LEN
+#define AOS_CONFIG_FS_FILE_PATH_LEN 256
+#endif
+
 #endif
