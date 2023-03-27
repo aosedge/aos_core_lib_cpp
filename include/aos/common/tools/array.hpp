@@ -288,6 +288,26 @@ public:
     }
 
     /**
+     * Creates item at the end of array.
+     *
+     * @param args args of item constructor.
+     * @return Error.
+     */
+    template <typename... Args>
+    Error EmplaceBack(Args&&... args)
+    {
+        if (IsFull()) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        new (end()) T(args...);
+
+        mSize++;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Pops item from the end of array.
      *
      * @return Error.

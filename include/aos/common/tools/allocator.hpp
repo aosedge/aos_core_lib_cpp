@@ -104,7 +104,7 @@ public:
 
         auto data = End();
 
-        mAllocations->PushBack({data, size});
+        mAllocations->EmplaceBack(data, size);
 
         return data;
     }
