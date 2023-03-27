@@ -70,7 +70,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    RetWithError<ServiceData> GetService(const String serviceID) override
+    RetWithError<ServiceData> GetService(const String& serviceID) override
     {
         std::lock_guard<std::mutex> lock(mMutex);
 
