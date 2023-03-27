@@ -23,9 +23,9 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const cContentTypeStrings[] = {"service"};
+        static const char* const sContentTypeStrings[] = {"service"};
 
-        return Array<const char* const>(cContentTypeStrings, ArraySize(cContentTypeStrings));
+        return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
     };
 };
 

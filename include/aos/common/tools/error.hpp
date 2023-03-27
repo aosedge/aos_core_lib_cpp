@@ -234,7 +234,7 @@ private:
      */
     static Pair<const char* const*, size_t> GetStrings()
     {
-        static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)] = {
+        static const char* const sErrorTypeStrings[] = {
             "none",
             "failed",
             "runtime error",
@@ -248,7 +248,7 @@ private:
             "wrong state",
         };
 
-        return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
+        return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
     };
 
     Enum        mErr;
