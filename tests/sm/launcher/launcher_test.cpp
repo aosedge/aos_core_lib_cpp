@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/log.hpp"
 #include "aos/sm/launcher.hpp"
 
@@ -62,7 +63,8 @@ public:
 
         std::transform(
             services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
-                return ServiceData {service.mVersionInfo, service.mServiceID, service.mProviderID, ""};
+                return ServiceData {service.mVersionInfo, service.mServiceID, service.mProviderID,
+                    FS::JoinPath("/aos/storages", service.mServiceID)};
             });
 
         return ErrorEnum::eNone;
@@ -83,9 +85,8 @@ public:
 
     RetWithError<ImageParts> GetImageParts(const ServiceData& service) override
     {
-        (void)service;
-
-        return ImageParts {};
+        return ImageParts {FS::JoinPath(service.mImagePath, "image.json"),
+            FS::JoinPath(service.mImagePath, "service.json"), service.mImagePath};
     }
 
 private:
@@ -123,7 +124,8 @@ public:
     Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
     {
         (void)path;
-        (void)imageSpec;
+
+        imageSpec.mConfig.mCmd.EmplaceBack("unikernel");
 
         return ErrorEnum::eNone;
     }

@@ -15,4 +15,11 @@
 #define AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES 5
 #endif
 
+/**
+ * Aos runtime dir.
+ */
+#ifndef AOS_CONFIG_LAUNCHER_RUNTIME_DIR
+#define AOS_CONFIG_LAUNCHER_RUNTIME_DIR "/run/aos/runtime"
+#endif
+
 #endif
