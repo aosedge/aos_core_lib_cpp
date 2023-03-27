@@ -11,7 +11,7 @@ set(TARGET aossmcpp)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES launcher/launcher.cpp launcher/instance.cpp launcher/service.cpp)
+set(SOURCES launcher/launcher.cpp launcher/instance.cpp launcher/service.cpp servicemanager/servicemanager.cpp)
 
 # ######################################################################################################################
 # Target

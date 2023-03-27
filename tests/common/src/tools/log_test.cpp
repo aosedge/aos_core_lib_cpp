@@ -141,6 +141,7 @@ TEST(common, Log)
     // Test log module strings
 
     EXPECT_EQ(LogModule(LogModuleEnum::eSMLauncher).ToString(), "launcher");
+    EXPECT_EQ(LogModule(LogModuleEnum::eSMServiceManager).ToString(), "servicemanager");
     EXPECT_EQ(LogModule(LogModuleEnum::eIAMCertHandler).ToString(), "certhandler");
 
     // Test error with function name and line number
