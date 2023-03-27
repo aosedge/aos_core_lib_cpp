@@ -159,7 +159,7 @@ public:
  * @return UniquePtr<T> constructed unique ptr.
  */
 template <typename T, typename... Args>
-inline UniquePtr<T> MakeUnique(Allocator* allocator, Args... args)
+inline UniquePtr<T> MakeUnique(Allocator* allocator, Args&&... args)
 {
     assert(allocator);
 
