@@ -76,6 +76,12 @@
  */
 #ifndef AOS_CONFIG_TIMER_SIGEV_NOTIFY
 #define AOS_CONFIG_TIMER_SIGEV_NOTIFY SIGEV_THREAD
+
+/**
+ * File/directory path len.
+ */
+#ifndef AOS_CONFIG_FS_FILE_PATH_LEN
+#define AOS_CONFIG_FS_FILE_PATH_LEN 256
 #endif
 
 #endif

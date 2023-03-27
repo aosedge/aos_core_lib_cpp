@@ -51,13 +51,6 @@
 #endif
 
 /**
- * File/directory path len.
- */
-#ifndef AOS_CONFIG_TYPES_FILE_PATH_LEN
-#define AOS_CONFIG_TYPES_FILE_PATH_LEN 256
-#endif
-
-/**
  * URL len.
  */
 #ifndef AOS_CONFIG_TYPES_URL_LEN
