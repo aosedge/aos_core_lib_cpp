@@ -9,6 +9,7 @@
 #define AOS_STRING_HPP_
 
 #include <aos/common/tools/array.hpp>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -231,6 +232,48 @@ public:
         }
 
         return *this;
+    }
+
+    /**
+     * Splits string to string list.
+     *
+     * @param list string list to split to.
+     * @param delim delimeter.
+     *
+     * @return Error.
+     */
+    template <typename T>
+    Error Split(T& list, char delim = 0)
+    {
+        list.Clear();
+
+        auto it = begin();
+        auto prevIt = it;
+
+        while (it != end()) {
+            if (delim ? *it == delim : isspace(*it)) {
+                auto err = list.PushBack(String(prevIt, it - prevIt));
+                if (!err.IsNone()) {
+                    return err;
+                }
+
+                it++;
+                prevIt = it;
+
+                continue;
+            }
+
+            it++;
+        }
+
+        if (it != prevIt) {
+            auto err = list.PushBack(String(prevIt, it - prevIt));
+            if (!err.IsNone()) {
+                return err;
+            }
+        }
+
+        return ErrorEnum::eNone;
     }
 };
 

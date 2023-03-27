@@ -95,3 +95,18 @@ TEST(common, StringArray)
     EXPECT_EQ(strArray[0].str1, "test1");
     EXPECT_EQ(strArray[0].str2, "test2");
 }
+
+TEST(common, SplitString)
+{
+    StaticArray<StaticString<4>, 4> splitArray;
+
+    String str = "aa bb cc dd";
+
+    EXPECT_TRUE(str.Split(splitArray).IsNone());
+
+    StaticString<4> resultList[] = {"aa", "bb", "cc", "dd"};
+
+    Array<StaticString<4>> resultArray(resultList, ArraySize(resultList));
+
+    EXPECT_EQ(splitArray, resultArray);
+}
