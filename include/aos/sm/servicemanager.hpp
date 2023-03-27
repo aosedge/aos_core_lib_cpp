@@ -146,7 +146,7 @@ public:
      * @param serviceID service ID.
      * @return RetWithError<ServiceItem>.
      */
-    virtual RetWithError<ServiceData> GetService(const String serviceID) = 0;
+    virtual RetWithError<ServiceData> GetService(const String& serviceID) = 0;
 
     /**
      * Returns service image parts.
