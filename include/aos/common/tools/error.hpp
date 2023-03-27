@@ -233,10 +233,10 @@ private:
      */
     static Pair<const char* const*, size_t> GetStrings()
     {
-        static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)] = {"none", "failed",
-            "runtime error", "not enough memory", "out of range", "invalid argument", "timeout", "not found"};
+        static const char* const sErrorTypeStrings[] = {"none", "failed", "runtime error", "not enough memory",
+            "out of range", "not found", "invalid argument", "timeout"};
 
-        return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
+        return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
     };
 
     Enum        mErr;

@@ -136,9 +136,9 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const cInstanceRunStateStrings[] = {"active", "failed"};
+        static const char* const sInstanceRunStateStrings[] = {"active", "failed"};
 
-        return Array<const char* const>(cInstanceRunStateStrings, ArraySize(cInstanceRunStateStrings));
+        return Array<const char* const>(sInstanceRunStateStrings, ArraySize(sInstanceRunStateStrings));
     };
 };
 
