@@ -61,11 +61,19 @@ struct VMKernel {
 };
 
 /**
+ * Contains information about HW configuration.
+ */
+struct HWConfig {
+    StaticString<cFilePathLen> mDeviceTreePath;
+};
+
+/**
  * Contains information for virtual-machine-based containers.
  */
 struct VM {
     VMHypervisor mHypervisor;
     VMKernel     mKernel;
+    HWConfig     mHWConfig;
 };
 
 /**
