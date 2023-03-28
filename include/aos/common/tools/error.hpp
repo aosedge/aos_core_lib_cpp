@@ -151,7 +151,11 @@ public:
     const char* Message() const
     {
         if (mErrno != 0) {
-            return strerror(mErrno);
+            auto strErrno = strerror(mErrno > 0 ? mErrno : -mErrno);
+
+            if (strErrno[0] != 0) {
+                return strErrno;
+            }
         }
 
         auto strings = GetStrings();
