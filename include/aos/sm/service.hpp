@@ -10,7 +10,6 @@
 #define AOS_SERVICE_HPP_
 
 #include "aos/common/ocispec.hpp"
-#include "aos/common/tools/noncopyable.hpp"
 #include "aos/sm/servicemanager.hpp"
 
 namespace aos {
@@ -20,7 +19,7 @@ namespace launcher {
 /**
  * Launcher service.
  */
-class Service : private NonCopyable {
+class Service {
 public:
     /**
      * Creates service.
