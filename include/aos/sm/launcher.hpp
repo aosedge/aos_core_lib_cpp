@@ -10,7 +10,7 @@
 
 #include <assert.h>
 
-#include "aos/common/osicpec.hpp"
+#include "aos/common/ocispec.hpp"
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
