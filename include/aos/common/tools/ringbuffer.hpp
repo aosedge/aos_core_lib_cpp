@@ -203,7 +203,7 @@ private:
  * @tparam cMaxSize max ring buffer size.
  */
 template <size_t cMaxSize>
-class StaticRingBuffer : public RingBuffer, public NonCopyable {
+class StaticRingBuffer : public RingBuffer, private NonCopyable {
 public:
     /**
      * Creates static ring buffer.

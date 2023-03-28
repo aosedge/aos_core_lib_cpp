@@ -31,6 +31,8 @@ namespace aos {
  */
 class Error {
 public:
+    // NOTE: new error type should be added also to private GetStrings() method below and covered
+    // with unit test: TEST(common, ErrorMessages).
     /**
      * Error enum.
      */
@@ -44,6 +46,8 @@ public:
         eInvalidArgument,
         eFile,
         eTimeout,
+        eAlreadyExist,
+        eWrongState,
         eNumErrors
     };
 
@@ -189,20 +193,20 @@ public:
     int LineNumber() const { return mLineNumber; }
 
     /**
-     * Compares if error equals to specified error value.
+     * Compares if error equals to another error value.
      *
-     * @param err error value to compare with.
+     * @param err error to compare with.
      * @return bool result.
      */
-    bool operator==(Enum value) const { return mErr == value; };
+    bool operator==(const Error& err) const { return mErr == err.mErr; };
 
     /**
-     * Compares if error doesn't equal to specified error value.
+     * Compares if error doesn't equal to another error value.
      *
-     * @param err error value to compare with.
+     * @param err error to compare with.
      * @return bool result.
      */
-    bool operator!=(Enum value) const { return mErr != value; };
+    bool operator!=(const Error& err) const { return mErr != err.mErr; };
 
     /**
      * Compares if specified error value equals to error.
@@ -230,9 +234,19 @@ private:
      */
     static Pair<const char* const*, size_t> GetStrings()
     {
-        static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)]
-            = {"none", "failed", "runtime error", "not enough memory", "out of range", "invalid argument", "file error",
-                "timeout", "not found"};
+        static const char* const cErrorTypeStrings[static_cast<size_t>(Enum::eNumErrors)] = {
+            "none",
+            "failed",
+            "runtime error",
+            "not enough memory",
+            "out of range",
+            "not found",
+            "invalid argument",
+            "file error",
+            "timeout",
+            "already exist",
+            "wrong state",
+        };
 
         return Pair<const char* const*, size_t>(cErrorTypeStrings, static_cast<size_t>(Enum::eNumErrors));
     };

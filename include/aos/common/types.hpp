@@ -13,6 +13,8 @@
 #include "aos/common/config.hpp"
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/fs.hpp"
+#include "aos/common/tools/log.hpp"
 
 namespace aos {
 
@@ -45,11 +47,6 @@ constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
  * Instance ID len.
  */
 constexpr auto cInstanceIDLen = AOS_CONFIG_TYPES_INSTANCE_ID_LEN;
-
-/*
- * File path len.
- */
-constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 
 /*
  * URL len.
@@ -109,6 +106,40 @@ struct InstanceIdent {
     StaticString<cServiceIDLen> mServiceID;
     StaticString<cSubjectIDLen> mSubjectID;
     uint64_t                    mInstance;
+
+    /**
+     * Compares instance ident.
+     *
+     * @param instance ident to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceIdent& instance) const
+    {
+        return mServiceID == instance.mServiceID && mSubjectID == instance.mSubjectID
+            && mInstance == instance.mInstance;
+    }
+
+    /**
+     * Compares instance ident.
+     *
+     * @param instance ident to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceIdent& instance) const { return !operator==(instance); }
+
+    /**
+     * Outputs instance ident to log.
+     *
+     * @param log log to output.
+     * @param instanceIdent instance ident.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
+    {
+        return log << "{" << instanceIdent.mServiceID << "-" << instanceIdent.mSubjectID << "-"
+                   << instanceIdent.mInstance << "}";
+    }
 };
 
 /**
@@ -120,6 +151,26 @@ struct InstanceInfo {
     uint64_t                   mPriority;
     StaticString<cFilePathLen> mStoragePath;
     StaticString<cFilePathLen> mStatePath;
+
+    /**
+     * Compares instance info.
+     *
+     * @param instance info to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceInfo& instance) const
+    {
+        return mInstanceIdent == instance.mInstanceIdent && mUID == instance.mUID && mPriority == instance.mPriority
+            && mStoragePath == instance.mStoragePath && mStatePath == instance.mStatePath;
+    }
+
+    /**
+     * Compares instance info.
+     *
+     * @param instance info to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceInfo& instance) const { return !operator==(instance); }
 };
 
 /**
@@ -153,6 +204,26 @@ struct InstanceStatus {
     uint64_t         mAosVersion;
     InstanceRunState mRunState;
     Error            mError;
+
+    /**
+     * Compares instance status.
+     *
+     * @param instance status to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceStatus& instance) const
+    {
+        return mInstanceIdent == instance.mInstanceIdent && mAosVersion == instance.mAosVersion
+            && mRunState == instance.mRunState && mError == instance.mError;
+    }
+
+    /**
+     * Compares instance status.
+     *
+     * @param instance status to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceStatus& instance) const { return !operator==(instance); }
 };
 
 /**
@@ -167,6 +238,25 @@ struct VersionInfo {
     uint64_t                        mAosVersion;
     StaticString<cVendorVersionLen> mVendorVersion;
     StaticString<cDescriptionLen>   mDescription;
+
+    /**
+     * Compares version info.
+     *
+     * @param info info to compare.
+     * @return bool.
+     */
+    bool operator==(const VersionInfo& info) const
+    {
+        return mAosVersion == info.mAosVersion && mVendorVersion == info.mVendorVersion;
+    }
+
+    /**
+     * Compares version info.
+     *
+     * @param info info to compare.
+     * @return bool.
+     */
+    bool operator!=(const VersionInfo& info) const { return !operator==(info); }
 };
 
 /**

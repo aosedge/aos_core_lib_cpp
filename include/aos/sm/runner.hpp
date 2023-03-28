@@ -21,8 +21,8 @@ namespace runner {
  */
 struct RunStatus {
     StaticString<cInstanceIDLen> mInstanceID;
-    InstanceRunState                 mState;
-    Error                            mError;
+    InstanceRunState             mState;
+    Error                        mError;
 };
 
 /**
@@ -46,6 +46,11 @@ public:
      * @return Error.
      */
     virtual Error StopInstance(const String& instanceID) = 0;
+
+    /**
+     * Destructs runner interface.
+     */
+    virtual ~RunnerItf() = default;
 };
 
 /**
@@ -60,6 +65,11 @@ public:
      * @return Error.
      */
     virtual Error UpdateRunStatus(const Array<RunStatus>& instances) = 0;
+
+    /**
+     * Destructs run status receiver interface.
+     */
+    virtual ~RunStatusReceiverItf() = default;
 };
 
 } // namespace runner

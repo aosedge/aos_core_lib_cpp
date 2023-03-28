@@ -39,6 +39,22 @@ struct ServiceData {
      * Image path.
      */
     StaticString<cFilePathLen> mImagePath;
+
+    /**
+     * Compares service data.
+     *
+     * @param data data to compare.
+     * @return bool.
+     */
+    bool operator==(const ServiceData& data) const { return data.mVersionInfo == mVersionInfo; }
+
+    /**
+     * Compares service data.
+     *
+     * @param data data to compare.
+     * @return bool.
+     */
+    bool operator!=(const ServiceData& data) const { return !operator==(data); }
 };
 
 /**
@@ -114,7 +130,7 @@ public:
 /**
  * Service manager interface.
  */
-class ServiceManagerItf : public NonCopyable {
+class ServiceManagerItf {
 public:
     /**
      * Installs services.
@@ -130,7 +146,7 @@ public:
      * @param serviceID service ID.
      * @return RetWithError<ServiceItem>.
      */
-    virtual RetWithError<ServiceData> GetService(const String serviceID) = 0;
+    virtual RetWithError<ServiceData> GetService(const String& serviceID) = 0;
 
     /**
      * Returns service image parts.

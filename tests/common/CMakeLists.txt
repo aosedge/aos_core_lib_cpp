@@ -25,6 +25,7 @@ set(SOURCES
     src/tools/queue_test.cpp
     src/tools/function_test.cpp
     src/tools/timer_test.cpp
+    src/types_test.cpp
 )
 
 # ######################################################################################################################

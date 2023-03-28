@@ -111,7 +111,7 @@ protected:
  * @tparam T holding object type.
  */
 template <typename T>
-class UniquePtr : public SmartPtr<T>, public NonCopyable {
+class UniquePtr : public SmartPtr<T>, private NonCopyable {
 public:
     /**
      * Creates unique pointer.
@@ -150,6 +150,95 @@ public:
 };
 
 /**
+ * Shared pointer instance.
+ *
+ * @tparam T holding object type.
+ */
+template <typename T>
+class SharedPtr : public SmartPtr<T> {
+public:
+    /**
+     * Creates shared pointer.
+     */
+    SharedPtr(Allocator* allocator = nullptr, T* object = nullptr)
+        : SmartPtr<T>(allocator, object)
+    {
+        if (allocator && object) {
+            mAllocation = allocator->FindAllocation(object).mValue;
+            SmartPtr<T>::mAllocator->TakeAllocation(mAllocation);
+        }
+    }
+
+    /**
+     * Creates shared pointer from another pointer.
+     *
+     * @param ptr pointer to create from.
+     */
+    SharedPtr(const SharedPtr& ptr)
+        : SmartPtr<T>(ptr)
+        , mAllocation(ptr.mAllocation)
+    {
+        if (mAllocation) {
+            SmartPtr<T>::mAllocator->TakeAllocation(mAllocation);
+        }
+    }
+
+    /**
+     * Assigns shared pointer from another shared pointer.
+     *
+     * @param ptr shared pointer to assign from.
+     */
+    SharedPtr& operator=(const SharedPtr& ptr)
+    {
+        Reset(ptr.mAllocator, ptr.mObject);
+
+        return *this;
+    }
+
+    /**
+     * Assigns shared pointer from another pointer.
+     *
+     * @param ptr pointer to assign from.
+     */
+    SharedPtr& operator=(const T* object)
+    {
+        Reset(SmartPtr<T>::mAllocator, object);
+
+        return *this;
+    }
+
+    /**
+     * Resets shared pointer.
+     *
+     * @param allocator new allocator.
+     * @param object new object.
+     */
+    void Reset(Allocator* allocator = nullptr, T* object = nullptr)
+    {
+        if (mAllocation && SmartPtr<T>::mAllocator->GiveAllocation(mAllocation) == 0) {
+            SmartPtr<T>::Reset(allocator, object);
+        }
+
+        SmartPtr<T>::mAllocator = allocator;
+        SmartPtr<T>::mObject = object;
+        mAllocation = nullptr;
+
+        if (allocator && object) {
+            mAllocation = allocator->FindAllocation(object).mValue;
+            SmartPtr<T>::mAllocator->TakeAllocation(mAllocation);
+        }
+    }
+
+    /**
+     * Destroys unique pointer.
+     */
+    ~SharedPtr() { Reset(); }
+
+private:
+    Allocator::Allocation* mAllocation = nullptr;
+};
+
+/**
  * Constructs unique pointer.
  *
  * @tparam T holding object type.
@@ -159,11 +248,28 @@ public:
  * @return UniquePtr<T> constructed unique ptr.
  */
 template <typename T, typename... Args>
-inline UniquePtr<T> MakeUnique(Allocator* allocator, Args... args)
+inline UniquePtr<T> MakeUnique(Allocator* allocator, Args&&... args)
 {
     assert(allocator);
 
     return UniquePtr<T>(allocator, new (allocator) T(args...));
+}
+
+/**
+ * Constructs shared pointer.
+ *
+ * @tparam T holding object type.
+ * @tparam Args holding object constructor parameters types.
+ * @param allocator allocator.
+ * @param args holding object constructor parameters.
+ * @return SharedPtr<T> constructed shared ptr.
+ */
+template <typename T, typename... Args>
+inline SharedPtr<T> MakeShared(Allocator* allocator, Args&&... args)
+{
+    assert(allocator);
+
+    return SharedPtr<T>(allocator, new (allocator) T(args...));
 }
 
 } // namespace aos

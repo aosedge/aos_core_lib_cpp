@@ -288,6 +288,26 @@ public:
     }
 
     /**
+     * Creates item at the end of array.
+     *
+     * @param args args of item constructor.
+     * @return Error.
+     */
+    template <typename... Args>
+    Error EmplaceBack(Args&&... args)
+    {
+        if (IsFull()) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        new (end()) T(args...);
+
+        mSize++;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Pops item from the end of array.
      *
      * @return Error.
@@ -316,7 +336,7 @@ public:
         }
 
         for (size_t i = 0; i < mSize; i++) {
-            if (mItems[i] != array.mItems[i]) {
+            if (!(mItems[i] == array.mItems[i])) {
                 return false;
             }
         }
@@ -466,6 +486,34 @@ public:
         }
 
         return end();
+    }
+
+    /*
+     * Sorts array items using sort function.
+     *
+     * @tparam F type of sort function.
+     * @param sortFunc sort function.
+     */
+    template <typename F>
+    void Sort(F sortFunc)
+    {
+        for (size_t i = 0; i < mSize - 1; i++) {
+            for (size_t j = 0; j < mSize - i - 1; j++) {
+                if (sortFunc(mItems[j], mItems[j + 1])) {
+                    auto tmp = mItems[j + 1];
+                    mItems[j + 1] = mItems[j];
+                    mItems[j] = tmp;
+                }
+            }
+        }
+    }
+
+    /**
+     * Sorts array items using default comparision operator.
+     */
+    void Sort()
+    {
+        Sort([](const T& val1, const T& val2) { return val1 > val2; });
     }
 
     // Used for range based loop.
