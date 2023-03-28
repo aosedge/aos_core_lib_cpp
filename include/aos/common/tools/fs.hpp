@@ -135,7 +135,7 @@ public:
         }
 
         auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-        if (ret != 0) {
+        if (ret != 0 && errno != EEXIST) {
             return errno;
         }
 
