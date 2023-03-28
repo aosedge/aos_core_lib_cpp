@@ -170,23 +170,25 @@ public:
             }
 
             StaticString<cFilePathLen> entryPath = JoinPath(path, entryName);
-
+#ifdef __ZEPHYR__
+            auto ret = unlink(entryPath.CStr());
+            if (ret != 0) {
+                return errno;
+            }
+#else
             if (entry->d_type == DT_DIR) {
                 auto err = ClearDir(entryPath);
                 if (!err.IsNone()) {
                     return err;
                 }
 
-                int ret = rmdir(entryPath.CStr());
+                auto ret = rmdir(entryPath.CStr());
                 if (ret != 0) {
                     return errno;
                 }
             } else if (entry->d_type == DT_REG) {
-                int ret = unlink(entryPath.CStr());
-                if (ret != 0) {
-                    return errno;
-                }
             }
+#endif
         }
 
         closedir(dir);
@@ -216,11 +218,17 @@ public:
             }
         }
 
+#ifdef __ZEPHYR__
+        auto ret = unlink(entryPath.CStr());
+        if (ret != 0) {
+            return errno;
+        }
+#else
         auto ret = rmdir(path.CStr());
         if (ret != 0 && errno != ENOENT) {
             return errno;
         }
-
+#endif
         return ErrorEnum::eNone;
     }
 };
