@@ -219,7 +219,7 @@ public:
         }
 
 #ifdef __ZEPHYR__
-        auto ret = unlink(entryPath.CStr());
+        auto ret = unlink(path.CStr());
         if (ret != 0) {
             return errno;
         }
