@@ -146,7 +146,10 @@ void Launcher::ProcessInstances(
 {
     LOG_DBG() << "Process instances";
 
-    mLaunchPool.Run();
+    auto err = mLaunchPool.Run();
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't run launcher thread pool: " << err;
+    }
 
     StopInstances(instances, services, forceRestart);
     CacheServices(instances);
