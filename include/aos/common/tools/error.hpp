@@ -155,7 +155,9 @@ public:
      */
     const char* Message() const
     {
-        if (mErrno != 0) {
+        auto strErrno = strerror(mErrno);
+
+        if (mErrno != 0 && strErrno[0] != 0) {
             return strerror(mErrno);
         }
 
