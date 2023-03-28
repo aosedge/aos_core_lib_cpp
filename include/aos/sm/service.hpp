@@ -9,7 +9,7 @@
 #ifndef AOS_SERVICE_HPP_
 #define AOS_SERVICE_HPP_
 
-#include "aos/common/osicpec.hpp"
+#include "aos/common/ocispec.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/sm/servicemanager.hpp"
 
