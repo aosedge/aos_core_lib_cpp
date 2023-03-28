@@ -58,10 +58,10 @@ public:
     /**
      * Joins path items.
      */
-    template <typename... Args>
-    static String JoinPath(Args... args)
+    template <typename T, typename... Args>
+    static StaticString<cFilePathLen> JoinPath(T first, Args... args)
     {
-        StaticString<cFilePathLen> path;
+        StaticString<cFilePathLen> path = first;
 
         AppendPath(path, args...);
 
