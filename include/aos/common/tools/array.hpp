@@ -592,6 +592,31 @@ public:
      */
     StaticArray() { Array<T>::SetBuffer(mBuffer); }
 
+    /**
+     * Creates static array from another static array.
+     *
+     * @param array array to create from.
+     */
+    StaticArray(const StaticArray& array)
+        : Array<T>()
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+    }
+
+    /**
+     * Assigns static array from another static array.
+     *
+     * @param array array to create from.
+     */
+    StaticArray& operator=(const StaticArray& array)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        Array<T>::operator=(array);
+
+        return *this;
+    }
+
     // cppcheck-suppress noExplicitConstructor
     /**
      * Creates static array from another array.
