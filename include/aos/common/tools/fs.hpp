@@ -69,6 +69,31 @@ public:
     }
 
     /**
+     * Returns directory part of path.
+     *
+     * @param path path for find directory.
+     * @return StaticString<cFilePathLen>.
+     */
+    static StaticString<cFilePathLen> Dir(const String& path)
+    {
+        StaticString<cFilePathLen> dir = path;
+
+        auto it = dir.end();
+
+        while (it != dir.begin()) {
+            it--;
+
+            if (*it == '/') {
+                *it = 0;
+
+                break;
+            }
+        }
+
+        return dir;
+    }
+
+    /**
      * Checks if directory exists.
      *
      * @param path directory path.
