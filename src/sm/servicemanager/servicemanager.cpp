@@ -86,11 +86,11 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
             err = mInstallPool.AddTask([this, &info](void*) {
                 auto err = InstallService(info);
                 if (!err.IsNone()) {
-                    LOG_ERR() << "Can't remove service " << info.mServiceID << ": " << err;
+                    LOG_ERR() << "Can't install service " << info.mServiceID << ": " << err;
                 }
             });
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't remove service " << info.mServiceID << ": " << err;
+                LOG_ERR() << "Can't install service " << info.mServiceID << ": " << err;
             }
         }
     }
