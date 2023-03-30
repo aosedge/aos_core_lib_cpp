@@ -129,46 +129,62 @@ public:
     }
 
     /**
-     * Creates directory.
+     * Creates one directory.
      *
      * @param path directory path.
      * @param parents indicates if parent dirs should be created.
      * @return Error
      */
 
-    static Error MakeDir(const String& path, bool parents = false)
+    static Error MakeDir(const String& path)
     {
-        if (parents) {
-            auto it = path.begin();
+        auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
+        if (ret != 0) {
+            return errno;
+        }
 
-            while (it != path.end()) {
-                if (*it == '/') {
-                    it++;
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Creates directory including parents.
+     *
+     * @param path directory path.
+     * @param parents indicates if parent dirs should be created.
+     * @return Error
+     */
+
+    static Error MakeDirAll(const String& path)
+    {
+        auto it = path.begin();
+
+        while (it != path.end()) {
+            if (*it == '/') {
+                it++;
+            }
+
+            while (it != path.end() && *it != '/') {
+                it++;
+            }
+
+            if (it == path.end()) {
+                break;
+            }
+
+            StaticString<cFilePathLen> parentPath;
+
+            auto err = parentPath.Insert(parentPath.end(), path.begin(), it);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            auto ret = mkdir(parentPath.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
+            if (ret != 0) {
+                if (errno == EEXIST) {
+                    continue;
                 }
 
-                while (it != path.end() && *it != '/') {
-                    it++;
-                }
-
-                if (it == path.end()) {
-                    break;
-                }
-
-                StaticString<cFilePathLen> parentPath;
-
-                auto err = parentPath.Insert(parentPath.end(), path.begin(), it);
-                if (!err.IsNone()) {
-                    return err;
-                }
-
-                auto ret = mkdir(parentPath.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-                if (ret != 0) {
-                    if (errno == EEXIST) {
-                        continue;
-                    }
-
-                    return errno;
-                }
+                return errno;
             }
         }
 
@@ -192,7 +208,7 @@ public:
         auto dir = opendir(path.CStr());
         if (dir == nullptr) {
             if (errno == ENOENT && create) {
-                return MakeDir(path, true);
+                return MakeDirAll(path);
             }
 
             return errno;
