@@ -32,7 +32,7 @@ public:
      * Appends path to string.
      */
     template <typename T>
-    static String& AppendPath(String& path, T item)
+    static String& AppendPath(String& path, T& item)
     {
         if (item[0] == '/') {
             path.Append(item);
@@ -47,7 +47,7 @@ public:
      * Appends path to string.
      */
     template <typename T, typename... Args>
-    static String& AppendPath(String& path, T item, Args... args)
+    static String& AppendPath(String& path, T& item, Args... args)
     {
         AppendPath(path, item);
         AppendPath(path, args...);
@@ -59,7 +59,20 @@ public:
      * Joins path items.
      */
     template <typename T, typename... Args>
-    static StaticString<cFilePathLen> JoinPath(T first, Args... args)
+    static StaticString<cFilePathLen> JoinPath(T& first, Args... args)
+    {
+        StaticString<cFilePathLen> path = first;
+
+        AppendPath(path, args...);
+
+        return path;
+    }
+
+    /**
+     * Joins path items.
+     */
+    template <typename T, typename... Args>
+    static StaticString<cFilePathLen> JoinPath(T* first, Args... args)
     {
         StaticString<cFilePathLen> path = first;
 
