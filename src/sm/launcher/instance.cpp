@@ -137,7 +137,7 @@ Error Instance::CreateRuntimeSpec(const String& path)
 
     LOG_DBG() << "Unikernel path: " << runtimeSpec->mVM->mKernel.mPath;
 
-    err = mOCIManager.SaveRuntimeSpec(path, *runtimeSpec);
+    err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(path, cRuntimeSpecFile), *runtimeSpec);
     if (!err.IsNone()) {
         return err;
     }
