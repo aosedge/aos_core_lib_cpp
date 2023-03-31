@@ -70,6 +70,10 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
             instances.Reset();
 
             SendRunStatus();
+
+            LockGuard lock(mMutex);
+
+            mLaunchInProgress = false;
         });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -94,7 +98,7 @@ Error Launcher::RunLastInstances()
         return err;
     }
 
-    LOG_DBG() << "Run stored instance instances";
+    LOG_DBG() << "Run last instances";
 
     if (mLaunchInProgress) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
@@ -161,8 +165,6 @@ void Launcher::ProcessInstances(
 void Launcher::SendRunStatus()
 {
     LockGuard lock(mMutex);
-
-    mLaunchInProgress = false;
 
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
