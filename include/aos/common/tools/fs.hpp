@@ -225,6 +225,11 @@ public:
 
             StaticString<cFilePathLen> entryPath = JoinPath(path, entryName);
 #ifdef __ZEPHYR__
+            // TODO: zephyr doesn't provide possibility to check if dir entry is file or dir. As WA, try to clear or
+            // unlink any item.
+
+            ClearDir(entryPath);
+
             auto ret = unlink(entryPath.CStr());
             if (ret != 0) {
                 return errno;
