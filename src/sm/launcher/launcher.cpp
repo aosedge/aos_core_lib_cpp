@@ -35,12 +35,7 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
 Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
     const Array<InstanceInfo>& instances, bool forceRestart)
 {
-    // Wait in case previous request is not yet finished
-    mThread.Join();
-
-    LockGuard lock(mMutex);
-
-    assert(mAllocator.FreeSize() == mAllocator.MaxSize());
+    UniqueLock lock(mMutex);
 
     if (forceRestart) {
         LOG_DBG() << "Restart instances";
@@ -51,6 +46,15 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     if (mLaunchInProgress) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
+
+    mLaunchInProgress = true;
+
+    lock.Unlock();
+
+    // Wait in case previous request is not yet finished
+    mThread.Join();
+
+    assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
     auto err = mThread.Run(
         [this,
@@ -72,7 +76,6 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
             SendRunStatus();
 
             LockGuard lock(mMutex);
-
             mLaunchInProgress = false;
         });
     if (!err.IsNone()) {
@@ -84,10 +87,17 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
 Error Launcher::RunLastInstances()
 {
-    // Wait in case previous request is not yet finished
-    mThread.Join();
+    UniqueLock lock(mMutex);
 
-    LockGuard lock(mMutex);
+    LOG_DBG() << "Run last instances";
+
+    if (mLaunchInProgress) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    mLaunchInProgress = true;
+
+    lock.Unlock();
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
@@ -98,15 +108,12 @@ Error Launcher::RunLastInstances()
         return err;
     }
 
-    LOG_DBG() << "Run last instances";
-
-    if (mLaunchInProgress) {
-        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
-    }
-
     err = mThread.Run([this, instances](void*) mutable {
         ProcessInstances(*instances, Array<ServiceInfo>(), true);
         SendRunStatus();
+
+        LockGuard lock(mMutex);
+        mLaunchInProgress = false;
     });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
