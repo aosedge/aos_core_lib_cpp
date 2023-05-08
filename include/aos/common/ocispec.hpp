@@ -30,6 +30,26 @@ constexpr auto cMaxParamCount = 8;
 constexpr auto cSpecVersionLen = 32;
 
 /**
+ * Max DT devices count.
+ */
+constexpr auto cMaxDTDevsCount = 20;
+
+/**
+ * Max DT device name length.
+ */
+constexpr auto cMaxDTDevLen = 32;
+
+/**
+ * Max IOMEMs count.
+ */
+constexpr auto cMaxIOMEMsCount = 20;
+
+/**
+ * Max IRQs count.
+ */
+constexpr auto cMaxIRQsCount = 20;
+
+/**
  * OCI image config.
  */
 struct ImageConfig {
@@ -61,10 +81,43 @@ struct VMKernel {
 };
 
 /**
+ * Contains information about IOMEMs.
+ */
+struct VMHWConfigIOMEM {
+    uint64_t mFirstGFN;
+    uint64_t mFirstMFN;
+    uint64_t mNrMFNs;
+
+    /**
+     * Compares IOMEMs.
+     *
+     * @param iomem IOMEM to compare.
+     * @return bool.
+     */
+    bool operator==(const VMHWConfigIOMEM& iomem) const
+    {
+        return mFirstGFN == iomem.mFirstGFN && mFirstMFN == iomem.mFirstMFN && mNrMFNs == iomem.mNrMFNs;
+    }
+
+    /**
+     * Compares IOMEMs.
+     *
+     * @param iomem IOMEM to compare.
+     * @return bool.
+     */
+    bool operator!=(const VMHWConfigIOMEM& iomem) const { return !operator==(iomem); }
+};
+
+/**
  * Contains information about HW configuration.
  */
-struct HWConfig {
-    StaticString<cFilePathLen> mDeviceTreePath;
+struct VMHWConfig {
+    StaticString<cFilePathLen>                               mDeviceTree;
+    uint32_t                                                 mVCPUs;
+    uint64_t                                                 mMemKB;
+    StaticArray<StaticString<cMaxDTDevLen>, cMaxDTDevsCount> mDTDevs;
+    StaticArray<VMHWConfigIOMEM, cMaxIOMEMsCount>            mIOMEMs;
+    StaticArray<uint32_t, cMaxIRQsCount>                     mIRQs;
 };
 
 /**
@@ -73,14 +126,14 @@ struct HWConfig {
 struct VM {
     VMHypervisor mHypervisor;
     VMKernel     mKernel;
-    HWConfig     mHWConfig;
+    VMHWConfig   mHWConfig;
 };
 
 /**
  * OCI runtime specification.
  */
 struct RuntimeSpec {
-    StaticString<cSpecVersionLen> mVersion;
+    StaticString<cSpecVersionLen> mOCIVersion;
     VM*                           mVM;
 };
 

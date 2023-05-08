@@ -133,6 +133,10 @@ Error Instance::CreateRuntimeSpec(const String& path)
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
+    // Set default HW config values. Normally they should be taken from service config.
+    runtimeSpec->mVM->mHWConfig.mVCPUs = 1;
+    runtimeSpec->mVM->mHWConfig.mMemKB = 4096;
+
     runtimeSpec->mVM->mKernel.mPath = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mCmd[0]);
 
     LOG_DBG() << "Unikernel path: " << runtimeSpec->mVM->mKernel.mPath;
