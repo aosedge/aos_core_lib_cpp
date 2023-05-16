@@ -88,7 +88,7 @@ Error Instance::Stop()
         stopErr = err;
     }
 
-    err = FS::RemoveDir(instanceDir, true);
+    err = FS::RemoveAll(instanceDir);
     if (!err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }

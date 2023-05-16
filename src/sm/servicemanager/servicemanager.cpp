@@ -122,7 +122,7 @@ Error ServiceManager::RemoveService(const ServiceData& service)
 
     Error removeErr;
 
-    auto err = FS::RemoveDir(service.mImagePath, true);
+    auto err = FS::RemoveAll(service.mImagePath);
     if (!err.IsNone() && removeErr.IsNone()) {
         removeErr = err;
     }

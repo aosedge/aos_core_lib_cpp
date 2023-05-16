@@ -9,7 +9,6 @@
 #define AOS_FS_HPP_
 
 #include <dirent.h>
-#include <stdarg.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -139,7 +138,7 @@ public:
     static Error MakeDir(const String& path)
     {
         auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-        if (ret != 0) {
+        if (ret != 0 && errno != EEXIST) {
             return errno;
         }
 
@@ -178,19 +177,15 @@ public:
                 return err;
             }
 
-            auto ret = mkdir(parentPath.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-            if (ret != 0) {
-                if (errno == EEXIST) {
-                    continue;
-                }
-
-                return errno;
+            err = MakeDir(parentPath);
+            if (!err.IsNone()) {
+                return err;
             }
         }
 
-        auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-        if (ret != 0 && errno != EEXIST) {
-            return errno;
+        auto err = MakeDir(path);
+        if (!err.IsNone()) {
+            return err;
         }
 
         return ErrorEnum::eNone;
@@ -223,15 +218,25 @@ public:
             }
 
             StaticString<cFilePathLen> entryPath = JoinPath(path, entryName);
-#ifdef __ZEPHYR__
+#if defined(__ZEPHYR__) && defined(CONFIG_POSIX_API)
             // TODO: zephyr doesn't provide possibility to check if dir entry is file or dir. As WA, try to clear or
             // unlink any item.
 
-            ClearDir(entryPath);
-
             auto ret = unlink(entryPath.CStr());
             if (ret != 0) {
-                return errno;
+                if (errno != ENOTEMPTY) {
+                    return errno;
+                }
+
+                auto err = ClearDir(entryPath);
+                if (!err.IsNone()) {
+                    return err;
+                }
+
+                ret = unlink(entryPath.CStr());
+                if (ret != 0) {
+                    return errno;
+                }
             }
 #else
             if (entry->d_type == DT_DIR) {
@@ -244,7 +249,11 @@ public:
                 if (ret != 0) {
                     return errno;
                 }
-            } else if (entry->d_type == DT_REG) {
+            } else {
+                auto ret = unlink(entryPath.CStr());
+                if (ret != 0) {
+                    return errno;
+                }
             }
 #endif
         }
@@ -254,38 +263,88 @@ public:
         return ErrorEnum::eNone;
     }
 
-    static Error RemoveDir(const String& path, bool recursive = false)
+    static Error Remove(const String& path)
     {
-        if (recursive) {
-            auto dirExist = DirExist(path);
-            if (!dirExist.mError.IsNone()) {
-                return dirExist.mError;
+#if defined(__ZEPHYR__) && defined(CONFIG_POSIX_API)
+        auto ret = unlink(path.CStr());
+        if (ret != 0 && errno != ENOENT) {
+            return errno;
+        }
+#else
+        struct stat s;
+
+        auto ret = stat(path.CStr(), &s);
+        if (ret != 0) {
+            if (errno == ENOENT) {
+                return ErrorEnum::eNone;
             }
 
-            if (!dirExist.mValue) {
+            return errno;
+        }
+
+        if (S_ISDIR(s.st_mode)) {
+            ret = rmdir(path.CStr());
+        } else {
+            ret = unlink(path.CStr());
+        }
+        if (ret != 0) {
+            return errno;
+        }
+
+#endif
+
+        return ErrorEnum::eNone;
+    }
+
+    static Error RemoveAll(const String& path)
+    {
+#if defined(__ZEPHYR__) && defined(CONFIG_POSIX_API)
+        auto ret = unlink(path.CStr());
+        if (ret != 0) {
+            if (errno == ENOENT) {
                 return ErrorEnum::eNone;
+            }
+
+            if (errno != ENOTEMPTY) {
+                return errno;
             }
 
             auto err = ClearDir(path);
             if (!err.IsNone()) {
-                if (err.Errno() == ENOENT) {
-                    return ErrorEnum::eNone;
-                }
-
                 return err;
             }
+
+            ret = unlink(path.CStr());
+            if (ret != 0) {
+                return errno;
+            }
+        }
+#else
+        struct stat s;
+
+        auto ret = stat(path.CStr(), &s);
+        if (ret != 0) {
+            if (errno == ENOENT) {
+                return ErrorEnum::eNone;
+            }
+
+            return errno;
         }
 
-#ifdef __ZEPHYR__
-        auto ret = unlink(path.CStr());
+        if (S_ISDIR(s.st_mode)) {
+            auto err = ClearDir(path);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            ret = rmdir(path.CStr());
+        } else {
+            ret = unlink(path.CStr());
+        }
         if (ret != 0) {
             return errno;
         }
-#else
-        auto ret = rmdir(path.CStr());
-        if (ret != 0 && errno != ENOENT) {
-            return errno;
-        }
+
 #endif
         return ErrorEnum::eNone;
     }
