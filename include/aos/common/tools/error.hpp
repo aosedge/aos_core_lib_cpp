@@ -47,6 +47,7 @@ public:
         eTimeout,
         eAlreadyExist,
         eWrongState,
+        eInvalidChecksum,
         eNumErrors
     };
 
@@ -248,6 +249,7 @@ private:
             "timeout",
             "already exist",
             "wrong state",
+            "invalid checksum",
         };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
