@@ -56,6 +56,25 @@ struct ImageConfig {
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEnv;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEntryPoint;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mCmd;
+
+    /**
+     * Compares image config.
+     *
+     * @param config image config to compare.
+     * @return bool.
+     */
+    bool operator==(const ImageConfig& config) const
+    {
+        return mEnv == config.mEnv && mEntryPoint == config.mEntryPoint && mCmd == config.mCmd;
+    }
+
+    /**
+     * Compares image config.
+     *
+     * @param config image config to compare.
+     * @return bool.
+     */
+    bool operator!=(const ImageConfig& config) const { return !operator==(config); }
 };
 
 /**
@@ -63,6 +82,22 @@ struct ImageConfig {
  */
 struct ImageSpec {
     ImageConfig mConfig;
+
+    /**
+     * Compares image spec.
+     *
+     * @param spec image spec to compare.
+     * @return bool.
+     */
+    bool operator==(const ImageSpec& spec) const { return mConfig == spec.mConfig; }
+
+    /**
+     * Compares image spec.
+     *
+     * @param spec image spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const ImageSpec& spec) const { return !operator==(spec); }
 };
 
 /**
