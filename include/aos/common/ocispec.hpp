@@ -106,6 +106,25 @@ struct ImageSpec {
 struct VMHypervisor {
     StaticString<cFilePathLen>                              mPath;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mParameters;
+
+    /**
+     * Compares VMHypervisor spec.
+     *
+     * @param hypervisor VMHypervisor spec to compare.
+     * @return bool.
+     */
+    bool operator==(const VMHypervisor& hypervisor) const
+    {
+        return mPath == hypervisor.mPath && mParameters == hypervisor.mParameters;
+    }
+
+    /**
+     * Compares VMHypervisor spec.
+     *
+     * @param hypervisor VMHypervisor spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const VMHypervisor& hypervisor) const { return !operator==(hypervisor); }
 };
 
 /**
@@ -114,6 +133,22 @@ struct VMHypervisor {
 struct VMKernel {
     StaticString<cFilePathLen>                              mPath;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mParameters;
+
+    /**
+     * Compares VMKernel spec.
+     *
+     * @param kernel VMKernel spec to compare.
+     * @return bool.
+     */
+    bool operator==(const VMKernel& kernel) const { return mPath == kernel.mPath && mParameters == kernel.mParameters; }
+
+    /**
+     * Compares VMKernel spec.
+     *
+     * @param kernel VMKernel spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const VMKernel& kernel) const { return !operator==(kernel); }
 };
 
 /**
@@ -154,6 +189,26 @@ struct VMHWConfig {
     StaticArray<StaticString<cMaxDTDevLen>, cMaxDTDevsCount> mDTDevs;
     StaticArray<VMHWConfigIOMEM, cMaxIOMEMsCount>            mIOMEMs;
     StaticArray<uint32_t, cMaxIRQsCount>                     mIRQs;
+
+    /**
+     * Compares VMHWConfig spec.
+     *
+     * @param hwConfig VMHWConfig spec to compare.
+     * @return bool.
+     */
+    bool operator==(const VMHWConfig& hwConfig) const
+    {
+        return mDeviceTree == hwConfig.mDeviceTree && mVCPUs == hwConfig.mVCPUs && mMemKB == hwConfig.mMemKB
+            && mDTDevs == hwConfig.mDTDevs && mIOMEMs == hwConfig.mIOMEMs && mIRQs == hwConfig.mIRQs;
+    }
+
+    /**
+     * Compares VMHWConfig spec.
+     *
+     * @param hwConfig VMHWConfig spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const VMHWConfig& hwConfig) const { return !operator==(hwConfig); }
 };
 
 /**
@@ -163,6 +218,25 @@ struct VM {
     VMHypervisor mHypervisor;
     VMKernel     mKernel;
     VMHWConfig   mHWConfig;
+
+    /**
+     * Compares VM spec.
+     *
+     * @param vm VM spec to compare.
+     * @return bool.
+     */
+    bool operator==(const VM& vm) const
+    {
+        return mHypervisor == vm.mHypervisor && mKernel == vm.mKernel && mHWConfig == vm.mHWConfig;
+    }
+
+    /**
+     * Compares VM spec.
+     *
+     * @param vm VM spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const VM& vm) const { return !operator==(vm); }
 };
 
 /**
@@ -171,6 +245,37 @@ struct VM {
 struct RuntimeSpec {
     StaticString<cSpecVersionLen> mOCIVersion;
     VM*                           mVM;
+
+    /**
+     * Compares runtime spec.
+     *
+     * @param spec runtime spec to compare.
+     * @return bool.
+     */
+    bool operator==(const RuntimeSpec& spec) const
+    {
+        if (mOCIVersion != spec.mOCIVersion) {
+            return false;
+        }
+
+        if ((mVM != nullptr && spec.mVM == nullptr) || (mVM == nullptr && spec.mVM != nullptr)) {
+            return false;
+        }
+
+        if ((mVM != nullptr && spec.mVM != nullptr) && (*mVM != *spec.mVM)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Compares runtime spec.
+     *
+     * @param spec runtime spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const RuntimeSpec& spec) const { return !operator==(spec); }
 };
 
 } // namespace oci
