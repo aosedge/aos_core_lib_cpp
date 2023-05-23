@@ -53,6 +53,7 @@ constexpr auto cMaxIRQsCount = 20;
  * OCI image config.
  */
 struct ImageConfig {
+    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEnv;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEntryPoint;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mCmd;
 };
