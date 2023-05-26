@@ -122,6 +122,22 @@ public:
 
 class MockOCIManager : public OCISpecItf {
 public:
+    Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
+    {
+        (void)path;
+        (void)manifest;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SaveImageManifest(const String& path, const oci::ImageManifest& manifest) override
+    {
+        (void)path;
+        (void)manifest;
+
+        return ErrorEnum::eNone;
+    }
+
     Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
     {
         (void)path;
