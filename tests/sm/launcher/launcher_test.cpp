@@ -275,7 +275,7 @@ private:
  * Tests
  **********************************************************************************************************************/
 
-TEST(launcher, RunInstances)
+TEST(LauncherTest, RunInstances)
 {
     MockServiceManager serviceManager;
     MockRunner         runner;

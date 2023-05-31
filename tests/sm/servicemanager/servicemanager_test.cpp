@@ -143,7 +143,7 @@ private:
  * Tests
  **********************************************************************************************************************/
 
-TEST(ServiceManager, InstallServices)
+TEST(ServiceManagerTest, InstallServices)
 {
     MockDownloader downloader;
     MockStorage1   storage;
