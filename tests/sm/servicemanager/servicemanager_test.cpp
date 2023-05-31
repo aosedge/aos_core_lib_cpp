@@ -56,7 +56,7 @@ public:
 /**
  * Mock storage.
  */
-class MockStorage1 : public StorageItf {
+class MockStorage : public StorageItf {
 public:
     Error AddService(const ServiceData& service) override
     {
@@ -146,7 +146,7 @@ private:
 TEST(ServiceManagerTest, InstallServices)
 {
     MockDownloader downloader;
-    MockStorage1   storage;
+    MockStorage    storage;
 
     ServiceManager serviceManager;
 
