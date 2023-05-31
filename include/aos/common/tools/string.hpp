@@ -243,7 +243,7 @@ public:
      * @return Error.
      */
     template <typename T>
-    Error Split(T& list, char delim = 0)
+    Error Split(T& list, char delim = 0) const
     {
         list.Clear();
 
