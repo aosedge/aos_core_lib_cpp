@@ -33,7 +33,7 @@ public:
     template <typename T>
     static String& AppendPath(String& path, T& item)
     {
-        if (item[0] == '/') {
+        if (path.Size() == 0 || *(path.end() - 1) == '/') {
             path.Append(item);
         } else {
             path.Append("/").Append(item);
