@@ -12,7 +12,7 @@
 using aos::Error;
 using aos::iam::certhandler::CertHandler;
 
-TEST(certhandler, CreateKey)
+TEST(CertHandlerTest, CreateKey)
 {
     CertHandler handler;
 
