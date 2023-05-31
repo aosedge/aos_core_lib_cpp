@@ -37,6 +37,66 @@ static std::mutex sLogMutex;
  **********************************************************************************************************************/
 
 /**
+ * Mock OCI manager.
+ */
+
+class MockOCIManager : public OCISpecItf {
+public:
+    Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
+    {
+        (void)path;
+
+        manifest.mSchemaVersion = 1;
+        manifest.mConfig.mDigest = "sha256:11111111";
+        manifest.mAosService->mDigest = "sha256:22222222";
+        manifest.mLayers.PushBack({"", "sha256:33333333", 1234});
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SaveImageManifest(const String& path, const oci::ImageManifest& manifest) override
+    {
+        (void)path;
+        (void)manifest;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
+    {
+        (void)path;
+
+        imageSpec.mConfig.mCmd.EmplaceBack("unikernel");
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SaveImageSpec(const String& path, const oci::ImageSpec& imageSpec) override
+    {
+        (void)path;
+        (void)imageSpec;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error LoadRuntimeSpec(const String& path, oci::RuntimeSpec& runtimeSpec) override
+    {
+        (void)path;
+        (void)runtimeSpec;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SaveRuntimeSpec(const String& path, const oci::RuntimeSpec& runtimeSpec) override
+    {
+        (void)path;
+        (void)runtimeSpec;
+
+        return ErrorEnum::eNone;
+    }
+};
+
+/**
  * Mock downloader.
  */
 
@@ -140,24 +200,37 @@ private:
 };
 
 /***********************************************************************************************************************
+ * Suite
+ ********************************************************************ma**************************************************/
+
+class ServiceManagerTest : public ::testing::Test {
+protected:
+    virtual ~ServiceManagerTest() { }
+
+    virtual void SetUp() override
+    {
+        Log::SetCallback([](LogModule module, LogLevel level, const String& message) {
+            std::lock_guard<std::mutex> lock(sLogMutex);
+
+            std::cout << level.ToString().CStr() << " | " << module.ToString().CStr() << " | " << message.CStr()
+                      << std::endl;
+        });
+    }
+};
+
+/***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
 TEST(ServiceManagerTest, InstallServices)
 {
+    MockOCIManager ociManager;
     MockDownloader downloader;
     MockStorage    storage;
 
     ServiceManager serviceManager;
 
-    Log::SetCallback([](LogModule module, LogLevel level, const String& message) {
-        std::lock_guard<std::mutex> lock(sLogMutex);
-
-        std::cout << level.ToString().CStr() << " | " << module.ToString().CStr() << " | " << message.CStr()
-                  << std::endl;
-    });
-
-    EXPECT_TRUE(serviceManager.Init(downloader, storage).IsNone());
+    EXPECT_TRUE(serviceManager.Init(ociManager, downloader, storage).IsNone());
 
     std::vector<TestData> testData = {
         {
@@ -219,6 +292,27 @@ TEST(ServiceManagerTest, InstallServices)
             installedServices, Array<ServiceData>(testItem.mData.data(), testItem.mData.size())));
     }
 }
+
+TEST(ServiceManagerTest, GetImageParts)
+{
+    MockOCIManager ociManager;
+    MockDownloader downloader;
+    MockStorage    storage;
+
+    ServiceManager serviceManager;
+
+    EXPECT_TRUE(serviceManager.Init(ociManager, downloader, storage).IsNone());
+
+    ServiceData serviceData = {{0, "v2.1.0", "Service desc"}, "service0", "provider0", "/aos/services/service1"};
+
+    auto imageParts = serviceManager.GetImageParts(serviceData);
+    EXPECT_TRUE(imageParts.mError.IsNone());
+
+    EXPECT_TRUE(imageParts.mValue.mImageConfigPath == "/aos/services/service1/blobs/sha256/11111111");
+    EXPECT_TRUE(imageParts.mValue.mServiceConfigPath == "/aos/services/service1/blobs/sha256/22222222");
+    EXPECT_TRUE(imageParts.mValue.mServiceFSPath == "/aos/services/service1/blobs/sha256/33333333");
+}
+
 } // namespace servicemanager
 } // namespace sm
 } // namespace aos

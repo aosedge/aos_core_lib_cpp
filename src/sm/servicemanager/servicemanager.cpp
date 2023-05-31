@@ -18,10 +18,11 @@ namespace servicemanager {
  * Public
  **********************************************************************************************************************/
 
-Error ServiceManager::Init(DownloaderItf& downloader, StorageItf& storage)
+Error ServiceManager::Init(OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage)
 {
     LOG_DBG() << "Initialize service manager";
 
+    mOCIManager = &ociManager;
     mDownloader = &downloader;
     mStorage = &storage;
 
@@ -30,7 +31,7 @@ Error ServiceManager::Init(DownloaderItf& downloader, StorageItf& storage)
 
 Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
 {
-    mInstallPool.Wait();
+    LockGuard lock(mMutex);
 
     LOG_DBG() << "Install services";
 
@@ -108,8 +109,40 @@ RetWithError<ServiceData> ServiceManager::GetService(const String& serviceID)
 
 RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& service)
 {
-    return ImageParts {FS::JoinPath(service.mImagePath, cImageConfigFile),
-        FS::JoinPath(service.mImagePath, cServiceConfigFile), FS::JoinPath(service.mImagePath, cServiceRootFS)};
+    LockGuard lock(mMutex);
+
+    assert(mAllocator.FreeSize() == mAllocator.MaxSize());
+
+    auto manifest = UniquePtr<oci::ImageManifest>(&mAllocator, new (&mAllocator) oci::ImageManifest());
+    auto aosService = UniquePtr<oci::ContentDescriptor>(&mAllocator, new (&mAllocator) oci::ContentDescriptor());
+
+    manifest->mAosService = aosService.Get();
+
+    auto err = mOCIManager->LoadImageManifest(FS::JoinPath(service.mImagePath, cImageManifestFile), *manifest);
+    if (!err.IsNone()) {
+        return {{}, err};
+    }
+
+    auto imageConfig = DigestToPath(service.mImagePath, manifest->mConfig.mDigest);
+    if (!imageConfig.mError.IsNone()) {
+        return {{}, imageConfig.mError};
+    }
+
+    auto serviceConfig = DigestToPath(service.mImagePath, manifest->mAosService->mDigest);
+    if (!serviceConfig.mError.IsNone()) {
+        return {{}, serviceConfig.mError};
+    }
+
+    if (!manifest->mLayers) {
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+    }
+
+    auto serviceFS = DigestToPath(service.mImagePath, manifest->mLayers[0].mDigest);
+    if (!serviceFS.mError.IsNone()) {
+        return {{}, serviceFS.mError};
+    }
+
+    return ImageParts {imageConfig.mValue, serviceConfig.mValue, serviceFS.mValue};
 }
 
 /***********************************************************************************************************************
@@ -158,6 +191,18 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
     }
 
     return ErrorEnum::eNone;
+}
+
+RetWithError<StaticString<cFilePathLen>> ServiceManager::DigestToPath(const String& imagePath, const String& digest)
+{
+    StaticArray<const StaticString<oci::cMaxDigestLen>, 2> digestList;
+
+    auto err = digest.Split(digestList, ':');
+    if (!err.IsNone()) {
+        return {"", AOS_ERROR_WRAP(err)};
+    }
+
+    return FS::JoinPath(imagePath, cImageBlobsFolder, digestList[0], digestList[1]);
 }
 
 } // namespace servicemanager

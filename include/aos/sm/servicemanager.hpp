@@ -9,6 +9,7 @@
 #define AOS_SERVICEMANAGER_HPP_
 
 #include "aos/common/downloader.hpp"
+#include "aos/common/ocispec.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/thread.hpp"
@@ -186,12 +187,12 @@ public:
     /**
      * Initializes service manager.
      *
-     * @param statusReceiver status receiver instance.
-     * @param runner runner instance.
+     * @param ociManager OCI manager instance.
+     * @param downloader downloader instance.
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(DownloaderItf& downloader, StorageItf& storage);
+    Error Init(OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage);
 
     /**
      * Installs services.
@@ -220,17 +221,20 @@ public:
 private:
     static constexpr auto cNumInstallThreads = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
     static constexpr auto cServicesDir = AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR;
-    static constexpr auto cImageConfigFile = "image.json";
-    static constexpr auto cServiceConfigFile = "service.json";
-    static constexpr auto cServiceRootFS = "rootfs";
+    static constexpr auto cImageManifestFile = "manifest.json";
+    static constexpr auto cImageBlobsFolder = "blobs";
 
-    Error RemoveService(const ServiceData& service);
-    Error InstallService(const ServiceInfo& service);
+    Error                                    RemoveService(const ServiceData& service);
+    Error                                    InstallService(const ServiceInfo& service);
+    RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& imagePath, const String& digest);
 
+    OCISpecItf*    mOCIManager {};
     DownloaderItf* mDownloader {};
     StorageItf*    mStorage {};
 
-    StaticAllocator<sizeof(ServiceDataStaticArray)> mAllocator;
+    Mutex mMutex;
+    StaticAllocator<Max(sizeof(ServiceDataStaticArray), sizeof(oci::ImageManifest) + sizeof(oci::ContentDescriptor))>
+                                                    mAllocator;
     ThreadPool<cNumInstallThreads, cMaxNumServices> mInstallPool;
 };
 
