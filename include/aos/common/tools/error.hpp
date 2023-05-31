@@ -32,7 +32,7 @@ namespace aos {
 class Error {
 public:
     // NOTE: new error type should be added also to private GetStrings() method below and covered
-    // with unit test: TEST(common, ErrorMessages).
+    // with unit test: TEST(CommonTest, ErrorMessages).
     /**
      * Error enum.
      */

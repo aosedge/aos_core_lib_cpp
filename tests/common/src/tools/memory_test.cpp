@@ -21,7 +21,7 @@ static void TakeSharedPtr(SharedPtr<uint32_t> shPtr)
     EXPECT_TRUE(shPtr);
 }
 
-TEST(common, UniquePtr)
+TEST(CommonTest, UniquePtr)
 {
     StaticAllocator<256> allocator;
 
@@ -65,7 +65,7 @@ TEST(common, UniquePtr)
     EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
 
-TEST(common, SharedPtr)
+TEST(CommonTest, SharedPtr)
 {
     StaticAllocator<256> allocator;
 

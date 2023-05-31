@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(common, Types)
+TEST(CommonTest, Types)
 {
     // InstanceIdent comparision
     EXPECT_TRUE((InstanceIdent {"service1", "subject1", 2}) == (InstanceIdent {"service1", "subject1", 2}));

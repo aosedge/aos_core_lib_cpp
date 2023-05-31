@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(common, Buffer)
+TEST(CommonTest, Buffer)
 {
     constexpr auto cBufferSize = 256;
 

@@ -26,7 +26,7 @@ public:
 using TestInstance = EnumStringer<TestType>;
 using TestEnum = TestType::Enum;
 
-TEST(common, EnumStringer)
+TEST(CommonTest, EnumStringer)
 {
     // Check copying
     TestInstance e1;

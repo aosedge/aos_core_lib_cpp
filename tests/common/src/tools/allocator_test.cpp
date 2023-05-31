@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(common, Allocator)
+TEST(CommonTest, Allocator)
 {
     StaticAllocator<256> allocator;
 
@@ -43,7 +43,7 @@ TEST(common, Allocator)
     }
 }
 
-TEST(common, New)
+TEST(CommonTest, New)
 {
     StaticAllocator<256> allocator;
 

@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(common, String)
+TEST(CommonTest, String)
 {
     StaticString<32> str;
 
@@ -80,7 +80,7 @@ TEST(common, String)
     EXPECT_EQ(dst, src);
 }
 
-TEST(common, StringArray)
+TEST(CommonTest, StringArray)
 {
     struct TestStruct {
         StaticString<32> str1;
@@ -98,7 +98,7 @@ TEST(common, StringArray)
     EXPECT_EQ(strArray[0].str2, "test2");
 }
 
-TEST(common, SplitString)
+TEST(CommonTest, SplitString)
 {
     StaticArray<StaticString<4>, 4> splitArray;
 

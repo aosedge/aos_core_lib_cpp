@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(common, TimerCreateAndStop)
+TEST(CommonTest, TimerCreateAndStop)
 {
 
     auto       interrupted = 0;
@@ -26,7 +26,7 @@ TEST(common, TimerCreateAndStop)
     EXPECT_EQ(1, interrupted);
 }
 
-TEST(common, TimerRaisedOnlyOnce)
+TEST(CommonTest, TimerRaisedOnlyOnce)
 {
     auto       interrupted = 0;
     aos::Timer timer {};
@@ -40,7 +40,7 @@ TEST(common, TimerRaisedOnlyOnce)
     EXPECT_EQ(1, interrupted);
 }
 
-TEST(common, TimerCreateResetStop)
+TEST(CommonTest, TimerCreateResetStop)
 {
     auto       interrupted = 0;
     aos::Timer timer {};

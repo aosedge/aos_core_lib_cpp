@@ -21,7 +21,7 @@ Error failedFunction()
     return ErrorEnum::eFailed;
 }
 
-TEST(common, Error)
+TEST(CommonTest, Error)
 {
     // Compare errors
 
@@ -78,7 +78,7 @@ TEST(common, Error)
     EXPECT_EQ(strcmp(errnoErr.Message(), "Resource temporarily unavailable"), 0);
 }
 
-TEST(common, ErrorMessages)
+TEST(CommonTest, ErrorMessages)
 {
     EXPECT_EQ(Error(ErrorEnum::eNone).Message(), "none");
     EXPECT_EQ(Error(ErrorEnum::eFailed).Message(), "failed");
