@@ -328,19 +328,7 @@ struct RuntimeSpec {
      */
     bool operator==(const RuntimeSpec& spec) const
     {
-        if (mOCIVersion != spec.mOCIVersion) {
-            return false;
-        }
-
-        if ((mVM != nullptr && spec.mVM == nullptr) || (mVM == nullptr && spec.mVM != nullptr)) {
-            return false;
-        }
-
-        if ((mVM != nullptr && spec.mVM != nullptr) && (*mVM != *spec.mVM)) {
-            return false;
-        }
-
-        return true;
+        return mOCIVersion == spec.mOCIVersion && ((!mVM && !spec.mVM) || (mVM && spec.mVM && *mVM == *spec.mVM));
     }
 
     /**
