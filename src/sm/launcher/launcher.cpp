@@ -198,6 +198,8 @@ void Launcher::StopInstances(
 {
     UniqueLock lock(mMutex);
 
+    LOG_DBG() << "Stop instances";
+
     for (auto& instance : mCurrentInstances) {
         auto found = instances.Find(instance.Info()).mError.IsNone();
 
@@ -235,6 +237,8 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 {
     UniqueLock lock(mMutex);
 
+    LOG_DBG() << "Start instances";
+
     for (const auto& info : instances) {
         if (mCurrentInstances.Find([&info](const Instance& instance) { return instance == info; }).mError.IsNone()) {
             continue;
@@ -259,6 +263,8 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 void Launcher::CacheServices(const Array<InstanceInfo>& instances)
 {
     LockGuard lock(mMutex);
+
+    LOG_DBG() << "Cache services";
 
     mCurrentServices.Clear();
 

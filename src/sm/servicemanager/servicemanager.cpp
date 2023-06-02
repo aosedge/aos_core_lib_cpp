@@ -111,6 +111,8 @@ RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& servic
 {
     LockGuard lock(mMutex);
 
+    LOG_DBG() << "Get image parts: " << service.mServiceID;
+
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
     auto manifest = UniquePtr<oci::ImageManifest>(&mAllocator, new (&mAllocator) oci::ImageManifest());

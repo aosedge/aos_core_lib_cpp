@@ -27,6 +27,8 @@ Service::Service(
 
 Error Service::LoadSpecs()
 {
+    LOG_DBG() << "Load specs: " << *this;
+
     auto result = mServiceManager.GetImageParts(mData);
     if (!result.mError.IsNone()) {
         mSpecErr = result.mError;
