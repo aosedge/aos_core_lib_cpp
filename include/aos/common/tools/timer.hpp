@@ -15,6 +15,7 @@
 
 #include "aos/common/tools/config.hpp"
 #include "aos/common/tools/function.hpp"
+#include "aos/common/tools/thread.hpp"
 
 namespace aos {
 /**
@@ -41,8 +42,10 @@ public:
      * @return Error code.
      */
     template <typename F>
-    Error Create(unsigned int intervalMs, F functor, void* arg = nullptr)
+    Error Create(unsigned int intervalMs, F functor, bool oneShot = true, void* arg = nullptr)
     {
+        aos::LockGuard lock(mMutex);
+
         if (mTimerID != 0) {
             auto err = Stop();
             if (!err.IsNone()) {
@@ -50,12 +53,15 @@ public:
             }
         }
 
+        mStop = false;
+
         auto err = mFunction.Capture(functor, arg);
         if (!err.IsNone()) {
             return err;
         }
 
         mIntervalMs = intervalMs;
+        mOneShot = oneShot;
 
         struct sigevent   sev { };
         struct itimerspec its { };
@@ -66,6 +72,11 @@ public:
 
         its.it_value.tv_sec = intervalMs / 1000;
         its.it_value.tv_nsec = (intervalMs % 1000) * 1000000;
+
+        if (!mOneShot) {
+            its.it_interval.tv_sec = intervalMs / 1000;
+            its.it_interval.tv_nsec = (intervalMs % 1000) * 1000000;
+        }
 
         auto ret = timer_create(CLOCK_MONOTONIC, &sev, &mTimerID);
         if (ret < 0) {
@@ -87,6 +98,10 @@ public:
      */
     Error Stop()
     {
+        aos::LockGuard lock(mMutex);
+
+        mStop = true;
+
         if (mTimerID != 0) {
             auto ret = timer_delete(mTimerID);
             if (ret < 0) {
@@ -113,7 +128,7 @@ public:
                 return err;
             }
 
-            err = Create(mIntervalMs, functor, arg);
+            err = Create(mIntervalMs, functor, mOneShot, arg);
             if (!err.IsNone()) {
                 return err;
             }
@@ -125,10 +140,25 @@ public:
 private:
     static constexpr int cTimerSigevNotify = AOS_CONFIG_TIMER_SIGEV_NOTIFY;
 
-    static void TimerFunction(union sigval arg) { (static_cast<Timer*>(arg.sival_ptr)->mFunction)(); }
+    static void TimerFunction(union sigval arg)
+    {
+        auto timer = static_cast<Timer*>(arg.sival_ptr);
+
+        {
+            aos::LockGuard lock(timer->mMutex);
+            if (timer->mStop) {
+                return;
+            }
+        }
+
+        timer->mFunction();
+    }
 
     timer_t                                 mTimerID {};
     unsigned int                            mIntervalMs {};
+    bool                                    mOneShot {};
+    bool                                    mStop {};
+    Mutex                                   mMutex;
     StaticFunction<cDefaultFunctionMaxSize> mFunction;
 };
 

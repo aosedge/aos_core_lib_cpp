@@ -59,3 +59,20 @@ TEST(CommonTest, TimerCreateResetStop)
 
     EXPECT_EQ(0, interrupted);
 }
+
+TEST(common, TimerRepeatInterval)
+{
+    auto       interrupted = 0;
+    aos::Timer timer {};
+
+    EXPECT_TRUE(timer
+                    .Create(
+                        1000, [&interrupted](void*) { interrupted++; }, false)
+                    .IsNone());
+
+    sleep(3);
+
+    EXPECT_TRUE(timer.Stop().IsNone());
+
+    EXPECT_EQ(2, interrupted);
+}
