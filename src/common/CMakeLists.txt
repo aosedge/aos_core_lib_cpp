@@ -28,14 +28,15 @@ add_custom_command(
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
-
-add_library(${TARGET} INTERFACE)
+add_library(${TARGET} STATIC resourcemonitor/resourcemonitor.cpp)
 
 target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)
 
 # ######################################################################################################################
 # Install
 # ######################################################################################################################
+
+install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
 
 install(
     DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/common

@@ -106,4 +106,53 @@
 #define AOS_CONFIG_TYPES_FILE_CHUNK_SIZE 1024
 #endif
 
+/**
+ * Max number of partitions.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS
+#define AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS 4
+#endif
+
+/**
+ * Max number of partition types.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES
+#define AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES 4
+#endif
+
+/**
+ * Partition name len.
+ */
+#ifndef AOS_CONFIG_TYPES_PARTITION_NAME_LEN
+#define AOS_CONFIG_TYPES_PARTITION_NAME_LEN 64
+#endif
+
+/**
+ * Partition types len.
+ */
+#ifndef AOS_CONFIG_TYPES_PARTITION_TYPES_LEN
+#define AOS_CONFIG_TYPES_PARTITION_TYPES_LEN 32
+#endif
+
+/**
+ * Node ID len.
+ */
+#ifndef AOS_CONFIG_TYPES_NODE_ID_LEN
+#define AOS_CONFIG_TYPES_NODE_ID_LEN 64
+#endif
+
+/**
+ * Monitoring period send.
+ */
+#ifndef AOS_CONFIG_MONITORING_SEND_PERIOD_SEC
+#define AOS_CONFIG_MONITORING_SEND_PERIOD_SEC 60
+#endif
+
+/**
+ * Monitoring period poll.
+ */
+#ifndef AOS_CONFIG_MONITORING_POLL_PERIOD_SEC
+#define AOS_CONFIG_MONITORING_POLL_PERIOD_SEC 10
+#endif
+
 #endif

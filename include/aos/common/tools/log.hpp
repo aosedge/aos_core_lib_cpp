@@ -79,6 +79,7 @@ public:
         eSMLauncher,
         eSMServiceManager,
         eIAMCertHandler,
+        eMonitoring,
         eNumModules,
     };
 
@@ -89,6 +90,7 @@ public:
             "launcher",
             "servicemanager",
             "certhandler",
+            "resourcemonitor",
         };
 
         return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));

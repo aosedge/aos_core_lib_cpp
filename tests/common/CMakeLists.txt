@@ -25,8 +25,16 @@ set(SOURCES
     src/tools/memory_test.cpp
     src/tools/queue_test.cpp
     src/tools/function_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/resourcemonitor/resourcemonitor.cpp
+    src/resourcemonitor_test.cpp
     src/types_test.cpp
 )
+
+# ######################################################################################################################
+# Definitions
+# ######################################################################################################################
+
+add_definitions(-DAOS_CONFIG_MONITORING_SEND_PERIOD_SEC=2 -DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1)
 
 # ######################################################################################################################
 # Test
