@@ -9,6 +9,7 @@
 #ifndef AOS_INSTANCE_HPP_
 #define AOS_INSTANCE_HPP_
 
+#include "aos/common/resourcemonitor.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/runner.hpp"
@@ -28,7 +29,8 @@ public:
      *
      * @param info instance info.
      */
-    Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::RunnerItf& runner);
+    Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::RunnerItf& runner,
+        monitoring::ResourceMonitorItf& resourceMonitor);
 
     /**
      * Starts instance.
@@ -148,14 +150,15 @@ private:
     static StaticAllocator<cSpecAllocatorSize> sAllocator;
     static Mutex                               sMutex;
 
-    StaticString<cInstanceIDLen> mInstanceID;
-    InstanceInfo                 mInfo;
-    OCISpecItf&                  mOCIManager;
-    runner::RunnerItf&           mRunner;
-    uint64_t                     mAosVersion = 0;
-    const Service*               mService;
-    InstanceRunState             mRunState;
-    Error                        mRunError;
+    StaticString<cInstanceIDLen>    mInstanceID;
+    InstanceInfo                    mInfo;
+    OCISpecItf&                     mOCIManager;
+    runner::RunnerItf&              mRunner;
+    monitoring::ResourceMonitorItf& mResourceMonitor;
+    uint64_t                        mAosVersion = 0;
+    const Service*                  mService;
+    InstanceRunState                mRunState;
+    Error                           mRunError;
 };
 
 } // namespace launcher

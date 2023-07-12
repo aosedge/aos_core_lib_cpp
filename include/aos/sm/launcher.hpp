@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include "aos/common/ocispec.hpp"
+#include "aos/common/resourcemonitor.hpp"
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
@@ -142,7 +143,8 @@ public:
      * @return Error.
      */
     Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner, OCISpecItf& ociManager,
-        InstanceStatusReceiverItf& statusReceiver, StorageItf& storage);
+        InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
+        monitoring::ResourceMonitorItf& resourceMonitor);
 
     /**
      * Runs specified instances.
@@ -205,6 +207,7 @@ private:
     InstanceStatusReceiverItf*         mStatusReceiver {};
     StorageItf*                        mStorage {};
     OCISpecItf*                        mOCIManager {};
+    monitoring::ResourceMonitorItf*    mResourceMonitor {};
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)>
         mAllocator;

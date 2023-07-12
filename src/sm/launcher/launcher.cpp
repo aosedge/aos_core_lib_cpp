@@ -19,7 +19,8 @@ using namespace runner;
  **********************************************************************************************************************/
 
 Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
-    OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage)
+    OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
+    monitoring::ResourceMonitorItf& resourceMonitor)
 {
     LOG_DBG() << "Initialize launcher";
 
@@ -28,6 +29,7 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
     mOCIManager = &ociManager;
     mStatusReceiver = &statusReceiver;
     mStorage = &storage;
+    mResourceMonitor = &resourceMonitor;
 
     return ErrorEnum::eNone;
 }
@@ -326,7 +328,7 @@ Error Launcher::StartInstance(const InstanceInfo& info)
 
     UniqueLock lock(mMutex);
 
-    err = mCurrentInstances.PushBack(Instance(info, *mOCIManager, *mRunner));
+    err = mCurrentInstances.PushBack(Instance(info, *mOCIManager, *mRunner, *mResourceMonitor));
     if (!err.IsNone()) {
         return err;
     }

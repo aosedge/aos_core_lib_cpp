@@ -26,11 +26,13 @@ StaticAllocator<Instance::cSpecAllocatorSize> Instance::sAllocator {};
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::RunnerItf& runner)
+Instance::Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::RunnerItf& runner,
+    monitoring::ResourceMonitorItf& resourceMonitor)
     : mInstanceID("instance-")
     , mInfo(info)
     , mOCIManager(ociManager)
     , mRunner(runner)
+    , mResourceMonitor(resourceMonitor)
 {
     StaticString<cInstanceIDLen> tmp;
 
@@ -73,7 +75,7 @@ Error Instance::Start()
         return runStatus.mError;
     }
 
-    return ErrorEnum::eNone;
+    return mResourceMonitor.StartInstanceMonitoring(mInstanceID, monitoring::InstanceMonitorParams {});
 }
 
 Error Instance::Stop()
@@ -91,6 +93,11 @@ Error Instance::Stop()
     err = FS::RemoveAll(instanceDir);
     if (!err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    err = mResourceMonitor.StopInstanceMonitoring(mInstanceID);
+    if (!err.IsNone() && stopErr.IsNone()) {
+        stopErr = err;
     }
 
     return stopErr;
