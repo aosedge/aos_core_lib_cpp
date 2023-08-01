@@ -16,12 +16,14 @@ namespace monitoring {
  * Public
  **********************************************************************************************************************/
 
-Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender)
+Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
+    ConnectionPublisherItf& connectionPublisher)
 {
     LOG_DBG() << "Init resource monitor";
 
     mResourceUsageProvider = &resourceUsageProvider;
     mMonitorSender = &monitorSender;
+    mConnectionPublisher = &connectionPublisher;
 
     NodeInfo nodeInfo;
 
@@ -35,6 +37,8 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
     for (const auto& disk : nodeInfo.mPartitions) {
         mNodeMonitoringData.mMonitoringData.mDisk.EmplaceBack(disk);
     }
+
+    mConnectionPublisher->Subscribes(this);
 
     err = RunGatheringNodeMonitoringData();
     if (!err.IsNone()) {
@@ -112,6 +116,8 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 
 ResourceMonitor::~ResourceMonitor()
 {
+    mConnectionPublisher->Unsubscribes(this);
+
     {
         LockGuard lock(mMutex);
         mFinishMonitoring = true;
@@ -155,7 +161,7 @@ Error ResourceMonitor::RunGatheringNodeMonitoringData()
 {
     return mThreadMonitoring.Run([this](void*) {
         while (true) {
-            sleep(cTimeoutGather);
+            sleep(cPollPeriod);
 
             aos::LockGuard lock(mMutex);
 

@@ -149,26 +149,62 @@ private:
     int  mSendMonitoringCounter {};
 };
 
+class MockConnectionPublisher : public ConnectionPublisherItf {
+public:
+    aos::Error Subscribes(ConnectionSubscriberItf* subscriber) override
+    {
+        EXPECT_TRUE(subscriber != nullptr);
+
+        mSubscriber = subscriber;
+
+        return ErrorEnum::eNone;
+    }
+
+    void Unsubscribes(ConnectionSubscriberItf* subscriber) override
+    {
+        EXPECT_TRUE(subscriber == mSubscriber);
+
+        mSubscriber = nullptr;
+
+        return;
+    }
+
+    void Notify() const
+    {
+
+        EXPECT_TRUE(mSubscriber != nullptr);
+
+        mSubscriber->OnConnect();
+
+        return;
+    }
+
+private:
+    ConnectionSubscriberItf* mSubscriber {};
+};
+
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
 TEST(common, ResourceMonitorInit)
 {
+    MockConnectionPublisher   connectionPublisher {};
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender).IsNone());
+    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
 }
 
 TEST(common, ResourceMonitorGetNodeInfo)
 {
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
+    MockConnectionPublisher   connectionPublisher {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender).IsNone());
+    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
 
     NodeInfo nodeInfo {};
     EXPECT_TRUE(monitor.GetNodeInfo(nodeInfo).IsNone());
@@ -188,9 +224,12 @@ TEST(common, ResourceMonitorGetNodeMonitoringData)
 {
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
+    MockConnectionPublisher   connectionPublisher {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender).IsNone());
+    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
+
+    connectionPublisher.Notify();
 
     sleep(AOS_CONFIG_MONITORING_POLL_PERIOD_SEC + AOS_CONFIG_MONITORING_SEND_PERIOD_SEC + 1);
 
@@ -203,9 +242,10 @@ TEST(common, ResourceMonitorGetInstanceMonitoringData)
 {
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
+    MockConnectionPublisher   connectionPublisher {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender).IsNone());
+    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
 
     InstanceMonitorParams instanceMonitorParams {};
     instanceMonitorParams.mInstanceIdent.mInstance = 1;

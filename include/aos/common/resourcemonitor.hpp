@@ -8,6 +8,7 @@
 #ifndef AOS_RESOURCEMONITOR_HPP_
 #define AOS_RESOURCEMONITOR_HPP_
 
+#include "aos/common/connectionsubsc.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/types.hpp"
 #include <aos/common/tools/thread.hpp>
@@ -214,7 +215,7 @@ public:
 /**
  * Resource monitor.
  */
-class ResourceMonitor : public ResourceMonitorItf {
+class ResourceMonitor : public ResourceMonitorItf, public ConnectionSubscriberItf {
 public:
     /**
      * Constructor
@@ -233,7 +234,8 @@ public:
      * @param monitorSender monitor sender
      * @return Error
      */
-    Error Init(ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender);
+    Error Init(ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
+        ConnectionPublisherItf& connectionPublisher);
 
     /**
      * Gets the node info object
@@ -260,18 +262,29 @@ public:
      */
     Error StopInstanceMonitoring(const String& instanceID) override;
 
+    /**
+     * Respond to a connection event.
+     */
+    void OnConnect() override;
+
+    /**
+     * Respond to a disconnection event.
+     */
+    void OnDisconnect() override;
+
 private:
     static constexpr auto cTimeoutSend = AOS_CONFIG_MONITORING_SEND_PERIOD_SEC;
     static constexpr auto cPollPeriod = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC;
 
-    ResourceUsageProviderItf* mResourceUsageProvider {};
-    SenderItf*                mMonitorSender {};
-    NodeMonitoringData        mNodeMonitoringData {};
-    Mutex                     mMutex;
-    bool                      mFinishMonitoring {};
-    bool                      mSendMonitoring {};
-    Thread<>                  mThreadMonitoring = {};
-    Thread<>                  mThreadSendMonitoring = {};
+    ResourceUsageProviderItf*    mResourceUsageProvider {};
+    SenderItf*                   mMonitorSender {};
+    aos::ConnectionPublisherItf* mConnectionPublisher {};
+    NodeMonitoringData           mNodeMonitoringData {};
+    Mutex                        mMutex;
+    bool                         mFinishMonitoring {};
+    bool                         mSendMonitoring {};
+    Thread<>                     mThreadMonitoring = {};
+    Thread<>                     mThreadSendMonitoring = {};
 
     Error RunGatheringNodeMonitoringData();
     Error RunSendMonitoringData();
