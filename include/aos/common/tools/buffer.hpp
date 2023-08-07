@@ -12,6 +12,8 @@
 #include <cstdint>
 #include <string.h>
 
+#include "aos/common/tools/utils.hpp"
+
 namespace aos {
 
 /**
@@ -19,6 +21,18 @@ namespace aos {
  */
 class Buffer {
 public:
+    /**
+     * Creates buffer from existing memory region.
+     *
+     * @param buffer points to existing memory region.
+     * @param size region size.
+     */
+    Buffer(const void* buffer, size_t size)
+        : mBuffer(const_cast<RemoveConstType<void>*>(buffer))
+        , mSize(size)
+    {
+    }
+
     /**
      * Copies one buffer to another.
      *
@@ -33,6 +47,29 @@ public:
 
         return *this;
     }
+
+    /**
+     * Checks if buffer equals to another buffer.
+     *
+     * @param buffer buffer to compare with.
+     * @return bool.
+     */
+    bool operator==(const Buffer& buffer) const
+    {
+        if (mSize != buffer.Size()) {
+            return false;
+        }
+
+        return memcmp(mBuffer, buffer.Get(), mSize) == 0;
+    };
+
+    /**
+     * Checks if buffer equals to another buffer.
+     *
+     * @param buffer buffer to compare with.
+     * @return bool.
+     */
+    bool operator!=(const Buffer& buffer) const { return !operator==(buffer); };
 
     /**
      * Returns pointer to the hold buffer.
@@ -76,7 +113,10 @@ public:
      *
      * @param size buffer size.
      */
-    explicit DynamicBuffer(size_t size) { SetBuffer(operator new(size), size); }
+    explicit DynamicBuffer(size_t size)
+        : Buffer(operator new(size), size)
+    {
+    }
 
     // cppcheck-suppress noExplicitConstructor
     /**
@@ -85,8 +125,8 @@ public:
      * @param buffer buffer to crate from.
      */
     DynamicBuffer(const Buffer& buffer)
+        : Buffer(operator new(buffer.Size()), buffer.Size())
     {
-        SetBuffer(operator new(buffer.Size()), buffer.Size());
         Buffer::operator=(buffer);
     }
 
