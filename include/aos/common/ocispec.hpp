@@ -68,7 +68,7 @@ constexpr auto cMaxIRQsCount = 20;
 struct ContentDescriptor {
     StaticString<cMaxMediaTypeLen> mMediaType;
     StaticString<cMaxDigestLen>    mDigest;
-    size_t                         mSize;
+    int64_t                        mSize;
 
     /**
      * Compares content descriptor.
