@@ -88,6 +88,16 @@ public:
     };
 
     /**
+     * Clears allocator.
+     */
+    void Clear()
+    {
+        LockGuard lock(mMutex);
+
+        mAllocations->Clear();
+    }
+
+    /**
      * Allocates data with specified size.
      *
      * @param size allocate size.

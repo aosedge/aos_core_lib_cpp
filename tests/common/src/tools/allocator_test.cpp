@@ -41,6 +41,11 @@ TEST(CommonTest, Allocator)
             EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
         }
     }
+
+    allocator.Allocate(32);
+
+    allocator.Clear();
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
 
 TEST(CommonTest, New)
