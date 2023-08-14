@@ -37,9 +37,9 @@ public:
      * @param str C string.
      */
     String(const char* str)
-        : Array(const_cast<char*>(str), strlen(str))
+        : Array(const_cast<char*>(str), str ? strlen(str) : 0)
     {
-        if (*end()) {
+        if (str && *end()) {
             *end() = 0;
         }
     }
