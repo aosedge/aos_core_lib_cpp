@@ -8,10 +8,14 @@
 #ifndef AOS_STRING_HPP_
 #define AOS_STRING_HPP_
 
-#include <aos/common/tools/array.hpp>
+#define __STDC_FORMAT_MACROS
+
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "aos/common/tools/array.hpp"
 
 namespace aos {
 
@@ -194,44 +198,104 @@ public:
     friend bool operator!=(const char* cStr, const String& str) { return str.operator!=(cStr); };
 
     /**
+     * Converts sting to int.
+     *
+     * @return RetWithError<int>.
+     */
+    RetWithError<int> ToInt()
+    {
+        int value;
+
+        auto err = ConvertString("%d", value);
+        if (!err.IsNone()) {
+            return {value, err};
+        }
+
+        return value;
+    }
+
+    /**
+     * Converts sting to uint64.
+     *
+     * @return RetWithError<uint64_t>.
+     */
+    RetWithError<uint64_t> ToUint64()
+    {
+        uint64_t value;
+
+        auto err = ConvertString("%" PRIu64, value);
+        if (!err.IsNone()) {
+            return {value, err};
+        }
+
+        return value;
+    }
+
+    /**
+     * Converts sting to int64.
+     *
+     * @return RetWithError<int64_t>.
+     */
+    RetWithError<int64_t> ToInt64()
+    {
+        int64_t value;
+
+        auto err = ConvertString("%" PRIi64, value);
+        if (!err.IsNone()) {
+            return {value, err};
+        }
+
+        return value;
+    }
+
+    /**
      * Converts int to string.
      *
      * @param value int value.
      * @return Error.
      */
-    String& Convert(int value)
-    {
-        auto ret = snprintf(Get(), MaxSize() + 1, "%d", value);
-        assert(ret >= 0 && static_cast<size_t>(ret) <= MaxSize());
+    Error Convert(int value) { return ConvertValue(value, "%d"); }
 
-        Resize(ret);
+    /**
+     * Converts uint64_t to string.
+     *
+     * @param value uint64_t value.
+     * @return Error.
+     */
+    Error Convert(uint64_t value) { return ConvertValue(value, "%" PRIu64); }
 
-        return *this;
-    }
+    /**
+     * Converts int64_t to string.
+     *
+     * @param value int64_t value.
+     * @return Error.
+     */
+    Error Convert(int64_t value) { return ConvertValue(value, "%" PRIi64); }
 
     /**
      * Converts error to string.
      *
-     * @param err error.
+     * @param inErr error.
      * @return Error.
      */
-    String& Convert(const Error& err)
+    Error Convert(const Error& inErr)
     {
         Clear();
 
-        Append(err.Message());
+        Append(inErr.Message());
 
-        if (err.FileName()) {
+        if (inErr.FileName()) {
             char tmpBuf[16];
 
-            Append(" (")
-                .Append(err.FileName())
-                .Append(":")
-                .Append(String(tmpBuf, sizeof(tmpBuf) - 1).Convert(err.LineNumber()))
-                .Append(")");
+            auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber());
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            Append(" (").Append(inErr.FileName()).Append(":").Append(tmpBuf).Append(")");
         }
 
-        return *this;
+        return ErrorEnum::eNone;
     }
 
     /**
@@ -239,7 +303,6 @@ public:
      *
      * @param list string list to split to.
      * @param delim delimeter.
-     *
      * @return Error.
      */
     template <typename T>
@@ -271,6 +334,35 @@ public:
             if (!err.IsNone()) {
                 return err;
             }
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+private:
+    template <typename T>
+    Error ConvertValue(T value, const char* format)
+    {
+        Clear();
+
+        // cppcheck-suppress wrongPrintfScanfArgNum
+        auto ret = snprintf(Get(), MaxSize() + 1, format, value);
+        if (ret < 0) {
+            return ret;
+        }
+
+        Resize(ret);
+
+        return ErrorEnum::eNone;
+    }
+
+    template <typename T>
+    Error ConvertString(const char* format, T& value)
+    {
+        // cppcheck-suppress wrongPrintfScanfArgNum
+        auto ret = sscanf(CStr(), format, &value);
+        if (ret < 0) {
+            return ret;
         }
 
         return ErrorEnum::eNone;

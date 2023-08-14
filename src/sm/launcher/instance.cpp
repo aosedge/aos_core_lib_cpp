@@ -36,7 +36,9 @@ Instance::Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::Run
 {
     StaticString<cInstanceIDLen> tmp;
 
-    mInstanceID.Append(tmp.Convert(sInstanceID++));
+    tmp.Convert(static_cast<uint64_t>(sInstanceID++));
+
+    mInstanceID.Append(tmp);
 
     LOG_INF() << "Create instance: " << mInfo.mInstanceIdent << ", ID: " << *this;
 }

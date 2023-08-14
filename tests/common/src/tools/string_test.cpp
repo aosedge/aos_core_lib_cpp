@@ -57,18 +57,63 @@ TEST(CommonTest, String)
 
     EXPECT_EQ(str, "test1test2");
 
-    // Convert int
+    StaticString<4> convertStr;
 
-    StaticString<2> strInt;
+    // Convert to int
 
-    EXPECT_EQ(strInt.Convert(42), "42");
+    convertStr = "56";
 
-    // Convert error
+    auto intResult = convertStr.ToInt();
+
+    EXPECT_TRUE(intResult.mError.IsNone());
+    EXPECT_EQ(intResult.mValue, 56);
+
+    // Convert to uint64
+
+    convertStr = "435";
+
+    auto uint64Result = convertStr.ToUint64();
+
+    EXPECT_TRUE(uint64Result.mError.IsNone());
+    EXPECT_EQ(uint64Result.mValue, 435);
+
+    // Convert to int64
+
+    convertStr = "-123";
+
+    auto int64Result = convertStr.ToInt64();
+
+    EXPECT_TRUE(int64Result.mError.IsNone());
+    EXPECT_EQ(int64Result.mValue, -123);
+
+    // Convert from int
+
+    EXPECT_TRUE(convertStr.Convert(42).IsNone());
+    EXPECT_EQ(convertStr, "42");
+
+    // Convert from uint64
+
+    uint64_t v1 = 323;
+
+    EXPECT_TRUE(convertStr.Convert(v1).IsNone());
+    EXPECT_EQ(convertStr, "323");
+
+    // Convert from int64
+
+    int64_t v2 = -323;
+
+    EXPECT_TRUE(convertStr.Convert(v2).IsNone());
+    EXPECT_EQ(convertStr, "-323");
+
+    // Convert from error
 
     StaticString<32> strErr;
 
-    EXPECT_EQ(strErr.Convert(Error(ErrorEnum::eFailed)), "failed");
-    EXPECT_EQ(strErr.Convert(Error(ErrorEnum::eRuntime, "file1", 123)), "runtime error (file1:123)");
+    EXPECT_TRUE(strErr.Convert(Error(ErrorEnum::eFailed)).IsNone());
+    EXPECT_EQ(strErr, "failed");
+
+    EXPECT_TRUE(strErr.Convert(Error(ErrorEnum::eRuntime, "file1", 123)).IsNone());
+    EXPECT_EQ(strErr, "runtime error (file1:123)");
 
     // Copy static string to static string
 

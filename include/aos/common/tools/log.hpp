@@ -185,9 +185,11 @@ public:
      */
     Log& operator<<(int i)
     {
-        StaticString<32> tmpStr;
+        StaticString<12> tmpStr;
 
-        return *this << tmpStr.Convert(i);
+        tmpStr.Convert(i);
+
+        return *this << tmpStr;
     };
 
     Log& operator<<(const Error& err)
