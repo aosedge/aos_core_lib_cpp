@@ -187,7 +187,7 @@ private:
  * Tests
  **********************************************************************************************************************/
 
-TEST(common, ResourceMonitorInit)
+TEST(CommonTest, ResourceMonitorInit)
 {
     MockConnectionPublisher   connectionPublisher {};
     MockResourceUsageProvider resourceUsageProvider {};
@@ -197,7 +197,7 @@ TEST(common, ResourceMonitorInit)
     EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
 }
 
-TEST(common, ResourceMonitorGetNodeInfo)
+TEST(CommonTest, ResourceMonitorGetNodeInfo)
 {
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
@@ -220,7 +220,7 @@ TEST(common, ResourceMonitorGetNodeInfo)
     EXPECT_EQ(nodeInfo.mPartitions[0].mTotalSize, 1000);
 }
 
-TEST(common, ResourceMonitorGetNodeMonitoringData)
+TEST(CommonTest, ResourceMonitorGetNodeMonitoringData)
 {
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
@@ -238,7 +238,7 @@ TEST(common, ResourceMonitorGetNodeMonitoringData)
     EXPECT_TRUE(sender.GetSendMonitoringCounter() > 0);
 }
 
-TEST(common, ResourceMonitorGetInstanceMonitoringData)
+TEST(CommonTest, ResourceMonitorGetInstanceMonitoringData)
 {
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
