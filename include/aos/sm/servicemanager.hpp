@@ -159,6 +159,14 @@ public:
     virtual RetWithError<ServiceData> GetService(const String& serviceID) = 0;
 
     /**
+     * Returns all installed services.
+     *
+     * @param services array to return installed services.
+     * @return Error.
+     */
+    virtual Error GetAllServices(Array<ServiceData>& services) = 0;
+
+    /**
      * Returns service image parts.
      *
      * @param service service item.
@@ -209,6 +217,14 @@ public:
      * @return RetWithError<ServiceItem>.
      */
     RetWithError<ServiceData> GetService(const String& serviceID) override;
+
+    /**
+     * Returns all installed services.
+     *
+     * @param services array to return installed services.
+     * @return Error.
+     */
+    Error GetAllServices(Array<ServiceData>& services) override;
 
     /**
      * Returns service image parts.

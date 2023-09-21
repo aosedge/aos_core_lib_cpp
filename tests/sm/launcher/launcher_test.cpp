@@ -114,6 +114,17 @@ public:
         return *it;
     }
 
+    Error GetAllServices(Array<ServiceData>& services) override
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+
+        for (const auto& service : mServicesData) {
+            services.PushBack(service);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
     RetWithError<ImageParts> GetImageParts(const ServiceData& service) override
     {
         return ImageParts {FS::JoinPath(service.mImagePath, "image.json"),

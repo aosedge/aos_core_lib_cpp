@@ -107,6 +107,11 @@ RetWithError<ServiceData> ServiceManager::GetService(const String& serviceID)
     return mStorage->GetService(serviceID);
 }
 
+Error ServiceManager::GetAllServices(Array<ServiceData>& services)
+{
+    return mStorage->GetAllServices(services);
+}
+
 RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& service)
 {
     LockGuard lock(mMutex);

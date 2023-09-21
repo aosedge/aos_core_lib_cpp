@@ -178,15 +178,15 @@ private:
     static constexpr auto cThreadTaskSize = 256;
     static constexpr auto cThreadStackSize = 16384;
 
-    void ProcessInstances(
-        const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart = false);
-    void ProcessServices(const Array<ServiceInfo>& services);
-    void ProcessLayers(const Array<LayerInfo>& layers);
-    void SendRunStatus();
-    void StopInstances(const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart);
-    void StartInstances(const Array<InstanceInfo>& instances);
-    void CacheServices(const Array<InstanceInfo>& instances);
-    void UpdateInstanceServices();
+    void  ProcessInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart = false);
+    void  ProcessServices(SharedPtr<const Array<ServiceInfo>> services);
+    void  ProcessLayers(SharedPtr<const Array<LayerInfo>> layers);
+    void  SendRunStatus();
+    void  StopInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart);
+    void  StartInstances(SharedPtr<const Array<InstanceInfo>> instances);
+    void  CacheServices(SharedPtr<const Array<InstanceInfo>> instances);
+    void  UpdateInstanceServices();
+    Error UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances);
 
     RetWithError<const Service*> GetService(const String& serviceID) const
     {
@@ -210,7 +210,8 @@ private:
     OCISpecItf*                        mOCIManager {};
     monitoring::ResourceMonitorItf*    mResourceMonitor {};
 
-    StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)>
+    StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)
+        + sizeof(servicemanager::ServiceDataStaticArray) + sizeof(InstanceStatusStaticArray)>
         mAllocator;
 
     bool                                      mLaunchInProgress = false;
