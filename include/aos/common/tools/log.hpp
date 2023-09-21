@@ -79,7 +79,7 @@ public:
         eSMLauncher,
         eSMServiceManager,
         eIAMCertHandler,
-        eMonitoring,
+        eCommonMonitoring,
         eNumModules,
     };
 
