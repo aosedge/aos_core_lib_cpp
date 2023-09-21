@@ -176,6 +176,7 @@ public:
 private:
     static constexpr auto cNumLaunchThreads = AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cThreadTaskSize = 256;
+    static constexpr auto cThreadStackSize = 16384;
 
     void ProcessInstances(
         const Array<InstanceInfo>& instances, const Array<ServiceInfo>& services, bool forceRestart = false);
@@ -212,10 +213,12 @@ private:
     StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)>
         mAllocator;
 
-    bool                    mLaunchInProgress = false;
-    Mutex                   mMutex;
-    Thread<cThreadTaskSize> mThread;
-    ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize> mLaunchPool;
+    bool                                      mLaunchInProgress = false;
+    Mutex                                     mMutex;
+    Thread<cThreadTaskSize, cThreadStackSize> mThread;
+    ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
+        cThreadStackSize>
+        mLaunchPool;
 
     StaticArray<Service, cMaxNumServices>   mCurrentServices;
     StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
