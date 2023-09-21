@@ -77,7 +77,8 @@ Error Instance::Start()
         return runStatus.mError;
     }
 
-    err = mResourceMonitor.StartInstanceMonitoring(mInstanceID, monitoring::InstanceMonitorParams {});
+    err = mResourceMonitor.StartInstanceMonitoring(
+        mInstanceID, monitoring::InstanceMonitorParams {mInfo.mInstanceIdent, {}});
     if (!err.IsNone()) {
         mRunError = err;
 
