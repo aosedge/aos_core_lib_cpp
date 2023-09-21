@@ -67,11 +67,12 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
             layers = SharedPtr<const Array<LayerInfo>>(&mAllocator, new (&mAllocator) LayerInfoStaticArray(layers)),
             forceRestart](void*) mutable {
             ProcessLayers(*layers);
+
             layers.Reset();
 
             ProcessServices(*services);
-
             ProcessInstances(*instances, *services, forceRestart);
+
             services.Reset();
             instances.Reset();
 
