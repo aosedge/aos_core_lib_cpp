@@ -178,9 +178,7 @@ Error ResourceMonitor::RunGatheringNodeMonitoringData()
             }
 
             for (auto& instance : mNodeMonitoringData.mServiceInstances) {
-                auto err
-                    = mResourceUsageProvider->GetInstanceMonitoringData(instance.mInstanceID, instance.mMonitoringData);
-
+                err = mResourceUsageProvider->GetInstanceMonitoringData(instance.mInstanceID, instance.mMonitoringData);
                 if (!err.IsNone()) {
                     LOG_ERR() << "Failed to get instance monitoring data: " << err;
                 }
