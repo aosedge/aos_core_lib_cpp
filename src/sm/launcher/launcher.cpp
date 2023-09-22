@@ -76,9 +76,9 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
             ProcessInstances(instances, forceRestart);
 
-            SendRunStatus();
-
             LockGuard lock(mMutex);
+
+            SendRunStatus();
 
             mLaunchInProgress = false;
         });
@@ -103,6 +103,9 @@ Error Launcher::RunLastInstances()
 
     lock.Unlock();
 
+    // Wait in case previous request is not yet finished
+    mThread.Join();
+
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
     auto instances = SharedPtr<const Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray());
@@ -114,9 +117,10 @@ Error Launcher::RunLastInstances()
 
     err = mThread.Run([this, instances](void*) mutable {
         ProcessInstances(instances);
-        SendRunStatus();
 
         LockGuard lock(mMutex);
+
+        SendRunStatus();
 
         mLaunchInProgress = false;
     });
@@ -207,8 +211,6 @@ void Launcher::ProcessInstances(SharedPtr<const Array<InstanceInfo>> instances, 
 
 void Launcher::SendRunStatus()
 {
-    LockGuard lock(mMutex);
-
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
