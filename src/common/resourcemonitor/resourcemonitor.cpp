@@ -33,6 +33,7 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
     }
 
     mNodeMonitoringData.mNodeID = nodeInfo.mNodeID;
+    mNodeMonitoringData.mMonitoringData = {};
 
     for (const auto& disk : nodeInfo.mPartitions) {
         mNodeMonitoringData.mMonitoringData.mDisk.EmplaceBack(disk);
@@ -83,7 +84,7 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
         [&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; });
 
     if (!findInstance.mError.IsNone()) {
-        MonitoringData monitoringData;
+        MonitoringData monitoringData {};
 
         for (const auto& disk : monitoringConfig.mPartitions) {
             monitoringData.mDisk.EmplaceBack(disk);

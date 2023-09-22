@@ -70,6 +70,8 @@ struct MonitoringData {
     size_t                                        mRAM;
     size_t                                        mCPU;
     StaticArray<PartitionInfo, cMaxNumPartitions> mDisk;
+    uint64_t                                      mInTraffic;
+    uint64_t                                      mOutTraffic;
 };
 
 /**
