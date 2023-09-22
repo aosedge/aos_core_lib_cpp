@@ -45,10 +45,7 @@ public:
     /**
      * Constructs Aos thread instance and use lambda as argument.
      */
-    Thread()
-        : mPThread()
-    {
-    }
+    Thread() { }
 
     /**
      * Runs thread function.
@@ -77,7 +74,11 @@ public:
             return ret;
         }
 
-        return pthread_create(&mPThread, &attr, ThreadFunction, this);
+        ret = pthread_create(&mPThread, &attr, ThreadFunction, this);
+
+        mJoinable = ret == 0;
+
+        return ret;
     }
 
     /**
@@ -85,12 +86,20 @@ public:
      *
      * @return Error.
      */
-    Error Join() { return pthread_join(mPThread, nullptr); }
+    Error Join()
+    {
+        if (mJoinable) {
+            return pthread_join(mPThread, nullptr);
+        }
+
+        return ErrorEnum::eNone;
+    }
 
 private:
     alignas(cThreadStackAlign) uint8_t mStack[AlignedSize(cStackSize, cThreadStackAlign)];
     StaticFunction<cFunctionMaxSize> mFunction;
-    pthread_t                        mPThread;
+    pthread_t                        mPThread = {};
+    bool                             mJoinable = false;
 
     static void* ThreadFunction(void* arg)
     {
