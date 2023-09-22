@@ -107,7 +107,7 @@ public:
     {
         LockGuard lock(mMutex);
 
-        if (mAllocations->IsFull() || GetAllocatedSize() >= mMaxSize) {
+        if (mAllocations->IsFull() || GetAllocatedSize() + size > mMaxSize) {
             assert(false);
             return nullptr;
         }
@@ -115,6 +115,10 @@ public:
         auto data = End();
 
         mAllocations->EmplaceBack(data, size);
+
+        if (GetAllocatedSize() > mMaxAllocatedSize) {
+            mMaxAllocatedSize = GetAllocatedSize();
+        }
 
         return data;
     }
@@ -198,6 +202,28 @@ public:
         return mMaxSize;
     }
 
+    /**
+     * Return max allocated size.
+     *
+     * @return size_t max allocated size.
+     */
+    size_t MaxAllocatedSize()
+    {
+        LockGuard lock(mMutex);
+
+        return mMaxAllocatedSize;
+    }
+
+    /**
+     * Resets max allocated size.
+     */
+    void ResetMaxAllocatedSize()
+    {
+        LockGuard lock(mMutex);
+
+        mMaxAllocatedSize = 0;
+    }
+
 protected:
     void SetBuffer(const Buffer& buffer, Array<Allocation>& allocations)
     {
@@ -224,6 +250,7 @@ private:
     uint8_t*           mBuffer = {};
     Array<Allocation>* mAllocations = {};
     size_t             mMaxSize = {};
+    size_t             mMaxAllocatedSize = {};
     Mutex              mMutex;
 };
 

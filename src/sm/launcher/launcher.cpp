@@ -81,6 +81,9 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
             SendRunStatus();
 
             mLaunchInProgress = false;
+
+            LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
+                      << ", max allocated size: " << mAllocator.MaxAllocatedSize();
         });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -123,6 +126,9 @@ Error Launcher::RunLastInstances()
         SendRunStatus();
 
         mLaunchInProgress = false;
+
+        LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
+                  << ", max allocated size: " << mAllocator.MaxAllocatedSize();
     });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
