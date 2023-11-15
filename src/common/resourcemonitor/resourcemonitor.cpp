@@ -39,7 +39,7 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
         mNodeMonitoringData.mMonitoringData.mDisk.EmplaceBack(disk);
     }
 
-    mConnectionPublisher->Subscribes(this);
+    mConnectionPublisher->Subscribes(*this);
 
     err = RunGatheringNodeMonitoringData();
     if (!err.IsNone()) {
@@ -117,7 +117,7 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 
 ResourceMonitor::~ResourceMonitor()
 {
-    mConnectionPublisher->Unsubscribes(this);
+    mConnectionPublisher->Unsubscribes(*this);
 
     {
         LockGuard lock(mMutex);
