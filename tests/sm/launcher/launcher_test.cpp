@@ -312,18 +312,57 @@ private:
     std::mutex                mMutex;
 };
 
+/**
+ * Mocks connection publisher.
+ */
+
+class MockConnectionPublisher : public ConnectionPublisherItf {
+public:
+    aos::Error Subscribes(ConnectionSubscriberItf& subscriber) override
+    {
+        mSubscriber = &subscriber;
+        return ErrorEnum::eNone;
+    }
+
+    void Unsubscribes(ConnectionSubscriberItf& subscriber) override
+    {
+        (void)subscriber;
+        mSubscriber = nullptr;
+    }
+
+    ConnectionSubscriberItf* GetSubscriber() const { return mSubscriber; }
+
+    void Connect()
+    {
+        if (mSubscriber) {
+            mSubscriber->OnConnect();
+        }
+    }
+
+    void Disconnect()
+    {
+        if (mSubscriber) {
+            mSubscriber->OnDisconnect();
+        }
+    }
+
+private:
+    ConnectionSubscriberItf* mSubscriber = nullptr;
+};
+
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
 TEST(LauncherTest, RunInstances)
 {
-    MockServiceManager  serviceManager;
-    MockRunner          runner;
-    MockOCIManager      ociManager;
-    MockStatusReceiver  statusReceiver;
-    MockStorage         storage;
-    MockResourceMonitor resourceMonitor;
+    MockServiceManager      serviceManager;
+    MockRunner              runner;
+    MockOCIManager          ociManager;
+    MockStatusReceiver      statusReceiver;
+    MockStorage             storage;
+    MockResourceMonitor     resourceMonitor;
+    MockConnectionPublisher connectionPublisher;
 
     Launcher launcher;
 
@@ -336,9 +375,11 @@ TEST(LauncherTest, RunInstances)
 
     auto feature = statusReceiver.GetFeature();
 
-    EXPECT_TRUE(launcher.Init(serviceManager, runner, ociManager, statusReceiver, storage, resourceMonitor).IsNone());
+    EXPECT_TRUE(
+        launcher.Init(serviceManager, runner, ociManager, statusReceiver, storage, resourceMonitor, connectionPublisher)
+            .IsNone());
 
-    EXPECT_TRUE(launcher.RunLastInstances().IsNone());
+    connectionPublisher.Connect();
 
     // Wait for initial instance status
 
@@ -418,7 +459,7 @@ TEST(LauncherTest, RunInstances)
 
     feature = statusReceiver.GetFeature();
 
-    EXPECT_TRUE(launcher.RunLastInstances().IsNone());
+    connectionPublisher.Connect();
 
     // Wait for initial instance status
 

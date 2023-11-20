@@ -20,9 +20,12 @@ using namespace runner;
 
 Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
     OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
-    monitoring::ResourceMonitorItf& resourceMonitor)
+    monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher)
 {
     LOG_DBG() << "Initialize launcher";
+
+    mConnectionPublisher = &connectionPublisher;
+    mConnectionPublisher->Subscribes(*this);
 
     mServiceManager = &serviceManager;
     mRunner = &runner;
@@ -92,51 +95,6 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     return ErrorEnum::eNone;
 }
 
-Error Launcher::RunLastInstances()
-{
-    UniqueLock lock(mMutex);
-
-    LOG_DBG() << "Run last instances";
-
-    if (mLaunchInProgress) {
-        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
-    }
-
-    mLaunchInProgress = true;
-
-    lock.Unlock();
-
-    // Wait in case previous request is not yet finished
-    mThread.Join();
-
-    assert(mAllocator.FreeSize() == mAllocator.MaxSize());
-
-    auto instances = SharedPtr<const Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray());
-
-    auto err = mStorage->GetAllInstances(const_cast<Array<InstanceInfo>&>(*instances));
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    err = mThread.Run([this, instances](void*) mutable {
-        ProcessInstances(instances);
-
-        LockGuard lock(mMutex);
-
-        SendRunStatus();
-
-        mLaunchInProgress = false;
-
-        LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
-                  << ", max allocated size: " << mAllocator.MaxAllocatedSize();
-    });
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
 Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
 {
     (void)instances;
@@ -181,6 +139,51 @@ Error Launcher::UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances)
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+Error Launcher::RunLastInstances()
+{
+    UniqueLock lock(mMutex);
+
+    LOG_DBG() << "Run last instances";
+
+    if (mLaunchInProgress) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    mLaunchInProgress = true;
+
+    lock.Unlock();
+
+    // Wait in case previous request is not yet finished
+    mThread.Join();
+
+    assert(mAllocator.FreeSize() == mAllocator.MaxSize());
+
+    auto instances = SharedPtr<const Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray());
+
+    auto err = mStorage->GetAllInstances(const_cast<Array<InstanceInfo>&>(*instances));
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    err = mThread.Run([this, instances](void*) mutable {
+        ProcessInstances(instances);
+
+        LockGuard lock(mMutex);
+
+        SendRunStatus();
+
+        mLaunchInProgress = false;
+
+        LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
+                  << ", max allocated size: " << mAllocator.MaxAllocatedSize();
+    });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
 
 void Launcher::ProcessServices(SharedPtr<const Array<ServiceInfo>> services)
 {
