@@ -9,7 +9,7 @@
 #define AOS_COMMON_CONFIG_HPP_
 
 /**
- * Service/layer description len.
+ * Service provider ID len.
  */
 #ifndef AOS_CONFIG_TYPES_PROVIDER_ID_LEN
 #define AOS_CONFIG_TYPES_PROVIDER_ID_LEN 40
@@ -142,14 +142,14 @@
 #endif
 
 /**
- * Monitoring period send.
+ * Monitoring send period.
  */
 #ifndef AOS_CONFIG_MONITORING_SEND_PERIOD_SEC
 #define AOS_CONFIG_MONITORING_SEND_PERIOD_SEC 60
 #endif
 
 /**
- * Monitoring period poll.
+ * Monitoring poll period.
  */
 #ifndef AOS_CONFIG_MONITORING_POLL_PERIOD_SEC
 #define AOS_CONFIG_MONITORING_POLL_PERIOD_SEC 10
