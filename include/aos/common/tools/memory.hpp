@@ -196,18 +196,6 @@ public:
     }
 
     /**
-     * Assigns shared pointer from another pointer.
-     *
-     * @param ptr pointer to assign from.
-     */
-    SharedPtr& operator=(const T* object)
-    {
-        Reset(SmartPtr<T>::mAllocator, object);
-
-        return *this;
-    }
-
-    /**
      * Resets shared pointer.
      *
      * @param allocator new allocator.
