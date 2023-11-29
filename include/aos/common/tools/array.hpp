@@ -455,14 +455,18 @@ public:
      */
     RetWithError<T*> Remove(T* item)
     {
-        if (item < begin() || item > end()) {
+        if (item < begin() || item >= end()) {
             return {nullptr, ErrorEnum::eInvalidArgument};
         }
 
-        for (auto i = 0; i < end() - item - 1; i++) {
-            (item + i)->~T();
-            new (item + i) T(*(item + i + 1));
-            (item + i + 1)->~T();
+        if (item == end() - 1) {
+            (item)->~T();
+        } else {
+            for (auto i = 0; i < end() - item - 1; i++) {
+                (item + i)->~T();
+                new (item + i) T(*(item + i + 1));
+                (item + i + 1)->~T();
+            }
         }
 
         mSize--;
