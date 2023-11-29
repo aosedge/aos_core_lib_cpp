@@ -42,6 +42,7 @@ public:
     void Reset(Allocator* allocator = nullptr, T* object = nullptr)
     {
         if (mAllocator && mObject) {
+            mObject->~T();
             operator delete(const_cast<RemoveConstType<T>*>(mObject), mAllocator);
         }
 
