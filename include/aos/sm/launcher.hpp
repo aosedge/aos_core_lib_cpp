@@ -14,7 +14,6 @@
 #include "aos/common/ocispec.hpp"
 #include "aos/common/resourcemonitor.hpp"
 #include "aos/common/tools/array.hpp"
-#include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
@@ -182,15 +181,15 @@ private:
     static constexpr auto cThreadTaskSize = 256;
     static constexpr auto cThreadStackSize = 16384;
 
-    void  ProcessInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart = false);
-    void  ProcessServices(SharedPtr<const Array<ServiceInfo>> services);
-    void  ProcessLayers(SharedPtr<const Array<LayerInfo>> layers);
+    void  ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
+    void  ProcessServices(const Array<ServiceInfo>& services);
+    void  ProcessLayers(const Array<LayerInfo>& layers);
     void  SendRunStatus();
-    void  StopInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart);
-    void  StartInstances(SharedPtr<const Array<InstanceInfo>> instances);
-    void  CacheServices(SharedPtr<const Array<InstanceInfo>> instances);
+    void  StopInstances(const Array<InstanceInfo>& instances, bool forceRestart);
+    void  StartInstances(const Array<InstanceInfo>& instances);
+    void  CacheServices(const Array<InstanceInfo>& instances);
     void  UpdateInstanceServices();
-    Error UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances);
+    Error UpdateStorage(const Array<InstanceInfo>& instances);
 
     RetWithError<const Service*> GetService(const String& serviceID) const
     {

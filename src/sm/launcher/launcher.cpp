@@ -6,6 +6,7 @@
  */
 
 #include "aos/sm/launcher.hpp"
+#include "aos/common/tools/memory.hpp"
 #include "log.hpp"
 
 namespace aos {
@@ -61,29 +62,29 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
-    auto err = mThread.Run(
-        [this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
-            services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
-            layers = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) mutable {
-            ProcessLayers(layers);
-            ProcessServices(services);
+    auto err
+        = mThread.Run([this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
+                          services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
+                          layers = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) {
+              ProcessLayers(*layers);
+              ProcessServices(*services);
 
-            auto err = UpdateStorage(instances);
-            if (!err.IsNone()) {
-                LOG_ERR() << "Can't update storage: " << err;
-            }
+              auto err = UpdateStorage(*instances);
+              if (!err.IsNone()) {
+                  LOG_ERR() << "Can't update storage: " << err;
+              }
 
-            ProcessInstances(instances, forceRestart);
+              ProcessInstances(*instances, forceRestart);
 
-            LockGuard lock(mMutex);
+              LockGuard lock(mMutex);
 
-            SendRunStatus();
+              SendRunStatus();
 
-            mLaunchInProgress = false;
+              mLaunchInProgress = false;
 
-            LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
-                      << ", max allocated size: " << mAllocator.MaxAllocatedSize();
-        });
+              LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
+                        << ", max allocated size: " << mAllocator.MaxAllocatedSize();
+          });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -100,7 +101,7 @@ Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances)
+Error Launcher::UpdateStorage(const Array<InstanceInfo>& instances)
 {
     auto currentInstances = MakeUnique<InstanceInfoStaticArray>(&mAllocator);
 
@@ -110,7 +111,7 @@ Error Launcher::UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances)
     }
 
     for (const auto& currentInstance : *currentInstances) {
-        auto findResult = instances->Find(currentInstance);
+        auto findResult = instances.Find(currentInstance);
         if (!findResult.mError.IsNone()) {
             err = mStorage->RemoveInstance(currentInstance.mInstanceIdent);
             if (!err.IsNone()) {
@@ -119,7 +120,7 @@ Error Launcher::UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances)
         }
     }
 
-    for (const auto& instance : *instances) {
+    for (const auto& instance : instances) {
         auto findResult = currentInstances->Find(instance);
         if (!findResult.mError.IsNone()) {
             err = mStorage->AddInstance(instance);
@@ -163,7 +164,7 @@ Error Launcher::RunLastInstances()
     }
 
     err = mThread.Run([this, instances](void*) mutable {
-        ProcessInstances(instances);
+        ProcessInstances(*instances);
 
         LockGuard lock(mMutex);
 
@@ -181,24 +182,24 @@ Error Launcher::RunLastInstances()
     return ErrorEnum::eNone;
 }
 
-void Launcher::ProcessServices(SharedPtr<const Array<ServiceInfo>> services)
+void Launcher::ProcessServices(const Array<ServiceInfo>& services)
 {
     LOG_DBG() << "Process services";
 
-    auto err = mServiceManager->InstallServices(*services);
+    auto err = mServiceManager->InstallServices(services);
     if (!err.IsNone()) {
         LOG_ERR() << "Can't install services: " << err;
     }
 }
 
-void Launcher::ProcessLayers(SharedPtr<const Array<LayerInfo>> layers)
+void Launcher::ProcessLayers(const Array<LayerInfo>& layers)
 {
     (void)layers;
 
     LOG_DBG() << "Process layers";
 }
 
-void Launcher::ProcessInstances(SharedPtr<const Array<InstanceInfo>> instances, const bool forceRestart)
+void Launcher::ProcessInstances(const Array<InstanceInfo>& instances, const bool forceRestart)
 {
     LOG_DBG() << "Process instances";
 
@@ -234,7 +235,7 @@ void Launcher::SendRunStatus()
     }
 }
 
-void Launcher::StopInstances(SharedPtr<const Array<InstanceInfo>> instances, bool forceRestart)
+void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRestart)
 {
     UniqueLock lock(mMutex);
 
@@ -248,7 +249,7 @@ void Launcher::StopInstances(SharedPtr<const Array<InstanceInfo>> instances, boo
     }
 
     for (auto& instance : mCurrentInstances) {
-        auto found = instances->Find(instance.Info()).mError.IsNone();
+        auto found = instances.Find(instance.Info()).mError.IsNone();
 
         // Stop instance if: forceRestart or not in instances array or not active state or Aos version changed
         if (!forceRestart && found && instance.RunState() == InstanceRunStateEnum::eActive) {
@@ -277,13 +278,13 @@ void Launcher::StopInstances(SharedPtr<const Array<InstanceInfo>> instances, boo
     mLaunchPool.Wait();
 }
 
-void Launcher::StartInstances(SharedPtr<const Array<InstanceInfo>> instances)
+void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 {
     UniqueLock lock(mMutex);
 
     LOG_DBG() << "Start instances";
 
-    for (const auto& info : *instances) {
+    for (const auto& info : instances) {
         // Skip already started instances
         if (mCurrentInstances.Find([&info](const Instance& instance) { return instance == info; }).mError.IsNone()) {
             continue;
@@ -305,7 +306,7 @@ void Launcher::StartInstances(SharedPtr<const Array<InstanceInfo>> instances)
     mLaunchPool.Wait();
 }
 
-void Launcher::CacheServices(SharedPtr<const Array<InstanceInfo>> instances)
+void Launcher::CacheServices(const Array<InstanceInfo>& instances)
 {
     LockGuard lock(mMutex);
 
@@ -313,7 +314,7 @@ void Launcher::CacheServices(SharedPtr<const Array<InstanceInfo>> instances)
 
     mCurrentServices.Clear();
 
-    for (const auto& instance : *instances) {
+    for (const auto& instance : instances) {
         if (mCurrentServices
                 .Find([&instance](const Service& service) {
                     return service.Data().mServiceID == instance.mInstanceIdent.mServiceID;
