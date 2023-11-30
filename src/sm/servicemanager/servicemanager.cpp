@@ -42,7 +42,7 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
         return err;
     }
 
-    auto installedServices = UniquePtr<Array<ServiceData>>(&mAllocator, new (&mAllocator) ServiceDataStaticArray());
+    auto installedServices = MakeUnique<ServiceDataStaticArray>(&mAllocator);
 
     err = mStorage->GetAllServices(*installedServices);
     if (!err.IsNone()) {
@@ -120,8 +120,8 @@ RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& servic
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
-    auto manifest = UniquePtr<oci::ImageManifest>(&mAllocator, new (&mAllocator) oci::ImageManifest());
-    auto aosService = UniquePtr<oci::ContentDescriptor>(&mAllocator, new (&mAllocator) oci::ContentDescriptor());
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto aosService = MakeUnique<oci::ContentDescriptor>(&mAllocator);
 
     manifest->mAosService = aosService.Get();
 

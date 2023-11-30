@@ -62,13 +62,9 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
     auto err = mThread.Run(
-        [this,
-            instances
-            = SharedPtr<const Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray(instances)),
-            services
-            = SharedPtr<const Array<ServiceInfo>>(&mAllocator, new (&mAllocator) ServiceInfoStaticArray(services)),
-            layers = SharedPtr<const Array<LayerInfo>>(&mAllocator, new (&mAllocator) LayerInfoStaticArray(layers)),
-            forceRestart](void*) mutable {
+        [this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
+            services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
+            layers = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) mutable {
             ProcessLayers(layers);
             ProcessServices(services);
 
@@ -106,7 +102,7 @@ Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
 
 Error Launcher::UpdateStorage(SharedPtr<const Array<InstanceInfo>> instances)
 {
-    auto currentInstances = UniquePtr<Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray());
+    auto currentInstances = MakeUnique<InstanceInfoStaticArray>(&mAllocator);
 
     auto err = mStorage->GetAllInstances(*currentInstances);
     if (!err.IsNone()) {
@@ -244,8 +240,7 @@ void Launcher::StopInstances(SharedPtr<const Array<InstanceInfo>> instances, boo
 
     LOG_DBG() << "Stop instances";
 
-    auto services = UniquePtr<Array<servicemanager::ServiceData>>(
-        &mAllocator, new (&mAllocator) servicemanager::ServiceDataStaticArray());
+    auto services = MakeUnique<servicemanager::ServiceDataStaticArray>(&mAllocator);
 
     auto err = mServiceManager->GetAllServices(*services);
     if (!err.IsNone()) {
