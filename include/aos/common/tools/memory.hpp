@@ -30,7 +30,7 @@ public:
         : mAllocator(allocator)
         , mObject(object)
     {
-        assert(!object || allocator);
+        assert(!(object && !allocator));
     }
 
     /**
@@ -46,7 +46,7 @@ public:
             operator delete(const_cast<RemoveConstType<T>*>(mObject), mAllocator);
         }
 
-        assert(!object || allocator);
+        assert(!(object && !allocator));
 
         Release(allocator, object);
     }
