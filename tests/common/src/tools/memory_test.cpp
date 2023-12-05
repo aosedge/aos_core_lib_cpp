@@ -115,14 +115,14 @@ TEST(CommonTest, SharedPtrDerivedClass)
 {
     class BaseClass {
     public:
-        BaseClass() { std::cout << "Create BaseClass" << std::endl; };
-        ~BaseClass() { std::cout << "Delete BaseClass" << std::endl; };
+        BaseClass() {};
+        virtual ~BaseClass() {};
     };
 
     class NewClass : public BaseClass {
     public:
-        NewClass() { std::cout << "Create NewClass" << std::endl; };
-        ~NewClass() { std::cout << "Delete NewClass" << std::endl; };
+        NewClass() {};
+        virtual ~NewClass() {};
     };
 
     StaticAllocator<256> allocator;
