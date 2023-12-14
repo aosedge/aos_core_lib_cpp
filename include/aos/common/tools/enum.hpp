@@ -46,6 +46,20 @@ public:
     EnumType GetValue() const { return mValue; };
 
     /**
+     * Casts to EnumType.
+     *
+     * @return EnumType.
+     */
+    operator EnumType() const { return mValue; }
+
+    /**
+     * Casts to int.
+     *
+     * @return int.
+     */
+    operator int() const { return static_cast<int>(mValue); }
+
+    /**
      * Compares if EnumStringer equals to another EnumStringer.
      *
      * @param stringer EnumStringer to compare with.
