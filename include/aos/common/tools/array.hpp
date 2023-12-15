@@ -402,6 +402,8 @@ public:
     {
         auto err = Insert(end(), array.begin(), array.end());
         assert(err.IsNone());
+
+        return *this;
     }
 
     /**
