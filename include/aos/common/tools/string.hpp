@@ -408,7 +408,7 @@ public:
      * @param ...args additional arguments
      * @return Error.
      */
-    template <class... Args>
+    template <typename... Args>
     Error Format(const char* format, Args... args)
     {
         Clear();
