@@ -264,14 +264,14 @@ struct VersionInfo {
  */
 
 struct ServiceInfo {
-    VersionInfo                  mVersionInfo;
-    StaticString<cServiceIDLen>  mServiceID;
-    StaticString<cProviderIDLen> mProviderID;
-    uint32_t                     mGID;
-    StaticString<cURLLen>        mURL;
-    uint8_t                      mSHA256[cSHA256Size];
-    uint8_t                      mSHA512[cSHA512Size];
-    size_t                       mSize;
+    VersionInfo                            mVersionInfo;
+    StaticString<cServiceIDLen>            mServiceID;
+    StaticString<cProviderIDLen>           mProviderID;
+    uint32_t                               mGID;
+    StaticString<cURLLen>                  mURL;
+    aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
+    aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
+    size_t                                 mSize;
 };
 
 /**
@@ -285,13 +285,13 @@ using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 // LayerInfo layer info.
 struct LayerInfo {
-    VersionInfo                   mVersionInfo;
-    StaticString<cLayerIDLen>     mLayerID;
-    StaticString<cLayerDigestLen> mLayerDigest;
-    StaticString<cURLLen>         mURL;
-    uint8_t                       mSHA256[cSHA256Size];
-    uint8_t                       mSHA512[cSHA512Size];
-    size_t                        mSize;
+    VersionInfo                            mVersionInfo;
+    StaticString<cLayerIDLen>              mLayerID;
+    StaticString<cLayerDigestLen>          mLayerDigest;
+    StaticString<cURLLen>                  mURL;
+    aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
+    aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
+    size_t                                 mSize;
 };
 
 /**
