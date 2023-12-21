@@ -624,7 +624,6 @@ public:
      */
     StaticArray& operator=(const StaticArray& array)
     {
-        Array<T>::SetBuffer(mBuffer);
         Array<T>::operator=(array);
 
         return *this;
@@ -640,6 +639,18 @@ public:
     {
         Array<T>::SetBuffer(mBuffer);
         Array<T>::operator=(array);
+    }
+
+    /**
+     * Assigns static array from another  array.
+     *
+     * @param array array to assign from.
+     */
+    StaticArray& operator=(const Array<T>& array)
+    {
+        Array<T>::operator=(array);
+
+        return *this;
     }
 
 private:
