@@ -142,29 +142,6 @@ public:
     String& operator+=(const String& str) { return Append(str); }
 
     /**
-     * Checks if str equals to C string.
-     *
-     * @param cStr C string to compare with.
-     * @return bool.
-     */
-    bool operator==(const char* cStr) const
-    {
-        if (strlen(cStr) != Size()) {
-            return false;
-        }
-
-        return memcmp(Get(), cStr, Size()) == 0;
-    };
-
-    /**
-     * Checks if str doesn't equal to C string.
-     *
-     * @param cStr C string to compare with.
-     * @return bool.
-     */
-    bool operator!=(const char* cStr) const { return !operator==(cStr); };
-
-    /**
      * Checks if str equals to another string.
      *
      * @param str string to compare with.
@@ -187,7 +164,7 @@ public:
      * @param srt string to compare with.
      * @return bool.
      */
-    friend bool operator==(const char* cStr, const String& str) { return str.operator==(cStr); };
+    friend bool operator==(const char* cStr, const String& str) { return str == String(cStr); };
 
     /**
      * Checks if C string doesn't equal to string.
