@@ -29,7 +29,7 @@ constexpr auto cMaxDigestLen = (128 + 8);
 /**
  * Spec parameter max len.
  */
-constexpr auto cMaxParamLen = 64;
+constexpr auto cMaxParamLen = 256;
 
 /**
  * Spec parameter max count.
