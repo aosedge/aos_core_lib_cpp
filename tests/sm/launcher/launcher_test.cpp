@@ -183,7 +183,7 @@ public:
     {
         (void)path;
 
-        imageSpec.mConfig.mCmd.EmplaceBack("unikernel");
+        imageSpec.mConfig.mEntryPoint.EmplaceBack("unikernel");
 
         return ErrorEnum::eNone;
     }
