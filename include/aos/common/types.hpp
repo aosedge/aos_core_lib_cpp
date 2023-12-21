@@ -272,6 +272,27 @@ struct ServiceInfo {
     aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
     aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
     size_t                                 mSize;
+
+    /**
+     * Compares service info.
+     *
+     * @param info info to compare.
+     * @return bool.
+     */
+    bool operator==(const ServiceInfo& info) const
+    {
+        return mVersionInfo == info.mVersionInfo && mServiceID == info.mServiceID && mProviderID == info.mProviderID
+            && mGID == info.mGID && mURL == info.mURL && mSHA256 == info.mSHA256 && mSHA512 == info.mSHA512
+            && mSize == info.mSize;
+    }
+
+    /**
+     * Compares service info.
+     *
+     * @param info info to compare.
+     * @return bool.
+     */
+    bool operator!=(const ServiceInfo& info) const { return !operator==(info); }
 };
 
 /**
@@ -292,6 +313,26 @@ struct LayerInfo {
     aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
     aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
     size_t                                 mSize;
+
+    /**
+     * Compares layer info.
+     *
+     * @param info info to compare.
+     * @return bool.
+     */
+    bool operator==(const LayerInfo& info) const
+    {
+        return mVersionInfo == info.mVersionInfo && mLayerID == info.mLayerID && mLayerDigest == info.mLayerDigest
+            && mURL == info.mURL && mSHA256 == info.mSHA256 && mSHA512 == info.mSHA512 && mSize == info.mSize;
+    }
+
+    /**
+     * Compares layer info.
+     *
+     * @param info info to compare.
+     * @return bool.
+     */
+    bool operator!=(const LayerInfo& info) const { return !operator==(info); }
 };
 
 /**
