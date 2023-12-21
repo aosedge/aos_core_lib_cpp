@@ -152,7 +152,8 @@ Error Instance::CreateRuntimeSpec(const String& path)
 
     // Set default HW config values. Normally they should be taken from service config.
     runtimeSpec->mVM->mHWConfig.mVCPUs = 1;
-    runtimeSpec->mVM->mHWConfig.mMemKB = 4096;
+    // For xen this value should be aligned to 1024Kb
+    runtimeSpec->mVM->mHWConfig.mMemKB = 8192;
 
     runtimeSpec->mVM->mKernel.mPath = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
     runtimeSpec->mVM->mKernel.mParameters = imageSpec.mValue.mConfig.mCmd;
