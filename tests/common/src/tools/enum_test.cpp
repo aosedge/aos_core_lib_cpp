@@ -52,3 +52,20 @@ TEST(CommonTest, EnumStringer)
     EXPECT_EQ(TestInstance(TestEnum::eTestType1).ToString().CStr(), "type1");
     EXPECT_EQ(TestInstance(static_cast<TestEnum>(-1)).ToString().CStr(), "unknown");
 }
+
+TEST(CommonTest, EnumFromString)
+{
+    TestInstance e;
+
+    auto err = e.FromString("type1");
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_TRUE(e == TestEnum::eTestType1);
+
+    err = e.FromString("type2");
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_TRUE(e == TestEnum::eTestType2);
+
+    err = e.FromString("unknown");
+    EXPECT_FALSE(err.IsNone());
+    EXPECT_TRUE(e == TestEnum::eTestTypeSize);
+}

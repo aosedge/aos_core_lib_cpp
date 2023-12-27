@@ -125,6 +125,29 @@ public:
         return "unknown";
     }
 
+    /**
+     * Converts string to enum value.
+     *
+     * @param str string to convert.
+     * @return Error.
+     */
+    Error FromString(const String& str)
+    {
+        auto strings = T::GetStrings();
+
+        for (size_t i = 0; i < strings.Size(); i++) {
+            if (str == strings[i]) {
+                mValue = static_cast<EnumType>(i);
+
+                return ErrorEnum::eNone;
+            }
+        }
+
+        mValue = static_cast<EnumType>(strings.Size());
+
+        return ErrorEnum::eNotFound;
+    };
+
 private:
     EnumType mValue;
 };
