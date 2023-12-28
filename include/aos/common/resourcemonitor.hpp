@@ -51,6 +51,26 @@ struct PartitionInfo {
     StaticArray<StaticString<cPartitionTypesLen>, cMaxNumPartitionTypes> mTypes;
     size_t                                                               mTotalSize;
     size_t                                                               mUsedSize;
+
+    /**
+     * Compares partition info.
+     *
+     * @param info partition info to compare with.
+     * @return bool.
+     */
+    bool operator==(const PartitionInfo& info) const
+    {
+        return mName == info.mName && mPath == info.mPath && mTypes == info.mTypes && mTotalSize == info.mTotalSize
+            && mUsedSize == info.mUsedSize;
+    }
+
+    /**
+     * Compares partition info.
+     *
+     * @param info partition info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PartitionInfo& info) const { return !operator==(info); }
 };
 
 /**
@@ -61,6 +81,26 @@ struct NodeInfo {
     size_t                                        mNumCPUs;
     size_t                                        mTotalRAM;
     StaticArray<PartitionInfo, cMaxNumPartitions> mPartitions;
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeInfo& info) const
+    {
+        return mNodeID == info.mNodeID && mNumCPUs == info.mNumCPUs && mTotalRAM == info.mTotalRAM
+            && mPartitions == info.mPartitions;
+    }
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeInfo& info) const { return !operator==(info); }
 };
 
 /**
@@ -72,6 +112,26 @@ struct MonitoringData {
     StaticArray<PartitionInfo, cMaxNumPartitions> mDisk;
     uint64_t                                      mInTraffic;
     uint64_t                                      mOutTraffic;
+
+    /**
+     * Compares monitoring data.
+     *
+     * @param data monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator==(const MonitoringData& data) const
+    {
+        return mRAM == data.mRAM && mCPU == data.mCPU && mDisk == data.mDisk && mInTraffic == data.mInTraffic
+            && mOutTraffic == data.mOutTraffic;
+    }
+
+    /**
+     * Compares monitoring data.
+     *
+     * @param data monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator!=(const MonitoringData& data) const { return !operator==(data); }
 };
 
 /**
@@ -110,6 +170,26 @@ struct NodeMonitoringData {
     MonitoringData                                        mMonitoringData;
     timespec                                              mTimestamp;
     StaticArray<InstanceMonitoringData, cMaxNumInstances> mServiceInstances;
+
+    /**
+     * Compares node monitoring data.
+     *
+     * @param data node monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeMonitoringData& data) const
+    {
+        return mNodeID == data.mNodeID && mMonitoringData == data.mMonitoringData
+            && mTimestamp.tv_nsec == data.mTimestamp.tv_nsec && mTimestamp.tv_sec == data.mTimestamp.tv_sec;
+    }
+
+    /**
+     * Compares node monitoring data.
+     *
+     * @param data node monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeMonitoringData& data) const { return !operator==(data); }
 };
 
 /**
