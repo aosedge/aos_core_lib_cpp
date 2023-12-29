@@ -24,7 +24,7 @@ Error ServiceManager::Init(OCISpecItf& ociManager, DownloaderItf& downloader, St
 
     mOCIManager = &ociManager;
     mDownloader = &downloader;
-    mStorage = &storage;
+    mStorage    = &storage;
 
     return ErrorEnum::eNone;
 }
@@ -120,7 +120,7 @@ RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& servic
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest   = MakeUnique<oci::ImageManifest>(&mAllocator);
     auto aosService = MakeUnique<oci::ContentDescriptor>(&mAllocator);
 
     manifest->mAosService = aosService.Get();

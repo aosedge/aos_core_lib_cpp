@@ -67,7 +67,7 @@ public:
 };
 
 using LogLevelEnum = LogLevelType::Enum;
-using LogLevel = EnumStringer<LogLevelType>;
+using LogLevel     = EnumStringer<LogLevelType>;
 
 /**
  * Log module types.
@@ -98,7 +98,7 @@ public:
 };
 
 using LogModuleEnum = LogModuleType::Enum;
-using LogModule = EnumStringer<LogModuleType>;
+using LogModule     = EnumStringer<LogModuleType>;
 
 /**
  * Log line callback. Should be set in application to display log using application logging mechanism.

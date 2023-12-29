@@ -41,7 +41,7 @@ public:
 };
 
 using ExtendedKeyUsageEnum = ExtendedKeyUsageType::Enum;
-using ExtendedKeyUsage = EnumStringer<ExtendedKeyUsageType>;
+using ExtendedKeyUsage     = EnumStringer<ExtendedKeyUsageType>;
 
 /**
  * Module configuration.
@@ -216,17 +216,17 @@ public:
     Error CreateSelfSignedCert(const String& password);
 
 private:
-    static constexpr auto cCertChainSize = AOS_CONFIG_CERTHANDLER_CERTS_CHAIN_SIZE;
-    static constexpr auto cPasswordLen = AOS_CONFIG_CERTHANDLER_PASSWORD_LEN;
-    static constexpr auto cDNStringLen = AOS_CONFIG_CERTHANDLER_DN_STRING_LEN;
+    static constexpr auto cCertChainSize             = AOS_CONFIG_CERTHANDLER_CERTS_CHAIN_SIZE;
+    static constexpr auto cPasswordLen               = AOS_CONFIG_CERTHANDLER_PASSWORD_LEN;
+    static constexpr auto cDNStringLen               = AOS_CONFIG_CERTHANDLER_DN_STRING_LEN;
     static constexpr auto cValidSelfSignedCertPeriod = time::Years(100);
 
     static constexpr auto cOidExtensionExtendedKeyUsage = "2.5.29.37";
-    static constexpr auto cOidExtKeyUsageClientAuth = "1.3.6.1.5.5.7.3.1";
-    static constexpr auto cOidExtKeyUsageServerAuth = "1.3.6.1.5.5.7.3.2";
+    static constexpr auto cOidExtKeyUsageClientAuth     = "1.3.6.1.5.5.7.3.1";
+    static constexpr auto cOidExtKeyUsageServerAuth     = "1.3.6.1.5.5.7.3.2";
 
-    using ModuleCertificates = StaticArray<CertInfo, cCertsPerModule>;
-    using CertificateChain = StaticArray<crypto::x509::Certificate, cCertChainSize>;
+    using ModuleCertificates    = StaticArray<CertInfo, cCertsPerModule>;
+    using CertificateChain      = StaticArray<crypto::x509::Certificate, cCertChainSize>;
     using SelfSignedCertificate = StaticArray<uint8_t, crypto::cPEMCertSize>;
 
     Error RemoveInvalidCerts(const String& password);

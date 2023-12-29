@@ -28,11 +28,11 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
     mConnectionPublisher = &connectionPublisher;
     mConnectionPublisher->Subscribes(*this);
 
-    mServiceManager = &serviceManager;
-    mRunner = &runner;
-    mOCIManager = &ociManager;
-    mStatusReceiver = &statusReceiver;
-    mStorage = &storage;
+    mServiceManager  = &serviceManager;
+    mRunner          = &runner;
+    mOCIManager      = &ociManager;
+    mStatusReceiver  = &statusReceiver;
+    mStorage         = &storage;
     mResourceMonitor = &resourceMonitor;
 
     return ErrorEnum::eNone;
@@ -65,7 +65,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     auto err
         = mThread.Run([this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
                           services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
-                          layers = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) {
+                          layers   = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) {
               ProcessLayers(*layers);
               ProcessServices(*services);
 

@@ -84,7 +84,7 @@ public:
         , mLineNumber(lineNumber)
     {
         if (!mFileName) {
-            mFileName = err.mFileName;
+            mFileName   = err.mFileName;
             mLineNumber = err.mLineNumber;
         }
     }
@@ -96,11 +96,11 @@ public:
      */
     Error& operator=(const Error& err)
     {
-        mErr = err.mErr;
+        mErr   = err.mErr;
         mErrno = err.mErrno;
 
         if (!mFileName) {
-            mFileName = err.mFileName;
+            mFileName   = err.mFileName;
             mLineNumber = err.mLineNumber;
         }
 

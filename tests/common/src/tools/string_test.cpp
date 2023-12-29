@@ -194,7 +194,7 @@ TEST(CommonTest, StringConvertFromByteArray)
     const char expected[] = "ABCDEF0123456789";
 
     const uint8_t sourceArr[] = {0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89};
-    const auto    source = Array<uint8_t>(sourceArr, sizeof(sourceArr));
+    const auto    source      = Array<uint8_t>(sourceArr, sizeof(sourceArr));
 
     StaticString<16> dst;
 

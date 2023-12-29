@@ -177,16 +177,16 @@ public:
     void Clear()
     {
         mHead = mTail = mBegin;
-        mSize = 0;
+        mSize         = 0;
     }
 
 protected:
     void SetBuffer(Buffer& buffer)
     {
         mBegin = static_cast<uint8_t*>(buffer.Get());
-        mEnd = mBegin + buffer.Size();
+        mEnd   = mBegin + buffer.Size();
         mHead = mTail = mBegin;
-        mSize = 0;
+        mSize         = 0;
     }
 
 private:

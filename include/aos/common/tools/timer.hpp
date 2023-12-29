@@ -61,20 +61,20 @@ public:
         }
 
         mIntervalMs = intervalMs;
-        mOneShot = oneShot;
+        mOneShot    = oneShot;
 
         struct sigevent   sev { };
         struct itimerspec its { };
 
-        sev.sigev_notify = cTimerSigevNotify;
+        sev.sigev_notify          = cTimerSigevNotify;
         sev.sigev_value.sival_ptr = this;
         sev.sigev_notify_function = TimerFunction;
 
-        its.it_value.tv_sec = intervalMs / 1000;
+        its.it_value.tv_sec  = intervalMs / 1000;
         its.it_value.tv_nsec = (intervalMs % 1000) * 1000000;
 
         if (!mOneShot) {
-            its.it_interval.tv_sec = intervalMs / 1000;
+            its.it_interval.tv_sec  = intervalMs / 1000;
             its.it_interval.tv_nsec = (intervalMs % 1000) * 1000000;
         }
 

@@ -24,7 +24,7 @@ public:
 };
 
 using TestInstance = EnumStringer<TestType>;
-using TestEnum = TestType::Enum;
+using TestEnum     = TestType::Enum;
 
 TEST(CommonTest, EnumStringer)
 {

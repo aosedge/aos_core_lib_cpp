@@ -98,7 +98,7 @@ public:
 private:
     alignas(cThreadStackAlign) uint8_t mStack[AlignedSize(cStackSize, cThreadStackAlign)];
     StaticFunction<cFunctionMaxSize> mFunction;
-    pthread_t                        mPThread = {};
+    pthread_t                        mPThread  = {};
     bool                             mJoinable = false;
 
     static void* ThreadFunction(void* arg)

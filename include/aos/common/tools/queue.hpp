@@ -232,7 +232,7 @@ public:
         }
 
         mHead = mTail = mBegin;
-        mSize = 0;
+        mSize         = 0;
     }
 
     /**
@@ -257,7 +257,7 @@ protected:
         assert(mMaxSize != 0);
 
         mBegin = static_cast<T*>(buffer.Get());
-        mEnd = mBegin + mMaxSize;
+        mEnd   = mBegin + mMaxSize;
 
         Clear();
     }
@@ -274,11 +274,11 @@ private:
         return it;
     }
 
-    T*     mBegin = nullptr;
-    T*     mEnd = nullptr;
-    T*     mHead = nullptr;
-    T*     mTail = nullptr;
-    size_t mSize = 0;
+    T*     mBegin   = nullptr;
+    T*     mEnd     = nullptr;
+    T*     mHead    = nullptr;
+    T*     mTail    = nullptr;
+    size_t mSize    = 0;
     size_t mMaxSize = 0;
 };
 

@@ -30,7 +30,7 @@ public:
 };
 
 using DownloadContentEnum = DownloadContentType::Enum;
-using DownloadContent = EnumStringer<DownloadContentType>;
+using DownloadContent     = EnumStringer<DownloadContentType>;
 
 /**
  * Downloader interface.

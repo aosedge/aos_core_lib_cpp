@@ -95,7 +95,7 @@ protected:
     void SetBuffer(void* buffer, size_t size)
     {
         mBuffer = buffer;
-        mSize = size;
+        mSize   = size;
     }
 
 private:

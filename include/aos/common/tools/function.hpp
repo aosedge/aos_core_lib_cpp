@@ -119,7 +119,7 @@ public:
 protected:
     void SetBuffer(const Buffer& buffer)
     {
-        mBuffer = buffer.Get();
+        mBuffer  = buffer.Get();
         mMaxSize = buffer.Size();
     }
 
@@ -127,8 +127,8 @@ private:
     class CallableItf {
     public:
         virtual void   operator()() = 0;
-        virtual size_t Size() = 0;
-        virtual ~CallableItf() = default;
+        virtual size_t Size()       = 0;
+        virtual ~CallableItf()      = default;
     };
 
     template <typename T>
@@ -151,8 +151,8 @@ private:
         size_t mSize;
     };
 
-    void*        mBuffer = nullptr;
-    size_t       mMaxSize = 0;
+    void*        mBuffer   = nullptr;
+    size_t       mMaxSize  = 0;
     CallableItf* mCallable = nullptr;
 };
 

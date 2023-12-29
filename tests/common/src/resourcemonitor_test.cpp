@@ -15,8 +15,8 @@ class MockResourceUsageProvider : public ResourceUsageProviderItf {
 public:
     Error Init() override
     {
-        mNodeInfo.mNodeID = "node1";
-        mNodeInfo.mNumCPUs = 1;
+        mNodeInfo.mNodeID   = "node1";
+        mNodeInfo.mNumCPUs  = 1;
         mNodeInfo.mTotalRAM = 4000;
 
         PartitionInfo partitionInfo {};
@@ -32,8 +32,8 @@ public:
 
     Error GetNodeInfo(NodeInfo& nodeInfo) const override
     {
-        nodeInfo.mNodeID = "node1";
-        nodeInfo.mNumCPUs = 1;
+        nodeInfo.mNodeID   = "node1";
+        nodeInfo.mNumCPUs  = 1;
         nodeInfo.mTotalRAM = 4000;
 
         PartitionInfo partitionInfo {};
@@ -115,7 +115,7 @@ public:
         EXPECT_TRUE(monitoringData.mServiceInstances.Size() == 1);
 
         aos::InstanceIdent instanceIdent {};
-        instanceIdent.mInstance = 1;
+        instanceIdent.mInstance  = 1;
         instanceIdent.mServiceID = "serviceID";
         instanceIdent.mSubjectID = "subjectID";
 
@@ -246,7 +246,7 @@ TEST(CommonTest, ResourceMonitorGetInstanceMonitoringData)
     EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
 
     InstanceMonitorParams instanceMonitorParams {};
-    instanceMonitorParams.mInstanceIdent.mInstance = 1;
+    instanceMonitorParams.mInstanceIdent.mInstance  = 1;
     instanceMonitorParams.mInstanceIdent.mServiceID = "serviceID";
     instanceMonitorParams.mInstanceIdent.mSubjectID = "subjectID";
 

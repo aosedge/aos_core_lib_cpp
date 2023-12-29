@@ -194,7 +194,7 @@ public:
 };
 
 using InstanceRunStateEnum = InstanceRunStateType::Enum;
-using InstanceRunState = EnumStringer<InstanceRunStateType>;
+using InstanceRunState     = EnumStringer<InstanceRunStateType>;
 
 /**
  * Instance status.

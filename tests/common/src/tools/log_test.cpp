@@ -19,8 +19,8 @@ public:
     {
         auto& instance = GetInstance();
 
-        instance.mLogModule = module;
-        instance.mLogLevel = level;
+        instance.mLogModule  = module;
+        instance.mLogLevel   = level;
         instance.mLogMessage = message;
     }
 

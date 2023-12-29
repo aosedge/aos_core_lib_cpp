@@ -155,18 +155,18 @@ public:
         Array<CertInfo>& validCerts) override;
 
 private:
-    static constexpr auto cEnvLoginType = "CKTEEC_LOGIN_TYPE";
+    static constexpr auto cEnvLoginType      = "CKTEEC_LOGIN_TYPE";
     static constexpr auto cDefaultTokenLabel = "aos";
-    static constexpr auto cTeeLoginTypeLen = AOS_CONFIG_CERTHANDLER_TEE_LOGIN_TYPE_NAME_LEN;
-    static constexpr auto cSlotListSize = AOS_CONFIG_CERTHANDLER_SLOT_LIST_SIZE;
-    static constexpr auto cUUIDStringLen = AOS_CONFIG_UUID_STR_LEN;
-    static constexpr auto cRSAKeyLength = 2048;
-    static constexpr auto cECSDACurveID = pkcs11::EllipticCurve::eP384;
-    static constexpr auto cPKCS11Scheme = "pkcs11";
+    static constexpr auto cTeeLoginTypeLen   = AOS_CONFIG_CERTHANDLER_TEE_LOGIN_TYPE_NAME_LEN;
+    static constexpr auto cSlotListSize      = AOS_CONFIG_CERTHANDLER_SLOT_LIST_SIZE;
+    static constexpr auto cUUIDStringLen     = AOS_CONFIG_UUID_STR_LEN;
+    static constexpr auto cRSAKeyLength      = 2048;
+    static constexpr auto cECSDACurveID      = pkcs11::EllipticCurve::eP384;
+    static constexpr auto cPKCS11Scheme      = "pkcs11";
 
     static constexpr auto cLoginTypePublic = "public";
-    static constexpr auto cLoginTypeUser = "user";
-    static constexpr auto cLoginTypeGroup = "group";
+    static constexpr auto cLoginTypeUser   = "user";
+    static constexpr auto cLoginTypeGroup  = "group";
 
     // TEE Client UUID name space identifier (UUIDv4) from linux kernel
     // https://github.com/OP-TEE/optee_os/pull/4222

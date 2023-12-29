@@ -99,7 +99,7 @@ TEST(CommonTest, CondVar)
 {
     Mutex               mutex;
     ConditionalVariable condVar(mutex);
-    auto                ready = false;
+    auto                ready     = false;
     auto                processed = false;
 
     Thread<> worker;

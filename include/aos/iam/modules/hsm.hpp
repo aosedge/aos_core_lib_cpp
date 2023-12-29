@@ -42,7 +42,7 @@ public:
 };
 
 using KeyGenAlgorithmEnum = KeyGenAlgorithmType::Enum;
-using KeyGenAlgorithm = EnumStringer<KeyGenAlgorithmType>;
+using KeyGenAlgorithm     = EnumStringer<KeyGenAlgorithmType>;
 
 /**
  * General certificate information.

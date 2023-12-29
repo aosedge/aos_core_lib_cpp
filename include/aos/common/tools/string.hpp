@@ -111,7 +111,7 @@ public:
     String& Append(const String& str)
     {
         auto err = Array::Insert(end(), str.begin(), str.end());
-        *end() = 0;
+        *end()   = 0;
         assert(err.IsNone());
 
         return *this;
@@ -128,7 +128,7 @@ public:
     Error Insert(char* pos, const char* from, const char* till)
     {
         auto err = Array::Insert(pos, from, till);
-        *end() = 0;
+        *end()   = 0;
 
         return err;
     }
@@ -288,7 +288,7 @@ public:
         constexpr char cDigits[] = "0123456789ABCDEF";
 
         for (const auto val : arr) {
-            const auto low = val & 0xF;
+            const auto low  = val & 0xF;
             const auto high = (val >> 4);
 
             PushBack(cDigits[high]);
@@ -336,7 +336,7 @@ public:
     {
         list.Clear();
 
-        auto it = begin();
+        auto it     = begin();
         auto prevIt = it;
 
         while (it != end()) {
@@ -455,7 +455,7 @@ public:
      */
     StaticString()
     {
-        *(static_cast<char*>(mBuffer.Get())) = 0;
+        *(static_cast<char*>(mBuffer.Get()))            = 0;
         *(static_cast<char*>(mBuffer.Get()) + cMaxSize) = 0;
         String::SetBuffer(mBuffer, cMaxSize);
     }
@@ -540,7 +540,7 @@ public:
     DynamicString()
         : mBuffer(cMaxSize * +1)
     {
-        *(static_cast<char*>(mBuffer.Get())) = 0;
+        *(static_cast<char*>(mBuffer.Get()))            = 0;
         *(static_cast<char*>(mBuffer.Get()) + cMaxSize) = 0;
         String::SetBuffer(mBuffer, cMaxSize);
     }

@@ -53,7 +53,7 @@ Error PKCS11Module::Init(
     pkcs11::PKCS11Manager& pkcs11, crypto::x509::ProviderItf& x509Provider, uuid::UUIDManagerItf& uuidManager)
 {
     mX509Provider = &x509Provider;
-    mUUIDManager = &uuidManager;
+    mUUIDManager  = &uuidManager;
 
     mPKCS11 = pkcs11.OpenLibrary(mConfig.mLibrary);
     if (!mPKCS11) {
@@ -163,7 +163,7 @@ Error PKCS11Module::SetOwner(const String& password)
 
 Error PKCS11Module::Clear()
 {
-    Error err = ErrorEnum::eNone;
+    Error err     = ErrorEnum::eNone;
     bool  isOwned = false;
 
     Tie(isOwned, err) = IsOwned();
@@ -306,8 +306,8 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
         return err;
     }
 
-    certInfo.mKeyURL = certInfo.mCertURL;
-    certInfo.mIssuer = certChain[0].mIssuer;
+    certInfo.mKeyURL   = certInfo.mCertURL;
+    certInfo.mIssuer   = certChain[0].mIssuer;
     certInfo.mNotAfter = certChain[0].mNotAfter;
 
     err = mX509Provider->DNToString(certChain[0].mSerial, certInfo.mSerial);
@@ -374,7 +374,7 @@ Error PKCS11Module::RemoveKey(const String& keyURL, const String& password)
 Error PKCS11Module::ValidateCertificates(
     Array<StaticString<cURLLen>>& invalidCerts, Array<StaticString<cURLLen>>& invalidKeys, Array<CertInfo>& validCerts)
 {
-    Error                   err = ErrorEnum::eNone;
+    Error                   err     = ErrorEnum::eNone;
     bool                    isOwned = false;
     pkcs11::SessionContext* session;
 
@@ -396,7 +396,7 @@ Error PKCS11Module::ValidateCertificates(
     SearchObject filter;
 
     filter.mLabel = mCertType;
-    filter.mType = CKO_CERTIFICATE;
+    filter.mType  = CKO_CERTIFICATE;
 
     err = FindObject(*session, filter, certificates);
     if (!err.IsNone()) {
@@ -707,7 +707,7 @@ Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObje
 
         auto& searchObject = dst.Back().mValue;
 
-        searchObject.mType = filter.mType;
+        searchObject.mType   = filter.mType;
         searchObject.mHandle = object;
 
         StaticArray<Array<uint8_t>, cSearchObjAttrCount> searchAttrValues;
@@ -954,7 +954,7 @@ Error PKCS11Module::GetX509Cert(
 Error PKCS11Module::CreateCertInfo(const crypto::x509::Certificate& cert, const Array<uint8_t>& keyID,
     const Array<uint8_t>& certID, CertInfo& certInfo)
 {
-    certInfo.mIssuer = cert.mIssuer;
+    certInfo.mIssuer   = cert.mIssuer;
     certInfo.mNotAfter = cert.mNotAfter;
 
     auto err = mX509Provider->DNToString(cert.mSerial, certInfo.mSerial);

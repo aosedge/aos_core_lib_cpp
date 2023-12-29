@@ -513,9 +513,9 @@ public:
         for (size_t i = 0; i < mSize - 1; i++) {
             for (size_t j = 0; j < mSize - i - 1; j++) {
                 if (sortFunc(mItems[j], mItems[j + 1])) {
-                    auto tmp = mItems[j + 1];
+                    auto tmp      = mItems[j + 1];
                     mItems[j + 1] = mItems[j];
-                    mItems[j] = tmp;
+                    mItems[j]     = tmp;
                 }
             }
         }
@@ -552,8 +552,8 @@ protected:
     void SetSize(size_t size) { mSize = size; }
 
 private:
-    T*     mItems = nullptr;
-    size_t mSize = 0;
+    T*     mItems   = nullptr;
+    size_t mSize    = 0;
     size_t mMaxSize = 0;
 };
 

@@ -356,7 +356,7 @@ public:
 
 private:
     static constexpr auto cTimeoutSend = AOS_CONFIG_MONITORING_SEND_PERIOD_SEC;
-    static constexpr auto cPollPeriod = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC;
+    static constexpr auto cPollPeriod  = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC;
 
     ResourceUsageProviderItf*    mResourceUsageProvider {};
     SenderItf*                   mMonitorSender {};
@@ -365,7 +365,7 @@ private:
     Mutex                        mMutex;
     bool                         mFinishMonitoring {};
     bool                         mSendMonitoring {};
-    Thread<>                     mThreadMonitoring = {};
+    Thread<>                     mThreadMonitoring     = {};
     Thread<>                     mThreadSendMonitoring = {};
 
     Error RunGatheringNodeMonitoringData();

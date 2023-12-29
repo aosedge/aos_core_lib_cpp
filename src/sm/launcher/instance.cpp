@@ -45,7 +45,7 @@ Instance::Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::Run
 
 void Instance::SetService(const Service* service, const Error& err)
 {
-    mService = service;
+    mService  = service;
     mRunError = err;
 
     if (mService) {
@@ -143,7 +143,7 @@ Error Instance::CreateRuntimeSpec(const String& path)
     }
 
     auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
-    auto vm = MakeUnique<oci::VM>(&sAllocator);
+    auto vm          = MakeUnique<oci::VM>(&sAllocator);
     runtimeSpec->mVM = vm.Get();
 
     if (imageSpec.mValue.mConfig.mEntryPoint.Size() == 0) {
@@ -155,7 +155,7 @@ Error Instance::CreateRuntimeSpec(const String& path)
     // For xen this value should be aligned to 1024Kb
     runtimeSpec->mVM->mHWConfig.mMemKB = 8192;
 
-    runtimeSpec->mVM->mKernel.mPath = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
+    runtimeSpec->mVM->mKernel.mPath       = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
     runtimeSpec->mVM->mKernel.mParameters = imageSpec.mValue.mConfig.mCmd;
 
     LOG_DBG() << "Unikernel path: " << runtimeSpec->mVM->mKernel.mPath;

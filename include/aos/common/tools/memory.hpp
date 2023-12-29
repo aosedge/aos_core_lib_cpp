@@ -62,7 +62,7 @@ public:
     {
         auto curObject = mObject;
 
-        mObject = object;
+        mObject    = object;
         mAllocator = allocator;
 
         return curObject;

@@ -236,9 +236,9 @@ public:
 
 private:
     static constexpr auto cNumInstallThreads = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
-    static constexpr auto cServicesDir = AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR;
+    static constexpr auto cServicesDir       = AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR;
     static constexpr auto cImageManifestFile = "manifest.json";
-    static constexpr auto cImageBlobsFolder = "blobs";
+    static constexpr auto cImageBlobsFolder  = "blobs";
 
     Error                                    RemoveService(const ServiceData& service);
     Error                                    InstallService(const ServiceInfo& service);

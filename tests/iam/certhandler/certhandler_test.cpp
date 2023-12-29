@@ -89,8 +89,8 @@ const String DNToString(const Array<uint8_t>& array)
 const ModuleConfig CertHandlerTest::cDefaultConfig = {KeyGenAlgorithmEnum::eRSA, 1U, {}, {}, false};
 
 const String CertHandlerTest::cPKCS11Type = "pkcs11";
-const String CertHandlerTest::cSWType = "sw";
-const String CertHandlerTest::cTPMType = "tpm";
+const String CertHandlerTest::cSWType     = "sw";
+const String CertHandlerTest::cTPMType    = "tpm";
 
 const String CertHandlerTest::cPassword = "1234";
 
@@ -107,8 +107,8 @@ TEST_F(CertHandlerTest, GetCertTypes)
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
     CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
-    CertModule swModule = {cSWType, cDefaultConfig};
-    CertModule tpmModule = {cTPMType, cDefaultConfig};
+    CertModule swModule     = {cSWType, cDefaultConfig};
+    CertModule tpmModule    = {cTPMType, cDefaultConfig};
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
@@ -247,16 +247,16 @@ TEST_F(CertHandlerTest, CreateCSR)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    ExtendedKeyUsage keyUsages[] = {ExtendedKeyUsageEnum::eClientAuth, ExtendedKeyUsageEnum::eServerAuth};
+    ExtendedKeyUsage keyUsages[]               = {ExtendedKeyUsageEnum::eClientAuth, ExtendedKeyUsageEnum::eServerAuth};
     StaticString<crypto::cDNSNameLen> altDNS[] = {"epam1.com", "epam2.com"};
 
     ModuleConfig moduleConfig;
 
-    moduleConfig.mKeyGenAlgorithm = KeyGenAlgorithmEnum::eRSA;
-    moduleConfig.mMaxCertificates = 1U;
+    moduleConfig.mKeyGenAlgorithm  = KeyGenAlgorithmEnum::eRSA;
+    moduleConfig.mMaxCertificates  = 1U;
     moduleConfig.mExtendedKeyUsage = Array<ExtendedKeyUsage>(keyUsages, 2);
     moduleConfig.mAlternativeNames = Array<StaticString<crypto::cDNSNameLen>>(altDNS, 2);
-    moduleConfig.mSkipValidation = false;
+    moduleConfig.mSkipValidation   = false;
 
     CertModule pkcs11Module = {cPKCS11Type, moduleConfig};
 
@@ -271,7 +271,7 @@ TEST_F(CertHandlerTest, CreateCSR)
     using crypto::asn1::Extension;
     using crypto::x509::CSR;
 
-    Extension                 extension = {"2.5.29.37", {}};
+    Extension                 extension  = {"2.5.29.37", {}};
     StaticArray<Extension, 1> extensions = Array<Extension>(&extension, 1);
 
     auto templ = AllOf(Field(&CSR::mSubject, cSubject), Field(&CSR::mDNSNames, moduleConfig.mAlternativeNames),
@@ -296,19 +296,19 @@ TEST_F(CertHandlerTest, ApplyCert)
 
     root.mSubject = root.mIssuer = StringToDN("ca.epam.com");
     root.mAuthorityKeyId = root.mSubjectKeyId = StringToDN("1.1.1.1");
-    root.mSerial = StringToDN("1.1.1.1");
-    root.mNotBefore = time::Time::Now();
-    root.mNotAfter = root.mNotBefore.Add(time::Years(100));
+    root.mSerial                              = StringToDN("1.1.1.1");
+    root.mNotBefore                           = time::Time::Now();
+    root.mNotAfter                            = root.mNotBefore.Add(time::Years(100));
 
     crypto::x509::Certificate dev;
 
-    dev.mSubject = StringToDN("device certificate");
-    dev.mIssuer = StringToDN("ca.epam.com");
+    dev.mSubject        = StringToDN("device certificate");
+    dev.mIssuer         = StringToDN("ca.epam.com");
     dev.mAuthorityKeyId = StringToDN("1.1.1.1");
-    dev.mSubjectKeyId = StringToDN("1.1.1.2");
-    dev.mSerial = StringToDN("1.1.1.2");
-    dev.mNotBefore = time::Time::Now();
-    dev.mNotAfter = dev.mNotBefore.Add(time::Years(100));
+    dev.mSubjectKeyId   = StringToDN("1.1.1.2");
+    dev.mSerial         = StringToDN("1.1.1.2");
+    dev.mNotBefore      = time::Time::Now();
+    dev.mNotAfter       = dev.mNotBefore.Add(time::Years(100));
 
     StaticArray<crypto::x509::Certificate, 2> certChain;
 
@@ -317,11 +317,11 @@ TEST_F(CertHandlerTest, ApplyCert)
 
     CertInfo devCertInfo;
 
-    devCertInfo.mCertURL = "file://local-storage/certs/dev.pem";
-    devCertInfo.mKeyURL = "file://local-storage/keys/dev.priv";
+    devCertInfo.mCertURL  = "file://local-storage/certs/dev.pem";
+    devCertInfo.mKeyURL   = "file://local-storage/keys/dev.priv";
     devCertInfo.mNotAfter = time::Time::Now().Add(time::Years(100));
-    devCertInfo.mIssuer = StringToDN("ca.epam.com");
-    devCertInfo.mSerial = "1.1.1.2";
+    devCertInfo.mIssuer   = StringToDN("ca.epam.com");
+    devCertInfo.mSerial   = "1.1.1.2";
 
     ApplyCert(certChain, devCertInfo);
 }
@@ -347,17 +347,17 @@ TEST_F(CertHandlerTest, CreateSelfSignedCert)
 
     cert.mSubject = cert.mIssuer = StringToDN("Aos Core");
     cert.mAuthorityKeyId = cert.mSubjectKeyId = StringToDN("1.1.1.1");
-    cert.mSerial = StringToDN("1.1.1.1");
-    cert.mNotBefore = time::Time::Now();
-    cert.mNotAfter = cert.mNotBefore.Add(time::Years(100));
+    cert.mSerial                              = StringToDN("1.1.1.1");
+    cert.mNotBefore                           = time::Time::Now();
+    cert.mNotAfter                            = cert.mNotBefore.Add(time::Years(100));
 
     CertInfo devCertInfo;
 
-    devCertInfo.mCertURL = "file://local-storage/certs/dev.pem";
-    devCertInfo.mKeyURL = "file://local-storage/keys/dev.priv";
+    devCertInfo.mCertURL  = "file://local-storage/certs/dev.pem";
+    devCertInfo.mKeyURL   = "file://local-storage/keys/dev.priv";
     devCertInfo.mNotAfter = cert.mNotAfter;
-    devCertInfo.mIssuer = cert.mIssuer;
-    devCertInfo.mSerial = DNToString(cert.mSerial);
+    devCertInfo.mIssuer   = cert.mIssuer;
+    devCertInfo.mSerial   = DNToString(cert.mSerial);
 
     StaticArray<crypto::x509::Certificate, 2> certChain;
 
@@ -405,11 +405,11 @@ TEST_F(CertHandlerTest, GetCertificateEmptySerial)
     CertInfo cert2;
     CertInfo cert3;
 
-    cert1.mSerial = "1.1.1.1";
+    cert1.mSerial   = "1.1.1.1";
     cert1.mNotAfter = time::Time::Now().Add(time::Years(1));
-    cert2.mSerial = "1.1.1.2";
+    cert2.mSerial   = "1.1.1.2";
     cert2.mNotAfter = time::Time::Now().Add(time::Years(2));
-    cert3.mSerial = "1.1.1.3";
+    cert3.mSerial   = "1.1.1.3";
     cert3.mNotAfter = time::Time::Now().Add(time::Years(3));
 
     StaticArray<CertInfo, cCertsPerModule> certsInfo;
@@ -513,19 +513,19 @@ TEST_F(CertHandlerTest, TrimCerts)
     CertInfo cert1;
     CertInfo cert2;
 
-    cert1.mCertURL = "file://local-storage/certs/cert1.pem";
+    cert1.mCertURL  = "file://local-storage/certs/cert1.pem";
     cert1.mNotAfter = cert1.mNotAfter.Add(time::Years(3));
-    cert2.mCertURL = "file://local-storage/certs/cert2.pem";
-    cert2.mKeyURL = "file://local-storage/certs/key2.pem";
+    cert2.mCertURL  = "file://local-storage/certs/cert2.pem";
+    cert2.mKeyURL   = "file://local-storage/certs/key2.pem";
     cert2.mNotAfter = cert1.mNotAfter.Add(time::Years(1));
 
     crypto::x509::Certificate root;
 
     root.mSubject = root.mIssuer = StringToDN("ca.epam.com");
     root.mAuthorityKeyId = root.mSubjectKeyId = StringToDN("1.1.1.1");
-    root.mSerial = StringToDN("1.1.1.1");
-    root.mNotBefore = time::Time::Now();
-    root.mNotAfter = root.mNotBefore.Add(time::Years(3));
+    root.mSerial                              = StringToDN("1.1.1.1");
+    root.mNotBefore                           = time::Time::Now();
+    root.mNotAfter                            = root.mNotBefore.Add(time::Years(3));
 
     StaticArray<CertInfo, cCertsPerModule> initCerts;
     StaticArray<CertInfo, cCertsPerModule> appliedCerts;

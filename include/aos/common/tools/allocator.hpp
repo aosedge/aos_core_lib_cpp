@@ -227,8 +227,8 @@ public:
 protected:
     void SetBuffer(const Buffer& buffer, Array<Allocation>& allocations)
     {
-        mBuffer = static_cast<uint8_t*>(buffer.Get());
-        mMaxSize = buffer.Size();
+        mBuffer      = static_cast<uint8_t*>(buffer.Get());
+        mMaxSize     = buffer.Size();
         mAllocations = &allocations;
         mAllocations->Clear();
     }
@@ -247,9 +247,9 @@ private:
         return static_cast<uint8_t*>(lastAllocation.Data()) + lastAllocation.Size();
     }
 
-    uint8_t*           mBuffer = {};
-    Array<Allocation>* mAllocations = {};
-    size_t             mMaxSize = {};
+    uint8_t*           mBuffer           = {};
+    Array<Allocation>* mAllocations      = {};
+    size_t             mMaxSize          = {};
     size_t             mMaxAllocatedSize = {};
     Mutex              mMutex;
 };

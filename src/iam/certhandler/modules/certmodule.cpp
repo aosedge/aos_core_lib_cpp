@@ -26,8 +26,8 @@ CertModule::CertModule(const String& certType, const ModuleConfig& config)
 Error CertModule::Init(crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage)
 {
     mX509Provider = &x509Provider;
-    mHSM = &hsm;
-    mStorage = &storage;
+    mHSM          = &hsm;
+    mStorage      = &storage;
 
     if (mModuleConfig.mSkipValidation) {
         LOG_WRN() << "Skip validation: type = " << GetCertType();
@@ -111,7 +111,7 @@ Error CertModule::CreateCSR(const Array<uint8_t>& subject, const crypto::Private
 {
     crypto::x509::CSR templ;
 
-    templ.mSubject = subject;
+    templ.mSubject  = subject;
     templ.mDNSNames = mModuleConfig.mAlternativeNames;
 
     StaticArray<crypto::asn1::ObjectIdentifier, crypto::cCertExtraExtCount> oids;
@@ -185,11 +185,11 @@ Error CertModule::CreateSelfSignedCert(const String& password)
     }
 
     const uint64_t serial = time::Time::Now().UnixNano();
-    auto           templ = MakeUnique<crypto::x509::Certificate>(&mAllocator);
+    auto           templ  = MakeUnique<crypto::x509::Certificate>(&mAllocator);
 
-    templ->mSerial = Array<uint8_t>(reinterpret_cast<const uint8_t*>(&serial), sizeof(serial));
+    templ->mSerial    = Array<uint8_t>(reinterpret_cast<const uint8_t*>(&serial), sizeof(serial));
     templ->mNotBefore = time::Time::Now();
-    templ->mNotAfter = time::Time::Now().Add(cValidSelfSignedCertPeriod);
+    templ->mNotAfter  = time::Time::Now().Add(cValidSelfSignedCertPeriod);
 
     auto err = mX509Provider->CreateDN("Aos Core", templ->mSubject);
     if (!err.IsNone()) {
@@ -270,7 +270,7 @@ Error CertModule::TrimCerts(const String& password)
         for (auto& cert : *certsInStorage) {
             if (minTime.IsZero() || cert.mNotAfter < minTime) {
                 minTime = cert.mNotAfter;
-                info = &cert;
+                info    = &cert;
             }
         }
 
@@ -313,7 +313,7 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
     size_t currentCert = 0;
 
     while (!(chain[currentCert].mIssuer.IsEmpty() || chain[currentCert].mIssuer == chain[currentCert].mSubject)) {
-        size_t parentCert = 0;
+        size_t parentCert  = 0;
         bool   parentFound = false;
 
         for (size_t i = 0; i < chain.Size(); i++) {
@@ -323,7 +323,7 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
 
             if (chain[currentCert].mIssuer == chain[i].mSubject
                 || chain[currentCert].mAuthorityKeyId == chain[i].mSubjectKeyId) {
-                parentCert = i;
+                parentCert  = i;
                 parentFound = true;
 
                 break;

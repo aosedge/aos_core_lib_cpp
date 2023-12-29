@@ -22,8 +22,8 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
     LOG_DBG() << "Init resource monitor";
 
     mResourceUsageProvider = &resourceUsageProvider;
-    mMonitorSender = &monitorSender;
-    mConnectionPublisher = &connectionPublisher;
+    mMonitorSender         = &monitorSender;
+    mConnectionPublisher   = &connectionPublisher;
 
     NodeInfo nodeInfo;
 
@@ -32,7 +32,7 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
         return err;
     }
 
-    mNodeMonitoringData.mNodeID = nodeInfo.mNodeID;
+    mNodeMonitoringData.mNodeID         = nodeInfo.mNodeID;
     mNodeMonitoringData.mMonitoringData = {};
 
     for (const auto& disk : nodeInfo.mPartitions) {
