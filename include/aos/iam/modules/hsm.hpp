@@ -109,7 +109,7 @@ public:
     /**
      * Owns the module.
      *
-     * @param password certficate password.
+     * @param password certificate password.
      * @return Error.
      */
     virtual Error SetOwner(const String& password) = 0;
@@ -173,7 +173,7 @@ public:
         = 0;
 
     /**
-     * Destroys object instace.
+     * Destroys object instance.
      */
     virtual ~HSMItf() = default;
 };
