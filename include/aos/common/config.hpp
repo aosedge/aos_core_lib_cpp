@@ -230,7 +230,7 @@
  * Usual RSA modulus size is 512, 1024, 2048 or 4096 bit length.
  */
 #ifndef AOS_CONFIG_CRYPTO_RSA_MODULUS_SIZE
-#define AOS_CONFIG_CRYPTO_RSA_MODULUS_SIZE 256
+#define AOS_CONFIG_CRYPTO_RSA_MODULUS_SIZE 512
 #endif
 
 /**
