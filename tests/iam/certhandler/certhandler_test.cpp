@@ -72,6 +72,11 @@ protected:
     CertHandler mCertHandler;
 };
 
+const Array<uint8_t> StringToByteArray(const char* str)
+{
+    return Array<uint8_t>(reinterpret_cast<const uint8_t*>(str), strlen(str) + 1);
+}
+
 const Array<uint8_t> StringToDN(const char* str)
 {
     return Array<uint8_t>(reinterpret_cast<const uint8_t*>(str), strlen(str) + 1);
@@ -296,7 +301,7 @@ TEST_F(CertHandlerTest, ApplyCert)
 
     root.mSubject = root.mIssuer = StringToDN("ca.epam.com");
     root.mAuthorityKeyId = root.mSubjectKeyId = StringToDN("1.1.1.1");
-    root.mSerial                              = StringToDN("1.1.1.1");
+    root.mSerial                              = StringToByteArray("1.1.1.1");
     root.mNotBefore                           = Time::Now();
     root.mNotAfter                            = root.mNotBefore.Add(Years(100));
 
@@ -306,7 +311,7 @@ TEST_F(CertHandlerTest, ApplyCert)
     dev.mIssuer         = StringToDN("ca.epam.com");
     dev.mAuthorityKeyId = StringToDN("1.1.1.1");
     dev.mSubjectKeyId   = StringToDN("1.1.1.2");
-    dev.mSerial         = StringToDN("1.1.1.2");
+    dev.mSerial         = StringToByteArray("1.1.1.2");
     dev.mNotBefore      = Time::Now();
     dev.mNotAfter       = dev.mNotBefore.Add(Years(100));
 
@@ -321,7 +326,7 @@ TEST_F(CertHandlerTest, ApplyCert)
     devCertInfo.mKeyURL   = "file://local-storage/keys/dev.priv";
     devCertInfo.mNotAfter = Time::Now().Add(Years(100));
     devCertInfo.mIssuer   = StringToDN("ca.epam.com");
-    devCertInfo.mSerial   = "1.1.1.2";
+    devCertInfo.mSerial   = StringToByteArray("1.1.1.2");
 
     ApplyCert(certChain, devCertInfo);
 }
@@ -347,7 +352,7 @@ TEST_F(CertHandlerTest, CreateSelfSignedCert)
 
     cert.mSubject = cert.mIssuer = StringToDN("Aos Core");
     cert.mAuthorityKeyId = cert.mSubjectKeyId = StringToDN("1.1.1.1");
-    cert.mSerial                              = StringToDN("1.1.1.1");
+    cert.mSerial                              = StringToByteArray("1.1.1.1");
     cert.mNotBefore                           = Time::Now();
     cert.mNotAfter                            = cert.mNotBefore.Add(Years(100));
 
@@ -357,7 +362,7 @@ TEST_F(CertHandlerTest, CreateSelfSignedCert)
     devCertInfo.mKeyURL   = "file://local-storage/keys/dev.priv";
     devCertInfo.mNotAfter = cert.mNotAfter;
     devCertInfo.mIssuer   = cert.mIssuer;
-    devCertInfo.mSerial   = DNToString(cert.mSerial);
+    devCertInfo.mSerial   = cert.mSerial;
 
     StaticArray<crypto::x509::Certificate, 2> certChain;
 
@@ -405,11 +410,11 @@ TEST_F(CertHandlerTest, GetCertificateEmptySerial)
     CertInfo cert2;
     CertInfo cert3;
 
-    cert1.mSerial   = "1.1.1.1";
+    cert1.mSerial   = StringToByteArray("1.1.1.1");
     cert1.mNotAfter = Time::Now().Add(Years(1));
-    cert2.mSerial   = "1.1.1.2";
+    cert2.mSerial   = StringToByteArray("1.1.1.2");
     cert2.mNotAfter = Time::Now().Add(Years(2));
-    cert3.mSerial   = "1.1.1.3";
+    cert3.mSerial   = StringToByteArray("1.1.1.3");
     cert3.mNotAfter = Time::Now().Add(Years(3));
 
     StaticArray<CertInfo, cCertsPerModule> certsInfo;
@@ -525,7 +530,7 @@ TEST_F(CertHandlerTest, TrimCerts)
 
     root.mSubject = root.mIssuer = StringToDN("ca.epam.com");
     root.mAuthorityKeyId = root.mSubjectKeyId = StringToDN("1.1.1.1");
-    root.mSerial                              = StringToDN("1.1.1.1");
+    root.mSerial                              = StringToByteArray("1.1.1.1");
     root.mNotBefore                           = now;
     root.mNotAfter                            = now.Add(Years(3));
 

@@ -304,11 +304,7 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
     certInfo.mKeyURL   = certInfo.mCertURL;
     certInfo.mIssuer   = certChain[0].mIssuer;
     certInfo.mNotAfter = certChain[0].mNotAfter;
-
-    err = mX509Provider->DNToString(certChain[0].mSerial, certInfo.mSerial);
-    if (err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    certInfo.mSerial   = certChain[0].mSerial;
 
     LOG_DBG() << "Certificate applied: cert = " << certInfo;
 
@@ -945,13 +941,9 @@ Error PKCS11Module::CreateCertInfo(const crypto::x509::Certificate& cert, const 
 {
     certInfo.mIssuer   = cert.mIssuer;
     certInfo.mNotAfter = cert.mNotAfter;
+    certInfo.mSerial   = cert.mSerial;
 
-    auto err = mX509Provider->DNToString(cert.mSerial, certInfo.mSerial);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = CreateURL(mCertType, certID, certInfo.mCertURL);
+    auto err = CreateURL(mCertType, certID, certInfo.mCertURL);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -376,7 +376,7 @@ struct Certificate {
      */
     StaticArray<uint8_t, cCertIssuerSize> mIssuer;
     /**
-     * DER encoded certificate serial number.
+     * Certificate serial number.
      */
     StaticArray<uint8_t, cSerialNumSize> mSerial;
     /**
