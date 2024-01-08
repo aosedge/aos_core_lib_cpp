@@ -76,7 +76,7 @@ constexpr auto cSerialNumSize = AOS_CONFIG_CRYPTO_SERIAL_NUM_SIZE;
 /**
  *  Length of serial number in string representation.
  */
-constexpr auto cSerialNumStrLen = AOS_CONFIG_CRYPTO_SERIAL_NUM_STR_LEN;
+constexpr auto cSerialNumStrLen = cSerialNumSize * 2;
 
 /**
  * RSA modulus size.

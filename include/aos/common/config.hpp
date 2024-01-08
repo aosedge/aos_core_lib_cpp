@@ -262,13 +262,6 @@
 #endif
 
 /**
- * Length of serial number in string representation.
- */
-#ifndef AOS_CONFIG_CRYPTO_SERIAL_NUM_STR_LEN
-#define AOS_CONFIG_CRYPTO_SERIAL_NUM_STR_LEN 40
-#endif
-
-/**
  * Maximum size of SHA2 digest.
  */
 #ifndef AOS_CONFIG_CRYPTO_SHA2_DIGEST_SIZE
