@@ -227,6 +227,13 @@
 #endif
 
 /**
+ * Maximum size of CSR in PEM format.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CSR_PEM_SIZE
+#define AOS_CONFIG_CRYPTO_CSR_PEM_SIZE 4096
+#endif
+
+/**
  * Serial number size(in bytes).
  */
 #ifndef AOS_CONFIG_CRYPTO_SERIAL_NUM_SIZE

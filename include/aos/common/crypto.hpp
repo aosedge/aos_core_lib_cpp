@@ -69,6 +69,11 @@ constexpr auto cPEMCertSize = AOS_CONFIG_CRYPTO_PEM_CERT_SIZE;
 constexpr auto cDERCertSize = AOS_CONFIG_CRYPTO_DER_CERT_SIZE;
 
 /**
+ * Maximum size of CSR in PEM format.
+ */
+constexpr auto cCSRPEMSize = AOS_CONFIG_CRYPTO_CSR_PEM_SIZE;
+
+/**
  *  Serial number size(in bytes).
  */
 constexpr auto cSerialNumSize = AOS_CONFIG_CRYPTO_SERIAL_NUM_SIZE;
