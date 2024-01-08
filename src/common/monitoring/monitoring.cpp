@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/resourcemonitor.hpp"
+#include "aos/common/monitoring.hpp"
 
 #include "log.hpp"
 

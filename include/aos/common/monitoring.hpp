@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_RESOURCEMONITOR_HPP_
-#define AOS_RESOURCEMONITOR_HPP_
+#ifndef AOS_MONITORING_HPP_
+#define AOS_MONITORING_HPP_
 
 #include "aos/common/connectionsubsc.hpp"
 #include "aos/common/tools/error.hpp"

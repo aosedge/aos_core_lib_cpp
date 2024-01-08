@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "aos/common/resourcemonitor.hpp"
+#include "aos/common/monitoring.hpp"
 
 namespace aos {
 namespace monitoring {

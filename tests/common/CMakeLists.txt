@@ -12,26 +12,23 @@ set(TARGET aoscommoncpp_test)
 # ######################################################################################################################
 
 set(SOURCES
+    src/tools/allocator_test.cpp
+    src/tools/array_test.cpp
+    src/tools/buffer_test.cpp
     src/tools/enum_test.cpp
     src/tools/error_test.cpp
+    src/tools/function_test.cpp
     src/tools/log_test.cpp
-    src/tools/thread_test.cpp
-    src/tools/buffer_test.cpp
-    src/tools/array_test.cpp
-    src/tools/ringbuffer_test.cpp
-    src/tools/string_test.cpp
-    src/tools/timer_test.cpp
-    src/tools/allocator_test.cpp
     src/tools/memory_test.cpp
     src/tools/optional_test.cpp
     src/tools/queue_test.cpp
-    src/tools/function_test.cpp
+    src/tools/thread_test.cpp
     src/tools/time_test.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/resourcemonitor/resourcemonitor.cpp
-    src/resourcemonitor_test.cpp
+    src/pkcs11/pkcs11_test.cpp
+    src/monitoring_test.cpp
     src/types_test.cpp
     src/uuid_test.cpp
-    src/pkcs11/pkcs11_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/monitoring/monitoring.cpp
 )
 
 # ######################################################################################################################

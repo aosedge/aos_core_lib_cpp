@@ -11,7 +11,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/resourcemonitor.hpp"
+#include "aos/common/monitoring.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/log.hpp"

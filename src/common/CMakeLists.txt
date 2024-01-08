@@ -28,10 +28,8 @@ execute_process(
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
-add_library(
-    ${TARGET} STATIC resourcemonitor/resourcemonitor.cpp uuid.cpp pkcs11/pkcs11.cpp pkcs11/privatekey.cpp
-                     cryptoutils.cpp
-)
+
+add_library(${TARGET} STATIC monitoring/monitoring.cpp uuid.cpp pkcs11/pkcs11.cpp pkcs11/privatekey.cpp cryptoutils.cpp)
 
 target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)
 
