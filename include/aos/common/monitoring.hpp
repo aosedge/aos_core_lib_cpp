@@ -23,29 +23,29 @@ namespace monitoring {
 constexpr auto cPartitionNameLen = AOS_CONFIG_TYPES_PARTITION_NAME_LEN;
 
 /*
- * Max number of partition types.
- */
-constexpr auto cMaxNumPartitionTypes = AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES;
-
-/*
  * Max number of partitions.
  */
 constexpr auto cMaxNumPartitions = AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS;
 
 /**
- * Partition types len.
+ * Partition type len.
  */
-constexpr auto cPartitionTypesLen = AOS_CONFIG_TYPES_PARTITION_TYPES_LEN;
+constexpr auto cPartitionTypeLen = AOS_CONFIG_TYPES_PARTITION_TYPES_LEN;
+
+/*
+ * Max number of partition types.
+ */
+constexpr auto cMaxNumPartitionTypes = AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES;
 
 /**
  * Partition info.
  */
 struct PartitionInfo {
-    StaticString<cPartitionNameLen>                                      mName;
-    StaticString<cFilePathLen>                                           mPath;
-    StaticArray<StaticString<cPartitionTypesLen>, cMaxNumPartitionTypes> mTypes;
-    size_t                                                               mTotalSize;
-    size_t                                                               mUsedSize;
+    StaticString<cPartitionNameLen>                                     mName;
+    StaticString<cFilePathLen>                                          mPath;
+    StaticArray<StaticString<cPartitionTypeLen>, cMaxNumPartitionTypes> mTypes;
+    size_t                                                              mTotalSize;
+    size_t                                                              mUsedSize;
 
     /**
      * Compares partition info.
