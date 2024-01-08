@@ -195,7 +195,7 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsFro
 
 RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const String& fileName)
 {
-    auto buff = MakeUnique<StaticArray<uint8_t, crypto::cPEMCertSize>>(&mAllocator);
+    auto buff = MakeUnique<StaticArray<uint8_t, crypto::cCertPEMSize>>(&mAllocator);
 
     auto err = FS::ReadFile(fileName, *buff);
     if (!err.IsNone()) {

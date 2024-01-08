@@ -46,7 +46,7 @@ public:
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> LoadPrivKeyByURL(const String& url);
 
 private:
-    using PEMCertChainBlob = StaticArray<uint8_t, crypto::cPEMCertSize * crypto::cCertChainSize>;
+    using PEMCertChainBlob = StaticArray<uint8_t, crypto::cCertPEMSize * crypto::cCertChainSize>;
 
     static constexpr auto cCertLoaderCapacity   = AOS_CONFIG_CRYPTOUTILS_CERTLOADER_CAPACITY;
     static constexpr auto cDefaultPKCS11Library = AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB;

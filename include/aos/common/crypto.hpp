@@ -61,12 +61,12 @@ constexpr auto cCertKeyIdSize = AOS_CONFIG_CRYPTO_CERT_KEY_ID_SIZE;
 /**
  * Maximum size of a PEM certificate.
  */
-constexpr auto cPEMCertSize = AOS_CONFIG_CRYPTO_PEM_CERT_SIZE;
+constexpr auto cCertPEMSize = AOS_CONFIG_CRYPTO_CERT_PEM_SIZE;
 
 /**
  * Maximum size of a DER certificate.
  */
-constexpr auto cDERCertSize = AOS_CONFIG_CRYPTO_DER_CERT_SIZE;
+constexpr auto cCertDERSize = AOS_CONFIG_CRYPTO_CERT_DER_SIZE;
 
 /**
  * Maximum size of CSR in PEM format.
@@ -390,7 +390,7 @@ struct Certificate {
     /**
      * Complete ASN.1 DER content (certificate, signature algorithm and signature).
      */
-    StaticArray<uint8_t, cDERCertSize> mRaw;
+    StaticArray<uint8_t, cCertDERSize> mRaw;
 };
 
 /**

@@ -153,7 +153,7 @@ private:
     static constexpr auto cLoginTypeUser   = "user";
     static constexpr auto cLoginTypeGroup  = "group";
 
-    using DERCert = StaticArray<uint8_t, crypto::cDERCertSize>;
+    using DERCert = StaticArray<uint8_t, crypto::cCertDERSize>;
 
     struct PendingKey {
         uuid::UUID         mUUID;
