@@ -22,6 +22,11 @@ namespace certhandler {
  */
 
 /**
+ * Max number of certificate modules.
+ */
+constexpr auto cIAMCertModulesMaxCount = AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUNT;
+
+/**
  * Handles keys and certificates.
  */
 class CertHandler {
@@ -113,8 +118,6 @@ public:
     virtual ~CertHandler();
 
 private:
-    static constexpr auto cIAMCertModulesMaxCount = AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUNT;
-
     CertModule* FindModule(const String& certType) const;
 
     Mutex                                             mMutex;
