@@ -45,11 +45,6 @@ Error CertModule::Init(crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, Sto
     return SyncValidCerts(*validCerts);
 }
 
-const String& CertModule::GetCertType() const
-{
-    return mCertType;
-}
-
 Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert)
 {
     auto certsInStorage = MakeUnique<ModuleCertificates>(&mAllocator);

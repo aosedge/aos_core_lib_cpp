@@ -158,7 +158,7 @@ public:
      *
      * @return const String&.
      */
-    const String& GetCertType() const;
+    const String& GetCertType() const { return mCertType; }
 
     /**
      * Returns information about certificate with specified issuer and serial number.
