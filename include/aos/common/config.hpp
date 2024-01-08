@@ -142,6 +142,13 @@
 #endif
 
 /**
+ * Node type len.
+ */
+#ifndef AOS_CONFIG_TYPES_NODE_TYPE_LEN
+#define AOS_CONFIG_TYPES_NODE_TYPE_LEN 64
+#endif
+
+/**
  * Monitoring send period.
  */
 #ifndef AOS_CONFIG_MONITORING_SEND_PERIOD_SEC

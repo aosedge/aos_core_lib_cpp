@@ -33,11 +33,6 @@ constexpr auto cMaxNumPartitionTypes = AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES;
 constexpr auto cMaxNumPartitions = AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS;
 
 /**
- * Node ID len.
- */
-constexpr auto cNodeIDLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
-
-/**
  * Partition types len.
  */
 constexpr auto cPartitionTypesLen = AOS_CONFIG_TYPES_PARTITION_TYPES_LEN;

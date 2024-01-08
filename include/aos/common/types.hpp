@@ -80,6 +80,16 @@ constexpr auto cMaxNumServices = AOS_CONFIG_TYPES_MAX_NUM_SERVICES;
 constexpr auto cMaxNumLayers = AOS_CONFIG_TYPES_MAX_NUM_LAYERS;
 
 /**
+ * Node ID len.
+ */
+constexpr auto cNodeIDLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
+
+/**
+ * Node type len.
+ */
+constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
+
+/**
  * SHA256 size.
  */
 constexpr auto cSHA256Size = 32;
