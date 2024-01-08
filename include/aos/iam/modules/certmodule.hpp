@@ -27,6 +27,11 @@ namespace certhandler {
 constexpr auto cModuleKeyUsagesMaxCount = AOS_CONFIG_CERTHANDLER_KEY_USAGE_MAX_COUNT;
 
 /**
+ * Password max length.
+ */
+constexpr auto cPasswordLen = AOS_CONFIG_CERTHANDLER_PASSWORD_LEN;
+
+/**
  * Extended key usage type.
  */
 class ExtendedKeyUsageType {
@@ -216,7 +221,6 @@ public:
     Error CreateSelfSignedCert(const String& password);
 
 private:
-    static constexpr auto cPasswordLen               = AOS_CONFIG_CERTHANDLER_PASSWORD_LEN;
     static constexpr auto cDNStringLen               = AOS_CONFIG_CERTHANDLER_DN_STRING_LEN;
     static constexpr auto cValidSelfSignedCertPeriod = Years(100);
 
