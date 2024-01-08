@@ -99,7 +99,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertModule::CreateKey(const Strin
         return {nullptr, err};
     }
 
-    return mHSM->CreateKey(password, mModuleConfig.mKeyGenAlgorithm);
+    return mHSM->CreateKey(password, mModuleConfig.mKeyType);
 }
 
 Error CertModule::CreateCSR(

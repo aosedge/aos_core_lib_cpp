@@ -92,7 +92,7 @@ const String ASN1DecodeDN(const Array<uint8_t>& array)
  * Consts
  **********************************************************************************************************************/
 
-const ModuleConfig CertHandlerTest::cDefaultConfig = {KeyGenAlgorithmEnum::eRSA, 1U, {}, {}, false};
+const ModuleConfig CertHandlerTest::cDefaultConfig = {crypto::KeyTypeEnum::eRSA, 1U, {}, {}, false};
 
 const String CertHandlerTest::cPKCS11Type = "pkcs11";
 const String CertHandlerTest::cSWType     = "sw";
@@ -206,7 +206,7 @@ TEST_F(CertHandlerTest, CreateKey)
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eNone};
 
-    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyGenAlgorithm)).WillOnce(Return(privateKeyRes));
+    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyType)).WillOnce(Return(privateKeyRes));
     EXPECT_CALL(mX509Provider, CreateCSR(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
     StaticArray<uint8_t, 1> csr;
@@ -241,7 +241,7 @@ TEST_F(CertHandlerTest, CreateKeyKeyGenError)
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eFailed};
 
-    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyGenAlgorithm)).WillOnce(Return(privateKeyRes));
+    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyType)).WillOnce(Return(privateKeyRes));
     EXPECT_CALL(mX509Provider, CreateCSR(_, _, _)).Times(0);
 
     StaticArray<uint8_t, 1> csr;
@@ -264,8 +264,8 @@ TEST_F(CertHandlerTest, CreateCSR)
 
     ModuleConfig moduleConfig;
 
-    moduleConfig.mKeyGenAlgorithm  = KeyGenAlgorithmEnum::eRSA;
-    moduleConfig.mMaxCertificates  = 1U;
+    moduleConfig.mKeyType          = crypto::KeyTypeEnum::eRSA;
+    moduleConfig.mMaxCertificates  = 1;
     moduleConfig.mExtendedKeyUsage = Array<ExtendedKeyUsage>(keyUsages, 2);
     moduleConfig.mAlternativeNames = Array<StaticString<crypto::cDNSNameLen>>(altDNS, 2);
     moduleConfig.mSkipValidation   = false;
@@ -278,7 +278,7 @@ TEST_F(CertHandlerTest, CreateCSR)
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eNone};
 
-    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyGenAlgorithm)).WillOnce(Return(privateKeyRes));
+    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyType)).WillOnce(Return(privateKeyRes));
 
     using crypto::asn1::Extension;
     using crypto::x509::CSR;
@@ -376,7 +376,7 @@ TEST_F(CertHandlerTest, CreateSelfSignedCert)
     certChain.PushBack(cert);
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eNone};
-    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyGenAlgorithm)).WillOnce(Return(privateKeyRes));
+    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyType)).WillOnce(Return(privateKeyRes));
 
     auto selfSigned = Truly([](const crypto::x509::Certificate& cert) { return cert.mIssuer == cert.mSubject; });
 
@@ -472,7 +472,7 @@ TEST_F(CertHandlerTest, RemoveInvalidCert)
     EXPECT_CALL(mPKCS11, RemoveKey(invalidKeys[0], cPassword)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mPKCS11, RemoveKey(invalidKeys[1], cPassword)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyGenAlgorithm)).WillOnce(Return(privateKeyRes));
+    EXPECT_CALL(mPKCS11, CreateKey(cPassword, cDefaultConfig.mKeyType)).WillOnce(Return(privateKeyRes));
     EXPECT_CALL(mX509Provider, CreateCSR(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
     StaticArray<uint8_t, 1> csr;

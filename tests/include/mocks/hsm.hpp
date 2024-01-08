@@ -8,8 +8,9 @@
 #ifndef AOS_MOCK_HSM_HPP_
 #define AOS_MOCK_HSM_HPP_
 
-#include "aos/iam/modules/hsm.hpp"
 #include <gmock/gmock.h>
+
+#include "aos/iam/modules/hsm.hpp"
 
 namespace aos {
 namespace iam {
@@ -23,7 +24,7 @@ public:
     MOCK_METHOD(Error, SetOwner, (const String& password), (override));
     MOCK_METHOD(Error, Clear, (), (override));
     MOCK_METHOD(RetWithError<SharedPtr<crypto::PrivateKeyItf>>, CreateKey,
-        (const String& password, KeyGenAlgorithm algorithm), (override));
+        (const String& password, crypto::KeyType keyType), (override));
     MOCK_METHOD(Error, ApplyCert,
         (const Array<crypto::x509::Certificate>& certChain, CertInfo& certInfo, String& password), (override));
     MOCK_METHOD(Error, RemoveCert, (const String& certURL, const String& password), (override));

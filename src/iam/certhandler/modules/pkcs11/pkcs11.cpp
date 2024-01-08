@@ -195,8 +195,7 @@ Error PKCS11Module::Clear()
     return err;
 }
 
-RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
-    const String& password, KeyGenAlgorithm algorithm)
+RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const String& password, crypto::KeyType keyType)
 {
     (void)password;
 
@@ -215,8 +214,8 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
-    switch (algorithm.GetValue()) {
-    case KeyGenAlgorithmEnum::eRSA:
+    switch (keyType.GetValue()) {
+    case aos::crypto::KeyTypeEnum::eRSA:
         Tie(pendingKey.mKey, err) = pkcs11::Utils(*session, *mX509Provider, mLocalCacheAllocator)
                                         .GenerateRSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cRSAKeyLength);
         if (!err.IsNone()) {
@@ -224,7 +223,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
         }
         break;
 
-    case KeyGenAlgorithmEnum::eECC:
+    case aos::crypto::KeyTypeEnum::eECDSA:
         Tie(pendingKey.mKey, err) = pkcs11::Utils(*session, *mX509Provider, mLocalCacheAllocator)
                                         .GenerateECDSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cECSDACurveID);
         if (!err.IsNone()) {

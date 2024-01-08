@@ -53,9 +53,9 @@ using ExtendedKeyUsage     = EnumStringer<ExtendedKeyUsageType>;
  */
 struct ModuleConfig {
     /**
-     * Key generating algorithm.
+     * Key type.
      */
-    KeyGenAlgorithm mKeyGenAlgorithm;
+    crypto::KeyType mKeyType;
     /**
      * Maximum number of certificates for module.
      */

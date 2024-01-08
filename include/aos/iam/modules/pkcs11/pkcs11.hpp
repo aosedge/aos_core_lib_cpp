@@ -96,11 +96,10 @@ public:
      * Generates private key.
      *
      * @param password owner password.
-     * @param algorithm key generation algorithm.
+     * @param keyType key type.
      * @return RetWithError<SharedPtr<crypto::PrivateKeyItf>>.
      */
-    RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(
-        const String& password, KeyGenAlgorithm algorithm) override;
+    RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(const String& password, crypto::KeyType keyType) override;
 
     /**
      * Applies certificate chain to a module.

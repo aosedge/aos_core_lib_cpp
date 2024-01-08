@@ -9,9 +9,9 @@
 #define AOS_CRYPTO_HPP_
 
 #include "aos/common/tools/array.hpp"
-#include "aos/common/tools/string.hpp"
-
+#include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/memory.hpp"
+#include "aos/common/tools/string.hpp"
 #include "aos/common/tools/time.hpp"
 #include "aos/common/types.hpp"
 
@@ -116,7 +116,19 @@ constexpr auto cSignatureSize = AOS_CONFIG_CRYPTO_SIGNATURE_SIZE;
 /**
  * Supported key types.
  */
-enum class KeyType { eRSA, eECDSA };
+class KeyAlgorithm {
+public:
+    enum class Enum { eRSA, eECDSA };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sContentTypeStrings[] = {"RSA", "ECDSA"};
+        return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
+    };
+};
+
+using KeyTypeEnum = KeyAlgorithm::Enum;
+using KeyType     = EnumStringer<KeyAlgorithm>;
 
 /**
  * Public key interface.
@@ -230,7 +242,7 @@ public:
      *
      * @return KeyType,
      */
-    KeyType GetKeyType() const override { return KeyType::eRSA; }
+    KeyType GetKeyType() const override { return KeyTypeEnum::eRSA; }
 
     /**
      * Tests whether current key is equal to the provided one.
@@ -240,7 +252,7 @@ public:
      */
     bool IsEqual(const PublicKeyItf& pubKey) const override
     {
-        if (pubKey.GetKeyType() != KeyType::eRSA) {
+        if (pubKey.GetKeyType() != KeyTypeEnum::eRSA) {
             return false;
         }
 
@@ -276,7 +288,7 @@ public:
      *
      * @return KeyType,
      */
-    KeyType GetKeyType() const override { return KeyType::eECDSA; }
+    KeyType GetKeyType() const override { return KeyTypeEnum::eECDSA; }
 
     /**
      * Tests whether current key is equal to the provided one.
@@ -286,7 +298,7 @@ public:
      */
     bool IsEqual(const PublicKeyItf& pubKey) const override
     {
-        if (pubKey.GetKeyType() != KeyType::eECDSA) {
+        if (pubKey.GetKeyType() != KeyTypeEnum::eECDSA) {
             return false;
         }
 

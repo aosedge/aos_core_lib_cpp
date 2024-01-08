@@ -28,23 +28,6 @@ constexpr auto cCertTypeLen = AOS_CONFIG_CERTHANDLER_CERT_TYPE_NAME_LEN;
 constexpr auto cCertsPerModule = AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE;
 
 /**
- * Public/private keys generating algorithm
- */
-class KeyGenAlgorithmType {
-public:
-    enum class Enum { eRSA, eECC };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sContentTypeStrings[] = {"RSA", "ECC"};
-        return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
-    };
-};
-
-using KeyGenAlgorithmEnum = KeyGenAlgorithmType::Enum;
-using KeyGenAlgorithm     = EnumStringer<KeyGenAlgorithmType>;
-
-/**
  * General certificate information.
  */
 struct CertInfo {
@@ -125,10 +108,10 @@ public:
      * Generates private key.
      *
      * @param password owner password.
-     * @param algorithm key generation algorithm.
+     * @param keyType key type.
      * @return RetWithError<SharedPtr<crypto::PrivateKeyItf>>.
      */
-    virtual RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(const String& password, KeyGenAlgorithm algorithm)
+    virtual RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(const String& password, crypto::KeyType keyType)
         = 0;
 
     /**
