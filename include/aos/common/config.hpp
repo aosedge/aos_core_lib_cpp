@@ -234,6 +234,13 @@
 #endif
 
 /**
+ * Subject common name length.
+ */
+#ifndef AOS_CONFIG_CRYPTO_SUBJECT_COMMON_NAME_LEN
+#define AOS_CONFIG_CRYPTO_SUBJECT_COMMON_NAME_LEN 256
+#endif
+
+/**
  * Usual RSA modulus size is 512, 1024, 2048 or 4096 bit length.
  */
 #ifndef AOS_CONFIG_CRYPTO_RSA_MODULUS_SIZE

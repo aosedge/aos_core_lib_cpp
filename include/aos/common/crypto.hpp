@@ -79,6 +79,11 @@ constexpr auto cSerialNumSize = AOS_CONFIG_CRYPTO_SERIAL_NUM_SIZE;
 constexpr auto cSerialNumStrLen = cSerialNumSize * 2;
 
 /**
+ * Subject common name length.
+ */
+constexpr auto cSubjectCommonNameLen = AOS_CONFIG_CRYPTO_SUBJECT_COMMON_NAME_LEN;
+
+/**
  * RSA modulus size.
  */
 constexpr auto cRSAModulusSize = AOS_CONFIG_CRYPTO_RSA_MODULUS_SIZE;
