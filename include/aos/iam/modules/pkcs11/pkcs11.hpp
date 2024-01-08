@@ -12,8 +12,8 @@
 #include "aos/common/pkcs11/privatekey.hpp"
 #include "aos/common/tools/optional.hpp"
 #include "aos/common/uuid.hpp"
+#include "aos/iam/config.hpp"
 #include "aos/iam/modules/hsm.hpp"
-#include "aos/iam/modules/pkcs11/config.hpp"
 
 namespace aos {
 namespace iam {
@@ -144,7 +144,7 @@ public:
 private:
     static constexpr auto cEnvLoginType      = "CKTEEC_LOGIN_TYPE";
     static constexpr auto cDefaultTokenLabel = "aos";
-    static constexpr auto cTeeLoginTypeLen   = AOS_CONFIG_CERTHANDLER_TEE_LOGIN_TYPE_NAME_LEN;
+    static constexpr auto cTeeLoginTypeLen   = AOS_CONFIG_CERTMODULE_PKCS11_TEE_LOGIN_TYPE_LEN;
     static constexpr auto cUUIDStringLen     = AOS_CONFIG_UUID_STR_LEN;
     static constexpr auto cRSAKeyLength      = 2048;
     static constexpr auto cECSDACurveID      = pkcs11::EllipticCurve::eP384;

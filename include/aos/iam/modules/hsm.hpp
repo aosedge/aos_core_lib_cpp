@@ -11,7 +11,7 @@
 #include "aos/common/crypto.hpp"
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/memory.hpp"
-#include "aos/iam/modules/config.hpp"
+#include "aos/iam/config.hpp"
 
 namespace aos {
 namespace iam {
