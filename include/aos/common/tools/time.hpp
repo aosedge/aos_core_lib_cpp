@@ -8,11 +8,11 @@
 #ifndef AOS_TIME_HPP_
 #define AOS_TIME_HPP_
 
+#include <time.h>
+
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/log.hpp"
 #include "aos/common/tools/string.hpp"
-
-#include <time.h>
 
 namespace aos {
 
@@ -46,6 +46,30 @@ public:
         : mTime()
     {
     }
+
+    /**
+     * Returns current local time.
+     *
+     * @result Time.
+     */
+    static Time Now()
+    {
+        timespec time;
+
+        auto ret = clock_gettime(CLOCK_REALTIME, &time);
+        assert(ret == 0);
+
+        return Time(time);
+    }
+
+    /**
+     * Returns local time corresponding to Unix time.
+     *
+     * @param sec seconds since January 1, 1970 UTC.
+     * @param nsec nano seconds part.
+     * @result Ti
+     */
+    static Time Unix(int64_t sec, int64_t nsec) { return Time({sec, nsec}); }
 
     /**
      * Checks whether Time object is default initialized.
@@ -122,21 +146,6 @@ public:
     bool operator!=(const Time& obj) const { return !operator==(obj); }
 
     /**
-     * Returns current local time.
-     *
-     * @result Time.
-     */
-    static Time Now()
-    {
-        timespec time;
-
-        auto res = clock_gettime(CLOCK_REALTIME, &time);
-        assert(res == 0);
-
-        return Time(time);
-    }
-
-    /**
      * Prints time into log.
      *
      * @param log log object to print time into.
@@ -168,7 +177,7 @@ public:
 private:
     static constexpr int64_t cNanoRatio = 1000 * 1000 * 1000;
 
-    Time(timespec time)
+    explicit Time(timespec time)
         : mTime(time)
     {
     }
