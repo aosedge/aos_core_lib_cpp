@@ -80,7 +80,7 @@ public:
         eSMServiceManager,
         eIAMCertHandler,
         eCommonMonitoring,
-        ePKCS11,
+        eCommonPKCS11,
         eNumModules,
     };
 
