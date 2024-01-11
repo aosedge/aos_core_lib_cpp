@@ -40,6 +40,16 @@ constexpr Duration Years(int64_t num)
 class Time {
 public:
     /**
+     * Duration constants.
+     */
+    static constexpr Duration Nanoseconds  = 1;
+    static constexpr Duration Microseconds = 1000 * Nanoseconds;
+    static constexpr Duration Milliseconds = 1000 * Microseconds;
+    static constexpr Duration Seconds      = 1000 * Milliseconds;
+    static constexpr Duration Minutes      = 60 * Seconds;
+    static constexpr Duration Hours        = 60 * Minutes;
+
+    /**
      * Constructs object instance
      */
     Time()
@@ -90,17 +100,24 @@ public:
 
         int64_t nsec = time.tv_nsec + duration;
 
-        time.tv_sec += nsec / cNanoRatio;
-        time.tv_nsec = nsec % cNanoRatio;
+        time.tv_sec += nsec / Seconds;
+        time.tv_nsec = nsec % Seconds;
 
         // sign of the remainder implementation defined => correct if negative
         if (time.tv_nsec < 0) {
-            time.tv_nsec += cNanoRatio;
+            time.tv_nsec += Seconds;
             time.tv_sec--;
         }
 
         return Time(time);
     }
+
+    /**
+     * Returns unix time struct.
+     *
+     * @result unix time struct.
+     */
+    timespec UnixTime() const { return mTime; }
 
     /**
      * Returns an integer representing a time in nanoseconds elapsed since January 1, 1970 UTC.
@@ -109,7 +126,7 @@ public:
      */
     uint64_t UnixNano() const
     {
-        uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * cNanoRatio;
+        uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * Seconds;
 
         return nsec;
     }
@@ -175,8 +192,6 @@ public:
     }
 
 private:
-    static constexpr int64_t cNanoRatio = 1000 * 1000 * 1000;
-
     explicit Time(timespec time)
         : mTime(time)
     {
