@@ -17,6 +17,7 @@
 #include "aos/common/tools/function.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/queue.hpp"
+#include "aos/common/tools/time.hpp"
 
 namespace aos {
 
@@ -89,6 +90,8 @@ public:
     Error Join()
     {
         if (mJoinable) {
+            mJoinable = false;
+
             return pthread_join(mPThread, nullptr);
         }
 
@@ -286,6 +289,26 @@ public:
     }
 
     /**
+     * Blocks the current thread until the condition variable is awakened or absolute time passed.
+     *
+     * @param lock unique lock.
+     * @param absTime absolute time.
+     * @return Error.
+     */
+    Error Wait(UniqueLock& lock, aos::Time absTime)
+    {
+        auto unixTime = absTime.UnixTime();
+
+        auto ret = pthread_cond_timedwait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetMutex()), &unixTime);
+
+        if (ret == ETIMEDOUT) {
+            return mError = ErrorEnum::eTimeout;
+        }
+
+        return mError = ret;
+    }
+
+    /**
      * Blocks the current thread until the condition variable is awakened and predicate condition is met.
      *
      * @param lock unique lock.
@@ -298,7 +321,29 @@ public:
         while (!waitCondition()) {
             auto err = Wait(lock);
             if (!err.IsNone()) {
-                return err;
+                return mError = err;
+            }
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Blocks the current thread until the condition variable is awakened and predicate condition is met or absolute
+     * time passed.
+     *
+     * @param lock unique lock.
+     * @param absTime absolute time.
+     * @param waitCondition wait condition predicate.
+     * @return Error.
+     */
+    template <typename T>
+    Error Wait(UniqueLock& lock, aos::Time absTime, T waitCondition)
+    {
+        while (!waitCondition()) {
+            auto err = Wait(lock, absTime);
+            if (!err.IsNone()) {
+                return mError = err;
             }
         }
 

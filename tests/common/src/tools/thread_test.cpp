@@ -140,6 +140,80 @@ TEST(CommonTest, CondVar)
     EXPECT_TRUE(worker.Join().IsNone());
 }
 
+TEST(CommonTest, CondVarTimeout)
+{
+    Mutex               mutex;
+    ConditionalVariable condVar;
+    Thread<>            worker;
+    bool                ready = false;
+
+    // Check normal
+
+    EXPECT_TRUE(worker
+                    .Run([&](void*) {
+                        UniqueLock lock(mutex);
+                        EXPECT_TRUE(lock.GetError().IsNone());
+
+                        EXPECT_TRUE(condVar.Wait(lock, aos::Time::Now().Add(1 * Time::Seconds)).IsNone());
+                    })
+                    .IsNone());
+    usleep(500000);
+    EXPECT_TRUE(condVar.NotifyOne().IsNone());
+    EXPECT_TRUE(worker.Join().IsNone());
+
+    // Check timeout
+
+    EXPECT_TRUE(
+        worker
+            .Run([&](void*) {
+                UniqueLock lock(mutex);
+                EXPECT_TRUE(lock.GetError().IsNone());
+
+                EXPECT_EQ(condVar.Wait(lock, aos::Time::Now().Add(100 * Time::Milliseconds)), aos::ErrorEnum::eTimeout);
+            })
+            .IsNone());
+
+    EXPECT_TRUE(worker.Join().IsNone());
+
+    // Check normal with predicate
+
+    EXPECT_TRUE(
+        worker
+            .Run([&](void*) {
+                UniqueLock lock(mutex);
+                EXPECT_TRUE(lock.GetError().IsNone());
+
+                EXPECT_TRUE(
+                    condVar.Wait(lock, aos::Time::Now().Add(1 * Time::Seconds), [&] { return ready; }).IsNone());
+                ready = false;
+            })
+            .IsNone());
+    {
+        LockGuard lock(mutex);
+        EXPECT_TRUE(lock.GetError().IsNone());
+
+        ready = true;
+    }
+
+    EXPECT_TRUE(condVar.NotifyOne().IsNone());
+    EXPECT_TRUE(worker.Join().IsNone());
+
+    // Check timeout with predicate
+
+    EXPECT_TRUE(worker
+                    .Run([&](void*) {
+                        UniqueLock lock(mutex);
+                        EXPECT_TRUE(lock.GetError().IsNone());
+
+                        EXPECT_EQ(
+                            condVar.Wait(lock, aos::Time::Now().Add(100 * Time::Milliseconds), [&] { return ready; }),
+                            aos::ErrorEnum::eTimeout);
+                    })
+                    .IsNone());
+
+    EXPECT_TRUE(worker.Join().IsNone());
+}
+
 TEST(CommonTest, ThreadPool)
 {
     ThreadPool<3, 32 * 32 * 3> threadPool;
