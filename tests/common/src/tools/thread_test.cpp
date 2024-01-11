@@ -98,7 +98,7 @@ TEST(CommonTest, Thread)
 TEST(CommonTest, CondVar)
 {
     Mutex               mutex;
-    ConditionalVariable condVar(mutex);
+    ConditionalVariable condVar;
     auto                ready     = false;
     auto                processed = false;
 
@@ -109,7 +109,7 @@ TEST(CommonTest, CondVar)
                         UniqueLock lock(mutex);
                         EXPECT_TRUE(lock.GetError().IsNone());
 
-                        EXPECT_TRUE(condVar.Wait([&] { return ready; }).IsNone());
+                        EXPECT_TRUE(condVar.Wait(lock, [&] { return ready; }).IsNone());
 
                         processed = true;
 
@@ -129,10 +129,10 @@ TEST(CommonTest, CondVar)
     EXPECT_TRUE(condVar.NotifyOne().IsNone());
 
     {
-        LockGuard lock(mutex);
+        UniqueLock lock(mutex);
         EXPECT_TRUE(lock.GetError().IsNone());
 
-        EXPECT_TRUE(condVar.Wait([&] { return processed; }).IsNone());
+        EXPECT_TRUE(condVar.Wait(lock, [&] { return processed; }).IsNone());
     }
 
     EXPECT_TRUE(ready);
