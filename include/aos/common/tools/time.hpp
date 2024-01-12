@@ -114,6 +114,13 @@ public:
     }
 
     /**
+     * Returns duration as difference between two time points.
+     *
+     * @result Duration.
+     */
+    Duration Sub(const Time& time) const { return UnixNano() - time.UnixNano(); }
+
+    /**
      * Returns unix time struct.
      *
      * @result unix time struct.
