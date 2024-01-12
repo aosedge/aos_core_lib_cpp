@@ -60,13 +60,14 @@ public:
     /**
      * Returns current local time.
      *
+     * @param clockID clock ID: CLOCK_REALTIME or CLOCK_MONOTONIC.
      * @result Time.
      */
-    static Time Now()
+    static Time Now(clockid_t clockID = CLOCK_REALTIME)
     {
         timespec time;
 
-        auto ret = clock_gettime(CLOCK_REALTIME, &time);
+        auto ret = clock_gettime(clockID, &time);
         assert(ret == 0);
 
         return Time(time);
