@@ -34,6 +34,13 @@ public:
     }
 
     /**
+     * Creates buffer instance from another buffer.
+     *
+     * @param buffer another buffer instance.
+     */
+    Buffer(const Buffer& buffer) = default;
+
+    /**
      * Copies one buffer to another.
      *
      * @param buffer to copy from.
