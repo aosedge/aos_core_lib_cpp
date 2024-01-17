@@ -49,6 +49,7 @@ public:
         eWrongState,
         eInvalidChecksum,
         eAlreadyLoggedIn,
+        eNotSupported,
         eNumErrors
     };
 
@@ -252,6 +253,7 @@ private:
             "wrong state",
             "invalid checksum",
             "already logged in",
+            "not supported",
         };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));

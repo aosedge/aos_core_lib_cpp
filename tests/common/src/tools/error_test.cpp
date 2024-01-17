@@ -89,6 +89,9 @@ TEST(ErrorTest, Messages)
     EXPECT_EQ(Error(ErrorEnum::eNotFound).Message(), "not found");
     EXPECT_EQ(Error(ErrorEnum::eAlreadyExist).Message(), "already exist");
     EXPECT_EQ(Error(ErrorEnum::eWrongState).Message(), "wrong state");
+    EXPECT_EQ(Error(ErrorEnum::eInvalidChecksum).Message(), "invalid checksum");
+    EXPECT_EQ(Error(ErrorEnum::eAlreadyLoggedIn).Message(), "already logged in");
+    EXPECT_EQ(Error(ErrorEnum::eNotSupported).Message(), "not supported");
 }
 
 TEST(ErrorTest, Tie)
