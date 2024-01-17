@@ -430,12 +430,12 @@ public:
      * @return Error.
      */
     template <int cMatchInd>
-    Error Search(const char* regex, String& match) const
+    Error Search(const String& regex, String& match) const
     {
         regex_t    r;
         regmatch_t matches[cMatchInd + 1];
 
-        int ret = regcomp(&r, regex, REG_EXTENDED);
+        int ret = regcomp(&r, regex.CStr(), REG_EXTENDED);
         if (ret != 0) {
             return ErrorEnum::eInvalidArgument;
         }
