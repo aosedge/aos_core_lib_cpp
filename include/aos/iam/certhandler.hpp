@@ -27,9 +27,96 @@ namespace certhandler {
 constexpr auto cIAMCertModulesMaxCount = AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUNT;
 
 /**
+ * Certificate handler interface.
+ */
+class CertHandlerItf {
+public:
+    /**
+     * Returns IAM cert types.
+     *
+     * @param[out] certTypes result certificate types.
+     * @returns Error.
+     */
+    virtual Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) = 0;
+
+    /**
+     * Owns security storage.
+     *
+     * @param certType certificate type.
+     * @param password owner password.
+     * @returns Error.
+     */
+    virtual Error SetOwner(const String& certType, const String& password) = 0;
+
+    /**
+     * Clears security storage.
+     *
+     * @param certType certificate type.
+     * @returns Error.
+     */
+    virtual Error Clear(const String& certType) = 0;
+
+    /**
+     * Creates key pair.
+     *
+     * @param certType certificate type.
+     * @param subjectCommonName common name of the subject.
+     * @param password owner password.
+     * @param[out] pemCSR certificate signing request in PEM.
+     * @returns Error.
+     */
+    virtual Error CreateKey(
+        const String& certType, const String& subjectCommonName, const String& password, Array<uint8_t>& pemCSR)
+        = 0;
+
+    /**
+     * Applies certificate.
+     *
+     * @param certType certificate type.
+     * @param pemCert certificate in a pem format.
+     * @param[out] info result certificate information.
+     * @returns Error.
+     */
+    virtual Error ApplyCertificate(const String& certType, const Array<uint8_t>& pemCert, CertInfo& info) = 0;
+
+    /**
+     * Returns certificate info.
+     *
+     * @param certType certificate type.
+     * @param issuer issuer name.
+     * @param serial serial number.
+     * @param[out] resCert result certificate.
+     * @returns Error.
+     */
+    virtual Error GetCertificate(
+        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert)
+        = 0;
+
+    /**
+     * Creates a self signed certificate.
+     *
+     * @param certType certificate type.
+     * @param password owner password.
+     * @returns Error.
+     */
+    virtual Error CreateSelfSignedCert(const String& certType, const String& password) = 0;
+
+    /**
+     * Destroys certificate handler interface.
+     */
+    virtual ~CertHandlerItf() = default;
+
+private:
+    CertModule* FindModule(const String& certType) const;
+
+    Mutex                                             mMutex;
+    StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
+};
+
+/**
  * Handles keys and certificates.
  */
-class CertHandler {
+class CertHandler : public CertHandlerItf, private NonCopyable {
 public:
     /**
      * Creates a new object instance.
@@ -50,7 +137,7 @@ public:
      * @param[out] certTypes result certificate types.
      * @returns Error.
      */
-    Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes);
+    Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) override;
 
     /**
      * Owns security storage.
@@ -59,7 +146,7 @@ public:
      * @param password owner password.
      * @returns Error.
      */
-    Error SetOwner(const String& certType, const String& password);
+    Error SetOwner(const String& certType, const String& password) override;
 
     /**
      * Clears security storage.
@@ -67,7 +154,7 @@ public:
      * @param certType certificate type.
      * @returns Error.
      */
-    Error Clear(const String& certType);
+    Error Clear(const String& certType) override;
 
     /**
      * Creates key pair.
@@ -78,8 +165,8 @@ public:
      * @param[out] pemCSR certificate signing request in PEM.
      * @returns Error.
      */
-    Error CreateKey(
-        const String& certType, const String& subjectCommonName, const String& password, Array<uint8_t>& pemCSR);
+    Error CreateKey(const String& certType, const String& subjectCommonName, const String& password,
+        Array<uint8_t>& pemCSR) override;
 
     /**
      * Applies certificate.
@@ -89,7 +176,7 @@ public:
      * @param[out] info result certificate information.
      * @returns Error.
      */
-    Error ApplyCertificate(const String& certType, const Array<uint8_t>& pemCert, CertInfo& info);
+    Error ApplyCertificate(const String& certType, const Array<uint8_t>& pemCert, CertInfo& info) override;
 
     /**
      * Returns certificate info.
@@ -101,7 +188,7 @@ public:
      * @returns Error.
      */
     Error GetCertificate(
-        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert);
+        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) override;
 
     /**
      * Creates a self signed certificate.
@@ -110,7 +197,7 @@ public:
      * @param password owner password.
      * @returns Error.
      */
-    Error CreateSelfSignedCert(const String& certType, const String& password);
+    Error CreateSelfSignedCert(const String& certType, const String& password) override;
 
     /**
      * Destroys certificate handler object instance.
