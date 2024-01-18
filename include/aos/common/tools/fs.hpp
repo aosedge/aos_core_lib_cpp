@@ -89,19 +89,19 @@ public:
      */
     static StaticString<cFilePathLen> Dir(const String& path)
     {
-        StaticString<cFilePathLen> dir = path;
+        StaticString<cFilePathLen> dir;
 
-        auto it = dir.end();
+        auto it = path.end();
 
-        while (it != dir.begin()) {
+        while (it != path.begin()) {
             it--;
 
             if (*it == '/') {
-                *it = 0;
-
                 break;
             }
         }
+
+        dir.Insert(dir.end(), path.begin(), it);
 
         return dir;
     }
