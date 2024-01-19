@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, RingBuffer)
+TEST(RingbufferTest, Basic)
 {
     StaticRingBuffer<30> ringBuffer;
 

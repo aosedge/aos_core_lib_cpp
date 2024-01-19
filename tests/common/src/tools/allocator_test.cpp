@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, Allocator)
+TEST(AllocatorTest, Allocator)
 {
     StaticAllocator<256> allocator;
 
@@ -48,7 +48,7 @@ TEST(CommonTest, Allocator)
     EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
 
-TEST(CommonTest, New)
+TEST(AllocatorTest, New)
 {
     StaticAllocator<256> allocator;
 

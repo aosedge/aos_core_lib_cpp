@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, Array)
+TEST(ArrayTest, Basic)
 {
     constexpr auto cNumItems = 32;
 
@@ -103,7 +103,7 @@ TEST(CommonTest, Array)
     }
 }
 
-TEST(CommonTest, ArrayInsert)
+TEST(ArrayTest, Insert)
 {
     StaticArray<int, 32> array;
 
@@ -130,7 +130,7 @@ TEST(CommonTest, ArrayInsert)
     EXPECT_EQ(memcmp(array.begin(), result, ArraySize(result)), 0);
 }
 
-TEST(CommonTest, ArrayFind)
+TEST(ArrayTest, Find)
 {
     int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
@@ -155,7 +155,7 @@ TEST(CommonTest, ArrayFind)
     EXPECT_EQ(*result.mValue, 8);
 }
 
-TEST(CommonTest, ArrayRemove)
+TEST(ArrayTest, Remove)
 {
     int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
@@ -187,7 +187,7 @@ TEST(CommonTest, ArrayRemove)
     }
 }
 
-TEST(CommonTest, ArrayStruct)
+TEST(ArrayTest, Struct)
 {
     struct TestStruct {
         StaticArray<uint32_t, 32> arr1;
@@ -208,7 +208,7 @@ TEST(CommonTest, ArrayStruct)
     EXPECT_EQ(array[0].arr2, Array<uint32_t>(test1, ArraySize(test1)));
 }
 
-TEST(CommonTest, SortArray)
+TEST(ArrayTest, Sort)
 {
     int intValues[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 

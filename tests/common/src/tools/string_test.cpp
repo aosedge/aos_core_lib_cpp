@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, String)
+TEST(StringTest, Basic)
 {
     StaticString<32> str;
 
@@ -125,7 +125,7 @@ TEST(CommonTest, String)
     EXPECT_EQ(dst, src);
 }
 
-TEST(CommonTest, StringArray)
+TEST(StringTest, StringArray)
 {
     struct TestStruct {
         StaticString<32> str1;
@@ -143,7 +143,7 @@ TEST(CommonTest, StringArray)
     EXPECT_EQ(strArray[0].str2, "test2");
 }
 
-TEST(CommonTest, SplitString)
+TEST(StringTest, Split)
 {
     StaticArray<StaticString<4>, 4> splitArray;
 
@@ -158,7 +158,7 @@ TEST(CommonTest, SplitString)
     EXPECT_EQ(splitArray, resultArray);
 }
 
-TEST(CommonTest, HexToByteArray)
+TEST(StringTest, HexToByteArray)
 {
     const String hex = "abcDEF0123456789";
 
@@ -169,7 +169,7 @@ TEST(CommonTest, HexToByteArray)
     EXPECT_EQ(result, Array<uint8_t>(expected, sizeof(expected)));
 }
 
-TEST(CommonTest, HexToByteArrayOddSize)
+TEST(StringTest, HexToByteArrayOddSize)
 {
     const String hex = "01234";
 
@@ -180,7 +180,7 @@ TEST(CommonTest, HexToByteArrayOddSize)
     EXPECT_EQ(result, Array<uint8_t>(expected, sizeof(expected)));
 }
 
-TEST(CommonTest, HexToByteArrayNoMemory)
+TEST(StringTest, HexToByteArrayNoMemory)
 {
     const String hex = "01234";
 
@@ -189,7 +189,7 @@ TEST(CommonTest, HexToByteArrayNoMemory)
     ASSERT_EQ(hex.HexToByteArray(result), ErrorEnum::eNoMemory);
 }
 
-TEST(CommonTest, ByteArrayToHex)
+TEST(StringTest, ByteArrayToHex)
 {
     const char expected[] = "ABCDEF0123456789";
 
@@ -202,7 +202,7 @@ TEST(CommonTest, ByteArrayToHex)
     ASSERT_EQ(dst, expected);
 }
 
-TEST(CommonTest, StringFormat)
+TEST(StringTest, Format)
 {
     StaticString<20> str;
 
@@ -210,7 +210,7 @@ TEST(CommonTest, StringFormat)
     ASSERT_EQ(str, "id: 10");
 }
 
-TEST(CommonTest, StringSearch)
+TEST(StringTest, Search)
 {
     StaticString<40> str = "pkcs11:object=10;id=40";
 
@@ -231,7 +231,7 @@ TEST(CommonTest, StringSearch)
     ASSERT_EQ(str.Search<2>(regex, smallId), ErrorEnum::eNoMemory);
 }
 
-TEST(CommonTest, StringRemove)
+TEST(StringTest, Remove)
 {
     const auto expected = "Thank you, sir";
 

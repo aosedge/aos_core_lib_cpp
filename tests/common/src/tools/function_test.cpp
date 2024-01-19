@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, Function)
+TEST(FunctionTest, Basic)
 {
     uint32_t value = 0;
 

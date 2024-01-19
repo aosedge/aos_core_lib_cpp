@@ -21,7 +21,7 @@ static void TakeSharedPtr(SharedPtr<uint32_t> shPtr)
     EXPECT_TRUE(shPtr);
 }
 
-TEST(CommonTest, UniquePtr)
+TEST(MemoryTest, UniquePtr)
 {
     StaticAllocator<256> allocator;
 
@@ -65,7 +65,7 @@ TEST(CommonTest, UniquePtr)
     EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
 
-TEST(CommonTest, SharedPtr)
+TEST(MemoryTest, SharedPtr)
 {
     StaticAllocator<256> allocator;
 
@@ -111,7 +111,7 @@ TEST(CommonTest, SharedPtr)
     EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
 
-TEST(CommonTest, SharedPtrDerivedClass)
+TEST(MemoryTest, SharedPtrDerivedClass)
 {
     class BaseClass {
     public:

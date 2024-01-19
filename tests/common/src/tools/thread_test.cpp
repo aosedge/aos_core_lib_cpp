@@ -45,7 +45,7 @@ static void* calcDec(void* arg)
     return nullptr;
 }
 
-TEST(CommonTest, Thread)
+TEST(ThreadTest, Basic)
 {
     // Test thread, mutex, lock guard, lambda
 
@@ -95,7 +95,7 @@ TEST(CommonTest, Thread)
     EXPECT_EQ(calc.GetResult(), 0);
 }
 
-TEST(CommonTest, CondVar)
+TEST(ThreadTest, CondVar)
 {
     Mutex               mutex;
     ConditionalVariable condVar;
@@ -140,7 +140,7 @@ TEST(CommonTest, CondVar)
     EXPECT_TRUE(worker.Join().IsNone());
 }
 
-TEST(CommonTest, CondVarTimeout)
+TEST(ThreadTest, CondVarTimeout)
 {
     Mutex               mutex;
     ConditionalVariable condVar;
@@ -214,7 +214,7 @@ TEST(CommonTest, CondVarTimeout)
     EXPECT_TRUE(worker.Join().IsNone());
 }
 
-TEST(CommonTest, ThreadPool)
+TEST(ThreadTest, ThreadPool)
 {
     ThreadPool<3, 32 * 32 * 3> threadPool;
     Mutex                      mutex;

@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, OptionalReset)
+TEST(OptionalTest, Reset)
 {
     Optional<int> src = 0;
 
@@ -22,7 +22,7 @@ TEST(CommonTest, OptionalReset)
     ASSERT_FALSE(src.HasValue());
 }
 
-TEST(CommonTest, OptionalSetValue)
+TEST(OptionalTest, SetValue)
 {
     Optional<int> src;
 
@@ -35,7 +35,7 @@ TEST(CommonTest, OptionalSetValue)
     ASSERT_EQ(src.GetValue(), 42);
 }
 
-TEST(CommonTest, OptionalCallsDestructor)
+TEST(OptionalTest, CallsDestructor)
 {
     using testing::MockFunction;
 
@@ -43,10 +43,11 @@ TEST(CommonTest, OptionalCallsDestructor)
 
     class Wrapper {
     public:
-        Wrapper(MockFunction<void()>* func)
+        explicit Wrapper(MockFunction<void()>* func)
             : mFunc(func)
         {
         }
+
         ~Wrapper() { mFunc->Call(); }
 
     private:

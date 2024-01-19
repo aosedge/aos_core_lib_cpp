@@ -11,7 +11,7 @@
 
 using namespace aos;
 
-TEST(CommonTest, Queue)
+TEST(QueueTest, Basic)
 {
     StaticQueue<uint32_t, 30> queue;
 

@@ -26,7 +26,7 @@ public:
 using TestInstance = EnumStringer<TestType>;
 using TestEnum     = TestType::Enum;
 
-TEST(CommonTest, EnumStringer)
+TEST(EnumTest, EnumStringer)
 {
     // Check copying
     TestInstance e1;
@@ -53,7 +53,7 @@ TEST(CommonTest, EnumStringer)
     EXPECT_EQ(TestInstance(static_cast<TestEnum>(-1)).ToString().CStr(), "unknown");
 }
 
-TEST(CommonTest, EnumFromString)
+TEST(EnumTest, EnumFromString)
 {
     TestInstance e;
 

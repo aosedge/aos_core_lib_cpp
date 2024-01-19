@@ -78,7 +78,7 @@ private:
 #define LOG_WRN() LOG_MODULE_WRN(LogModuleEnum::eDefault)
 #define LOG_ERR() LOG_MODULE_ERR(LogModuleEnum::eDefault)
 
-TEST(CommonTest, Log)
+TEST(LogTest, Basic)
 {
     Log::SetCallback(TestLog::LogCallback);
 
