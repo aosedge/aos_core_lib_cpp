@@ -48,7 +48,8 @@ public:
 private:
     using PEMCertChainBlob = StaticArray<uint8_t, crypto::cPEMCertSize * crypto::cCertChainSize>;
 
-    static constexpr auto cCertLoaderCapacity = AOS_CONFIG_CRYPTOUTILS_CERTLOADER_CAPACITY;
+    static constexpr auto cCertLoaderCapacity   = AOS_CONFIG_CRYPTOUTILS_CERTLOADER_CAPACITY;
+    static constexpr auto cDefaultPKCS11Library = AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB;
 
     RetWithError<UniquePtr<pkcs11::SessionContext>> OpenSession(
         const String& libraryPath, const String& token, const String& userPIN);

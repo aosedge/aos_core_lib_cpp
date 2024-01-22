@@ -388,4 +388,11 @@
     AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE* AOS_CONFIG_CRYPTO_DER_CERT_SIZE * 5
 #endif
 
+/**
+ * Default PKCS11 library.
+ */
+#ifndef AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB
+#define AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB "/usr/lib/softhsm/libsofthsm2.so"
+#endif
+
 #endif

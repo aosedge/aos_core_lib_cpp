@@ -122,7 +122,9 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(cons
 RetWithError<UniquePtr<pkcs11::SessionContext>> CertLoader::OpenSession(
     const String& libraryPath, const String& token, const String& userPIN)
 {
-    auto library = mPKCS11->OpenLibrary(libraryPath);
+    const char* correctedPath = libraryPath.IsEmpty() ? cDefaultPKCS11Library : libraryPath.CStr();
+
+    auto library = mPKCS11->OpenLibrary(correctedPath);
     if (!library) {
         return {nullptr, ErrorEnum::eFailed};
     }
