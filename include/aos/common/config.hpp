@@ -353,6 +353,13 @@
 #endif
 
 /**
+ * Flag to choose between static/dynamic pkcs11 library.
+ */
+#ifndef AOS_CONFIG_PKCS11_USE_STATIC_LIB
+#define AOS_CONFIG_PKCS11_USE_STATIC_LIB 0
+#endif
+
+/**
  *  UUID length
  */
 #ifndef AOS_CONFIG_UUID_LEN

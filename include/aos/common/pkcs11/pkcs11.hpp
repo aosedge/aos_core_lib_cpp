@@ -456,24 +456,76 @@ private:
     CK_FUNCTION_LIST_PTR mFunctionList;
 };
 
-/**
- * PKCS11 Context instance.
- */
-class LibraryContext {
-public:
-    /**
-     * Constructs object instance.
-     *
-     * @param handle library handle.
-     */
-    LibraryContext(void* handle);
+#if AOS_CONFIG_PKCS11_USE_STATIC_LIB
 
+/**
+ * Static PKCS11 library context.
+ */
+class StaticLibraryContext {
+protected:
     /**
      * Initializes object instance.
      *
      * @return Error.
      */
-    Error Init();
+    RetWithError<CK_FUNCTION_LIST_PTR> Init();
+};
+
+/**
+ * An alias for the concrete PKCS11 library context.
+ */
+using PKCS11LibraryContext = StaticLibraryContext;
+
+#else
+
+/**
+ * Dynamic PKCS11 library context.
+ */
+class DynamicLibraryContext {
+public:
+    /**
+     * Sets dynamic library handle.
+     *
+     * @param handle dynamic library handle.
+     */
+    void SetHandle(void* handle);
+
+    /**
+     * Destroys object instance.
+     */
+    ~DynamicLibraryContext();
+
+protected:
+    /**
+     * Initializes object instance.
+     *
+     * @param functionList PKCS11 function list.
+     * @return Error.
+     */
+    RetWithError<CK_FUNCTION_LIST_PTR> Init();
+
+private:
+    void* mHandle = nullptr;
+};
+
+/**
+ * An alias for the concrete PKCS11 library context.
+ */
+using PKCS11LibraryContext = DynamicLibraryContext;
+
+#endif
+
+/**
+ * PKCS11 Context instance.
+ */
+class LibraryContext : public PKCS11LibraryContext {
+public:
+    /**
+     * Initializes object instance.
+     *
+     * @return Error.
+     */
+    virtual Error Init();
 
     /**
      * Initializes a token.
@@ -536,9 +588,7 @@ public:
     ~LibraryContext();
 
 private:
-    void*                mHandle = nullptr;
-    CK_FUNCTION_LIST_PTR mFunctionList;
-
+    CK_FUNCTION_LIST_PTR                                      mFunctionList;
     StaticAllocator<sizeof(SessionContext) * cSessionsPerLib> mAllocator;
 };
 
@@ -710,13 +760,22 @@ private:
  */
 class PKCS11Manager {
 public:
+#if AOS_CONFIG_PKCS11_USE_STATIC_LIB
     /**
-     * Opens PKCS11 library.
+     * Opens PKCS11 static library.
+     *
+     * @return SharedPtr<LibraryContext>
+     */
+    SharedPtr<LibraryContext> OpenLibrary();
+#else
+    /**
+     * Opens PKCS11 dynamic library.
      *
      * @param library path to pkcs11 shared library.
      * @return SharedPtr<LibraryContext>
      */
     SharedPtr<LibraryContext> OpenLibrary(const String& library);
+#endif
 
 private:
     using LibraryInfo = Pair<StaticString<cFilePathLen>, SharedPtr<LibraryContext>>;

@@ -5,9 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <dlfcn.h>
 #include <stdlib.h>
 #include <time.h>
+
+#if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
+#include <dlfcn.h>
+#endif
 
 #include "aos/common/pkcs11/pkcs11.hpp"
 #include "aos/common/pkcs11/privatekey.hpp"
@@ -259,30 +262,78 @@ Error GenPIN(String& pin)
     return ErrorEnum::eNone;
 }
 
+#if AOS_CONFIG_PKCS11_USE_STATIC_LIB
+
 /***********************************************************************************************************************
- * LibraryContext
+ * StaticLibraryContext
  **********************************************************************************************************************/
 
-LibraryContext::LibraryContext(void* handle)
-    : mHandle(handle)
+RetWithError<CK_FUNCTION_LIST_PTR> StaticLibraryContext::Init()
 {
+    CK_FUNCTION_LIST_PTR functionList = nullptr;
+
+    CK_RV rv = C_GetFunctionList(&functionList);
+    if (rv != CKR_OK) {
+        LOG_ERR() << "C_GetFunctionList failed: err = " << rv;
+
+        return {nullptr, ErrorEnum::eFailed};
+    }
+
+    return {functionList, ErrorEnum::eNone};
 }
 
-Error LibraryContext::Init()
+#else
+
+/***********************************************************************************************************************
+ * DynamicLibraryContext
+ **********************************************************************************************************************/
+
+void DynamicLibraryContext::SetHandle(void* handle)
+{
+    mHandle = handle;
+}
+
+DynamicLibraryContext::~DynamicLibraryContext()
+{
+    if (dlclose(mHandle) != 0) {
+        LOG_ERR() << "PKCS11 library close failed: error = " << dlerror();
+    }
+}
+
+RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 {
     CK_C_GetFunctionList getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle, "C_GetFunctionList"));
 
     if (getFuncList == nullptr) {
         LOG_ERR() << "Can't find C_GetFunctionList: dlsym err = " << dlerror();
 
-        return ErrorEnum::eFailed;
+        return {nullptr, ErrorEnum::eFailed};
     }
 
-    CK_RV rv = getFuncList(&mFunctionList);
+    CK_FUNCTION_LIST_PTR functionList = nullptr;
+    CK_RV                rv           = getFuncList(&functionList);
     if (rv != CKR_OK) {
         LOG_ERR() << "C_GetFunctionList failed: err = " << rv;
 
-        return ErrorEnum::eFailed;
+        return {nullptr, ErrorEnum::eFailed};
+    }
+
+    return {functionList, ErrorEnum::eNone};
+}
+
+#endif
+
+/***********************************************************************************************************************
+ * LibraryContext
+ **********************************************************************************************************************/
+
+Error LibraryContext::Init()
+{
+    Error err = ErrorEnum::eNone;
+
+    Tie(mFunctionList, err) = PKCS11LibraryContext::Init();
+    if (!err.IsNone()) {
+        return err;
     }
 
     if (mFunctionList == nullptr) {
@@ -291,7 +342,7 @@ Error LibraryContext::Init()
         return ErrorEnum::eFailed;
     }
 
-    rv = mFunctionList->C_Initialize(nullptr);
+    auto rv = mFunctionList->C_Initialize(nullptr);
     if (rv != CKR_OK) {
         LOG_ERR() << "C_Initialize failed: err = " << rv;
 
@@ -429,10 +480,6 @@ LibraryContext::~LibraryContext()
         }
     } else {
         LOG_ERR() << "Close library failed. Library is not initialized.";
-    }
-
-    if (dlclose(mHandle) != 0) {
-        LOG_ERR() << "PKCS11 library close failed: error = " << dlerror();
     }
 }
 
@@ -809,6 +856,33 @@ Error SessionContext::FindObjectsFinal()
  * PKCS11Manager
  **********************************************************************************************************************/
 
+#if AOS_CONFIG_PKCS11_USE_STATIC_LIB
+
+SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary()
+{
+    LOG_INF() << "Loading static library";
+
+    for (auto& lib : mLibraries) {
+        if (lib.mFirst == "") {
+            return lib.mSecond;
+        }
+    }
+
+    if (mLibraries.MaxSize() == mLibraries.Size()) {
+        return nullptr;
+    }
+
+    auto res = MakeShared<LibraryContext>(&mAllocator);
+    if (!res || !res->Init().IsNone()) {
+        return nullptr;
+    }
+
+    mLibraries.EmplaceBack("", res);
+
+    return res;
+}
+
+#else
 SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
     LOG_INF() << "Loading library. path = " << library;
@@ -832,8 +906,14 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
         return nullptr;
     }
 
-    auto res = MakeShared<LibraryContext>(&mAllocator, handle);
-    if (!res || !res->Init().IsNone()) {
+    auto res = MakeShared<LibraryContext>(&mAllocator);
+    if (!res) {
+        return nullptr;
+    }
+
+    res->SetHandle(handle);
+
+    if (!res->Init().IsNone()) {
         return nullptr;
     }
 
@@ -841,6 +921,8 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 
     return res;
 }
+
+#endif
 
 /***********************************************************************************************************************
  * Utils
