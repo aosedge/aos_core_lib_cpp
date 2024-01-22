@@ -434,7 +434,13 @@ public:
      */
     static Error WriteFile(const String& fileName, const Array<uint8_t>& data, uint32_t perm)
     {
-        auto fd = open(fileName.CStr(), O_CREAT | O_WRONLY | O_TRUNC, perm);
+        // zephyr doesn't support O_TRUNC flag. This is WA to trunc file if it exists.
+        auto err = Remove(fileName);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        auto fd = open(fileName.CStr(), O_CREAT | O_WRONLY, perm);
         if (fd < 0) {
             return Error(errno);
         }
@@ -443,7 +449,7 @@ public:
         while (pos < data.Size()) {
             auto chunkSize = write(fd, data.Get() + pos, data.Size() - pos);
             if (chunkSize < 0) {
-                auto err = errno;
+                err = errno;
 
                 close(fd);
 
