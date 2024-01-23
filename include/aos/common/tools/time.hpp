@@ -22,19 +22,6 @@ namespace aos {
 using Duration = int64_t;
 
 /**
- * Returns time duration in years.
- *
- * @param num number of years.
- * @result Duration.
- */
-constexpr Duration Years(int64_t num)
-{
-    constexpr Duration year = 31556925974700000;
-
-    return year * num;
-}
-
-/**
  * An object specifying a time instant.
  */
 class Time {
@@ -42,12 +29,13 @@ public:
     /**
      * Duration constants.
      */
-    static constexpr Duration Nanoseconds  = 1;
-    static constexpr Duration Microseconds = 1000 * Nanoseconds;
-    static constexpr Duration Milliseconds = 1000 * Microseconds;
-    static constexpr Duration Seconds      = 1000 * Milliseconds;
-    static constexpr Duration Minutes      = 60 * Seconds;
-    static constexpr Duration Hours        = 60 * Minutes;
+    static constexpr Duration cNanoseconds  = 1;
+    static constexpr Duration cMicroseconds = 1000 * cNanoseconds;
+    static constexpr Duration cMilliseconds = 1000 * cMicroseconds;
+    static constexpr Duration cSeconds      = 1000 * cMilliseconds;
+    static constexpr Duration cMinutes      = 60 * cSeconds;
+    static constexpr Duration cHours        = 60 * cMinutes;
+    static constexpr Duration cYear         = 31556925974740 * cMicroseconds;
 
     /**
      * Constructs object instance
@@ -101,12 +89,12 @@ public:
 
         int64_t nsec = time.tv_nsec + duration;
 
-        time.tv_sec += nsec / Seconds;
-        time.tv_nsec = nsec % Seconds;
+        time.tv_sec += nsec / cSeconds;
+        time.tv_nsec = nsec % cSeconds;
 
         // sign of the remainder implementation defined => correct if negative
         if (time.tv_nsec < 0) {
-            time.tv_nsec += Seconds;
+            time.tv_nsec += cSeconds;
             time.tv_sec--;
         }
 
@@ -134,7 +122,7 @@ public:
      */
     uint64_t UnixNano() const
     {
-        uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * Seconds;
+        uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * cSeconds;
 
         return nsec;
     }
@@ -207,6 +195,17 @@ private:
 
     timespec mTime;
 };
+
+/**
+ * Returns time duration in years.
+ *
+ * @param num number of years.
+ * @result Duration.
+ */
+constexpr Duration Years(int64_t num)
+{
+    return Time::cYear * num;
+}
 
 } // namespace aos
 

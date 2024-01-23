@@ -154,7 +154,7 @@ TEST(ThreadTest, CondVarTimeout)
                         UniqueLock lock(mutex);
                         EXPECT_TRUE(lock.GetError().IsNone());
 
-                        EXPECT_TRUE(condVar.Wait(lock, aos::Time::Now().Add(1 * Time::Seconds)).IsNone());
+                        EXPECT_TRUE(condVar.Wait(lock, aos::Time::Now().Add(1 * Time::cSeconds)).IsNone());
                     })
                     .IsNone());
     usleep(500000);
@@ -163,15 +163,15 @@ TEST(ThreadTest, CondVarTimeout)
 
     // Check timeout
 
-    EXPECT_TRUE(
-        worker
-            .Run([&](void*) {
-                UniqueLock lock(mutex);
-                EXPECT_TRUE(lock.GetError().IsNone());
+    EXPECT_TRUE(worker
+                    .Run([&](void*) {
+                        UniqueLock lock(mutex);
+                        EXPECT_TRUE(lock.GetError().IsNone());
 
-                EXPECT_EQ(condVar.Wait(lock, aos::Time::Now().Add(100 * Time::Milliseconds)), aos::ErrorEnum::eTimeout);
-            })
-            .IsNone());
+                        EXPECT_EQ(condVar.Wait(lock, aos::Time::Now().Add(100 * Time::cMilliseconds)),
+                            aos::ErrorEnum::eTimeout);
+                    })
+                    .IsNone());
 
     EXPECT_TRUE(worker.Join().IsNone());
 
@@ -184,7 +184,7 @@ TEST(ThreadTest, CondVarTimeout)
                 EXPECT_TRUE(lock.GetError().IsNone());
 
                 EXPECT_TRUE(
-                    condVar.Wait(lock, aos::Time::Now().Add(1 * Time::Seconds), [&] { return ready; }).IsNone());
+                    condVar.Wait(lock, aos::Time::Now().Add(1 * Time::cSeconds), [&] { return ready; }).IsNone());
                 ready = false;
             })
             .IsNone());
@@ -206,7 +206,7 @@ TEST(ThreadTest, CondVarTimeout)
                         EXPECT_TRUE(lock.GetError().IsNone());
 
                         EXPECT_EQ(
-                            condVar.Wait(lock, aos::Time::Now().Add(100 * Time::Milliseconds), [&] { return ready; }),
+                            condVar.Wait(lock, aos::Time::Now().Add(100 * Time::cMilliseconds), [&] { return ready; }),
                             aos::ErrorEnum::eTimeout);
                     })
                     .IsNone());
