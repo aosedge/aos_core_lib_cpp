@@ -808,7 +808,7 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects)
         return ErrorEnum::eFailed;
     }
 
-    size_t foundObjectsCount = 0, chunk = 0;
+    unsigned long foundObjectsCount = 0, chunk = 0;
 
     objects.Resize(objects.MaxSize());
 
@@ -911,7 +911,7 @@ Utils::Utils(SessionContext& session, crypto::x509::ProviderItf& cryptoProvider,
 }
 
 RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
-    const Array<uint8_t>& id, const String& label, unsigned long bitsCount)
+    const Array<uint8_t>& id, const String& label, size_t bitsCount)
 {
     auto funcList = mSession.GetFunctionList();
 
