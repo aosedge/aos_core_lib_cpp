@@ -68,7 +68,15 @@ public:
      * @param nsec nano seconds part.
      * @result Ti
      */
-    static Time Unix(int64_t sec, int64_t nsec) { return Time({sec, nsec}); }
+    static Time Unix(int64_t sec, int64_t nsec)
+    {
+        timespec ts;
+
+        ts.tv_sec  = sec;
+        ts.tv_nsec = nsec;
+
+        return Time(ts);
+    }
 
     /**
      * Checks whether Time object is default initialized.
