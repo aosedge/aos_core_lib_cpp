@@ -760,22 +760,13 @@ private:
  */
 class PKCS11Manager {
 public:
-#if AOS_CONFIG_PKCS11_USE_STATIC_LIB
     /**
-     * Opens PKCS11 static library.
+     * Opens PKCS11 library.
      *
-     * @return SharedPtr<LibraryContext>
-     */
-    SharedPtr<LibraryContext> OpenLibrary();
-#else
-    /**
-     * Opens PKCS11 dynamic library.
-     *
-     * @param library path to pkcs11 shared library.
+     * @param library path to pkcs11 library.
      * @return SharedPtr<LibraryContext>
      */
     SharedPtr<LibraryContext> OpenLibrary(const String& library);
-#endif
 
 private:
     using LibraryInfo = Pair<StaticString<cFilePathLen>, SharedPtr<LibraryContext>>;

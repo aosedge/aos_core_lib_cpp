@@ -856,36 +856,9 @@ Error SessionContext::FindObjectsFinal()
  * PKCS11Manager
  **********************************************************************************************************************/
 
-#if AOS_CONFIG_PKCS11_USE_STATIC_LIB
-
-SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary()
-{
-    LOG_INF() << "Loading static library";
-
-    for (auto& lib : mLibraries) {
-        if (lib.mFirst == "") {
-            return lib.mSecond;
-        }
-    }
-
-    if (mLibraries.MaxSize() == mLibraries.Size()) {
-        return nullptr;
-    }
-
-    auto res = MakeShared<LibraryContext>(&mAllocator);
-    if (!res || !res->Init().IsNone()) {
-        return nullptr;
-    }
-
-    mLibraries.EmplaceBack("", res);
-
-    return res;
-}
-
-#else
 SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
-    LOG_INF() << "Loading library. path = " << library;
+    LOG_INF() << "Loading library: path = " << library;
 
     for (auto& lib : mLibraries) {
         if (lib.mFirst == library) {
@@ -897,6 +870,13 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
         return nullptr;
     }
 
+    auto ctx = MakeShared<LibraryContext>(&mAllocator);
+    if (!ctx) {
+        return nullptr;
+    }
+
+#if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
+
     dlerror(); // clean previous error status
 
     void* handle = dlopen(library.CStr(), RTLD_NOW);
@@ -906,23 +886,18 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
         return nullptr;
     }
 
-    auto res = MakeShared<LibraryContext>(&mAllocator);
-    if (!res) {
-        return nullptr;
-    }
-
-    res->SetHandle(handle);
-
-    if (!res->Init().IsNone()) {
-        return nullptr;
-    }
-
-    mLibraries.EmplaceBack(library, res);
-
-    return res;
-}
+    ctx->SetHandle(handle);
 
 #endif
+
+    if (!ctx->Init().IsNone()) {
+        return nullptr;
+    }
+
+    mLibraries.EmplaceBack(library, ctx);
+
+    return ctx;
+}
 
 /***********************************************************************************************************************
  * Utils
