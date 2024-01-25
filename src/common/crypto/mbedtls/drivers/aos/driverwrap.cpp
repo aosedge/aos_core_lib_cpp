@@ -48,6 +48,53 @@ struct KeyDescription {
 static aos::StaticArray<KeyDescription, MBEDTLS_PSA_KEY_SLOT_COUNT> sBuiltinKeys;
 aos::Mutex                                                          sMutex;
 
+static int ExportRsaPublicKeyToDer(
+    const aos::crypto::RSAPublicKey& rsaKey, uint8_t* data, size_t dataSize, size_t* dataLength)
+{
+    mbedtls_mpi N, E;
+
+    mbedtls_mpi_init(&N);
+    mbedtls_mpi_init(&E);
+
+    mbedtls_mpi_read_binary(&N, rsaKey.GetN().Get(), rsaKey.GetN().Size());
+    mbedtls_mpi_read_binary(&E, rsaKey.GetE().Get(), rsaKey.GetE().Size());
+
+    auto cleanup = [&]() {
+        mbedtls_mpi_free(&N);
+        mbedtls_mpi_free(&E);
+    };
+
+    // Write from the end of the buffer
+    unsigned char* c = data + dataSize;
+
+    auto ret = mbedtls_asn1_write_mpi(&c, data, &E);
+    if (ret < 0) {
+        cleanup();
+
+        return ret;
+    }
+
+    size_t len = ret;
+
+    if ((ret = mbedtls_asn1_write_mpi(&c, data, &N)) < 0) {
+        cleanup();
+
+        return ret;
+    }
+
+    len += ret;
+
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(&c, data, len));
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(&c, data, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE));
+
+    memmove(data, c, len);
+    *dataLength = len;
+
+    cleanup();
+
+    return 0;
+}
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -129,13 +176,14 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
     (void)keyBuffer;
     (void)keyBufferLength;
 
-    aos::LockGuard lock(sMutex);
-
     for (auto& key : sBuiltinKeys) {
         if (key.mSlotNumber == slotNumber) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA:
-                return PSA_ERROR_NOT_SUPPORTED;
+                psa_set_key_type(attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
+                psa_set_key_algorithm(attributes, PSA_ALG_RSA_PKCS1V15_SIGN(PSA_ALG_SHA_256));
+
+                break;
 
             case aos::crypto::KeyTypeEnum::eECDSA:
                 return PSA_ERROR_NOT_SUPPORTED;
@@ -143,6 +191,10 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
             default:
                 return PSA_ERROR_NOT_SUPPORTED;
             }
+
+            psa_set_key_id(attributes, key.mKeyId);
+            psa_set_key_lifetime(attributes, key.mLifetime);
+            psa_set_key_usage_flags(attributes, PSA_KEY_USAGE_SIGN_HASH | PSA_KEY_USAGE_VERIFY_HASH);
 
             return keyBufferSize != 0 ? PSA_SUCCESS : PSA_ERROR_BUFFER_TOO_SMALL;
         }
@@ -159,13 +211,24 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
     (void)key_buffer_size;
     (void)alg;
 
-    aos::LockGuard lock(sMutex);
-
     for (auto& key : sBuiltinKeys) {
         if (key.mKeyId == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA: {
-                return PSA_ERROR_NOT_SUPPORTED;
+                aos::crypto::SignOptions options;
+                options.mHash = aos::crypto::HashEnum::eSHA256;
+
+                aos::Array<uint8_t> digest(hash, hash_length);
+                aos::Array<uint8_t> signatureArray(signature, signature_size);
+
+                auto err = key.mPrivKey->Sign(digest, options, signatureArray);
+                if (!err.IsNone()) {
+                    return PSA_ERROR_NOT_SUPPORTED;
+                }
+
+                *signature_length = signatureArray.Size();
+
+                return PSA_SUCCESS;
             }
 
             case aos::crypto::KeyTypeEnum::eECDSA:
@@ -186,13 +249,18 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
     (void)key_buffer;
     (void)key_buffer_size;
 
-    aos::LockGuard lock(sMutex);
-
     for (auto& key : sBuiltinKeys) {
         if (key.mKeyId == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA: {
-                return PSA_ERROR_NOT_SUPPORTED;
+                auto ret
+                    = ExportRsaPublicKeyToDer(static_cast<const aos::crypto::RSAPublicKey&>(key.mPrivKey->GetPublic()),
+                        data, data_size, data_length);
+                if (ret != 0) {
+                    return PSA_ERROR_NOT_SUPPORTED;
+                }
+
+                return PSA_SUCCESS;
             }
 
             case aos::crypto::KeyTypeEnum::eECDSA:
