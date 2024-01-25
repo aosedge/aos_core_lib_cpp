@@ -68,6 +68,56 @@ aos::Error MbedTLSCryptoProvider::CreateCSR(
     return err;
 }
 
+aos::Error MbedTLSCryptoProvider::CreateCertificate(const aos::crypto::x509::Certificate& templ,
+    const aos::crypto::x509::Certificate& parent, const aos::crypto::PrivateKeyItf& privKey,
+    aos::Array<uint8_t>& pemCert)
+{
+    mbedtls_x509write_cert   cert;
+    mbedtls_pk_context       pk;
+    mbedtls_entropy_context  entropy;
+    mbedtls_ctr_drbg_context ctrDrbg;
+
+    auto err = InitializeCertificate(cert, pk, ctrDrbg, entropy);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    auto cleanupCert = [&]() {
+        mbedtls_x509write_crt_free(&cert);
+        mbedtls_pk_free(&pk);
+        mbedtls_ctr_drbg_free(&ctrDrbg);
+        mbedtls_entropy_free(&entropy);
+    };
+
+    auto ret = SetupOpaqueKey(pk, privKey);
+    if (!ret.mError.IsNone()) {
+        cleanupCert();
+
+        return ret.mError;
+    }
+
+    auto keyID = ret.mValue;
+
+    auto cleanupPSA = [&]() {
+        AosPsaRemoveKey(keyID);
+
+        cleanupCert();
+    };
+
+    err = SetCertificateProperties(cert, pk, ctrDrbg, templ, parent);
+    if (err != aos::ErrorEnum::eNone) {
+        cleanupPSA();
+
+        return err;
+    }
+
+    err = WriteCertificatePem(cert, pemCert);
+
+    cleanupPSA();
+
+    return err;
+}
+
 aos::Error MbedTLSCryptoProvider::PEMToX509Certs(
     const aos::Array<uint8_t>& pemBlob, aos::Array<aos::crypto::x509::Certificate>& resultCerts)
 {
@@ -451,6 +501,164 @@ aos::RetWithError<mbedtls_svc_key_id_t> MbedTLSCryptoProvider::SetupOpaqueKey(
     }
 
     return aos::RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, aos::ErrorEnum::eNone);
+}
+
+aos::Error MbedTLSCryptoProvider::InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
+    mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy)
+{
+    mbedtls_x509write_crt_init(&cert);
+    mbedtls_pk_init(&pk);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+    const char* pers = "cert_generation";
+
+    mbedtls_x509write_crt_set_md_alg(&cert, MBEDTLS_MD_SHA256);
+
+    return AOS_ERROR_WRAP(mbedtls_ctr_drbg_seed(
+        &ctr_drbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const unsigned char*>(pers), strlen(pers)));
+}
+
+aos::Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
+    mbedtls_ctr_drbg_context& ctrDrbg, const aos::crypto::x509::Certificate& templ,
+    const aos::crypto::x509::Certificate& parent)
+{
+    mbedtls_x509write_crt_set_subject_key(&cert, &pk);
+    mbedtls_x509write_crt_set_issuer_key(&cert, &pk);
+
+    auto err = SetCertificateSerialNumber(cert, ctrDrbg, templ);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    aos::StaticString<aos::crypto::cCertDNStringSize> subject;
+
+    err = ASN1DecodeDN(templ.mSubject, subject);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    auto ret = mbedtls_x509write_crt_set_subject_name(&cert, subject.CStr());
+    if (ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    err = SetCertificateValidityPeriod(cert, templ);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    aos::StaticString<aos::crypto::cCertDNStringSize> issuer;
+
+    err = ASN1DecodeDN((!parent.mSubject.IsEmpty() ? parent.mSubject : templ.mIssuer), issuer);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    ret = mbedtls_x509write_crt_set_issuer_name(&cert, issuer.CStr());
+    if (ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    err = SetCertificateSubjectKeyIdentifier(cert, templ);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    return SetCertificateAuthorityKeyIdentifier(cert, templ, parent);
+}
+
+aos::Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, aos::Array<uint8_t>& pemCert)
+{
+    pemCert.Resize(aos::crypto::cCertPEMSize);
+
+    auto ret = mbedtls_x509write_crt_pem(&cert, pemCert.Get(), pemCert.Size(), mbedtls_ctr_drbg_random, nullptr);
+    if (ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    pemCert.Resize(strlen(reinterpret_cast<const char*>(pemCert.Get())) + 1);
+
+    return aos::ErrorEnum::eNone;
+}
+
+aos::Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
+    mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const aos::crypto::x509::Certificate& templ)
+{
+    if (templ.mSerial.IsEmpty()) {
+        mbedtls_mpi serial;
+        mbedtls_mpi_init(&serial);
+
+        auto ret
+            = mbedtls_mpi_fill_random(&serial, MBEDTLS_X509_RFC5280_MAX_SERIAL_LEN, mbedtls_ctr_drbg_random, &ctrDrbg);
+        if (ret != 0) {
+            return AOS_ERROR_WRAP(ret);
+        }
+
+        ret = mbedtls_x509write_crt_set_serial(&cert, &serial);
+        mbedtls_mpi_free(&serial);
+
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_serial_raw(
+        &cert, const_cast<aos::crypto::x509::Certificate&>(templ).mSerial.Get(), templ.mSerial.Size()));
+}
+
+aos::Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
+    mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ)
+{
+    if (templ.mSubjectKeyId.IsEmpty()) {
+        return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_subject_key_identifier(&cert));
+    }
+
+    return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER,
+        MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER), 0, templ.mSubjectKeyId.Get(),
+        templ.mSubjectKeyId.Size()));
+}
+
+aos::Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(mbedtls_x509write_cert& cert,
+    const aos::crypto::x509::Certificate& templ, const aos::crypto::x509::Certificate& parent)
+{
+    if (!parent.mSubjectKeyId.IsEmpty()) {
+        return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
+            MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, parent.mSubjectKeyId.Get(),
+            parent.mSubjectKeyId.Size()));
+    }
+
+    if (templ.mAuthorityKeyId.IsEmpty()) {
+        return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_authority_key_identifier(&cert));
+    }
+
+    return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
+        MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, templ.mAuthorityKeyId.Get(),
+        templ.mAuthorityKeyId.Size()));
+}
+
+aos::Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
+    mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ)
+{
+    if (templ.mNotBefore.IsZero() || templ.mNotAfter.IsZero()) {
+        return aos::ErrorEnum::eInvalidArgument;
+    }
+
+    auto formatTime = [](char* buffer, size_t size, time_t unitTime) {
+        struct tm timeinfo;
+        gmtime_r(&unitTime, &timeinfo);
+
+        snprintf(buffer, size, "%04d%02d%02d%02d%02d%02d", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1,
+            timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    };
+
+    time_t unixTimeInSecondsBefore = templ.mNotBefore.UnixNano() / 1000000000;
+    time_t unixTimeInSecondsAfter  = templ.mNotAfter.UnixNano() / 1000000000;
+
+    char timeBufferBefore[16];
+    char timeBufferAfter[16];
+
+    formatTime(timeBufferBefore, sizeof(timeBufferBefore), unixTimeInSecondsBefore);
+    formatTime(timeBufferAfter, sizeof(timeBufferAfter), unixTimeInSecondsAfter);
+
+    return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_validity(&cert, timeBufferBefore, timeBufferAfter));
 }
 
 } // namespace crypto

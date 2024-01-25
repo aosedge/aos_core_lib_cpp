@@ -171,6 +171,13 @@
 #endif
 
 /**
+ * Maximum length of distinguished name string representation.
+ */
+#ifndef AOS_CONFIG_CRYPTO_DN_STRING_SIZE
+#define AOS_CONFIG_CRYPTO_DN_STRING_SIZE 128
+#endif
+
+/**
  * Max length of a DNS name.
  */
 #ifndef AOS_CONFIG_CRYPTO_DNS_NAME_LEN

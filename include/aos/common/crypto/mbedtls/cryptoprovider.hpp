@@ -145,6 +145,20 @@ private:
 
     aos::RetWithError<mbedtls_svc_key_id_t> SetupOpaqueKey(
         mbedtls_pk_context& pk, const aos::crypto::PrivateKeyItf& privKey);
+
+    aos::Error InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
+        mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy);
+    aos::Error SetCertificateProperties(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
+        mbedtls_ctr_drbg_context& ctrDrbg, const aos::crypto::x509::Certificate& templ,
+        const aos::crypto::x509::Certificate& parent);
+    aos::Error WriteCertificatePem(mbedtls_x509write_cert& cert, aos::Array<uint8_t>& pemCert);
+    aos::Error SetCertificateSerialNumber(
+        mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const aos::crypto::x509::Certificate& templ);
+    aos::Error SetCertificateSubjectKeyIdentifier(
+        mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ);
+    aos::Error SetCertificateAuthorityKeyIdentifier(mbedtls_x509write_cert& cert,
+        const aos::crypto::x509::Certificate& templ, const aos::crypto::x509::Certificate& parent);
+    aos::Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ);
 };
 
 } // namespace crypto

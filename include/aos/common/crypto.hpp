@@ -39,6 +39,11 @@ constexpr auto cAltDNSNamesCount = AOS_CONFIG_CRYPTO_ALT_DNS_NAMES_MAX_COUNT;
 constexpr auto cCertSubjSize = AOS_CONFIG_CRYPTO_CERT_ISSUER_SIZE;
 
 /**
+ * Maximum length of distinguished name string representation.
+ */
+constexpr auto cCertDNStringSize = AOS_CONFIG_CRYPTO_DN_STRING_SIZE;
+
+/**
  * Certificate extra extensions max number.
  */
 constexpr auto cCertExtraExtCount = AOS_CONFIG_CRYPTO_EXTRA_EXTENSIONS_COUNT;
