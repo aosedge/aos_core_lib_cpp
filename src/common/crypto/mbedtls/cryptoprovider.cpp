@@ -81,6 +81,35 @@ aos::Error MbedTLSCryptoProvider::DERToX509Cert(
     return err;
 }
 
+aos::Error MbedTLSCryptoProvider::ASN1EncodeDN(const aos::String& commonName, aos::Array<uint8_t>& result)
+{
+    mbedtls_asn1_named_data* dn {};
+
+    int ret = mbedtls_x509_string_to_names(&dn, commonName.CStr());
+    if (ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    result.Resize(result.MaxSize());
+    uint8_t* start = result.Get();
+    uint8_t* p     = start + result.Size();
+
+    ret = mbedtls_x509_write_names(&p, start, dn);
+    if (ret < 0) {
+        mbedtls_asn1_free_named_data_list(&dn);
+
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    size_t len = start + result.Size() - p;
+
+    memmove(start, p, len);
+
+    mbedtls_asn1_free_named_data_list(&dn);
+
+    return result.Resize(len);
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
