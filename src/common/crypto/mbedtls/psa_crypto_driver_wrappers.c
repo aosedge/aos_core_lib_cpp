@@ -39,6 +39,9 @@
 /* BEGIN-driver headers */
 #if defined(MBEDTLS_PSA_CRYPTO_DRIVERS)
 /* Headers for my_debug opaque driver */
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+#include "aos/common/crypto/mbedtls/drivers/aos/driver.h"
+#endif /* PSA_CRYPTO_DRIVER_AOS */
 
 
 #endif /* MBEDTLS_PSA_CRYPTO_DRIVERS */
@@ -330,6 +333,13 @@ psa_status_t psa_driver_wrapper_sign_hash(
 #endif /* PSA_CRYPTO_DRIVER_TEST */
 #endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
 
+#if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+    case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+        return (aos_signature_sign_hash(attributes, key_buffer, key_buffer_size, alg, hash, hash_length,
+            signature, signature_size, signature_length));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+#endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
         default:
             /* Key is declared with a lifetime not known to us */
             (void)status;
@@ -749,6 +759,14 @@ psa_status_t psa_driver_wrapper_get_key_buffer_size(
                     PSA_SUCCESS : PSA_ERROR_NOT_SUPPORTED );
 #endif /* PSA_CRYPTO_DRIVER_TEST */
 
+#if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+        case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+            return (aos_get_key_buffer_size(attributes, key_buffer_size));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+#endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
+
+
         default:
             (void)key_type;
             (void)key_bits;
@@ -1001,6 +1019,13 @@ psa_status_t psa_driver_wrapper_export_public_key(
                                                     data_length ) );
 
         /* Add cases for opaque driver here */
+#if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+#if defined (PSA_CRYPTO_DRIVER_AOS)
+    case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+        return (
+            aos_export_public_key(attributes, key_buffer, key_buffer_size, data, data_size, data_length));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+#endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
         default:
             /* Key is declared with a lifetime not known to us */
             return( status );
@@ -1021,6 +1046,13 @@ psa_status_t psa_driver_wrapper_get_builtin_key(
 
 
 #endif /* PSA_CRYPTO_DRIVER_TEST */
+
+#if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+    case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+        return (aos_get_builtin_key(slot_number, attributes, key_buffer, key_buffer_size, key_buffer_length));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+#endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
 
         default:
             (void) slot_number;
