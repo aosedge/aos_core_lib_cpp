@@ -60,6 +60,27 @@ aos::Error MbedTLSCryptoProvider::PEMToX509Certs(
     return aos::ErrorEnum::eNone;
 }
 
+aos::Error MbedTLSCryptoProvider::DERToX509Cert(
+    const aos::Array<uint8_t>& derBlob, aos::crypto::x509::Certificate& resultCert)
+{
+    mbedtls_x509_crt crt;
+
+    mbedtls_x509_crt_init(&crt);
+
+    int ret = mbedtls_x509_crt_parse_der(&crt, derBlob.Get(), derBlob.Size());
+    if (ret != 0) {
+        mbedtls_x509_crt_free(&crt);
+
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    auto err = ParseX509Certs(&crt, resultCert);
+
+    mbedtls_x509_crt_free(&crt);
+
+    return err;
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
