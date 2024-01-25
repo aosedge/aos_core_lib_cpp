@@ -275,6 +275,14 @@ aos::Error MbedTLSCryptoProvider::ASN1DecodeDN(const aos::Array<uint8_t>& dn, ao
     return aos::ErrorEnum::eNone;
 }
 
+aos::RetWithError<aos::SharedPtr<aos::crypto::PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(
+    const aos::Array<uint8_t>& pemBlob)
+{
+    (void)pemBlob;
+
+    return {nullptr, aos::ErrorEnum::eNotSupported};
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
