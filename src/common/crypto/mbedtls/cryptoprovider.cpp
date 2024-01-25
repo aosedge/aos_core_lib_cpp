@@ -283,6 +283,32 @@ aos::RetWithError<aos::SharedPtr<aos::crypto::PrivateKeyItf>> MbedTLSCryptoProvi
     return {nullptr, aos::ErrorEnum::eNotSupported};
 }
 
+aos::Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(
+    const aos::Array<aos::crypto::asn1::ObjectIdentifier>& src, aos::Array<uint8_t>& asn1Value)
+{
+    (void)src;
+    (void)asn1Value;
+
+    return aos::ErrorEnum::eNotSupported;
+}
+
+aos::Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const aos::Array<uint8_t>& number, aos::Array<uint8_t>& asn1Value)
+{
+    (void)number;
+    (void)asn1Value;
+
+    return aos::ErrorEnum::eNotSupported;
+}
+
+aos::Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(
+    const aos::Array<aos::Array<uint8_t>>& items, aos::Array<uint8_t>& asn1Value)
+{
+    (void)items;
+    (void)asn1Value;
+
+    return aos::ErrorEnum::eNotSupported;
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
