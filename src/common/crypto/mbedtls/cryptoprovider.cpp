@@ -19,6 +19,55 @@ namespace crypto {
  * Public
  **********************************************************************************************************************/
 
+aos::Error MbedTLSCryptoProvider::Init()
+{
+    auto ret = psa_crypto_init();
+
+    return ret != PSA_SUCCESS ? AOS_ERROR_WRAP(ret) : aos::ErrorEnum::eNone;
+}
+
+aos::Error MbedTLSCryptoProvider::CreateCSR(
+    const aos::crypto::x509::CSR& templ, const aos::crypto::PrivateKeyItf& privKey, aos::Array<uint8_t>& pemCSR)
+{
+    mbedtls_x509write_csr csr;
+    mbedtls_pk_context    key;
+
+    InitializeCSR(csr, key);
+
+    auto cleanupCSR = [&]() {
+        mbedtls_x509write_csr_free(&csr);
+        mbedtls_pk_free(&key);
+    };
+
+    auto ret = SetupOpaqueKey(key, privKey);
+    if (!ret.mError.IsNone()) {
+        cleanupCSR();
+
+        return ret.mError;
+    }
+
+    auto keyID = ret.mValue;
+
+    auto cleanupPSA = [&]() {
+        AosPsaRemoveKey(keyID);
+
+        cleanupCSR();
+    };
+
+    auto err = SetCSRProperties(csr, key, templ);
+    if (err != aos::ErrorEnum::eNone) {
+        cleanupPSA();
+
+        return err;
+    }
+
+    err = WriteCSRPem(csr, pemCSR);
+
+    cleanupPSA();
+
+    return err;
+}
+
 aos::Error MbedTLSCryptoProvider::PEMToX509Certs(
     const aos::Array<uint8_t>& pemBlob, aos::Array<aos::crypto::x509::Certificate>& resultCerts)
 {
@@ -302,6 +351,106 @@ aos::Error MbedTLSCryptoProvider::GetOIDString(aos::Array<uint8_t>& oid, aos::St
     result.Append(shortName).Append("=");
 
     return aos::ErrorEnum::eNone;
+}
+
+void MbedTLSCryptoProvider::InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk)
+{
+    mbedtls_x509write_csr_init(&csr);
+    mbedtls_pk_init(&pk);
+
+    mbedtls_x509write_csr_set_md_alg(&csr, MBEDTLS_MD_SHA256);
+}
+
+aos::Error MbedTLSCryptoProvider::SetCSRProperties(
+    mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const aos::crypto::x509::CSR& templ)
+{
+    mbedtls_x509write_csr_set_key(&csr, &pk);
+
+    aos::StaticString<aos::crypto::cCertSubjSize> subject;
+    auto                                          err = ASN1DecodeDN(templ.mSubject, subject);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    auto ret = mbedtls_x509write_csr_set_subject_name(&csr, subject.CStr());
+    if (ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    err = SetCSRAlternativeNames(csr, templ);
+    if (err != aos::ErrorEnum::eNone) {
+        return err;
+    }
+
+    return SetCSRExtraExtensions(csr, templ);
+}
+
+aos::Error MbedTLSCryptoProvider::SetCSRAlternativeNames(
+    mbedtls_x509write_csr& csr, const aos::crypto::x509::CSR& templ)
+{
+    mbedtls_x509_san_list   sanList[aos::crypto::cAltDNSNamesCount];
+    aos::crypto::x509::CSR& tmpl         = const_cast<aos::crypto::x509::CSR&>(templ);
+    size_t                  dnsNameCount = tmpl.mDNSNames.Size();
+
+    for (size_t i = 0; i < tmpl.mDNSNames.Size(); i++) {
+        sanList[i].node.type                      = MBEDTLS_X509_SAN_DNS_NAME;
+        sanList[i].node.san.unstructured_name.tag = MBEDTLS_ASN1_IA5_STRING;
+        sanList[i].node.san.unstructured_name.len = tmpl.mDNSNames[i].Size();
+        sanList[i].node.san.unstructured_name.p   = reinterpret_cast<unsigned char*>(tmpl.mDNSNames[i].Get());
+
+        sanList[i].next = (i < dnsNameCount - 1) ? &sanList[i + 1] : nullptr;
+    }
+
+    return AOS_ERROR_WRAP(mbedtls_x509write_csr_set_subject_alternative_name(&csr, sanList));
+}
+
+aos::Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const aos::crypto::x509::CSR& templ)
+{
+    for (const auto& extension : templ.mExtraExtensions) {
+        const char*          oid      = extension.mId.CStr();
+        const unsigned char* value    = extension.mValue.Get();
+        size_t               oidLen   = extension.mId.Size();
+        size_t               valueLen = extension.mValue.Size();
+
+        int ret = mbedtls_x509write_csr_set_extension(&csr, oid, oidLen, 0, value, valueLen);
+        if (ret != 0) {
+            return AOS_ERROR_WRAP(ret);
+        }
+    }
+
+    return aos::ErrorEnum::eNone;
+}
+
+aos::Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, aos::Array<uint8_t>& pemCSR)
+{
+    unsigned char buffer[4096];
+    auto          ret = mbedtls_x509write_csr_pem(&csr, buffer, sizeof(buffer), nullptr, nullptr);
+    if (ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    pemCSR.Resize(strlen(reinterpret_cast<const char*>(buffer)) + 1);
+    memcpy(pemCSR.Get(), buffer, pemCSR.Size());
+
+    return aos::ErrorEnum::eNone;
+}
+
+aos::RetWithError<mbedtls_svc_key_id_t> MbedTLSCryptoProvider::SetupOpaqueKey(
+    mbedtls_pk_context& pk, const aos::crypto::PrivateKeyItf& privKey)
+{
+    auto statusAddKey = AosPsaAddKey(privKey);
+    if (!statusAddKey.mError.IsNone()) {
+        return statusAddKey;
+    }
+
+    auto ret = mbedtls_pk_setup_opaque(&pk, statusAddKey.mValue);
+    if (ret != 0) {
+        AosPsaRemoveKey(statusAddKey.mValue);
+
+        return aos::RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, AOS_ERROR_WRAP(ret));
+    }
+
+    return aos::RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, aos::ErrorEnum::eNone);
 }
 
 } // namespace crypto

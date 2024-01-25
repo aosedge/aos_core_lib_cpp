@@ -25,6 +25,13 @@ namespace crypto {
 class MbedTLSCryptoProvider : public aos::crypto::x509::ProviderItf {
 public:
     /**
+     * Initializes the object.
+     *
+     * @result Error.
+     */
+    aos::Error Init();
+
+    /**
      * Creates a new certificate based on a template.
      *
      * @param templ a pattern for a new certificate.
@@ -128,6 +135,16 @@ private:
     aos::Error ParseX509Certs(mbedtls_x509_crt* currentCrt, aos::crypto::x509::Certificate& cert);
     aos::Error GetX509CertExtensions(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt);
     void       GetX509CertData(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt);
+
+    void       InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk);
+    aos::Error SetCSRProperties(
+        mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const aos::crypto::x509::CSR& templ);
+    aos::Error SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const aos::crypto::x509::CSR& templ);
+    aos::Error SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const aos::crypto::x509::CSR& templ);
+    aos::Error WriteCSRPem(mbedtls_x509write_csr& csr, aos::Array<uint8_t>& pemCSR);
+
+    aos::RetWithError<mbedtls_svc_key_id_t> SetupOpaqueKey(
+        mbedtls_pk_context& pk, const aos::crypto::PrivateKeyItf& privKey);
 };
 
 } // namespace crypto
