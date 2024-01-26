@@ -7,6 +7,11 @@
 
 set(TARGET aoscommoncpp)
 
+option(WITH_MBEDTLS "build with mbedTLS" ON)
+
+message(STATUS "WITH_MBEDTLS                  = ${WITH_MBEDTLS}")
+message(STATUS)
+
 # ######################################################################################################################
 # Versioning
 # ######################################################################################################################
@@ -26,12 +31,61 @@ execute_process(
 )
 
 # ######################################################################################################################
+# Fetch and setup MbedTLS
+# ######################################################################################################################
+
+if(WITH_MBEDTLS)
+    include(FetchContent)
+
+    set(FETCHCONTENT_QUIET FALSE)
+
+    FetchContent_Declare(
+        mbedtls
+        GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
+        GIT_TAG v3.4.1
+        GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
+        PATCH_COMMAND
+            cp ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/psa_crypto_driver_wrappers.c
+            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.c && cp
+            ${CMAKE_SOURCE_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
+            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include/mbedtls/mbedtls_config.h
+    )
+
+    set(ENABLE_TESTING
+        OFF
+        CACHE BOOL "" FORCE
+    )
+    set(ENABLE_PROGRAMS
+        OFF
+        CACHE BOOL "" FORCE
+    )
+
+    add_definitions(-DPSA_CRYPTO_DRIVER_AOS)
+
+    FetchContent_MakeAvailable(mbedtls)
+endif()
+
+# ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_library(${TARGET} STATIC monitoring/monitoring.cpp uuid.cpp pkcs11/pkcs11.cpp pkcs11/privatekey.cpp cryptoutils.cpp)
+add_library(
+    ${TARGET} STATIC
+    monitoring/monitoring.cpp
+    uuid.cpp
+    pkcs11/pkcs11.cpp
+    pkcs11/privatekey.cpp
+    cryptoutils.cpp
+    crypto/mbedtls/cryptoprovider.cpp
+    crypto/mbedtls/drivers/aos/driverwrap.cpp
+)
 
 target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)
+
+if(WITH_MBEDTLS)
+    target_link_libraries(${TARGET} PUBLIC mbedcrypto mbedx509 mbedtls)
+endif()
 
 # ######################################################################################################################
 # Install
