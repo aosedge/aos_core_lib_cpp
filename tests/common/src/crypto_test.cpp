@@ -590,12 +590,6 @@ TEST(CryptoTest, CreateSelfSignedCert)
 
     templ.mNotAfter = aos::Time::Unix(now_sec, now_nsec).Add(aos::Time::cYear);
 
-    uint8_t subjectID[] = {0x1, 0x2, 0x3, 0x4, 0x5};
-    templ.mSubjectKeyId = aos::Array<uint8_t>(subjectID, sizeof(subjectID));
-
-    uint8_t authorityID[] = {0x5, 0x4, 0x3, 0x2, 0x1};
-    templ.mAuthorityKeyId = aos::Array<uint8_t>(authorityID, sizeof(authorityID));
-
     const char* subjectName = "CN=Test,O=Org,C=UA";
     ASSERT_EQ(crypto.ASN1EncodeDN(subjectName, templ.mSubject), aos::ErrorEnum::eNone);
 
