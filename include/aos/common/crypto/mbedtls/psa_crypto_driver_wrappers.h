@@ -54,6 +54,11 @@
 
 #endif
 
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+#include "aos/common/crypto/mbedtls/drivers/aos/driver.h"
+
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+
 /* END-driver headers */
 
 /* Auto-generated values depending on which drivers are registered.
@@ -362,6 +367,16 @@ static inline psa_status_t psa_driver_wrapper_sign_hash(
                                                              signature_size,
                                                              signature_length ) );
 #endif /* PSA_CRYPTO_DRIVER_TEST */
+#endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
+
+#if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+        case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+             return (aos_signature_sign_hash(attributes, key_buffer, key_buffer_size, alg, hash, hash_length,
+                signature, signature_size, signature_length));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+
 #endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
 
         default:

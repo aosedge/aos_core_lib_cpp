@@ -53,6 +53,11 @@
 
 #endif
 
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+#include "aos/common/crypto/mbedtls/drivers/aos/driver.h"
+
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+
 /* END-driver headers */
 
 /* Auto-generated values depending on which drivers are registered.
@@ -125,6 +130,11 @@ psa_status_t psa_driver_wrapper_get_key_buffer_size(
 #endif /* PSA_CRYPTO_DRIVER_TEST */
 
 #if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+        case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+            return (aos_get_key_buffer_size(attributes, key_buffer_size));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
 
 #endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
 
@@ -231,6 +241,12 @@ psa_status_t psa_driver_wrapper_export_public_key(
 
 #if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
 
+#if defined (PSA_CRYPTO_DRIVER_AOS)
+    case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+        return (
+            aos_export_public_key(attributes, key_buffer, key_buffer_size, data, data_size, data_length));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
+
 #endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
 
         default:
@@ -266,6 +282,11 @@ psa_status_t psa_driver_wrapper_get_builtin_key(
 #endif /* PSA_CRYPTO_DRIVER_TEST */
 
 #if defined(PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT)
+
+#if defined(PSA_CRYPTO_DRIVER_AOS)
+    case PSA_CRYPTO_AOS_DRIVER_LOCATION:
+        return (aos_get_builtin_key(slot_number, attributes, key_buffer, key_buffer_size, key_buffer_length));
+#endif /* PSA_CRYPTO_DRIVER_AOS */
 
 #endif /* PSA_CRYPTO_ACCELERATOR_DRIVER_PRESENT */
 
