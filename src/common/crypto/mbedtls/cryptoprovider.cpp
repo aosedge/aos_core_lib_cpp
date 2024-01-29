@@ -5,8 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <mbedtls/asn1write.h>
 #include <mbedtls/oid.h>
 #include <mbedtls/pk.h>
+#include <mbedtls/platform.h>
+#include <mbedtls/x509.h>
 #include <psa/crypto.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
@@ -14,6 +17,85 @@
 
 namespace aos {
 namespace crypto {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+static void Reverse(uint8_t* beg, uint8_t* end)
+{
+    end--;
+    while (beg < end) {
+        auto tmp = *beg;
+
+        *beg = *end;
+        *end = tmp;
+
+        beg++;
+        end--;
+    }
+}
+
+static int ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, unsigned char** p, unsigned char* start)
+{
+    size_t len = 0;
+    int    ret = 0;
+
+    for (int i = items.Size() - 1; i >= 0; i--) {
+        const auto& item = items[i];
+        MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_raw_buffer(p, start, item.Get(), item.Size()));
+    }
+
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED));
+
+    return len;
+}
+
+static int ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, unsigned char** p, unsigned char* start)
+{
+    size_t len = 0;
+    int    ret = 0;
+
+    for (int i = oids.Size() - 1; i >= 0; i--) {
+        const auto& oid = oids[i];
+
+        mbedtls_asn1_buf resOID = {};
+
+        auto ret = mbedtls_oid_from_numeric_string(&resOID, oid.Get(), oid.Size());
+        if (ret != 0) {
+            return ret;
+        }
+
+        ret = mbedtls_asn1_write_oid(p, start, reinterpret_cast<const char*>(resOID.p), resOID.len);
+        mbedtls_free(resOID.p);
+
+        if (ret < 0) {
+            return ret;
+        }
+
+        len += ret;
+    }
+
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED));
+
+    return len;
+}
+
+static int ASN1EncodeBigInt(const Array<uint8_t>& number, unsigned char** p, unsigned char* start)
+{
+    size_t len = 0;
+    int    ret = 0;
+
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_raw_buffer(p, start, number.Get(), number.Size()));
+    Reverse(*p, *p + number.Size());
+
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
+    MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_INTEGER));
+
+    return len;
+}
 
 /***********************************************************************************************************************
  * Public
@@ -211,68 +293,29 @@ aos::Error MbedTLSCryptoProvider::ASN1EncodeDN(const aos::String& commonName, ao
 
 aos::Error MbedTLSCryptoProvider::ASN1DecodeDN(const aos::Array<uint8_t>& dn, aos::String& result)
 {
-    int                  ret {};
-    size_t               len;
-    const unsigned char* end        = dn.Get() + dn.Size();
-    unsigned char*       currentPos = const_cast<aos::Array<uint8_t>&>(dn).Get();
+    mbedtls_asn1_named_data tmpDN = {};
 
-    if ((ret = mbedtls_asn1_get_tag(&currentPos, end, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-        return AOS_ERROR_WRAP(ret);
+    uint8_t* p   = const_cast<uint8_t*>(dn.begin());
+    size_t   tmp = 0;
+
+    if ((mbedtls_asn1_get_tag(&p, dn.end(), &tmp, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
+        return ErrorEnum::eFailed;
     }
 
-    const unsigned char* sequenceEnd = currentPos + len;
-
-    while (currentPos < sequenceEnd) {
-        if ((ret = mbedtls_asn1_get_tag(&currentPos, sequenceEnd, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SET))
-            != 0) {
-            return AOS_ERROR_WRAP(ret);
-        }
-
-        const unsigned char* setEnd = currentPos + len;
-
-        if ((ret = mbedtls_asn1_get_tag(&currentPos, setEnd, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE))
-            != 0) {
-            return AOS_ERROR_WRAP(ret);
-        }
-
-        const unsigned char* seqEnd = currentPos + len;
-
-        if ((ret = mbedtls_asn1_get_tag(&currentPos, seqEnd, &len, MBEDTLS_ASN1_OID)) != 0) {
-            return AOS_ERROR_WRAP(ret);
-        }
-
-        auto oid {aos::Array<uint8_t> {currentPos, len}};
-
-        auto err = GetOIDString(oid, result);
-        if (err != aos::ErrorEnum::eNone) {
-            return err;
-        }
-
-        currentPos += len;
-
-        unsigned char tag = *currentPos;
-
-        if (tag != MBEDTLS_ASN1_UTF8_STRING && tag != MBEDTLS_ASN1_PRINTABLE_STRING) {
-            return aos::ErrorEnum::eInvalidArgument;
-        }
-
-        if ((ret = mbedtls_asn1_get_tag(&currentPos, seqEnd, &len, tag)) != 0) {
-            return AOS_ERROR_WRAP(ret);
-        }
-
-        result.Insert(
-            result.end(), reinterpret_cast<const char*>(currentPos), reinterpret_cast<const char*>(currentPos) + len);
-        result.Append(", ");
-
-        currentPos += len;
+    if (mbedtls_x509_get_name(&p, dn.end(), &tmpDN) != 0) {
+        return ErrorEnum::eFailed;
     }
 
-    if (!result.IsEmpty()) {
-        // Remove the last two characters (", ")
-        result.Resize(result.Size() - 2);
+    result.Resize(result.MaxSize());
+
+    int len = mbedtls_x509_dn_gets(result.Get(), result.Size(), &tmpDN);
+    mbedtls_asn1_free_named_data_list_shallow(tmpDN.next);
+
+    if (len < 0) {
+        return ErrorEnum::eFailed;
     }
 
-    return aos::ErrorEnum::eNone;
+    return result.Resize(len);
 }
 
 aos::RetWithError<aos::SharedPtr<aos::crypto::PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(
@@ -286,27 +329,56 @@ aos::RetWithError<aos::SharedPtr<aos::crypto::PrivateKeyItf>> MbedTLSCryptoProvi
 aos::Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(
     const aos::Array<aos::crypto::asn1::ObjectIdentifier>& src, aos::Array<uint8_t>& asn1Value)
 {
-    (void)src;
-    (void)asn1Value;
+    asn1Value.Resize(asn1Value.MaxSize());
 
-    return aos::ErrorEnum::eNotSupported;
+    uint8_t* start = asn1Value.Get();
+    uint8_t* p     = asn1Value.Get() + asn1Value.Size();
+
+    int len = aos::crypto::ASN1EncodeObjectIds(src, &p, start);
+    if (len < 0) {
+        return ErrorEnum::eFailed;
+    }
+
+    memmove(asn1Value.Get(), p, len);
+
+    return asn1Value.Resize(len);
 }
 
 aos::Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const aos::Array<uint8_t>& number, aos::Array<uint8_t>& asn1Value)
 {
-    (void)number;
-    (void)asn1Value;
+    asn1Value.Resize(asn1Value.MaxSize());
+    uint8_t* p = asn1Value.Get() + asn1Value.Size();
 
-    return aos::ErrorEnum::eNotSupported;
+    // MBEDTLS MPI implementation seem doesn't work as expected:
+    // mbedtls_mpi_read_binary & mbedtls_asn1_write_mpi writes integer backward into result ASN1 buffer.
+    // Implement some workaround for that.
+
+    int len = aos::crypto::ASN1EncodeBigInt(number, &p, asn1Value.Get());
+    if (len < 0) {
+        return ErrorEnum::eFailed;
+    }
+
+    memmove(asn1Value.Get(), p, len);
+
+    return asn1Value.Resize(len);
 }
 
 aos::Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(
     const aos::Array<aos::Array<uint8_t>>& items, aos::Array<uint8_t>& asn1Value)
 {
-    (void)items;
-    (void)asn1Value;
+    asn1Value.Resize(asn1Value.MaxSize());
 
-    return aos::ErrorEnum::eNotSupported;
+    uint8_t* start = asn1Value.Get();
+    uint8_t* p     = asn1Value.Get() + asn1Value.Size();
+
+    int len = aos::crypto::ASN1EncodeDERSequence(items, &p, start);
+    if (len < 0) {
+        return ErrorEnum::eFailed;
+    }
+
+    memmove(asn1Value.Get(), p, len);
+
+    return asn1Value.Resize(len);
 }
 
 /***********************************************************************************************************************
@@ -411,28 +483,6 @@ aos::Error MbedTLSCryptoProvider::GetX509CertExtensions(aos::crypto::x509::Certi
 
         next = next->next;
     }
-
-    return aos::ErrorEnum::eNone;
-}
-
-aos::Error MbedTLSCryptoProvider::GetOIDString(aos::Array<uint8_t>& oid, aos::String& result)
-{
-    mbedtls_asn1_buf oidBuf;
-    oidBuf.p   = oid.Get();
-    oidBuf.len = oid.Size();
-
-    const char* shortName {};
-
-    int ret = mbedtls_oid_get_attr_short_name(&oidBuf, &shortName);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ret);
-    }
-
-    if (shortName == nullptr) {
-        return aos::ErrorEnum::eNone;
-    }
-
-    result.Append(shortName).Append("=");
 
     return aos::ErrorEnum::eNone;
 }

@@ -131,7 +131,6 @@ public:
         const aos::Array<aos::Array<uint8_t>>& items, aos::Array<uint8_t>& asn1Value) override;
 
 private:
-    aos::Error GetOIDString(aos::Array<uint8_t>& oid, aos::String& result);
     aos::Error ParseX509Certs(mbedtls_x509_crt* currentCrt, aos::crypto::x509::Certificate& cert);
     aos::Error GetX509CertExtensions(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt);
     void       GetX509CertData(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt);
