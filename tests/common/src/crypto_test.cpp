@@ -6,7 +6,7 @@
  */
 
 #include <algorithm>
-#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <memory>
 #include <vector>
 
@@ -22,6 +22,8 @@
 /***********************************************************************************************************************
  * Static
  **********************************************************************************************************************/
+
+using namespace testing;
 
 static std::pair<aos::Error, std::vector<unsigned char>> GenerateRSAPrivateKey()
 {
@@ -663,4 +665,220 @@ TEST(CryptoTest, CreateCSRUsingECKey)
 
     ret = mbedtls_x509_csr_parse(csrPtr.get(), pemCSR.Get(), pemCSR.Size());
     ASSERT_EQ(ret, 0);
+}
+
+/***********************************************************************************************************************
+ * Tests are written using
+ * ASN1 dumper: https://kjur.github.io/jsrsasign/tool/tool_asn1dumper.html
+ * ASN1 encoder: https://github.com/andrivet/python-asn1/tree/master
+ **********************************************************************************************************************/
+
+/**
+ * Python script to check encryption is correct:
+ * import asn1
+ *
+ * enc = asn1.Encoder()
+ * enc.start()
+ * enc.enter(asn1.Numbers.Sequence)
+ * enc.write('1.3.6.1.5.5.7.3.1', asn1.Numbers.ObjectIdentifier)
+ * enc.write('1.3.6.1.5.5.7.3.2', asn1.Numbers.ObjectIdentifier)
+ * enc.leave()
+ * encoded_bytes = enc.output()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1EncodeObjectIds)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    static constexpr auto cOidExtKeyUsageServerAuth = "1.3.6.1.5.5.7.3.1";
+    static constexpr auto cOidExtKeyUsageClientAuth = "1.3.6.1.5.5.7.3.2";
+
+    aos::StaticArray<aos::crypto::asn1::ObjectIdentifier, 3> oids;
+    aos::StaticArray<uint8_t, 100>                           asn1Value;
+
+    oids.PushBack(cOidExtKeyUsageServerAuth);
+    oids.PushBack(cOidExtKeyUsageClientAuth);
+
+    ASSERT_EQ(provider.ASN1EncodeObjectIds(oids, asn1Value), aos::ErrorEnum::eNone);
+
+    const std::vector<uint8_t> actual       = {asn1Value.begin(), asn1Value.end()};
+    const std::vector<uint8_t> expectedASN1 = {0x30, 0x14, 0x6, 0x8, 0x2b, 0x6, 0x1, 0x5, 0x5, 0x7, 0x3, 0x1, 0x6, 0x8,
+        0x2b, 0x6, 0x1, 0x5, 0x5, 0x7, 0x3, 0x2};
+
+    EXPECT_THAT(actual, ElementsAreArray(expectedASN1));
+}
+
+/**
+ * Python script to check encryption is correct:
+ * import asn1
+ *
+ * enc = asn1.Encoder()
+ * enc.start()
+ * enc.enter(asn1.Numbers.Sequence)
+ * enc.leave()
+ * encoded_bytes = enc.output()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1EncodeObjectIdsEmptyOIDS)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    aos::StaticArray<aos::crypto::asn1::ObjectIdentifier, 3> oids;
+    aos::StaticArray<uint8_t, 100>                           asn1Value;
+
+    ASSERT_EQ(provider.ASN1EncodeObjectIds(oids, asn1Value), aos::ErrorEnum::eNone);
+
+    const std::vector<uint8_t> actual       = {asn1Value.begin(), asn1Value.end()};
+    const std::vector<uint8_t> expectedASN1 = {0x30, 0x0};
+
+    EXPECT_THAT(actual, ElementsAreArray(expectedASN1));
+}
+
+/**
+ * Python script to check encryption is correct:
+ * import asn1
+ *
+ * enc = asn1.Encoder()
+ * enc.start()
+ * enc.write(0x17ad4f605cdae79e)
+ * encoded_bytes = enc.output()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1EncodeBigInt)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    const uint64_t            bigInt      = 0x17ad4f605cdae79e;
+    const aos::Array<uint8_t> inputBigInt = {reinterpret_cast<const uint8_t*>(&bigInt), sizeof(bigInt)};
+
+    aos::StaticArray<uint8_t, 100> asn1Value;
+
+    ASSERT_EQ(provider.ASN1EncodeBigInt(inputBigInt, asn1Value), aos::ErrorEnum::eNone);
+
+    std::vector<uint8_t>       actual       = {asn1Value.begin(), asn1Value.end()};
+    const std::vector<uint8_t> expectedASN1 = {0x2, 0x8, 0x17, 0xad, 0x4f, 0x60, 0x5c, 0xda, 0xe7, 0x9e};
+
+    EXPECT_THAT(actual, ElementsAreArray(expectedASN1));
+}
+
+/**
+ * Python script to check encryption is correct:
+ * import asn1
+ *
+ * enc = asn1.Encoder()
+ * enc.start()
+ * enc.enter(asn1.Numbers.Sequence)
+ * enc.write('1.3.6.1.5.5.7.3.1', asn1.Numbers.ObjectIdentifier)
+ * enc.write(0x17ad4f605cdae79e)
+ * enc.leave()
+ * encoded_bytes = enc.output()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1EncodeDERSequence)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    const uint8_t cOidServerAuth[] = {0x6, 0x8, 0x2b, 0x6, 0x1, 0x5, 0x5, 0x7, 0x3, 0x1};
+    const uint8_t cBigInt[]        = {0x2, 0x8, 0x17, 0xad, 0x4f, 0x60, 0x5c, 0xda, 0xe7, 0x9e};
+
+    aos::StaticArray<aos::Array<uint8_t>, 2> src;
+
+    src.PushBack(aos::Array<uint8_t>(cOidServerAuth, sizeof(cOidServerAuth)));
+    src.PushBack(aos::Array<uint8_t>(cBigInt, sizeof(cBigInt)));
+
+    aos::StaticArray<uint8_t, 100> asn1Value;
+
+    ASSERT_EQ(provider.ASN1EncodeDERSequence(src, asn1Value), aos::ErrorEnum::eNone);
+
+    std::vector<uint8_t>       actual       = {asn1Value.begin(), asn1Value.end()};
+    const std::vector<uint8_t> expectedASN1 = {0x30, 0x14, 0x6, 0x8, 0x2b, 0x6, 0x1, 0x5, 0x5, 0x7, 0x3, 0x1, 0x2, 0x8,
+        0x17, 0xad, 0x4f, 0x60, 0x5c, 0xda, 0xe7, 0x9e};
+
+    EXPECT_THAT(actual, ElementsAreArray(expectedASN1));
+}
+
+/**
+ * Python script to check encryption is correct:
+ * import asn1
+ *
+ * enc = asn1.Encoder()
+ * enc.start()
+ * enc.enter(asn1.Numbers.Sequence)
+ * enc.leave()
+ * encoded_bytes = enc.output()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1EncodeDERSequenceEmptySequence)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    aos::StaticArray<aos::Array<uint8_t>, 2> src;
+    aos::StaticArray<uint8_t, 100>           asn1Value;
+
+    ASSERT_EQ(provider.ASN1EncodeDERSequence(src, asn1Value), aos::ErrorEnum::eNone);
+
+    std::vector<uint8_t>       actual       = {asn1Value.begin(), asn1Value.end()};
+    const std::vector<uint8_t> expectedASN1 = {0x30, 0x0};
+
+    EXPECT_THAT(actual, ElementsAreArray(expectedASN1));
+}
+
+/**
+ * Python script to check encryption is correct:
+ * import cryptography
+ * from cryptography import x509
+ *
+ * dn = x509.Name.from_rfc4514_string("C=UA,CN=Aos Core")
+ * encoded_bytes = dn.public_bytes()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1EncodeDN)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    aos::StaticString<100> src = "C=UA,CN=Aos Core";
+
+    aos::StaticArray<uint8_t, 100> asn1Value;
+
+    ASSERT_EQ(provider.ASN1EncodeDN(src, asn1Value), aos::ErrorEnum::eNone);
+
+    std::vector<uint8_t>       actual = {asn1Value.begin(), asn1Value.end()};
+    const std::vector<uint8_t> expectedASN1
+        = {0x30, 0x20, 0x31, 0xb, 0x30, 0x9, 0x6, 0x3, 0x55, 0x4, 0x6, 0x13, 0x2, 0x55, 0x41, 0x31, 0x11, 0x30, 0xf,
+            0x6, 0x3, 0x55, 0x4, 0x3, 0xc, 0x8, 0x41, 0x6f, 0x73, 0x20, 0x43, 0x6f, 0x72, 0x65};
+
+    EXPECT_THAT(actual, ElementsAreArray(expectedASN1));
+}
+
+/**
+ * Python script to check decryption is correct:
+ * import cryptography
+ * from cryptography import x509
+ *
+ * dn = x509.Name.from_rfc4514_string("C=UA,CN=Aos Core")
+ * encoded_bytes = dn.public_bytes()
+ * print(", ".join(hex(b) for b in encoded_bytes))
+ * print("".join('%02x'%b for b in encoded_bytes))
+ */
+TEST(CryptoTest, ASN1DecodeDN)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    const std::vector<uint8_t> asn1Val
+        = {0x30, 0x20, 0x31, 0xb, 0x30, 0x9, 0x6, 0x3, 0x55, 0x4, 0x6, 0x13, 0x2, 0x55, 0x41, 0x31, 0x11, 0x30, 0xf,
+            0x6, 0x3, 0x55, 0x4, 0x3, 0xc, 0x8, 0x41, 0x6f, 0x73, 0x20, 0x43, 0x6f, 0x72, 0x65};
+
+    const auto input = aos::Array<uint8_t>(asn1Val.data(), asn1Val.size());
+
+    aos::StaticString<100> result;
+
+    ASSERT_EQ(provider.ASN1DecodeDN(input, result), aos::ErrorEnum::eNone);
+
+    EXPECT_THAT(std::string(result.CStr()), "C=UA, CN=Aos Core");
 }
