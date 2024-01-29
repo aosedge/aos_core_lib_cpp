@@ -42,12 +42,14 @@ if(WITH_MBEDTLS)
     FetchContent_Declare(
         mbedtls
         GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
-        GIT_TAG v3.4.1
+        GIT_TAG v3.5.0
         GIT_PROGRESS TRUE
         GIT_SHALLOW TRUE
         PATCH_COMMAND
-            cp ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/psa_crypto_driver_wrappers.c
-            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.c && cp
+            cp ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/psa_crypto_driver_wrappers_no_static.c
+            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers_no_static.c && cp
+            ${CMAKE_SOURCE_DIR}/include/aos/common/crypto/mbedtls/psa_crypto_driver_wrappers.h
+            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.h && cp
             ${CMAKE_SOURCE_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include/mbedtls/mbedtls_config.h
     )
