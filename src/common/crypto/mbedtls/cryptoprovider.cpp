@@ -13,7 +13,7 @@
 #include <psa/crypto.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
-#include "aos/common/crypto/mbedtls/drivers/aos/driverwrap.hpp"
+#include "driverwrapper.hpp"
 
 namespace aos {
 namespace crypto {

@@ -1,5 +1,5 @@
-#ifndef AOS_PSA_DRIVER_H_
-#define AOS_PSA_DRIVER_H_
+#ifndef PSA_CRYPTO_DRIVER_AOS_H_
+#define PSA_CRYPTO_DRIVER_AOS_H_
 
 #if defined(PSA_CRYPTO_DRIVER_AOS)
 

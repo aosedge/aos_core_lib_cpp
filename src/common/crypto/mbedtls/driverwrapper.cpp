@@ -12,9 +12,11 @@
 #include <mbedtls/pk.h>
 #include <mbedtls/rsa.h>
 
-#include "aos/common/crypto/mbedtls/drivers/aos/driverwrap.hpp"
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/thread.hpp"
+
+#include "drivers/aos/psa_crypto_driver_aos.h"
+#include "driverwrapper.hpp"
 
 /***********************************************************************************************************************
  * Structs
@@ -265,6 +267,7 @@ void AosPsaRemoveKey(psa_key_id_t keyId)
  **********************************************************************************************************************/
 
 extern "C" {
+
 psa_status_t mbedtls_psa_platform_get_builtin_key(
     mbedtls_svc_key_id_t keyId, psa_key_lifetime_t* lifetime, psa_drv_slot_number_t* slotNumber)
 {
@@ -282,7 +285,6 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
     }
 
     return PSA_ERROR_DOES_NOT_EXIST;
-}
 }
 
 psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attributes_t* attributes, uint8_t* keyBuffer,
@@ -415,3 +417,5 @@ psa_status_t aos_get_key_buffer_size(const psa_key_attributes_t* attributes, siz
 
     return PSA_SUCCESS;
 }
+
+} // extern "C"

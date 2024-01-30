@@ -31,6 +31,12 @@ execute_process(
 )
 
 # ######################################################################################################################
+# Includes
+# ######################################################################################################################
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+# ######################################################################################################################
 # Fetch and setup MbedTLS
 # ######################################################################################################################
 
@@ -46,9 +52,9 @@ if(WITH_MBEDTLS)
         GIT_PROGRESS TRUE
         GIT_SHALLOW TRUE
         PATCH_COMMAND
-            cp ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/psa_crypto_driver_wrappers_no_static.c
+            cp ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers/psa_crypto_driver_wrappers_no_static.c
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers_no_static.c && cp
-            ${CMAKE_SOURCE_DIR}/include/aos/common/crypto/mbedtls/psa_crypto_driver_wrappers.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers/psa_crypto_driver_wrappers.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.h && cp
             ${CMAKE_SOURCE_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include/mbedtls/mbedtls_config.h
@@ -74,13 +80,13 @@ endif()
 
 add_library(
     ${TARGET} STATIC
+    crypto/mbedtls/cryptoprovider.cpp
+    crypto/mbedtls/driverwrapper.cpp
+    cryptoutils.cpp
     monitoring/monitoring.cpp
-    uuid.cpp
     pkcs11/pkcs11.cpp
     pkcs11/privatekey.cpp
-    cryptoutils.cpp
-    crypto/mbedtls/cryptoprovider.cpp
-    crypto/mbedtls/drivers/aos/driverwrap.cpp
+    uuid.cpp
 )
 
 target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)

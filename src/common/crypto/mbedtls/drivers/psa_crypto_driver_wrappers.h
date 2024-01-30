@@ -55,8 +55,7 @@
 #endif
 
 #if defined(PSA_CRYPTO_DRIVER_AOS)
-#include "aos/common/crypto/mbedtls/drivers/aos/driver.h"
-
+#include "crypto/mbedtls/drivers/aos/psa_crypto_driver_aos.h"
 #endif /* PSA_CRYPTO_DRIVER_AOS */
 
 /* END-driver headers */

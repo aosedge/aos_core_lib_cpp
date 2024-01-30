@@ -12,6 +12,11 @@ set(TARGET aoscommoncpp_test)
 # ######################################################################################################################
 
 set(SOURCES
+    ${CMAKE_SOURCE_DIR}/src/common/monitoring/monitoring.cpp
+    src/crypto_test.cpp
+    src/cryptoutils_test.cpp
+    src/monitoring_test.cpp
+    src/pkcs11/pkcs11_test.cpp
     src/tools/allocator_test.cpp
     src/tools/array_test.cpp
     src/tools/buffer_test.cpp
@@ -22,16 +27,11 @@ set(SOURCES
     src/tools/memory_test.cpp
     src/tools/optional_test.cpp
     src/tools/queue_test.cpp
+    src/tools/string_test.cpp
     src/tools/thread_test.cpp
     src/tools/time_test.cpp
-    src/tools/string_test.cpp
-    src/pkcs11/pkcs11_test.cpp
-    src/monitoring_test.cpp
     src/types_test.cpp
     src/uuid_test.cpp
-    src/cryptoutils_test.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/monitoring/monitoring.cpp
-    src/crypto_test.cpp
 )
 
 # ######################################################################################################################
@@ -77,15 +77,7 @@ add_definitions(-DPKCS11_TESTCERT="${CMAKE_CURRENT_BINARY_DIR}/pkcs11cert.der")
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(
-    ${TARGET}
-    aoscommoncpp
-    mbedcrypto
-    mbedx509
-    mbedtls
-    aoscommoncpp
-    GTest::gmock_main
-)
+target_link_libraries(${TARGET} aoscommoncpp GTest::gmock_main)
 target_include_directories(${TARGET} PUBLIC ../include)
 
 gtest_discover_tests(${TARGET})

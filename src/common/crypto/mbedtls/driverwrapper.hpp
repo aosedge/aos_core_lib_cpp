@@ -5,12 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_PSA_DRIVER_WRAP_HPP_
-#define AOS_PSA_DRIVER_WRAP_HPP_
+#ifndef DRIVERWRAPPER_HPP_
+#define DRIVERWRAPPER_HPP_
 
-#include <aos/common/crypto.hpp>
+#include <psa/crypto.h>
 
-#include "driver.h"
+#include "aos/common/crypto.hpp"
 
 /**
  * @brief Add key to the list of builtin keys
