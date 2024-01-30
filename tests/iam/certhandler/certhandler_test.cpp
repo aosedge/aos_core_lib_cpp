@@ -34,6 +34,7 @@ protected:
 
     static const String         cPassword;
     static const Array<uint8_t> cIssuer;
+    static const String         cSubjectCN;
     static const String         cSubject;
 
     void SetUp() override
@@ -102,7 +103,8 @@ const String CertHandlerTest::cPassword = "1234";
 
 const Array<uint8_t> CertHandlerTest::cIssuer
     = StringToDN("C = UA, OU = My Digest Company, CN = Developer Relations Cert");
-const String CertHandlerTest::cSubject = "Aos core";
+const String CertHandlerTest::cSubjectCN = "Aos core";
+const String CertHandlerTest::cSubject   = "CN=Aos core";
 
 /***********************************************************************************************************************
  * Tests
@@ -211,7 +213,7 @@ TEST_F(CertHandlerTest, CreateKey)
 
     StaticArray<uint8_t, 1> csr;
 
-    ASSERT_EQ(ErrorEnum::eNone, mCertHandler.CreateKey(cPKCS11Type, cSubject, cPassword, csr));
+    ASSERT_EQ(ErrorEnum::eNone, mCertHandler.CreateKey(cPKCS11Type, cSubjectCN, cPassword, csr));
 }
 
 TEST_F(CertHandlerTest, CreateKeyModuleNotFound)
@@ -226,7 +228,7 @@ TEST_F(CertHandlerTest, CreateKeyModuleNotFound)
 
     StaticArray<uint8_t, 1> csr;
 
-    ASSERT_EQ(ErrorEnum::eNotFound, mCertHandler.CreateKey(cSWType, cSubject, cPassword, csr));
+    ASSERT_EQ(ErrorEnum::eNotFound, mCertHandler.CreateKey(cSWType, cSubjectCN, cPassword, csr));
 }
 
 TEST_F(CertHandlerTest, CreateKeyKeyGenError)
@@ -246,18 +248,17 @@ TEST_F(CertHandlerTest, CreateKeyKeyGenError)
 
     StaticArray<uint8_t, 1> csr;
 
-    ASSERT_EQ(ErrorEnum::eFailed, mCertHandler.CreateKey(cPKCS11Type, cSubject, cPassword, csr));
+    ASSERT_EQ(ErrorEnum::eFailed, mCertHandler.CreateKey(cPKCS11Type, cSubjectCN, cPassword, csr));
 }
 
 TEST_F(CertHandlerTest, CreateCSR)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mX509Provider, ASN1EncodeDN(_, _))
-        .WillRepeatedly(Invoke([](const String& commonName, Array<uint8_t>& result) {
-            result = ::StringToDN(commonName.CStr());
-            return ErrorEnum::eNone;
-        }));
+    EXPECT_CALL(mX509Provider, ASN1EncodeDN(_, _)).WillRepeatedly(Invoke([](const String& dn, Array<uint8_t>& result) {
+        result = ::StringToDN(dn.CStr());
+        return ErrorEnum::eNone;
+    }));
 
     ExtendedKeyUsage keyUsages[]               = {ExtendedKeyUsageEnum::eClientAuth, ExtendedKeyUsageEnum::eServerAuth};
     StaticString<crypto::cDNSNameLen> altDNS[] = {"epam1.com", "epam2.com"};
@@ -286,12 +287,12 @@ TEST_F(CertHandlerTest, CreateCSR)
     Extension                 extension  = {"2.5.29.37", {}};
     StaticArray<Extension, 1> extensions = Array<Extension>(&extension, 1);
 
-    auto templ = AllOf(Field(&CSR::mSubject, cSubject), Field(&CSR::mDNSNames, moduleConfig.mAlternativeNames),
-        Field(&CSR::mExtraExtensions, extensions));
+    auto templ = AllOf(Field(&CSR::mSubject, StringToDN(cSubject.CStr())),
+        Field(&CSR::mDNSNames, moduleConfig.mAlternativeNames), Field(&CSR::mExtraExtensions, extensions));
     EXPECT_CALL(mX509Provider, CreateCSR(templ, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
     StaticArray<uint8_t, 1> csr;
-    ASSERT_EQ(ErrorEnum::eNone, mCertHandler.CreateKey(cPKCS11Type, cSubject, cPassword, csr));
+    ASSERT_EQ(ErrorEnum::eNone, mCertHandler.CreateKey(cPKCS11Type, cSubjectCN, cPassword, csr));
 }
 
 TEST_F(CertHandlerTest, ApplyCert)
@@ -306,7 +307,7 @@ TEST_F(CertHandlerTest, ApplyCert)
 
     crypto::x509::Certificate root;
 
-    root.mSubject = root.mIssuer = StringToDN("ca.epam.com");
+    root.mSubject = root.mIssuer = StringToDN("CN=ca.epam.com");
     root.mAuthorityKeyId = root.mSubjectKeyId = StringToDN("1.1.1.1");
     root.mSerial                              = StringToByteArray("1.1.1.1");
     root.mNotBefore                           = Time::Now();
@@ -477,7 +478,7 @@ TEST_F(CertHandlerTest, RemoveInvalidCert)
 
     StaticArray<uint8_t, 1> csr;
 
-    ASSERT_EQ(ErrorEnum::eNone, mCertHandler.CreateKey(cPKCS11Type, cSubject, cPassword, csr));
+    ASSERT_EQ(ErrorEnum::eNone, mCertHandler.CreateKey(cPKCS11Type, cSubjectCN, cPassword, csr));
 }
 
 TEST_F(CertHandlerTest, SyncValidCerts)

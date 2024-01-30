@@ -105,11 +105,17 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertModule::CreateKey(const Strin
 Error CertModule::CreateCSR(
     const String& subjectCommonName, const crypto::PrivateKeyItf& privKey, Array<uint8_t>& pemCSR)
 {
-    crypto::x509::CSR templ;
+    crypto::x509::CSR          templ;
+    StaticString<cDNStringLen> subject;
 
     templ.mDNSNames = mModuleConfig.mAlternativeNames;
 
-    auto err = mX509Provider->ASN1EncodeDN(subjectCommonName, templ.mSubject);
+    auto err = subject.Format("CN=%s", subjectCommonName.CStr());
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    err = mX509Provider->ASN1EncodeDN(subject, templ.mSubject);
     if (!err.IsNone()) {
         return err;
     }
@@ -195,12 +201,12 @@ Error CertModule::CreateSelfSignedCert(const String& password)
     templ->mNotBefore = Time::Now();
     templ->mNotAfter  = Time::Now().Add(cValidSelfSignedCertPeriod);
 
-    auto err = mX509Provider->ASN1EncodeDN("Aos Core", templ->mSubject);
+    auto err = mX509Provider->ASN1EncodeDN("CN=Aos Core", templ->mSubject);
     if (!err.IsNone()) {
         return err;
     }
 
-    err = mX509Provider->ASN1EncodeDN("Aos Core", templ->mIssuer);
+    err = mX509Provider->ASN1EncodeDN("CN=Aos Core", templ->mIssuer);
     if (!err.IsNone()) {
         return err;
     }
