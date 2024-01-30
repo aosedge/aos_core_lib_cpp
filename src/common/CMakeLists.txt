@@ -69,8 +69,6 @@ if(WITH_MBEDTLS)
         CACHE BOOL "" FORCE
     )
 
-    add_definitions(-DPSA_CRYPTO_DRIVER_AOS)
-
     FetchContent_MakeAvailable(mbedtls)
 endif()
 
