@@ -476,7 +476,7 @@ LibraryContext::~LibraryContext()
     if (mFunctionList && mFunctionList->C_Finalize) {
         CK_RV rv = mFunctionList->C_Finalize(nullptr);
         if (rv != CKR_OK) {
-            LOG_ERR() << "C_Finalize failed. error = " << rv;
+            LOG_ERR() << "C_Finalize failed: err = " << rv;
         }
     } else {
         LOG_ERR() << "Close library failed. Library is not initialized.";
