@@ -60,22 +60,16 @@ struct PKCS11ModuleConfig {
 class PKCS11Module : public HSMItf {
 public:
     /**
-     * Constructs object instance.
+     * Initializes module.
      *
      * @param certType certificate type.
      * @param config module configuration.
-     *
-     */
-    PKCS11Module(const String& certType, const PKCS11ModuleConfig& config);
-
-    /**
-     * Initializes module.
-     *
      * @param pkcs11 reference to pkcs11 library context.
      * @param x509Provider reference to x509 crypto interface.
      * @return Error.
      */
-    Error Init(pkcs11::PKCS11Manager& pkcs11, crypto::x509::ProviderItf& x509Provider);
+    Error Init(const String& certType, const PKCS11ModuleConfig& config, pkcs11::PKCS11Manager& pkcs11,
+        crypto::x509::ProviderItf& x509Provider);
 
     /**
      * Owns the module.
@@ -195,12 +189,12 @@ private:
     Error CreateInvalidURLs(const Array<SearchObject>& objects, Array<StaticString<cURLLen>>& urls);
 
     StaticString<cCertTypeLen> mCertType;
-    PKCS11ModuleConfig         mConfig;
+    PKCS11ModuleConfig         mConfig {};
 
     SharedPtr<pkcs11::LibraryContext> mPKCS11;
-    crypto::x509::ProviderItf*        mX509Provider;
+    crypto::x509::ProviderItf*        mX509Provider {};
 
-    uint32_t                         mSlotID;
+    uint32_t                         mSlotID = 0;
     StaticString<cTeeLoginTypeLen>   mTeeLoginType;
     StaticString<pkcs11::cPINLength> mUserPIN;
 

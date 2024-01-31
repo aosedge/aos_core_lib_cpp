@@ -44,14 +44,11 @@ struct PKCS11Module::SearchObject {
  * Public
  **********************************************************************************************************************/
 
-PKCS11Module::PKCS11Module(const String& certType, const PKCS11ModuleConfig& config)
-    : mCertType(certType)
-    , mConfig(config)
+Error PKCS11Module::Init(const String& certType, const PKCS11ModuleConfig& config, pkcs11::PKCS11Manager& pkcs11,
+    crypto::x509::ProviderItf& x509Provider)
 {
-}
-
-Error PKCS11Module::Init(pkcs11::PKCS11Manager& pkcs11, crypto::x509::ProviderItf& x509Provider)
-{
+    mCertType     = certType;
+    mConfig       = config;
     mX509Provider = &x509Provider;
 
     mPKCS11 = pkcs11.OpenLibrary(mConfig.mLibrary);
