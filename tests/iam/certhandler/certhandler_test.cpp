@@ -114,20 +114,20 @@ TEST_F(CertHandlerTest, GetCertTypes)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
-    CertModule swModule     = {cSWType, cDefaultConfig};
-    CertModule tpmModule    = {cTPMType, cDefaultConfig};
+    CertModule pkcs11Module;
+    CertModule swModule;
+    CertModule tpmModule;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     EXPECT_CALL(mSW, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, swModule.Init(mX509Provider, mSW, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, swModule.Init(cSWType, cDefaultConfig, mX509Provider, mSW, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(swModule));
 
     EXPECT_CALL(mTPM, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, tpmModule.Init(mX509Provider, mTPM, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, tpmModule.Init(cTPMType, cDefaultConfig, mX509Provider, mTPM, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(tpmModule));
 
     const std::vector<StaticString<cCertTypeLen>> expected = {cPKCS11Type, cSWType, cTPMType};
@@ -142,10 +142,10 @@ TEST_F(CertHandlerTest, SetOwner)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     EXPECT_CALL(mPKCS11, SetOwner(cPassword)).WillOnce(Return(ErrorEnum::eNone));
@@ -156,10 +156,10 @@ TEST_F(CertHandlerTest, SetOwnerModuleNotFound)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     EXPECT_CALL(mPKCS11, SetOwner(_)).Times(0);
@@ -170,10 +170,10 @@ TEST_F(CertHandlerTest, Clear)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     EXPECT_CALL(mStorage, RemoveAllCertsInfo(cPKCS11Type)).WillOnce(Return(ErrorEnum::eNone));
@@ -185,10 +185,10 @@ TEST_F(CertHandlerTest, ClearModuleNotFound)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     EXPECT_CALL(mStorage, RemoveAllCertsInfo(_)).Times(0);
@@ -200,10 +200,10 @@ TEST_F(CertHandlerTest, CreateKey)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eNone};
@@ -220,10 +220,10 @@ TEST_F(CertHandlerTest, CreateKeyModuleNotFound)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     StaticArray<uint8_t, 1> csr;
@@ -235,10 +235,10 @@ TEST_F(CertHandlerTest, CreateKeyKeyGenError)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eFailed};
@@ -271,10 +271,10 @@ TEST_F(CertHandlerTest, CreateCSR)
     moduleConfig.mAlternativeNames = Array<StaticString<crypto::cDNSNameLen>>(altDNS, 2);
     moduleConfig.mSkipValidation   = false;
 
-    CertModule pkcs11Module = {cPKCS11Type, moduleConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, moduleConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eNone};
@@ -299,10 +299,10 @@ TEST_F(CertHandlerTest, ApplyCert)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     crypto::x509::Certificate root;
@@ -349,11 +349,11 @@ TEST_F(CertHandlerTest, CreateSelfSignedCert)
             return ErrorEnum::eNone;
         }));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     crypto::x509::Certificate cert;
@@ -395,10 +395,10 @@ TEST_F(CertHandlerTest, GetCertificate)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     const auto serial = StringToDN("1.1.1.1");
@@ -410,7 +410,7 @@ TEST_F(CertHandlerTest, GetCertificate)
 
 TEST_F(CertHandlerTest, GetCertificateEmptySerial)
 {
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     StaticArray<uint8_t, 1> serial;
 
@@ -437,7 +437,7 @@ TEST_F(CertHandlerTest, GetCertificateEmptySerial)
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _))
         .WillOnce(DoAll(SetArgReferee<2>(certsInfo), Return(ErrorEnum::eNone)));
 
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     CertInfo   resCert;
@@ -450,7 +450,7 @@ TEST_F(CertHandlerTest, RemoveInvalidCert)
 {
     EXPECT_CALL(mStorage, GetCertsInfo(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     StaticArray<StaticString<cURLLen>, 3> invalidCerts;
     StaticArray<StaticString<cURLLen>, 3> invalidKeys;
@@ -463,7 +463,7 @@ TEST_F(CertHandlerTest, RemoveInvalidCert)
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _))
         .WillOnce(DoAll(SetArgReferee<0>(invalidCerts), SetArgReferee<1>(invalidKeys), Return(ErrorEnum::eNone)));
 
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> privateKeyRes = {cPrivateKey, ErrorEnum::eNone};
@@ -483,7 +483,7 @@ TEST_F(CertHandlerTest, RemoveInvalidCert)
 
 TEST_F(CertHandlerTest, SyncValidCerts)
 {
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     CertInfo cert1;
     CertInfo cert2;
@@ -515,7 +515,7 @@ TEST_F(CertHandlerTest, SyncValidCerts)
     EXPECT_CALL(mStorage, RemoveCertInfo(cPKCS11Type, cert4.mCertURL)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mStorage, AddCertInfo(cPKCS11Type, cert3)).WillOnce(Return(ErrorEnum::eNone));
 
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 }
 
@@ -523,7 +523,7 @@ TEST_F(CertHandlerTest, TrimCerts)
 {
     auto now = Time::Now();
 
-    CertModule pkcs11Module = {cPKCS11Type, cDefaultConfig};
+    CertModule pkcs11Module;
 
     CertInfo cert1;
     CertInfo cert2;
@@ -555,7 +555,7 @@ TEST_F(CertHandlerTest, TrimCerts)
     EXPECT_CALL(mPKCS11, ValidateCertificates(_, _, _))
         .WillOnce(DoAll(SetArgReferee<2>(initCerts), Return(ErrorEnum::eNone)));
 
-    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(mX509Provider, mPKCS11, mStorage));
+    ASSERT_EQ(ErrorEnum::eNone, pkcs11Module.Init(cPKCS11Type, cDefaultConfig, mX509Provider, mPKCS11, mStorage));
     ASSERT_EQ(ErrorEnum::eNone, mCertHandler.RegisterModule(pkcs11Module));
 
     StaticArray<crypto::x509::Certificate, 2> certChain;

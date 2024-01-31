@@ -17,14 +17,11 @@ namespace certhandler {
  * Public
  **********************************************************************************************************************/
 
-CertModule::CertModule(const String& certType, const ModuleConfig& config)
-    : mCertType(certType)
-    , mModuleConfig(config)
+Error CertModule::Init(const String& certType, const ModuleConfig& config, crypto::x509::ProviderItf& x509Provider,
+    HSMItf& hsm, StorageItf& storage)
 {
-}
-
-Error CertModule::Init(crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage)
-{
+    mCertType     = certType;
+    mModuleConfig = config;
     mX509Provider = &x509Provider;
     mHSM          = &hsm;
     mStorage      = &storage;

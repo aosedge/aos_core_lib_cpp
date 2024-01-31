@@ -136,22 +136,17 @@ public:
 class CertModule {
 public:
     /**
-     * Creates a new object instance.
+     * Initializes certificate module.
      *
      * @param certType certificate type.
      * @param config module config.
-     */
-    CertModule(const String& certType, const ModuleConfig& config);
-
-    /**
-     * Initializes certificate module.
-     *
      * @param x509Provider provider of x509 certificates, csr, keys.
      * @param hsm a reference to hardware security module.
      * @param storage a reference to certificate storage.
      * @return Error.
      */
-    Error Init(crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage);
+    Error Init(const String& certType, const ModuleConfig& config, crypto::x509::ProviderItf& x509Provider, HSMItf& hsm,
+        StorageItf& storage);
 
     /**
      * Returns IAM module certificate type.
@@ -238,12 +233,12 @@ private:
     Error CheckCertChain(const Array<crypto::x509::Certificate>& chain);
     Error SyncValidCerts(const Array<CertInfo>& validCert);
 
-    crypto::x509::ProviderItf* mX509Provider;
-    HSMItf*                    mHSM;
-    StorageItf*                mStorage;
+    crypto::x509::ProviderItf* mX509Provider {};
+    HSMItf*                    mHSM {};
+    StorageItf*                mStorage {};
 
     StaticString<cCertTypeLen> mCertType;
-    ModuleConfig               mModuleConfig;
+    ModuleConfig               mModuleConfig {};
 
     StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts, mInvalidKeys;
 
