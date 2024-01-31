@@ -10,8 +10,8 @@
 
 #include "aos/common/tools/thread.hpp"
 
+#include "aos/iam/certmodules/certmodule.hpp"
 #include "aos/iam/config.hpp"
-#include "aos/iam/modules/certmodule.hpp"
 
 namespace aos {
 namespace iam {

@@ -12,8 +12,8 @@
 #include "aos/common/pkcs11/privatekey.hpp"
 #include "aos/common/tools/optional.hpp"
 #include "aos/common/uuid.hpp"
+#include "aos/iam/certmodules/hsm.hpp"
 #include "aos/iam/config.hpp"
-#include "aos/iam/modules/hsm.hpp"
 
 namespace aos {
 namespace iam {

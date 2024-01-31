@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/iam/modules/hsm.hpp"
+#include "aos/iam/certmodules/hsm.hpp"
 
 namespace aos {
 namespace iam {

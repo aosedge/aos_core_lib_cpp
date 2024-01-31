@@ -15,7 +15,7 @@
 
 #include "aos/common/tools/time.hpp"
 
-#include "aos/iam/modules/hsm.hpp"
+#include "aos/iam/certmodules/hsm.hpp"
 
 namespace aos {
 namespace iam {
