@@ -725,22 +725,36 @@ aos::Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
         return aos::ErrorEnum::eInvalidArgument;
     }
 
-    auto formatTime = [](char* buffer, size_t size, time_t unitTime) {
-        struct tm timeinfo;
-        gmtime_r(&unitTime, &timeinfo);
+    auto formatTime = [](char* buffer, size_t size, const aos::Time& time) -> aos::Error {
+        int day = 0, month = 0, year = 0, hour = 0, min = 0, sec = 0;
 
-        snprintf(buffer, size, "%04d%02d%02d%02d%02d%02d", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1,
-            timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        auto err = time.GetDate(&day, &month, &year);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        err = time.GetTime(&hour, &min, &sec);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        snprintf(buffer, size, "%04d%02d%02d%02d%02d%02d", year, month, day, hour, min, sec);
+
+        return aos::ErrorEnum::eNone;
     };
-
-    time_t unixTimeInSecondsBefore = templ.mNotBefore.UnixNano() / 1000000000;
-    time_t unixTimeInSecondsAfter  = templ.mNotAfter.UnixNano() / 1000000000;
 
     char timeBufferBefore[16];
     char timeBufferAfter[16];
 
-    formatTime(timeBufferBefore, sizeof(timeBufferBefore), unixTimeInSecondsBefore);
-    formatTime(timeBufferAfter, sizeof(timeBufferAfter), unixTimeInSecondsAfter);
+    auto err = formatTime(timeBufferBefore, sizeof(timeBufferBefore), templ.mNotBefore);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = formatTime(timeBufferAfter, sizeof(timeBufferAfter), templ.mNotAfter);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_validity(&cert, timeBufferBefore, timeBufferAfter));
 }

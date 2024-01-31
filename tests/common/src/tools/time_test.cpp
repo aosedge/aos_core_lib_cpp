@@ -43,7 +43,7 @@ TEST_F(TimeTest, Add4Years)
 
 TEST_F(TimeTest, Compare)
 {
-    Time now = Time::Now();
+    auto now = Time::Now();
 
     const Duration year       = Years(1);
     const Duration oneNanosec = 1;
@@ -53,4 +53,21 @@ TEST_F(TimeTest, Compare)
 
     EXPECT_FALSE(now.Add(oneNanosec) < now);
     EXPECT_FALSE(now < now);
+}
+
+TEST_F(TimeTest, GetDateTime)
+{
+    auto t = Time::Unix(1706702400);
+
+    int day, month, year, hour, min, sec;
+
+    EXPECT_TRUE(t.GetDate(&day, &month, &year).IsNone());
+    EXPECT_TRUE(t.GetTime(&hour, &min, &sec).IsNone());
+
+    EXPECT_EQ(day, 31);
+    EXPECT_EQ(month, 1);
+    EXPECT_EQ(year, 2024);
+    EXPECT_EQ(hour, 12);
+    EXPECT_EQ(min, 00);
+    EXPECT_EQ(sec, 00);
 }

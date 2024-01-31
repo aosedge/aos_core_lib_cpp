@@ -66,9 +66,9 @@ public:
      *
      * @param sec seconds since January 1, 1970 UTC.
      * @param nsec nano seconds part.
-     * @result Ti
+     * @result Time.
      */
-    static Time Unix(int64_t sec, int64_t nsec)
+    static Time Unix(int64_t sec, int64_t nsec = 0)
     {
         timespec ts;
 
@@ -133,6 +133,64 @@ public:
         uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * cSeconds;
 
         return nsec;
+    }
+
+    /**
+     * Returns date part of time.
+     *
+     * @param day day.
+     * @param month month.
+     * @param year year.
+     * @return Error.
+     */
+    Error GetDate(int* day, int* month = nullptr, int* year = nullptr) const
+    {
+        tm timeInfo {};
+
+        if (!gmtime_r(&mTime.tv_sec, &timeInfo)) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        *day = timeInfo.tm_mday;
+
+        if (month) {
+            *month = timeInfo.tm_mon + 1;
+        }
+
+        if (year) {
+            *year = timeInfo.tm_year + 1900;
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Returns time part of time.
+     *
+     * @param hour hour.
+     * @param min min.
+     * @param sec sec.
+     * @return Error.
+     */
+    Error GetTime(int* hour, int* min = nullptr, int* sec = nullptr) const
+    {
+        tm timeInfo {};
+
+        if (!gmtime_r(&mTime.tv_sec, &timeInfo)) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        *hour = timeInfo.tm_hour;
+
+        if (min) {
+            *min = timeInfo.tm_min;
+        }
+
+        if (sec) {
+            *sec = timeInfo.tm_sec;
+        }
+
+        return ErrorEnum::eNone;
     }
 
     /**
