@@ -429,4 +429,8 @@
 #define AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB "/usr/lib/softhsm/libsofthsm2.so"
 #endif
 
+#ifndef AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT
+#define AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT 5
+#endif
+
 #endif

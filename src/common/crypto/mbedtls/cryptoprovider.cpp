@@ -374,7 +374,101 @@ aos::Error MbedTLSCryptoProvider::ParseX509Certs(mbedtls_x509_crt* currentCrt, a
         return err;
     }
 
+    err = ParseX509CertPublicKey(&currentCrt->pk, cert);
+    if (!err.IsNone()) {
+        return err;
+    }
+
     return GetX509CertExtensions(cert, currentCrt);
+}
+
+Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert)
+{
+    switch (mbedtls_pk_get_type(pk)) {
+    case MBEDTLS_PK_RSA:
+        return ParseRSAKey(mbedtls_pk_rsa(*pk), cert);
+
+    case MBEDTLS_PK_ECKEY:
+        return ParseECKey(mbedtls_pk_ec(*pk), cert);
+
+    default:
+        return aos::ErrorEnum::eNotFound;
+    }
+}
+
+Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert)
+{
+    StaticArray<uint8_t, cECDSAParamsOIDSize> paramsOID;
+    StaticArray<uint8_t, cECDSAPointDERSize>  ecPoint;
+
+    size_t      len = 0;
+    const char* oid;
+    auto        ret = mbedtls_oid_get_oid_by_ec_grp(eckey->MBEDTLS_PRIVATE(grp).id, &oid, &len);
+    if (ret != 0) {
+        return ret;
+    }
+
+    paramsOID.Resize(len);
+
+    memcpy(paramsOID.Get(), oid, len);
+
+    ecPoint.Resize(ecPoint.MaxSize());
+
+    ret = mbedtls_ecp_point_write_binary(&eckey->MBEDTLS_PRIVATE(grp), &eckey->MBEDTLS_PRIVATE(Q),
+        MBEDTLS_ECP_PF_UNCOMPRESSED, &len, ecPoint.Get(), ecPoint.Size());
+    if (ret != 0) {
+        return ret;
+    }
+
+    ecPoint.Resize(len);
+
+    cert.mPublicKey = MakeShared<ECDSAPublicKey>(&mAllocator, paramsOID, ecPoint);
+
+    return aos::ErrorEnum::eNone;
+}
+
+Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert)
+{
+    StaticArray<uint8_t, cRSAModulusSize>     mN;
+    StaticArray<uint8_t, cRSAPubExponentSize> mE;
+    mbedtls_mpi                               mpiN, mpiE;
+
+    mbedtls_mpi_init(&mpiN);
+    mbedtls_mpi_init(&mpiE);
+
+    auto cleanup = [&]() {
+        mbedtls_mpi_free(&mpiN);
+        mbedtls_mpi_free(&mpiE);
+    };
+
+    auto ret = mbedtls_rsa_export(rsa, &mpiN, nullptr, nullptr, nullptr, &mpiE);
+    if (ret != 0) {
+        cleanup();
+
+        return ret;
+    }
+
+    mN.Resize(mbedtls_mpi_size(&mpiN));
+    mE.Resize(mbedtls_mpi_size(&mpiE));
+
+    ret = mbedtls_mpi_write_binary(&mpiN, mN.Get(), mN.Size());
+    if (ret != 0) {
+        cleanup();
+
+        return ret;
+    }
+
+    ret = mbedtls_mpi_write_binary(&mpiE, mE.Get(), mE.Size());
+
+    cleanup();
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    cert.mPublicKey = MakeShared<RSAPublicKey>(&mAllocator, mN, mE);
+
+    return ret;
 }
 
 Error MbedTLSCryptoProvider::GetX509CertData(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt)

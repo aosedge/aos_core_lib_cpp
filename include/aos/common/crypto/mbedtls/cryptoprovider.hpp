@@ -129,9 +129,15 @@ public:
         const aos::Array<aos::Array<uint8_t>>& items, aos::Array<uint8_t>& asn1Value) override;
 
 private:
+    static constexpr auto cAllocatorSize
+        = AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));
+
     aos::Error ParseX509Certs(mbedtls_x509_crt* currentCrt, aos::crypto::x509::Certificate& cert);
     aos::Error GetX509CertExtensions(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt);
     aos::Error GetX509CertData(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt);
+    Error      ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
+    Error      ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
+    Error      ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
     aos::Error ConvertTime(const mbedtls_x509_time& src, aos::Time& dst);
 
     void       InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk);
@@ -157,6 +163,8 @@ private:
     aos::Error SetCertificateAuthorityKeyIdentifier(mbedtls_x509write_cert& cert,
         const aos::crypto::x509::Certificate& templ, const aos::crypto::x509::Certificate& parent);
     aos::Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ);
+
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 } // namespace crypto

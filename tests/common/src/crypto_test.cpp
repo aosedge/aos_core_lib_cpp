@@ -455,6 +455,8 @@ TEST(CryptoTest, DERToX509Certs)
 
     ASSERT_TRUE(certs.mSubject == certs.mIssuer);
 
+    ASSERT_TRUE(certs.mPublicKey->IsEqual(rsaPublicKey));
+
     aos::StaticArray<uint8_t, aos::crypto::cCertSubjSize> rawSubject;
     error = crypto.ASN1EncodeDN("C=UA, ST=Some-State, L=Kyiv, O=EPAM", rawSubject);
 
@@ -481,20 +483,22 @@ TEST(CryptoTest, PEMToX509Certs)
 
     ASSERT_EQ(crypto.ASN1EncodeDN(subjectName, templ.mIssuer), aos::ErrorEnum::eNone);
 
-    aos::StaticArray<uint8_t, aos::crypto::cRSAModulusSize>     mN;
-    aos::StaticArray<uint8_t, aos::crypto::cRSAPubExponentSize> mE;
+    aos::StaticArray<uint8_t, aos::crypto::cECDSAParamsOIDSize> mParamsOID;
+    aos::StaticArray<uint8_t, aos::crypto::cECDSAPointDERSize>  mECPoint;
 
-    auto rsaPKRet = GenerateRSAPrivateKey();
-    ASSERT_EQ(rsaPKRet.first, aos::ErrorEnum::eNone);
+    auto ecPrivateKey = GenerateECPrivateKey();
+    ASSERT_EQ(ecPrivateKey.first, aos::ErrorEnum::eNone);
 
-    ASSERT_EQ(ExtractRSAPublicKeyFromPrivateKey((const char*)rsaPKRet.second.data(), mN, mE), 0);
+    auto ret = ExtractECPublicKeyFromPrivate(mParamsOID, mECPoint, ecPrivateKey.second);
+    ASSERT_EQ(ret, 0);
 
-    aos::crypto::RSAPublicKey rsaPublicKey {mN, mE};
+    aos::crypto::ECDSAPublicKey ecdsaPublicKey(mParamsOID, mECPoint);
 
-    RSAPrivateKey                                rsaPK {rsaPublicKey, std::move(rsaPKRet.second)};
+    ECDSAPrivateKey ecdsaPK(ecdsaPublicKey, std::move(ecPrivateKey.second));
+
     aos::StaticString<aos::crypto::cCertPEMSize> pemCRT;
 
-    ASSERT_EQ(crypto.CreateCertificate(templ, parent, rsaPK, pemCRT), aos::ErrorEnum::eNone);
+    ASSERT_EQ(crypto.CreateCertificate(templ, parent, ecdsaPK, pemCRT), aos::ErrorEnum::eNone);
 
     aos::String                                         pemBlob(pemCRT.Get(), pemCRT.Size());
     aos::StaticArray<aos::crypto::x509::Certificate, 1> certs;
@@ -519,6 +523,8 @@ TEST(CryptoTest, PEMToX509Certs)
     ASSERT_TRUE(issuer == "C=UA, ST=Some-State, L=Kyiv, O=EPAM");
 
     ASSERT_TRUE(certs[0].mSubject == certs[0].mIssuer);
+
+    ASSERT_TRUE(certs[0].mPublicKey->IsEqual(ecdsaPublicKey));
 
     aos::StaticArray<uint8_t, aos::crypto::cCertSubjSize> rawSubject;
     error = crypto.ASN1EncodeDN("C=UA, ST=Some-State, L=Kyiv, O=EPAM", rawSubject);
