@@ -88,15 +88,14 @@ static int ASN1EncodeBigInt(const Array<uint8_t>& number, unsigned char** p, uns
  * Public
  **********************************************************************************************************************/
 
-aos::Error MbedTLSCryptoProvider::Init()
+Error MbedTLSCryptoProvider::Init()
 {
     auto ret = psa_crypto_init();
 
-    return ret != PSA_SUCCESS ? AOS_ERROR_WRAP(ret) : aos::ErrorEnum::eNone;
+    return ret != PSA_SUCCESS ? AOS_ERROR_WRAP(ret) : ErrorEnum::eNone;
 }
 
-aos::Error MbedTLSCryptoProvider::CreateCSR(
-    const aos::crypto::x509::CSR& templ, const aos::crypto::PrivateKeyItf& privKey, aos::String& pemCSR)
+Error MbedTLSCryptoProvider::CreateCSR(const x509::CSR& templ, const PrivateKeyItf& privKey, String& pemCSR)
 {
     mbedtls_x509write_csr csr;
     mbedtls_pk_context    key;
@@ -124,7 +123,7 @@ aos::Error MbedTLSCryptoProvider::CreateCSR(
     };
 
     auto err = SetCSRProperties(csr, key, templ);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         cleanupPSA();
 
         return err;
@@ -137,8 +136,8 @@ aos::Error MbedTLSCryptoProvider::CreateCSR(
     return err;
 }
 
-aos::Error MbedTLSCryptoProvider::CreateCertificate(const aos::crypto::x509::Certificate& templ,
-    const aos::crypto::x509::Certificate& parent, const aos::crypto::PrivateKeyItf& privKey, String& pemCert)
+Error MbedTLSCryptoProvider::CreateCertificate(
+    const x509::Certificate& templ, const x509::Certificate& parent, const PrivateKeyItf& privKey, String& pemCert)
 {
     mbedtls_x509write_cert   cert;
     mbedtls_pk_context       pk;
@@ -146,7 +145,7 @@ aos::Error MbedTLSCryptoProvider::CreateCertificate(const aos::crypto::x509::Cer
     mbedtls_ctr_drbg_context ctrDrbg;
 
     auto err = InitializeCertificate(cert, pk, ctrDrbg, entropy);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -173,7 +172,7 @@ aos::Error MbedTLSCryptoProvider::CreateCertificate(const aos::crypto::x509::Cer
     };
 
     err = SetCertificateProperties(cert, pk, ctrDrbg, templ, parent);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         cleanupPSA();
 
         return err;
@@ -186,8 +185,7 @@ aos::Error MbedTLSCryptoProvider::CreateCertificate(const aos::crypto::x509::Cer
     return err;
 }
 
-aos::Error MbedTLSCryptoProvider::PEMToX509Certs(
-    const aos::String& pemBlob, aos::Array<aos::crypto::x509::Certificate>& resultCerts)
+Error MbedTLSCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::Certificate>& resultCerts)
 {
     mbedtls_x509_crt crt;
 
@@ -203,7 +201,7 @@ aos::Error MbedTLSCryptoProvider::PEMToX509Certs(
     mbedtls_x509_crt* currentCrt = &crt;
 
     while (currentCrt != nullptr) {
-        aos::crypto::x509::Certificate cert;
+        x509::Certificate cert;
 
         auto err = ParseX509Certs(currentCrt, cert);
         if (!err.IsNone()) {
@@ -224,11 +222,10 @@ aos::Error MbedTLSCryptoProvider::PEMToX509Certs(
 
     mbedtls_x509_crt_free(&crt);
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
-aos::Error MbedTLSCryptoProvider::DERToX509Cert(
-    const aos::Array<uint8_t>& derBlob, aos::crypto::x509::Certificate& resultCert)
+Error MbedTLSCryptoProvider::DERToX509Cert(const Array<uint8_t>& derBlob, x509::Certificate& resultCert)
 {
     mbedtls_x509_crt crt;
 
@@ -248,7 +245,7 @@ aos::Error MbedTLSCryptoProvider::DERToX509Cert(
     return err;
 }
 
-aos::Error MbedTLSCryptoProvider::ASN1EncodeDN(const aos::String& commonName, aos::Array<uint8_t>& result)
+Error MbedTLSCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_t>& result)
 {
     mbedtls_asn1_named_data* dn {};
 
@@ -277,7 +274,7 @@ aos::Error MbedTLSCryptoProvider::ASN1EncodeDN(const aos::String& commonName, ao
     return result.Resize(len);
 }
 
-aos::Error MbedTLSCryptoProvider::ASN1DecodeDN(const aos::Array<uint8_t>& dn, aos::String& result)
+Error MbedTLSCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& result)
 {
     mbedtls_asn1_named_data tmpDN = {};
 
@@ -304,23 +301,21 @@ aos::Error MbedTLSCryptoProvider::ASN1DecodeDN(const aos::Array<uint8_t>& dn, ao
     return result.Resize(len);
 }
 
-aos::RetWithError<aos::SharedPtr<aos::crypto::PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(
-    const aos::String& pemBlob)
+RetWithError<SharedPtr<PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(const String& pemBlob)
 {
     (void)pemBlob;
 
-    return {nullptr, aos::ErrorEnum::eNotSupported};
+    return {nullptr, ErrorEnum::eNotSupported};
 }
 
-aos::Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(
-    const aos::Array<aos::crypto::asn1::ObjectIdentifier>& src, aos::Array<uint8_t>& asn1Value)
+Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& src, Array<uint8_t>& asn1Value)
 {
     asn1Value.Resize(asn1Value.MaxSize());
 
     uint8_t* start = asn1Value.Get();
     uint8_t* p     = asn1Value.Get() + asn1Value.Size();
 
-    int len = aos::crypto::ASN1EncodeObjectIds(src, &p, start);
+    int len = crypto::ASN1EncodeObjectIds(src, &p, start);
     if (len < 0) {
         return ErrorEnum::eFailed;
     }
@@ -330,12 +325,12 @@ aos::Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(
     return asn1Value.Resize(len);
 }
 
-aos::Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const aos::Array<uint8_t>& number, aos::Array<uint8_t>& asn1Value)
+Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const Array<uint8_t>& number, Array<uint8_t>& asn1Value)
 {
     asn1Value.Resize(asn1Value.MaxSize());
     uint8_t* p = asn1Value.Get() + asn1Value.Size();
 
-    int len = aos::crypto::ASN1EncodeBigInt(number, &p, asn1Value.Get());
+    int len = crypto::ASN1EncodeBigInt(number, &p, asn1Value.Get());
     if (len < 0) {
         return ErrorEnum::eFailed;
     }
@@ -345,15 +340,14 @@ aos::Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const aos::Array<uint8_t>& nu
     return asn1Value.Resize(len);
 }
 
-aos::Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(
-    const aos::Array<aos::Array<uint8_t>>& items, aos::Array<uint8_t>& asn1Value)
+Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, Array<uint8_t>& asn1Value)
 {
     asn1Value.Resize(asn1Value.MaxSize());
 
     uint8_t* start = asn1Value.Get();
     uint8_t* p     = asn1Value.Get() + asn1Value.Size();
 
-    int len = aos::crypto::ASN1EncodeDERSequence(items, &p, start);
+    int len = crypto::ASN1EncodeDERSequence(items, &p, start);
     if (len < 0) {
         return ErrorEnum::eFailed;
     }
@@ -367,7 +361,7 @@ aos::Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(
  * Private
  **********************************************************************************************************************/
 
-aos::Error MbedTLSCryptoProvider::ParseX509Certs(mbedtls_x509_crt* currentCrt, aos::crypto::x509::Certificate& cert)
+Error MbedTLSCryptoProvider::ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert)
 {
     auto err = GetX509CertData(cert, currentCrt);
     if (!err.IsNone()) {
@@ -392,7 +386,7 @@ Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk
         return ParseECKey(mbedtls_pk_ec(*pk), cert);
 
     default:
-        return aos::ErrorEnum::eNotFound;
+        return ErrorEnum::eNotFound;
     }
 }
 
@@ -424,7 +418,7 @@ Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::
 
     cert.mPublicKey = MakeShared<ECDSAPublicKey>(&mAllocator, paramsOID, ecPoint);
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
 Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert)
@@ -471,7 +465,7 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
     return ret;
 }
 
-Error MbedTLSCryptoProvider::GetX509CertData(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt)
+Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt)
 {
     auto err = cert.mSubject.Resize(crt->subject_raw.len);
     if (!err.IsNone()) {
@@ -511,10 +505,10 @@ Error MbedTLSCryptoProvider::GetX509CertData(aos::crypto::x509::Certificate& cer
 
     memcpy(cert.mRaw.Get(), crt->raw.p, crt->raw.len);
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
-aos::Error MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src, aos::Time& dst)
+Error MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src, Time& dst)
 {
     tm tmp;
 
@@ -527,7 +521,7 @@ aos::Error MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src, aos:
 
     auto seconds = timegm(&tmp);
     if (seconds < 0) {
-        return aos::ErrorEnum::eNone;
+        return ErrorEnum::eNone;
     }
 
     dst = Time::Unix(seconds, 0);
@@ -535,7 +529,7 @@ aos::Error MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src, aos:
     return ErrorEnum::eNone;
 }
 
-aos::Error MbedTLSCryptoProvider::GetX509CertExtensions(aos::crypto::x509::Certificate& cert, mbedtls_x509_crt* crt)
+Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt)
 {
     mbedtls_asn1_buf buf = crt->v3_ext;
 
@@ -620,7 +614,7 @@ aos::Error MbedTLSCryptoProvider::GetX509CertExtensions(aos::crypto::x509::Certi
         next = next->next;
     }
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
 void MbedTLSCryptoProvider::InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk)
@@ -631,14 +625,14 @@ void MbedTLSCryptoProvider::InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk
     mbedtls_x509write_csr_set_md_alg(&csr, MBEDTLS_MD_SHA256);
 }
 
-aos::Error MbedTLSCryptoProvider::SetCSRProperties(
-    mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const aos::crypto::x509::CSR& templ)
+Error MbedTLSCryptoProvider::SetCSRProperties(
+    mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const x509::CSR& templ)
 {
     mbedtls_x509write_csr_set_key(&csr, &pk);
 
-    aos::StaticString<aos::crypto::cCertSubjSize> subject;
-    auto                                          err = ASN1DecodeDN(templ.mSubject, subject);
-    if (err != aos::ErrorEnum::eNone) {
+    StaticString<cCertSubjSize> subject;
+    auto                        err = ASN1DecodeDN(templ.mSubject, subject);
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -648,19 +642,18 @@ aos::Error MbedTLSCryptoProvider::SetCSRProperties(
     }
 
     err = SetCSRAlternativeNames(csr, templ);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
     return SetCSRExtraExtensions(csr, templ);
 }
 
-aos::Error MbedTLSCryptoProvider::SetCSRAlternativeNames(
-    mbedtls_x509write_csr& csr, const aos::crypto::x509::CSR& templ)
+Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ)
 {
-    mbedtls_x509_san_list   sanList[aos::crypto::cAltDNSNamesCount];
-    aos::crypto::x509::CSR& tmpl         = const_cast<aos::crypto::x509::CSR&>(templ);
-    size_t                  dnsNameCount = tmpl.mDNSNames.Size();
+    mbedtls_x509_san_list sanList[cAltDNSNamesCount];
+    x509::CSR&            tmpl         = const_cast<x509::CSR&>(templ);
+    size_t                dnsNameCount = tmpl.mDNSNames.Size();
 
     for (size_t i = 0; i < tmpl.mDNSNames.Size(); i++) {
         sanList[i].node.type                      = MBEDTLS_X509_SAN_DNS_NAME;
@@ -674,7 +667,7 @@ aos::Error MbedTLSCryptoProvider::SetCSRAlternativeNames(
     return AOS_ERROR_WRAP(mbedtls_x509write_csr_set_subject_alternative_name(&csr, sanList));
 }
 
-aos::Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const aos::crypto::x509::CSR& templ)
+Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ)
 {
     for (const auto& extension : templ.mExtraExtensions) {
         const char*          oid      = extension.mId.CStr();
@@ -688,10 +681,10 @@ aos::Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& c
         }
     }
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
-aos::Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, aos::String& pemCSR)
+Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR)
 {
     pemCSR.Resize(pemCSR.MaxSize());
 
@@ -703,11 +696,11 @@ aos::Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, aos::S
 
     pemCSR.Resize(strlen(reinterpret_cast<const char*>(pemCSR.CStr())));
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
-aos::RetWithError<mbedtls_svc_key_id_t> MbedTLSCryptoProvider::SetupOpaqueKey(
-    mbedtls_pk_context& pk, const aos::crypto::PrivateKeyItf& privKey)
+RetWithError<mbedtls_svc_key_id_t> MbedTLSCryptoProvider::SetupOpaqueKey(
+    mbedtls_pk_context& pk, const PrivateKeyItf& privKey)
 {
     auto statusAddKey = AosPsaAddKey(privKey);
     if (!statusAddKey.mError.IsNone()) {
@@ -718,13 +711,13 @@ aos::RetWithError<mbedtls_svc_key_id_t> MbedTLSCryptoProvider::SetupOpaqueKey(
     if (ret != 0) {
         AosPsaRemoveKey(statusAddKey.mValue);
 
-        return aos::RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, AOS_ERROR_WRAP(ret));
+        return RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, AOS_ERROR_WRAP(ret));
     }
 
-    return aos::RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, aos::ErrorEnum::eNone);
+    return RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, ErrorEnum::eNone);
 }
 
-aos::Error MbedTLSCryptoProvider::InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
+Error MbedTLSCryptoProvider::InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
     mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy)
 {
     mbedtls_x509write_crt_init(&cert);
@@ -739,22 +732,21 @@ aos::Error MbedTLSCryptoProvider::InitializeCertificate(mbedtls_x509write_cert& 
         &ctr_drbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const unsigned char*>(pers), strlen(pers)));
 }
 
-aos::Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
-    mbedtls_ctr_drbg_context& ctrDrbg, const aos::crypto::x509::Certificate& templ,
-    const aos::crypto::x509::Certificate& parent)
+Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
+    mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ, const x509::Certificate& parent)
 {
     mbedtls_x509write_crt_set_subject_key(&cert, &pk);
     mbedtls_x509write_crt_set_issuer_key(&cert, &pk);
 
     auto err = SetCertificateSerialNumber(cert, ctrDrbg, templ);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
-    aos::StaticString<aos::crypto::cCertDNStringSize> subject;
+    StaticString<cCertDNStringSize> subject;
 
     err = ASN1DecodeDN(templ.mSubject, subject);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -764,14 +756,14 @@ aos::Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cer
     }
 
     err = SetCertificateValidityPeriod(cert, templ);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
-    aos::StaticString<aos::crypto::cCertDNStringSize> issuer;
+    StaticString<cCertDNStringSize> issuer;
 
     err = ASN1DecodeDN((!parent.mSubject.IsEmpty() ? parent.mSubject : templ.mIssuer), issuer);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -781,14 +773,14 @@ aos::Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cer
     }
 
     err = SetCertificateSubjectKeyIdentifier(cert, templ);
-    if (err != aos::ErrorEnum::eNone) {
+    if (err != ErrorEnum::eNone) {
         return err;
     }
 
     return SetCertificateAuthorityKeyIdentifier(cert, templ, parent);
 }
 
-aos::Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, aos::String& pemCert)
+Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert)
 {
     pemCert.Resize(pemCert.MaxSize());
 
@@ -800,11 +792,11 @@ aos::Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& ce
 
     pemCert.Resize(strlen(pemCert.CStr()));
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
-aos::Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
-    mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const aos::crypto::x509::Certificate& templ)
+Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
+    mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ)
 {
     if (templ.mSerial.IsEmpty()) {
         mbedtls_mpi serial;
@@ -828,11 +820,11 @@ aos::Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
     }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_serial_raw(
-        &cert, const_cast<aos::crypto::x509::Certificate&>(templ).mSerial.Get(), templ.mSerial.Size()));
+        &cert, const_cast<x509::Certificate&>(templ).mSerial.Get(), templ.mSerial.Size()));
 }
 
-aos::Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
-    mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ)
+Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
+    mbedtls_x509write_cert& cert, const x509::Certificate& templ)
 {
     if (templ.mSubjectKeyId.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_subject_key_identifier(&cert));
@@ -843,8 +835,8 @@ aos::Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
         templ.mSubjectKeyId.Size()));
 }
 
-aos::Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(mbedtls_x509write_cert& cert,
-    const aos::crypto::x509::Certificate& templ, const aos::crypto::x509::Certificate& parent)
+Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(
+    mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent)
 {
     if (!parent.mSubjectKeyId.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
@@ -861,14 +853,13 @@ aos::Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(mbedtls_x
         templ.mAuthorityKeyId.Size()));
 }
 
-aos::Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
-    mbedtls_x509write_cert& cert, const aos::crypto::x509::Certificate& templ)
+Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ)
 {
     if (templ.mNotBefore.IsZero() || templ.mNotAfter.IsZero()) {
-        return aos::ErrorEnum::eInvalidArgument;
+        return ErrorEnum::eInvalidArgument;
     }
 
-    auto formatTime = [](char* buffer, size_t size, const aos::Time& time) -> aos::Error {
+    auto formatTime = [](char* buffer, size_t size, const Time& time) -> Error {
         int day = 0, month = 0, year = 0, hour = 0, min = 0, sec = 0;
 
         auto err = time.GetDate(&day, &month, &year);
@@ -883,7 +874,7 @@ aos::Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
 
         snprintf(buffer, size, "%04d%02d%02d%02d%02d%02d", year, month, day, hour, min, sec);
 
-        return aos::ErrorEnum::eNone;
+        return ErrorEnum::eNone;
     };
 
     char timeBufferBefore[16];
