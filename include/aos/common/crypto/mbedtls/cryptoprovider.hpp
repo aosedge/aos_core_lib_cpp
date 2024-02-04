@@ -128,13 +128,13 @@ private:
     static constexpr auto cAllocatorSize
         = AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));
 
-    Error ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
-    Error GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
-    Error ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
-    Error ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
-    Error ConvertTime(const mbedtls_x509_time& src, Time& dst);
+    Error              ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
+    Error              GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
+    Error              GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt);
+    Error              ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
+    Error              ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
+    Error              ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
+    RetWithError<Time> ConvertTime(const mbedtls_x509_time& src);
 
     void  InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk);
     Error SetCSRProperties(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const x509::CSR& templ);

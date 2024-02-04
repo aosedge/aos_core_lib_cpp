@@ -5,6 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#if defined(__ZEPHYR__)
+#include <zephyr/sys/timeutil.h>
+#else
+#include <time.h>
+#endif
+
 #include <mbedtls/asn1write.h>
 #include <mbedtls/oid.h>
 #include <mbedtls/pk.h>
@@ -488,12 +494,12 @@ Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x5
 
     memcpy(cert.mSerial.Get(), crt->serial.p, crt->serial.len);
 
-    err = ConvertTime(crt->valid_from, cert.mNotBefore);
+    aos::Tie(cert.mNotBefore, err) = ConvertTime(crt->valid_from);
     if (!err.IsNone()) {
         return err;
     }
 
-    err = ConvertTime(crt->valid_to, cert.mNotAfter);
+    aos::Tie(cert.mNotAfter, err) = ConvertTime(crt->valid_to);
     if (!err.IsNone()) {
         return err;
     }
@@ -508,7 +514,7 @@ Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x5
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src, Time& dst)
+RetWithError<Time> MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src)
 {
     tm tmp;
 
@@ -519,14 +525,16 @@ Error MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& src, Time& dst
     tmp.tm_min  = src.min;
     tmp.tm_sec  = src.sec;
 
+#if defined(__ZEPHYR__)
+    auto seconds = timeutil_timegm(&tmp);
+#else
     auto seconds = timegm(&tmp);
+#endif
     if (seconds < 0) {
-        return ErrorEnum::eNone;
+        return {Time(), AOS_ERROR_WRAP(errno)};
     }
 
-    dst = Time::Unix(seconds, 0);
-
-    return ErrorEnum::eNone;
+    return Time::Unix(seconds, 0);
 }
 
 Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt)
