@@ -34,7 +34,7 @@ execute_process(
 # Includes
 # ######################################################################################################################
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers)
 
 # ######################################################################################################################
 # Fetch and setup MbedTLS
