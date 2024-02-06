@@ -56,14 +56,12 @@ Error PKCS11Module::Init(const String& certType, const PKCS11ModuleConfig& confi
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    Error err = ErrorEnum::eNone;
-
-    err = os::GetEnv(cEnvLoginType, mTeeLoginType);
-    if (!err.IsNone()) {
+    auto err = os::GetEnv(cEnvLoginType, mTeeLoginType);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!mConfig.mUserPINPath.IsEmpty() && mTeeLoginType.IsEmpty()) {
+    if (mConfig.mUserPINPath.IsEmpty() && mTeeLoginType.IsEmpty()) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
