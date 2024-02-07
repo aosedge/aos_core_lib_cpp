@@ -85,7 +85,7 @@ public:
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
-        if (!mFileName) {
+        if (err.mFileName) {
             mFileName   = err.mFileName;
             mLineNumber = err.mLineNumber;
         }
