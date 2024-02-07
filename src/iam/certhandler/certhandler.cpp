@@ -56,7 +56,12 @@ Error CertHandler::SetOwner(const String& certType, const String& password)
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    return module->SetOwner(password);
+    auto err = module->SetOwner(password);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::Clear(const String& certType)
@@ -70,7 +75,12 @@ Error CertHandler::Clear(const String& certType)
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    return module->Clear();
+    auto err = module->Clear();
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::CreateKey(
@@ -90,7 +100,12 @@ Error CertHandler::CreateKey(
         return key.mError;
     }
 
-    return module->CreateCSR(subjectCommonName, *key.mValue, pemCSR);
+    auto err = module->CreateCSR(subjectCommonName, *key.mValue, pemCSR);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::ApplyCertificate(const String& certType, const String& cert, CertInfo& info)
@@ -104,7 +119,12 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& cert, 
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    return module->ApplyCert(cert, info);
+    auto err = module->ApplyCert(cert, info);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::GetCertificate(
@@ -119,7 +139,12 @@ Error CertHandler::GetCertificate(
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    return module->GetCertificate(issuer, serial, resCert);
+    auto err = module->GetCertificate(issuer, serial, resCert);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::CreateSelfSignedCert(const String& certType, const String& password)
@@ -133,7 +158,12 @@ Error CertHandler::CreateSelfSignedCert(const String& certType, const String& pa
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    return module->CreateSelfSignedCert(password);
+    auto err = module->CreateSelfSignedCert(password);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 CertHandler::~CertHandler()

@@ -122,7 +122,7 @@ Error PKCS11Module::SetOwner(const String& password)
 
             err = FS::WriteStringToFile(mConfig.mUserPINPath, userPIN, 0600);
             if (!err.IsNone()) {
-                return err;
+                return AOS_ERROR_WRAP(err);
             }
         }
     }
@@ -131,7 +131,7 @@ Error PKCS11Module::SetOwner(const String& password)
 
     err = mPKCS11->InitToken(mSlotID, password, mConfig.mTokenLabel);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     pkcs11::SessionContext* session;
@@ -147,7 +147,12 @@ Error PKCS11Module::SetOwner(const String& password)
         LOG_DBG() << "Init PIN: session = " << session->GetHandle();
     }
 
-    return session->InitPIN(mUserPIN);
+    err = session->InitPIN(mUserPIN);
+    if (err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error PKCS11Module::Clear()
@@ -182,7 +187,7 @@ Error PKCS11Module::Clear()
     for (const auto& token : tokens) {
         auto releaseErr = session->DestroyObject(token.mHandle);
         if (!releaseErr.IsNone()) {
-            err = releaseErr;
+            err = AOS_ERROR_WRAP(releaseErr);
             LOG_ERR() << "Can't delete object: handle = " << token.mHandle;
         }
     }
@@ -281,7 +286,7 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
 
     if (!curKey.HasValue()) {
         LOG_ERR() << "No corresponding key found";
-        return ErrorEnum::eNotFound;
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
     err = CreateCertificateChain(*session, curKey.GetValue().mUUID, mCertType, certChain);
@@ -349,10 +354,15 @@ Error PKCS11Module::RemoveKey(const String& keyURL, const String& password)
 
     const auto privKey = pkcs11::Utils(*session, *mX509Provider, mLocalCacheAllocator).FindPrivateKey(id, label);
     if (!privKey.mError.IsNone()) {
-        return privKey.mError;
+        return AOS_ERROR_WRAP(privKey.mError);
     }
 
-    return pkcs11::Utils(*session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(privKey.mValue);
+    err = pkcs11::Utils(*session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(privKey.mValue);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error PKCS11Module::ValidateCertificates(
@@ -450,7 +460,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
     auto err = mPKCS11->GetSlotList(false, slotList);
     if (!err.IsNone()) {
-        return {0, err};
+        return {0, AOS_ERROR_WRAP(err)};
     }
 
     if (mConfig.mSlotIndex.HasValue()) {
@@ -469,9 +479,9 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
     Optional<uint32_t> freeSlotId;
 
     for (const auto slotId : slotList) {
-        auto err = mPKCS11->GetSlotInfo(slotId, slotInfo);
+        err = mPKCS11->GetSlotInfo(slotId, slotInfo);
         if (err.IsNone()) {
-            return {0, err};
+            return {0, AOS_ERROR_WRAP(err)};
         }
 
         if ((slotInfo.mFlags & CKF_TOKEN_PRESENT) != 0) {
@@ -479,7 +489,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
             err = mPKCS11->GetTokenInfo(slotId, tokenInfo);
             if (!err.IsNone()) {
-                return {0, err};
+                return {0, AOS_ERROR_WRAP(err)};
             }
 
             if (tokenInfo.mLabel == mConfig.mTokenLabel) {
@@ -498,7 +508,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
     LOG_ERR() << "No suitable slot found";
 
-    return {0, ErrorEnum::eNotFound};
+    return {0, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
 }
 
 RetWithError<bool> PKCS11Module::IsOwned() const
@@ -507,7 +517,7 @@ RetWithError<bool> PKCS11Module::IsOwned() const
 
     auto err = mPKCS11->GetTokenInfo(mSlotID, tokenInfo);
     if (!err.IsNone()) {
-        return {false, err};
+        return {false, AOS_ERROR_WRAP(err)};
     }
 
     const bool isOwned = (tokenInfo.mFlags & CKF_TOKEN_INITIALIZED) != 0;
@@ -523,21 +533,21 @@ Error PKCS11Module::PrintInfo(pkcs11::SlotID slotId) const
 
     auto err = mPKCS11->GetLibInfo(libInfo);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     LOG_DBG() << "Library = " << mConfig.mLibrary << ", info = " << libInfo;
 
     err = mPKCS11->GetSlotInfo(slotId, slotInfo);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     LOG_DBG() << "SlotID = " << slotId << ", slotInfo = " << slotInfo;
 
     err = mPKCS11->GetTokenInfo(slotId, tokenInfo);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     LOG_DBG() << "SlotID = " << slotId << ", tokenInfo = " << tokenInfo;
@@ -550,9 +560,13 @@ Error PKCS11Module::GetTeeUserPIN(const String& loginType, String& userPIN)
     if (loginType == cLoginTypePublic) {
         userPIN = loginType;
         return ErrorEnum::eNone;
-    } else if (loginType == cLoginTypeUser) {
+    }
+
+    if (loginType == cLoginTypeUser) {
         return GeneratePIN(cLoginTypeUser, userPIN);
-    } else if (loginType == cLoginTypeGroup) {
+    }
+
+    if (loginType == cLoginTypeGroup) {
         return GeneratePIN(cLoginTypeGroup, userPIN);
     }
 
@@ -577,7 +591,12 @@ Error PKCS11Module::GeneratePIN(const String& loginType, String& userPIN)
         AOS_ERROR_WRAP(err);
     }
 
-    return userPIN.Format("%s:%s", loginType.CStr(), pinStr.CStr());
+    err = userPIN.Format("%s:%s", loginType.CStr(), pinStr.CStr());
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 };
 
 Error PKCS11Module::GetUserPin(String& pin) const
@@ -587,7 +606,12 @@ Error PKCS11Module::GetUserPin(String& pin) const
         return ErrorEnum::eNone;
     }
 
-    return FS::ReadFileToString(mConfig.mUserPINPath, pin);
+    auto err = FS::ReadFileToString(mConfig.mUserPINPath, pin);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 RetWithError<pkcs11::SessionContext*> PKCS11Module::CreateSession(bool userLogin, const String& pin)
@@ -597,7 +621,7 @@ RetWithError<pkcs11::SessionContext*> PKCS11Module::CreateSession(bool userLogin
     if (!mSession) {
         Tie(mSession, err) = mPKCS11->OpenSession(mSlotID, CKF_RW_SESSION | CKF_SERIAL_SESSION);
         if (!err.IsNone()) {
-            return {nullptr, err};
+            return {nullptr, AOS_ERROR_WRAP(err)};
         }
     }
 
@@ -607,7 +631,7 @@ RetWithError<pkcs11::SessionContext*> PKCS11Module::CreateSession(bool userLogin
 
     err = mSession->GetSessionInfo(sessionInfo);
     if (!err.IsNone()) {
-        return {nullptr, err};
+        return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
     const bool isUserLoggedIn
@@ -617,20 +641,20 @@ RetWithError<pkcs11::SessionContext*> PKCS11Module::CreateSession(bool userLogin
     if ((userLogin && isSOLoggedIn) || (!userLogin && isUserLoggedIn)) {
         err = mSession->Logout();
         if (!err.IsNone()) {
-            return {nullptr, err};
+            return {nullptr, AOS_ERROR_WRAP(err)};
         }
     }
 
     if (userLogin && !isUserLoggedIn) {
         LOG_DBG() << "User login: session = " << mSession->GetHandle() << ", slotID = " << mSlotID;
 
-        return {mSession.Get(), mSession->Login(CKU_USER, mUserPIN)};
+        return {mSession.Get(), AOS_ERROR_WRAP(mSession->Login(CKU_USER, mUserPIN))};
     }
 
     if (!userLogin && !isSOLoggedIn) {
         LOG_DBG() << "SO login: session = " << mSession->GetHandle() << ", slotID = " << mSlotID;
 
-        return {mSession.Get(), mSession->Login(CKU_SO, pin)};
+        return {mSession.Get(), AOS_ERROR_WRAP(mSession->Login(CKU_SO, pin))};
     }
 
     return {mSession.Get(), ErrorEnum::eNone};
@@ -638,7 +662,7 @@ RetWithError<pkcs11::SessionContext*> PKCS11Module::CreateSession(bool userLogin
 
 Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst)
 {
-    static constexpr auto cSearchObjAttrCount = 4U;
+    static constexpr auto cSearchObjAttrCount = 4;
 
     // create search template
     CK_BBOOL token = CK_TRUE;
@@ -736,10 +760,10 @@ Error PKCS11Module::CreateCertificateChain(pkcs11::SessionContext& session, cons
 
     auto err = utils.ImportCertificate(id, label, chain[0]);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
-    for (size_t i = 1U; i < chain.Size(); i++) {
+    for (size_t i = 1; i < chain.Size(); i++) {
         bool hasCertificate = false;
 
         Tie(hasCertificate, err) = utils.HasCertificate(chain[i].mIssuer, chain[i].mSerial);
@@ -807,7 +831,12 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     addParam("pin-value", mUserPIN.CStr(), false, query);
 
     // combine opaque & query parts of url
-    return url.Format("%s:%s?%s", cPKCS11Scheme, opaque.CStr(), query.CStr());
+    auto err = url.Format("%s:%s?%s", cPKCS11Scheme, opaque.CStr(), query.CStr());
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& id)
@@ -816,7 +845,12 @@ Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& i
     StaticString<pkcs11::cLabelLen>  token;
     StaticString<pkcs11::cPINLength> userPIN;
 
-    return cryptoutils::ParsePKCS11URL(url, library, token, label, id, userPIN);
+    auto err = cryptoutils::ParsePKCS11URL(url, library, token, label, id, userPIN);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchObject>& certs,
@@ -848,7 +882,7 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
         auto err = GetX509Cert(session, cert->mHandle, *x509Cert);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't get x509 certificate: ID = " << cert->mID;
-            return AOS_ERROR_WRAP(err);
+            return err;
         }
 
         err = CreateCertInfo(*x509Cert, privKey->mID, cert->mID, validCert);
@@ -910,10 +944,15 @@ Error PKCS11Module::GetX509Cert(
 
     auto err = session.GetAttributeValues(object, types, values);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
-    return mX509Provider->DERToX509Cert(*certBuffer, cert);
+    err = mX509Provider->DERToX509Cert(*certBuffer, cert);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error PKCS11Module::CreateCertInfo(const crypto::x509::Certificate& cert, const Array<uint8_t>& keyID,
@@ -948,7 +987,7 @@ Error PKCS11Module::CreateInvalidURLs(const Array<SearchObject>& objects, Array<
 
         err = urls.PushBack(url);
         if (err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
     }
 

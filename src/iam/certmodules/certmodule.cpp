@@ -37,7 +37,7 @@ Error CertModule::Init(const String& certType, const ModuleConfig& config, crypt
 
     auto err = mHSM->ValidateCertificates(mInvalidCerts, mInvalidKeys, *validCerts);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     return SyncValidCerts(*validCerts);
@@ -48,9 +48,9 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
     auto certsInStorage = MakeUnique<ModuleCertificates>(&mAllocator);
 
     if (serial.IsEmpty()) {
-        const auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
+        auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
 
         if (certsInStorage->Size() == 0) {
@@ -67,22 +67,37 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
         return ErrorEnum::eNone;
     }
 
-    return mStorage->GetCertInfo(issuer, serial, resCert);
+    auto err = mStorage->GetCertInfo(issuer, serial, resCert);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertModule::SetOwner(const String& password)
 {
-    return mHSM->SetOwner(password);
+    auto err = mHSM->SetOwner(password);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertModule::Clear()
 {
     auto err = mHSM->Clear();
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
-    return mStorage->RemoveAllCertsInfo(GetCertType());
+    err = mStorage->RemoveAllCertsInfo(GetCertType());
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertModule::CreateKey(const String& password)
@@ -97,7 +112,9 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertModule::CreateKey(const Strin
         return {nullptr, err};
     }
 
-    return mHSM->CreateKey(password, mModuleConfig.mKeyType);
+    auto keyResult = mHSM->CreateKey(password, mModuleConfig.mKeyType);
+
+    return {keyResult.mValue, AOS_ERROR_WRAP(keyResult.mError)};
 }
 
 Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::PrivateKeyItf& privKey, String& pemCSR)
@@ -141,7 +158,7 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
 
         ext.mId = cOidExtensionExtendedKeyUsage;
 
-        auto err = mX509Provider->ASN1EncodeObjectIds(oids, ext.mValue);
+        err = mX509Provider->ASN1EncodeObjectIds(oids, ext.mValue);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -152,7 +169,12 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
         }
     }
 
-    return mX509Provider->CreateCSR(templ, privKey, pemCSR);
+    err = mX509Provider->CreateCSR(templ, privKey, pemCSR);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertModule::ApplyCert(const String& pemCert, CertInfo& info)
@@ -161,7 +183,7 @@ Error CertModule::ApplyCert(const String& pemCert, CertInfo& info)
 
     auto err = mX509Provider->PEMToX509Certs(pemCert, *certificates);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = CheckCertChain(*certificates);
@@ -173,12 +195,12 @@ Error CertModule::ApplyCert(const String& pemCert, CertInfo& info)
 
     err = mHSM->ApplyCert(*certificates, info, password);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = mStorage->AddCertInfo(GetCertType(), info);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     return TrimCerts(password);
@@ -200,19 +222,19 @@ Error CertModule::CreateSelfSignedCert(const String& password)
 
     auto err = mX509Provider->ASN1EncodeDN("CN=Aos Core", templ->mSubject);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = mX509Provider->ASN1EncodeDN("CN=Aos Core", templ->mIssuer);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     auto pemCert = MakeUnique<SelfSignedCertificate>(&mAllocator);
 
     err = mX509Provider->CreateCertificate(*templ, *templ, *key.mValue, *pemCert);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     CertInfo certInfo;
@@ -231,7 +253,7 @@ Error CertModule::RemoveInvalidCerts(const String& password)
 
         const auto err = mHSM->RemoveCert(url, password);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
     }
 
@@ -247,7 +269,7 @@ Error CertModule::RemoveInvalidKeys(const String& password)
 
         const auto err = mHSM->RemoveKey(url, password);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
     }
 
@@ -262,7 +284,7 @@ Error CertModule::TrimCerts(const String& password)
 
     auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     if (certsInStorage->Size() > mModuleConfig.mMaxCertificates) {
@@ -283,17 +305,17 @@ Error CertModule::TrimCerts(const String& password)
 
         err = mHSM->RemoveCert(info->mCertURL, password);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
 
         err = mHSM->RemoveKey(info->mKeyURL, password);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
 
         err = mStorage->RemoveCertInfo(GetCertType(), info->mCertURL);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
 
         certsInStorage->Remove(info);
@@ -353,7 +375,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
 
     auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
     if (!err.IsNone() && err != ErrorEnum::eNotFound) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     // Add module certificates to storage.
@@ -375,7 +397,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
 
             err = mStorage->AddCertInfo(GetCertType(), moduleCert);
             if (!err.IsNone()) {
-                return err;
+                return AOS_ERROR_WRAP(err);
             }
         }
     }
@@ -386,7 +408,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
 
         err = mStorage->RemoveCertInfo(GetCertType(), moduleCert.mCertURL);
         if (!err.IsNone()) {
-            return err;
+            return AOS_ERROR_WRAP(err);
         }
     }
 
