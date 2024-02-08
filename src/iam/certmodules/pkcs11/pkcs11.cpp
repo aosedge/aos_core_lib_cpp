@@ -149,11 +149,10 @@ Error PKCS11Module::SetOwner(const String& password)
     }
 
     err = session->InitPIN(mUserPIN);
-    if (err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
 
-    return ErrorEnum::eNone;
+    mSession.Reset();
+
+    return AOS_ERROR_WRAP(err);
 }
 
 Error PKCS11Module::Clear()
@@ -181,17 +180,18 @@ Error PKCS11Module::Clear()
     SearchObject                                   filter;
 
     err = FindObject(*session, filter, tokens);
-    if (!err.IsNone()) {
-        return err;
-    }
 
-    for (const auto& token : tokens) {
-        auto releaseErr = session->DestroyObject(token.mHandle);
-        if (!releaseErr.IsNone()) {
-            err = AOS_ERROR_WRAP(releaseErr);
-            LOG_ERR() << "Can't delete object: handle = " << token.mHandle;
+    if (err.IsNone()) {
+        for (const auto& token : tokens) {
+            auto releaseErr = session->DestroyObject(token.mHandle);
+            if (!releaseErr.IsNone()) {
+                err = AOS_ERROR_WRAP(releaseErr);
+                LOG_ERR() << "Can't delete object: handle = " << token.mHandle;
+            }
         }
     }
+
+    mSession.Reset();
 
     return err;
 }
