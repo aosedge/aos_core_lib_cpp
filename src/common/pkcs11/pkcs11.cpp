@@ -349,7 +349,7 @@ Error LibraryContext::Init()
     if (rv != CKR_OK) {
         LOG_ERR() << "C_Initialize failed: err = " << rv;
 
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -372,7 +372,7 @@ Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& 
 
     CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size(), pkcsLabel);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -392,7 +392,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 
     CK_RV rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), slotList.Get(), &count);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     slotList.Resize(count);
@@ -412,7 +412,7 @@ Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 
     CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ConvertFromPKCS11SlotInfo(pkcsInfo, slotInfo);
@@ -430,7 +430,7 @@ Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 
     CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ConvertFromPKCS11TokenInfo(pkcsInfo, tokenInfo);
@@ -448,7 +448,7 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 
     CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ConvertFromPKCS11LibInfo(pkcsInfo, libInfo);
@@ -466,7 +466,7 @@ RetWithError<UniquePtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
 
     CK_RV rv = mFunctionList->C_OpenSession(slotID, flags, nullptr, nullptr, &handle);
     if (rv != CKR_OK) {
-        return {nullptr, ErrorEnum::eFailed};
+        return {nullptr, static_cast<int>(rv)};
     }
 
     auto session = MakeUnique<SessionContext>(&mAllocator, handle, mFunctionList);
@@ -506,7 +506,7 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
 
     CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -522,7 +522,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
 
     CK_RV rv = mFunctionList->C_Login(mHandle, userType, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size());
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -538,7 +538,7 @@ Error SessionContext::Logout()
 
     CK_RV rv = mFunctionList->C_Logout(mHandle);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -554,7 +554,7 @@ Error SessionContext::InitPIN(const String& pin)
 
     CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size());
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -578,7 +578,7 @@ Error SessionContext::GetAttributeValues(
 
     CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return GetAttributesValues(pkcsAttributes, values);
@@ -624,7 +624,7 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
     CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
     if (rv != CKR_OK) {
-        return {0, ErrorEnum::eFailed};
+        return {0, static_cast<int>(rv)};
     }
 
     return {objHandle, ErrorEnum::eNone};
@@ -640,7 +640,7 @@ Error SessionContext::DestroyObject(ObjectHandle object)
 
     CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -724,7 +724,7 @@ Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey)
 
     CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -740,7 +740,7 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
 
     CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -756,7 +756,7 @@ Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privK
 
     CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -772,7 +772,7 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
 
     CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -795,7 +795,7 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 
     CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size());
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
@@ -821,7 +821,7 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         CK_RV rv = mFunctionList->C_FindObjects(
             mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
         if (rv != CKR_OK) {
-            return ErrorEnum::eFailed;
+            return rv;
         }
 
         foundObjectsCount += chunk;
@@ -847,7 +847,7 @@ Error SessionContext::FindObjectsFinal() const
 
     CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle);
     if (rv != CKR_OK) {
-        return ErrorEnum::eFailed;
+        return rv;
     }
 
     return ErrorEnum::eNone;
