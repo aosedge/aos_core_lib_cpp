@@ -31,6 +31,7 @@ public:
     MOCK_METHOD(Error, ASN1EncodeBigInt, (const Array<uint8_t>& number, Array<uint8_t>& asn1Value), (override));
     MOCK_METHOD(
         Error, ASN1EncodeDERSequence, (const Array<Array<uint8_t>>& items, Array<uint8_t>& asn1Value), (override));
+    MOCK_METHOD(Error, ASN1DecodeOctetString, (const Array<uint8_t>& src, Array<uint8_t>& dst), (override));
 };
 
 } // namespace x509

@@ -175,14 +175,9 @@ static void ImportECDSAPublicKey(const crypto::ECDSAPublicKey& ecdsaKey, mbedtls
     mbedtls_ecdsa_init(ecdsaCtx);
     ASSERT_EQ(mbedtls_ecp_group_load(&ecdsaCtx->private_grp, MBEDTLS_ECP_DP_SECP384R1), 0);
 
-    // skip OCTETSTRING tag & length (added by PKCS11)
-    uint8_t* p   = const_cast<uint8_t*>(ecPoint.Get());
-    size_t   len = 0;
-
-    ASSERT_EQ(mbedtls_asn1_get_tag(&p, ecPoint.end(), &len, MBEDTLS_ASN1_OCTET_STRING), 0);
-
     // read EC point
-    ASSERT_EQ(mbedtls_ecp_point_read_binary(&ecdsaCtx->private_grp, &ecdsaCtx->private_Q, p, len), 0);
+    ASSERT_EQ(
+        mbedtls_ecp_point_read_binary(&ecdsaCtx->private_grp, &ecdsaCtx->private_Q, ecPoint.Get(), ecPoint.Size()), 0);
 }
 
 static bool VerifySHA256RSASignature(

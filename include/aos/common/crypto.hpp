@@ -549,6 +549,15 @@ public:
     virtual Error ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, Array<uint8_t>& asn1Value) = 0;
 
     /**
+     * Returns value of the input ASN1 OCTETSTRING.
+     *
+     * @param src DER encoded OCTETSTRING value.
+     * @param[out] dst decoded value.
+     * @result Error.
+     */
+    virtual Error ASN1DecodeOctetString(const Array<uint8_t>& src, Array<uint8_t>& dst) = 0;
+
+    /**
      * Destroys object instance.
      */
     virtual ~ProviderItf() = default;

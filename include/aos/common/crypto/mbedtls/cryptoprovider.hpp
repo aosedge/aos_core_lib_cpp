@@ -124,6 +124,15 @@ public:
      */
     Error ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, Array<uint8_t>& asn1Value) override;
 
+    /**
+     * Returns value of the input ASN1 OCTETSTRING.
+     *
+     * @param src DER encoded OCTETSTRING value.
+     * @param[out] dst decoded value.
+     * @result Error.
+     */
+    Error ASN1DecodeOctetString(const Array<uint8_t>& src, Array<uint8_t>& dst) override;
+
 private:
     static constexpr auto cAllocatorSize
         = AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));

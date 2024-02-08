@@ -220,8 +220,8 @@ private:
     static constexpr auto cValidSelfSignedCertPeriod = Years(100);
 
     static constexpr auto cOidExtensionExtendedKeyUsage = "2.5.29.37";
-    static constexpr auto cOidExtKeyUsageClientAuth     = "1.3.6.1.5.5.7.3.1";
-    static constexpr auto cOidExtKeyUsageServerAuth     = "1.3.6.1.5.5.7.3.2";
+    static constexpr auto cOidExtKeyUsageServerAuth     = "1.3.6.1.5.5.7.3.1";
+    static constexpr auto cOidExtKeyUsageClientAuth     = "1.3.6.1.5.5.7.3.2";
 
     using ModuleCertificates    = StaticArray<CertInfo, cCertsPerModule>;
     using CertificateChain      = StaticArray<crypto::x509::Certificate, crypto::cCertChainSize>;
