@@ -101,10 +101,8 @@ public:
         mErr   = err.mErr;
         mErrno = err.mErrno;
 
-        if (!mFileName) {
-            mFileName   = err.mFileName;
-            mLineNumber = err.mLineNumber;
-        }
+        mFileName   = err.mFileName;
+        mLineNumber = err.mLineNumber;
 
         return *this;
     }
