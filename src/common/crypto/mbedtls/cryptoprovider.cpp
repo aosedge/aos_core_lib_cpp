@@ -697,14 +697,14 @@ Error MbedTLSCryptoProvider::SetCSRProperties(
 Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ)
 {
     mbedtls_x509_san_list sanList[cAltDNSNamesCount];
-    x509::CSR&            tmpl         = const_cast<x509::CSR&>(templ);
-    size_t                dnsNameCount = tmpl.mDNSNames.Size();
+    size_t                dnsNameCount = templ.mDNSNames.Size();
 
-    for (size_t i = 0; i < tmpl.mDNSNames.Size(); i++) {
+    for (size_t i = 0; i < templ.mDNSNames.Size(); i++) {
         sanList[i].node.type                      = MBEDTLS_X509_SAN_DNS_NAME;
         sanList[i].node.san.unstructured_name.tag = MBEDTLS_ASN1_IA5_STRING;
-        sanList[i].node.san.unstructured_name.len = tmpl.mDNSNames[i].Size();
-        sanList[i].node.san.unstructured_name.p   = reinterpret_cast<unsigned char*>(tmpl.mDNSNames[i].Get());
+        sanList[i].node.san.unstructured_name.len = templ.mDNSNames[i].Size();
+        sanList[i].node.san.unstructured_name.p
+            = reinterpret_cast<unsigned char*>(const_cast<char*>(templ.mDNSNames[i].Get()));
 
         sanList[i].next = (i < dnsNameCount - 1) ? &sanList[i + 1] : nullptr;
     }
