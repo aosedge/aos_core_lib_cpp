@@ -252,7 +252,10 @@ Error GenPIN(String& pin)
         unsigned value     = rand();
         auto     byteArray = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
 
-        chunk.Convert(byteArray);
+        auto err = chunk.ByteArrayToHex(byteArray);
+        if (!err.IsNone()) {
+            return err;
+        }
 
         auto chunkSize = Min(pin.MaxSize() - pin.Size(), chunk.Size());
 
