@@ -628,19 +628,16 @@ Error SessionContext::Sign(
         return err;
     }
 
-    CK_ULONG signSize = 0;
+    CK_ULONG signSize = signature.MaxSize();
 
-    err = Sign(data, nullptr, &signSize);
+    signature.Resize(signature.MaxSize());
+
+    err = Sign(data, signature.Get(), &signSize);
     if (!err.IsNone()) {
         return err;
     }
 
-    err = signature.Resize(signSize);
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    return Sign(data, signature.Get(), &signSize);
+    return signature.Resize(signSize);
 }
 
 Error SessionContext::Decrypt(
