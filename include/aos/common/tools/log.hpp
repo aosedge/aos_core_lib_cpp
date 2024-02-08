@@ -192,6 +192,10 @@ public:
     {
         *this << err.Message();
 
+        if (err.Errno() != 0) {
+            *this << " [" << err.Errno() << "]";
+        }
+
         if (err.FileName() != nullptr) {
             *this << " (" << err.FileName() << ":" << err.LineNumber() << ")";
         }
