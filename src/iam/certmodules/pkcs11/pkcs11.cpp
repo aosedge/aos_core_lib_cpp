@@ -84,6 +84,11 @@ Error PKCS11Module::Init(const String& certType, const PKCS11ModuleConfig& confi
         if (!err.IsNone()) {
             return err;
         }
+
+        err = GetUserPin(mUserPIN);
+        if (!err.IsNone()) {
+            return err;
+        }
     } else {
         LOG_DBG() << "No owned token found";
     }
@@ -104,23 +109,19 @@ Error PKCS11Module::SetOwner(const String& password)
     mSession.Reset();
 
     if (!mTeeLoginType.IsEmpty()) {
-        StaticString<pkcs11::cPINLength> userPIN;
-
-        err = GetTeeUserPIN(mTeeLoginType, userPIN);
+        err = GetTeeUserPIN(mTeeLoginType, mUserPIN);
         if (!err.IsNone()) {
             return err;
         }
     } else {
-        StaticString<pkcs11::cPINLength> userPIN;
-
-        err = GetUserPin(userPIN);
+        err = GetUserPin(mUserPIN);
         if (!err.IsNone()) {
-            err = pkcs11::GenPIN(userPIN);
+            err = pkcs11::GenPIN(mUserPIN);
             if (!err.IsNone()) {
                 return err;
             }
 
-            err = FS::WriteStringToFile(mConfig.mUserPINPath, userPIN, 0600);
+            err = FS::WriteStringToFile(mConfig.mUserPINPath, mUserPIN, 0600);
             if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
