@@ -312,12 +312,14 @@ Error MbedTLSCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
     uint8_t* p   = const_cast<uint8_t*>(dn.begin());
     size_t   tmp = 0;
 
-    if ((mbedtls_asn1_get_tag(&p, dn.end(), &tmp, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-        return ErrorEnum::eFailed;
+    auto ret = mbedtls_asn1_get_tag(&p, dn.end(), &tmp, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
+    if (ret != 0) {
+        return ret;
     }
 
-    if (mbedtls_x509_get_name(&p, dn.end(), &tmpDN) != 0) {
-        return ErrorEnum::eFailed;
+    ret = mbedtls_x509_get_name(&p, dn.end(), &tmpDN);
+    if (ret != 0) {
+        return ret;
     }
 
     result.Resize(result.MaxSize());
@@ -326,7 +328,7 @@ Error MbedTLSCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
     mbedtls_asn1_free_named_data_list_shallow(tmpDN.next);
 
     if (len < 0) {
-        return ErrorEnum::eFailed;
+        return len;
     }
 
     return result.Resize(len);
@@ -348,7 +350,7 @@ Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(const Array<asn1::ObjectIdentif
 
     int len = crypto::ASN1EncodeObjectIds(src, &p, start);
     if (len < 0) {
-        return ErrorEnum::eFailed;
+        return len;
     }
 
     memmove(asn1Value.Get(), p, len);
@@ -363,7 +365,7 @@ Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const Array<uint8_t>& number, Arra
 
     int len = crypto::ASN1EncodeBigInt(number, &p, asn1Value.Get());
     if (len < 0) {
-        return ErrorEnum::eFailed;
+        return len;
     }
 
     memmove(asn1Value.Get(), p, len);
@@ -380,7 +382,7 @@ Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& 
 
     int len = crypto::ASN1EncodeDERSequence(items, &p, start);
     if (len < 0) {
-        return ErrorEnum::eFailed;
+        return len;
     }
 
     memmove(asn1Value.Get(), p, len);
