@@ -160,7 +160,7 @@ private:
     RetWithError<pkcs11::SlotID> GetSlotID();
     RetWithError<bool>           IsOwned() const;
 
-    Error PrintInfo(pkcs11::SlotID slotId) const;
+    Error PrintInfo(pkcs11::SlotID slotID) const;
 
     Error GetTeeUserPIN(const String& loginType, String& userPIN);
     Error GeneratePIN(const String& loginType, String& userPIN);

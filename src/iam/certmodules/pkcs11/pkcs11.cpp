@@ -448,7 +448,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
     if (paramCount > 1) {
         LOG_ERR()
-            << "Only one parameter for slot identification should be specified (slotId or slotIndex or tokenLabel)";
+            << "Only one parameter for slot identification should be specified (slotID or slotIndex or tokenLabel)";
 
         return {0, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
     }
@@ -477,10 +477,10 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
     // Find free(not initialized) token by label.
     pkcs11::SlotInfo   slotInfo;
-    Optional<uint32_t> freeSlotId;
+    Optional<uint32_t> freeSlotID;
 
-    for (const auto slotId : slotList) {
-        err = mPKCS11->GetSlotInfo(slotId, slotInfo);
+    for (const auto slotID : slotList) {
+        err = mPKCS11->GetSlotInfo(slotID, slotInfo);
         if (err.IsNone()) {
             return {0, AOS_ERROR_WRAP(err)};
         }
@@ -488,23 +488,23 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
         if ((slotInfo.mFlags & CKF_TOKEN_PRESENT) != 0) {
             pkcs11::TokenInfo tokenInfo;
 
-            err = mPKCS11->GetTokenInfo(slotId, tokenInfo);
+            err = mPKCS11->GetTokenInfo(slotID, tokenInfo);
             if (!err.IsNone()) {
                 return {0, AOS_ERROR_WRAP(err)};
             }
 
             if (tokenInfo.mLabel == mConfig.mTokenLabel) {
-                return {slotId, ErrorEnum::eNone};
+                return {slotID, ErrorEnum::eNone};
             }
 
-            if ((tokenInfo.mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotId.HasValue()) {
-                freeSlotId.SetValue(slotId);
+            if ((tokenInfo.mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
+                freeSlotID.SetValue(slotID);
             }
         }
     }
 
-    if (freeSlotId.HasValue()) {
-        return {freeSlotId.GetValue(), ErrorEnum::eNone};
+    if (freeSlotID.HasValue()) {
+        return {freeSlotID.GetValue(), ErrorEnum::eNone};
     }
 
     LOG_ERR() << "No suitable slot found";
@@ -526,7 +526,7 @@ RetWithError<bool> PKCS11Module::IsOwned() const
     return {isOwned, ErrorEnum::eNone};
 }
 
-Error PKCS11Module::PrintInfo(pkcs11::SlotID slotId) const
+Error PKCS11Module::PrintInfo(pkcs11::SlotID slotID) const
 {
     pkcs11::LibInfo   libInfo;
     pkcs11::SlotInfo  slotInfo;
@@ -539,19 +539,19 @@ Error PKCS11Module::PrintInfo(pkcs11::SlotID slotId) const
 
     LOG_DBG() << "Library = " << mConfig.mLibrary << ", info = " << libInfo;
 
-    err = mPKCS11->GetSlotInfo(slotId, slotInfo);
+    err = mPKCS11->GetSlotInfo(slotID, slotInfo);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "SlotID = " << slotId << ", slotInfo = " << slotInfo;
+    LOG_DBG() << "SlotID = " << slotID << ", slotInfo = " << slotInfo;
 
-    err = mPKCS11->GetTokenInfo(slotId, tokenInfo);
+    err = mPKCS11->GetTokenInfo(slotID, tokenInfo);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "SlotID = " << slotId << ", tokenInfo = " << tokenInfo;
+    LOG_DBG() << "SlotID = " << slotID << ", tokenInfo = " << tokenInfo;
 
     return ErrorEnum::eNone;
 }
