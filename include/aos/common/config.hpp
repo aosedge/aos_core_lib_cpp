@@ -209,7 +209,7 @@
  * Maximum size of a certificate ASN.1 Extension Value.
  */
 #ifndef AOS_CONFIG_CRYPTO_ASN1_EXTENSION_VALUE_SIZE
-#define AOS_CONFIG_CRYPTO_ASN1_EXTENSION_VALUE_SIZE 16
+#define AOS_CONFIG_CRYPTO_ASN1_EXTENSION_VALUE_SIZE 24
 #endif
 
 /**
