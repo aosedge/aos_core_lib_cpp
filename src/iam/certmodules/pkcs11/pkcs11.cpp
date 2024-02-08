@@ -203,10 +203,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
     PKCS11Module::PendingKey pendingKey;
     Error                    err = ErrorEnum::eNone;
 
-    Tie(pendingKey.mUUID, err) = uuid::CreateUUID();
-    if (!err.IsNone()) {
-        return {nullptr, AOS_ERROR_WRAP(err)};
-    }
+    pendingKey.mUUID = uuid::CreateUUID();
 
     pkcs11::SessionContext* session;
 
@@ -578,21 +575,9 @@ Error PKCS11Module::GetTeeUserPIN(const String& loginType, String& userPIN)
 
 Error PKCS11Module::GeneratePIN(const String& loginType, String& userPIN)
 {
-    uuid::UUID                   pin;
-    StaticString<cUUIDStringLen> pinStr;
-    Error                        err = ErrorEnum::eNone;
+    auto pinStr = uuid::UUIDToString(uuid::CreateUUID());
 
-    Tie(pin, err) = uuid::CreateUUID();
-    if (!err.IsNone()) {
-        AOS_ERROR_WRAP(err);
-    }
-
-    Tie(pinStr, err) = uuid::UUIDToString(pin);
-    if (!err.IsNone()) {
-        AOS_ERROR_WRAP(err);
-    }
-
-    err = userPIN.Format("%s:%s", loginType.CStr(), pinStr.CStr());
+    auto err = userPIN.Format("%s:%s", loginType.CStr(), pinStr.CStr());
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -776,12 +761,7 @@ Error PKCS11Module::CreateCertificateChain(pkcs11::SessionContext& session, cons
             continue;
         }
 
-        uuid::UUID uuid;
-
-        Tie(uuid, err) = uuid::CreateUUID();
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        auto uuid = uuid::CreateUUID();
 
         err = utils.ImportCertificate(uuid, label, chain[i]);
         if (!err.IsNone()) {
@@ -813,13 +793,7 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     }
 
     if (!id.IsEmpty()) {
-        StaticString<uuid::cUUIDStrLen> uuid;
-        Error                           err = ErrorEnum::eNone;
-
-        Tie(uuid, err) = uuid::UUIDToString(id);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        auto uuid = uuid::UUIDToString(id);
 
         addParam("id", uuid.CStr(), true, opaque);
     }
@@ -858,7 +832,7 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
     Array<SearchObject>& privKeys, Array<SearchObject>& pubKeys, Array<CertInfo>& resCerts)
 {
     for (auto privKey = privKeys.begin(); privKey != privKeys.end();) {
-        LOG_DBG() << "Private key found: ID = " << privKey->mID;
+        LOG_DBG() << "Private key found: ID = " << uuid::UUIDToString(privKey->mID);
 
         auto pubKey = FindObjectByID(pubKeys, privKey->mID);
         if (pubKey == pubKeys.end()) {
@@ -866,7 +840,7 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
             continue;
         }
 
-        LOG_DBG() << "Public key found: ID = " << privKey->mID;
+        LOG_DBG() << "Public key found: ID = " << uuid::UUIDToString(privKey->mID);
 
         auto cert = FindObjectByID(certs, privKey->mID);
         if (cert == certs.end()) {
@@ -874,7 +848,7 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
             continue;
         }
 
-        LOG_DBG() << "Certificate found: ID = " << privKey->mID;
+        LOG_DBG() << "Certificate found: ID = " << uuid::UUIDToString(privKey->mID);
 
         // create certInfo
         auto     x509Cert = MakeUnique<crypto::x509::Certificate>(&mTmpObjAllocator);
@@ -882,7 +856,7 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
 
         auto err = GetX509Cert(session, cert->mHandle, *x509Cert);
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't get x509 certificate: ID = " << cert->mID;
+            LOG_ERR() << "Can't get x509 certificate: ID = " << uuid::UUIDToString(cert->mID);
             return err;
         }
 

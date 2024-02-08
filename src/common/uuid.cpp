@@ -16,7 +16,7 @@ namespace uuid {
 // UUID template assumed to have even number of digits between separators.
 static const String cTemplate = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
 
-RetWithError<UUID> CreateUUID()
+UUID CreateUUID()
 {
     UUID result;
 
@@ -29,10 +29,10 @@ RetWithError<UUID> CreateUUID()
         result.Insert(result.end(), chunk.begin(), chunk.begin() + chunkSize);
     }
 
-    return {result, ErrorEnum::eNone};
+    return result;
 }
 
-RetWithError<StaticString<cUUIDStrLen>> UUIDToString(const UUID& src)
+StaticString<cUUIDStrLen> UUIDToString(const UUID& src)
 {
     StaticString<cUUIDStrLen> result;
 
@@ -52,7 +52,7 @@ RetWithError<StaticString<cUUIDStrLen>> UUIDToString(const UUID& src)
         result.Insert(result.end(), chunk.begin(), chunk.end());
     }
 
-    return {result};
+    return result;
 }
 
 RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDStrLen>& src)

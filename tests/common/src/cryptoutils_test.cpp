@@ -61,13 +61,9 @@ TEST(CryptoutilsTest, ParsePKCS11URL_AllValues)
     EXPECT_EQ(label, "diskencryption");
     EXPECT_EQ(userPIN, "42hAGWdIvQr47T8X");
 
-    Error                           err = ErrorEnum::eNone;
-    StaticString<uuid::cUUIDStrLen> strId;
+    auto strID = uuid::UUIDToString(id);
 
-    Tie(strId, err) = uuid::UUIDToString(id);
-
-    ASSERT_TRUE(err.IsNone());
-    EXPECT_EQ(strId.CStr(), std::string("2E2769B6-BE2C-43FF-B16D-25985A04E6B2"));
+    EXPECT_EQ(strID.CStr(), std::string("2E2769B6-BE2C-43FF-B16D-25985A04E6B2"));
 }
 
 TEST(CryptoutilsTest, ParsePKCS11URL_RequiredValuesOnly)
@@ -87,13 +83,9 @@ TEST(CryptoutilsTest, ParsePKCS11URL_RequiredValuesOnly)
     EXPECT_EQ(label, "diskencryption");
     EXPECT_EQ(userPIN, "");
 
-    Error                           err = ErrorEnum::eNone;
-    StaticString<uuid::cUUIDStrLen> strId;
+    auto strID = uuid::UUIDToString(id);
 
-    Tie(strId, err) = uuid::UUIDToString(id);
-
-    ASSERT_TRUE(err.IsNone());
-    EXPECT_EQ(strId.CStr(), std::string("2E2769B6-BE2C-43FF-B16D-25985A04E6B2"));
+    EXPECT_EQ(strID.CStr(), std::string("2E2769B6-BE2C-43FF-B16D-25985A04E6B2"));
 }
 
 } // namespace cryptoutils

@@ -32,17 +32,17 @@ using UUID = StaticArray<uint8_t, cUUIDLen>;
 /**
  * Creates unique UUID.
  *
- * @return RetWithError<UUID>.
+ * @return UUID.
  */
-RetWithError<UUID> CreateUUID();
+UUID CreateUUID();
 
 /**
  * Converts UUID to string.
  *
  * @param uuid uuid.
- * @return RetWithError<StaticString<cUUIDStrLen>>.
+ * @return StaticString<cUUIDStrLen>.
  */
-RetWithError<StaticString<cUUIDStrLen>> UUIDToString(const UUID& uuid);
+StaticString<cUUIDStrLen> UUIDToString(const UUID& uuid);
 
 /**
  * Converts string to UUID.
