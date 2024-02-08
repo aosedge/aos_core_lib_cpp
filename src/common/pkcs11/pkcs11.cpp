@@ -277,7 +277,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> StaticLibraryContext::Init()
 
     CK_RV rv = C_GetFunctionList(&functionList);
     if (rv != CKR_OK) {
-        LOG_ERR() << "C_GetFunctionList failed: err = " << rv;
+        LOG_ERR() << "Get function list failed: err = " << rv;
 
         return {nullptr, ErrorEnum::eFailed};
     }
@@ -308,7 +308,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
     CK_C_GetFunctionList getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle, "C_GetFunctionList"));
 
     if (getFuncList == nullptr) {
-        LOG_ERR() << "Can't find C_GetFunctionList: dlsym err = " << dlerror();
+        LOG_ERR() << "Can't find get function list function: dlsym err = " << dlerror();
 
         return {nullptr, ErrorEnum::eFailed};
     }
@@ -316,7 +316,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
     CK_FUNCTION_LIST_PTR functionList = nullptr;
     CK_RV                rv           = getFuncList(&functionList);
     if (rv != CKR_OK) {
-        LOG_ERR() << "C_GetFunctionList failed: err = " << rv;
+        LOG_ERR() << "Get function list failed: err = " << rv;
 
         return {nullptr, ErrorEnum::eFailed};
     }
@@ -340,14 +340,14 @@ Error LibraryContext::Init()
     }
 
     if (mFunctionList == nullptr) {
-        LOG_ERR() << "C_GetFunctionList returned NULL";
+        LOG_ERR() << "Function list is not set";
 
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     auto rv = mFunctionList->C_Initialize(nullptr);
     if (rv != CKR_OK) {
-        LOG_ERR() << "C_Initialize failed: err = " << rv;
+        LOG_ERR() << "Initialize library failed: err = " << rv;
 
         return rv;
     }
@@ -358,9 +358,7 @@ Error LibraryContext::Init()
 Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& label)
 {
     if (!mFunctionList || !mFunctionList->C_InitToken) {
-        LOG_ERR() << "C_InitToken failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_UTF8CHAR pkcsLabel[cLabelLen];
@@ -381,9 +379,7 @@ Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& 
 Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) const
 {
     if (!mFunctionList || !mFunctionList->C_GetSlotList) {
-        LOG_ERR() << "C_GetSlotList failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     slotList.Resize(slotList.MaxSize());
@@ -403,9 +399,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 {
     if (!mFunctionList || !mFunctionList->C_GetSlotInfo) {
-        LOG_ERR() << "C_GetSlotInfo failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_SLOT_INFO pkcsInfo;
@@ -421,9 +415,7 @@ Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 {
     if (!mFunctionList || !mFunctionList->C_GetTokenInfo) {
-        LOG_ERR() << "C_GetTokenInfo failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_TOKEN_INFO pkcsInfo;
@@ -439,9 +431,7 @@ Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 {
     if (!mFunctionList || !mFunctionList->C_GetInfo) {
-        LOG_ERR() << "C_GetInfo failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_INFO pkcsInfo;
@@ -457,9 +447,7 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 RetWithError<UniquePtr<SessionContext>> LibraryContext::OpenSession(SlotID slotID, uint32_t flags)
 {
     if (!mFunctionList || !mFunctionList->C_OpenSession) {
-        LOG_ERR() << "C_OpenSession failed. Library is not initialized.";
-
-        return {nullptr, ErrorEnum::eFailed};
+        return {nullptr, ErrorEnum::eWrongState};
     }
 
     SessionHandle handle;
@@ -476,13 +464,13 @@ RetWithError<UniquePtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
 
 LibraryContext::~LibraryContext()
 {
-    if (mFunctionList && mFunctionList->C_Finalize) {
-        CK_RV rv = mFunctionList->C_Finalize(nullptr);
-        if (rv != CKR_OK) {
-            LOG_ERR() << "C_Finalize failed: err = " << rv;
-        }
-    } else {
-        LOG_ERR() << "Close library failed. Library is not initialized.";
+    if (!mFunctionList || !mFunctionList->C_Finalize) {
+        LOG_ERR() << "Finalize library failed: library is not initialized";
+    }
+
+    CK_RV rv = mFunctionList->C_Finalize(nullptr);
+    if (rv != CKR_OK) {
+        LOG_ERR() << "Finalize library failed: err = " << rv;
     }
 }
 
@@ -499,9 +487,7 @@ SessionContext::SessionContext(SessionHandle handle, CK_FUNCTION_LIST_PTR funcLi
 Error SessionContext::GetSessionInfo(SessionInfo& info) const
 {
     if (!mFunctionList || !mFunctionList->C_GetSessionInfo) {
-        LOG_ERR() << "C_GetSessionInfo failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info);
@@ -515,9 +501,7 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
 Error SessionContext::Login(UserType userType, const String& pin)
 {
     if (!mFunctionList || !mFunctionList->C_Login) {
-        LOG_ERR() << "C_Login failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_Login(mHandle, userType, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size());
@@ -531,9 +515,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
 Error SessionContext::Logout()
 {
     if (!mFunctionList || !mFunctionList->C_Logout) {
-        LOG_ERR() << "C_Logout failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_Logout(mHandle);
@@ -547,9 +529,7 @@ Error SessionContext::Logout()
 Error SessionContext::InitPIN(const String& pin)
 {
     if (!mFunctionList || !mFunctionList->C_InitPIN) {
-        LOG_ERR() << "C_InitPIN failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size());
@@ -564,9 +544,7 @@ Error SessionContext::GetAttributeValues(
     ObjectHandle object, const Array<AttributeType>& types, Array<Array<uint8_t>>& values) const
 {
     if (!mFunctionList || !mFunctionList->C_GetAttributeValue) {
-        LOG_ERR() << "C_GetAttributeValue failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsAttributes;
@@ -608,9 +586,7 @@ Error SessionContext::FindObjects(const Array<ObjectAttribute>& templ, Array<Obj
 RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttribute>& templ)
 {
     if (!mFunctionList || !mFunctionList->C_CreateObject) {
-        LOG_ERR() << "C_CreateObject failed. Library is not initialized.";
-
-        return {0, ErrorEnum::eFailed};
+        return {0, ErrorEnum::eWrongState};
     }
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
@@ -633,9 +609,7 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 Error SessionContext::DestroyObject(ObjectHandle object)
 {
     if (!mFunctionList || !mFunctionList->C_DestroyObject) {
-        LOG_ERR() << "C_DestroyObject failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object);
@@ -703,23 +677,21 @@ CK_FUNCTION_LIST_PTR SessionContext::GetFunctionList() const
 SessionContext::~SessionContext()
 {
     if (!mFunctionList || !mFunctionList->C_CloseSession) {
-        LOG_ERR() << "C_CloseSession failed. Library is not initialized.";
+        LOG_ERR() << "Close session failed: library is not initialized";
 
         return;
     }
 
     CK_RV rv = mFunctionList->C_CloseSession(mHandle);
     if (rv != CKR_OK) {
-        LOG_ERR() << "C_CloseSession failed. error = " << rv;
+        LOG_ERR() << "Close session failed: error = " << rv;
     }
 }
 
 Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey) const
 {
     if (!mFunctionList || !mFunctionList->C_SignInit) {
-        LOG_ERR() << "C_SignInit failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey);
@@ -733,9 +705,7 @@ Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey)
 Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK_ULONG_PTR signSize) const
 {
     if (!mFunctionList || !mFunctionList->C_Sign) {
-        LOG_ERR() << "C_Sign failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
@@ -749,9 +719,7 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
 Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey) const
 {
     if (!mFunctionList || !mFunctionList->C_DecryptInit) {
-        LOG_ERR() << "C_DecryptInit failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey);
@@ -765,9 +733,7 @@ Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privK
 Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK_ULONG_PTR resultSize) const
 {
     if (!mFunctionList || !mFunctionList->C_Decrypt) {
-        LOG_ERR() << "C_Decrypt failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
@@ -781,9 +747,7 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
 Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 {
     if (!mFunctionList || !mFunctionList->C_FindObjectsInit) {
-        LOG_ERR() << "C_FindObjectsInit failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
@@ -804,9 +768,7 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
 {
     if (!mFunctionList || !mFunctionList->C_FindObjects) {
-        LOG_ERR() << "C_FindObjects failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     unsigned long foundObjectsCount = 0, chunk = 0;
@@ -840,9 +802,7 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
 Error SessionContext::FindObjectsFinal() const
 {
     if (!mFunctionList || !mFunctionList->C_FindObjectsFinal) {
-        LOG_ERR() << "C_FindObjectsFinal failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle);
@@ -917,9 +877,7 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     auto funcList = mSession.GetFunctionList();
 
     if (!funcList || !funcList->C_GenerateKeyPair) {
-        LOG_ERR() << "C_GenerateKeyPair failed. Library is not initialized.";
-
-        return {{}, ErrorEnum::eFailed};
+        return {{}, ErrorEnum::eWrongState};
     }
 
     CK_OBJECT_CLASS pubKeyClass = CKO_PUBLIC_KEY;
@@ -974,9 +932,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     auto funcList = mSession.GetFunctionList();
 
     if (!funcList || !funcList->C_GenerateKeyPair) {
-        LOG_ERR() << "C_GenerateKeyPair failed. Library is not initialized.";
-
-        return {{}, ErrorEnum::eFailed};
+        return {{}, ErrorEnum::eWrongState};
     }
 
     CK_OBJECT_CLASS pubKeyClass  = CKO_PUBLIC_KEY;
@@ -1093,9 +1049,7 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
     auto funcList = mSession.GetFunctionList();
 
     if (!funcList || !funcList->C_CreateObject) {
-        LOG_ERR() << "C_CreateObject failed. Library is not initialized.";
-
-        return ErrorEnum::eFailed;
+        return ErrorEnum::eWrongState;
     }
 
     CK_OBJECT_CLASS     certClass    = CKO_CERTIFICATE;
