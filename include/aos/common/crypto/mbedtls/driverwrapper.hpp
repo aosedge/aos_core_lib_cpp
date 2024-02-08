@@ -13,19 +13,19 @@
 #include "aos/common/crypto.hpp"
 
 /**
- * @brief Add key to the list of builtin keys
+ * @brief Add key to the list of builtin keys.
  *
- * @param key Key description
+ * @param key Key description.
  *
- * @return Error code
+ * @return Error.
  */
-aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& mPrivKey);
+aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKey);
 
 /**
- * @brief Remove key from the list of builtin keys
+ * @brief Remove key from the list of builtin keys.
  *
- * @param keyId Key ID
+ * @param keyId Key ID.
  */
-void AosPsaRemoveKey(psa_key_id_t keyId);
+void AosPsaRemoveKey(psa_key_id_t keyID);
 
 #endif
