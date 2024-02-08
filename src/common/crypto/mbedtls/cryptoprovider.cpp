@@ -699,6 +699,10 @@ Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, 
     mbedtls_x509_san_list sanList[cAltDNSNamesCount];
     size_t                dnsNameCount = templ.mDNSNames.Size();
 
+    if (templ.mDNSNames.Size() == 0) {
+        return ErrorEnum::eNone;
+    }
+
     for (size_t i = 0; i < templ.mDNSNames.Size(); i++) {
         sanList[i].node.type                      = MBEDTLS_X509_SAN_DNS_NAME;
         sanList[i].node.san.unstructured_name.tag = MBEDTLS_ASN1_IA5_STRING;
