@@ -16,6 +16,7 @@
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/thread.hpp"
 
+#include "../log.hpp"
 #include "drivers/aos/psa_crypto_driver_aos.h"
 
 /***********************************************************************************************************************
@@ -51,7 +52,7 @@ struct KeyDescription {
 static aos::StaticArray<KeyDescription, MBEDTLS_PSA_KEY_SLOT_COUNT> sBuiltinKeys;
 aos::Mutex                                                          sMutex;
 
-static int ExportRsaPublicKeyToDer(
+static int ExportRSAPublicKeyToDER(
     const aos::crypto::RSAPublicKey& rsaKey, uint8_t* data, size_t dataSize, size_t* dataLength)
 {
     mbedtls_mpi n, e;
@@ -164,7 +165,7 @@ static aos::Pair<aos::Error, mbedtls_ecp_group_id> FindECPGroupByOID(const aos::
     return {aos::ErrorEnum::eNotFound, MBEDTLS_ECP_DP_NONE};
 }
 
-static int ExportECPublicKeyToDer(
+static int ExportECPublicKeyToDER(
     const aos::crypto::ECDSAPublicKey& ecKey, uint8_t* data, size_t dataSize, size_t* dataLength)
 {
     auto curveParameters = FindECPGroupByOID(ecKey.GetECParamsOID());
@@ -240,6 +241,8 @@ aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& p
             key.mSlotNumber = sBuiltinKeys.Size();
             key.mPrivKey    = &privKey;
 
+            LOG_DBG() << "Add Aos PSA key: keyID = " << key.mKeyID << ", slotNumber = " << key.mSlotNumber;
+
             return aos::RetWithError<psa_key_id_t>(keyID, sBuiltinKeys.PushBack(key));
         }
     }
@@ -250,6 +253,8 @@ aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& p
 void AosPsaRemoveKey(psa_key_id_t keyID)
 {
     aos::UniqueLock lock(sMutex);
+
+    LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
     for (auto& key : sBuiltinKeys) {
         if (key.mKeyID == keyID) {
@@ -275,6 +280,8 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
 {
     psa_key_id_t appKeyID = MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID);
 
+    LOG_DBG() << "Get platform built-in key: keyID = " << keyID;
+
     aos::LockGuard lock(sMutex);
 
     for (auto& key : sBuiltinKeys) {
@@ -286,6 +293,8 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
         }
     }
 
+    LOG_ERR() << "Built-in key not found: keyID = " << keyID;
+
     return PSA_ERROR_DOES_NOT_EXIST;
 }
 
@@ -294,6 +303,8 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
 {
     (void)keyBuffer;
     (void)keyBufferLength;
+
+    LOG_DBG() << "Get Aos built-in key: slotNumber = " << slotNumber;
 
     for (auto& key : sBuiltinKeys) {
         if (key.mSlotNumber == slotNumber) {
@@ -309,6 +320,8 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
                 auto oid = static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()).GetECParamsOID();
                 auto curveParameters = FindPsaECGroupByOID(oid);
                 if (curveParameters.mSecond == 0) {
+                    LOG_ERR() << "EC group not found: slotNumber = " << slotNumber;
+
                     return PSA_ERROR_NOT_SUPPORTED;
                 }
 
@@ -319,6 +332,8 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
             }
 
             default:
+                LOG_ERR() << "Not supported key type: keyType = " << key.mPrivKey->GetPublic().GetKeyType();
+
                 return PSA_ERROR_NOT_SUPPORTED;
             }
 
@@ -330,6 +345,8 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
         }
     }
 
+    LOG_ERR() << "Built-in key not found: slotNumber = " << slotNumber;
+
     return PSA_ERROR_DOES_NOT_EXIST;
 }
 
@@ -340,6 +357,8 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
     (void)key_buffer;
     (void)key_buffer_size;
     (void)alg;
+
+    LOG_DBG() << "Sign hash";
 
     for (auto& key : sBuiltinKeys) {
         if (key.mKeyID == psa_get_key_id(attributes)) {
@@ -354,7 +373,9 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
 
                 auto err = key.mPrivKey->Sign(digest, options, signatureArray);
                 if (!err.IsNone()) {
-                    return PSA_ERROR_NOT_SUPPORTED;
+                    LOG_ERR() << "Sign failed: " << err;
+
+                    return PSA_ERROR_GENERIC_ERROR;
                 }
 
                 *signature_length = signatureArray.Size();
@@ -363,6 +384,8 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
             }
 
             default:
+                LOG_ERR() << "Not supported key type: keyType = " << key.mPrivKey->GetPublic().GetKeyType();
+
                 return PSA_ERROR_NOT_SUPPORTED;
             }
         }
@@ -377,15 +400,19 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
     (void)key_buffer;
     (void)key_buffer_size;
 
+    LOG_DBG() << "Export public key";
+
     for (auto& key : sBuiltinKeys) {
         if (key.mKeyID == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA: {
                 auto ret
-                    = ExportRsaPublicKeyToDer(static_cast<const aos::crypto::RSAPublicKey&>(key.mPrivKey->GetPublic()),
+                    = ExportRSAPublicKeyToDER(static_cast<const aos::crypto::RSAPublicKey&>(key.mPrivKey->GetPublic()),
                         data, data_size, data_length);
                 if (ret != 0) {
-                    return PSA_ERROR_NOT_SUPPORTED;
+                    LOG_ERR() << "Error exporting RSA public key: " << ret;
+
+                    return PSA_ERROR_GENERIC_ERROR;
                 }
 
                 return PSA_SUCCESS;
@@ -393,16 +420,20 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
 
             case aos::crypto::KeyTypeEnum::eECDSA: {
                 auto ret
-                    = ExportECPublicKeyToDer(static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()),
+                    = ExportECPublicKeyToDER(static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()),
                         data, data_size, data_length);
                 if (ret != 0) {
-                    return PSA_ERROR_NOT_SUPPORTED;
+                    LOG_ERR() << "Error exporting EC public key: " << ret;
+
+                    return PSA_ERROR_GENERIC_ERROR;
                 }
 
                 return PSA_SUCCESS;
             }
 
             default:
+                LOG_ERR() << "Not supported key type: keyType = " << key.mPrivKey->GetPublic().GetKeyType();
+
                 return PSA_ERROR_NOT_SUPPORTED;
             }
         }

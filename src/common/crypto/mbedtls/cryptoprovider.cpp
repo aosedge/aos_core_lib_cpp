@@ -21,6 +21,8 @@
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
 #include "aos/common/crypto/mbedtls/driverwrapper.hpp"
 
+#include "../log.hpp"
+
 namespace aos {
 namespace crypto {
 
@@ -121,6 +123,8 @@ static Error ASN1RemoveTag(const Array<uint8_t>& src, Array<uint8_t>& dst, int t
 
 Error MbedTLSCryptoProvider::Init()
 {
+    LOG_INF() << "Initialize mbetTLS crypto provider";
+
     auto ret = psa_crypto_init();
 
     return ret != PSA_SUCCESS ? AOS_ERROR_WRAP(ret) : ErrorEnum::eNone;
@@ -130,6 +134,8 @@ Error MbedTLSCryptoProvider::CreateCSR(const x509::CSR& templ, const PrivateKeyI
 {
     mbedtls_x509write_csr csr;
     mbedtls_pk_context    key;
+
+    LOG_DBG() << "Create CSR";
 
     InitializeCSR(csr, key);
 
@@ -174,6 +180,8 @@ Error MbedTLSCryptoProvider::CreateCertificate(
     mbedtls_pk_context       pk;
     mbedtls_entropy_context  entropy;
     mbedtls_ctr_drbg_context ctrDrbg;
+
+    LOG_DBG() << "Create certificate";
 
     auto err = InitializeCertificate(cert, pk, ctrDrbg, entropy);
     if (err != ErrorEnum::eNone) {
@@ -220,6 +228,8 @@ Error MbedTLSCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::C
 {
     mbedtls_x509_crt crt;
 
+    LOG_DBG() << "Convert certs from PEM to x509";
+
     mbedtls_x509_crt_init(&crt);
 
     int ret = mbedtls_x509_crt_parse(&crt, reinterpret_cast<const uint8_t*>(pemBlob.CStr()), pemBlob.Size() + 1);
@@ -260,6 +270,8 @@ Error MbedTLSCryptoProvider::DERToX509Cert(const Array<uint8_t>& derBlob, x509::
 {
     mbedtls_x509_crt crt;
 
+    LOG_DBG() << "Convert certs from DER to x509";
+
     mbedtls_x509_crt_init(&crt);
 
     int ret = mbedtls_x509_crt_parse_der(&crt, derBlob.Get(), derBlob.Size());
@@ -279,6 +291,8 @@ Error MbedTLSCryptoProvider::DERToX509Cert(const Array<uint8_t>& derBlob, x509::
 Error MbedTLSCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_t>& result)
 {
     mbedtls_asn1_named_data* dn {};
+
+    LOG_DBG() << "Encode ASN1 DN";
 
     int ret = mbedtls_x509_string_to_names(&dn, commonName.CStr());
     if (ret != 0) {
@@ -309,6 +323,8 @@ Error MbedTLSCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
 {
     mbedtls_asn1_named_data tmpDN = {};
 
+    LOG_DBG() << "Decode ASN1 DN";
+
     uint8_t* p   = const_cast<uint8_t*>(dn.begin());
     size_t   tmp = 0;
 
@@ -338,12 +354,16 @@ RetWithError<SharedPtr<PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(c
 {
     (void)pemBlob;
 
+    LOG_DBG() << "Create private key from PEM";
+
     return {nullptr, ErrorEnum::eNotSupported};
 }
 
 Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& src, Array<uint8_t>& asn1Value)
 {
     asn1Value.Resize(asn1Value.MaxSize());
+
+    LOG_DBG() << "Encode ASN1 object IDs";
 
     uint8_t* start = asn1Value.Get();
     uint8_t* p     = asn1Value.Get() + asn1Value.Size();
@@ -363,6 +383,8 @@ Error MbedTLSCryptoProvider::ASN1EncodeBigInt(const Array<uint8_t>& number, Arra
     asn1Value.Resize(asn1Value.MaxSize());
     uint8_t* p = asn1Value.Get() + asn1Value.Size();
 
+    LOG_DBG() << "Encode ASN1 big int";
+
     int len = crypto::ASN1EncodeBigInt(number, &p, asn1Value.Get());
     if (len < 0) {
         return len;
@@ -380,6 +402,8 @@ Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& 
     uint8_t* start = asn1Value.Get();
     uint8_t* p     = asn1Value.Get() + asn1Value.Size();
 
+    LOG_DBG() << "Encode ASN1 DER sequence";
+
     int len = crypto::ASN1EncodeDERSequence(items, &p, start);
     if (len < 0) {
         return len;
@@ -392,11 +416,15 @@ Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& 
 
 Error MbedTLSCryptoProvider::ASN1DecodeOctetString(const Array<uint8_t>& src, Array<uint8_t>& dst)
 {
+    LOG_DBG() << "Decode ASN1 octet string";
+
     return crypto::ASN1RemoveTag(src, dst, MBEDTLS_ASN1_OCTET_STRING);
 }
 
 Error MbedTLSCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<uint8_t>& dst)
 {
+    LOG_DBG() << "Decode ASN1 OID";
+
     return crypto::ASN1RemoveTag(inOID, dst, MBEDTLS_ASN1_OID);
 }
 

@@ -81,6 +81,7 @@ public:
         eIAMCertHandler,
         eCommonMonitoring,
         eCommonPKCS11,
+        eCommonCrypto,
         eNumModules,
     };
 
