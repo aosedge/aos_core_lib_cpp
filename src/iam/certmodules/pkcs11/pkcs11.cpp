@@ -8,7 +8,7 @@
 #include "aos/common/cryptoutils.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/os.hpp"
-#include "aos/common/uuid.hpp"
+#include "aos/common/tools/uuid.hpp"
 
 #include "aos/iam/certmodules/pkcs11/pkcs11.hpp"
 

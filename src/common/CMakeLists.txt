@@ -84,7 +84,7 @@ add_library(
     monitoring/monitoring.cpp
     pkcs11/pkcs11.cpp
     pkcs11/privatekey.cpp
-    uuid.cpp
+    tools/uuid.cpp
 )
 
 target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)

@@ -14,7 +14,7 @@
 #include "aos/common/pkcs11/privatekey.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/fs.hpp"
-#include "aos/common/uuid.hpp"
+#include "aos/common/tools/uuid.hpp"
 
 #include "../log.hpp"
 

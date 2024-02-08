@@ -11,7 +11,7 @@
 #include "aos/common/crypto.hpp"
 #include "aos/common/pkcs11/pkcs11.hpp"
 #include "aos/common/pkcs11/privatekey.hpp"
-#include "aos/common/uuid.hpp"
+#include "aos/common/tools/uuid.hpp"
 
 namespace aos {
 namespace cryptoutils {

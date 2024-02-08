@@ -10,7 +10,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/uuid.hpp"
+#include "aos/common/tools/uuid.hpp"
 
 namespace aos {
 namespace uuid {

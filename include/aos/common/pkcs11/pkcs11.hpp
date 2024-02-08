@@ -13,7 +13,7 @@
 #include "aos/common/tools/log.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/utils.hpp"
-#include "aos/common/uuid.hpp"
+#include "aos/common/tools/uuid.hpp"
 
 namespace aos {
 namespace pkcs11 {

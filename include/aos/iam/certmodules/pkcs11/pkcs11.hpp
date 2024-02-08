@@ -11,7 +11,7 @@
 #include "aos/common/pkcs11/pkcs11.hpp"
 #include "aos/common/pkcs11/privatekey.hpp"
 #include "aos/common/tools/optional.hpp"
-#include "aos/common/uuid.hpp"
+#include "aos/common/tools/uuid.hpp"
 #include "aos/iam/certmodules/hsm.hpp"
 #include "aos/iam/config.hpp"
 
