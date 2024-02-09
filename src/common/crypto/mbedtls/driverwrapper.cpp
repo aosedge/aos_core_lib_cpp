@@ -40,6 +40,10 @@ struct KeyDescription {
      */
     psa_drv_slot_number_t mSlotNumber;
     /**
+     * Hash algorithm.
+     */
+    aos::crypto::HashEnum mHashAlg;
+    /**
      * Private key.
      */
     const aos::crypto::PrivateKeyItf* mPrivKey;
@@ -49,8 +53,13 @@ struct KeyDescription {
  * Static
  **********************************************************************************************************************/
 
+static constexpr psa_algorithm_t sPSAAlgs[]
+    = {PSA_ALG_SHA_1, PSA_ALG_SHA_224, PSA_ALG_SHA_256, PSA_ALG_SHA_384, PSA_ALG_SHA_512};
+static constexpr mbedtls_md_type_t sMDTypes[]
+    = {MBEDTLS_MD_SHA1, MBEDTLS_MD_SHA224, MBEDTLS_MD_SHA256, MBEDTLS_MD_SHA384, MBEDTLS_MD_SHA512};
+
 static aos::StaticArray<KeyDescription, MBEDTLS_PSA_KEY_SLOT_COUNT> sBuiltinKeys;
-aos::Mutex                                                          sMutex;
+static aos::Mutex                                                   sMutex;
 
 static int ExportRSAPublicKeyToDER(
     const aos::crypto::RSAPublicKey& rsaKey, uint8_t* data, size_t dataSize, size_t* dataLength)
@@ -213,11 +222,78 @@ static int ExportECPublicKeyToDER(
     return 0;
 }
 
+aos::crypto::HashEnum GetRSASHAAlgorithm(size_t modulusBitlen)
+{
+    if (modulusBitlen < 2048) {
+        return aos::crypto::HashEnum::eSHA1;
+    }
+
+    if (modulusBitlen <= 3072) {
+        return aos::crypto::HashEnum::eSHA256;
+    }
+
+    if (modulusBitlen <= 7680) {
+        return aos::crypto::HashEnum::eSHA384;
+    }
+
+    return aos::crypto::HashEnum::eSHA512;
+}
+
+aos::crypto::HashEnum GetECCSHAAlgorithm(size_t curveBitlen)
+{
+    if (curveBitlen <= 160) {
+        return aos::crypto::HashEnum::eSHA1;
+    }
+
+    if (curveBitlen <= 224) {
+        return aos::crypto::HashEnum::eSHA224;
+    }
+
+    if (curveBitlen <= 256) {
+        return aos::crypto::HashEnum::eSHA256;
+    }
+
+    if (curveBitlen <= 384) {
+        return aos::crypto::HashEnum::eSHA384;
+    }
+
+    return aos::crypto::HashEnum::eSHA512;
+}
+
+aos::RetWithError<aos::crypto::HashEnum> GetRSAAlgFromPubKey(const aos::crypto::RSAPublicKey& pubKey)
+{
+    mbedtls_mpi n;
+    mbedtls_mpi_init(&n);
+
+    auto ret = mbedtls_mpi_read_binary(&n, pubKey.GetN().Get(), pubKey.GetN().Size());
+    if (ret != 0) {
+        mbedtls_mpi_free(&n);
+
+        return aos::RetWithError<aos::crypto::HashEnum>(aos::crypto::HashEnum::eNone, ret);
+    }
+
+    auto alg = GetRSASHAAlgorithm(mbedtls_mpi_bitlen(&n));
+
+    mbedtls_mpi_free(&n);
+
+    return aos::RetWithError<aos::crypto::HashEnum>(alg);
+}
+
+aos::RetWithError<aos::crypto::HashEnum> GetECCAlgFromPubKey(const aos::crypto::ECDSAPublicKey& pubKey)
+{
+    auto curveParameters = FindPsaECGroupByOID(pubKey.GetECParamsOID());
+    if (curveParameters.mSecond == 0) {
+        return aos::RetWithError<aos::crypto::HashEnum>(aos::crypto::HashEnum::eNone, aos::ErrorEnum::eNotFound);
+    }
+
+    return aos::RetWithError<aos::crypto::HashEnum>(GetECCSHAAlgorithm(curveParameters.mSecond));
+}
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKey)
+aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKey)
 {
     aos::LockGuard lock(sMutex);
 
@@ -241,13 +317,53 @@ aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& p
             key.mSlotNumber = sBuiltinKeys.Size();
             key.mPrivKey    = &privKey;
 
+            switch (privKey.GetPublic().GetKeyType().GetValue()) {
+            case aos::crypto::KeyTypeEnum::eRSA: {
+                auto algDesc = GetRSAAlgFromPubKey(static_cast<const aos::crypto::RSAPublicKey&>(privKey.GetPublic()));
+
+                if (!algDesc.mError.IsNone()) {
+                    LOG_ERR() << "Error getting RSA algorithm description: " << algDesc.mError;
+
+                    return aos::RetWithError<KeyInfo>(
+                        KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, algDesc.mError);
+                }
+
+                key.mHashAlg = algDesc.mValue;
+
+                break;
+            }
+
+            case aos::crypto::KeyTypeEnum::eECDSA: {
+                auto algDesc
+                    = GetECCAlgFromPubKey(static_cast<const aos::crypto::ECDSAPublicKey&>(privKey.GetPublic()));
+                if (!algDesc.mError.IsNone()) {
+                    LOG_ERR() << "Error getting ECC algorithm description: " << algDesc.mError;
+
+                    return aos::RetWithError<KeyInfo>(
+                        KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, algDesc.mError);
+                }
+
+                key.mHashAlg = algDesc.mValue;
+
+                break;
+            }
+
+            default:
+                LOG_ERR() << "Not supported key type: keyType = " << privKey.GetPublic().GetKeyType();
+
+                return aos::RetWithError<KeyInfo>(
+                    KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, aos::ErrorEnum::eNotSupported);
+            }
+
             LOG_DBG() << "Add Aos PSA key: keyID = " << key.mKeyID << ", slotNumber = " << key.mSlotNumber;
 
-            return aos::RetWithError<psa_key_id_t>(keyID, sBuiltinKeys.PushBack(key));
+            return aos::RetWithError<KeyInfo>(
+                KeyInfo {key.mKeyID, sMDTypes[static_cast<int>(key.mHashAlg)]}, sBuiltinKeys.PushBack(key));
         }
     }
 
-    return aos::RetWithError<psa_key_id_t>(MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, aos::ErrorEnum::eOutOfRange);
+    return aos::RetWithError<KeyInfo>(
+        KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, aos::ErrorEnum::eOutOfRange);
 }
 
 void AosPsaRemoveKey(psa_key_id_t keyID)
@@ -311,12 +427,12 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA:
                 psa_set_key_type(attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
-                psa_set_key_algorithm(attributes, PSA_ALG_RSA_PKCS1V15_SIGN(PSA_ALG_SHA_256));
+                psa_set_key_algorithm(attributes, PSA_ALG_RSA_PKCS1V15_SIGN(sPSAAlgs[static_cast<int>(key.mHashAlg)]));
 
                 break;
 
             case aos::crypto::KeyTypeEnum::eECDSA: {
-                psa_set_key_algorithm(attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
+                psa_set_key_algorithm(attributes, PSA_ALG_ECDSA(sPSAAlgs[static_cast<int>(key.mHashAlg)]));
                 auto oid = static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()).GetECParamsOID();
                 auto curveParameters = FindPsaECGroupByOID(oid);
                 if (curveParameters.mSecond == 0) {
@@ -366,7 +482,7 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
             case aos::crypto::KeyTypeEnum::eRSA:
             case aos::crypto::KeyTypeEnum::eECDSA: {
                 aos::crypto::SignOptions options;
-                options.mHash = aos::crypto::HashEnum::eSHA256;
+                options.mHash = key.mHashAlg;
 
                 aos::Array<uint8_t> digest(hash, hash_length);
                 aos::Array<uint8_t> signatureArray(signature, signature_size);

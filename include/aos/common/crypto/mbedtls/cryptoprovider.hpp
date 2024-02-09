@@ -15,6 +15,7 @@
 #include <psa/crypto_types.h>
 
 #include "aos/common/crypto.hpp"
+#include "aos/common/crypto/mbedtls/driverwrapper.hpp"
 
 namespace aos {
 namespace crypto {
@@ -160,7 +161,7 @@ private:
     Error SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ);
     Error WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR);
 
-    RetWithError<mbedtls_svc_key_id_t> SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey);
+    RetWithError<KeyInfo> SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey);
 
     Error InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
         mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy);

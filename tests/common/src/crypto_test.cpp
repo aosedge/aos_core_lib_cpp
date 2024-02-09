@@ -98,7 +98,7 @@ static std::pair<aos::Error, std::vector<unsigned char>> GenerateECPrivateKey()
     }
 
     if (mbedtls_ecp_gen_key(
-            MBEDTLS_ECP_DP_SECP256R1, mbedtls_pk_ec(*pkPtr.get()), mbedtls_ctr_drbg_random, ctrDrbgPtr.get())
+            MBEDTLS_ECP_DP_SECP384R1, mbedtls_pk_ec(*pkPtr.get()), mbedtls_ctr_drbg_random, ctrDrbgPtr.get())
         != 0) {
         return {aos::ErrorEnum::eInvalidArgument, {}};
     }
@@ -335,7 +335,7 @@ public:
     aos::Error Sign(const aos::Array<uint8_t>& digest, const aos::crypto::SignOptions& options,
         aos::Array<uint8_t>& signature) const override
     {
-        if (options.mHash != aos::crypto::HashEnum::eSHA256) {
+        if (options.mHash != aos::crypto::HashEnum::eSHA384) {
             return aos::ErrorEnum::eInvalidArgument;
         }
 
@@ -368,7 +368,7 @@ public:
 
         size_t signatureLen;
 
-        ret = mbedtls_pk_sign(pkPtr.get(), MBEDTLS_MD_SHA256, digest.Get(), digest.Size(), signature.Get(),
+        ret = mbedtls_pk_sign(pkPtr.get(), MBEDTLS_MD_SHA384, digest.Get(), digest.Size(), signature.Get(),
             signature.Size(), &signatureLen, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
         if (ret != 0) {
             return ret;

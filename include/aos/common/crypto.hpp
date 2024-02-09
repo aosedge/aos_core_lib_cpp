@@ -181,7 +181,7 @@ public:
  */
 class HashType {
 public:
-    enum class Enum { eNone, eSHA1, eSHA224, eSHA256, eSHA384, eSHA512 };
+    enum class Enum { eSHA1, eSHA224, eSHA256, eSHA384, eSHA512, eNone };
 
     static const Array<const char* const> GetStrings()
     {

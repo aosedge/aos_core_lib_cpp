@@ -19,7 +19,6 @@
 #include <psa/crypto.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
-#include "aos/common/crypto/mbedtls/driverwrapper.hpp"
 
 #include "../log.hpp"
 
@@ -151,13 +150,15 @@ Error MbedTLSCryptoProvider::CreateCSR(const x509::CSR& templ, const PrivateKeyI
         return ret.mError;
     }
 
-    auto keyID = ret.mValue;
+    auto keyID = ret.mValue.mKeyID;
 
     auto cleanupPSA = [&]() {
         AosPsaRemoveKey(keyID);
 
         cleanupCSR();
     };
+
+    mbedtls_x509write_csr_set_md_alg(&csr, ret.mValue.mMDType);
 
     auto err = SetCSRProperties(csr, key, templ);
     if (err != ErrorEnum::eNone) {
@@ -202,13 +203,15 @@ Error MbedTLSCryptoProvider::CreateCertificate(
         return ret.mError;
     }
 
-    auto keyID = ret.mValue;
+    auto keyID = ret.mValue.mKeyID;
 
     auto cleanupPSA = [&]() {
         AosPsaRemoveKey(keyID);
 
         cleanupCert();
     };
+
+    mbedtls_x509write_crt_set_md_alg(&cert, ret.mValue.mMDType);
 
     err = SetCertificateProperties(cert, pk, ctrDrbg, templ, parent);
     if (err != ErrorEnum::eNone) {
@@ -776,22 +779,21 @@ Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pem
     return ErrorEnum::eNone;
 }
 
-RetWithError<mbedtls_svc_key_id_t> MbedTLSCryptoProvider::SetupOpaqueKey(
-    mbedtls_pk_context& pk, const PrivateKeyItf& privKey)
+RetWithError<KeyInfo> MbedTLSCryptoProvider::SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey)
 {
     auto statusAddKey = AosPsaAddKey(privKey);
     if (!statusAddKey.mError.IsNone()) {
         return statusAddKey;
     }
 
-    auto ret = mbedtls_pk_setup_opaque(&pk, statusAddKey.mValue);
+    auto ret = mbedtls_pk_setup_opaque(&pk, statusAddKey.mValue.mKeyID);
     if (ret != 0) {
-        AosPsaRemoveKey(statusAddKey.mValue);
+        AosPsaRemoveKey(statusAddKey.mValue.mKeyID);
 
-        return RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, AOS_ERROR_WRAP(ret));
+        return RetWithError<KeyInfo>(statusAddKey.mValue, AOS_ERROR_WRAP(ret));
     }
 
-    return RetWithError<mbedtls_svc_key_id_t>(statusAddKey.mValue, ErrorEnum::eNone);
+    return RetWithError<KeyInfo>(statusAddKey.mValue, ErrorEnum::eNone);
 }
 
 Error MbedTLSCryptoProvider::InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,

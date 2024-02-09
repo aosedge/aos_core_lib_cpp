@@ -13,13 +13,27 @@
 #include "aos/common/crypto.hpp"
 
 /**
+ * Key description.
+ */
+struct KeyInfo {
+    /**
+     * Key ID.
+     */
+    psa_key_id_t mKeyID;
+    /**
+     * Message digest type.
+     */
+    mbedtls_md_type_t mMDType;
+};
+
+/**
  * @brief Add key to the list of builtin keys.
  *
  * @param key Key description.
  *
- * @return Error.
+ * @return Key ID and error code.
  */
-aos::RetWithError<psa_key_id_t> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKey);
+aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKey);
 
 /**
  * @brief Remove key from the list of builtin keys.
