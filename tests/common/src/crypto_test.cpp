@@ -114,7 +114,7 @@ static std::pair<aos::Error, std::vector<unsigned char>> GenerateECPrivateKey()
     return {aos::ErrorEnum::eNone, keyBuf};
 }
 
-static int PemToDer(const char* pemData, size_t pemSize, std::vector<unsigned char>& derData)
+static int PemToDer(const char* pemData, size_t pemLen, std::vector<unsigned char>& derData)
 {
     mbedtls_x509_crt cert;
 
@@ -122,7 +122,7 @@ static int PemToDer(const char* pemData, size_t pemSize, std::vector<unsigned ch
 
     std::unique_ptr<mbedtls_x509_crt, decltype(&mbedtls_x509_crt_free)> derDataPtr(&cert, mbedtls_x509_crt_free);
 
-    auto ret = mbedtls_x509_crt_parse(derDataPtr.get(), reinterpret_cast<const uint8_t*>(pemData), pemSize);
+    auto ret = mbedtls_x509_crt_parse(derDataPtr.get(), reinterpret_cast<const uint8_t*>(pemData), pemLen);
     if (ret != 0) {
         return ret;
     }
@@ -423,8 +423,8 @@ TEST(CryptoTest, DERToX509Certs)
 
     aos::crypto::RSAPublicKey rsaPublicKey {mN, mE};
 
-    RSAPrivateKey                                rsaPK {rsaPublicKey, std::move(rsaPKRet.second)};
-    aos::StaticString<aos::crypto::cCertPEMSize> pemCRT;
+    RSAPrivateKey                               rsaPK {rsaPublicKey, std::move(rsaPKRet.second)};
+    aos::StaticString<aos::crypto::cCertPEMLen> pemCRT;
 
     ASSERT_EQ(crypto.CreateCertificate(templ, parent, rsaPK, pemCRT), aos::ErrorEnum::eNone);
 
@@ -496,7 +496,7 @@ TEST(CryptoTest, PEMToX509Certs)
 
     ECDSAPrivateKey ecdsaPK(ecdsaPublicKey, std::move(ecPrivateKey.second));
 
-    aos::StaticString<aos::crypto::cCertPEMSize> pemCRT;
+    aos::StaticString<aos::crypto::cCertPEMLen> pemCRT;
 
     ASSERT_EQ(crypto.CreateCertificate(templ, parent, ecdsaPK, pemCRT), aos::ErrorEnum::eNone);
 
@@ -613,8 +613,8 @@ TEST(CryptoTest, CreateSelfSignedCert)
 
     aos::crypto::RSAPublicKey rsaPublicKey {mN, mE};
 
-    RSAPrivateKey                                rsaPK {rsaPublicKey, std::move(rsaPKRet.second)};
-    aos::StaticString<aos::crypto::cCertPEMSize> pemCRT;
+    RSAPrivateKey                               rsaPK {rsaPublicKey, std::move(rsaPKRet.second)};
+    aos::StaticString<aos::crypto::cCertPEMLen> pemCRT;
 
     ASSERT_EQ(crypto.CreateCertificate(templ, parent, rsaPK, pemCRT), aos::ErrorEnum::eNone);
 

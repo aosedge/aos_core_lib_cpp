@@ -64,9 +64,9 @@ constexpr auto cASN1ExtValueSize = AOS_CONFIG_CRYPTO_ASN1_EXTENSION_VALUE_SIZE;
 constexpr auto cCertKeyIdSize = AOS_CONFIG_CRYPTO_CERT_KEY_ID_SIZE;
 
 /**
- * Maximum size of a PEM certificate.
+ * Maximum length of a PEM certificate.
  */
-constexpr auto cCertPEMSize = AOS_CONFIG_CRYPTO_CERT_PEM_SIZE;
+constexpr auto cCertPEMLen = AOS_CONFIG_CRYPTO_CERT_PEM_LEN;
 
 /**
  * Maximum size of a DER certificate.
@@ -74,9 +74,9 @@ constexpr auto cCertPEMSize = AOS_CONFIG_CRYPTO_CERT_PEM_SIZE;
 constexpr auto cCertDERSize = AOS_CONFIG_CRYPTO_CERT_DER_SIZE;
 
 /**
- * Maximum size of CSR in PEM format.
+ * Maximum length of CSR in PEM format.
  */
-constexpr auto cCSRPEMSize = AOS_CONFIG_CRYPTO_CSR_PEM_SIZE;
+constexpr auto cCSRPEMLen = AOS_CONFIG_CRYPTO_CSR_PEM_LEN;
 
 /**
  *  Serial number size(in bytes).

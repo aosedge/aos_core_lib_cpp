@@ -225,7 +225,7 @@ private:
 
     using ModuleCertificates    = StaticArray<CertInfo, cCertsPerModule>;
     using CertificateChain      = StaticArray<crypto::x509::Certificate, crypto::cCertChainSize>;
-    using SelfSignedCertificate = StaticString<crypto::cCertPEMSize>;
+    using SelfSignedCertificate = StaticString<crypto::cCertPEMLen>;
 
     Error RemoveInvalidCerts(const String& password);
     Error RemoveInvalidKeys(const String& password);

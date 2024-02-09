@@ -220,10 +220,10 @@
 #endif
 
 /**
- * Maximum size of a PEM certificate.
+ * Maximum length of a PEM certificate.
  */
-#ifndef AOS_CONFIG_CRYPTO_CERT_PEM_SIZE
-#define AOS_CONFIG_CRYPTO_CERT_PEM_SIZE 4096
+#ifndef AOS_CONFIG_CRYPTO_CERT_PEM_LEN
+#define AOS_CONFIG_CRYPTO_CERT_PEM_LEN 4096
 #endif
 
 /**
@@ -234,10 +234,10 @@
 #endif
 
 /**
- * Maximum size of CSR in PEM format.
+ * Maximum length of CSR in PEM format.
  */
-#ifndef AOS_CONFIG_CRYPTO_CSR_PEM_SIZE
-#define AOS_CONFIG_CRYPTO_CSR_PEM_SIZE 4096
+#ifndef AOS_CONFIG_CRYPTO_CSR_PEM_LEN
+#define AOS_CONFIG_CRYPTO_CSR_PEM_LEN 4096
 #endif
 
 /**

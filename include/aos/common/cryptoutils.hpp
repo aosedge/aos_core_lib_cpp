@@ -47,13 +47,13 @@ public:
     RetWithError<SharedPtr<crypto::PrivateKeyItf>> LoadPrivKeyByURL(const String& url);
 
 private:
-    using PEMCertChainBlob = StaticString<crypto::cCertPEMSize * crypto::cCertChainSize>;
+    using PEMCertChainBlob = StaticString<crypto::cCertPEMLen * crypto::cCertChainSize>;
 
     static constexpr auto cCertAllocatorSize
         = AOS_CONFIG_CRYPTOUTILS_CERTIFICATE_CHAINS_COUNT * crypto::cCertChainSize * sizeof(crypto::x509::Certificate)
         + sizeof(PEMCertChainBlob);
     static constexpr auto cKeyAllocatorSize
-        = AOS_CONFIG_CRYPTOUTILS_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cCertPEMSize);
+        = AOS_CONFIG_CRYPTOUTILS_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cCertPEMLen);
 
     static constexpr auto cDefaultPKCS11Library = AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB;
 
