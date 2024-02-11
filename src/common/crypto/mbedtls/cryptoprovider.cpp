@@ -747,9 +747,9 @@ Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, 
 Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ)
 {
     for (const auto& extension : templ.mExtraExtensions) {
-        const char*          oid      = extension.mId.CStr();
+        const char*          oid      = extension.mID.CStr();
         const unsigned char* value    = extension.mValue.Get();
-        size_t               oidLen   = extension.mId.Size();
+        size_t               oidLen   = extension.mID.Size();
         size_t               valueLen = extension.mValue.Size();
 
         int ret = mbedtls_x509write_csr_set_extension(&csr, oid, oidLen, 0, value, valueLen);

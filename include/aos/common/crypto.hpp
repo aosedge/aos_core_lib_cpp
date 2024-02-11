@@ -370,7 +370,7 @@ using ObjectIdentifier = StaticString<cASN1ObjIdLen>;
  * ASN.1 structure extension. RFC 580, section 4.2
  */
 struct Extension {
-    ObjectIdentifier                        mId;
+    ObjectIdentifier                        mID;
     StaticArray<uint8_t, cASN1ExtValueSize> mValue;
 
     /**
@@ -379,7 +379,7 @@ struct Extension {
      * @param extension object to compare with.
      * @return bool.
      */
-    bool operator==(const Extension& extension) const { return extension.mId == mId && extension.mValue == mValue; }
+    bool operator==(const Extension& extension) const { return extension.mID == mID && extension.mValue == mValue; }
     /**
      * Checks whether current object is not equal the the given one.
      *

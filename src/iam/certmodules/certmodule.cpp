@@ -156,7 +156,7 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
     if (!oids.IsEmpty()) {
         crypto::asn1::Extension ext;
 
-        ext.mId = cOidExtensionExtendedKeyUsage;
+        ext.mID = cOidExtensionExtendedKeyUsage;
 
         err = mX509Provider->ASN1EncodeObjectIds(oids, ext.mValue);
         if (!err.IsNone()) {
