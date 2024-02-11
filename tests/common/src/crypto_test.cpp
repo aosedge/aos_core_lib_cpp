@@ -553,7 +553,7 @@ TEST(CryptoTest, CreateCSR)
 
     templ.mExtraExtensions.Resize(1);
 
-    templ.mExtraExtensions[0].mID    = MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER;
+    templ.mExtraExtensions[0].mID    = "2.5.29.37";
     templ.mExtraExtensions[0].mValue = aos::Array<uint8_t>(subject_key_identifier_val, val_len);
 
     aos::StaticString<4096> pemCSR;
@@ -642,7 +642,7 @@ TEST(CryptoTest, CreateCSRUsingECKey)
 
     templ.mExtraExtensions.Resize(1);
 
-    templ.mExtraExtensions[0].mID    = MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER;
+    templ.mExtraExtensions[0].mID    = "2.5.29.37";
     templ.mExtraExtensions[0].mValue = aos::Array<uint8_t>(subject_key_identifier_val, val_len);
 
     aos::StaticString<4096> pemCSR;

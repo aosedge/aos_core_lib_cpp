@@ -750,12 +750,19 @@ Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, 
 Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ)
 {
     for (const auto& extension : templ.mExtraExtensions) {
-        const char*          oid      = extension.mID.CStr();
+        mbedtls_asn1_buf resOID = {};
+
+        auto ret = mbedtls_oid_from_numeric_string(&resOID, extension.mID.Get(), extension.mID.Size());
+        if (ret != 0) {
+            return AOS_ERROR_WRAP(ret);
+        }
+
         const unsigned char* value    = extension.mValue.Get();
-        size_t               oidLen   = extension.mID.Size();
         size_t               valueLen = extension.mValue.Size();
 
-        int ret = mbedtls_x509write_csr_set_extension(&csr, oid, oidLen, 0, value, valueLen);
+        ret = mbedtls_x509write_csr_set_extension(
+            &csr, reinterpret_cast<const char*>(resOID.p), resOID.len, 0, value, valueLen);
+        mbedtls_free(resOID.p);
         if (ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
