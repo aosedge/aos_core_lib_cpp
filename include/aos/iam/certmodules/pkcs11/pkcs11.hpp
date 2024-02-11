@@ -154,7 +154,12 @@ private:
         pkcs11::PrivateKey mKey;
     };
 
-    struct SearchObject;
+    struct SearchObject {
+        Optional<pkcs11::ObjectClass>   mType;
+        pkcs11::ObjectHandle            mHandle;
+        StaticString<pkcs11::cLabelLen> mLabel;
+        uuid::UUID                      mID;
+    };
 
     String                       GetTokenLabel() const;
     RetWithError<pkcs11::SlotID> GetSlotID();
@@ -198,8 +203,11 @@ private:
     StaticString<cTeeLoginTypeLen>   mTeeLoginType;
     StaticString<pkcs11::cPINLength> mUserPIN;
 
-    StaticAllocator<sizeof(crypto::x509::Certificate) + sizeof(DERCert)> mTmpObjAllocator;
-    StaticAllocator<pkcs11::cPrivateKeyMaxSize * cCertsPerModule>        mLocalCacheAllocator;
+    mutable StaticAllocator<aos::Max(sizeof(crypto::x509::Certificate) + sizeof(DERCert),
+        sizeof(StaticArray<SearchObject, cCertsPerModule * 3>) + sizeof(SearchObject) + sizeof(pkcs11::TokenInfo)
+            + sizeof(pkcs11::SessionInfo))>
+                                                                  mTmpObjAllocator;
+    StaticAllocator<pkcs11::cPrivateKeyMaxSize * cCertsPerModule> mLocalCacheAllocator;
 
     StaticArray<PendingKey, cCertsPerModule> mPendingKeys;
     UniquePtr<pkcs11::SessionContext>        mSession;

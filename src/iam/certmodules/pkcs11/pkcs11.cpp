@@ -18,28 +18,6 @@ namespace aos {
 namespace iam {
 namespace certhandler {
 
-/**
- * A helper object for search operations containing the most valuable data for certhandler.
- */
-struct PKCS11Module::SearchObject {
-    /**
-     * Object type.
-     */
-    Optional<pkcs11::ObjectClass> mType;
-    /**
-     * Object handle.
-     */
-    pkcs11::ObjectHandle mHandle;
-    /**
-     * Object label.
-     */
-    StaticString<pkcs11::cLabelLen> mLabel;
-    /**
-     * Key identifier for public/private key pair.
-     */
-    uuid::UUID mID;
-};
-
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -176,16 +154,18 @@ Error PKCS11Module::Clear()
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticArray<SearchObject, cCertsPerModule * 3> tokens; // certs, privKeys, pubKeys
-    SearchObject                                   filter;
+    // certs, privKeys, pubKeys
+    auto tokens = aos::MakeUnique<StaticArray<SearchObject, cCertsPerModule * 3>>(&mTmpObjAllocator);
+    auto filter = aos::MakeUnique<SearchObject>(&mTmpObjAllocator);
 
-    err = FindObject(*session, filter, tokens);
-
+    err = FindObject(*session, *filter, *tokens);
     if (err.IsNone()) {
-        for (const auto& token : tokens) {
-            auto releaseErr = session->DestroyObject(token.mHandle);
-            if (!releaseErr.IsNone()) {
-                err = AOS_ERROR_WRAP(releaseErr);
+        for (const auto& token : *tokens) {
+            LOG_DBG() << "Destroy object: " << token.mHandle;
+
+            auto destroyErr = session->DestroyObject(token.mHandle);
+            if (!destroyErr.IsNone()) {
+                err = AOS_ERROR_WRAP(destroyErr);
                 LOG_ERR() << "Can't delete object: handle = " << token.mHandle;
             }
         }
@@ -511,14 +491,14 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
 RetWithError<bool> PKCS11Module::IsOwned() const
 {
-    pkcs11::TokenInfo tokenInfo;
+    auto tokenInfo = aos::MakeUnique<pkcs11::TokenInfo>(&mTmpObjAllocator);
 
-    auto err = mPKCS11->GetTokenInfo(mSlotID, tokenInfo);
+    auto err = mPKCS11->GetTokenInfo(mSlotID, *tokenInfo);
     if (!err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};
     }
 
-    const bool isOwned = (tokenInfo.mFlags & CKF_TOKEN_INITIALIZED) != 0;
+    const bool isOwned = (tokenInfo->mFlags & CKF_TOKEN_INITIALIZED) != 0;
 
     return {isOwned, ErrorEnum::eNone};
 }
@@ -613,16 +593,16 @@ RetWithError<pkcs11::SessionContext*> PKCS11Module::CreateSession(bool userLogin
 
     LOG_DBG() << "Create session: session = " << mSession->GetHandle() << ", slotID = " << mSlotID;
 
-    pkcs11::SessionInfo sessionInfo;
+    auto sessionInfo = aos::MakeShared<pkcs11::SessionInfo>(&mTmpObjAllocator);
 
-    err = mSession->GetSessionInfo(sessionInfo);
+    err = mSession->GetSessionInfo(*sessionInfo);
     if (!err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
     const bool isUserLoggedIn
-        = sessionInfo.state == CKS_RO_USER_FUNCTIONS || sessionInfo.state == CKS_RW_USER_FUNCTIONS;
-    const bool isSOLoggedIn = sessionInfo.state == CKS_RW_SO_FUNCTIONS;
+        = sessionInfo->state == CKS_RO_USER_FUNCTIONS || sessionInfo->state == CKS_RW_USER_FUNCTIONS;
+    const bool isSOLoggedIn = sessionInfo->state == CKS_RW_SO_FUNCTIONS;
 
     if ((userLogin && isSOLoggedIn) || (!userLogin && isUserLoggedIn)) {
         err = mSession->Logout();
@@ -667,7 +647,7 @@ Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObje
         templ.EmplaceBack(CKA_LABEL, Array<uint8_t>(labelPtr, filter.mLabel.Size()));
     }
 
-    if (!filter.mType.HasValue()) {
+    if (filter.mType.HasValue()) {
         const auto classPtr = reinterpret_cast<const uint8_t*>(&filter.mType.GetValue());
 
         templ.EmplaceBack(CKA_CLASS, Array<uint8_t>(classPtr, sizeof(pkcs11::ObjectClass)));
