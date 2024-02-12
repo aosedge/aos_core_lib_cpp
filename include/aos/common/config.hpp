@@ -167,7 +167,7 @@
  * (RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue)
  */
 #ifndef AOS_CONFIG_CRYPTO_CERT_ISSUER_SIZE
-#define AOS_CONFIG_CRYPTO_CERT_ISSUER_SIZE 128
+#define AOS_CONFIG_CRYPTO_CERT_ISSUER_SIZE 256
 #endif
 
 /**
