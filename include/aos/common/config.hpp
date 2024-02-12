@@ -314,7 +314,7 @@
  * Max expected number of certificates in a chain stored in PEM file.
  */
 #ifndef AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE
-#define AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE 3
+#define AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE 4
 #endif
 
 /**
