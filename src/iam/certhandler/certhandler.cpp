@@ -112,7 +112,7 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& cert, 
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Apply cert: type = " << certType << ", url = " << info.mCertURL;
+    LOG_DBG() << "Apply cert: type = " << certType;
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
