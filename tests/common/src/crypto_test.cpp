@@ -483,16 +483,16 @@ TEST(CryptoTest, PEMToX509Certs)
 
     ASSERT_EQ(crypto.ASN1EncodeDN(subjectName, templ.mIssuer), aos::ErrorEnum::eNone);
 
-    aos::StaticArray<uint8_t, aos::crypto::cECDSAParamsOIDSize> mParamsOID;
-    aos::StaticArray<uint8_t, aos::crypto::cECDSAPointDERSize>  mECPoint;
+    aos::StaticArray<uint8_t, aos::crypto::cECDSAParamsOIDSize> paramsOID;
+    aos::StaticArray<uint8_t, aos::crypto::cECDSAPointDERSize>  ecPoint;
 
     auto ecPrivateKey = GenerateECPrivateKey();
     ASSERT_EQ(ecPrivateKey.first, aos::ErrorEnum::eNone);
 
-    auto ret = ExtractECPublicKeyFromPrivate(mParamsOID, mECPoint, ecPrivateKey.second);
+    auto ret = ExtractECPublicKeyFromPrivate(paramsOID, ecPoint, ecPrivateKey.second);
     ASSERT_EQ(ret, 0);
 
-    aos::crypto::ECDSAPublicKey ecdsaPublicKey(mParamsOID, mECPoint);
+    aos::crypto::ECDSAPublicKey ecdsaPublicKey(paramsOID, ecPoint);
 
     ECDSAPrivateKey ecdsaPK(ecdsaPublicKey, std::move(ecPrivateKey.second));
 
