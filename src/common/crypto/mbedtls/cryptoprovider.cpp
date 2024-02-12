@@ -122,7 +122,7 @@ static Error ASN1RemoveTag(const Array<uint8_t>& src, Array<uint8_t>& dst, int t
 
 Error MbedTLSCryptoProvider::Init()
 {
-    LOG_INF() << "Initialize mbetTLS crypto provider";
+    LOG_INF() << "Initialize mbedTLS crypto provider";
 
     auto ret = psa_crypto_init();
 
@@ -471,24 +471,34 @@ Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::
 
     size_t      len = 0;
     const char* oid;
-    auto        ret = mbedtls_oid_get_oid_by_ec_grp(eckey->MBEDTLS_PRIVATE(grp).id, &oid, &len);
+
+    auto ret = mbedtls_oid_get_oid_by_ec_grp(eckey->MBEDTLS_PRIVATE(grp).id, &oid, &len);
     if (ret != 0) {
-        return ret;
+        return AOS_ERROR_WRAP(ret);
     }
 
-    paramsOID.Resize(len);
+    auto err = paramsOID.Resize(len);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     memcpy(paramsOID.Get(), oid, len);
 
-    ecPoint.Resize(ecPoint.MaxSize());
+    err = ecPoint.Resize(ecPoint.MaxSize());
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     ret = mbedtls_ecp_point_write_binary(&eckey->MBEDTLS_PRIVATE(grp), &eckey->MBEDTLS_PRIVATE(Q),
         MBEDTLS_ECP_PF_UNCOMPRESSED, &len, ecPoint.Get(), ecPoint.Size());
     if (ret != 0) {
-        return ret;
+        return AOS_ERROR_WRAP(ret);
     }
 
-    ecPoint.Resize(len);
+    err = ecPoint.Resize(len);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     cert.mPublicKey = MakeShared<ECDSAPublicKey>(&mAllocator, paramsOID, ecPoint);
 
@@ -497,8 +507,8 @@ Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::
 
 Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert)
 {
-    StaticArray<uint8_t, cRSAModulusSize>     mN;
-    StaticArray<uint8_t, cRSAPubExponentSize> mE;
+    StaticArray<uint8_t, cRSAModulusSize>     n;
+    StaticArray<uint8_t, cRSAPubExponentSize> e;
     mbedtls_mpi                               mpiN, mpiE;
 
     mbedtls_mpi_init(&mpiN);
@@ -513,68 +523,75 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
     if (ret != 0) {
         cleanup();
 
-        return ret;
+        return AOS_ERROR_WRAP(ret);
     }
 
-    mN.Resize(mbedtls_mpi_size(&mpiN));
-    mE.Resize(mbedtls_mpi_size(&mpiE));
+    auto err = n.Resize(mbedtls_mpi_size(&mpiN));
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-    ret = mbedtls_mpi_write_binary(&mpiN, mN.Get(), mN.Size());
+    err = e.Resize(mbedtls_mpi_size(&mpiE));
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    ret = mbedtls_mpi_write_binary(&mpiN, n.Get(), n.Size());
     if (ret != 0) {
         cleanup();
 
-        return ret;
+        return AOS_ERROR_WRAP(ret);
     }
 
-    ret = mbedtls_mpi_write_binary(&mpiE, mE.Get(), mE.Size());
+    ret = mbedtls_mpi_write_binary(&mpiE, e.Get(), e.Size());
 
     cleanup();
 
     if (ret != 0) {
-        return ret;
+        return AOS_ERROR_WRAP(ret);
     }
 
-    cert.mPublicKey = MakeShared<RSAPublicKey>(&mAllocator, mN, mE);
+    cert.mPublicKey = MakeShared<RSAPublicKey>(&mAllocator, n, e);
 
-    return ret;
+    return aos::ErrorEnum::eNone;
 }
 
 Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt)
 {
     auto err = cert.mSubject.Resize(crt->subject_raw.len);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     memcpy(cert.mSubject.Get(), crt->subject_raw.p, crt->subject_raw.len);
 
     err = cert.mIssuer.Resize(crt->issuer_raw.len);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     memcpy(cert.mIssuer.Get(), crt->issuer_raw.p, crt->issuer_raw.len);
 
     err = cert.mSerial.Resize(crt->serial.len);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     memcpy(cert.mSerial.Get(), crt->serial.p, crt->serial.len);
 
     aos::Tie(cert.mNotBefore, err) = ConvertTime(crt->valid_from);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     aos::Tie(cert.mNotAfter, err) = ConvertTime(crt->valid_to);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = cert.mRaw.Resize(crt->raw.len);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     memcpy(cert.mRaw.Get(), crt->raw.p, crt->raw.len);
