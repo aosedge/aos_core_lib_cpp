@@ -31,7 +31,7 @@
  *
  */
 #ifndef AOS_CONFIG_LOG_LINE_LEN
-#define AOS_CONFIG_LOG_LINE_LEN 120
+#define AOS_CONFIG_LOG_LINE_LEN 256
 #endif
 
 /**
