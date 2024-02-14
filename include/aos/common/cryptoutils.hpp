@@ -17,9 +17,9 @@ namespace aos {
 namespace cryptoutils {
 
 /**
- * Loads certificates and keys by URL
+ * Loads certificates and keys interface.
  */
-class CertLoader {
+class CertLoaderItf {
 public:
     /**
      * Initializes object instance.
@@ -28,7 +28,7 @@ public:
      * @param pkcs11Manager PKCS11 library manager.
      * @return Error.
      */
-    Error Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager);
+    virtual Error Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager) = 0;
 
     /**
      * Loads certificate chain by URL.
@@ -36,7 +36,7 @@ public:
      * @param url input url.
      * @return RetWithError<SharedPtr<crypto::x509::CertificateChain>>.
      */
-    RetWithError<SharedPtr<crypto::x509::CertificateChain>> LoadCertsChainByURL(const String& url);
+    virtual RetWithError<SharedPtr<crypto::x509::CertificateChain>> LoadCertsChainByURL(const String& url) = 0;
 
     /**
      * Loads private key by URL.
@@ -44,7 +44,43 @@ public:
      * @param url input url.
      * @return RetWithError<SharedPtr<crypto::PrivateKeyItf>>.
      */
-    RetWithError<SharedPtr<crypto::PrivateKeyItf>> LoadPrivKeyByURL(const String& url);
+    virtual RetWithError<SharedPtr<crypto::PrivateKeyItf>> LoadPrivKeyByURL(const String& url) = 0;
+
+    /**
+     * Destroys cert loader instance.
+     */
+    virtual ~CertLoaderItf() = default;
+};
+
+/**
+ * Loads certificates and keys by URL.
+ */
+class CertLoader : public CertLoaderItf {
+public:
+    /**
+     * Initializes object instance.
+     *
+     * @param cryptoProvider crypto provider interface.
+     * @param pkcs11Manager PKCS11 library manager.
+     * @return Error.
+     */
+    Error Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager) override;
+
+    /**
+     * Loads certificate chain by URL.
+     *
+     * @param url input url.
+     * @return RetWithError<SharedPtr<crypto::x509::CertificateChain>>.
+     */
+    RetWithError<SharedPtr<crypto::x509::CertificateChain>> LoadCertsChainByURL(const String& url) override;
+
+    /**
+     * Loads private key by URL.
+     *
+     * @param url input url.
+     * @return RetWithError<SharedPtr<crypto::PrivateKeyItf>>.
+     */
+    RetWithError<SharedPtr<crypto::PrivateKeyItf>> LoadPrivKeyByURL(const String& url) override;
 
 private:
     using PEMCertChainBlob = StaticString<crypto::cCertPEMLen * crypto::cCertChainSize>;
