@@ -39,7 +39,10 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
         mNodeMonitoringData.mMonitoringData.mDisk.EmplaceBack(disk);
     }
 
-    mConnectionPublisher->Subscribes(*this);
+    err = mConnectionPublisher->Subscribes(*this);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     err = RunGatheringNodeMonitoringData();
     if (!err.IsNone()) {
