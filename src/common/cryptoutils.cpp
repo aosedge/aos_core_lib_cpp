@@ -156,7 +156,7 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
 RetWithError<pkcs11::SlotID> CertLoader::FindToken(pkcs11::LibraryContext& library, const String& token)
 {
     StaticArray<pkcs11::SlotID, pkcs11::cSlotListSize> slotList;
-    pkcs11::TokenInfo                                  tokenInfo;
+    auto                                               tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mAllocator);
 
     auto err = library.GetSlotList(true, slotList);
     if (!err.IsNone()) {
@@ -164,12 +164,12 @@ RetWithError<pkcs11::SlotID> CertLoader::FindToken(pkcs11::LibraryContext& libra
     }
 
     for (const auto slotID : slotList) {
-        auto err = library.GetTokenInfo(slotID, tokenInfo);
+        auto err = library.GetTokenInfo(slotID, *tokenInfo);
         if (!err.IsNone()) {
             return {0, err};
         }
 
-        if (tokenInfo.mLabel == token) {
+        if (tokenInfo->mLabel == token) {
             return {slotID, ErrorEnum::eNone};
         }
     }
