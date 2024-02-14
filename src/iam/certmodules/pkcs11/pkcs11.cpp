@@ -465,18 +465,18 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
         }
 
         if ((slotInfo.mFlags & CKF_TOKEN_PRESENT) != 0) {
-            pkcs11::TokenInfo tokenInfo;
+            auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mTmpObjAllocator);
 
-            err = mPKCS11->GetTokenInfo(slotID, tokenInfo);
+            err = mPKCS11->GetTokenInfo(slotID, *tokenInfo);
             if (!err.IsNone()) {
                 return {0, AOS_ERROR_WRAP(err)};
             }
 
-            if (tokenInfo.mLabel == mConfig.mTokenLabel) {
+            if (tokenInfo->mLabel == mConfig.mTokenLabel) {
                 return {slotID, ErrorEnum::eNone};
             }
 
-            if ((tokenInfo.mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
+            if ((tokenInfo->mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
                 freeSlotID.SetValue(slotID);
             }
         }
@@ -842,8 +842,8 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
         LOG_DBG() << "Certificate found: ID = " << uuid::UUIDToString(cert->mID);
 
         // create certInfo
-        auto     x509Cert = MakeUnique<crypto::x509::Certificate>(&mTmpObjAllocator);
-        CertInfo validCert;
+        auto x509Cert  = MakeUnique<crypto::x509::Certificate>(&mTmpObjAllocator);
+        auto validCert = MakeUnique<CertInfo>(&mTmpObjAllocator);
 
         auto err = GetX509Cert(session, cert->mHandle, *x509Cert);
         if (!err.IsNone()) {
@@ -851,13 +851,13 @@ Error PKCS11Module::GetValidInfo(pkcs11::SessionContext& session, Array<SearchOb
             return err;
         }
 
-        err = CreateCertInfo(*x509Cert, privKey->mID, cert->mID, validCert);
+        err = CreateCertInfo(*x509Cert, privKey->mID, cert->mID, *validCert);
         if (!err.IsNone()) {
             return err;
         }
 
         // update containers
-        err = resCerts.PushBack(validCert);
+        err = resCerts.PushBack(*validCert);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

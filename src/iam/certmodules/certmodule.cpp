@@ -119,17 +119,17 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertModule::CreateKey(const Strin
 
 Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::PrivateKeyItf& privKey, String& pemCSR)
 {
-    crypto::x509::CSR          templ;
+    auto                       templ = MakeUnique<crypto::x509::CSR>(&mAllocator);
     StaticString<cDNStringLen> subject;
 
-    templ.mDNSNames = mModuleConfig.mAlternativeNames;
+    templ->mDNSNames = mModuleConfig.mAlternativeNames;
 
     auto err = subject.Format("CN=%s", subjectCommonName.CStr());
     if (!err.IsNone()) {
         return err;
     }
 
-    err = mX509Provider->ASN1EncodeDN(subject, templ.mSubject);
+    err = mX509Provider->ASN1EncodeDN(subject, templ->mSubject);
     if (!err.IsNone()) {
         return err;
     }
@@ -163,13 +163,13 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
             return AOS_ERROR_WRAP(err);
         }
 
-        err = templ.mExtraExtensions.PushBack(ext);
+        err = templ->mExtraExtensions.PushBack(ext);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    err = mX509Provider->CreateCSR(templ, privKey, pemCSR);
+    err = mX509Provider->CreateCSR(*templ, privKey, pemCSR);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -237,9 +237,9 @@ Error CertModule::CreateSelfSignedCert(const String& password)
         return AOS_ERROR_WRAP(err);
     }
 
-    CertInfo certInfo;
+    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
 
-    return ApplyCert(*pemCert, certInfo);
+    return ApplyCert(*pemCert, *certInfo);
 }
 
 /***********************************************************************************************************************

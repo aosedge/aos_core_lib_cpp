@@ -204,7 +204,7 @@ private:
     StaticString<cTeeLoginTypeLen>   mTeeLoginType;
     StaticString<pkcs11::cPINLength> mUserPIN;
 
-    mutable StaticAllocator<aos::Max(sizeof(crypto::x509::Certificate) + sizeof(DERCert),
+    mutable StaticAllocator<aos::Max(sizeof(crypto::x509::Certificate) + sizeof(DERCert) + sizeof(CertInfo),
         sizeof(StaticArray<SearchObject, cCertsPerModule * 3>) + sizeof(SearchObject) + sizeof(pkcs11::TokenInfo)
             + sizeof(pkcs11::SessionInfo))>
         mTmpObjAllocator;

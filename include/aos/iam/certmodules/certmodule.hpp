@@ -243,8 +243,9 @@ private:
     StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts, mInvalidKeys;
 
     StaticAllocator<Max(2U * sizeof(ModuleCertificates),
-        sizeof(SelfSignedCertificate) + sizeof(crypto::x509::CertificateChain) + sizeof(ModuleCertificates)
-            + sizeof(crypto::x509::Certificate))>
+        sizeof(SelfSignedCertificate) + sizeof(CertInfo) + sizeof(crypto::x509::CertificateChain)
+            + sizeof(ModuleCertificates) + sizeof(crypto::x509::Certificate),
+        sizeof(crypto::x509::CSR))>
         mAllocator;
 };
 
