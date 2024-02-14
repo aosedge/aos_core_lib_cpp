@@ -169,12 +169,12 @@ public:
     /**
      * Notifies publisher is connected.
      */
-    void OnConnect() override { RunLastInstances(); }
+    void OnConnect() override;
 
     /**
      * Notifies publisher is disconnected.
      */
-    void OnDisconnect() override { }
+    void OnDisconnect() override;
 
 private:
     static constexpr auto cNumLaunchThreads = AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;

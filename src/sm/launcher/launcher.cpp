@@ -23,10 +23,14 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
     OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
     monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher)
 {
-    LOG_DBG() << "Initialize launcher";
+    LOG_DBG() << "Init launcher";
 
     mConnectionPublisher = &connectionPublisher;
-    mConnectionPublisher->Subscribes(*this);
+
+    auto err = mConnectionPublisher->Subscribes(*this);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     mServiceManager  = &serviceManager;
     mRunner          = &runner;
@@ -422,6 +426,18 @@ Error Launcher::StopInstance(const InstanceIdent& ident)
     LOG_INF() << "Instance stopped: " << instance;
 
     return ErrorEnum::eNone;
+}
+
+void Launcher::OnConnect()
+{
+    auto err = RunLastInstances();
+    if (!err.IsNone()) {
+        LOG_ERR() << "Error running last instances: " << err;
+    }
+}
+
+void Launcher::OnDisconnect()
+{
 }
 
 } // namespace launcher
