@@ -157,25 +157,29 @@ Error PKCS11Module::Clear()
     }
 
     // certs, privKeys, pubKeys
-    auto tokens = aos::MakeUnique<StaticArray<SearchObject, cCertsPerModule * 3>>(&mTmpObjAllocator);
-    auto filter = aos::MakeUnique<SearchObject>(&mTmpObjAllocator);
+    auto objects = aos::MakeUnique<StaticArray<SearchObject, cCertsPerModule * 3>>(&mTmpObjAllocator);
+    auto filter  = aos::MakeUnique<SearchObject>(&mTmpObjAllocator);
 
-    err = FindObject(*session, *filter, *tokens);
+    err = FindObject(*session, *filter, *objects);
     if (err.IsNone()) {
-        for (const auto& token : *tokens) {
-            LOG_DBG() << "Destroy object: " << token.mHandle;
+        for (const auto& object : *objects) {
+            LOG_DBG() << "Destroy object: " << object.mHandle;
 
-            auto destroyErr = session->DestroyObject(token.mHandle);
+            auto destroyErr = session->DestroyObject(object.mHandle);
             if (!destroyErr.IsNone()) {
                 err = AOS_ERROR_WRAP(destroyErr);
-                LOG_ERR() << "Can't delete object: handle = " << token.mHandle;
+                LOG_ERR() << "Can't delete object: handle = " << object.mHandle;
             }
         }
     }
 
     CloseSession();
 
-    return err;
+    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
+        return err;
+    }
+
+    return aos::ErrorEnum::eNone;
 }
 
 RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const String& password, crypto::KeyType keyType)
@@ -373,21 +377,21 @@ Error PKCS11Module::ValidateCertificates(
     filter.mType  = CKO_CERTIFICATE;
 
     err = FindObject(*session, filter, certificates);
-    if (!err.IsNone()) {
+    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
         return err;
     }
 
     filter.mType = CKO_PRIVATE_KEY;
 
     err = FindObject(*session, filter, privKeys);
-    if (!err.IsNone()) {
+    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
         return err;
     }
 
     filter.mType = CKO_PUBLIC_KEY;
 
     err = FindObject(*session, filter, pubKeys);
-    if (!err.IsNone()) {
+    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
         return err;
     }
 
