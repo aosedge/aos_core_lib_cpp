@@ -157,8 +157,8 @@ Error PKCS11Module::Clear()
     }
 
     // certs, privKeys, pubKeys
-    auto objects = aos::MakeUnique<StaticArray<SearchObject, cCertsPerModule * 3>>(&mTmpObjAllocator);
-    auto filter  = aos::MakeUnique<SearchObject>(&mTmpObjAllocator);
+    auto objects = MakeUnique<StaticArray<SearchObject, cCertsPerModule * 3>>(&mTmpObjAllocator);
+    auto filter  = MakeUnique<SearchObject>(&mTmpObjAllocator);
 
     err = FindObject(*session, *filter, *objects);
     if (err.IsNone()) {
@@ -175,11 +175,11 @@ Error PKCS11Module::Clear()
 
     CloseSession();
 
-    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return err;
     }
 
-    return aos::ErrorEnum::eNone;
+    return ErrorEnum::eNone;
 }
 
 RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const String& password, crypto::KeyType keyType)
@@ -199,7 +199,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
     }
 
     switch (keyType.GetValue()) {
-    case aos::crypto::KeyTypeEnum::eRSA:
+    case crypto::KeyTypeEnum::eRSA:
         Tie(pendingKey.mKey, err) = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator)
                                         .GenerateRSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cRSAKeyLength);
         if (!err.IsNone()) {
@@ -207,7 +207,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
         }
         break;
 
-    case aos::crypto::KeyTypeEnum::eECDSA:
+    case crypto::KeyTypeEnum::eECDSA:
         Tie(pendingKey.mKey, err) = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator)
                                         .GenerateECDSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cECSDACurveID);
         if (!err.IsNone()) {
@@ -377,21 +377,21 @@ Error PKCS11Module::ValidateCertificates(
     filter.mType  = CKO_CERTIFICATE;
 
     err = FindObject(*session, filter, certificates);
-    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return err;
     }
 
     filter.mType = CKO_PRIVATE_KEY;
 
     err = FindObject(*session, filter, privKeys);
-    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return err;
     }
 
     filter.mType = CKO_PUBLIC_KEY;
 
     err = FindObject(*session, filter, pubKeys);
-    if (!err.IsNone() && !err.Is(aos::ErrorEnum::eNotFound)) {
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return err;
     }
 
@@ -497,7 +497,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
 RetWithError<bool> PKCS11Module::IsOwned() const
 {
-    auto tokenInfo = aos::MakeUnique<pkcs11::TokenInfo>(&mTmpObjAllocator);
+    auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mTmpObjAllocator);
 
     auto err = mPKCS11->GetTokenInfo(mSlotID, *tokenInfo);
     if (!err.IsNone()) {
@@ -599,7 +599,7 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> PKCS11Module::CreateSession(bool
 
     LOG_DBG() << "Create session: session = " << mSession->GetHandle() << ", slotID = " << mSlotID;
 
-    auto sessionInfo = aos::MakeShared<pkcs11::SessionInfo>(&mTmpObjAllocator);
+    auto sessionInfo = MakeShared<pkcs11::SessionInfo>(&mTmpObjAllocator);
 
     err = mSession->GetSessionInfo(*sessionInfo);
     if (!err.IsNone()) {
