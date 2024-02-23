@@ -30,6 +30,13 @@
 #endif
 
 /**
+ * System ID len.
+ */
+#ifndef AOS_CONFIG_TYPES_SYSTEM_ID_LEN
+#define AOS_CONFIG_TYPES_SYSTEM_ID_LEN 40
+#endif
+
+/**
  * Layer ID len.
  */
 #ifndef AOS_CONFIG_TYPES_LAYER_ID_LEN
@@ -48,6 +55,13 @@
  */
 #ifndef AOS_CONFIG_TYPES_INSTANCE_ID_LEN
 #define AOS_CONFIG_TYPES_INSTANCE_ID_LEN 40
+#endif
+
+/**
+ * Unit model len.
+ */
+#ifndef AOS_CONFIG_TYPES_UNIT_MODEL_LEN
+#define AOS_CONFIG_TYPES_UNIT_MODEL_LEN 40
 #endif
 
 /**

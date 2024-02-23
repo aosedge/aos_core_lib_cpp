@@ -34,6 +34,11 @@ constexpr auto cServiceIDLen = AOS_CONFIG_TYPES_SERVICE_ID_LEN;
 constexpr auto cSubjectIDLen = AOS_CONFIG_TYPES_SUBJECT_ID_LEN;
 
 /*
+ * System ID len.
+ */
+constexpr auto cSystemIDLen = AOS_CONFIG_TYPES_SYSTEM_ID_LEN;
+
+/*
  * Layer ID len.
  */
 constexpr auto cLayerIDLen = AOS_CONFIG_TYPES_LAYER_ID_LEN;
@@ -47,6 +52,11 @@ constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
  * Instance ID len.
  */
 constexpr auto cInstanceIDLen = AOS_CONFIG_TYPES_INSTANCE_ID_LEN;
+
+/*
+ * Unit model len.
+ */
+constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
 
 /*
  * URL len.
