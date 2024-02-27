@@ -34,6 +34,11 @@ constexpr auto cServiceIDLen = AOS_CONFIG_TYPES_SERVICE_ID_LEN;
 constexpr auto cSubjectIDLen = AOS_CONFIG_TYPES_SUBJECT_ID_LEN;
 
 /*
+ * Max number of subject ID(s).
+ */
+constexpr auto cMaxSubjectIDSize = AOS_CONFIG_TYPES_MAX_SUBJECTS_SIZE;
+
+/*
  * System ID len.
  */
 constexpr auto cSystemIDLen = AOS_CONFIG_TYPES_SYSTEM_ID_LEN;

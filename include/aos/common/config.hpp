@@ -30,6 +30,13 @@
 #endif
 
 /**
+ * Max expected number of subject ids.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_SUBJECTS_SIZE
+#define AOS_CONFIG_TYPES_MAX_SUBJECTS_SIZE 4
+#endif
+
+/**
  * System ID len.
  */
 #ifndef AOS_CONFIG_TYPES_SYSTEM_ID_LEN
