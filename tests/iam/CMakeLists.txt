@@ -11,7 +11,7 @@ set(TARGET aosiamcpp_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES iam_test.cpp stubs/storagestub.cpp)
+set(SOURCES iam_test.cpp stubs/storagestub.cpp identhandler/fileidentifier_test.cpp)
 
 # ######################################################################################################################
 # Target
@@ -19,5 +19,6 @@ set(SOURCES iam_test.cpp stubs/storagestub.cpp)
 
 add_executable(${TARGET} ${SOURCES})
 target_link_libraries(${TARGET} aosiamcpp aoscommoncpp testutils GTest::gmock_main)
+target_include_directories(${TARGET} PRIVATE ../include)
 
 gtest_discover_tests(${TARGET})
