@@ -11,7 +11,7 @@ set(TARGET aosiamcpp_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES iam_test.cpp stubs/storagestub.cpp identhandler/fileidentifier_test.cpp)
+set(SOURCES iam_test.cpp stubs/storagestub.cpp identhandler/fileidentifier_test.cpp permhandler/permhandler_test.cpp)
 
 # ######################################################################################################################
 # Target
