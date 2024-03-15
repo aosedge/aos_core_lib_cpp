@@ -88,8 +88,8 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sLogModuleTypeStrings[]
-            = {"default", "launcher", "servicemanager", "certhandler", "identhandler", "resourcemonitor", "pkcs11"};
+        static const char* const sLogModuleTypeStrings[] = {"default", "launcher", "servicemanager", "certhandler",
+            "identhandler", "resourcemonitor", "pkcs11", "crypto"};
 
         return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));
     };
