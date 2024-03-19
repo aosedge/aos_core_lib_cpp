@@ -986,8 +986,8 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert
         return ErrorEnum::eNone;
     };
 
-    char timeBufferBefore[16];
-    char timeBufferAfter[16];
+    char timeBufferBefore[cTimeBufferSize] {};
+    char timeBufferAfter[cTimeBufferSize] {};
 
     auto err = formatTime(timeBufferBefore, sizeof(timeBufferBefore), templ.mNotBefore);
     if (!err.IsNone()) {

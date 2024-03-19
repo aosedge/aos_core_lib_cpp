@@ -146,6 +146,7 @@ public:
 private:
     static constexpr auto cAllocatorSize
         = AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));
+    static constexpr size_t cTimeBufferSize = 68;
 
     Error              ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
     Error              GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
