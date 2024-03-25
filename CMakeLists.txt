@@ -38,7 +38,7 @@ set(common_flags "-fPIC -Wall -Werror -Wextra -Wpedantic")
 
 set(CMAKE_CXX_FLAGS "${common_flags} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 # ######################################################################################################################
 # Dependencies
