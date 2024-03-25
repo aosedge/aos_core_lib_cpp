@@ -47,7 +47,7 @@ protected:
 
     SubjectsObserverMock mSubjectsObserver;
 
-    FileIdenentifier mFileIdentifier;
+    FileIdentifier mFileIdentifier;
 };
 
 /***********************************************************************************************************************

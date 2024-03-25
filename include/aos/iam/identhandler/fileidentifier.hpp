@@ -41,9 +41,9 @@ struct Config {
 };
 
 /**
- * Ident handler interface.
+ * File identifier.
  */
-class FileIdenentifier : public IdentHandlerItf {
+class FileIdentifier : public IdentHandlerItf {
 public:
     /**
      * Initializes file identifier.
@@ -79,7 +79,7 @@ public:
     /**
      * Destroys ident handler interface.
      */
-    ~FileIdenentifier() = default;
+    ~FileIdentifier() = default;
 
 private:
     Error ReadSystemId();

@@ -18,7 +18,7 @@ namespace identhandler {
  * Public
  **********************************************************************************************************************/
 
-Error FileIdenentifier::Init(const Config& config, SubjectsObserverItf& subjectsObserver)
+Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsObserver)
 {
     mConfig           = config;
     mSubjectsObserver = &subjectsObserver;
@@ -42,17 +42,17 @@ Error FileIdenentifier::Init(const Config& config, SubjectsObserverItf& subjects
     return ErrorEnum::eNone;
 }
 
-RetWithError<StaticString<cSystemIDLen>> FileIdenentifier::GetSystemID()
+RetWithError<StaticString<cSystemIDLen>> FileIdentifier::GetSystemID()
 {
     return mSystemId;
 }
 
-RetWithError<StaticString<cUnitModelLen>> FileIdenentifier::GetUnitModel()
+RetWithError<StaticString<cUnitModelLen>> FileIdentifier::GetUnitModel()
 {
     return mUnitModel;
 }
 
-Error FileIdenentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
+Error FileIdentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
 {
     if (subjects.MaxSize() < mSubjects.Size()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
@@ -67,21 +67,21 @@ Error FileIdenentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects
  * Private
  **********************************************************************************************************************/
 
-Error FileIdenentifier::ReadSystemId()
+Error FileIdentifier::ReadSystemId()
 {
     const auto err = FS::ReadFileToString(mConfig.systemIDPath, mSystemId);
 
     return AOS_ERROR_WRAP(err);
 }
 
-Error FileIdenentifier::ReadUnitModel()
+Error FileIdentifier::ReadUnitModel()
 {
     const auto err = FS::ReadFileToString(mConfig.unitModelPath, mUnitModel);
 
     return AOS_ERROR_WRAP(err);
 }
 
-Error FileIdenentifier::ReadSubjects()
+Error FileIdentifier::ReadSubjects()
 {
     StaticString<cMaxSubjectIDSize * cSubjectIDLen> buffer;
 
