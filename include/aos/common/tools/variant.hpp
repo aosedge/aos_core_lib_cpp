@@ -56,6 +56,8 @@ public:
         (void)variant;
 
         assert(false);
+
+        exit(EXIT_FAILURE);
     }
 };
 
@@ -108,7 +110,7 @@ public:
     template <typename T>
     T& GetValue()
     {
-        static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+        [[maybe_unused]] static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
         assert(mTypeIndex == cTypeIndex);
 
         return *reinterpret_cast<T*>(mBuffer);

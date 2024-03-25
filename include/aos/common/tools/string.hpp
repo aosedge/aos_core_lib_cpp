@@ -109,8 +109,8 @@ public:
      */
     String& Append(const String& str)
     {
-        auto err = Array::Insert(end(), str.begin(), str.end());
-        *end()   = 0;
+        [[maybe_unused]] auto err = Array::Insert(end(), str.begin(), str.end());
+        *end()                    = 0;
         assert(err.IsNone());
 
         return *this;

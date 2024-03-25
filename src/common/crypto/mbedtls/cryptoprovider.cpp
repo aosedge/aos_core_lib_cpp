@@ -979,7 +979,9 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert
             return err;
         }
 
-        snprintf(buffer, size, "%04d%02d%02d%02d%02d%02d", year, month, day, hour, min, sec);
+        if (snprintf(buffer, size, "%04d%02d%02d%02d%02d%02d", year, month, day, hour, min, sec) < 0) {
+            return ErrorEnum::eInvalidArgument;
+        }
 
         return ErrorEnum::eNone;
     };

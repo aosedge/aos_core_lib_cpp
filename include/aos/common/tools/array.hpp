@@ -400,7 +400,7 @@ public:
      */
     Array& Append(const Array& array)
     {
-        auto err = Insert(end(), array.begin(), array.end());
+        [[maybe_unused]] auto err = Insert(end(), array.begin(), array.end());
         assert(err.IsNone());
 
         return *this;

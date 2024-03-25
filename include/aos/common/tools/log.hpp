@@ -155,7 +155,7 @@ public:
         auto freeSize = mLogLine.MaxSize() - mLogLine.Size();
 
         if (str.Size() > freeSize) {
-            auto err = mLogLine.Insert(mLogLine.end(), str.begin(), str.begin() + freeSize);
+            [[maybe_unused]] auto err = mLogLine.Insert(mLogLine.end(), str.begin(), str.begin() + freeSize);
             assert(err.IsNone());
 
             AddPeriods();

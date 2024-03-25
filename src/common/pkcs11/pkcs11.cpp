@@ -989,7 +989,7 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
 }
 
 RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
-    const Array<uint8_t>& id, const String& label, EllipticCurve curve)
+    const Array<uint8_t>& id, const String& label, [[maybe_unused]] EllipticCurve curve)
 {
     // only P384 curve is supported for now
     assert(curve == EllipticCurve::eP384);

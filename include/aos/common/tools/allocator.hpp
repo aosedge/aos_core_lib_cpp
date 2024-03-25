@@ -132,8 +132,8 @@ public:
     {
         LockGuard lock(mMutex);
 
-        auto curEnd = mAllocations->end();
-        auto newEnd
+        [[maybe_unused]] auto curEnd = mAllocations->end();
+        [[maybe_unused]] auto newEnd
             = mAllocations->Remove([data](const Allocation& allocation) { return allocation.Data() == data; }).mValue;
 
         assert(newEnd && curEnd != newEnd);

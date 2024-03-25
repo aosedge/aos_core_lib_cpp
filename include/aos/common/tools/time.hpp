@@ -55,7 +55,7 @@ public:
     {
         timespec time;
 
-        auto ret = clock_gettime(clockID, &time);
+        [[maybe_unused]] auto ret = clock_gettime(clockID, &time);
         assert(ret == 0);
 
         return Time(time);
