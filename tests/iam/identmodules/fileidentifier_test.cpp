@@ -5,11 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/tools/buffer.hpp"
-#include "mocks/subjectsobservermock.hpp"
 #include <gtest/gtest.h>
 
-#include "aos/iam/identhandler/fileidentifier.hpp"
+#include "mocks/subjectsobservermock.hpp"
+
+#include "aos/common/tools/buffer.hpp"
+#include "aos/iam/identmodules/fileidentifier.hpp"
 
 using namespace aos;
 using namespace aos::iam::identhandler;

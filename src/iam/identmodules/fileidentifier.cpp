@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/iam/identhandler/fileidentifier.hpp"
+#include "aos/iam/identmodules/fileidentifier.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "log.hpp"
