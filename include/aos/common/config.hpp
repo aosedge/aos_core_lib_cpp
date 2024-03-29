@@ -156,6 +156,13 @@
 #endif
 
 /**
+ * Max number of nodes.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODES
+#define AOS_CONFIG_TYPES_MAX_NUM_NODES 4
+#endif
+
+/**
  * Node ID len.
  */
 #ifndef AOS_CONFIG_TYPES_NODE_ID_LEN

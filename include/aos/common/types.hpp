@@ -95,6 +95,11 @@ constexpr auto cMaxNumServices = AOS_CONFIG_TYPES_MAX_NUM_SERVICES;
 constexpr auto cMaxNumLayers = AOS_CONFIG_TYPES_MAX_NUM_LAYERS;
 
 /**
+ * Max number of nodes.
+ */
+constexpr auto cMaxNumNodes = AOS_CONFIG_TYPES_MAX_NUM_NODES;
+
+/**
  * Node ID len.
  */
 constexpr auto cNodeIDLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
