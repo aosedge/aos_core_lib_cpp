@@ -125,6 +125,24 @@ Error ParseURLScheme(const String& url, String& scheme);
 Error ParseFileURL(const String& url, String& path);
 
 /**
+ * Encodes PKCS11 ID to percent-encoded string.
+ *
+ * @param id PKCS11 ID.
+ * @param idStr percent-encoded string.
+ * @return Error.
+ */
+Error EncodePKCS11ID(const Array<uint8_t>& id, String& idStr);
+
+/**
+ * Decodes PKCS11 ID from percent-encoded string.
+ *
+ * @param idStr percent-encoded string.
+ * @param id PKCS11 ID.
+ * @return Error.
+ */
+Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id);
+
+/**
  * Parses url with PKCS11 scheme.
  *
  * @param url input url.

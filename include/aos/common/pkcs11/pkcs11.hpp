@@ -49,6 +49,18 @@ constexpr auto cModelLen = AOS_CONFIG_PKCS11_MODEL_LEN;
 constexpr auto cPINLen = AOS_CONFIG_PKCS11_PIN_LEN;
 
 /**
+ * Maximum size of PKCS11 ID.
+ */
+constexpr auto cIDSize = AOS_CONFIG_PKCS11_ID_SIZE;
+
+/**
+ * Maximum length of PKCS11 ID string.
+ * RFC 7512: it should be percent-encoded uppercase hexadecimal digits.
+ * Example:
+ */
+constexpr auto cIDStrLen = AOS_CONFIG_PKCS11_ID_SIZE * 3;
+
+/**
  * Maximum number of open sessions per PKCS11 library.
  */
 constexpr auto cSessionsPerLib = AOS_CONFIG_PKCS11_SESSIONS_PER_LIB;

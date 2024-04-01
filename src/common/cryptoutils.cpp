@@ -50,11 +50,11 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsCha
 
         return LoadCertsFromFile(path);
     } else if (scheme == cSchemePKCS11) {
-        StaticString<cFilePathLen>      library;
-        StaticString<pkcs11::cLabelLen> token;
-        StaticString<pkcs11::cLabelLen> label;
-        uuid::UUID                      id;
-        StaticString<pkcs11::cPINLen>   userPIN;
+        StaticString<cFilePathLen>            library;
+        StaticString<pkcs11::cLabelLen>       token;
+        StaticString<pkcs11::cLabelLen>       label;
+        StaticArray<uint8_t, pkcs11::cIDSize> id;
+        StaticString<pkcs11::cPINLen>         userPIN;
 
         err = ParsePKCS11URL(url, library, token, label, id, userPIN);
         if (!err.IsNone()) {
@@ -93,11 +93,11 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(cons
 
         return LoadPrivKeyFromFile(path);
     } else if (scheme == cSchemePKCS11) {
-        StaticString<cFilePathLen>      library;
-        StaticString<pkcs11::cLabelLen> token;
-        StaticString<pkcs11::cLabelLen> label;
-        uuid::UUID                      id;
-        StaticString<pkcs11::cPINLen>   userPIN;
+        StaticString<cFilePathLen>            library;
+        StaticString<pkcs11::cLabelLen>       token;
+        StaticString<pkcs11::cLabelLen>       label;
+        StaticArray<uint8_t, pkcs11::cIDSize> id;
+        StaticString<pkcs11::cPINLen>         userPIN;
 
         err = ParsePKCS11URL(url, library, token, label, id, userPIN);
         if (!err.IsNone()) {
@@ -164,7 +164,7 @@ RetWithError<pkcs11::SlotID> CertLoader::FindToken(pkcs11::LibraryContext& libra
     }
 
     for (const auto slotID : slotList) {
-        auto err = library.GetTokenInfo(slotID, *tokenInfo);
+        err = library.GetTokenInfo(slotID, *tokenInfo);
         if (!err.IsNone()) {
             return {0, err};
         }
@@ -268,6 +268,84 @@ Error ParseFileURL(const String& url, String& path)
 }
 
 /***********************************************************************************************************************
+ * EncodePKCS11ID
+ **********************************************************************************************************************/
+
+Error EncodePKCS11ID(const Array<uint8_t>& id, String& idStr)
+{
+    for (auto byte : id) {
+        auto err = idStr.PushBack('%');
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        StaticString<2> byteStr;
+
+        byteStr.ByteToHex(byte, true);
+
+        err = idStr.Insert(idStr.end(), byteStr.begin(), byteStr.end());
+        if (!err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * DecodeToPKCS11ID
+ **********************************************************************************************************************/
+
+Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id)
+{
+    id.Clear();
+
+    auto                 percentDetected = false;
+    aos::StaticString<2> hexByte;
+
+    for (const auto& ch : idStr) {
+        if (ch == '%') {
+            if (percentDetected || hexByte.Size()) {
+                return aos::ErrorEnum::eInvalidArgument;
+            }
+
+            percentDetected = true;
+        } else if (percentDetected) {
+            auto err = hexByte.PushBack(ch);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            if (hexByte.Size() == hexByte.MaxSize()) {
+                percentDetected = false;
+
+                uint8_t byte;
+
+                aos::Tie(byte, err) = hexByte.HexToByte();
+                if (!err.IsNone()) {
+                    return err;
+                }
+
+                err = id.PushBack(byte);
+                if (!err.IsNone()) {
+                    return err;
+                }
+
+                hexByte.Clear();
+            }
+
+        } else {
+            auto err = id.PushBack(static_cast<uint8_t>(ch));
+            if (!err.IsNone()) {
+                return err;
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
  * ParsePKCS11URL
  **********************************************************************************************************************/
 
@@ -296,14 +374,14 @@ Error ParsePKCS11URL(
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticString<uuid::cUUIDStrLen> uuid;
+    StaticString<pkcs11::cIDStrLen> idStr;
 
-    err = FindUrlParam(url, "id", uuid);
+    err = FindUrlParam(url, "id", idStr);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    Tie(id, err) = uuid::StringToUUID(uuid);
+    err = DecodeToPKCS11ID(idStr, id);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

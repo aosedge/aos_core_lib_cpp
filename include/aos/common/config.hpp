@@ -381,6 +381,13 @@
 #endif
 
 /**
+ * Maximum size of PKCS11 ID.
+ */
+#ifndef AOS_CONFIG_PKCS11_ID_SIZE
+#define AOS_CONFIG_PKCS11_ID_SIZE 32
+#endif
+
+/**
  * Maximum number of open sessions per PKCS11 library.
  */
 #ifndef AOS_CONFIG_PKCS11_SESSIONS_PER_LIB

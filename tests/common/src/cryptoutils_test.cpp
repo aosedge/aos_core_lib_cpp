@@ -36,21 +36,12 @@ protected:
         mSlotID  = mSoftHSMEnv.GetSlotID();
     }
 
-    void ImportCertificateChainToPKCS11(const String& caId, const String& clientId)
+    void ImportCertificateChainToPKCS11(const Array<uint8_t>& caID, const Array<uint8_t>& clientID)
     {
         Error                             err = ErrorEnum::eNone;
         SharedPtr<pkcs11::SessionContext> session;
 
         Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
-        ASSERT_TRUE(err.IsNone());
-
-        // create ids
-        uuid::UUID caUUID, clientUUID;
-
-        Tie(caUUID, err) = uuid::StringToUUID(caId);
-        ASSERT_TRUE(err.IsNone());
-
-        Tie(clientUUID, err) = uuid::StringToUUID(clientId);
         ASSERT_TRUE(err.IsNone());
 
         // read certificates
@@ -65,13 +56,13 @@ protected:
 
         // import certificates
         ASSERT_TRUE(
-            pkcs11::Utils(session, mCryptoProvider, mAllocator).ImportCertificate(caUUID, mLabel, caCert).IsNone());
+            pkcs11::Utils(session, mCryptoProvider, mAllocator).ImportCertificate(caID, mLabel, caCert).IsNone());
         ASSERT_TRUE(pkcs11::Utils(session, mCryptoProvider, mAllocator)
-                        .ImportCertificate(clientUUID, mLabel, clientCert)
+                        .ImportCertificate(clientID, mLabel, clientCert)
                         .IsNone());
     }
 
-    void GeneratePrivateKey(const String& id)
+    void GeneratePrivateKey(const Array<uint8_t>& id)
     {
         Error                             err = ErrorEnum::eNone;
         SharedPtr<pkcs11::SessionContext> session;
@@ -79,16 +70,10 @@ protected:
         Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
         ASSERT_TRUE(err.IsNone());
 
-        // generate key
-        uuid::UUID keyUUID;
-
-        Tie(keyUUID, err) = uuid::StringToUUID(id);
-        ASSERT_TRUE(err.IsNone());
-
         pkcs11::PrivateKey key;
 
         Tie(key, err)
-            = pkcs11::Utils(session, mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(keyUUID, mLabel, 2048);
+            = pkcs11::Utils(session, mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
         ASSERT_TRUE(err.IsNone());
     }
 
@@ -145,14 +130,15 @@ TEST_F(CryptoutilsTest, ParseFileURL)
 
 TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
 {
-    const char* url1 = "pkcs11:token=aoscore;object=diskencryption;id=2e2769b6-be2c-43ff-b16d-25985a04e6b2?module-path="
+    const char* url1 = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
                        "/usr/lib/softhsm/libsofthsm2.so&pin-value=42hAGWdIvQr47T8X";
 
-    StaticString<cFilePathLen>      library;
-    StaticString<pkcs11::cLabelLen> token;
-    StaticString<pkcs11::cLabelLen> label;
-    uuid::UUID                      id;
-    StaticString<pkcs11::cPINLen>   userPIN;
+    StaticString<cFilePathLen>            library;
+    StaticString<pkcs11::cLabelLen>       token;
+    StaticString<pkcs11::cLabelLen>       label;
+    StaticArray<uint8_t, pkcs11::cIDSize> id;
+    StaticString<pkcs11::cPINLen>         userPIN;
+    uint8_t                               expectedID[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
 
     ASSERT_EQ(ParsePKCS11URL(url1, library, token, label, id, userPIN), ErrorEnum::eNone);
 
@@ -160,21 +146,19 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
     EXPECT_EQ(token, "aoscore");
     EXPECT_EQ(label, "diskencryption");
     EXPECT_EQ(userPIN, "42hAGWdIvQr47T8X");
-
-    auto strID = uuid::UUIDToString(id);
-
-    EXPECT_EQ(strID.CStr(), std::string("2e2769b6-be2c-43ff-b16d-25985a04e6b2"));
+    EXPECT_EQ(id, Array(expectedID, ArraySize(expectedID)));
 }
 
 TEST_F(CryptoutilsTest, ParsePKCS11URLRequiredValuesOnly)
 {
-    const char* url1 = "pkcs11:object=diskencryption;id=2e2769b6-be2c-43ff-b16d-25985a04e6b2";
+    const char* url1 = "pkcs11:object=diskencryption;id=%AA%BB%CC";
 
     StaticString<cFilePathLen>      library;
     StaticString<pkcs11::cLabelLen> token;
     StaticString<pkcs11::cLabelLen> label;
     uuid::UUID                      id;
     StaticString<pkcs11::cPINLen>   userPIN;
+    uint8_t                         expectedID[] = {0xAA, 0xBB, 0xCC};
 
     ASSERT_EQ(ParsePKCS11URL(url1, library, token, label, id, userPIN), ErrorEnum::eNone);
 
@@ -182,20 +166,17 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLRequiredValuesOnly)
     EXPECT_EQ(token, "");
     EXPECT_EQ(label, "diskencryption");
     EXPECT_EQ(userPIN, "");
-
-    auto strID = uuid::UUIDToString(id);
-
-    EXPECT_EQ(strID.CStr(), std::string("2e2769b6-be2c-43ff-b16d-25985a04e6b2"));
+    EXPECT_EQ(id, Array(expectedID, ArraySize(expectedID)));
 }
 
 TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
 {
-    constexpr auto caId     = "08080808-0404-0404-0404-121212121212";
-    constexpr auto clientId = "00000000-0404-0404-0404-121212121212";
+    constexpr uint8_t caID[]     = {0x00, 0x01, 0x02};
+    constexpr uint8_t clientID[] = {0x00, 0x01, 0x03};
 
-    ImportCertificateChainToPKCS11(caId, clientId);
+    ImportCertificateChainToPKCS11(Array(caID, ArraySize(caID)), Array(clientID, ArraySize(clientID)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=00000000-0404-0404-0404-121212121212?module-"
+    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%03?module-"
                       "path=" SOFTHSM2_LIB "&pin-value=admin";
 
     SharedPtr<crypto::x509::CertificateChain> chain;
@@ -224,12 +205,12 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
 
 TEST_F(CryptoutilsTest, FindPKCS11CertificateChainBadURL)
 {
-    constexpr auto caId     = "08080808-0404-0404-0404-121212121212";
-    constexpr auto clientId = "00000000-0404-0404-0404-121212121212";
+    constexpr uint8_t caID[]     = {0x00, 0x01, 0x02};
+    constexpr uint8_t clientID[] = {0x00, 0x01, 0x03};
 
-    ImportCertificateChainToPKCS11(caId, clientId);
+    ImportCertificateChainToPKCS11(Array(caID, ArraySize(caID)), Array(clientID, ArraySize(clientID)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=00000000-0404-0404-0404-121212121211?module-"
+    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%04?module-"
                       "path=" SOFTHSM2_LIB "&pin-value=admin";
 
     SharedPtr<crypto::x509::CertificateChain> chain;
@@ -241,11 +222,11 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChainBadURL)
 
 TEST_F(CryptoutilsTest, FindPKCS11PrivateKey)
 {
-    constexpr auto id = "08080808-0404-0404-0404-121212121212";
+    constexpr uint8_t id[] = {0xAA, 0xBB, 0xCC};
 
-    GeneratePrivateKey(id);
+    GeneratePrivateKey(Array(id, ArraySize(id)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=08080808-0404-0404-0404-121212121212?module-"
+    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%CC?module-"
                       "path=" SOFTHSM2_LIB "&pin-value=admin";
 
     SharedPtr<crypto::PrivateKeyItf> privKey;
@@ -258,11 +239,11 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKey)
 
 TEST_F(CryptoutilsTest, FindPKCS11PrivateKeyBadURL)
 {
-    constexpr auto id = "08080808-0404-0404-0404-121212121212";
+    constexpr uint8_t id[] = {0xAA, 0xBB, 0xCC};
 
-    GeneratePrivateKey(id);
+    GeneratePrivateKey(Array(id, ArraySize(id)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=08080808-0404-0404-0404-121212121211?module-"
+    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%FF?module-"
                       "path=" SOFTHSM2_LIB "&pin-value=admin";
 
     SharedPtr<crypto::PrivateKeyItf> privKey;
