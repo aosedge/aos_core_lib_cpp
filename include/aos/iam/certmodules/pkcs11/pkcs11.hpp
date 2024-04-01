@@ -201,10 +201,10 @@ private:
     SharedPtr<pkcs11::LibraryContext> mPKCS11;
     crypto::x509::ProviderItf*        mX509Provider {};
 
-    uint32_t                         mSlotID = 0;
-    StaticString<pkcs11::cLabelLen>  mTokenLabel;
-    StaticString<cTeeLoginTypeLen>   mTeeLoginType;
-    StaticString<pkcs11::cPINLength> mUserPIN;
+    uint32_t                        mSlotID = 0;
+    StaticString<pkcs11::cLabelLen> mTokenLabel;
+    StaticString<cTeeLoginTypeLen>  mTeeLoginType;
+    StaticString<pkcs11::cPINLen>   mUserPIN;
 
     mutable StaticAllocator<aos::Max(sizeof(crypto::x509::Certificate) + sizeof(DERCert) + sizeof(CertInfo),
         sizeof(StaticArray<SearchObject, cCertsPerModule * 3>) + sizeof(SearchObject) + sizeof(pkcs11::TokenInfo)

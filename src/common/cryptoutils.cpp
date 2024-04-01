@@ -50,11 +50,11 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsCha
 
         return LoadCertsFromFile(path);
     } else if (scheme == cSchemePKCS11) {
-        StaticString<cFilePathLen>       library;
-        StaticString<pkcs11::cLabelLen>  token;
-        StaticString<pkcs11::cLabelLen>  label;
-        uuid::UUID                       id;
-        StaticString<pkcs11::cPINLength> userPIN;
+        StaticString<cFilePathLen>      library;
+        StaticString<pkcs11::cLabelLen> token;
+        StaticString<pkcs11::cLabelLen> label;
+        uuid::UUID                      id;
+        StaticString<pkcs11::cPINLen>   userPIN;
 
         err = ParsePKCS11URL(url, library, token, label, id, userPIN);
         if (!err.IsNone()) {
@@ -93,11 +93,11 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(cons
 
         return LoadPrivKeyFromFile(path);
     } else if (scheme == cSchemePKCS11) {
-        StaticString<cFilePathLen>       library;
-        StaticString<pkcs11::cLabelLen>  token;
-        StaticString<pkcs11::cLabelLen>  label;
-        uuid::UUID                       id;
-        StaticString<pkcs11::cPINLength> userPIN;
+        StaticString<cFilePathLen>      library;
+        StaticString<pkcs11::cLabelLen> token;
+        StaticString<pkcs11::cLabelLen> label;
+        uuid::UUID                      id;
+        StaticString<pkcs11::cPINLen>   userPIN;
 
         err = ParsePKCS11URL(url, library, token, label, id, userPIN);
         if (!err.IsNone()) {

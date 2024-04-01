@@ -148,11 +148,11 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
     const char* url1 = "pkcs11:token=aoscore;object=diskencryption;id=2e2769b6-be2c-43ff-b16d-25985a04e6b2?module-path="
                        "/usr/lib/softhsm/libsofthsm2.so&pin-value=42hAGWdIvQr47T8X";
 
-    StaticString<cFilePathLen>       library;
-    StaticString<pkcs11::cLabelLen>  token;
-    StaticString<pkcs11::cLabelLen>  label;
-    uuid::UUID                       id;
-    StaticString<pkcs11::cPINLength> userPIN;
+    StaticString<cFilePathLen>      library;
+    StaticString<pkcs11::cLabelLen> token;
+    StaticString<pkcs11::cLabelLen> label;
+    uuid::UUID                      id;
+    StaticString<pkcs11::cPINLen>   userPIN;
 
     ASSERT_EQ(ParsePKCS11URL(url1, library, token, label, id, userPIN), ErrorEnum::eNone);
 
@@ -170,11 +170,11 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLRequiredValuesOnly)
 {
     const char* url1 = "pkcs11:object=diskencryption;id=2e2769b6-be2c-43ff-b16d-25985a04e6b2";
 
-    StaticString<cFilePathLen>       library;
-    StaticString<pkcs11::cLabelLen>  token;
-    StaticString<pkcs11::cLabelLen>  label;
-    uuid::UUID                       id;
-    StaticString<pkcs11::cPINLength> userPIN;
+    StaticString<cFilePathLen>      library;
+    StaticString<pkcs11::cLabelLen> token;
+    StaticString<pkcs11::cLabelLen> label;
+    uuid::UUID                      id;
+    StaticString<pkcs11::cPINLen>   userPIN;
 
     ASSERT_EQ(ParsePKCS11URL(url1, library, token, label, id, userPIN), ErrorEnum::eNone);
 

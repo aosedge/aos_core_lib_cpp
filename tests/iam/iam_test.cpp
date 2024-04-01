@@ -310,9 +310,9 @@ Error FindAllObjects(test::SoftHSMEnv& pkcs11Env, Array<pkcs11::ObjectHandle>& o
     return session->FindObjects(empty, objects);
 }
 
-RetWithError<StaticString<pkcs11::cPINLength>> ReadPIN(const String& file)
+RetWithError<StaticString<pkcs11::cPINLen>> ReadPIN(const String& file)
 {
-    StaticString<pkcs11::cPINLength> pin;
+    StaticString<pkcs11::cPINLen> pin;
 
     auto err = FS::ReadFileToString(file, pin);
 
@@ -600,7 +600,7 @@ TEST_F(IAMTest, RemoveInvalidPKCS11Objects)
     // open session
     Error                             err = ErrorEnum::eNone;
     SharedPtr<pkcs11::SessionContext> session;
-    StaticString<pkcs11::cPINLength>  userPIN;
+    StaticString<pkcs11::cPINLen>     userPIN;
 
     Tie(userPIN, err) = ReadPIN(GetPKCS11ModuleConfig().mUserPINPath);
     ASSERT_TRUE(err.IsNone());

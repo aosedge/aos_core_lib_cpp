@@ -46,7 +46,7 @@ constexpr auto cModelLen = AOS_CONFIG_PKCS11_MODEL_LEN;
 /**
  * Maximum length of user PIN (password).
  */
-constexpr auto cPINLength = AOS_CONFIG_PKCS11_PIN_LEN;
+constexpr auto cPINLen = AOS_CONFIG_PKCS11_PIN_LEN;
 
 /**
  * Maximum number of open sessions per PKCS11 library.

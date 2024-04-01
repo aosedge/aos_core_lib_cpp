@@ -820,9 +820,9 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
 
 Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& id)
 {
-    StaticString<cFilePathLen>       library;
-    StaticString<pkcs11::cLabelLen>  token;
-    StaticString<pkcs11::cPINLength> userPIN;
+    StaticString<cFilePathLen>      library;
+    StaticString<pkcs11::cLabelLen> token;
+    StaticString<pkcs11::cPINLen>   userPIN;
 
     auto err = cryptoutils::ParsePKCS11URL(url, library, token, label, id, userPIN);
     if (!err.IsNone()) {
