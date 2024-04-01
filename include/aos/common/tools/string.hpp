@@ -227,6 +227,77 @@ public:
     RetWithError<int64_t> ToInt64() const { return static_cast<int64_t>(strtoll(CStr(), nullptr, 10)); }
 
     /**
+     * Converts byte to hex string.
+     *
+     * @param val value to convert.
+     * @param upperCase indicated if result should be in upper case.
+     */
+    Error ByteToHex(uint8_t val, bool upperCase = false)
+    {
+        constexpr char cDigits[] = "0123456789abcdef";
+
+        auto high = cDigits[val >> 4];
+        auto low  = cDigits[val & 0xF];
+
+        auto err = Resize(2);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        (*this)[0] = upperCase ? toupper(high) : high;
+        (*this)[1] = upperCase ? toupper(low) : low;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Converts hex string to byte.
+     *
+     * @return RetWithError<uint8_t> result.
+     */
+    RetWithError<uint8_t> HexToByte()
+    {
+        auto GetByte = [](char ch) -> RetWithError<uint8_t> {
+            if (ch >= '0' && ch <= '9') {
+                return static_cast<uint8_t>(ch - '0');
+            }
+
+            if (ch >= 'a' && ch <= 'f') {
+                return static_cast<uint8_t>(ch - 'a' + 10);
+            }
+
+            if (ch >= 'A' && ch <= 'F') {
+                return static_cast<uint8_t>(ch - 'A' + 10);
+            }
+
+            return {static_cast<uint8_t>(0), ErrorEnum::eInvalidArgument};
+        };
+
+        if (Size() > 2) {
+            return {0, ErrorEnum::eNoMemory};
+        }
+
+        if (Size() == 0) {
+            return {0, ErrorEnum::eInvalidArgument};
+        }
+
+        uint8_t result = 0;
+
+        for (size_t i = 0; i < Size(); i++) {
+            result <<= 4;
+
+            auto byte = GetByte((*this)[i]);
+            if (!byte.mError.IsNone()) {
+                return {0, byte.mError};
+            }
+
+            result |= byte.mValue;
+        }
+
+        return result;
+    }
+
+    /**
      * Converts hex string to byte array.
      *
      * @param dst result byte array.
@@ -242,74 +313,48 @@ public:
 
         for (size_t i = 0; i < Size(); i += 2) {
             Error   err = ErrorEnum::eNone;
-            uint8_t high;
+            uint8_t byte;
 
-            Tie(high, err) = HexToByte((*this)[i]);
+            char hex[] = {(*this)[i], '0', '\0'};
+
+            if (i + 1 < Size()) {
+                hex[1] = (*this)[i + 1];
+            }
+
+            Tie(byte, err) = String(hex, 2).HexToByte();
             if (!err.IsNone()) {
                 return err;
             }
 
-            if (i + 1 >= Size()) {
-                dst.PushBack(high << 4);
-                break;
-            }
-
-            uint8_t low;
-
-            Tie(low, err) = HexToByte((*this)[i + 1]);
-            if (!err.IsNone()) {
-                return err;
-            }
-
-            dst.PushBack((high << 4) | low);
+            dst.PushBack(byte);
         }
 
         return ErrorEnum::eNone;
     }
 
     /**
-     * Converts int to string.
-     *
-     * @param value int value.
-     * @return Error.
-     */
-    Error Convert(int value) { return ConvertValue(value, "%d"); }
-
-    /**
-     * Converts uint64_t to string.
-     *
-     * @param value uint64_t value.
-     * @return Error.
-     */
-    Error Convert(uint64_t value) { return ConvertValue(value, "%" PRIu64); }
-
-    /**
-     * Converts int64_t to string.
-     *
-     * @param value int64_t value.
-     * @return Error.
-     */
-    Error Convert(int64_t value) { return ConvertValue(value, "%" PRIi64); }
-
-    /**
      * Converts byte array to a hex string.
      *
      * @param src source byte array.
+     * @param upperCase use uppercase to represent hex value.
      * @return Error.
      */
-    Error ByteArrayToHex(const Array<uint8_t>& src)
+    Error ByteArrayToHex(const Array<uint8_t>& src, bool upperCase = false)
     {
-        if (MaxSize() < src.Size() * 2) {
-            return ErrorEnum::eNoMemory;
-        }
-
         Clear();
 
         for (const auto val : src) {
-            const auto digits = ByteToHex(val);
+            char digits[3];
 
-            PushBack(digits.mFirst);
-            PushBack(digits.mSecond);
+            auto err = String(digits, 2).ByteToHex(val, upperCase);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            err = Insert(end(), digits, static_cast<char*>(digits) + 2);
+            if (!err.IsNone()) {
+                return err;
+            }
         }
 
         *end() = 0;
@@ -342,6 +387,30 @@ public:
 
         return ErrorEnum::eNone;
     }
+
+    /**
+     * Converts int to string.
+     *
+     * @param value int value.
+     * @return Error.
+     */
+    Error Convert(int value) { return ConvertValue(value, "%d"); }
+
+    /**
+     * Converts uint64_t to string.
+     *
+     * @param value uint64_t value.
+     * @return Error.
+     */
+    Error Convert(uint64_t value) { return ConvertValue(value, "%" PRIu64); }
+
+    /**
+     * Converts int64_t to string.
+     *
+     * @param value int64_t value.
+     * @return Error.
+     */
+    Error Convert(int64_t value) { return ConvertValue(value, "%" PRIi64); }
 
     /**
      * Splits string to string list.
@@ -460,34 +529,6 @@ public:
         }
 
         return {Size(), ErrorEnum::eNotFound};
-    }
-
-private:
-    static Pair<char, char> ByteToHex(uint8_t val)
-    {
-        constexpr char cDigits[] = "0123456789abcdef";
-
-        const auto low  = val & 0xF;
-        const auto high = (val >> 4);
-
-        return {cDigits[high], cDigits[low]};
-    }
-
-    static RetWithError<uint8_t> HexToByte(char ch)
-    {
-        if (ch >= '0' && ch <= '9') {
-            return static_cast<uint8_t>(ch - '0');
-        }
-
-        if (ch >= 'a' && ch <= 'f') {
-            return static_cast<uint8_t>(ch - 'a' + 10);
-        }
-
-        if (ch >= 'A' && ch <= 'F') {
-            return static_cast<uint8_t>(ch - 'A' + 10);
-        }
-
-        return {static_cast<uint8_t>(255), ErrorEnum::eInvalidArgument};
     }
 };
 
