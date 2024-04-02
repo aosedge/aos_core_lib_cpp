@@ -385,16 +385,22 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
         return ErrorEnum::eWrongState;
     }
 
-    slotList.Resize(slotList.MaxSize());
+    CK_ULONG count = 0;
 
-    CK_ULONG count = slotList.MaxSize();
-
-    CK_RV rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), slotList.Get(), &count);
+    CK_RV rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), nullptr, &count);
     if (rv != CKR_OK) {
         return static_cast<int>(rv);
     }
 
-    slotList.Resize(count);
+    auto err = slotList.Resize(count);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), slotList.Get(), &count);
+    if (rv != CKR_OK) {
+        return static_cast<int>(rv);
+    }
 
     return ErrorEnum::eNone;
 }
