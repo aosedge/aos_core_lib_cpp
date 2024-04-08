@@ -834,13 +834,15 @@ RetWithError<Time> MbedTLSCryptoProvider::ConvertTime(const mbedtls_x509_time& s
 
 Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt)
 {
-    mbedtls_asn1_buf buf = crt->v3_ext;
+    Error            returnError = ErrorEnum::eNone;
+    mbedtls_asn1_buf buf         = crt->v3_ext;
 
     if (buf.len == 0) {
         return ErrorEnum::eNone;
     }
 
     mbedtls_asn1_sequence extns;
+    extns.next = NULL;
 
     auto ret = mbedtls_asn1_get_sequence_of(
         &buf.p, buf.p + buf.len, &extns, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
@@ -848,30 +850,36 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
         return AOS_ERROR_WRAP(ret);
     }
 
-    if (extns.buf.len == 0) {
-        return ErrorEnum::eNone;
-    }
-
     mbedtls_asn1_sequence* next = &extns;
+
+    if (extns.buf.len == 0) {
+        goto cleanup;
+    }
 
     while (next != nullptr) {
         size_t tagLen {};
 
         auto err = mbedtls_asn1_get_tag(&(next->buf.p), next->buf.p + next->buf.len, &tagLen, MBEDTLS_ASN1_OID);
         if (err != 0) {
-            return AOS_ERROR_WRAP(err);
+            returnError = AOS_ERROR_WRAP(err);
+
+            goto cleanup;
         }
 
         if (!memcmp(next->buf.p, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER, tagLen)) {
             unsigned char* p = next->buf.p + tagLen;
             err = mbedtls_asn1_get_tag(&p, p + next->buf.len - 2 - tagLen, &tagLen, MBEDTLS_ASN1_OCTET_STRING);
             if (err != 0) {
-                return AOS_ERROR_WRAP(err);
+                returnError = AOS_ERROR_WRAP(err);
+
+                goto cleanup;
             }
 
             err = mbedtls_asn1_get_tag(&p, p + next->buf.len - 2, &tagLen, MBEDTLS_ASN1_OCTET_STRING);
             if (err != 0) {
-                return AOS_ERROR_WRAP(err);
+                returnError = AOS_ERROR_WRAP(err);
+
+                goto cleanup;
             }
 
             cert.mSubjectKeyId.Resize(tagLen);
@@ -888,26 +896,36 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
 
             err = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);
             if (err != 0) {
-                return AOS_ERROR_WRAP(err);
+                returnError = AOS_ERROR_WRAP(err);
+
+                goto cleanup;
             }
 
             if (*p != (MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) {
-                return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
+                returnError = AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
+
+                goto cleanup;
             }
 
             err = mbedtls_asn1_get_tag(
                 &p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
             if (err != 0) {
-                return AOS_ERROR_WRAP(err);
+                returnError = AOS_ERROR_WRAP(err);
+
+                goto cleanup;
             }
 
             if (*p != (MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0)) {
-                return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
+                returnError = AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
+
+                goto cleanup;
             }
 
             err = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0);
             if (err != 0) {
-                return AOS_ERROR_WRAP(err);
+                returnError = AOS_ERROR_WRAP(err);
+
+                goto cleanup;
             }
 
             cert.mAuthorityKeyId.Resize(len);
@@ -921,7 +939,10 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
         next = next->next;
     }
 
-    return ErrorEnum::eNone;
+cleanup:
+    mbedtls_asn1_sequence_free(extns.next);
+
+    return returnError;
 }
 
 void MbedTLSCryptoProvider::InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk)
