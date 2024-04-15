@@ -77,6 +77,7 @@ public:
     enum class Enum {
         eDefault,
         eSMLauncher,
+        eSMResourceManager,
         eSMServiceManager,
         eIAMCertHandler,
         eIAMIdentHandler,
@@ -89,8 +90,18 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sLogModuleTypeStrings[] = {"default", "launcher", "servicemanager", "certhandler",
-            "identhandler", "permhandler", "resourcemonitor", "pkcs11", "crypto"};
+        static const char* const sLogModuleTypeStrings[] = {
+            "default",
+            "launcher",
+            "resourcemanager",
+            "servicemanager",
+            "certhandler",
+            "identhandler",
+            "permhandler",
+            "resourcemonitor",
+            "pkcs11",
+            "crypto",
+        };
 
         return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));
     };
