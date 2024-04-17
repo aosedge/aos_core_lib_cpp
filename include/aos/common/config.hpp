@@ -177,6 +177,13 @@
 #endif
 
 /**
+ * Version max len.
+ */
+#ifndef AOS_CONFIG_TYPES_VERSION_LEN
+#define AOS_CONFIG_TYPES_VERSION_LEN 32
+#endif
+
+/**
  * Monitoring send period.
  */
 #ifndef AOS_CONFIG_MONITORING_SEND_PERIOD_SEC
@@ -322,6 +329,15 @@
  */
 #ifndef AOS_CONFIG_CRYPTO_ECDSA_POINT_DER_SIZE
 #define AOS_CONFIG_CRYPTO_ECDSA_POINT_DER_SIZE 128
+#endif
+
+/**
+ * Maximum size of SHA1 digest.
+ *
+ * 128 chars to represent sha512 + 8 chars for algorithm.
+ */
+#ifndef AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE
+#define AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE 136
 #endif
 
 /**
@@ -504,6 +520,55 @@
  */
 #ifndef AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT
 #define AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT 5
+#endif
+
+/**
+ * Max media type len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN
+#define AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN 64
+#endif
+
+/**
+ * Max spec parameter len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_LEN
+#define AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_LEN 256
+#endif
+
+/**
+ * Spec parameter max count.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT
+#define AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT 8
+#endif
+
+/**
+ * Max DT devices count.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_DT_DEVICES_COUNT
+#define AOS_CONFIG_OCISPEC_MAX_DT_DEVICES_COUNT 20
+#endif
+
+/**
+ * Max DT device name length.
+ */
+#ifndef AOS_CONFIG_OCISPEC_DT_DEV_NAME_LEN
+#define AOS_CONFIG_OCISPEC_DT_DEV_NAME_LEN 32
+#endif
+
+/**
+ * Max IOMEMs count.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_IOMEMS_COUNT
+#define AOS_CONFIG_OCISPEC_MAX_IOMEMS_COUNT 20
+#endif
+
+/**
+ * Max IRQs count.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT
+#define AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT 20
 #endif
 
 #endif

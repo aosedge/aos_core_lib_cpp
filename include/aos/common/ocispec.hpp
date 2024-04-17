@@ -17,49 +17,48 @@ namespace oci {
 /**
  * Max media type len.
  */
-constexpr auto cMaxMediaTypeLen = 64;
+constexpr auto cMaxMediaTypeLen = AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN;
 
 /**
  * Max digest len.
  *
- * 128 chars to represent sha512 + 8 chars for algorithm.
  */
-constexpr auto cMaxDigestLen = (128 + 8);
+constexpr auto cMaxDigestLen = AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE;
 
 /**
  * Spec parameter max len.
  */
-constexpr auto cMaxParamLen = 256;
+constexpr auto cMaxParamLen = AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_LEN;
 
 /**
  * Spec parameter max count.
  */
-constexpr auto cMaxParamCount = 8;
+constexpr auto cMaxParamCount = AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT;
 
 /**
- * Spec version max len.
+ * Version max len.
  */
-constexpr auto cSpecVersionLen = 32;
+constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
 
 /**
  * Max DT devices count.
  */
-constexpr auto cMaxDTDevsCount = 20;
+constexpr auto cMaxDTDevsCount = AOS_CONFIG_OCISPEC_MAX_DT_DEVICES_COUNT;
 
 /**
  * Max DT device name length.
  */
-constexpr auto cMaxDTDevLen = 32;
+constexpr auto cMaxDTDevLen = AOS_CONFIG_OCISPEC_DT_DEV_NAME_LEN;
 
 /**
  * Max IOMEMs count.
  */
-constexpr auto cMaxIOMEMsCount = 20;
+constexpr auto cMaxIOMEMsCount = AOS_CONFIG_OCISPEC_MAX_IOMEMS_COUNT;
 
 /**
  * Max IRQs count.
  */
-constexpr auto cMaxIRQsCount = 20;
+constexpr auto cMaxIRQsCount = AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT;
 
 /**
  * OCI content descriptor.
@@ -317,8 +316,8 @@ struct VM {
  * OCI runtime specification.
  */
 struct RuntimeSpec {
-    StaticString<cSpecVersionLen> mOCIVersion;
-    VM*                           mVM;
+    StaticString<cVersionLen> mOCIVersion;
+    VM*                       mVM;
 
     /**
      * Compares runtime spec.
