@@ -78,4 +78,25 @@
 #define AOS_CONFIG_PERMHANDLER_SERVICE_PERMS_MAX_COUNT 32
 #endif
 
+/**
+ * Maximum length of permhandler functional service name.
+ */
+#ifndef AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN
+#define AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN 40
+#endif
+
+/**
+ * Maximum number of permhandler functional services per instance.
+ */
+#ifndef AOS_CONFIG_PERMHANDLER_INSTANCE_FUNC_SERVICE_MAX_COUNT
+#define AOS_CONFIG_PERMHANDLER_INSTANCE_FUNC_SERVICE_MAX_COUNT 16
+#endif
+
+/**
+ * Maximum length of permhandler secret.
+ */
+#ifndef AOS_CONFIG_PERMHANDLER_SECRET_LEN
+#define AOS_CONFIG_PERMHANDLER_SECRET_LEN 42
+#endif
+
 #endif

@@ -26,12 +26,12 @@ namespace permhandler {
 /**
  * Maximum length of permhandler permission key string.
  */
-constexpr auto cPermKeyStrLen = AOS_CONFIG_PERMHANDLER_PERM_KEY_LEN;
+constexpr auto cPermissionKeyLen = AOS_CONFIG_PERMHANDLER_PERM_KEY_LEN;
 
 /**
  * Maximum length of permhandler permission value string.
  */
-constexpr auto cPermValueStlLen = AOS_CONFIG_PERMHANDLER_PERM_VALUE_LEN;
+constexpr auto cPermissionValueLen = AOS_CONFIG_PERMHANDLER_PERM_VALUE_LEN;
 
 /**
  * Maximum number of permhandler service permissions.
@@ -39,11 +39,26 @@ constexpr auto cPermValueStlLen = AOS_CONFIG_PERMHANDLER_PERM_VALUE_LEN;
 constexpr auto cServicePermissionMaxCount = AOS_CONFIG_PERMHANDLER_SERVICE_PERMS_MAX_COUNT;
 
 /**
+ * Maximum length of functional service name.
+ */
+constexpr auto cFunctionalServiceNameLen = AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN;
+
+/**
+ * Maximum number of permhandler functional services per instance.
+ */
+constexpr auto cInstanceFuncServiceMaxCount = AOS_CONFIG_PERMHANDLER_INSTANCE_FUNC_SERVICE_MAX_COUNT;
+
+/**
+ * Maximum length of permhandler secret.
+ */
+constexpr auto cSecretLen = AOS_CONFIG_PERMHANDLER_SECRET_LEN;
+
+/**
  * Permission key value.
  */
 struct PermKeyValue {
-    StaticString<cPermKeyStrLen>   mKey;
-    StaticString<cPermValueStlLen> mValue;
+    StaticString<cPermissionKeyLen>   mKey;
+    StaticString<cPermissionValueLen> mValue;
 
     /**
      * Compares permission key value.
@@ -58,7 +73,7 @@ struct PermKeyValue {
  * Functional service permissions.
  */
 struct FunctionalServicePermissions {
-    StaticString<cSystemIDLen>                            mName;
+    StaticString<cFunctionalServiceNameLen>               mName;
     StaticArray<PermKeyValue, cServicePermissionMaxCount> mPermissions;
 };
 
@@ -66,9 +81,9 @@ struct FunctionalServicePermissions {
  * Instance permissions.
  */
 struct InstancePermissions {
-    StaticString<uuid::cUUIDLen>                               mSecretUUID;
-    InstanceIdent                                              mInstanceIdent;
-    StaticArray<FunctionalServicePermissions, cMaxNumServices> mFuncServicePerms;
+    StaticString<cSecretLen>                                                mSecretUUID;
+    InstanceIdent                                                           mInstanceIdent;
+    StaticArray<FunctionalServicePermissions, cInstanceFuncServiceMaxCount> mFuncServicePerms;
 };
 
 /**
@@ -81,9 +96,9 @@ public:
      *
      * @param instanceIdent instance identification.
      * @param instancePermissions instance permissions.
-     * @returns RetWithError<StaticString<uuid::cUUIDLen>>.
+     * @returns RetWithError<StaticString<cSecretLen>>.
      */
-    virtual RetWithError<StaticString<uuid::cUUIDLen>> RegisterInstance(
+    virtual RetWithError<StaticString<cSecretLen>> RegisterInstance(
         const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions)
         = 0;
 
@@ -96,7 +111,7 @@ public:
     virtual Error UnregisterInstance(const InstanceIdent& instanceIdent) = 0;
 
     /**
-     * Retruns instance ident and permissions by secret UUID and functional server ID.
+     * Returns instance ident and permissions by secret UUID and functional server ID.
      *
      * @param secretUUID secret UUID.
      * @param funcServerID functional server ID.
@@ -121,9 +136,9 @@ public:
      *
      * @param instanceIdent instance identification.
      * @param instancePermissions instance permissions.
-     * @returns RetWithError<StaticString<uuid::cUUIDLen>>.
+     * @returns RetWithError<StaticString<cSecretLen>>.
      */
-    RetWithError<StaticString<uuid::cUUIDLen>> RegisterInstance(
+    RetWithError<StaticString<cSecretLen>> RegisterInstance(
         const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions) override;
 
     /**
@@ -135,7 +150,7 @@ public:
     Error UnregisterInstance(const InstanceIdent& instanceIdent) override;
 
     /**
-     * Retruns instance ident and permissions by secret UUID and functional server ID.
+     * Returns instance ident and permissions by secret UUID and functional server ID.
      *
      * @param secretUUID secret UUID.
      * @param funcServerID functional server ID.
@@ -147,12 +162,12 @@ public:
         Array<PermKeyValue>& servicePermissions) override;
 
 private:
-    Error                                      AddSecret(const String& secretUUID, const InstanceIdent& instanceIdent,
-                                             const Array<FunctionalServicePermissions>& instancePermissions);
-    RetWithError<InstancePermissions*>         FindBySecretUUID(const String& secretUUID);
-    RetWithError<InstancePermissions*>         FindByInstanceIdent(const InstanceIdent& instanceIdent);
-    StaticString<uuid::cUUIDLen>               GenerateSecret();
-    RetWithError<StaticString<uuid::cUUIDLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
+    Error                                  AddSecret(const String& secretUUID, const InstanceIdent& instanceIdent,
+                                         const Array<FunctionalServicePermissions>& instancePermissions);
+    RetWithError<InstancePermissions*>     FindBySecretUUID(const String& secretUUID);
+    RetWithError<InstancePermissions*>     FindByInstanceIdent(const InstanceIdent& instanceIdent);
+    StaticString<cSecretLen>               GenerateSecret();
+    RetWithError<StaticString<cSecretLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
 
     Mutex                                              mMutex;
     StaticArray<InstancePermissions, cMaxNumInstances> mInstancesPerms;
