@@ -10,7 +10,6 @@
 
 #include "aos/common/tools/thread.hpp"
 #include "aos/common/tools/utils.hpp"
-#include "aos/common/tools/uuid.hpp"
 #include "aos/common/types.hpp"
 #include "aos/iam/certmodules/certmodule.hpp"
 #include "aos/iam/config.hpp"
@@ -81,7 +80,7 @@ struct FunctionalServicePermissions {
  * Instance permissions.
  */
 struct InstancePermissions {
-    StaticString<cSecretLen>                                                mSecretUUID;
+    StaticString<cSecretLen>                                                mSecret;
     InstanceIdent                                                           mInstanceIdent;
     StaticArray<FunctionalServicePermissions, cInstanceFuncServiceMaxCount> mFuncServicePerms;
 };
@@ -111,15 +110,15 @@ public:
     virtual Error UnregisterInstance(const InstanceIdent& instanceIdent) = 0;
 
     /**
-     * Returns instance ident and permissions by secret UUID and functional server ID.
+     * Returns instance ident and permissions by secret and functional server ID.
      *
-     * @param secretUUID secret UUID.
+     * @param secret secret.
      * @param funcServerID functional server ID.
      * @param[out] instanceIdent result instance ident.
      * @param[out] servicePermissions result service permission.
      * @returns Error.
      */
-    virtual Error GetPermissions(const String& secretUUID, const String& funcServerID, InstanceIdent& instanceIdent,
+    virtual Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
         Array<PermKeyValue>& servicePermissions)
         = 0;
 
@@ -150,21 +149,21 @@ public:
     Error UnregisterInstance(const InstanceIdent& instanceIdent) override;
 
     /**
-     * Returns instance ident and permissions by secret UUID and functional server ID.
+     * Returns instance ident and permissions by secret and functional server ID.
      *
-     * @param secretUUID secret UUID.
+     * @param secret secret.
      * @param funcServerID functional server ID.
      * @param[out] instanceIdent result instance ident.
      * @param[out] servicePermissions result service permission.
      * @returns Error.
      */
-    Error GetPermissions(const String& secretUUID, const String& funcServerID, InstanceIdent& instanceIdent,
+    Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
         Array<PermKeyValue>& servicePermissions) override;
 
 private:
-    Error                                  AddSecret(const String& secretUUID, const InstanceIdent& instanceIdent,
+    Error                                  AddSecret(const String& secret, const InstanceIdent& instanceIdent,
                                          const Array<FunctionalServicePermissions>& instancePermissions);
-    RetWithError<InstancePermissions*>     FindBySecretUUID(const String& secretUUID);
+    RetWithError<InstancePermissions*>     FindBySecret(const String& secret);
     RetWithError<InstancePermissions*>     FindByInstanceIdent(const InstanceIdent& instanceIdent);
     StaticString<cSecretLen>               GenerateSecret();
     RetWithError<StaticString<cSecretLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);

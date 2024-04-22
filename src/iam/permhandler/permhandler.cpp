@@ -6,6 +6,7 @@
  */
 
 #include "aos/iam/permhandler.hpp"
+#include "aos/common/tools/uuid.hpp"
 #include "log.hpp"
 
 namespace aos {
@@ -24,21 +25,21 @@ RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
     LOG_DBG() << "Register instance: instance = " << instanceIdent;
 
     Error                    err;
-    StaticString<cSecretLen> uuidSecret;
+    StaticString<cSecretLen> secret;
 
-    Tie(uuidSecret, err) = GetSecretForInstance(instanceIdent);
+    Tie(secret, err) = GetSecretForInstance(instanceIdent);
     if (err.IsNone()) {
-        return {uuidSecret};
+        return {secret};
     }
 
-    uuidSecret = GenerateSecret();
+    secret = GenerateSecret();
 
-    err = AddSecret(uuidSecret, instanceIdent, instancePermissions);
+    err = AddSecret(secret, instanceIdent, instancePermissions);
     if (!err.IsNone()) {
         return {"", AOS_ERROR_WRAP(err)};
     }
 
-    return {uuidSecret};
+    return {secret};
 }
 
 Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
@@ -57,14 +58,14 @@ Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
     return AOS_ERROR_WRAP(mInstancesPerms.Remove(result.mValue).mError);
 }
 
-Error PermHandler::GetPermissions(const String& secretUUID, const String& funcServerID, InstanceIdent& instanceIdent,
+Error PermHandler::GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
     Array<PermKeyValue>& servicePermissions)
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Get permission: secretUUID = " << secretUUID << ", funcServerID = " << funcServerID;
+    LOG_DBG() << "Get permission: secret = " << secret << ", funcServerID = " << funcServerID;
 
-    const auto result = FindBySecretUUID(secretUUID);
+    const auto result = FindBySecret(secret);
     if (!result.mError.IsNone()) {
         return AOS_ERROR_WRAP(result.mError);
     }
@@ -90,10 +91,10 @@ Error PermHandler::GetPermissions(const String& secretUUID, const String& funcSe
  * Private
  **********************************************************************************************************************/
 
-Error PermHandler::AddSecret(const String& secretUUID, const InstanceIdent& instanceIdent,
+Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instanceIdent,
     const Array<FunctionalServicePermissions>& instancePermissions)
 {
-    const auto err = mInstancesPerms.PushBack(InstancePermissions {secretUUID, instanceIdent, instancePermissions});
+    const auto err = mInstancesPerms.PushBack(InstancePermissions {secret, instanceIdent, instancePermissions});
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -101,9 +102,9 @@ Error PermHandler::AddSecret(const String& secretUUID, const InstanceIdent& inst
     return ErrorEnum::eNone;
 }
 
-RetWithError<InstancePermissions*> PermHandler::FindBySecretUUID(const String& secretUUID)
+RetWithError<InstancePermissions*> PermHandler::FindBySecret(const String& secret)
 {
-    return mInstancesPerms.Find([&secretUUID](const auto& item) { return secretUUID == item.mSecretUUID; });
+    return mInstancesPerms.Find([&secret](const auto& item) { return secret == item.mSecret; });
 }
 
 RetWithError<InstancePermissions*> PermHandler::FindByInstanceIdent(const InstanceIdent& instanceIdent)
@@ -113,14 +114,14 @@ RetWithError<InstancePermissions*> PermHandler::FindByInstanceIdent(const Instan
 
 StaticString<cSecretLen> PermHandler::GenerateSecret()
 {
-    StaticString<cSecretLen> newUUID;
+    StaticString<cSecretLen> newSecret;
 
     do {
-        newUUID = uuid::UUIDToString(uuid::CreateUUID());
+        newSecret = uuid::UUIDToString(uuid::CreateUUID());
 
-    } while (!FindBySecretUUID(newUUID).mError.Is(ErrorEnum::eNotFound));
+    } while (!FindBySecret(newSecret).mError.Is(ErrorEnum::eNotFound));
 
-    return newUUID;
+    return newSecret;
 }
 
 RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)
@@ -130,7 +131,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const I
         return {"", AOS_ERROR_WRAP(result.mError)};
     }
 
-    return result.mValue->mSecretUUID;
+    return result.mValue->mSecret;
 }
 
 } // namespace permhandler
