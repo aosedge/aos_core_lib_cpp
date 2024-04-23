@@ -330,6 +330,19 @@
 #ifndef AOS_CONFIG_CRYPTO_SHA2_DIGEST_SIZE
 #define AOS_CONFIG_CRYPTO_SHA2_DIGEST_SIZE 64
 #endif
+
+/**
+ * Maximum size of SHA1 digest.
+ */
+#ifndef AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE
+#define AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE 20
+#endif
+
+/**
+ * Maximum size of input data for SHA1 hash calculation.
+ */
+#ifndef AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE
+#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE 42
 #endif
 
 /**

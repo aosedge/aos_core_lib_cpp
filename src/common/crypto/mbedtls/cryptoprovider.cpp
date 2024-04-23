@@ -16,6 +16,7 @@
 #include <mbedtls/pem.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/platform.h>
+#include <mbedtls/sha1.h>
 #include <mbedtls/x509.h>
 #include <psa/crypto.h>
 
@@ -639,6 +640,36 @@ Error MbedTLSCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
     LOG_DBG() << "Decode ASN1 OID";
 
     return crypto::ASN1RemoveTag(inOID, dst, MBEDTLS_ASN1_OID);
+}
+
+RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name)
+{
+    constexpr auto cUUIDVersion = 5;
+
+    StaticArray<uint8_t, cSHA1InputDataSize> buffer = space;
+
+    auto err = buffer.Insert(buffer.end(), name.begin(), name.end());
+    if (!err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    StaticArray<uint8_t, cSHA1DigestSize> sha1;
+
+    sha1.Resize(sha1.MaxSize());
+
+    int ret = mbedtls_sha1(buffer.Get(), buffer.Size(), sha1.Get());
+    if (ret != 0) {
+        return {{}, AOS_ERROR_WRAP(ret)};
+    }
+
+    // copy lowest 16 bytes
+    uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDLen);
+
+    // The version of the UUID will be the lower 4 bits of cUUIDVersion
+    result[6] = (result[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    result[8] = (result[8] & 0x3f) | 0x80; // RFC 4122 variant
+
+    return result;
 }
 
 /***********************************************************************************************************************

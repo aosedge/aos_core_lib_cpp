@@ -893,3 +893,26 @@ TEST(CryptoTest, ASN1DecodeDN)
 
     EXPECT_THAT(std::string(result.CStr()), "C=UA, CN=Aos Core");
 }
+
+/**
+ * Python script to verify the implementation:
+ *
+ * import uuid
+ * uuid.uuid5(uuid.UUID('58ac9ca0-2086-4683-a1b8-ec4bc08e01b6'), 'uid=42')
+ */
+TEST(CryptoTest, CreateUUIDv5)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    aos::uuid::UUID space;
+    aos::Error      err = aos::ErrorEnum::eNone;
+
+    Tie(space, err) = aos::uuid::StringToUUID("58ac9ca0-2086-4683-a1b8-ec4bc08e01b6");
+    ASSERT_TRUE(err.IsNone());
+
+    aos::uuid::UUID sha1;
+
+    Tie(sha1, err) = provider.CreateUUIDv5(space, aos::String("uid=42").AsByteArray());
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_EQ(aos::uuid::UUIDToString(sha1), "31d10f2b-ae42-531d-a158-d9359245d171");
+}
