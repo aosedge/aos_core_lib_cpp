@@ -91,24 +91,30 @@ Error PKCS11Module::SetOwner(const String& password)
         return AOS_ERROR_WRAP(err);
     }
 
+    StaticString<pkcs11::cPINLen> initPIN;
+
     if (!mTeeLoginType.IsEmpty()) {
-        err = GetTeeUserPIN(mTeeLoginType, mUserPIN);
+        err = GetTeeUserPIN(mTeeLoginType, mConfig.mUID, mConfig.mGID, initPIN);
         if (!err.IsNone()) {
             return err;
         }
+
+        mUserPIN.Clear();
     } else {
-        err = GetUserPin(mUserPIN);
+        err = GetUserPin(initPIN);
         if (!err.IsNone()) {
-            err = pkcs11::GenPIN(mUserPIN);
+            err = pkcs11::GenPIN(initPIN);
             if (!err.IsNone()) {
                 return err;
             }
 
-            err = FS::WriteStringToFile(mConfig.mUserPINPath, mUserPIN, 0600);
+            err = FS::WriteStringToFile(mConfig.mUserPINPath, initPIN, 0600);
             if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
+
+        mUserPIN = initPIN;
     }
 
     LOG_DBG() << "Init token: slotID = " << mSlotID << ", label = " << mTokenLabel;
@@ -126,12 +132,12 @@ Error PKCS11Module::SetOwner(const String& password)
     }
 
     if (!mTeeLoginType.IsEmpty()) {
-        LOG_DBG() << "Init PIN: pin = " << mUserPIN << ", session = " << session->GetHandle();
+        LOG_DBG() << "Init PIN: pin = " << initPIN << ", session = " << session->GetHandle();
     } else {
         LOG_DBG() << "Init PIN: session = " << session->GetHandle();
     }
 
-    err = session->InitPIN(mUserPIN);
+    err = session->InitPIN(initPIN);
 
     CloseSession();
 
@@ -545,7 +551,7 @@ Error PKCS11Module::PrintInfo(pkcs11::SlotID slotID) const
     return ErrorEnum::eNone;
 }
 
-Error PKCS11Module::GetTeeUserPIN(const String& loginType, String& userPIN)
+Error PKCS11Module::GetTeeUserPIN(const String& loginType, uint32_t uid, uint32_t gid, String& userPIN)
 {
     if (loginType == cLoginTypePublic) {
         userPIN = loginType;
@@ -553,11 +559,11 @@ Error PKCS11Module::GetTeeUserPIN(const String& loginType, String& userPIN)
     }
 
     if (loginType == cLoginTypeUser) {
-        return GenTeeUserPIN(cLoginTypeUser, userPIN);
+        return GenTeeUserPIN(cLoginTypeUser, "uid", uid, userPIN);
     }
 
     if (loginType == cLoginTypeGroup) {
-        return GenTeeUserPIN(cLoginTypeGroup, userPIN);
+        return GenTeeUserPIN(cLoginTypeGroup, "gid", gid, userPIN);
     }
 
     LOG_ERR() << "Wrong TEE login: type = " << loginType;
@@ -565,11 +571,29 @@ Error PKCS11Module::GetTeeUserPIN(const String& loginType, String& userPIN)
     return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
 }
 
-Error PKCS11Module::GenTeeUserPIN(const String& loginType, String& userPIN)
+Error PKCS11Module::GenTeeUserPIN(const String& loginType, const String& idType, uint32_t id, String& userPIN)
 {
-    auto pinStr = uuid::UUIDToString(uuid::CreateUUID());
+    StaticString<pkcs11::cPINLen> userID;
+    uuid::UUID                    teeSpace;
+    uuid::UUID                    userSHA1;
+    Error                         err = ErrorEnum::eNone;
 
-    auto err = userPIN.Format("%s:%s", loginType.CStr(), pinStr.CStr());
+    Tie(teeSpace, err) = uuid::StringToUUID(cTeeClientUUIDNs);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = userID.Format("%s=%d", idType.CStr(), id);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    Tie(userSHA1, err) = mX509Provider->CreateUUIDv5(teeSpace, userID.AsByteArray());
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = userPIN.Format("%s:%s", loginType.CStr(), uuid::UUIDToString(userSHA1).CStr());
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

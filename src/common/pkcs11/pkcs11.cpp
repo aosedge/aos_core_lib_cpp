@@ -238,9 +238,7 @@ Array<uint8_t> ConvertToAttributeValue(T& val)
 
 Error GenPIN(String& pin)
 {
-    if (pin.MaxSize() == 0) {
-        return ErrorEnum::eNone;
-    }
+    const auto cPinLength = Min<size_t>(cGenPINLen, pin.MaxSize());
 
     pin.Clear();
 
@@ -248,7 +246,7 @@ Error GenPIN(String& pin)
 
     StaticString<sizeof(unsigned) * 2> chunk;
 
-    while (pin.Size() < pin.MaxSize()) {
+    while (pin.Size() < cPinLength) {
         unsigned value     = rand();
         auto     byteArray = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
 
@@ -257,7 +255,7 @@ Error GenPIN(String& pin)
             return err;
         }
 
-        auto chunkSize = Min(pin.MaxSize() - pin.Size(), chunk.Size());
+        auto chunkSize = Min(cPinLength - pin.Size(), chunk.Size());
 
         pin.Insert(pin.end(), chunk.begin(), chunk.begin() + chunkSize);
     }

@@ -49,6 +49,11 @@ constexpr auto cModelLen = AOS_CONFIG_PKCS11_MODEL_LEN;
 constexpr auto cPINLen = AOS_CONFIG_PKCS11_PIN_LEN;
 
 /**
+ * Length of randomly generated PIN.
+ */
+constexpr auto cGenPINLen = AOS_CONFIG_PKCS11_GEN_PIN_LEN;
+
+/**
  * Maximum size of PKCS11 ID.
  */
 constexpr auto cIDSize = AOS_CONFIG_PKCS11_ID_SIZE;

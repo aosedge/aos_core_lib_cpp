@@ -79,6 +79,8 @@ protected:
         config.mSlotID          = mSOFTHSMEnv.GetSlotID();
         config.mUserPINPath     = CERTIFICATES_DIR "/pin.txt";
         config.mModulePathInURL = true;
+        config.mUID             = 42;
+        config.mGID             = 0;
 
         return config;
     }
@@ -221,6 +223,15 @@ TEST_F(IAMTest, GetCertTypes)
 
 TEST_F(IAMTest, SetOwner)
 {
+    RegisterPKCS11Module("iam");
+
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+}
+
+TEST_F(IAMTest, SetOwnerTeeUserIdentity)
+{
+    setenv("CKTEEC_LOGIN_TYPE", "user", true);
+
     RegisterPKCS11Module("iam");
 
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());

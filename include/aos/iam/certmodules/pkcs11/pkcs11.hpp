@@ -49,6 +49,16 @@ struct PKCS11ModuleConfig {
     StaticString<cFilePathLen> mUserPINPath;
 
     /**
+     * User ID.
+     */
+    uint32_t mUID;
+
+    /**
+     * Group ID.
+     */
+    uint32_t mGID;
+
+    /**
      * Module
      */
     bool mModulePathInURL;
@@ -135,7 +145,9 @@ public:
         Array<CertInfo>& validCerts) override;
 
 private:
-    static constexpr auto cEnvLoginType      = "CKTEEC_LOGIN_TYPE";
+    static constexpr auto cEnvLoginType    = "CKTEEC_LOGIN_TYPE";
+    static constexpr auto cTeeClientUUIDNs = "58ac9ca0-2086-4683-a1b8-ec4bc08e01b6";
+
     static constexpr auto cDefaultTokenLabel = "aos";
     static constexpr auto cTeeLoginTypeLen   = AOS_CONFIG_CERTMODULE_PKCS11_TEE_LOGIN_TYPE_LEN;
     static constexpr auto cUUIDStringLen     = AOS_CONFIG_UUID_STR_LEN;
@@ -167,8 +179,8 @@ private:
 
     Error PrintInfo(pkcs11::SlotID slotID) const;
 
-    Error GetTeeUserPIN(const String& loginType, String& userPIN);
-    Error GenTeeUserPIN(const String& loginType, String& userPIN);
+    Error GetTeeUserPIN(const String& loginType, uint32_t uid, uint32_t gid, String& userPIN);
+    Error GenTeeUserPIN(const String& loginType, const String& idType, uint32_t id, String& userPIN);
     Error GetUserPin(String& pin) const;
 
     RetWithError<SharedPtr<pkcs11::SessionContext>> CreateSession(bool userLogin, const String& pin);
