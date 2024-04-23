@@ -369,7 +369,9 @@ Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& 
         return err;
     }
 
-    CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size(), pkcsLabel);
+    const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
+
+    CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
     if (rv != CKR_OK) {
         return static_cast<int>(rv);
     }
@@ -570,7 +572,9 @@ Error SessionContext::Login(UserType userType, const String& pin)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Login(mHandle, userType, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size());
+    const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
+
+    CK_RV rv = mFunctionList->C_Login(mHandle, userType, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size());
     if (rv == CKR_USER_ALREADY_LOGGED_IN) {
         return ErrorEnum::eAlreadyLoggedIn;
     }
@@ -602,7 +606,9 @@ Error SessionContext::InitPIN(const String& pin)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pin.CStr()), pin.Size());
+    const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
+
+    CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size());
     if (rv != CKR_OK) {
         return static_cast<int>(rv);
     }
