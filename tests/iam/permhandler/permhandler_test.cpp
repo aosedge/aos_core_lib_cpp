@@ -52,8 +52,8 @@ TEST_F(PermHandlerTest, RegisterInstanceReturnsSecretFromCache)
     InstanceIdent                                instanceIdent;
     StaticArray<FunctionalServicePermissions, 1> perms;
     Error                                        err;
-    StaticString<uuid::cUUIDStrLen>              secret1;
-    StaticString<uuid::cUUIDStrLen>              secret2;
+    StaticString<uuid::cUUIDLen>                 secret1;
+    StaticString<uuid::cUUIDLen>                 secret2;
 
     Tie(secret1, err) = mPermHandler.RegisterInstance(instanceIdent, perms);
     ASSERT_TRUE(err.IsNone()) << err.Message();
@@ -69,7 +69,7 @@ TEST_F(PermHandlerTest, RegisterInstanceReachedMaxSize)
     const StaticArray<FunctionalServicePermissions, 1> perms;
     InstanceIdent                                      instanceIdent {"", "", 0};
     Error                                              err;
-    StaticString<uuid::cUUIDStrLen>                    secret;
+    StaticString<uuid::cUUIDLen>                       secret;
 
     for (size_t i = 0; i < cMaxNumInstances; ++i) {
         instanceIdent.mInstance = i;
@@ -107,10 +107,10 @@ TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
     StaticArray<FunctionalServicePermissions, 2> funcServerPermissions;
     funcServerPermissions.PushBack(testServicePermissions);
 
-    InstanceIdent                   resInstanceIdent;
-    StaticArray<PermKeyValue, 1>    resServicePerms;
-    Error                           err;
-    StaticString<uuid::cUUIDStrLen> secret;
+    InstanceIdent                resInstanceIdent;
+    StaticArray<PermKeyValue, 1> resServicePerms;
+    Error                        err;
+    StaticString<uuid::cUUIDLen> secret;
 
     Tie(secret, err) = mPermHandler.RegisterInstance(instanceIdent1, funcServerPermissions);
     ASSERT_TRUE(err.IsNone()) << err.Message();
@@ -126,7 +126,7 @@ TEST_F(PermHandlerTest, UnregisterInstance)
     instanceIdent.mServiceID = "test-service-id";
 
     StaticArray<FunctionalServicePermissions, 1> perms;
-    StaticString<uuid::cUUIDStrLen>              secret;
+    StaticString<uuid::cUUIDLen>                 secret;
 
     auto err = mPermHandler.UnregisterInstance(instanceIdent);
     EXPECT_FALSE(err.IsNone()) << err.Message();
@@ -162,10 +162,10 @@ TEST_F(PermHandlerTest, TestInstancePermissions)
     funcServerPermissions.PushBack(visServicePermissions);
     funcServerPermissions.PushBack(systemCoreServicePermissions);
 
-    StaticString<uuid::cUUIDStrLen> secret1;
-    StaticString<uuid::cUUIDStrLen> secret2;
-    Error                           err;
-    StaticArray<PermKeyValue, 2>    permsResult;
+    StaticString<uuid::cUUIDLen> secret1;
+    StaticString<uuid::cUUIDLen> secret2;
+    Error                        err;
+    StaticArray<PermKeyValue, 2> permsResult;
 
     Tie(secret1, err) = mPermHandler.RegisterInstance(instanceIdent1, funcServerPermissions);
     ASSERT_TRUE(err.IsNone()) << err.Message();

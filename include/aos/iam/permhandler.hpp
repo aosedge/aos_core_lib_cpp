@@ -66,7 +66,7 @@ struct FunctionalServicePermissions {
  * Instance permissions.
  */
 struct InstancePermissions {
-    StaticString<uuid::cUUIDStrLen>                            mSecretUUID;
+    StaticString<uuid::cUUIDLen>                               mSecretUUID;
     InstanceIdent                                              mInstanceIdent;
     StaticArray<FunctionalServicePermissions, cMaxNumServices> mFuncServicePerms;
 };
@@ -81,9 +81,9 @@ public:
      *
      * @param instanceIdent instance identification.
      * @param instancePermissions instance permissions.
-     * @returns RetWithError<StaticString<uuid::cUUIDStrLen>>.
+     * @returns RetWithError<StaticString<uuid::cUUIDLen>>.
      */
-    virtual RetWithError<StaticString<uuid::cUUIDStrLen>> RegisterInstance(
+    virtual RetWithError<StaticString<uuid::cUUIDLen>> RegisterInstance(
         const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions)
         = 0;
 
@@ -121,9 +121,9 @@ public:
      *
      * @param instanceIdent instance identification.
      * @param instancePermissions instance permissions.
-     * @returns RetWithError<StaticString<uuid::cUUIDStrLen>>.
+     * @returns RetWithError<StaticString<uuid::cUUIDLen>>.
      */
-    RetWithError<StaticString<uuid::cUUIDStrLen>> RegisterInstance(
+    RetWithError<StaticString<uuid::cUUIDLen>> RegisterInstance(
         const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions) override;
 
     /**
@@ -147,12 +147,12 @@ public:
         Array<PermKeyValue>& servicePermissions) override;
 
 private:
-    Error                              AddSecret(const String& secretUUID, const InstanceIdent& instanceIdent,
-                                     const Array<FunctionalServicePermissions>& instancePermissions);
-    RetWithError<InstancePermissions*> FindBySecretUUID(const String& secretUUID);
-    RetWithError<InstancePermissions*> FindByInstanceIdent(const InstanceIdent& instanceIdent);
-    StaticString<uuid::cUUIDStrLen>    GenerateSecret();
-    RetWithError<StaticString<uuid::cUUIDStrLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
+    Error                                      AddSecret(const String& secretUUID, const InstanceIdent& instanceIdent,
+                                             const Array<FunctionalServicePermissions>& instancePermissions);
+    RetWithError<InstancePermissions*>         FindBySecretUUID(const String& secretUUID);
+    RetWithError<InstancePermissions*>         FindByInstanceIdent(const InstanceIdent& instanceIdent);
+    StaticString<uuid::cUUIDLen>               GenerateSecret();
+    RetWithError<StaticString<uuid::cUUIDLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
 
     Mutex                                              mMutex;
     StaticArray<InstancePermissions, cMaxNumInstances> mInstancesPerms;

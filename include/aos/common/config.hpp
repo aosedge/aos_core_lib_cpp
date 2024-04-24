@@ -465,17 +465,17 @@
 #endif
 
 /**
- *  UUID length
+ *  UUID size.
  */
-#ifndef AOS_CONFIG_UUID_LEN
-#define AOS_CONFIG_UUID_LEN 16
+#ifndef AOS_CONFIG_UUID_SIZE
+#define AOS_CONFIG_UUID_SIZE 16
 #endif
 
 /**
- *  Length of UUID string representation
+ *  Length of UUID string representation.
  */
-#ifndef AOS_CONFIG_UUID_STR_LEN
-#define AOS_CONFIG_UUID_STR_LEN AOS_CONFIG_UUID_LEN * 2 + 4 + 1 // 32 hex digits + 4 '-' symbols + '\0'
+#ifndef AOS_CONFIG_UUID_LEN
+#define AOS_CONFIG_UUID_LEN AOS_CONFIG_UUID_SIZE * 2 + 4 + 1 // 32 hex digits + 4 '-' symbols + '\0'
 #endif
 
 /**

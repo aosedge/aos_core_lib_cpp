@@ -33,13 +33,13 @@ UUID CreateUUID()
     return result;
 }
 
-StaticString<cUUIDStrLen> UUIDToString(const UUID& src)
+StaticString<cUUIDLen> UUIDToString(const UUID& src)
 {
     if (src.IsEmpty()) {
         return cEmptyUUID;
     }
 
-    StaticString<cUUIDStrLen> result;
+    StaticString<cUUIDLen> result;
 
     assert(src.Size() == src.MaxSize());
 
@@ -59,7 +59,7 @@ StaticString<cUUIDStrLen> UUIDToString(const UUID& src)
     return result;
 }
 
-RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDStrLen>& src)
+RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src)
 {
     UUID result;
 

@@ -150,7 +150,7 @@ private:
 
     static constexpr auto cDefaultTokenLabel = "aos";
     static constexpr auto cTeeLoginTypeLen   = AOS_CONFIG_CERTMODULE_PKCS11_TEE_LOGIN_TYPE_LEN;
-    static constexpr auto cUUIDStringLen     = AOS_CONFIG_UUID_STR_LEN;
+    static constexpr auto cUUIDStringLen     = AOS_CONFIG_UUID_LEN;
     static constexpr auto cRSAKeyLength      = 2048;
     static constexpr auto cECSDACurveID      = pkcs11::EllipticCurve::eP384;
     static constexpr auto cPKCS11Scheme      = "pkcs11";

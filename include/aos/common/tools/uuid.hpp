@@ -17,17 +17,17 @@ namespace uuid {
 /**
  *  UUID length
  */
-constexpr auto cUUIDLen = AOS_CONFIG_UUID_LEN;
+constexpr auto cUUIDSize = AOS_CONFIG_UUID_SIZE;
 
 /**
  *  Length of UUID string representation
  */
-constexpr auto cUUIDStrLen = AOS_CONFIG_UUID_STR_LEN;
+constexpr auto cUUIDLen = AOS_CONFIG_UUID_LEN;
 
 /**
  * A UUID is a 128 bit (16 byte) Universal Unique IDentifier as defined in RFC 4122.
  */
-using UUID = StaticArray<uint8_t, cUUIDLen>;
+using UUID = StaticArray<uint8_t, cUUIDSize>;
 
 /**
  * Creates unique UUID.
@@ -40,9 +40,9 @@ UUID CreateUUID();
  * Converts UUID to string.
  *
  * @param uuid uuid.
- * @return StaticString<cUUIDStrLen>.
+ * @return StaticString<cUUIDLen>.
  */
-StaticString<cUUIDStrLen> UUIDToString(const UUID& uuid);
+StaticString<cUUIDLen> UUIDToString(const UUID& uuid);
 
 /**
  * Converts string to UUID.
@@ -50,7 +50,7 @@ StaticString<cUUIDStrLen> UUIDToString(const UUID& uuid);
  * @param src input string.
  * @return RetWithError<UUID>.
  */
-RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDStrLen>& src);
+RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src);
 
 } // namespace uuid
 } // namespace aos

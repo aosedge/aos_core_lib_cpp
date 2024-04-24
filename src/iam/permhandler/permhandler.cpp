@@ -16,15 +16,15 @@ namespace permhandler {
  * Public
  **********************************************************************************************************************/
 
-RetWithError<StaticString<uuid::cUUIDStrLen>> PermHandler::RegisterInstance(
+RetWithError<StaticString<uuid::cUUIDLen>> PermHandler::RegisterInstance(
     const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions)
 {
     LockGuard lock(mMutex);
 
     LOG_DBG() << "Register instance: instance = " << instanceIdent;
 
-    Error                           err;
-    StaticString<uuid::cUUIDStrLen> uuidSecret;
+    Error                        err;
+    StaticString<uuid::cUUIDLen> uuidSecret;
 
     Tie(uuidSecret, err) = GetSecretForInstance(instanceIdent);
     if (err.IsNone()) {
@@ -111,9 +111,9 @@ RetWithError<InstancePermissions*> PermHandler::FindByInstanceIdent(const Instan
     return mInstancesPerms.Find([&instanceIdent](const auto& elem) { return instanceIdent == elem.mInstanceIdent; });
 }
 
-StaticString<uuid::cUUIDStrLen> PermHandler::GenerateSecret()
+StaticString<uuid::cUUIDLen> PermHandler::GenerateSecret()
 {
-    StaticString<uuid::cUUIDStrLen> newUUID;
+    StaticString<uuid::cUUIDLen> newUUID;
 
     do {
         newUUID = uuid::UUIDToString(uuid::CreateUUID());
@@ -123,7 +123,7 @@ StaticString<uuid::cUUIDStrLen> PermHandler::GenerateSecret()
     return newUUID;
 }
 
-RetWithError<StaticString<uuid::cUUIDStrLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)
+RetWithError<StaticString<uuid::cUUIDLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)
 {
     const auto result = FindByInstanceIdent(instanceIdent);
     if (!result.mError.IsNone()) {

@@ -663,7 +663,7 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
     }
 
     // copy lowest 16 bytes
-    uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDLen);
+    uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDSize);
 
     // The version of the UUID will be the lower 4 bits of cUUIDVersion
     result[6] = (result[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
