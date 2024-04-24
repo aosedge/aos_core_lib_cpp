@@ -202,6 +202,14 @@ TEST(StringTest, ByteArrayToHex)
     ASSERT_EQ(dst, expected);
 }
 
+TEST(StringTest, AsByteArray)
+{
+    const char*   src         = "Hello World";
+    const uint8_t byteArray[] = {0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x57, 0x6F, 0x72, 0x6C, 0x64};
+
+    EXPECT_EQ(String(src).AsByteArray(), Array<uint8_t>(byteArray, sizeof(byteArray)));
+}
+
 TEST(StringTest, Format)
 {
     StaticString<20> str;
