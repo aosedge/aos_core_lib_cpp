@@ -491,9 +491,7 @@ public:
             return ret;
         }
 
-        Resize(ret);
-
-        return ErrorEnum::eNone;
+        return Resize(ret);
     }
 
     /**

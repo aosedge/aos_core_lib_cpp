@@ -218,6 +218,13 @@ TEST(StringTest, Format)
     ASSERT_EQ(str, "id: 10");
 }
 
+TEST(StringTest, FormatNotEnoughMemory)
+{
+    StaticString<5> str;
+
+    ASSERT_TRUE(str.Format("%s: %d", "id", 10).Is(ErrorEnum::eNoMemory));
+}
+
 TEST(StringTest, Remove)
 {
     const auto expected = "Thank you, sir";
