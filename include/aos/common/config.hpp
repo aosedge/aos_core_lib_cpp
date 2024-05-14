@@ -79,13 +79,6 @@
 #endif
 
 /**
- * Vendor version len.
- */
-#ifndef AOS_CONFIG_TYPES_VENDOR_VERSION_LEN
-#define AOS_CONFIG_TYPES_VENDOR_VERSION_LEN 20
-#endif
-
-/**
  * Service/layer description len.
  */
 #ifndef AOS_CONFIG_TYPES_DESCRIPTION_LEN

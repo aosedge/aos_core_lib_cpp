@@ -36,11 +36,6 @@ constexpr auto cMaxParamLen = AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_LEN;
 constexpr auto cMaxParamCount = AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT;
 
 /**
- * Version max len.
- */
-constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
-
-/**
  * Max DT devices count.
  */
 constexpr auto cMaxDTDevsCount = AOS_CONFIG_OCISPEC_MAX_DT_DEVICES_COUNT;

@@ -69,11 +69,6 @@ constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
 constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
 
 /**
- * Vendor version len.
- */
-constexpr auto cVendorVersionLen = AOS_CONFIG_TYPES_VENDOR_VERSION_LEN;
-
-/**
  * Service/layer description len.
  */
 
@@ -128,6 +123,11 @@ constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
  * File chunk size.
  */
 constexpr auto cFileChunkSize = AOS_CONFIG_TYPES_FILE_CHUNK_SIZE;
+
+/**
+ * Version max len.
+ */
+constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
 
 /**
  * Instance identification.
@@ -265,9 +265,9 @@ using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
  * Version info.
  */
 struct VersionInfo {
-    uint64_t                        mAosVersion;
-    StaticString<cVendorVersionLen> mVendorVersion;
-    StaticString<cDescriptionLen>   mDescription;
+    uint64_t                      mAosVersion;
+    StaticString<cVersionLen>     mVendorVersion;
+    StaticString<cDescriptionLen> mDescription;
 
     /**
      * Compares version info.
