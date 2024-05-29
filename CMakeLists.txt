@@ -44,7 +44,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Dependencies
 # ######################################################################################################################
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 if(WITH_TEST)
     include(FetchContent)
