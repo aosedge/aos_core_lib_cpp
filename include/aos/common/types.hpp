@@ -107,7 +107,7 @@ constexpr auto cNodeIDLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
 /**
  * Node type len.
  */
-constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
+constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
 
 /**
  * SHA256 size.
@@ -128,6 +128,71 @@ constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
  * File chunk size.
  */
 constexpr auto cFileChunkSize = AOS_CONFIG_TYPES_FILE_CHUNK_SIZE;
+
+/*
+ * Partition name len.
+ */
+constexpr auto cPartitionNameLen = AOS_CONFIG_TYPES_PARTITION_NAME_LEN;
+
+/*
+ * Max number of partitions.
+ */
+constexpr auto cMaxNumPartitions = AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS;
+
+/**
+ * Partition type len.
+ */
+constexpr auto cPartitionTypeLen = AOS_CONFIG_TYPES_PARTITION_TYPES_LEN;
+
+/*
+ * Max number of partition types.
+ */
+constexpr auto cMaxNumPartitionTypes = AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES;
+
+/*
+ * Node name len.
+ */
+constexpr auto cNodeNameLen = AOS_CONFIG_TYPES_NODE_NAME_LEN;
+
+/*
+ * OS type len.
+ */
+constexpr auto cOSType = AOS_CONFIG_TYPES_OS_TYPE_LEN;
+
+/*
+ * Mux number of CPUs.
+ */
+constexpr auto cMaxNumCPUs = AOS_CONFIG_TYPES_MAX_NUM_CPUS;
+
+/*
+ * Mux number of node attributes.
+ */
+constexpr auto cMaxNumNodeAttributes = AOS_CONFIG_TYPES_MAX_NUM_NODE_ATTRIBUTES;
+
+/*
+ * Node attribute name len.
+ */
+constexpr auto cNodeAttributeNameLen = AOS_CONFIG_TYPES_NODE_ATTRIBUTE_NAME_LEN;
+
+/*
+ * Node attribute value len.
+ */
+constexpr auto cNodeAttributeValueLen = AOS_CONFIG_TYPES_NODE_ATTRIBUTE_VALUE_LEN;
+
+/*
+ * CPU model name len.
+ */
+constexpr auto cCPUModelNameLen = AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN;
+
+/*
+ * CPU arch len.
+ */
+constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
+
+/*
+ * CPU arch family len.
+ */
+constexpr auto cCPUArchFamilyLen = AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN;
 
 /**
  * Instance identification.
@@ -369,6 +434,172 @@ struct LayerInfo {
  * Layer info static array.
  */
 using LayerInfoStaticArray = StaticArray<LayerInfo, cMaxNumLayers>;
+
+/**
+ * Partition info.
+ */
+struct PartitionInfo {
+    StaticString<cPartitionNameLen>                                     mName;
+    StaticArray<StaticString<cPartitionTypeLen>, cMaxNumPartitionTypes> mTypes;
+    size_t                                                              mTotalSize;
+    StaticString<cFilePathLen>                                          mPath;
+    size_t                                                              mUsedSize;
+
+    /**
+     * Compares partition info.
+     *
+     * @param info partition info to compare with.
+     * @return bool.
+     */
+    bool operator==(const PartitionInfo& info) const
+    {
+        return mName == info.mName && mPath == info.mPath && mTypes == info.mTypes && mTotalSize == info.mTotalSize
+            && mUsedSize == info.mUsedSize;
+    }
+
+    /**
+     * Compares partition info.
+     *
+     * @param info partition info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PartitionInfo& info) const { return !operator==(info); }
+};
+
+/**
+ * Partition info static array.
+ */
+using PartitionInfoStaticArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
+
+/**
+ * CPU info.
+ */
+struct CPUInfo {
+    size_t                          mID;
+    StaticString<cCPUModelNameLen>  mModelName;
+    size_t                          mNumCores;
+    size_t                          mNumThreads;
+    StaticString<cCPUArchLen>       mArch;
+    StaticString<cCPUArchFamilyLen> mArchFamily;
+
+    /**
+     * Compares CPU info.
+     *
+     * @param info cpu info to compare with.
+     * @return bool.
+     */
+    bool operator==(const CPUInfo& info) const
+    {
+        return mID == info.mID && mModelName == info.mModelName && mNumCores == info.mNumCores
+            && mNumThreads == info.mNumThreads && mArch == info.mArch && mArchFamily == info.mArchFamily;
+    }
+
+    /**
+     * Compares CPU info.
+     *
+     * @param info cpu info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CPUInfo& info) const { return !operator==(info); }
+};
+
+/**
+ * CPU info static array.
+ */
+using CPUInfoStaticArray = StaticArray<CPUInfo, cMaxNumCPUs>;
+
+/**
+ * Node attribute.
+ */
+struct NodeAttribute {
+    StaticString<cNodeAttributeNameLen>  mName;
+    StaticString<cNodeAttributeValueLen> mValue;
+
+    /**
+     * Compares node attributes.
+     *
+     * @param info node attributes info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeAttribute& info) const { return mName == info.mName && mValue == info.mValue; }
+
+    /**
+     * Compares node attributes.
+     *
+     * @param info node attributes info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeAttribute& info) const { return !operator==(info); }
+};
+
+/**
+ * Node attribute static array.
+ */
+using NodeAttributeStaticArray = StaticArray<NodeAttribute, cMaxNumNodeAttributes>;
+
+/**
+ * Node status.
+ */
+class NodeStatusType {
+public:
+    enum class Enum {
+        eUnprovisioned,
+        eProvisioned,
+        ePaused,
+        eNumStates,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sNodeStatusStrings[] = {
+            "unprovisioned",
+            "provisioned",
+            "paused",
+        };
+
+        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+    };
+};
+
+using NodeStatusEnum = NodeStatusType::Enum;
+using NodeStatus     = EnumStringer<NodeStatusType>;
+
+/**
+ * Node info.
+ */
+struct NodeInfo {
+    StaticString<cNodeIDLen>   mID;
+    StaticString<cNodeTypeLen> mType;
+    StaticString<cNodeNameLen> mName;
+    NodeStatus                 mStatus;
+    StaticString<cOSType>      mOSType;
+    CPUInfoStaticArray         mCPUs;
+    PartitionInfoStaticArray   mPartitions;
+    NodeAttributeStaticArray   mAttrs;
+    float                      mMaxDMIPS = 0;
+    uint64_t                   mTotalRAM = 0;
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeInfo& info) const
+    {
+        return mID == info.mID && mType == info.mType && mName == info.mName && mStatus == info.mStatus
+            && mOSType == info.mOSType && mCPUs == info.mCPUs && mMaxDMIPS == info.mMaxDMIPS
+            && mTotalRAM == info.mTotalRAM && mPartitions == info.mPartitions && mAttrs == info.mAttrs;
+    }
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeInfo& info) const { return !operator==(info); }
+};
 
 } // namespace aos
 

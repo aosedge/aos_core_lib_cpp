@@ -170,10 +170,73 @@
 #endif
 
 /**
+ * Node name len.
+ */
+#ifndef AOS_CONFIG_TYPES_NODE_NAME_LEN
+#define AOS_CONFIG_TYPES_NODE_NAME_LEN 64
+#endif
+
+/**
  * Node type len.
  */
 #ifndef AOS_CONFIG_TYPES_NODE_TYPE_LEN
 #define AOS_CONFIG_TYPES_NODE_TYPE_LEN 64
+#endif
+
+/**
+ * OS type len.
+ */
+#ifndef AOS_CONFIG_TYPES_OS_TYPE_LEN
+#define AOS_CONFIG_TYPES_OS_TYPE_LEN 16
+#endif
+
+/**
+ * Max number of CPUs.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_CPUS
+#define AOS_CONFIG_TYPES_MAX_NUM_CPUS 8
+#endif
+
+/**
+ * CPU model name len.
+ */
+#ifndef AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN
+#define AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN 64
+#endif
+
+/**
+ * CPU architecture len.
+ */
+#ifndef AOS_CONFIG_TYPES_CPU_ARCH_LEN
+#define AOS_CONFIG_TYPES_CPU_ARCH_LEN 16
+#endif
+
+/**
+ * CPU architecture family len.
+ */
+#ifndef AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN
+#define AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN 16
+#endif
+
+/**
+ * Node attribute name len.
+ */
+#ifndef AOS_CONFIG_TYPES_NODE_ATTRIBUTE_NAME_LEN
+#define AOS_CONFIG_TYPES_NODE_ATTRIBUTE_NAME_LEN 16
+#endif
+
+/**
+ * Node attribute value len.
+ */
+#ifndef AOS_CONFIG_TYPES_NODE_ATTRIBUTE_VALUE_LEN
+#define AOS_CONFIG_TYPES_NODE_ATTRIBUTE_VALUE_LEN 16
+#endif
+
+/**
+ * Max number of node attributes.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_ATTRIBUTES
+#define AOS_CONFIG_TYPES_MAX_NUM_NODE_ATTRIBUTES 16
 #endif
 
 /**

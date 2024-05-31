@@ -15,8 +15,8 @@ class MockResourceUsageProvider : public ResourceUsageProviderItf {
 public:
     Error Init() override
     {
-        mNodeInfo.mNodeID   = "node1";
-        mNodeInfo.mNumCPUs  = 1;
+        mNodeInfo.mID = "node1";
+        mNodeInfo.mCPUs.Resize(1);
         mNodeInfo.mTotalRAM = 4000;
 
         PartitionInfo partitionInfo {};
@@ -32,8 +32,8 @@ public:
 
     Error GetNodeInfo(NodeInfo& nodeInfo) const override
     {
-        nodeInfo.mNodeID   = "node1";
-        nodeInfo.mNumCPUs  = 1;
+        nodeInfo.mID = "node1";
+        nodeInfo.mCPUs.Resize(1);
         nodeInfo.mTotalRAM = 4000;
 
         PartitionInfo partitionInfo {};
@@ -207,7 +207,7 @@ TEST(CommonTest, ResourceMonitorGetNodeInfo)
     NodeInfo nodeInfo {};
     EXPECT_TRUE(monitor.GetNodeInfo(nodeInfo).IsNone());
 
-    EXPECT_EQ(nodeInfo.mNumCPUs, 1);
+    EXPECT_EQ(nodeInfo.mCPUs.Size(), 1);
     EXPECT_EQ(nodeInfo.mTotalRAM, 4000);
 
     EXPECT_EQ(nodeInfo.mPartitions.Size(), 1);
