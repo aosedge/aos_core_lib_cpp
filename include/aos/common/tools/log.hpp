@@ -84,13 +84,14 @@ public:
         eCommonMonitoring,
         eCommonPKCS11,
         eCommonCrypto,
+        eProvisionManager,
         eNumModules,
     };
 
     static const Array<const char* const> GetStrings()
     {
         static const char* const sLogModuleTypeStrings[] = {"default", "launcher", "servicemanager", "certhandler",
-            "identhandler", "permhandler", "resourcemonitor", "pkcs11", "crypto"};
+            "identhandler", "permhandler", "resourcemonitor", "pkcs11", "crypto", "provisionmanager"};
 
         return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));
     };

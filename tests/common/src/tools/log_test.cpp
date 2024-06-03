@@ -143,6 +143,7 @@ TEST(LogTest, Basic)
     EXPECT_EQ(LogModule(LogModuleEnum::eSMLauncher).ToString(), "launcher");
     EXPECT_EQ(LogModule(LogModuleEnum::eSMServiceManager).ToString(), "servicemanager");
     EXPECT_EQ(LogModule(LogModuleEnum::eIAMCertHandler).ToString(), "certhandler");
+    EXPECT_EQ(LogModule(LogModuleEnum::eProvisionManager).ToString(), "provisionmanager");
 
     // Test error with function name and line number
 
