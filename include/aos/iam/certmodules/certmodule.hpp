@@ -72,6 +72,10 @@ struct ModuleConfig {
      * Skip certificate chain validation.
      */
     bool mSkipValidation;
+    /**
+     * Self-signed certificate flag.
+     */
+    bool mIsSelfSigned;
 };
 
 /**
@@ -214,6 +218,13 @@ public:
      * @returns Error.
      */
     Error CreateSelfSignedCert(const String& password);
+
+    /**
+     * Returns certificate module configuration.
+     *
+     * @return ModuleConfig.
+     */
+    ModuleConfig GetModuleConfig() const { return mModuleConfig; }
 
 private:
     static constexpr auto cDNStringLen               = AOS_CONFIG_CERTHANDLER_DN_STRING_LEN;
