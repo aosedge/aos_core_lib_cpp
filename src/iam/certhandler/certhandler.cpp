@@ -179,6 +179,18 @@ CertHandler::~CertHandler()
     LOG_DBG() << "Close certificate handler";
 }
 
+RetWithError<ModuleConfig> CertHandler::GetModuleConfig(const String& certType) const
+{
+    LockGuard lock(mMutex);
+
+    auto* module = FindModule(certType);
+    if (module == nullptr) {
+        return {ModuleConfig(), AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+    }
+
+    return {module->GetModuleConfig(), ErrorEnum::eNone};
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/

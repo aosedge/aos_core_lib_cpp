@@ -102,6 +102,14 @@ public:
     virtual Error CreateSelfSignedCert(const String& certType, const String& password) = 0;
 
     /**
+     * Returns module configuration.
+     *
+     * @param certType certificate type.
+     * @returns RetWithError<ModuleConfig>.
+     */
+    virtual RetWithError<ModuleConfig> GetModuleConfig(const String& certType) const = 0;
+
+    /**
      * Destroys certificate handler interface.
      */
     virtual ~CertHandlerItf() = default;
@@ -200,6 +208,14 @@ public:
     Error CreateSelfSignedCert(const String& certType, const String& password) override;
 
     /**
+     * Returns module configuration.
+     *
+     * @param certType certificate type.
+     * @return RetWithError<ModuleConfig>
+     */
+    RetWithError<ModuleConfig> GetModuleConfig(const String& certType) const override;
+
+    /**
      * Destroys certificate handler object instance.
      */
     virtual ~CertHandler();
@@ -207,7 +223,7 @@ public:
 private:
     CertModule* FindModule(const String& certType) const;
 
-    Mutex                                             mMutex;
+    mutable Mutex                                     mMutex;
     StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
 };
 

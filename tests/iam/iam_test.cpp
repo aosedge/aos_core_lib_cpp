@@ -41,7 +41,8 @@ protected:
 
     // Helper functions
 
-    void RegisterPKCS11Module(const String& name, crypto::KeyType keyType = crypto::KeyTypeEnum::eRSA)
+    void RegisterPKCS11Module(
+        const String& name, crypto::KeyType keyType = crypto::KeyTypeEnum::eRSA, bool isSelfSigned = false)
     {
         ASSERT_TRUE(mPKCS11Modules.EmplaceBack().IsNone());
         ASSERT_TRUE(mCertModules.EmplaceBack().IsNone());
@@ -52,12 +53,13 @@ protected:
         ASSERT_TRUE(
             pkcs11Module.Init(name, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), mCryptoProvider).IsNone());
         ASSERT_TRUE(
-            certModule.Init(name, GetCertModuleConfig(keyType), mCryptoProvider, pkcs11Module, mStorage).IsNone());
+            certModule.Init(name, GetCertModuleConfig(keyType, isSelfSigned), mCryptoProvider, pkcs11Module, mStorage)
+                .IsNone());
 
         ASSERT_TRUE(mCertHandler->RegisterModule(certModule).IsNone());
     }
 
-    ModuleConfig GetCertModuleConfig(crypto::KeyType keyType)
+    ModuleConfig GetCertModuleConfig(crypto::KeyType keyType, bool isSelfSigned = false)
     {
         ModuleConfig config;
 
@@ -67,6 +69,7 @@ protected:
         config.mAlternativeNames.EmplaceBack("epam.com");
         config.mAlternativeNames.EmplaceBack("www.epam.com");
         config.mSkipValidation = false;
+        config.mIsSelfSigned   = isSelfSigned;
 
         return config;
     }
@@ -219,6 +222,43 @@ TEST_F(IAMTest, GetCertTypes)
     ASSERT_TRUE(mCertHandler->GetCertTypes(certTypes).IsNone());
 
     CheckArray(certTypes, {"iam", "sm"});
+}
+
+TEST_F(IAMTest, GetModuleConfig)
+{
+    RegisterPKCS11Module("iam");
+    RegisterPKCS11Module("sm", crypto::KeyTypeEnum::eRSA, true);
+
+    auto config = mCertHandler->GetModuleConfig("iam");
+
+    ASSERT_TRUE(config.mError.IsNone());
+    EXPECT_EQ(config.mValue.mKeyType, crypto::KeyTypeEnum::eRSA);
+    EXPECT_EQ(config.mValue.mMaxCertificates, 2);
+    EXPECT_TRUE(config.mValue.mExtendedKeyUsage.Size() == 1);
+    EXPECT_EQ(config.mValue.mExtendedKeyUsage[0], ExtendedKeyUsageEnum::eClientAuth);
+
+    EXPECT_TRUE(config.mValue.mAlternativeNames.Size() == 2);
+    EXPECT_EQ(config.mValue.mAlternativeNames[0], "epam.com");
+    EXPECT_EQ(config.mValue.mAlternativeNames[1], "www.epam.com");
+
+    EXPECT_FALSE(config.mValue.mSkipValidation);
+    EXPECT_FALSE(config.mValue.mIsSelfSigned);
+
+    config = mCertHandler->GetModuleConfig("sm");
+
+    ASSERT_TRUE(config.mError.IsNone());
+    EXPECT_EQ(config.mValue.mKeyType, crypto::KeyTypeEnum::eRSA);
+    EXPECT_EQ(config.mValue.mMaxCertificates, 2);
+
+    EXPECT_TRUE(config.mValue.mExtendedKeyUsage.Size() == 1);
+    EXPECT_EQ(config.mValue.mExtendedKeyUsage[0], ExtendedKeyUsageEnum::eClientAuth);
+
+    EXPECT_TRUE(config.mValue.mAlternativeNames.Size() == 2);
+    EXPECT_EQ(config.mValue.mAlternativeNames[0], "epam.com");
+    EXPECT_EQ(config.mValue.mAlternativeNames[1], "www.epam.com");
+
+    EXPECT_FALSE(config.mValue.mSkipValidation);
+    EXPECT_TRUE(config.mValue.mIsSelfSigned);
 }
 
 TEST_F(IAMTest, SetOwner)
