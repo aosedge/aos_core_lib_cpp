@@ -17,6 +17,9 @@ set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/sm/launcher/instance.cpp
     ${CMAKE_SOURCE_DIR}/src/sm/launcher/service.cpp
     launcher/launcher_test.cpp
+    # resourcemanager
+    ${CMAKE_SOURCE_DIR}/src/sm/resourcemanager/resourcemanager.cpp
+    resourcemanager/resourcemanager_test.cpp
     # servicemanager
     ${CMAKE_SOURCE_DIR}/src/sm/servicemanager/servicemanager.cpp
     servicemanager/servicemanager_test.cpp
@@ -26,7 +29,7 @@ set(SOURCES
 # Includes
 # ######################################################################################################################
 
-include_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/tests/include)
 
 # ######################################################################################################################
 # Definitions
@@ -41,6 +44,6 @@ add_definitions(
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} GTest::gtest_main testutils)
+target_link_libraries(${TARGET} GTest::gmock_main testutils)
 
 gtest_discover_tests(${TARGET})
