@@ -121,6 +121,132 @@
 #endif
 
 /**
+ * File system mount type len.
+ */
+#ifndef AOS_CONFIG_TYPES_FS_MOUNT_TYPE_LEN
+#define AOS_CONFIG_TYPES_FS_MOUNT_TYPE_LEN 16
+#endif
+
+/**
+ * File system mount option len.
+ */
+#ifndef AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN
+#define AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN 16
+#endif
+
+/**
+ * Max number of file system mount options.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS
+#define AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS 4
+#endif
+
+/**
+ * IP len.
+ */
+#ifndef AOS_CONFIG_TYPES_IP_LEN
+#define AOS_CONFIG_TYPES_IP_LEN 48
+#endif
+
+/**
+ * Host name len.
+ */
+#ifndef AOS_CONFIG_TYPES_HOST_NAME_LEN
+#define AOS_CONFIG_TYPES_HOST_NAME_LEN 48
+#endif
+
+/**
+ * Host device name len.
+ */
+#ifndef AOS_CONFIG_TYPES_DEVICE_NAME_LEN
+#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 16
+#endif
+
+/**
+ * Max number of host devices.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_HOST_DEVICES
+#define AOS_CONFIG_TYPES_MAX_NUM_HOST_DEVICES 32
+#endif
+
+/**
+ * Resource name len.
+ */
+#ifndef AOS_CONFIG_TYPES_RESOURCE_NAME_LEN
+#define AOS_CONFIG_TYPES_RESOURCE_NAME_LEN 16
+#endif
+
+/**
+ * Group name len.
+ */
+#ifndef AOS_CONFIG_TYPES_GROUP_NAME_LEN
+#define AOS_CONFIG_TYPES_GROUP_NAME_LEN 32
+#endif
+
+/**
+ * Max number of groups.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_GROUPS
+#define AOS_CONFIG_TYPES_MAX_NUM_GROUPS 32
+#endif
+
+/**
+ * Max number of file system mounts.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS
+#define AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS 4
+#endif
+
+/**
+ * Environment variable name len.
+ */
+#ifndef AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN
+#define AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN 32
+#endif
+
+/**
+ * Max number of environment variables.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES
+#define AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES 4
+#endif
+
+/**
+ * Max number of hosts.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_HOSTS
+#define AOS_CONFIG_TYPES_MAX_NUM_HOSTS 4
+#endif
+
+/**
+ * Max number of devices.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_DEVICES
+#define AOS_CONFIG_TYPES_MAX_NUM_DEVICES 8
+#endif
+
+/**
+ * Max number of node's resources.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_RESOURCES
+#define AOS_CONFIG_TYPES_MAX_NUM_NODE_RESOURCES 4
+#endif
+
+/**
+ * Label name len.
+ */
+#ifndef AOS_CONFIG_TYPES_LABEL_NAME_LEN
+#define AOS_CONFIG_TYPES_LABEL_NAME_LEN 16
+#endif
+
+/**
+ * Max number of node's labels.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS
+#define AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS 4
+#endif
+
+/**
  * Max number of partitions.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS
@@ -562,6 +688,13 @@
  */
 #ifndef AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT
 #define AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT 20
+#endif
+
+/**
+ * Unit config JSON length.
+ */
+#ifndef AOS_CONFIG_UNIT_CONFIG_JSON_LEN
+#define AOS_CONFIG_UNIT_CONFIG_JSON_LEN 4096
 #endif
 
 #endif
