@@ -30,6 +30,7 @@ public:
     /**
      * Called when provisioning starts.
      *
+     * @param password password.
      * @returns Error.
      */
     virtual Error OnStartProvisioning(const String& password) = 0;
@@ -65,9 +66,85 @@ public:
 using CertTypes = aos::StaticArray<StaticString<certhandler::cCertTypeLen>, certhandler::cIAMCertModulesMaxCount>;
 
 /**
+ * ProvisionManager interface.
+ */
+class ProvisionManagerItf {
+public:
+    /**
+     * Starts provisioning.
+     *
+     * @param password password.
+     * @returns Error.
+     */
+    virtual Error StartProvisioning(const String& password) = 0;
+
+    /**
+     * Gets certificate types.
+     *
+     * @returns RetWithError<CertTypes>.
+     */
+    virtual RetWithError<CertTypes> GetCertTypes() = 0;
+
+    /**
+     * Creates key.
+     *
+     * @param certType certificate type.
+     * @param subject subject.
+     * @param password password.
+     * @param csr certificate signing request.
+     * @returns Error.
+     */
+    virtual Error CreateKey(const String& certType, const String& subject, const String& password, String& csr) = 0;
+
+    /**
+     * Applies certificate.
+     *
+     * @param certType certificate type.
+     * @param pemCert certificate in PEM.
+     * @param certInfo certificate info.
+     * @returns Error.
+     */
+    virtual Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo) = 0;
+
+    /**
+     * Returns certificate info.
+     *
+     * @param certType certificate type.
+     * @param issuer issuer name.
+     * @param serial serial number.
+     * @param[out] resCert result certificate.
+     * @returns Error.
+     */
+    virtual Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+        certhandler::CertInfo& resCert)
+        = 0;
+
+    /**
+     * Finishes provisioning.
+     *
+     * @param password password.
+     * @returns Error.
+     */
+    virtual Error FinishProvisioning(const String& password) = 0;
+
+    /**
+     * Deprovisions.
+     *
+     * @param password password.
+     * @returns Error.
+     */
+    virtual Error Deprovision(const String& password) = 0;
+
+    /**
+     * Destroys object instance.
+     */
+    virtual ~ProvisionManagerItf() = default;
+};
+
+/**
  * Provision manager.
  */
-class ProvisionManager {
+class ProvisionManager : public ProvisionManagerItf {
 public:
     /**
      * Initializes provision manager.
@@ -85,14 +162,14 @@ public:
      * @param password password.
      * @returns Error.
      */
-    Error StartProvisioning(const String& password);
+    Error StartProvisioning(const String& password) override;
 
     /**
      * Gets certificate types.
      *
      * @returns RetWithError<CertTypes>.
      */
-    RetWithError<CertTypes> GetCertTypes();
+    RetWithError<CertTypes> GetCertTypes() override;
 
     /**
      * Creates key.
@@ -103,7 +180,7 @@ public:
      * @param csr certificate signing request.
      * @returns Error.
      */
-    Error CreateKey(const String& certType, const String& subject, const String& password, String& csr);
+    Error CreateKey(const String& certType, const String& subject, const String& password, String& csr) override;
 
     /**
      * Applies certificate.
@@ -113,7 +190,19 @@ public:
      * @param[out] certInfo certificate info.
      * @returns Error.
      */
-    Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo);
+    Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo) override;
+
+    /**
+     * Returns certificate info.
+     *
+     * @param certType certificate type.
+     * @param issuer issuer name.
+     * @param serial serial number.
+     * @param[out] resCert result certificate.
+     * @returns Error.
+     */
+    Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+        certhandler::CertInfo& resCert) override;
 
     /**
      * Finishes provisioning.
@@ -121,7 +210,7 @@ public:
      * @param password password.
      * @returns Error.
      */
-    Error FinishProvisioning(const String& password);
+    Error FinishProvisioning(const String& password) override;
 
     /**
      * Deprovisions.
@@ -129,7 +218,7 @@ public:
      * @param password password.
      * @returns Error.
      */
-    Error Deprovision(const String& password);
+    Error Deprovision(const String& password) override;
 
 private:
     ProvisionManagerCallback*    mCallback {};

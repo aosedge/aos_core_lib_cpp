@@ -137,4 +137,12 @@ Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert,
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
 }
 
+Error ProvisionManager::GetCert(
+    const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, certhandler::CertInfo& resCert)
+{
+    LOG_DBG() << "Get cert: type = " << certType;
+
+    return AOS_ERROR_WRAP(mCertHandler->GetCertificate(certType, issuer, serial, resCert));
+}
+
 } // namespace aos::iam::provisionmanager

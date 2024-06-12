@@ -267,6 +267,30 @@ TEST_F(ProvisionManagerTest, ApplyCert)
     EXPECT_EQ(certInfo, generatedCertInfo);
 }
 
+TEST_F(ProvisionManagerTest, GetCert)
+{
+    auto convertByteArrayToAosArray = [](const char* data, size_t size) -> aos::Array<uint8_t> {
+        return {reinterpret_cast<const uint8_t*>(data), size};
+    };
+
+    int64_t                         nowSec  = static_cast<int64_t>(time(nullptr));
+    int64_t                         nowNSec = 0;
+    aos::iam::certhandler::CertInfo certInfo;
+
+    certInfo.mIssuer   = convertByteArrayToAosArray("issuer", strlen("issuer"));
+    certInfo.mSerial   = convertByteArrayToAosArray("serial", strlen("serial"));
+    certInfo.mCertURL  = "certURL";
+    certInfo.mKeyURL   = "keyURL";
+    certInfo.mNotAfter = aos::Time::Unix(nowSec, nowNSec).Add(aos::Time::cYear);
+
+    EXPECT_CALL(mCertHandler, GetCertificate)
+        .WillOnce(DoAll(SetArgReferee<3>(certInfo), Return(aos::ErrorEnum::eNone)));
+
+    aos::iam::certhandler::CertInfo result;
+    ASSERT_TRUE(mProvisionManager.GetCert("certType", certInfo.mIssuer, certInfo.mSerial, result).IsNone());
+    EXPECT_EQ(result, certInfo);
+}
+
 TEST_F(ProvisionManagerTest, Deprovision)
 {
     EXPECT_CALL(mCallback, OnDeprovision).WillOnce(Return(aos::ErrorEnum::eNone));
