@@ -47,7 +47,9 @@ Error ProvisionManager::StartProvisioning(const String& password)
         if (err = mCertHandler->Clear(certType); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+    }
 
+    for (const auto& certType : certTypes) {
         LOG_DBG() << "Set owner: type = " << certType;
 
         if (err = mCertHandler->SetOwner(certType, password); !err.IsNone()) {

@@ -86,6 +86,7 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
         .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mCertHandler, Clear).WillOnce(Return(aos::ErrorEnum::eFailed));
+    EXPECT_CALL(mCertHandler, SetOwner).Times(0);
 
     auto err = mProvisionManager.StartProvisioning("password");
 
@@ -95,8 +96,9 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
         .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
-    EXPECT_CALL(mCertHandler, Clear).Times(1);
+    EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).WillOnce(Return(aos::ErrorEnum::eFailed));
+    EXPECT_CALL(mCertHandler, GetModuleConfig).Times(0);
 
     err = mProvisionManager.StartProvisioning("password");
 
