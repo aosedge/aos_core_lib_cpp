@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "aos/common/config.hpp"
 #include "aos/common/tools/utils.hpp"
 
 namespace aos {
@@ -24,7 +25,12 @@ namespace aos {
 /**
  * Wraps aos:Error with file name and line number information.
  */
-#define AOS_ERROR_WRAP(err) aos::Error(err, __FILENAME__, __LINE__)
+#define AOS_ERROR_WRAP(err) aos::Error(err, nullptr, __FILENAME__, __LINE__)
+
+/**
+ * Maximum error message length.
+ */
+constexpr static auto cMaxErrorStrLen = AOS_CONFIG_ERROR_STR_LEN;
 
 /**
  * Aos errors.
@@ -62,24 +68,26 @@ public:
         , mFileName(nullptr)
         , mLineNumber(0)
     {
+        mMessage[0] = 0;
     }
 
     // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs error instance from ErrorType::Enum.
      */
-    Error(Enum err, const char* fileName = nullptr, int lineNumber = 0)
+    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
         : mErr(err)
         , mErrno(0)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
+        CopyMessage(msg);
     }
 
     /**
      * Constructs error instance from another error.
      */
-    Error(const Error& err, const char* fileName = nullptr, int lineNumber = 0)
+    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
         : mErr(err.mErr)
         , mErrno(err.mErrno)
         , mFileName(fileName)
@@ -89,6 +97,8 @@ public:
             mFileName   = err.mFileName;
             mLineNumber = err.mLineNumber;
         }
+
+        CopyMessage(msg);
     }
 
     /**
@@ -104,6 +114,8 @@ public:
         mFileName   = err.mFileName;
         mLineNumber = err.mLineNumber;
 
+        CopyMessage(err.mMessage);
+
         return *this;
     }
 
@@ -113,12 +125,13 @@ public:
      *
      * @param e errno.
      */
-    Error(int errNo, const char* fileName = nullptr, int lineNumber = 0)
+    Error(int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
         : mErr(errNo == 0 ? Enum::eNone : Enum::eRuntime)
         , mErrno(errNo < 0 ? -errNo : errNo)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
+        CopyMessage(msg);
     }
 
     /**
@@ -153,28 +166,7 @@ public:
      *
      * @return const char* error message.
      */
-    const char* Message() const
-    {
-        if (mErrno != 0) {
-            auto strErrno = strerror(mErrno);
-
-            if (strErrno[0] != 0) {
-                return strErrno;
-            }
-        }
-
-        auto strings = GetStrings();
-
-        if (strings.mFirst == nullptr) {
-            return nullptr;
-        }
-
-        if (static_cast<size_t>(mErr) < strings.mSecond) {
-            return strings.mFirst[static_cast<size_t>(mErr)];
-        }
-
-        return "unknown";
-    }
+    const char* Message() const { return mMessage; }
 
     /**
      * Returns errno
@@ -195,6 +187,40 @@ public:
      * @return int line number.
      */
     int LineNumber() const { return mLineNumber; }
+
+    /**
+     * Returns errno string.
+     *
+     * @return const char* errno string.
+     */
+    const char* StrErrno() const
+    {
+        if (mErrno != 0) {
+            return strerror(mErrno);
+        }
+
+        return nullptr;
+    }
+
+    /**
+     * Returns error string.
+     *
+     * @return const char* error string.
+     */
+    const char* StrValue() const
+    {
+        auto strings = GetStrings();
+
+        if (strings.mFirst == nullptr) {
+            return nullptr;
+        }
+
+        if (static_cast<size_t>(mErr) < strings.mSecond) {
+            return strings.mFirst[static_cast<size_t>(mErr)];
+        }
+
+        return "unknown";
+    }
 
     /**
      * Compares if error equals to another error value.
@@ -231,6 +257,25 @@ public:
     friend bool operator!=(Enum value, const Error& err) { return err.mErr != value; };
 
 private:
+    constexpr static size_t cMaxMessageLen = AOS_CONFIG_ERROR_MESSAGE_LEN + 1;
+
+    /**
+     * Copies error message.
+     *
+     * @param msg error message.
+     */
+    void CopyMessage(const char* msg)
+    {
+        if (msg != nullptr) {
+            strncpy(mMessage, msg, sizeof(mMessage) - 1);
+            mMessage[sizeof(mMessage) - 1] = 0;
+
+            return;
+        }
+
+        mMessage[0] = 0;
+    }
+
     /**
      * Returns error string array.
      *
@@ -261,6 +306,7 @@ private:
     int         mErrno;
     const char* mFileName;
     int         mLineNumber;
+    char        mMessage[cMaxMessageLen];
 };
 
 /**
