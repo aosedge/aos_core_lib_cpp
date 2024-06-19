@@ -147,8 +147,13 @@ TEST(LogTest, Basic)
 
     // Test error with function name and line number
 
-    auto err = Error(ErrorEnum::eFailed, "file.cpp", 123);
+    auto err = Error(ErrorEnum::eFailed, "err=error", "file.cpp", 123);
 
+    LOG_ERR() << "This is error: " << err;
+    EXPECT_TRUE(
+        testLog.CheckLog(LogModuleEnum::eDefault, LogLevelEnum::eError, "This is error: err=error (file.cpp:123)"));
+
+    err = Error(ErrorEnum::eFailed, "", "file.cpp", 123);
     LOG_ERR() << "This is error: " << err;
     EXPECT_TRUE(
         testLog.CheckLog(LogModuleEnum::eDefault, LogLevelEnum::eError, "This is error: failed (file.cpp:123)"));

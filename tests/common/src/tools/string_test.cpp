@@ -112,8 +112,15 @@ TEST(StringTest, Basic)
     EXPECT_TRUE(strErr.Convert(Error(ErrorEnum::eFailed)).IsNone());
     EXPECT_EQ(strErr, "failed");
 
-    EXPECT_TRUE(strErr.Convert(Error(ErrorEnum::eRuntime, "file1", 123)).IsNone());
+    EXPECT_TRUE(strErr.Convert(Error(ErrorEnum::eRuntime, "", "file1", 123)).IsNone());
     EXPECT_EQ(strErr, "runtime error (file1:123)");
+
+    EXPECT_TRUE(strErr.Convert(Error(ErrorEnum::eRuntime, "error message", "file1", 123)).IsNone());
+    EXPECT_EQ(strErr, "error message (file1:123)");
+
+    StaticString<128> strErrno;
+    EXPECT_TRUE(strErrno.Convert(Error(EAGAIN, "error message", "file1", 123)).IsNone());
+    EXPECT_EQ(strErrno, "error message [Resource temporarily unavailable] (file1:123)");
 
     // Copy static string to static string
 
