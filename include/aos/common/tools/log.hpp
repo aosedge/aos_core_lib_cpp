@@ -195,14 +195,10 @@ public:
 
     Log& operator<<(const Error& err)
     {
-        *this << err.Message();
+        StaticString<cMaxErrorStrLen> tmpStr;
 
-        if (err.Errno() != 0) {
-            *this << " [" << err.Errno() << "]";
-        }
-
-        if (err.FileName() != nullptr) {
-            *this << " (" << err.FileName() << ":" << err.LineNumber() << ")";
+        if (tmpStr.Convert(err).IsNone()) {
+            return *this << tmpStr;
         }
 
         return *this;
