@@ -379,7 +379,17 @@ public:
     {
         Clear();
 
-        Append(inErr.Message());
+        auto msg = inErr.Message();
+        if (msg && *msg) {
+            Append(msg);
+        } else {
+            Append(inErr.StrValue());
+        }
+
+        auto strErrno = inErr.StrErrno();
+        if (strErrno && *strErrno) {
+            Append(" [").Append(strErrno).Append("]");
+        }
 
         if (inErr.FileName()) {
             char tmpBuf[16];
