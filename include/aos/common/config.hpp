@@ -634,4 +634,18 @@
 #define AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT 20
 #endif
 
+/**
+ * Max error message len.
+ */
+#ifndef AOS_CONFIG_ERROR_MESSAGE_LEN
+#define AOS_CONFIG_ERROR_MESSAGE_LEN 64
+#endif
+
+/**
+ * Max error print message len.
+ */
+#ifndef AOS_CONFIG_ERROR_STR_LEN
+#define AOS_CONFIG_ERROR_STR_LEN 128
+#endif
+
 #endif
