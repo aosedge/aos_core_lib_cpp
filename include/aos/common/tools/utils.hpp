@@ -40,7 +40,7 @@ constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int))
  */
 template <typename F, typename S>
 struct Pair {
-    Pair(F f, S s)
+    Pair(const F& f, const S& s)
         : mFirst(f)
         , mSecond(s) {};
 
