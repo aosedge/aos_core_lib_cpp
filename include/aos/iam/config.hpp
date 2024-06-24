@@ -106,4 +106,11 @@
 #define AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM 4
 #endif
 
+/**
+ * IAM API version.
+ */
+#ifndef AOS_CONFIG_IAM_API_VERSION
+#define AOS_CONFIG_IAM_API_VERSION 5
+#endif
+
 #endif
