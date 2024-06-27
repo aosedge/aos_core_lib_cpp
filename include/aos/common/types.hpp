@@ -444,6 +444,7 @@ struct PartitionInfo {
     size_t                                                              mTotalSize;
     StaticString<cFilePathLen>                                          mPath;
     size_t                                                              mUsedSize;
+    StaticString<cFilePathLen>                                          mMountPoint;
 
     /**
      * Compares partition info.

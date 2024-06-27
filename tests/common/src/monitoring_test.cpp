@@ -23,7 +23,8 @@ public:
         partitionInfo.mName = "partitionName";
         partitionInfo.mPath = "partitionPath";
         partitionInfo.mTypes.PushBack("partitionType");
-        partitionInfo.mTotalSize = 1000;
+        partitionInfo.mTotalSize  = 1000;
+        partitionInfo.mMountPoint = "mountPoint";
 
         mNodeInfo.mPartitions.PushBack(partitionInfo);
 
@@ -40,7 +41,8 @@ public:
         partitionInfo.mName = "partitionName";
         partitionInfo.mPath = "partitionPath";
         partitionInfo.mTypes.PushBack("partitionType");
-        partitionInfo.mTotalSize = 1000;
+        partitionInfo.mTotalSize  = 1000;
+        partitionInfo.mMountPoint = "mountPoint";
 
         nodeInfo.mPartitions.PushBack(partitionInfo);
 
@@ -216,6 +218,7 @@ TEST(CommonTest, ResourceMonitorGetNodeInfo)
     EXPECT_EQ(nodeInfo.mPartitions[0].mTypes.Size(), 1);
     EXPECT_EQ(nodeInfo.mPartitions[0].mTypes[0], "partitionType");
     EXPECT_EQ(nodeInfo.mPartitions[0].mTotalSize, 1000);
+    EXPECT_EQ(nodeInfo.mPartitions[0].mMountPoint, "mountPoint");
 }
 
 TEST(CommonTest, ResourceMonitorGetNodeMonitoringData)
