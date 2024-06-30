@@ -70,41 +70,9 @@ using LogLevelEnum = LogLevelType::Enum;
 using LogLevel     = EnumStringer<LogLevelType>;
 
 /**
- * Log module types.
- */
-class LogModuleType {
-public:
-    enum class Enum {
-        eDefault,
-        eSMLauncher,
-        eSMServiceManager,
-        eIAMCertHandler,
-        eIAMIdentHandler,
-        eIAMPermHandler,
-        eIAMNodeManager,
-        eCommonMonitoring,
-        eCommonPKCS11,
-        eCommonCrypto,
-        eProvisionManager,
-        eNumModules,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sLogModuleTypeStrings[] = {"default", "launcher", "servicemanager", "certhandler",
-            "identhandler", "permhandler", "nodemanager", "resourcemonitor", "pkcs11", "crypto", "provisionmanager"};
-
-        return Array<const char* const>(sLogModuleTypeStrings, ArraySize(sLogModuleTypeStrings));
-    };
-};
-
-using LogModuleEnum = LogModuleType::Enum;
-using LogModule     = EnumStringer<LogModuleType>;
-
-/**
  * Log line callback. Should be set in application to display log using application logging mechanism.
  */
-using LogCallback = void (*)(LogModule module, LogLevel level, const String& message);
+using LogCallback = void (*)(const char* module, LogLevel level, const String& message);
 
 /**
  * Implements log functionality.
@@ -122,7 +90,7 @@ public:
      * @param module log module type.
      * @param level log level type.
      */
-    Log(LogModule module, LogLevel level)
+    Log(const char* module, LogLevel level)
         : mModule(module)
         , mLevel(level)
         , mCurrentLen(0) {};
@@ -221,7 +189,7 @@ private:
     }
 
     StaticString<cMaxLineLen> mLogLine;
-    LogModule                 mModule;
+    const char*               mModule;
     LogLevel                  mLevel;
     size_t                    mCurrentLen;
 };
