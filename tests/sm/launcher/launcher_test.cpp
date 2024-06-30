@@ -366,11 +366,10 @@ TEST(LauncherTest, RunInstances)
 
     Launcher launcher;
 
-    Log::SetCallback([](LogModule module, LogLevel level, const String& message) {
+    Log::SetCallback([](const char* module, LogLevel level, const String& message) {
         std::lock_guard<std::mutex> lock(sLogMutex);
 
-        std::cout << level.ToString().CStr() << " | " << module.ToString().CStr() << " | " << message.CStr()
-                  << std::endl;
+        std::cout << level.ToString().CStr() << " | " << module << " | " << message.CStr() << std::endl;
     });
 
     auto feature = statusReceiver.GetFeature();

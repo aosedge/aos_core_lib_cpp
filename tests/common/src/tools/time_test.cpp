@@ -17,13 +17,12 @@ class TimeTest : public Test {
 private:
     void SetUp() override
     {
-        Log::SetCallback([](LogModule module, LogLevel level, const String& message) {
+        Log::SetCallback([](const char* module, LogLevel level, const String& message) {
             static std::mutex sLogMutex;
 
             std::lock_guard<std::mutex> lock(sLogMutex);
 
-            std::cout << level.ToString().CStr() << " | " << module.ToString().CStr() << " | " << message.CStr()
-                      << std::endl;
+            std::cout << level.ToString().CStr() << " | " << module << " | " << message.CStr() << std::endl;
         });
     }
 };

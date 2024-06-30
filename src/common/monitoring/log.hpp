@@ -8,11 +8,8 @@
 #ifndef LOG_HPP_
 #define LOG_HPP_
 
-#include "aos/common/tools/log.hpp"
+#define LOG_MODULE "resourcemonitor"
 
-#define LOG_DBG() LOG_MODULE_DBG(LogModuleEnum::eCommonMonitoring)
-#define LOG_INF() LOG_MODULE_INF(LogModuleEnum::eCommonMonitoring)
-#define LOG_WRN() LOG_MODULE_WRN(LogModuleEnum::eCommonMonitoring)
-#define LOG_ERR() LOG_MODULE_ERR(LogModuleEnum::eCommonMonitoring)
+#include "aos/common/tools/logger.hpp"
 
 #endif
