@@ -32,7 +32,7 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
         return err;
     }
 
-    mNodeMonitoringData.mNodeID         = nodeInfo.mID;
+    mNodeMonitoringData.mNodeID         = nodeInfo.mNodeID;
     mNodeMonitoringData.mMonitoringData = {};
 
     for (const auto& disk : nodeInfo.mPartitions) {

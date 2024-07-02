@@ -15,7 +15,7 @@ class MockResourceUsageProvider : public ResourceUsageProviderItf {
 public:
     Error Init() override
     {
-        mNodeInfo.mID = "node1";
+        mNodeInfo.mNodeID = "node1";
         mNodeInfo.mCPUs.Resize(1);
         mNodeInfo.mTotalRAM = 4000;
 
@@ -32,7 +32,7 @@ public:
 
     Error GetNodeInfo(NodeInfo& nodeInfo) const override
     {
-        nodeInfo.mID = "node1";
+        nodeInfo.mNodeID = "node1";
         nodeInfo.mCPUs.Resize(1);
         nodeInfo.mTotalRAM = 4000;
 
