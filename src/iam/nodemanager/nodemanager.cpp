@@ -47,7 +47,7 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
     Error err = ErrorEnum::eNone;
 
     if (info.mStatus == NodeStatusEnum::eUnprovisioned) {
-        err = mStorage->RemoveNodeInfo(info.mID);
+        err = mStorage->RemoveNodeInfo(info.mNodeID);
         if (err.Is(ErrorEnum::eNotFound)) {
             err = ErrorEnum::eNone;
         }
@@ -68,7 +68,7 @@ Error NodeManager::SetNodeStatus(const String& nodeId, NodeStatus status)
 
     GetNodeInfo(nodeId, nodeInfo);
 
-    nodeInfo.mID     = nodeId;
+    nodeInfo.mNodeID = nodeId;
     nodeInfo.mStatus = status;
 
     return SetNodeInfo(nodeInfo);
@@ -90,7 +90,7 @@ Error NodeManager::GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const
 Error NodeManager::GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const
 {
     for (const auto& nodeInfo : mNodeInfoCache) {
-        auto err = ids.PushBack(nodeInfo.mID);
+        auto err = ids.PushBack(nodeInfo.mNodeID);
         if (!err.IsNone()) {
             return err;
         }
@@ -138,7 +138,7 @@ Error NodeManager::SubscribeNodeInfoChange(NodeInfoListenerItf& listener)
 NodeInfo* NodeManager::GetNodeFromCache(const String& nodeId)
 {
     for (auto& nodeInfo : mNodeInfoCache) {
-        if (nodeInfo.mID == nodeId) {
+        if (nodeInfo.mNodeID == nodeId) {
             return &nodeInfo;
         }
     }
@@ -155,7 +155,7 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
 {
     bool isAdded = false;
 
-    auto cachedInfo = GetNodeFromCache(nodeInfo.mID);
+    auto cachedInfo = GetNodeFromCache(nodeInfo.mNodeID);
     if (cachedInfo == nullptr) {
         Error err = ErrorEnum::eNone;
 

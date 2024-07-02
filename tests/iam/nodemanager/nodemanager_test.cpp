@@ -40,7 +40,7 @@ NodeInfo CreateNodeInfo(const String& id, aos::NodeStatusEnum status)
 {
     NodeInfo info;
 
-    info.mID     = id;
+    info.mNodeID = id;
     info.mStatus = status;
 
     return info;
@@ -66,20 +66,20 @@ TEST_F(NodeManagerTest, Init)
     NodeInfo node1 = CreateNodeInfo("node1", NodeStatusEnum::ePaused);
 
     EXPECT_CALL(mStorage, GetAllNodeIds(_)).WillOnce(Invoke([&](Array<StaticString<cNodeIDLen>>& dst) {
-        dst.PushBack(node0.mID);
-        dst.PushBack(node1.mID);
+        dst.PushBack(node0.mNodeID);
+        dst.PushBack(node1.mNodeID);
 
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorage, GetNodeInfo(node0.mID, _)).WillOnce(Invoke([&](const String& nodeId, NodeInfo& nodeInfo) {
+    EXPECT_CALL(mStorage, GetNodeInfo(node0.mNodeID, _)).WillOnce(Invoke([&](const String& nodeId, NodeInfo& nodeInfo) {
         (void)nodeId;
         nodeInfo = node0;
 
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorage, GetNodeInfo(node1.mID, _)).WillOnce(Invoke([&](const String& nodeId, NodeInfo& nodeInfo) {
+    EXPECT_CALL(mStorage, GetNodeInfo(node1.mNodeID, _)).WillOnce(Invoke([&](const String& nodeId, NodeInfo& nodeInfo) {
         (void)nodeId;
         nodeInfo = node1;
 
@@ -91,14 +91,14 @@ TEST_F(NodeManagerTest, Init)
     StaticArray<StaticString<cNodeIDLen>, 2> ids;
 
     ASSERT_TRUE(mManager.GetAllNodeIds(ids).IsNone());
-    EXPECT_THAT(ConvertToStl(ids), ElementsAre(node0.mID, node1.mID));
+    EXPECT_THAT(ConvertToStl(ids), ElementsAre(node0.mNodeID, node1.mNodeID));
 }
 
 TEST_F(NodeManagerTest, SetNodeInfoUnprovisioned)
 {
     NodeInfo info = CreateNodeInfo("node0", NodeStatusEnum::eUnprovisioned);
 
-    EXPECT_CALL(mStorage, RemoveNodeInfo(info.mID)).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mStorage, RemoveNodeInfo(info.mNodeID)).WillOnce(Return(ErrorEnum::eNotFound));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
 }
 
@@ -124,7 +124,7 @@ TEST_F(NodeManagerTest, SetNodeStatusProvisioned)
     NodeInfo node0 = CreateNodeInfo("node0", NodeStatusEnum::eProvisioned);
 
     EXPECT_CALL(mStorage, SetNodeInfo(node0)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_TRUE(mManager.SetNodeStatus(node0.mID, node0.mStatus).IsNone());
+    ASSERT_TRUE(mManager.SetNodeStatus(node0.mNodeID, node0.mStatus).IsNone());
 }
 
 TEST_F(NodeManagerTest, GetNodeInfoNotFound)
@@ -144,7 +144,7 @@ TEST_F(NodeManagerTest, GetNodeInfoOk)
 
     NodeInfo result;
 
-    ASSERT_TRUE(mManager.GetNodeInfo(info.mID, result).IsNone());
+    ASSERT_TRUE(mManager.GetNodeInfo(info.mNodeID, result).IsNone());
     EXPECT_EQ(result, info);
 }
 
@@ -172,7 +172,7 @@ TEST_F(NodeManagerTest, RemoveNodeInfo)
     NodeInfo   nodeInfo;
     NodeStatus status = NodeStatusEnum::eProvisioned;
 
-    EXPECT_CALL(mStorage, SetNodeInfo(Field(&NodeInfo::mID, node0))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, SetNodeInfo(Field(&NodeInfo::mNodeID, node0))).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeStatus(node0, status).IsNone());
 
     ASSERT_EQ(mManager.GetNodeInfo(node0, nodeInfo), ErrorEnum::eNone);
@@ -208,7 +208,7 @@ TEST_F(NodeManagerTest, NotifyNodeRemoved)
     EXPECT_CALL(mStorage, SetNodeInfo(info)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
 
-    EXPECT_CALL(listener, OnNodeRemoved(info.mID)).Times(1);
-    EXPECT_CALL(mStorage, RemoveNodeInfo(info.mID)).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_TRUE(mManager.RemoveNodeInfo(info.mID).IsNone());
+    EXPECT_CALL(listener, OnNodeRemoved(info.mNodeID)).Times(1);
+    EXPECT_CALL(mStorage, RemoveNodeInfo(info.mNodeID)).WillOnce(Return(ErrorEnum::eNone));
+    ASSERT_TRUE(mManager.RemoveNodeInfo(info.mNodeID).IsNone());
 }
