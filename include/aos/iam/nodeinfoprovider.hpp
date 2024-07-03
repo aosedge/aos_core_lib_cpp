@@ -15,6 +15,41 @@ namespace aos {
 namespace iam {
 
 /**
+ * Main node attribute.
+ */
+static constexpr auto cAttrMainNode = "MainNode";
+
+/**
+ * Aos components attribute.
+ */
+static constexpr auto cAttrAosComponents = "AosComponents";
+
+/**
+ * Node runners attribute.
+ */
+static constexpr auto cAttrNodeRunners = "NodeRunners";
+
+/**
+ * Aos component cm.
+ */
+static constexpr auto cAosComponentCM = "cm";
+
+/**
+ * Aos component iam.
+ */
+static constexpr auto cAosComponentIAM = "iam";
+
+/**
+ * Aos component sm.
+ */
+static constexpr auto cAosComponentSM = "sm";
+
+/**
+ * Aos component um.
+ */
+static constexpr auto cAosComponentUM = "um";
+
+/**
  * Node info provider interface.
  */
 struct NodeInfoProviderItf {
