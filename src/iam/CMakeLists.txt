@@ -16,9 +16,10 @@ set(SOURCES
     certmodules/certmodule.cpp
     certmodules/pkcs11/pkcs11.cpp
     identmodules/fileidentifier.cpp
+    nodeinfoprovider/nodeinfoprovider.cpp
+    nodemanager/nodemanager.cpp
     permhandler/permhandler.cpp
     provisionmanager/provisionmanager.cpp
-    nodemanager/nodemanager.cpp
 )
 
 # ######################################################################################################################
