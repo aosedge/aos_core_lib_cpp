@@ -11,8 +11,7 @@
 #include "aos/common/tools/error.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace iam {
+namespace aos::iam::nodeinfoprovider {
 
 /**
  * Main node attribute.
@@ -50,9 +49,18 @@ static constexpr auto cAosComponentSM = "sm";
 static constexpr auto cAosComponentUM = "um";
 
 /**
+ * Checks if the node is the main node.
+ *
+ * @param nodeInfo node info.
+ * @return bool.
+ */
+bool IsMainNode(const NodeInfo& nodeInfo);
+
+/**
  * Node info provider interface.
  */
-struct NodeInfoProviderItf {
+class NodeInfoProviderItf {
+public:
     /**
      * Gets the node info object.
      *
@@ -75,7 +83,6 @@ struct NodeInfoProviderItf {
     virtual ~NodeInfoProviderItf() = default;
 };
 
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::nodeinfoprovider
 
 #endif
