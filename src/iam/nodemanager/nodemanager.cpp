@@ -25,9 +25,9 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
         return err;
     }
 
-    NodeInfo nodeInfo;
-
     for (const auto& nodeId : nodeIds) {
+        NodeInfo nodeInfo;
+
         err = storage.GetNodeInfo(nodeId, nodeInfo);
         if (!err.IsNone()) {
             return err;
