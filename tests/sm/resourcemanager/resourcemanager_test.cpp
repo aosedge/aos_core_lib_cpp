@@ -117,7 +117,7 @@ protected:
         ASSERT_TRUE(err.IsNone()) << "Failed to initialize resource manager: " << err.Message();
     }
 
-    void AddRandomDeviceInfo(NodeUnitConfig& nodeConfig)
+    void AddRandomDeviceInfo(NodeConfig& nodeConfig)
     {
         DeviceInfo randomDeviceInfo;
         randomDeviceInfo.mName        = "random";
@@ -139,7 +139,7 @@ protected:
         }
     }
 
-    void AddNullDeviceInfo(NodeUnitConfig& nodeConfig)
+    void AddNullDeviceInfo(NodeConfig& nodeConfig)
     {
         DeviceInfo nullDeviceInfo;
         nullDeviceInfo.mName        = "null";
@@ -160,7 +160,7 @@ protected:
     {
         unitConfig.mVendorVersion = version;
 
-        auto& nodeConfig     = unitConfig.mNodeUnitConfig;
+        auto& nodeConfig     = unitConfig.mNodeConfig;
         nodeConfig.mNodeType = nodeType;
 
         AddRandomDeviceInfo(nodeConfig);
@@ -213,7 +213,7 @@ TEST_F(ResourceManagerTest, GetDeviceInfoFails)
 {
     DeviceInfo result;
 
-    mUnitConfig.mNodeUnitConfig.mDevices.Clear();
+    mUnitConfig.mNodeConfig.mDevices.Clear();
     InitResourceManager();
 
     auto err = mResourceManager.GetDeviceInfo("random", result);
@@ -225,7 +225,7 @@ TEST_F(ResourceManagerTest, GetDeviceInfoSucceeds)
 {
     DeviceInfo result;
 
-    AddRandomDeviceInfo(mUnitConfig.mNodeUnitConfig);
+    AddRandomDeviceInfo(mUnitConfig.mNodeConfig);
 
     InitResourceManager();
 
@@ -239,7 +239,7 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsOnEmptyResourcesConfig)
     ResourceInfo result;
 
     // Clear resources
-    mUnitConfig.mNodeUnitConfig.mResources.Clear();
+    mUnitConfig.mNodeConfig.mResources.Clear();
 
     InitResourceManager();
 
@@ -254,10 +254,10 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsResourceNotFound)
     ResourceInfo resource;
     resource.mName = "resource-one";
 
-    auto err = mUnitConfig.mNodeUnitConfig.mResources.PushBack(resource);
+    auto err = mUnitConfig.mNodeConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mUnitConfig.mNodeUnitConfig.mResources.Back().mValue.mName = "resource-one";
+    mUnitConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
 
     InitResourceManager();
 
@@ -272,10 +272,10 @@ TEST_F(ResourceManagerTest, GetResourceSucceeds)
     ResourceInfo resource;
     resource.mName = "resource-one";
 
-    auto err = mUnitConfig.mNodeUnitConfig.mResources.PushBack(resource);
+    auto err = mUnitConfig.mNodeConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mUnitConfig.mNodeUnitConfig.mResources.Back().mValue.mName = "resource-one";
+    mUnitConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
 
     InitResourceManager();
 
@@ -307,7 +307,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceFailsOnHostDeviceManagerSide)
     DeviceInfo deviceInfo;
     deviceInfo.mName = "device-name";
 
-    auto err = mUnitConfig.mNodeUnitConfig.mDevices.PushBack(deviceInfo);
+    auto err = mUnitConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
     InitResourceManager();
@@ -324,7 +324,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceSucceeds)
     DeviceInfo deviceInfo;
     deviceInfo.mName = "device-name";
 
-    auto err = mUnitConfig.mNodeUnitConfig.mDevices.PushBack(deviceInfo);
+    auto err = mUnitConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
     InitResourceManager();
@@ -424,7 +424,7 @@ TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnNodeTypeMismatch)
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Invoke([&](const String&, UnitConfig& unitConfig) {
-        unitConfig.mNodeUnitConfig.mNodeType = "wrongType";
+        unitConfig.mNodeConfig.mNodeType = "wrongType";
 
         return ErrorEnum::eNone;
     }));
@@ -437,8 +437,8 @@ TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnEmptyUnitConfigDevices)
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Invoke([&](const String&, UnitConfig& unitConfig) {
-        unitConfig.mNodeUnitConfig.mNodeType = cNodeType;
-        unitConfig.mNodeUnitConfig.mDevices.Clear();
+        unitConfig.mNodeConfig.mNodeType = cNodeType;
+        unitConfig.mNodeConfig.mDevices.Clear();
 
         return ErrorEnum::eNone;
     }));

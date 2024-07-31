@@ -641,9 +641,9 @@ struct ResourceInfo {
 };
 
 /**
- * Node unit config.
+ * Node config.
  */
-struct NodeUnitConfig {
+struct NodeConfig {
     StaticString<cNodeTypeLen>                                  mNodeType;
     StaticArray<DeviceInfo, cMaxNumDevices>                     mDevices;
     StaticArray<ResourceInfo, cMaxNumNodeResources>             mResources;
@@ -651,25 +651,25 @@ struct NodeUnitConfig {
     uint32_t                                                    mPriority {0};
 
     /**
-     * Compares node unit config.
+     * Compares node configs.
      *
-     * @param nodeUnitConfig node unit config to compare.
+     * @param nodeConfig node config to compare.
      * @return bool.
      */
-    bool operator==(const NodeUnitConfig& nodeUnitConfig) const
+    bool operator==(const NodeConfig& nodeConfig) const
     {
-        return mNodeType == nodeUnitConfig.mNodeType && mDevices == nodeUnitConfig.mDevices
-            && mResources == nodeUnitConfig.mResources && mLabels == nodeUnitConfig.mLabels
-            && mPriority == nodeUnitConfig.mPriority;
+        return mNodeType == nodeConfig.mNodeType && mDevices == nodeConfig.mDevices
+            && mResources == nodeConfig.mResources && mLabels == nodeConfig.mLabels
+            && mPriority == nodeConfig.mPriority;
     }
 
     /**
-     * Compares node unit config.
+     * Compares node configs.
      *
-     * @param nodeUnitConfig node unit config to compare.
+     * @param nodeConfig node config to compare.
      * @return bool.
      */
-    bool operator!=(const NodeUnitConfig& nodeUnitConfig) const { return !operator==(nodeUnitConfig); }
+    bool operator!=(const NodeConfig& nodeConfig) const { return !operator==(nodeConfig); }
 };
 /**
  * Partition info.

@@ -22,7 +22,7 @@ namespace resourcemanager {
  * Unit config contains single node unit details.
  */
 struct UnitConfig {
-    NodeUnitConfig            mNodeUnitConfig;
+    NodeConfig                mNodeConfig;
     StaticString<cVersionLen> mVendorVersion;
 };
 
@@ -39,20 +39,20 @@ public:
     /**
      * Dumps node unit config object from json string.
      *
-     * @param nodeUnitConfig node unit config object.
+     * @param nodeConfig node config object.
      * @param[out] json json representation of node unit config.
      * @return Error.
      */
-    virtual Error DumpUnitConfig(const UnitConfig& nodeUnitConfig, String& json) const = 0;
+    virtual Error DumpUnitConfig(const UnitConfig& nodeConfig, String& json) const = 0;
 
     /**
      * Parses node unit config json string from object.
      *
      * @param json json representation of node unit config.
-     * @param[out] nodeUnitConfig node unit config.
+     * @param[out] nodeConfig node unit config.
      * @return Error.
      */
-    virtual Error ParseNodeUnitConfig(const String& json, UnitConfig& nodeUnitConfig) const = 0;
+    virtual Error ParseNodeUnitConfig(const String& json, UnitConfig& nodeConfig) const = 0;
 };
 
 /**
@@ -320,7 +320,7 @@ private:
     static constexpr auto cConfigJSONLen = AOS_CONFIG_UNIT_CONFIG_JSON_LEN;
 
     Error LoadUnitConfig();
-    Error ValidateUnitConfig(const NodeUnitConfig& nodeUnitConfig) const;
+    Error ValidateUnitConfig(const NodeConfig& nodeConfig) const;
     Error ValidateDevices(const Array<DeviceInfo>& devices) const;
     Error GetUnitConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const;
 

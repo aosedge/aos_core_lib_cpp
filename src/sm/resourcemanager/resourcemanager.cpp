@@ -73,7 +73,7 @@ Error ResourceManager::GetResourceInfo(const String& resourceName, ResourceInfo&
 
     LOG_DBG() << "Get resource info: resourceName = " << resourceName;
 
-    for (const auto& resource : mUnitConfig.mNodeUnitConfig.mResources) {
+    for (const auto& resource : mUnitConfig.mNodeConfig.mResources) {
         if (resource.mName == resourceName) {
             resourceInfo = resource;
 
@@ -152,7 +152,7 @@ Error ResourceManager::CheckUnitConfig(const String& version, const String& unit
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ValidateUnitConfig(updatedUnitConfig.mNodeUnitConfig);
+    err = ValidateUnitConfig(updatedUnitConfig.mNodeConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -229,15 +229,15 @@ Error ResourceManager::LoadUnitConfig()
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::ValidateUnitConfig(const NodeUnitConfig& nodeUnitConfig) const
+Error ResourceManager::ValidateUnitConfig(const NodeConfig& nodeConfig) const
 {
-    if (mNodeType != nodeUnitConfig.mNodeType) {
+    if (mNodeType != nodeConfig.mNodeType) {
         LOG_ERR() << "Invalid node type";
 
         return ErrorEnum::eInvalidArgument;
     }
 
-    if (auto err = ValidateDevices(nodeUnitConfig.mDevices); !err.IsNone()) {
+    if (auto err = ValidateDevices(nodeConfig.mDevices); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -271,7 +271,7 @@ Error ResourceManager::ValidateDevices(const Array<DeviceInfo>& devices) const
 
 Error ResourceManager::GetUnitConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const
 {
-    for (auto& device : mUnitConfig.mNodeUnitConfig.mDevices) {
+    for (auto& device : mUnitConfig.mNodeConfig.mDevices) {
         if (device.mName == deviceName) {
             deviceInfo = device;
 
