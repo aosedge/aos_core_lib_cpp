@@ -26,7 +26,7 @@ namespace resourcemanager {
  * Constants
  **********************************************************************************************************************/
 
-constexpr auto      cTestNodeConfigJSON  = R"({
+constexpr auto      cTestNodeConfigJSON = R"({
 	"nodeType": "mainType",
 	"devices": [
 		{
@@ -82,11 +82,10 @@ constexpr auto      cTestNodeConfigJSON  = R"({
 		}
 	]
 })";
-constexpr auto      cEmptyUnitConfigJSON = R"({"vendorVersion" : "1.0", "nodeType" : "mainType", "devices" : []})";
-static const String cUnitConfigFilePath  = "test-unit-config.cfg";
-static const String cUnitConfigValue     = R"({"version": "1.0.0"})";
-static const String cUnitConfigVersion   = "1.0.0";
-static const String cNodeType            = "mainType";
+static const String cConfigFilePath     = "test-config.cfg";
+static const String cConfigValue        = R"({"version": "1.0.0"})";
+static const String cConfigVersion      = "1.0.0";
+static const String cNodeType           = "mainType";
 
 /***********************************************************************************************************************
  * Suite
@@ -98,26 +97,26 @@ protected:
     {
         InitLogs();
 
-        auto err = FS::WriteStringToFile(cUnitConfigFilePath, cUnitConfigValue, S_IRUSR | S_IWUSR);
+        auto err = FS::WriteStringToFile(cConfigFilePath, cConfigValue, S_IRUSR | S_IWUSR);
         EXPECT_TRUE(err.IsNone()) << "SetUp failed to write string to file: " << err.Message();
 
-        mUnitConfig.mVendorVersion = cUnitConfigVersion;
+        mConfig.mVendorVersion = cConfigVersion;
     }
 
     void InitResourceManager(const ErrorEnum cJSONParseError = ErrorEnum::eNone)
     {
-        EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Invoke([&](const String&, UnitConfig& unitConfig) {
-            unitConfig = mUnitConfig;
+        EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+            config = mConfig;
 
             return cJSONParseError;
         }));
 
-        auto err = mResourceManager.Init(
-            mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cUnitConfigFilePath);
+        auto err
+            = mResourceManager.Init(mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cConfigFilePath);
         ASSERT_TRUE(err.IsNone()) << "Failed to initialize resource manager: " << err.Message();
     }
 
-    void AddRandomDeviceInfo(NodeConfig& nodeConfig)
+    void AddRandomDeviceInfo(aos::sm::resourcemanager::NodeConfig& config)
     {
         DeviceInfo randomDeviceInfo;
         randomDeviceInfo.mName        = "random";
@@ -133,13 +132,13 @@ protected:
             LOG_ERR() << "Failed to add a new host device: " << err;
         }
 
-        err = nodeConfig.mDevices.PushBack(Move(randomDeviceInfo));
+        err = config.mNodeConfig.mDevices.PushBack(Move(randomDeviceInfo));
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to add a new resource: " << err;
         }
     }
 
-    void AddNullDeviceInfo(NodeConfig& nodeConfig)
+    void AddNullDeviceInfo(aos::sm::resourcemanager::NodeConfig& config)
     {
         DeviceInfo nullDeviceInfo;
         nullDeviceInfo.mName        = "null";
@@ -150,24 +149,23 @@ protected:
             LOG_ERR() << "Failed to add a new host device: " << err;
         }
 
-        err = nodeConfig.mDevices.PushBack(Move(nullDeviceInfo));
+        err = config.mNodeConfig.mDevices.PushBack(Move(nullDeviceInfo));
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to add a new resource: " << err;
         }
     }
 
-    void EnrichUnitConfig(UnitConfig& unitConfig, const String& nodeType, const String& version)
+    void EnrichUnitConfig(aos::sm::resourcemanager::NodeConfig& config, const String& nodeType, const String& version)
     {
-        unitConfig.mVendorVersion = version;
+        config.mVendorVersion = version;
 
-        auto& nodeConfig     = unitConfig.mNodeConfig;
-        nodeConfig.mNodeType = nodeType;
+        config.mNodeConfig.mNodeType = nodeType;
 
-        AddRandomDeviceInfo(nodeConfig);
-        AddNullDeviceInfo(nodeConfig);
+        AddRandomDeviceInfo(config);
+        AddNullDeviceInfo(config);
     }
 
-    UnitConfig            mUnitConfig;
+    NodeConfig            mConfig;
     JSONProviderMock      mJsonProvider;
     HostDeviceManagerMock mHostDeviceManager;
     HostGroupManagerMock  mHostGroupManager;
@@ -185,12 +183,11 @@ TEST_F(ResourceManagerTest, InitSuccessfullyParsesUnitConfigFile)
 
 TEST_F(ResourceManagerTest, InitSucceedsWhenUnitConfigFileDoesNotExist)
 {
-    FS::Remove(cUnitConfigFilePath);
+    FS::Remove(cConfigFilePath);
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).Times(0);
 
-    auto err
-        = mResourceManager.Init(mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cUnitConfigFilePath);
+    auto err = mResourceManager.Init(mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cConfigFilePath);
     ASSERT_TRUE(err.IsNone()) << "Failed to initialize resource manager: " << err.Message();
 }
 
@@ -206,14 +203,14 @@ TEST_F(ResourceManagerTest, GetUnitConfigSucceeds)
     auto ret = mResourceManager.GetVersion();
     ASSERT_TRUE(ret.mError.IsNone()) << "Failed to get unit config info: " << ret.mError.Message();
 
-    EXPECT_EQ(ret.mValue, cUnitConfigVersion) << "lhs: " << ret.mValue.CStr() << " rhs: " << cUnitConfigVersion.CStr();
+    EXPECT_EQ(ret.mValue, cConfigVersion) << "lhs: " << ret.mValue.CStr() << " rhs: " << cConfigVersion.CStr();
 }
 
 TEST_F(ResourceManagerTest, GetDeviceInfoFails)
 {
     DeviceInfo result;
 
-    mUnitConfig.mNodeConfig.mDevices.Clear();
+    mConfig.mNodeConfig.mDevices.Clear();
     InitResourceManager();
 
     auto err = mResourceManager.GetDeviceInfo("random", result);
@@ -225,7 +222,7 @@ TEST_F(ResourceManagerTest, GetDeviceInfoSucceeds)
 {
     DeviceInfo result;
 
-    AddRandomDeviceInfo(mUnitConfig.mNodeConfig);
+    AddRandomDeviceInfo(mConfig);
 
     InitResourceManager();
 
@@ -239,7 +236,7 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsOnEmptyResourcesConfig)
     ResourceInfo result;
 
     // Clear resources
-    mUnitConfig.mNodeConfig.mResources.Clear();
+    mConfig.mNodeConfig.mResources.Clear();
 
     InitResourceManager();
 
@@ -254,10 +251,10 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsResourceNotFound)
     ResourceInfo resource;
     resource.mName = "resource-one";
 
-    auto err = mUnitConfig.mNodeConfig.mResources.PushBack(resource);
+    auto err = mConfig.mNodeConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mUnitConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
+    mConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
 
     InitResourceManager();
 
@@ -272,10 +269,10 @@ TEST_F(ResourceManagerTest, GetResourceSucceeds)
     ResourceInfo resource;
     resource.mName = "resource-one";
 
-    auto err = mUnitConfig.mNodeConfig.mResources.PushBack(resource);
+    auto err = mConfig.mNodeConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mUnitConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
+    mConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
 
     InitResourceManager();
 
@@ -307,7 +304,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceFailsOnHostDeviceManagerSide)
     DeviceInfo deviceInfo;
     deviceInfo.mName = "device-name";
 
-    auto err = mUnitConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
+    auto err = mConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
     InitResourceManager();
@@ -324,7 +321,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceSucceeds)
     DeviceInfo deviceInfo;
     deviceInfo.mName = "device-name";
 
-    auto err = mUnitConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
+    auto err = mConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
     InitResourceManager();
@@ -403,9 +400,9 @@ TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnVendorVersionMatch)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).Times(0);
 
-    auto err = mResourceManager.CheckUnitConfig(mUnitConfig.mVendorVersion, cTestNodeConfigJSON);
+    auto err = mResourceManager.CheckNodeConfig(mConfig.mVendorVersion, cTestNodeConfigJSON);
     ASSERT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << "Expected error invalid argument, got: " << err.Message();
 }
 
@@ -413,9 +410,9 @@ TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnConfigJSONParse)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Return(ErrorEnum::eFailed));
 
-    auto err = mResourceManager.CheckUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.Is(ErrorEnum::eFailed)) << "Expected error failed, got: " << err.Message();
 }
 
@@ -423,12 +420,12 @@ TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnNodeTypeMismatch)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Invoke([&](const String&, UnitConfig& unitConfig) {
-        unitConfig.mNodeConfig.mNodeType = "wrongType";
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+        config.mNodeConfig.mNodeType = "wrongType";
 
         return ErrorEnum::eNone;
     }));
-    auto err = mResourceManager.CheckUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << "Expected error invalid argument, got: " << err.Message();
 }
 
@@ -436,9 +433,9 @@ TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnEmptyUnitConfigDevices)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Invoke([&](const String&, UnitConfig& unitConfig) {
-        unitConfig.mNodeConfig.mNodeType = cNodeType;
-        unitConfig.mNodeConfig.mDevices.Clear();
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+        config.mNodeConfig.mNodeType = cNodeType;
+        config.mNodeConfig.mDevices.Clear();
 
         return ErrorEnum::eNone;
     }));
@@ -446,7 +443,7 @@ TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnEmptyUnitConfigDevices)
     EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
     EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
 
-    auto err = mResourceManager.CheckUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();
 }
 
@@ -454,8 +451,8 @@ TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnNonEmptyUnitConfigDevices)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Invoke([&](const String&, UnitConfig& unitConfig) {
-        EnrichUnitConfig(unitConfig, cNodeType, "1.0.2");
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+        EnrichUnitConfig(config, cNodeType, "1.0.2");
 
         return ErrorEnum::eNone;
     }));
@@ -463,7 +460,7 @@ TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnNonEmptyUnitConfigDevices)
     EXPECT_CALL(mHostDeviceManager, DeviceExists).WillRepeatedly(Return(true));
     EXPECT_CALL(mHostGroupManager, GroupExists).WillRepeatedly(Return(true));
 
-    auto err = mResourceManager.CheckUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();
 }
 
@@ -471,13 +468,13 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigFailsOnInvalidJSON)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Return(ErrorEnum::eFailed));
 
     EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
     EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
-    EXPECT_CALL(mJsonProvider, DumpUnitConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, DumpNodeConfig).Times(0);
 
-    auto err = mResourceManager.UpdateUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_FALSE(err.IsNone()) << "Update unit config should fail on invalid JSON";
 }
 
@@ -485,13 +482,13 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigFailsOnJSONDump)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mJsonProvider, DumpUnitConfig).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mJsonProvider, DumpNodeConfig).WillOnce(Return(ErrorEnum::eFailed));
 
     EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
     EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
 
-    auto err = mResourceManager.UpdateUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_FALSE(err.IsNone()) << "Update unit config should fail on JSON dump";
 }
 
@@ -499,10 +496,10 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigSucceeds)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeUnitConfig)
+    EXPECT_CALL(mJsonProvider, ParseNodeConfig)
         .Times(2)
-        .WillRepeatedly(Invoke([&](const String&, UnitConfig& unitConfig) {
-            EnrichUnitConfig(unitConfig, cNodeType, "1.0.2");
+        .WillRepeatedly(Invoke([&](const String&, aos::sm::resourcemanager::NodeConfig& config) {
+            EnrichUnitConfig(config, cNodeType, "1.0.2");
 
             return ErrorEnum::eNone;
         }));
@@ -510,9 +507,9 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigSucceeds)
     EXPECT_CALL(mHostDeviceManager, DeviceExists).WillRepeatedly(Return(true));
     EXPECT_CALL(mHostGroupManager, GroupExists).WillRepeatedly(Return(true));
 
-    EXPECT_CALL(mJsonProvider, DumpUnitConfig).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mJsonProvider, DumpNodeConfig).WillOnce(Return(ErrorEnum::eNone));
 
-    auto err = mResourceManager.UpdateUnitConfig("1.0.2", cTestNodeConfigJSON);
+    auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();
 }
 

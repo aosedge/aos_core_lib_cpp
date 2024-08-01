@@ -24,19 +24,19 @@ namespace resourcemanager {
  **********************************************************************************************************************/
 
 Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf& hostDeviceManager,
-    HostGroupManagerItf& hostGroupManager, const String& nodeType, const String& unitConfigPath)
+    HostGroupManagerItf& hostGroupManager, const String& nodeType, const String& configPath)
 {
     mJsonProvider      = &jsonProvider;
     mHostDeviceManager = &hostDeviceManager;
     mHostGroupManager  = &hostGroupManager;
     mNodeType          = nodeType;
-    mUnitConfigPath    = unitConfigPath;
+    mConfigPath        = configPath;
 
-    auto err = LoadUnitConfig();
+    auto err = LoadConfig();
     if (!err.IsNone()) {
         LOG_ERR() << "Failed to load unit config: " << err;
 
-        mUnitConfigError = err;
+        mConfigError = err;
     }
 
     return ErrorEnum::eNone;
@@ -46,9 +46,9 @@ RetWithError<StaticString<cVersionLen>> ResourceManager::GetVersion() const
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Get unit config info";
+    LOG_DBG() << "Get config version";
 
-    return {mUnitConfig.mVendorVersion, ErrorEnum::eNone};
+    return {mConfig.mVendorVersion, ErrorEnum::eNone};
 }
 
 Error ResourceManager::GetDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const
@@ -57,7 +57,7 @@ Error ResourceManager::GetDeviceInfo(const String& deviceName, DeviceInfo& devic
 
     LOG_DBG() << "Get device info: device = " << deviceName;
 
-    auto err = GetUnitConfigDeviceInfo(deviceName, deviceInfo);
+    auto err = GetConfigDeviceInfo(deviceName, deviceInfo);
     if (!err.IsNone()) {
         LOG_ERR() << "Device not found: device = " << deviceName;
 
@@ -73,7 +73,7 @@ Error ResourceManager::GetResourceInfo(const String& resourceName, ResourceInfo&
 
     LOG_DBG() << "Get resource info: resourceName = " << resourceName;
 
-    for (const auto& resource : mUnitConfig.mNodeConfig.mResources) {
+    for (const auto& resource : mConfig.mNodeConfig.mResources) {
         if (resource.mName == resourceName) {
             resourceInfo = resource;
 
@@ -90,13 +90,13 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
 
     LOG_DBG() << "Allocate device: device = " << deviceName << ", instance = " << instanceID;
 
-    if (!mUnitConfigError.IsNone()) {
-        return AOS_ERROR_WRAP(mUnitConfigError);
+    if (!mConfigError.IsNone()) {
+        return AOS_ERROR_WRAP(mConfigError);
     }
 
     DeviceInfo deviceInfo;
 
-    auto err = GetUnitConfigDeviceInfo(deviceName, deviceInfo);
+    auto err = GetConfigDeviceInfo(deviceName, deviceInfo);
     if (!err.IsNone()) {
         LOG_ERR() << "Device not found: device = " << deviceName;
 
@@ -134,25 +134,25 @@ Error ResourceManager::GetDeviceInstances(
     return mHostDeviceManager->GetDeviceInstances(deviceName, instanceIDs);
 }
 
-Error ResourceManager::CheckUnitConfig(const String& version, const String& unitConfig) const
+Error ResourceManager::CheckNodeConfig(const String& version, const String& config) const
 {
     LockGuard lock(mMutex);
 
     LOG_DBG() << "Check unit config: version = " << version;
 
-    if (version == mUnitConfig.mVendorVersion) {
+    if (version == mConfig.mVendorVersion) {
         LOG_INF() << "Invalid vendor version";
 
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    UnitConfig updatedUnitConfig;
-    auto       err = mJsonProvider->ParseNodeUnitConfig(unitConfig, updatedUnitConfig);
+    sm::resourcemanager::NodeConfig updatedConfig;
+    auto                            err = mJsonProvider->ParseNodeConfig(config, updatedConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ValidateUnitConfig(updatedUnitConfig.mNodeConfig);
+    err = ValidateNodeConfig(updatedConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -160,43 +160,43 @@ Error ResourceManager::CheckUnitConfig(const String& version, const String& unit
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::UpdateUnitConfig(const String& version, const String& unitConfig)
+Error ResourceManager::UpdateNodeConfig(const String& version, const String& config)
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Update unit config: version = " << version;
+    LOG_DBG() << "Update config: version = " << version;
 
-    UnitConfig updatedUnitConfig;
+    sm::resourcemanager::NodeConfig updatedConfig;
 
-    auto err = mJsonProvider->ParseNodeUnitConfig(unitConfig, updatedUnitConfig);
+    auto err = mJsonProvider->ParseNodeConfig(config, updatedConfig);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to parse update unit config: " << err;
+        LOG_ERR() << "Failed to parse config: " << err;
 
         return AOS_ERROR_WRAP(err);
     }
 
-    updatedUnitConfig.mVendorVersion = version;
+    updatedConfig.mVendorVersion = version;
 
-    StaticString<cConfigJSONLen> newUnitConfigJson;
-    err = mJsonProvider->DumpUnitConfig(updatedUnitConfig, newUnitConfigJson);
+    StaticString<cConfigJSONLen> newConfigJson;
+    err = mJsonProvider->DumpNodeConfig(updatedConfig, newConfigJson);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to dump update unit config: " << err;
+        LOG_ERR() << "Failed to dump config: " << err;
 
         return AOS_ERROR_WRAP(err);
     }
 
-    err = FS::WriteStringToFile(mUnitConfigPath, newUnitConfigJson, S_IRUSR | S_IWUSR);
+    err = FS::WriteStringToFile(mConfigPath, newConfigJson, S_IRUSR | S_IWUSR);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to write update unit config: " << err;
+        LOG_ERR() << "Failed to write config: " << err;
 
         return AOS_ERROR_WRAP(err);
     }
 
-    err = LoadUnitConfig();
+    err = LoadConfig();
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to load updated unit config: " << err;
+        LOG_ERR() << "Failed to load config: " << err;
 
-        mUnitConfigError = err;
+        mConfigError = err;
 
         return AOS_ERROR_WRAP(err);
     }
@@ -208,20 +208,20 @@ Error ResourceManager::UpdateUnitConfig(const String& version, const String& uni
  * Private
  **********************************************************************************************************************/
 
-Error ResourceManager::LoadUnitConfig()
+Error ResourceManager::LoadConfig()
 {
-    StaticString<cConfigJSONLen> unitConfig;
+    StaticString<cConfigJSONLen> config;
 
-    auto err = FS::ReadFileToString(mUnitConfigPath, unitConfig);
+    auto err = FS::ReadFileToString(mConfigPath, config);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to read unit config file: path = " << mUnitConfigPath << ", error = " << err;
+        LOG_ERR() << "Failed to read config file: path=" << mConfigPath << ", error=" << err;
 
         return err;
     }
 
-    err = mJsonProvider->ParseNodeUnitConfig(unitConfig, mUnitConfig);
+    err = mJsonProvider->ParseNodeConfig(config, mConfig);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to parse unit config file: " << err;
+        LOG_ERR() << "Failed to parse config file: " << err;
 
         return err;
     }
@@ -229,15 +229,15 @@ Error ResourceManager::LoadUnitConfig()
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::ValidateUnitConfig(const NodeConfig& nodeConfig) const
+Error ResourceManager::ValidateNodeConfig(const aos::sm::resourcemanager::NodeConfig& config) const
 {
-    if (mNodeType != nodeConfig.mNodeType) {
+    if (mNodeType != config.mNodeConfig.mNodeType) {
         LOG_ERR() << "Invalid node type";
 
         return ErrorEnum::eInvalidArgument;
     }
 
-    if (auto err = ValidateDevices(nodeConfig.mDevices); !err.IsNone()) {
+    if (auto err = ValidateDevices(config.mNodeConfig.mDevices); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -269,9 +269,9 @@ Error ResourceManager::ValidateDevices(const Array<DeviceInfo>& devices) const
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::GetUnitConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const
+Error ResourceManager::GetConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const
 {
-    for (auto& device : mUnitConfig.mNodeConfig.mDevices) {
+    for (auto& device : mConfig.mNodeConfig.mDevices) {
         if (device.mName == deviceName) {
             deviceInfo = device;
 

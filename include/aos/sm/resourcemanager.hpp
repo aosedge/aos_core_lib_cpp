@@ -19,10 +19,10 @@ namespace sm {
 namespace resourcemanager {
 
 /**
- * Unit config contains single node unit details.
+ * Config.
  */
-struct UnitConfig {
-    NodeConfig                mNodeConfig;
+struct NodeConfig {
+    aos::NodeConfig           mNodeConfig;
     StaticString<cVersionLen> mVendorVersion;
 };
 
@@ -37,22 +37,22 @@ public:
     virtual ~JSONProviderItf() = default;
 
     /**
-     * Dumps node unit config object from json string.
+     * Dumps config object into string.
      *
-     * @param nodeConfig node config object.
-     * @param[out] json json representation of node unit config.
+     * @param config config object.
+     * @param[out] json json representation of config.
      * @return Error.
      */
-    virtual Error DumpUnitConfig(const UnitConfig& nodeConfig, String& json) const = 0;
+    virtual Error DumpNodeConfig(const NodeConfig& config, String& json) const = 0;
 
     /**
-     * Parses node unit config json string from object.
+     * Parses config object from string.
      *
-     * @param json json representation of node unit config.
-     * @param[out] nodeConfig node unit config.
+     * @param json json representation of config.
+     * @param[out] config config.
      * @return Error.
      */
-    virtual Error ParseNodeUnitConfig(const String& json, UnitConfig& nodeConfig) const = 0;
+    virtual Error ParseNodeConfig(const String& json, NodeConfig& config) const = 0;
 };
 
 /**
@@ -201,22 +201,22 @@ public:
         = 0;
 
     /**
-     * Checks new unit configuration.
+     * Checks configuration.
      *
-     * @param version unit config version
-     * @param unitConfig string with unit configuration.
+     * @param version config version
+     * @param config string with configuration.
      * @return Error.
      */
-    virtual Error CheckUnitConfig(const String& version, const String& unitConfig) const = 0;
+    virtual Error CheckNodeConfig(const String& version, const String& config) const = 0;
 
     /**
-     * Updates unit configuration.
+     * Updates configuration.
      *
-     * @param version unit config version.
-     * @param unitConfig string with unit configuration.
+     * @param version config version.
+     * @param config string with configuration.
      * @return Error.
      */
-    virtual Error UpdateUnitConfig(const String& version, const String& unitConfig) = 0;
+    virtual Error UpdateNodeConfig(const String& version, const String& config) = 0;
 };
 
 /**
@@ -232,11 +232,11 @@ public:
      * @param hostDeviceManager host device manager.
      * @param hostGroupManager host group manager.
      * @param nodeType node type.
-     * @param unitConfigPath path to unit config file.
+     * @param configPath path to config file.
      * @result Error.
      */
     Error Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf& hostDeviceManager,
-        HostGroupManagerItf& hostGroupManager, const String& nodeType, const String& unitConfigPath);
+        HostGroupManagerItf& hostGroupManager, const String& nodeType, const String& configPath);
 
     /**
      * Gets current version.
@@ -299,39 +299,39 @@ public:
     Error GetDeviceInstances(const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const override;
 
     /**
-     * Checks new unit configuration.
+     * Checks configuration.
      *
      * @param version unit config version
-     * @param unitConfig string with unit configuration.
+     * @param config string with  configuration.
      * @return Error.
      */
-    Error CheckUnitConfig(const String& version, const String& unitConfig) const override;
+    Error CheckNodeConfig(const String& version, const String& config) const override;
 
     /**
-     * Updates unit configuration.
+     * Updates configuration.
      *
      * @param version unit config version.
-     * @param unitConfig string with unit configuration.
+     * @param config string with configuration.
      * @return Error.
      */
-    Error UpdateUnitConfig(const String& version, const String& unitConfig) override;
+    Error UpdateNodeConfig(const String& version, const String& config) override;
 
 private:
     static constexpr auto cConfigJSONLen = AOS_CONFIG_UNIT_CONFIG_JSON_LEN;
 
-    Error LoadUnitConfig();
-    Error ValidateUnitConfig(const NodeConfig& nodeConfig) const;
+    Error LoadConfig();
+    Error ValidateNodeConfig(const NodeConfig& config) const;
     Error ValidateDevices(const Array<DeviceInfo>& devices) const;
-    Error GetUnitConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const;
+    Error GetConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const;
 
     mutable Mutex              mMutex;
     JSONProviderItf*           mJsonProvider {nullptr};
     HostDeviceManagerItf*      mHostDeviceManager {nullptr};
     HostGroupManagerItf*       mHostGroupManager {nullptr};
-    StaticString<cFilePathLen> mUnitConfigPath;
     StaticString<cNodeTypeLen> mNodeType;
-    Error                      mUnitConfigError {ErrorEnum::eNone};
-    UnitConfig                 mUnitConfig;
+    StaticString<cFilePathLen> mConfigPath;
+    Error                      mConfigError {ErrorEnum::eNone};
+    NodeConfig                 mConfig;
 };
 
 } // namespace resourcemanager
