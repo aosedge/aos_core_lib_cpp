@@ -16,6 +16,8 @@
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/log.hpp"
 #include "aos/sm/launcher.hpp"
+
+#include "log.hpp"
 #include "utils.hpp"
 
 using namespace aos::sm::runner;
@@ -366,11 +368,7 @@ TEST(LauncherTest, RunInstances)
 
     Launcher launcher;
 
-    Log::SetCallback([](const char* module, LogLevel level, const String& message) {
-        std::lock_guard<std::mutex> lock(sLogMutex);
-
-        std::cout << level.ToString().CStr() << " | " << module << " | " << message.CStr() << std::endl;
-    });
+    InitLog();
 
     auto feature = statusReceiver.GetFeature();
 

@@ -24,7 +24,7 @@ using namespace testing;
 
 class PermHandlerTest : public Test {
 protected:
-    void SetUp() override { InitLogs(); }
+    void SetUp() override { InitLog(); }
 
     PermHandler mPermHandler;
 };

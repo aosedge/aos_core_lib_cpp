@@ -11,6 +11,7 @@
 
 #include "aos/sm/servicemanager.hpp"
 
+#include "log.hpp"
 #include "utils.hpp"
 
 namespace aos {
@@ -207,14 +208,7 @@ class ServiceManagerTest : public ::testing::Test {
 protected:
     virtual ~ServiceManagerTest() { }
 
-    virtual void SetUp() override
-    {
-        Log::SetCallback([](const char* module, LogLevel level, const String& message) {
-            std::lock_guard<std::mutex> lock(sLogMutex);
-
-            std::cout << level.ToString().CStr() << " | " << module << " | " << message.CStr() << std::endl;
-        });
-    }
+    virtual void SetUp() override { InitLog(); }
 };
 
 /***********************************************************************************************************************

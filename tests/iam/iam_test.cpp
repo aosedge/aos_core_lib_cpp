@@ -29,7 +29,7 @@ class IAMTest : public Test {
 protected:
     void SetUp() override
     {
-        InitLogs();
+        InitLog();
 
         mCertHandler = MakeShared<CertHandler>(&mAllocator);
         ASSERT_TRUE(mCryptoProvider.Init().IsNone());

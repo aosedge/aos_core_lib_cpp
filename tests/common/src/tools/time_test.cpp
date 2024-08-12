@@ -15,16 +15,7 @@ using namespace aos;
 
 class TimeTest : public Test {
 private:
-    void SetUp() override
-    {
-        Log::SetCallback([](const char* module, LogLevel level, const String& message) {
-            static std::mutex sLogMutex;
-
-            std::lock_guard<std::mutex> lock(sLogMutex);
-
-            std::cout << level.ToString().CStr() << " | " << module << " | " << message.CStr() << std::endl;
-        });
-    }
+    void SetUp() override { InitLog(); }
 };
 
 TEST_F(TimeTest, Add4Years)

@@ -15,7 +15,7 @@
 
 namespace aos {
 
-inline void InitLogs()
+inline void InitLog()
 {
     Log::SetCallback([](const char* module, LogLevel level, const String& message) {
         static std::mutex           sLogMutex;
