@@ -366,13 +366,6 @@
 #endif
 
 /**
- * Monitoring send period.
- */
-#ifndef AOS_CONFIG_MONITORING_SEND_PERIOD_SEC
-#define AOS_CONFIG_MONITORING_SEND_PERIOD_SEC 60
-#endif
-
-/**
  * Monitoring poll period.
  */
 #ifndef AOS_CONFIG_MONITORING_POLL_PERIOD_SEC

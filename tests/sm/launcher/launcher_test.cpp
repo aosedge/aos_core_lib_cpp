@@ -59,13 +59,6 @@ static std::mutex sLogMutex;
  */
 class MockResourceMonitor : public monitoring::ResourceMonitorItf {
 public:
-    Error GetNodeInfo(NodeInfo& nodeInfo) const override
-    {
-        (void)nodeInfo;
-
-        return ErrorEnum::eNone;
-    }
-
     Error StartInstanceMonitoring(
         const String& instanceID, const monitoring::InstanceMonitorParams& monitoringConfig) override
     {

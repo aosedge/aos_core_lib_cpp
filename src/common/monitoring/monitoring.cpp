@@ -16,7 +16,8 @@ namespace monitoring {
  * Public
  **********************************************************************************************************************/
 
-Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
+Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
     ConnectionPublisherItf& connectionPublisher)
 {
     LOG_DBG() << "Init resource monitor";
@@ -27,7 +28,7 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
 
     NodeInfo nodeInfo;
 
-    auto err = mResourceUsageProvider->GetNodeInfo(nodeInfo);
+    auto err = nodeInfoProvider.GetNodeInfo(nodeInfo);
     if (!err.IsNone()) {
         return err;
     }
@@ -44,17 +45,17 @@ Error ResourceMonitor::Init(ResourceUsageProviderItf& resourceUsageProvider, Sen
         return AOS_ERROR_WRAP(err);
     }
 
-    err = RunGatheringNodeMonitoringData();
+    err = mThread.Run([this](void*) { ProcessMonitoring(); });
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
-    return RunSendMonitoringData();
+    return ErrorEnum::eNone;
 }
 
 void ResourceMonitor::OnConnect()
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     LOG_DBG() << "Connection event";
 
@@ -63,25 +64,18 @@ void ResourceMonitor::OnConnect()
 
 void ResourceMonitor::OnDisconnect()
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     LOG_DBG() << "Disconnection event";
 
     mSendMonitoring = false;
 }
 
-Error ResourceMonitor::GetNodeInfo(NodeInfo& nodeInfo) const
-{
-    LOG_DBG() << "Get node info";
-
-    return AOS_ERROR_WRAP(mResourceUsageProvider->GetNodeInfo(nodeInfo));
-}
-
 Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
-    LOG_DBG() << "Start instance monitoring";
+    LOG_DBG() << "Start instance monitoring: instanceID=" << instanceID;
 
     auto findInstance = mNodeMonitoringData.mServiceInstances.Find(
         [&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; });
@@ -109,9 +103,9 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
 
 Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
-    LOG_DBG() << "Stop instance monitoring";
+    LOG_DBG() << "Stop instance monitoring: instanceID=" << instanceID;
 
     return mNodeMonitoringData.mServiceInstances
         .Remove([&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; })
@@ -123,74 +117,56 @@ ResourceMonitor::~ResourceMonitor()
     mConnectionPublisher->Unsubscribes(*this);
 
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
+
         mFinishMonitoring = true;
+        mCondVar.NotifyOne();
     }
 
-    mThreadMonitoring.Join();
-    mThreadSendMonitoring.Join();
+    mThread.Join();
 }
 
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
 
-Error ResourceMonitor::RunSendMonitoringData()
+void ResourceMonitor::ProcessMonitoring()
 {
-    return mThreadSendMonitoring.Run([this](void*) {
-        while (true) {
-            sleep(cTimeoutSend);
+    while (true) {
+        UniqueLock lock {mMutex};
 
-            aos::LockGuard lock(mMutex);
+        mCondVar.Wait(lock, cPollPeriod, [this] { return mFinishMonitoring; });
 
-            if (mFinishMonitoring) {
-                break;
-            }
+        if (mFinishMonitoring) {
+            break;
+        }
 
-            if (!mSendMonitoring) {
-                continue;
-            }
+        if (!mSendMonitoring) {
+            continue;
+        }
 
-            LOG_DBG() << "Send monitoring data";
+        clock_gettime(CLOCK_REALTIME, &mNodeMonitoringData.mTimestamp);
 
-            auto err = mMonitorSender->SendMonitoringData(mNodeMonitoringData);
+        auto err = mResourceUsageProvider->GetNodeMonitoringData(
+            mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to get node monitoring data: " << err;
+        }
+
+        for (auto& instance : mNodeMonitoringData.mServiceInstances) {
+            err = mResourceUsageProvider->GetInstanceMonitoringData(instance.mInstanceID, instance.mMonitoringData);
             if (!err.IsNone()) {
-                LOG_ERR() << "Failed to send monitoring data: " << err;
+                LOG_ERR() << "Failed to get instance monitoring data: " << err;
             }
         }
-    });
-}
 
-Error ResourceMonitor::RunGatheringNodeMonitoringData()
-{
-    return mThreadMonitoring.Run([this](void*) {
-        while (true) {
-            sleep(cPollPeriod);
+        LOG_DBG() << "Send monitoring data";
 
-            aos::LockGuard lock(mMutex);
-
-            if (mFinishMonitoring) {
-                break;
-            }
-
-            LOG_DBG() << "Gather monitoring data";
-
-            auto err = mResourceUsageProvider->GetNodeMonitoringData(
-                mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
-            if (!err.IsNone()) {
-                LOG_ERR() << "Failed to get node monitoring data: " << err;
-            }
-
-            for (auto& instance : mNodeMonitoringData.mServiceInstances) {
-                err = mResourceUsageProvider->GetInstanceMonitoringData(instance.mInstanceID, instance.mMonitoringData);
-                if (!err.IsNone()) {
-                    LOG_ERR() << "Failed to get instance monitoring data: " << err;
-                }
-            }
-
-            clock_gettime(CLOCK_REALTIME, &mNodeMonitoringData.mTimestamp);
+        err = mMonitorSender->SendMonitoringData(mNodeMonitoringData);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to send monitoring data: " << err;
         }
-    });
+    }
 }
 
 } // namespace monitoring

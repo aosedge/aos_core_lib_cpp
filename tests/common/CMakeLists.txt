@@ -40,7 +40,7 @@ set(SOURCES
 # Definitions
 # ######################################################################################################################
 
-add_definitions(-DAOS_CONFIG_MONITORING_SEND_PERIOD_SEC=2 -DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1)
+add_definitions(-DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1)
 
 # ######################################################################################################################
 # Test

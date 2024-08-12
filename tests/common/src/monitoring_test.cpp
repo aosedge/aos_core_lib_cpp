@@ -2,34 +2,18 @@
 
 #include "aos/common/monitoring.hpp"
 
+#include "log.hpp"
+
 namespace aos {
 namespace monitoring {
 
-static std::mutex sLogMutex;
+using namespace testing;
 
 /***********************************************************************************************************************
  * Mocks
  **********************************************************************************************************************/
 
-class MockResourceUsageProvider : public ResourceUsageProviderItf {
-public:
-    Error Init() override
-    {
-        mNodeInfo.mNodeID = "node1";
-        mNodeInfo.mCPUs.Resize(1);
-        mNodeInfo.mTotalRAM = 4000;
-
-        PartitionInfo partitionInfo {};
-        partitionInfo.mName = "partitionName";
-        partitionInfo.mPath = "partitionPath";
-        partitionInfo.mTypes.PushBack("partitionType");
-        partitionInfo.mTotalSize = 1000;
-
-        mNodeInfo.mPartitions.PushBack(partitionInfo);
-
-        return ErrorEnum::eNone;
-    }
-
+class MockNodeInfoProvider : public iam::nodeinfoprovider::NodeInfoProviderItf {
     Error GetNodeInfo(NodeInfo& nodeInfo) const override
     {
         nodeInfo.mNodeID = "node1";
@@ -46,6 +30,18 @@ public:
 
         return ErrorEnum::eNone;
     }
+
+    Error SetNodeStatus(const NodeStatus& status) override
+    {
+        (void)status;
+
+        return ErrorEnum::eNone;
+    }
+};
+
+class MockResourceUsageProvider : public ResourceUsageProviderItf {
+public:
+    Error Init() override { return ErrorEnum::eNone; }
 
     Error GetNodeMonitoringData(const String& nodeID, MonitoringData& monitoringData) override
     {
@@ -84,8 +80,7 @@ public:
     int GetNodeMonitoringCounter() const { return mNodeMonitoringCounter; }
 
 private:
-    NodeInfo mNodeInfo {};
-    int      mNodeMonitoringCounter {};
+    int mNodeMonitoringCounter {};
 };
 
 class MockSender : public SenderItf {
@@ -182,75 +177,68 @@ private:
 };
 
 /***********************************************************************************************************************
+ * Suite
+ **********************************************************************************************************************/
+
+class MonitoringTest : public Test {
+protected:
+    void SetUp() override { InitLog(); }
+};
+
+/***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST(CommonTest, ResourceMonitorInit)
+TEST_F(MonitoringTest, Init)
 {
+    MockNodeInfoProvider      nodeInfoProvider {};
     MockConnectionPublisher   connectionPublisher {};
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
 }
 
-TEST(CommonTest, ResourceMonitorGetNodeInfo)
+TEST_F(MonitoringTest, GetNodeMonitoringData)
 {
+    MockNodeInfoProvider      nodeInfoProvider {};
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
     MockConnectionPublisher   connectionPublisher {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
-
-    NodeInfo nodeInfo {};
-    EXPECT_TRUE(monitor.GetNodeInfo(nodeInfo).IsNone());
-
-    EXPECT_EQ(nodeInfo.mCPUs.Size(), 1);
-    EXPECT_EQ(nodeInfo.mTotalRAM, 4000);
-
-    EXPECT_EQ(nodeInfo.mPartitions.Size(), 1);
-    EXPECT_EQ(nodeInfo.mPartitions[0].mName, "partitionName");
-    EXPECT_EQ(nodeInfo.mPartitions[0].mPath, "partitionPath");
-    EXPECT_EQ(nodeInfo.mPartitions[0].mTypes.Size(), 1);
-    EXPECT_EQ(nodeInfo.mPartitions[0].mTypes[0], "partitionType");
-    EXPECT_EQ(nodeInfo.mPartitions[0].mTotalSize, 1000);
-}
-
-TEST(CommonTest, ResourceMonitorGetNodeMonitoringData)
-{
-    MockResourceUsageProvider resourceUsageProvider {};
-    MockSender                sender {};
-    MockConnectionPublisher   connectionPublisher {};
-    ResourceMonitor           monitor {};
-
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
 
     connectionPublisher.Notify();
 
-    sleep(AOS_CONFIG_MONITORING_POLL_PERIOD_SEC + AOS_CONFIG_MONITORING_SEND_PERIOD_SEC + 1);
+    sleep(AOS_CONFIG_MONITORING_POLL_PERIOD_SEC + 1);
 
     EXPECT_TRUE(resourceUsageProvider.GetNodeMonitoringCounter() > 0);
 
     EXPECT_TRUE(sender.GetSendMonitoringCounter() > 0);
 }
 
-TEST(CommonTest, ResourceMonitorGetInstanceMonitoringData)
+TEST_F(MonitoringTest, GetInstanceMonitoringData)
 {
+    MockNodeInfoProvider      nodeInfoProvider {};
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
     MockConnectionPublisher   connectionPublisher {};
     ResourceMonitor           monitor {};
 
-    EXPECT_TRUE(monitor.Init(resourceUsageProvider, sender, connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
+
+    connectionPublisher.Notify();
 
     InstanceMonitorParams instanceMonitorParams {};
+
     instanceMonitorParams.mInstanceIdent.mInstance  = 1;
     instanceMonitorParams.mInstanceIdent.mServiceID = "serviceID";
     instanceMonitorParams.mInstanceIdent.mSubjectID = "subjectID";
 
     PartitionInfo partitionInstanceParam {};
+
     partitionInstanceParam.mName = "partitionInstanceName";
     partitionInstanceParam.mPath = "partitionInstancePath";
 

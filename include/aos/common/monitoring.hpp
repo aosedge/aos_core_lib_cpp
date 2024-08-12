@@ -10,9 +10,9 @@
 
 #include "aos/common/connectionsubsc.hpp"
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
-#include <aos/common/tools/thread.hpp>
-#include <aos/common/tools/timer.hpp>
+#include "aos/iam/nodeinfoprovider.hpp"
 
 namespace aos {
 namespace monitoring {
@@ -53,15 +53,16 @@ struct MonitoringData {
  */
 struct InstanceMonitoringData {
     /**
-     * Constructs a new Instance Monitoring Data object
+     * Constructs a new Instance Monitoring Data object.
      */
     InstanceMonitoringData() = default;
 
     /**
-     * Constructs a new Instance Monitoring Data object
+     * Constructs a new Instance Monitoring Data object.
      *
-     * @param instanceID instance ID
-     * @param monitoringData monitoring data
+     * @param instanceID instance ID.
+     * @param instanceIdent instance ident.
+     * @param monitoringData monitoring data.
      */
     InstanceMonitoringData(
         const String& instanceID, const InstanceIdent& instanceIdent, const MonitoringData& monitoringData)
@@ -81,8 +82,8 @@ struct InstanceMonitoringData {
  */
 struct NodeMonitoringData {
     StaticString<cNodeIDLen>                              mNodeID;
-    MonitoringData                                        mMonitoringData;
     timespec                                              mTimestamp;
+    MonitoringData                                        mMonitoringData;
     StaticArray<InstanceMonitoringData, cMaxNumInstances> mServiceInstances;
 
     /**
@@ -125,35 +126,27 @@ public:
     virtual ~ResourceUsageProviderItf() = default;
 
     /**
-     * Initializes resource usage provider
+     * Initializes resource usage provider.
      *
-     * @return Error
+     * @return Error.
      */
     virtual Error Init() = 0;
 
     /**
-     * Returns node info
+     * Returns node monitoring data.
      *
-     * @param systemInfo system info
-     * @return Error
-     */
-    virtual Error GetNodeInfo(NodeInfo& systemInfo) const = 0;
-
-    /**
-     * Returns resource config
-     *
-     * @param nodeID node ident
-     * @param monitoringData monitoring data
-     * @return Error
+     * @param nodeID node ident.
+     * @param monitoringData monitoring data.
+     * @return Error.
      */
     virtual Error GetNodeMonitoringData(const String& nodeID, MonitoringData& monitoringData) = 0;
 
     /**
-     * Gatherings instance monitoring data
+     * Returns instance monitoring data.
      *
-     * @param instance instance ident
-     * @param monitoringData monitoring data
-     * @return Error
+     * @param instanceID instance ID.
+     * @param monitoringData monitoring data.
+     * @return Error.
      */
     virtual Error GetInstanceMonitoringData(const String& instanceID, MonitoringData& monitoringData) = 0;
 };
@@ -164,10 +157,10 @@ public:
 class SenderItf {
 public:
     /**
-     * Sends monitoring data
+     * Sends monitoring data.
      *
-     * @param monitoringData monitoring data
-     * @return Error
+     * @param monitoringData monitoring data.
+     * @return Error.
      */
     virtual Error SendMonitoringData(const NodeMonitoringData& monitoringData) = 0;
 };
@@ -178,32 +171,24 @@ public:
 class ResourceMonitorItf {
 public:
     /**
-     * Destructor
+     * Destructor.
      */
     virtual ~ResourceMonitorItf() = default;
 
     /**
-     * Gets the node info object
+     * Starts instance monitoring.
      *
-     * @param nodeInfo node info
-     * @return Error
-     */
-    virtual Error GetNodeInfo(NodeInfo& nodeInfo) const = 0;
-
-    /**
-     * Starts instance monitoring
-     *
-     * @param instanceID instance ident
-     * @param monitoringConfig monitoring config
-     * @return Error
+     * @param instanceID instance ID.
+     * @param monitoringConfig monitoring config.
+     * @return Error.
      */
     virtual Error StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig) = 0;
 
     /**
-     * Stops instance monitoring
+     * Stops instance monitoring.
      *
-     * @param instanceID instance ident
-     * @return Error
+     * @param instanceID instance ID.
+     * @return Error.
      */
     virtual Error StopInstanceMonitoring(const String& instanceID) = 0;
 };
@@ -214,76 +199,71 @@ public:
 class ResourceMonitor : public ResourceMonitorItf, public ConnectionSubscriberItf {
 public:
     /**
-     * Constructor
+     * Constructor.
      */
     ResourceMonitor() = default;
 
     /**
-     * Destructor
+     * Destructor.
      */
     ~ResourceMonitor();
 
     /**
-     * Initializes resource monitor
+     * Initializes resource monitor.
      *
-     * @param resourceUsageProvider resource usage provider
-     * @param monitorSender monitor sender
-     * @return Error
+     * @param nodeInfoProvider node info provider.
+     * @param resourceUsageProvider resource usage provider.
+     * @param monitorSender monitor sender.
+     * @return Error.
      */
-    Error Init(ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
+    Error Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+        ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
         ConnectionPublisherItf& connectionPublisher);
 
     /**
-     * Gets the node info object
+     * Starts instance monitoring.
      *
-     * @param nodeInfo node info
-     * @return Error
-     */
-    Error GetNodeInfo(NodeInfo& nodeInfo) const override;
-
-    /**
-     * Starts instance monitoring
-     *
-     * @param instanceID instance ident
-     * @param monitoringConfig monitoring config
-     * @return Error
+     * @param instanceID instance ID.
+     * @param monitoringConfig monitoring config.
+     * @return Error.
      */
     Error StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig) override;
 
     /**
-     * Stops instance monitoring
+     * Stops instance monitoring.
      *
-     * @param instanceID instance ident
-     * @return Error
+     * @param instanceID instance ID.
+     * @return Error.
      */
     Error StopInstanceMonitoring(const String& instanceID) override;
 
     /**
-     * Respond to a connection event.
+     * Responds to a connection event.
      */
     void OnConnect() override;
 
     /**
-     * Respond to a disconnection event.
+     * Responds to a disconnection event.
      */
     void OnDisconnect() override;
 
 private:
-    static constexpr auto cTimeoutSend = AOS_CONFIG_MONITORING_SEND_PERIOD_SEC;
-    static constexpr auto cPollPeriod  = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC;
+    static constexpr auto cPollPeriod = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC * Time::cSeconds;
 
-    ResourceUsageProviderItf*    mResourceUsageProvider {};
-    SenderItf*                   mMonitorSender {};
-    aos::ConnectionPublisherItf* mConnectionPublisher {};
-    NodeMonitoringData           mNodeMonitoringData {};
-    Mutex                        mMutex;
-    bool                         mFinishMonitoring {};
-    bool                         mSendMonitoring {};
-    Thread<>                     mThreadMonitoring     = {};
-    Thread<>                     mThreadSendMonitoring = {};
+    ResourceUsageProviderItf* mResourceUsageProvider {};
+    SenderItf*                mMonitorSender {};
+    ConnectionPublisherItf*   mConnectionPublisher {};
 
-    Error RunGatheringNodeMonitoringData();
-    Error RunSendMonitoringData();
+    NodeMonitoringData mNodeMonitoringData {};
+
+    bool mFinishMonitoring {};
+    bool mSendMonitoring {};
+
+    Mutex               mMutex;
+    ConditionalVariable mCondVar;
+    Thread<>            mThread = {};
+
+    void ProcessMonitoring();
 };
 
 } // namespace monitoring
