@@ -65,6 +65,13 @@
 #endif
 
 /**
+ * Configures clock ID used for thread time operations.
+ */
+#ifndef AOS_CONFIG_THREAD_CLOCK_ID
+#define AOS_CONFIG_THREAD_CLOCK_ID CLOCK_REALTIME
+#endif
+
+/**
  * Enables Aos custom new operators.
  */
 #ifndef AOS_CONFIG_NEW_USE_AOS

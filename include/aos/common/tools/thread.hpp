@@ -295,7 +295,7 @@ public:
      * @param absTime absolute time.
      * @return Error.
      */
-    Error Wait(UniqueLock& lock, aos::Time absTime)
+    Error Wait(UniqueLock& lock, Time absTime)
     {
         auto unixTime = absTime.UnixTime();
 
@@ -307,6 +307,15 @@ public:
 
         return mError = ret;
     }
+
+    /**
+     * Blocks the current thread until the condition variable is awakened or time duration passed.
+     *
+     * @param lock unique lock.
+     * @param absTime absolute time.
+     * @return Error.
+     */
+    Error Wait(UniqueLock& lock, Duration duration) { return Wait(lock, Time::Now(cClockID).Add(duration)); }
 
     /**
      * Blocks the current thread until the condition variable is awakened and predicate condition is met.
@@ -338,7 +347,7 @@ public:
      * @return Error.
      */
     template <typename T>
-    Error Wait(UniqueLock& lock, aos::Time absTime, T waitCondition)
+    Error Wait(UniqueLock& lock, Time absTime, T waitCondition)
     {
         while (!waitCondition()) {
             auto err = Wait(lock, absTime);
@@ -348,6 +357,21 @@ public:
         }
 
         return ErrorEnum::eNone;
+    }
+
+    /**
+     * Blocks the current thread until the condition variable is awakened and predicate condition is met or time
+     * duration passed.
+     *
+     * @param lock unique lock.
+     * @param absTime absolute time.
+     * @param waitCondition wait condition predicate.
+     * @return Error.
+     */
+    template <typename T>
+    Error Wait(UniqueLock& lock, Duration duration, T waitCondition)
+    {
+        return Wait(lock, Time::Now(cClockID).Add(duration), waitCondition);
     }
 
     /**
@@ -372,6 +396,8 @@ public:
     Error GetError() { return mError; }
 
 private:
+    static constexpr auto cClockID = AOS_CONFIG_THREAD_CLOCK_ID;
+
     pthread_cond_t mCondVar;
     Error          mError;
 };
