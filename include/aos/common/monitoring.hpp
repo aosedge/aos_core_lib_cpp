@@ -82,7 +82,7 @@ struct InstanceMonitoringData {
  */
 struct NodeMonitoringData {
     StaticString<cNodeIDLen>                              mNodeID;
-    timespec                                              mTimestamp;
+    Time                                                  mTimestamp;
     MonitoringData                                        mMonitoringData;
     StaticArray<InstanceMonitoringData, cMaxNumInstances> mServiceInstances;
 
@@ -94,8 +94,7 @@ struct NodeMonitoringData {
      */
     bool operator==(const NodeMonitoringData& data) const
     {
-        return mNodeID == data.mNodeID && mMonitoringData == data.mMonitoringData
-            && mTimestamp.tv_nsec == data.mTimestamp.tv_nsec && mTimestamp.tv_sec == data.mTimestamp.tv_sec;
+        return mNodeID == data.mNodeID && mMonitoringData == data.mMonitoringData && mTimestamp == data.mTimestamp;
     }
 
     /**

@@ -145,7 +145,7 @@ void ResourceMonitor::ProcessMonitoring()
             continue;
         }
 
-        clock_gettime(CLOCK_REALTIME, &mNodeMonitoringData.mTimestamp);
+        mNodeMonitoringData.mTimestamp = Time::Now();
 
         auto err = mResourceUsageProvider->GetNodeMonitoringData(
             mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
