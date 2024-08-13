@@ -57,6 +57,26 @@ static constexpr auto cAosComponentUM = "um";
 bool IsMainNode(const NodeInfo& nodeInfo);
 
 /**
+ * Node status observer interface.
+ */
+class NodeStatusObserverItf {
+public:
+    /**
+     * On node status changed event.
+     *
+     * @param nodeID node id
+     * @param status node status
+     * @return Error
+     */
+    virtual Error OnNodeStatusChanged(const String& nodeID, const NodeStatus& status) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~NodeStatusObserverItf() = default;
+};
+
+/**
  * Node info provider interface.
  */
 class NodeInfoProviderItf {
@@ -76,6 +96,22 @@ public:
      * @return Error
      */
     virtual Error SetNodeStatus(const NodeStatus& status) = 0;
+
+    /**
+     * Subscribes on node status changed event.
+     *
+     * @param observer node status changed observer
+     * @return Error
+     */
+    virtual Error SubscribeNodeStatusChanged(NodeStatusObserverItf& observer) = 0;
+
+    /**
+     * Unsubscribes from node status changed event.
+     *
+     * @param observer node status changed observer
+     * @return Error
+     */
+    virtual Error UnsubscribeNodeStatusChanged(NodeStatusObserverItf& observer) = 0;
 
     /**
      * Destructor.
