@@ -9,7 +9,7 @@
 #ifndef AOS_INSTANCE_HPP_
 #define AOS_INSTANCE_HPP_
 
-#include "aos/common/monitoring.hpp"
+#include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/runner.hpp"

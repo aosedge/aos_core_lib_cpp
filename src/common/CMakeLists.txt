@@ -84,7 +84,8 @@ add_library(
     crypto/mbedtls/cryptoprovider.cpp
     crypto/mbedtls/driverwrapper.cpp
     cryptoutils.cpp
-    monitoring/monitoring.cpp
+    monitoring/resourcemonitor.cpp
+    monitoring/average.cpp
     pkcs11/pkcs11.cpp
     pkcs11/privatekey.cpp
     tools/uuid.cpp

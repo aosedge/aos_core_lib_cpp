@@ -12,7 +12,8 @@ set(TARGET aoscommoncpp_test)
 # ######################################################################################################################
 
 set(SOURCES
-    ${CMAKE_SOURCE_DIR}/src/common/monitoring/monitoring.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/monitoring/average.cpp
     src/crypto_test.cpp
     src/cryptoutils_test.cpp
     src/monitoring_test.cpp
@@ -40,7 +41,7 @@ set(SOURCES
 # Definitions
 # ######################################################################################################################
 
-add_definitions(-DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1)
+add_definitions(-DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1 -DAOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC=3)
 
 # ######################################################################################################################
 # Test

@@ -373,6 +373,13 @@
 #endif
 
 /**
+ * Monitoring average window.
+ */
+#ifndef AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC
+#define AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC 60
+#endif
+
+/**
  * Certificate issuer max size is not specified in general.
  * (RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue)
  */

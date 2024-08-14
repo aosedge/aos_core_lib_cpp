@@ -5,12 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/monitoring.hpp"
+#include "aos/common/monitoring/resourcemonitor.hpp"
 
 #include "log.hpp"
 
-namespace aos {
-namespace monitoring {
+namespace aos::monitoring {
 
 /***********************************************************************************************************************
  * Public
@@ -30,23 +29,21 @@ Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfo
 
     auto err = nodeInfoProvider.GetNodeInfo(nodeInfo);
     if (!err.IsNone()) {
-        return err;
-    }
-
-    mNodeMonitoringData.mNodeID         = nodeInfo.mNodeID;
-    mNodeMonitoringData.mMonitoringData = {};
-
-    for (const auto& disk : nodeInfo.mPartitions) {
-        mNodeMonitoringData.mMonitoringData.mDisk.EmplaceBack(disk);
-    }
-
-    err = mConnectionPublisher->Subscribes(*this);
-    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mThread.Run([this](void*) { ProcessMonitoring(); });
-    if (!err.IsNone()) {
+    mNodeMonitoringData.mNodeID         = nodeInfo.mNodeID;
+    mNodeMonitoringData.mMonitoringData = MonitoringData {0, 0, nodeInfo.mPartitions, 0, 0};
+
+    if (!(err = mAverage.Init(nodeInfo.mPartitions, cAverageWindow / cPollPeriod)).IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!(err = mConnectionPublisher->Subscribes(*this)).IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!(err = mThread.Run([this](void*) { ProcessMonitoring(); })).IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -79,23 +76,18 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
 
     auto findInstance = mNodeMonitoringData.mServiceInstances.Find(
         [&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; });
-
-    if (!findInstance.mError.IsNone()) {
-        MonitoringData monitoringData {};
-
-        for (const auto& disk : monitoringConfig.mPartitions) {
-            monitoringData.mDisk.EmplaceBack(disk);
-        }
-
-        mNodeMonitoringData.mServiceInstances.EmplaceBack(instanceID, monitoringConfig.mInstanceIdent, monitoringData);
-
-        return ErrorEnum::eNone;
+    if (findInstance.mError.IsNone()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    findInstance.mValue->mMonitoringData.mDisk.Clear();
+    auto err = mNodeMonitoringData.mServiceInstances.EmplaceBack(
+        instanceID, monitoringConfig.mInstanceIdent, MonitoringData {0, 0, monitoringConfig.mPartitions, 0, 0});
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-    for (const auto& disk : monitoringConfig.mPartitions) {
-        findInstance.mValue->mMonitoringData.mDisk.EmplaceBack(disk);
+    if (!(mAverage.StartInstanceMonitoring(instanceID, monitoringConfig)).IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -105,11 +97,40 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 {
     LockGuard lock {mMutex};
 
+    Error err;
+
     LOG_DBG() << "Stop instance monitoring: instanceID=" << instanceID;
 
-    return mNodeMonitoringData.mServiceInstances
-        .Remove([&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; })
-        .mError;
+    auto nodeError = mNodeMonitoringData.mServiceInstances
+                         .Remove([&instanceID](const InstanceMonitoringData& instance) {
+                             return instance.mInstanceID == instanceID;
+                         })
+                         .mError;
+    if (!nodeError.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(nodeError);
+    }
+
+    auto averageError = mAverage.StopInstanceMonitoring(instanceID);
+    if (!averageError.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(averageError);
+    }
+
+    return err;
+}
+
+Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringData)
+{
+    LockGuard lock(mMutex);
+
+    auto err = mAverage.GetData(monitoringData);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    monitoringData.mTimestamp = Time::Now();
+    monitoringData.mNodeID    = mNodeMonitoringData.mNodeID;
+
+    return ErrorEnum::eNone;
 }
 
 ResourceMonitor::~ResourceMonitor()
@@ -141,10 +162,6 @@ void ResourceMonitor::ProcessMonitoring()
             break;
         }
 
-        if (!mSendMonitoring) {
-            continue;
-        }
-
         mNodeMonitoringData.mTimestamp = Time::Now();
 
         auto err = mResourceUsageProvider->GetNodeMonitoringData(
@@ -160,14 +177,18 @@ void ResourceMonitor::ProcessMonitoring()
             }
         }
 
-        LOG_DBG() << "Send monitoring data";
+        if (!(err = mAverage.Update(mNodeMonitoringData)).IsNone()) {
+            LOG_ERR() << "Failed to update average monitoring data: err=" << err;
+        }
 
-        err = mMonitorSender->SendMonitoringData(mNodeMonitoringData);
-        if (!err.IsNone()) {
+        if (!mSendMonitoring) {
+            continue;
+        }
+
+        if (!(err = mMonitorSender->SendMonitoringData(mNodeMonitoringData)).IsNone()) {
             LOG_ERR() << "Failed to send monitoring data: " << err;
         }
     }
 }
 
-} // namespace monitoring
-} // namespace aos
+} // namespace aos::monitoring

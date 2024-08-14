@@ -14,18 +14,17 @@
 #include "aos/common/types.hpp"
 #include "aos/iam/nodeinfoprovider.hpp"
 
-namespace aos {
-namespace monitoring {
+namespace aos::monitoring {
 
 /**
  * Monitoring data.
  */
 struct MonitoringData {
-    size_t                                        mRAM;
-    size_t                                        mCPU;
-    StaticArray<PartitionInfo, cMaxNumPartitions> mDisk;
-    uint64_t                                      mInTraffic;
-    uint64_t                                      mOutTraffic;
+    size_t                   mCPU;
+    size_t                   mRAM;
+    PartitionInfoStaticArray mDisk;
+    uint64_t                 mDownload;
+    uint64_t                 mUpload;
 
     /**
      * Compares monitoring data.
@@ -35,8 +34,8 @@ struct MonitoringData {
      */
     bool operator==(const MonitoringData& data) const
     {
-        return mRAM == data.mRAM && mCPU == data.mCPU && mDisk == data.mDisk && mInTraffic == data.mInTraffic
-            && mOutTraffic == data.mOutTraffic;
+        return mCPU == data.mCPU && mRAM == data.mRAM && mDisk == data.mDisk && mDownload == data.mDownload
+            && mUpload == data.mUpload;
     }
 
     /**
@@ -75,6 +74,26 @@ struct InstanceMonitoringData {
     StaticString<cInstanceIDLen> mInstanceID;
     InstanceIdent                mInstanceIdent;
     MonitoringData               mMonitoringData;
+
+    /**
+     * Compares instance monitoring data.
+     *
+     * @param data instance monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstanceMonitoringData& data) const
+    {
+        return mInstanceID == data.mInstanceID && mInstanceIdent == data.mInstanceIdent
+            && mMonitoringData == data.mMonitoringData;
+    }
+
+    /**
+     * Compares instance monitoring data.
+     *
+     * @param data instance monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstanceMonitoringData& data) const { return !operator==(data); }
 };
 
 /**
@@ -94,7 +113,8 @@ struct NodeMonitoringData {
      */
     bool operator==(const NodeMonitoringData& data) const
     {
-        return mNodeID == data.mNodeID && mMonitoringData == data.mMonitoringData && mTimestamp == data.mTimestamp;
+        return mNodeID == data.mNodeID && mMonitoringData == data.mMonitoringData && mTimestamp == data.mTimestamp
+            && mServiceInstances == data.mServiceInstances;
     }
 
     /**
@@ -110,8 +130,8 @@ struct NodeMonitoringData {
  * Instance resource monitor parameters.
  */
 struct InstanceMonitorParams {
-    InstanceIdent                                 mInstanceIdent;
-    StaticArray<PartitionInfo, cMaxNumPartitions> mPartitions;
+    InstanceIdent            mInstanceIdent;
+    PartitionInfoStaticArray mPartitions;
 };
 
 /**
@@ -135,7 +155,7 @@ public:
      * Returns node monitoring data.
      *
      * @param nodeID node ident.
-     * @param monitoringData monitoring data.
+     * @param[out] monitoringData monitoring data.
      * @return Error.
      */
     virtual Error GetNodeMonitoringData(const String& nodeID, MonitoringData& monitoringData) = 0;
@@ -144,7 +164,7 @@ public:
      * Returns instance monitoring data.
      *
      * @param instanceID instance ID.
-     * @param monitoringData monitoring data.
+     * @param[out] monitoringData monitoring data.
      * @return Error.
      */
     virtual Error GetInstanceMonitoringData(const String& instanceID, MonitoringData& monitoringData) = 0;
@@ -192,80 +212,6 @@ public:
     virtual Error StopInstanceMonitoring(const String& instanceID) = 0;
 };
 
-/**
- * Resource monitor.
- */
-class ResourceMonitor : public ResourceMonitorItf, public ConnectionSubscriberItf {
-public:
-    /**
-     * Constructor.
-     */
-    ResourceMonitor() = default;
-
-    /**
-     * Destructor.
-     */
-    ~ResourceMonitor();
-
-    /**
-     * Initializes resource monitor.
-     *
-     * @param nodeInfoProvider node info provider.
-     * @param resourceUsageProvider resource usage provider.
-     * @param monitorSender monitor sender.
-     * @return Error.
-     */
-    Error Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
-        ConnectionPublisherItf& connectionPublisher);
-
-    /**
-     * Starts instance monitoring.
-     *
-     * @param instanceID instance ID.
-     * @param monitoringConfig monitoring config.
-     * @return Error.
-     */
-    Error StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig) override;
-
-    /**
-     * Stops instance monitoring.
-     *
-     * @param instanceID instance ID.
-     * @return Error.
-     */
-    Error StopInstanceMonitoring(const String& instanceID) override;
-
-    /**
-     * Responds to a connection event.
-     */
-    void OnConnect() override;
-
-    /**
-     * Responds to a disconnection event.
-     */
-    void OnDisconnect() override;
-
-private:
-    static constexpr auto cPollPeriod = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC * Time::cSeconds;
-
-    ResourceUsageProviderItf* mResourceUsageProvider {};
-    SenderItf*                mMonitorSender {};
-    ConnectionPublisherItf*   mConnectionPublisher {};
-
-    NodeMonitoringData mNodeMonitoringData {};
-
-    bool mFinishMonitoring {};
-    bool mSendMonitoring {};
-
-    Mutex               mMutex;
-    ConditionalVariable mCondVar;
-    Thread<>            mThread = {};
-
-    void ProcessMonitoring();
-};
-
-} // namespace monitoring
-} // namespace aos
+} // namespace aos::monitoring
 
 #endif

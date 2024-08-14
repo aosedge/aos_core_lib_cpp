@@ -152,7 +152,7 @@ constexpr auto cNodeNameLen = AOS_CONFIG_TYPES_NODE_NAME_LEN;
 /*
  * OS type len.
  */
-constexpr auto cOSType = AOS_CONFIG_TYPES_OS_TYPE_LEN;
+constexpr auto cOSTypeLen = AOS_CONFIG_TYPES_OS_TYPE_LEN;
 
 /*
  * Max number of CPUs.
@@ -677,8 +677,8 @@ struct NodeConfig {
 struct PartitionInfo {
     StaticString<cPartitionNameLen>                                     mName;
     StaticArray<StaticString<cPartitionTypeLen>, cMaxNumPartitionTypes> mTypes;
-    size_t                                                              mTotalSize;
     StaticString<cFilePathLen>                                          mPath;
+    size_t                                                              mTotalSize;
     size_t                                                              mUsedSize;
 
     /**
@@ -810,7 +810,7 @@ struct NodeInfo {
     StaticString<cNodeTypeLen> mNodeType;
     StaticString<cNodeNameLen> mName;
     NodeStatus                 mStatus;
-    StaticString<cOSType>      mOSType;
+    StaticString<cOSTypeLen>   mOSType;
     CPUInfoStaticArray         mCPUs;
     PartitionInfoStaticArray   mPartitions;
     NodeAttributeStaticArray   mAttrs;
