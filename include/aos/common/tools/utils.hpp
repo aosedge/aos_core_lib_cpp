@@ -44,6 +44,9 @@ struct Pair {
         : mFirst(f)
         , mSecond(s) {};
 
+    bool operator==(const Pair<F, S>& other) { return mFirst == other.mFirst && mSecond == other.mSecond; }
+    bool operator!=(const Pair<F, S>& other) { return !(*this == other); }
+
     F mFirst;
     S mSecond;
 };
