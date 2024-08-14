@@ -45,7 +45,7 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
 Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
     const Array<InstanceInfo>& instances, bool forceRestart)
 {
-    UniqueLock lock(mMutex);
+    UniqueLock lock {mMutex};
 
     if (forceRestart) {
         LOG_DBG() << "Restart instances";
@@ -80,7 +80,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
               ProcessInstances(*instances, forceRestart);
 
-              LockGuard lock(mMutex);
+              LockGuard lock {mMutex};
 
               SendRunStatus();
 
@@ -143,7 +143,7 @@ Error Launcher::UpdateStorage(const Array<InstanceInfo>& instances)
 
 Error Launcher::RunLastInstances()
 {
-    UniqueLock lock(mMutex);
+    UniqueLock lock {mMutex};
 
     LOG_DBG() << "Run last instances";
 
@@ -170,7 +170,7 @@ Error Launcher::RunLastInstances()
     err = mThread.Run([this, instances](void*) mutable {
         ProcessInstances(*instances);
 
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         SendRunStatus();
 
@@ -224,11 +224,11 @@ void Launcher::SendRunStatus()
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
-        LOG_DBG() << "Instance status " << instance << ", AosVersion: " << instance.AosVersion()
-                  << ", run state: " << instance.RunState() << ", run error: " << instance.RunError();
+        LOG_DBG() << "Instance status: instance=" << instance << ", serviceVersion=" << instance.GetServiceVersion()
+                  << ", runState=" << instance.RunState() << ", err=" << instance.RunError();
 
         status->PushBack(
-            {instance.Info().mInstanceIdent, instance.AosVersion(), instance.RunState(), instance.RunError()});
+            {instance.Info().mInstanceIdent, instance.GetServiceVersion(), instance.RunState(), instance.RunError()});
     }
 
     LOG_DBG() << "Send run status";
@@ -241,7 +241,7 @@ void Launcher::SendRunStatus()
 
 void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRestart)
 {
-    UniqueLock lock(mMutex);
+    UniqueLock lock {mMutex};
 
     LOG_DBG() << "Stop instances";
 
@@ -261,7 +261,7 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
                 return instance.Info().mInstanceIdent.mServiceID == service.mServiceID;
             });
 
-            if (findService.mError.IsNone() && instance.AosVersion() == findService.mValue->mVersionInfo.mAosVersion) {
+            if (findService.mError.IsNone() && instance.GetServiceVersion() == findService.mValue->mVersion) {
                 continue;
             }
         }
@@ -284,7 +284,7 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
 
 void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 {
-    UniqueLock lock(mMutex);
+    UniqueLock lock {mMutex};
 
     LOG_DBG() << "Start instances";
 
@@ -312,7 +312,7 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 
 void Launcher::CacheServices(const Array<InstanceInfo>& instances)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     LOG_DBG() << "Cache services";
 
@@ -369,7 +369,7 @@ void Launcher::UpdateInstanceServices()
 
 Error Launcher::StartInstance(const InstanceInfo& info)
 {
-    UniqueLock lock(mMutex);
+    UniqueLock lock {mMutex};
 
     if (mCurrentInstances.Find([&info](const Instance& instance) { return instance == info; }).mError.IsNone()) {
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
@@ -404,7 +404,7 @@ Error Launcher::StartInstance(const InstanceInfo& info)
 
 Error Launcher::StopInstance(const InstanceIdent& ident)
 {
-    UniqueLock lock(mMutex);
+    UniqueLock lock {mMutex};
 
     auto findInstance = mCurrentInstances.Find(
         [&ident](const Instance& instance) { return instance.Info().mInstanceIdent == ident; });

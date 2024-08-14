@@ -24,8 +24,9 @@ TEST(CommonTest, Types)
         != (InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage"}));
 
     // InstanceStatus comparision
-    EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2}, 3, InstanceRunStateEnum::eActive, ErrorEnum::eNone})
-        == (InstanceStatus {{"service1", "subject1", 2}, 3, InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
-    EXPECT_FALSE((InstanceStatus {{"service1", "subject1", 2}, 3, InstanceRunStateEnum::eActive, ErrorEnum::eNone})
-        != (InstanceStatus {{"service1", "subject1", 2}, 3, InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
+    EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2}, "3.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone})
+        == (InstanceStatus {{"service1", "subject1", 2}, "3.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
+    EXPECT_FALSE(
+        (InstanceStatus {{"service1", "subject1", 2}, "3.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone})
+        != (InstanceStatus {{"service1", "subject1", 2}, "3.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
 }

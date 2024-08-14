@@ -83,13 +83,13 @@ class MockServiceManager : public ServiceManagerItf {
 public:
     Error InstallServices(const Array<ServiceInfo>& services) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         mServicesData.clear();
 
         std::transform(
             services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
-                return ServiceData {service.mVersionInfo, service.mServiceID, service.mProviderID,
+                return ServiceData {service.mServiceID, service.mProviderID, service.mVersion,
                     FS::JoinPath("/aos/storages", service.mServiceID)};
             });
 
@@ -98,7 +98,7 @@ public:
 
     RetWithError<ServiceData> GetService(const String& serviceID) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mServicesData.begin(), mServicesData.end(),
             [&serviceID](const ServiceData& service) { return service.mServiceID == serviceID; });
@@ -111,7 +111,7 @@ public:
 
     Error GetAllServices(Array<ServiceData>& services) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         for (const auto& service : mServicesData) {
             services.PushBack(service);
@@ -245,7 +245,7 @@ class MockStorage : public sm::launcher::StorageItf {
 public:
     Error AddInstance(const InstanceInfo& instance) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         if (std::find_if(mInstances.begin(), mInstances.end(),
                 [&instance](const InstanceInfo& info) { return instance.mInstanceIdent == info.mInstanceIdent; })
@@ -260,7 +260,7 @@ public:
 
     Error UpdateInstance(const InstanceInfo& instance) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mInstances.begin(), mInstances.end(),
             [&instance](const InstanceInfo& info) { return instance.mInstanceIdent == info.mInstanceIdent; });
@@ -275,7 +275,7 @@ public:
 
     Error RemoveInstance(const InstanceIdent& instanceIdent) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mInstances.begin(), mInstances.end(),
             [&instanceIdent](const InstanceInfo& instance) { return instance.mInstanceIdent == instanceIdent; });
@@ -290,7 +290,7 @@ public:
 
     Error GetAllInstances(Array<InstanceInfo>& instances) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         for (const auto& instance : mInstances) {
             auto err = instances.PushBack(instance);
@@ -394,13 +394,13 @@ TEST(LauncherTest, RunInstances)
                 {{"service1", "subject1", 2}, 0, 0, "", ""},
             },
             std::vector<ServiceInfo> {
-                {{1, "1.0", ""}, "service1", "provider1", 0, "", {}, {}, 0},
+                {"service1", "provider1", "1.0.0", 0, "", {}, {}, 0},
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service1", "subject1", 0}, 1, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 1}, 1, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 2}, 1, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 1}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 2}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
             },
         },
         // Empty instances
@@ -418,13 +418,13 @@ TEST(LauncherTest, RunInstances)
                 {{"service1", "subject1", 6}, 0, 0, "", ""},
             },
             std::vector<ServiceInfo> {
-                {{2, "1.0", ""}, "service1", "provider1", 0, "", {}, {}, 0},
+                {"service1", "provider1", "2.0.0", 0, "", {}, {}, 0},
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service1", "subject1", 4}, 2, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 5}, 2, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 6}, 2, InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 4}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 5}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject1", 6}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
             },
         },
     };

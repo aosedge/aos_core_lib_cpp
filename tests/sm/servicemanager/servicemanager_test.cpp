@@ -121,7 +121,7 @@ class MockStorage : public StorageItf {
 public:
     Error AddService(const ServiceData& service) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         if (std::find_if(mServices.begin(), mServices.end(),
                 [&service](const ServiceData& data) { return service.mServiceID == data.mServiceID; })
@@ -136,7 +136,7 @@ public:
 
     RetWithError<ServiceData> GetService(const String& serviceID) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mServices.begin(), mServices.end(),
             [&serviceID](const ServiceData& data) { return serviceID == data.mServiceID; });
@@ -150,7 +150,7 @@ public:
 
     Error UpdateService(const ServiceData& service) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mServices.begin(), mServices.end(),
             [&service](const ServiceData& data) { return service.mServiceID == data.mServiceID; });
@@ -164,11 +164,11 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error RemoveService(const String& serviceID, uint64_t aosVersion) override
+    Error RemoveService(const String& serviceID, const String& version) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        (void)aosVersion;
+        (void)version;
 
         auto it = std::find_if(mServices.begin(), mServices.end(),
             [&serviceID](const ServiceData& data) { return serviceID == data.mServiceID; });
@@ -183,7 +183,7 @@ public:
 
     Error GetAllServices(Array<ServiceData>& services) override
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock {mMutex};
 
         for (const auto& service : mServices) {
             auto err = services.PushBack(service);
@@ -228,44 +228,44 @@ TEST(ServiceManagerTest, InstallServices)
     std::vector<TestData> testData = {
         {
             std::vector<ServiceInfo> {
-                {{1, "", ""}, "service1", "provider1", 0, "url", {}, {}, 0},
-                {{1, "", ""}, "service2", "provider2", 0, "url", {}, {}, 0},
-                {{1, "", ""}, "service3", "provider3", 0, "url", {}, {}, 0},
-                {{1, "", ""}, "service4", "provider4", 0, "url", {}, {}, 0},
+                {"service1", "provider1", "1.0.0", 0, "url", {}, {}, 0},
+                {"service2", "provider2", "1.0.0", 0, "url", {}, {}, 0},
+                {"service3", "provider3", "1.0.0", 0, "url", {}, {}, 0},
+                {"service4", "provider4", "1.0.0", 0, "url", {}, {}, 0},
             },
             std::vector<ServiceData> {
-                {{1, "", ""}, "service1", "provider1", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service1"},
-                {{1, "", ""}, "service2", "provider2", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service2"},
-                {{1, "", ""}, "service3", "provider3", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
-                {{1, "", ""}, "service4", "provider4", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
+                {"service1", "provider1", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service1"},
+                {"service2", "provider2", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service2"},
+                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
+                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
             },
         },
         {
             std::vector<ServiceInfo> {
-                {{1, "", ""}, "service3", "provider3", 0, "url", {}, {}, 0},
-                {{1, "", ""}, "service4", "provider4", 0, "url", {}, {}, 0},
-                {{1, "", ""}, "service5", "provider5", 0, "url", {}, {}, 0},
-                {{1, "", ""}, "service6", "provider5", 0, "url", {}, {}, 0},
+                {"service3", "provider3", "1.0.0", 0, "url", {}, {}, 0},
+                {"service4", "provider4", "1.0.0", 0, "url", {}, {}, 0},
+                {"service5", "provider5", "1.0.0", 0, "url", {}, {}, 0},
+                {"service6", "provider6", "1.0.0", 0, "url", {}, {}, 0},
             },
             std::vector<ServiceData> {
-                {{1, "", ""}, "service3", "provider3", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
-                {{1, "", ""}, "service4", "provider4", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
-                {{1, "", ""}, "service5", "provider5", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5"},
-                {{1, "", ""}, "service6", "provider6", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6"},
+                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
+                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
+                {"service5", "provider5", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5"},
+                {"service6", "provider6", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6"},
             },
         },
         {
             std::vector<ServiceInfo> {
-                {{1, "", ""}, "service3", "provider3", 0, "url", {}, {}, 0},
-                {{2, "", ""}, "service4", "provider4", 0, "url", {}, {}, 0},
-                {{3, "", ""}, "service5", "provider5", 0, "url", {}, {}, 0},
-                {{4, "", ""}, "service6", "provider5", 0, "url", {}, {}, 0},
+                {"service3", "provider3", "1.0.0", 0, "url", {}, {}, 0},
+                {"service4", "provider4", "2.0.0", 0, "url", {}, {}, 0},
+                {"service5", "provider5", "3.0.0", 0, "url", {}, {}, 0},
+                {"service6", "provider6", "4.0.0", 0, "url", {}, {}, 0},
             },
             std::vector<ServiceData> {
-                {{1, "", ""}, "service3", "provider3", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
-                {{2, "", ""}, "service4", "provider4", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
-                {{3, "", ""}, "service5", "provider5", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5"},
-                {{4, "", ""}, "service6", "provider6", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6"},
+                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
+                {"service4", "provider4", "2.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
+                {"service5", "provider5", "3.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5"},
+                {"service6", "provider6", "4.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6"},
             },
         },
         {
@@ -296,7 +296,7 @@ TEST(ServiceManagerTest, GetImageParts)
 
     EXPECT_TRUE(serviceManager.Init(ociManager, downloader, storage).IsNone());
 
-    ServiceData serviceData = {{0, "v2.1.0", "Service desc"}, "service0", "provider0", "/aos/services/service1"};
+    ServiceData serviceData = {"service0", "provider0", "2.1.0", "/aos/services/service1"};
 
     auto imageParts = serviceManager.GetImageParts(serviceData);
     EXPECT_TRUE(imageParts.mError.IsNone());

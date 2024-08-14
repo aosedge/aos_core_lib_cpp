@@ -385,10 +385,10 @@ using InstanceRunState     = EnumStringer<InstanceRunStateType>;
  * Instance status.
  */
 struct InstanceStatus {
-    InstanceIdent    mInstanceIdent;
-    uint64_t         mAosVersion;
-    InstanceRunState mRunState;
-    Error            mError;
+    InstanceIdent             mInstanceIdent;
+    StaticString<cVersionLen> mServiceVersion;
+    InstanceRunState          mRunState;
+    Error                     mError;
 
     /**
      * Compares instance status.
@@ -398,7 +398,7 @@ struct InstanceStatus {
      */
     bool operator==(const InstanceStatus& instance) const
     {
-        return mInstanceIdent == instance.mInstanceIdent && mAosVersion == instance.mAosVersion
+        return mInstanceIdent == instance.mInstanceIdent && mServiceVersion == instance.mServiceVersion
             && mRunState == instance.mRunState && mError == instance.mError;
     }
 
@@ -417,41 +417,13 @@ struct InstanceStatus {
 using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
 
 /**
- * Version info.
- */
-struct VersionInfo {
-    uint64_t                      mAosVersion;
-    StaticString<cVersionLen>     mVendorVersion;
-    StaticString<cDescriptionLen> mDescription;
-
-    /**
-     * Compares version info.
-     *
-     * @param info info to compare.
-     * @return bool.
-     */
-    bool operator==(const VersionInfo& info) const
-    {
-        return mAosVersion == info.mAosVersion && mVendorVersion == info.mVendorVersion;
-    }
-
-    /**
-     * Compares version info.
-     *
-     * @param info info to compare.
-     * @return bool.
-     */
-    bool operator!=(const VersionInfo& info) const { return !operator==(info); }
-};
-
-/**
  * Service info.
  */
 
 struct ServiceInfo {
-    VersionInfo                            mVersionInfo;
     StaticString<cServiceIDLen>            mServiceID;
     StaticString<cProviderIDLen>           mProviderID;
+    StaticString<cVersionLen>              mVersion;
     uint32_t                               mGID;
     StaticString<cURLLen>                  mURL;
     aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
@@ -466,7 +438,7 @@ struct ServiceInfo {
      */
     bool operator==(const ServiceInfo& info) const
     {
-        return mVersionInfo == info.mVersionInfo && mServiceID == info.mServiceID && mProviderID == info.mProviderID
+        return mServiceID == info.mServiceID && mProviderID == info.mProviderID && mVersion == info.mVersion
             && mGID == info.mGID && mURL == info.mURL && mSHA256 == info.mSHA256 && mSHA512 == info.mSHA512
             && mSize == info.mSize;
     }
@@ -491,9 +463,9 @@ using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 // LayerInfo layer info.
 struct LayerInfo {
-    VersionInfo                            mVersionInfo;
     StaticString<cLayerIDLen>              mLayerID;
     StaticString<cLayerDigestLen>          mLayerDigest;
+    StaticString<cVersionLen>              mVersion;
     StaticString<cURLLen>                  mURL;
     aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
     aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
@@ -507,7 +479,7 @@ struct LayerInfo {
      */
     bool operator==(const LayerInfo& info) const
     {
-        return mVersionInfo == info.mVersionInfo && mLayerID == info.mLayerID && mLayerDigest == info.mLayerDigest
+        return mLayerID == info.mLayerID && mLayerDigest == info.mLayerDigest && mVersion == info.mVersion
             && mURL == info.mURL && mSHA256 == info.mSHA256 && mSHA512 == info.mSHA512 && mSize == info.mSize;
     }
 

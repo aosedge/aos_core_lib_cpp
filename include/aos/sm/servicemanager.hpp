@@ -29,17 +29,20 @@ namespace servicemanager {
  */
 struct ServiceData {
     /**
-     * Version information.
-     */
-    VersionInfo mVersionInfo;
-    /**
      * Service ID.
      */
     StaticString<cServiceIDLen> mServiceID;
+
     /**
      * Provider ID.
      */
     StaticString<cProviderIDLen> mProviderID;
+
+    /**
+     * Service version.
+     */
+    StaticString<cVersionLen> mVersion;
+
     /**
      * Image path.
      */
@@ -51,7 +54,11 @@ struct ServiceData {
      * @param data data to compare.
      * @return bool.
      */
-    bool operator==(const ServiceData& data) const { return data.mVersionInfo == mVersionInfo; }
+    bool operator==(const ServiceData& data) const
+    {
+        return data.mServiceID == mServiceID && data.mProviderID == mProviderID && data.mVersion == mVersion
+            && data.mImagePath == mImagePath;
+    }
 
     /**
      * Compares service data.
@@ -118,10 +125,10 @@ public:
      * Removes previously stored service.
      *
      * @param serviceID service ID to remove.
-     * @param aosVersion Aos service version.
+     * @param version Aos service version.
      * @return Error.
      */
-    virtual Error RemoveService(const String& serviceID, uint64_t aosVersion) = 0;
+    virtual Error RemoveService(const String& serviceID, const String& version) = 0;
 
     /**
      * Returns all stored services.

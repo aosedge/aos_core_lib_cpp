@@ -49,9 +49,10 @@ void Instance::SetService(const Service* service, const Error& err)
     mRunError = err;
 
     if (mService) {
-        mAosVersion = mService->Data().mVersionInfo.mAosVersion;
+        mServiceVersion = mService->Data().mVersion;
 
-        LOG_DBG() << "Set service " << *service << " for instance " << *this << ", Aos version: " << mAosVersion;
+        LOG_DBG() << "Set service " << *service << " for instance " << *this
+                  << ", service version: " << mServiceVersion;
     }
 }
 

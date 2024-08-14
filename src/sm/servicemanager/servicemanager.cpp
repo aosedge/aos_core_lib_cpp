@@ -31,7 +31,7 @@ Error ServiceManager::Init(OCISpecItf& ociManager, DownloaderItf& downloader, St
 
 Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     LOG_DBG() << "Install services";
 
@@ -54,17 +54,17 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
     for (const auto& service : *installedServices) {
         if (!services
                  .Find([&service](const ServiceInfo& info) {
-                     return service.mServiceID == info.mServiceID && service.mVersionInfo == info.mVersionInfo;
+                     return service.mServiceID == info.mServiceID && service.mVersion == info.mVersion;
                  })
                  .mError.IsNone()) {
             err = mInstallPool.AddTask([this, &service](void*) {
                 auto err = RemoveService(service);
                 if (!err.IsNone()) {
-                    LOG_ERR() << "Can't remove service " << service.mServiceID << ": " << err;
+                    LOG_ERR() << "Can't remove service: serviceID=" << service.mServiceID << ", err=" << err;
                 }
             });
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't remove service " << service.mServiceID << ": " << err;
+                LOG_ERR() << "Can't remove service: serviceID=" << service.mServiceID << ", err=" << err;
             }
         }
     }
@@ -87,11 +87,11 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
             err = mInstallPool.AddTask([this, &info](void*) {
                 auto err = InstallService(info);
                 if (!err.IsNone()) {
-                    LOG_ERR() << "Can't install service " << info.mServiceID << ": " << err;
+                    LOG_ERR() << "Can't install service: serviceID=" << info.mServiceID << ", err=" << err;
                 }
             });
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't install service " << info.mServiceID << ": " << err;
+                LOG_ERR() << "Can't install service: serviceID=" << info.mServiceID << ", err=" << err;
             }
         }
     }
@@ -114,7 +114,7 @@ Error ServiceManager::GetAllServices(Array<ServiceData>& services)
 
 RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& service)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     LOG_DBG() << "Get image parts: " << service.mServiceID;
 
@@ -158,7 +158,8 @@ RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& servic
 
 Error ServiceManager::RemoveService(const ServiceData& service)
 {
-    LOG_INF() << "Remove service " << service.mServiceID << ", path: " << service.mImagePath;
+    LOG_INF() << "Remove service: serviceID=" << service.mServiceID << ", providerID=" << service.mProviderID
+              << ", version=" << service.mVersion << ", path=" << service.mImagePath;
 
     Error removeErr;
 
@@ -167,7 +168,7 @@ Error ServiceManager::RemoveService(const ServiceData& service)
         removeErr = err;
     }
 
-    err = mStorage->RemoveService(service.mServiceID, service.mVersionInfo.mAosVersion);
+    err = mStorage->RemoveService(service.mServiceID, service.mVersion);
     if (!err.IsNone() && removeErr.IsNone()) {
         removeErr = err;
     }
@@ -177,10 +178,11 @@ Error ServiceManager::RemoveService(const ServiceData& service)
 
 Error ServiceManager::InstallService(const ServiceInfo& service)
 {
-    ServiceData data {{service.mVersionInfo}, service.mServiceID, service.mProviderID,
-        FS::JoinPath(cServicesDir, service.mServiceID)};
+    ServiceData data {
+        service.mServiceID, service.mProviderID, service.mVersion, FS::JoinPath(cServicesDir, service.mServiceID)};
 
-    LOG_INF() << "Install service " << service.mServiceID << ", path: " << data.mImagePath;
+    LOG_INF() << "Install service: serviceID=" << data.mServiceID << ", providerID=" << data.mProviderID
+              << ", version=" << data.mVersion << ", path=" << data.mImagePath;
 
     auto err = FS::ClearDir(data.mImagePath);
     if (!err.IsNone()) {

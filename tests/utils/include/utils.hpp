@@ -19,14 +19,14 @@ public:
             return false;
         }
 
-        for (const auto& instance : array1) {
-            if (!array2.Find(instance).mError.IsNone()) {
+        for (const auto& item : array1) {
+            if (!array2.Find(item).mError.IsNone()) {
                 return false;
             }
         }
 
-        for (const auto& instance : array2) {
-            if (!array1.Find(instance).mError.IsNone()) {
+        for (const auto& item : array2) {
+            if (!array1.Find(item).mError.IsNone()) {
                 return false;
             }
         }
