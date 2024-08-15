@@ -140,13 +140,6 @@ public:
     virtual ~ResourceUsageProviderItf() = default;
 
     /**
-     * Initializes resource usage provider.
-     *
-     * @return Error.
-     */
-    virtual Error Init() = 0;
-
-    /**
      * Returns node monitoring data.
      *
      * @param nodeID node ident.

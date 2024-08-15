@@ -74,8 +74,6 @@ private:
 
 class MockResourceUsageProvider : public ResourceUsageProviderItf {
 public:
-    Error Init() override { return ErrorEnum::eNone; }
-
     Error GetNodeMonitoringData(const String& nodeID, MonitoringData& monitoringData) override
     {
         (void)nodeID;
@@ -134,7 +132,7 @@ public:
 
         mNodeMonitoringData = nodeMonitoringData;
         mInstancesMonitoringData.Assign(instancesMonitoringData);
-        mDataProvided   = true;
+        mDataProvided = true;
 
         mCondVar.notify_one();
     }
