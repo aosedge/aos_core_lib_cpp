@@ -16,6 +16,20 @@ using namespace testing;
 static constexpr auto cWaitTimeout = std::chrono::seconds {5};
 
 /***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+void SetInstancesMonitoringData(
+    NodeMonitoringData& nodeMonitoringData, const Array<Pair<String, InstanceMonitoringData>>& instancesData)
+{
+    nodeMonitoringData.mServiceInstances.Clear();
+
+    for (const auto& [instanceID, instanceData] : instancesData) {
+        nodeMonitoringData.mServiceInstances.PushBack(instanceData);
+    }
+}
+
+/***********************************************************************************************************************
  * Mocks
  **********************************************************************************************************************/
 
@@ -40,6 +54,20 @@ public:
         return ErrorEnum::eNone;
     }
 
+    Error SubscribeNodeStatusChanged(iam::nodeinfoprovider::NodeStatusObserverItf& observer)
+    {
+        (void)observer;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error UnsubscribeNodeStatusChanged(iam::nodeinfoprovider::NodeStatusObserverItf& observer)
+    {
+        (void)observer;
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     NodeInfo mNodeInfo {};
 };
@@ -60,17 +88,17 @@ public:
 
         mDataProvided = false;
 
-        monitoringData.mCPU      = mMonitoringData.mMonitoringData.mCPU;
-        monitoringData.mRAM      = mMonitoringData.mMonitoringData.mRAM;
-        monitoringData.mDownload = mMonitoringData.mMonitoringData.mDownload;
-        monitoringData.mUpload   = mMonitoringData.mMonitoringData.mUpload;
+        monitoringData.mCPU      = mNodeMonitoringData.mCPU;
+        monitoringData.mRAM      = mNodeMonitoringData.mRAM;
+        monitoringData.mDownload = mNodeMonitoringData.mDownload;
+        monitoringData.mUpload   = mNodeMonitoringData.mUpload;
 
-        if (monitoringData.mDisk.Size() != mMonitoringData.mMonitoringData.mDisk.Size()) {
+        if (monitoringData.mDisk.Size() != mNodeMonitoringData.mDisk.Size()) {
             return ErrorEnum::eInvalidArgument;
         }
 
         for (size_t i = 0; i < monitoringData.mDisk.Size(); i++) {
-            monitoringData.mDisk[i].mUsedSize = mMonitoringData.mMonitoringData.mDisk[i].mUsedSize;
+            monitoringData.mDisk[i].mUsedSize = mNodeMonitoringData.mDisk[i].mUsedSize;
         }
 
         return ErrorEnum::eNone;
@@ -78,43 +106,45 @@ public:
 
     Error GetInstanceMonitoringData(const String& instanceID, MonitoringData& monitoringData) override
     {
-        auto findInstance = mMonitoringData.mServiceInstances.Find(
-            [&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; });
-        if (!findInstance.mError.IsNone()) {
-            return AOS_ERROR_WRAP(findInstance.mError);
+        auto instanceMonitoringData = mInstancesMonitoringData.At(instanceID);
+        if (!instanceMonitoringData.mError.IsNone()) {
+            return AOS_ERROR_WRAP(instanceMonitoringData.mError);
         }
 
-        monitoringData.mCPU      = findInstance.mValue->mMonitoringData.mCPU;
-        monitoringData.mRAM      = findInstance.mValue->mMonitoringData.mRAM;
-        monitoringData.mDownload = findInstance.mValue->mMonitoringData.mDownload;
-        monitoringData.mUpload   = findInstance.mValue->mMonitoringData.mUpload;
+        monitoringData.mCPU      = instanceMonitoringData.mValue.mMonitoringData.mCPU;
+        monitoringData.mRAM      = instanceMonitoringData.mValue.mMonitoringData.mRAM;
+        monitoringData.mDownload = instanceMonitoringData.mValue.mMonitoringData.mDownload;
+        monitoringData.mUpload   = instanceMonitoringData.mValue.mMonitoringData.mUpload;
 
-        if (monitoringData.mDisk.Size() != findInstance.mValue->mMonitoringData.mDisk.Size()) {
+        if (monitoringData.mDisk.Size() != instanceMonitoringData.mValue.mMonitoringData.mDisk.Size()) {
             return ErrorEnum::eInvalidArgument;
         }
 
         for (size_t i = 0; i < monitoringData.mDisk.Size(); i++) {
-            monitoringData.mDisk[i].mUsedSize = findInstance.mValue->mMonitoringData.mDisk[i].mUsedSize;
+            monitoringData.mDisk[i].mUsedSize = instanceMonitoringData.mValue.mMonitoringData.mDisk[i].mUsedSize;
         }
 
         return ErrorEnum::eNone;
     }
 
-    void ProvideMonitoringData(const NodeMonitoringData& monitoringData)
+    void ProvideMonitoringData(const MonitoringData&       nodeMonitoringData,
+        const Array<Pair<String, InstanceMonitoringData>>& instancesMonitoringData)
     {
         std::lock_guard lock {mMutex};
 
-        mMonitoringData = monitoringData;
+        mNodeMonitoringData = nodeMonitoringData;
+        mInstancesMonitoringData.Assign(instancesMonitoringData);
         mDataProvided   = true;
 
         mCondVar.notify_one();
     }
 
 private:
-    std::mutex              mMutex;
-    std::condition_variable mCondVar;
-    bool                    mDataProvided = false;
-    NodeMonitoringData      mMonitoringData {};
+    std::mutex                                                  mMutex;
+    std::condition_variable                                     mCondVar;
+    bool                                                        mDataProvided = false;
+    MonitoringData                                              mNodeMonitoringData {};
+    StaticMap<String, InstanceMonitoringData, cMaxNumInstances> mInstancesMonitoringData {};
 };
 
 class MockSender : public SenderItf {
@@ -222,19 +252,23 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     InstanceIdent instance0Ident {"service0", "subject0", 0};
     InstanceIdent instance1Ident {"service1", "subject1", 1};
 
-    InstanceMonitoringData instancesMonitoringData[]
-        = {{"instance0", instance0Ident, {10000, 2048, instancePartitions, 10, 20}},
-            {"instance1", instance1Ident, {15000, 1024, instancePartitions, 20, 40}}};
+    Pair<String, InstanceMonitoringData> instancesMonitoringData[] = {
+        {"instance0", {instance0Ident, {10000, 2048, instancePartitions, 10, 20}}},
+        {"instance1", {instance1Ident, {15000, 1024, instancePartitions, 20, 40}}},
+    };
 
-    NodeMonitoringData providedNodeMonitoringData {"node1", {}, {30000, 8192, nodePartitions, 120, 240},
-        Array<InstanceMonitoringData>(instancesMonitoringData, ArraySize(instancesMonitoringData))};
+    NodeMonitoringData providedNodeMonitoringData {"node1", {}, {30000, 8192, nodePartitions, 120, 240}, {}};
+
+    SetInstancesMonitoringData(providedNodeMonitoringData,
+        Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
 
     EXPECT_TRUE(monitor.StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
     EXPECT_TRUE(monitor.StartInstanceMonitoring("instance1", {instance1Ident, instancePartitions}).IsNone());
 
     NodeMonitoringData receivedNodeMonitoringData {};
 
-    resourceUsageProvider.ProvideMonitoringData(providedNodeMonitoringData);
+    resourceUsageProvider.ProvideMonitoringData(providedNodeMonitoringData.mMonitoringData,
+        Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
     EXPECT_TRUE(sender.WaitMonitoringData(receivedNodeMonitoringData).IsNone());
 
     receivedNodeMonitoringData.mTimestamp = providedNodeMonitoringData.mTimestamp;
@@ -299,39 +333,43 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         {"node1", {}, {600, 400, {}, 200, 200}, {}},
     };
 
-    InstanceMonitoringData providedInstanceMonitoringData[] {
-        {"instance0", instance0Ident, {600, 0, {}, 300, 300}},
-        {"instance0", instance0Ident, {300, 900, {}, 300, 0}},
-        {"instance0", instance0Ident, {200, 1200, {}, 0, 200}},
+    Pair<String, InstanceMonitoringData> providedInstanceMonitoringData[] {
+        {"instance0", {instance0Ident, {600, 0, {}, 300, 300}}},
+        {"instance0", {instance0Ident, {300, 900, {}, 300, 0}}},
+        {"instance0", {instance0Ident, {200, 1200, {}, 0, 200}}},
     };
 
-    InstanceMonitoringData averageInstanceMonitoringData[] {
-        {"instance0", instance0Ident, {600, 0, {}, 300, 300}},
-        {"instance0", instance0Ident, {500, 300, {}, 300, 200}},
-        {"instance0", instance0Ident, {400, 600, {}, 200, 200}},
+    Pair<String, InstanceMonitoringData> averageInstanceMonitoringData[] {
+        {"instance0", {instance0Ident, {600, 0, {}, 300, 300}}},
+        {"instance0", {instance0Ident, {500, 300, {}, 300, 200}}},
+        {"instance0", {instance0Ident, {400, 600, {}, 200, 200}}},
     };
 
     for (uint64_t i = 0; i < ArraySize(providedNodeMonitoringData); i++) {
         NodeMonitoringData receivedNodeMonitoringData {};
 
-        providedInstanceMonitoringData[i].mMonitoringData.mDisk
+        providedInstanceMonitoringData[i].mSecond.mMonitoringData.mDisk
             = Array<PartitionInfo>(providedInstanceDiskData[i], ArraySize(providedInstanceDiskData[i]));
         providedNodeMonitoringData[i].mMonitoringData.mDisk
             = Array<PartitionInfo>(providedNodeDiskData[i], ArraySize(providedNodeDiskData[i]));
-        providedNodeMonitoringData[i].mServiceInstances
-            = Array<InstanceMonitoringData>(&providedInstanceMonitoringData[i], 1);
 
-        resourceUsageProvider.ProvideMonitoringData(providedNodeMonitoringData[i]);
+        SetInstancesMonitoringData(providedNodeMonitoringData[i],
+            Array<Pair<String, InstanceMonitoringData>>(&providedInstanceMonitoringData[i], 1));
+
+        resourceUsageProvider.ProvideMonitoringData(providedNodeMonitoringData[i].mMonitoringData,
+            Array<Pair<String, InstanceMonitoringData>>(&providedInstanceMonitoringData[i], 1));
 
         EXPECT_TRUE(sender.WaitMonitoringData(receivedNodeMonitoringData).IsNone());
         EXPECT_TRUE(monitor.GetAverageMonitoringData(receivedNodeMonitoringData).IsNone());
 
-        averageInstanceMonitoringData[i].mMonitoringData.mDisk
+        averageInstanceMonitoringData[i].mSecond.mMonitoringData.mDisk
             = Array<PartitionInfo>(averageInstanceDiskData[i], ArraySize(averageInstanceDiskData[i]));
         averageNodeMonitoringData[i].mMonitoringData.mDisk
             = Array<PartitionInfo>(averageNodeDiskData[i], ArraySize(averageNodeDiskData[i]));
-        averageNodeMonitoringData[i].mServiceInstances
-            = Array<InstanceMonitoringData>(&averageInstanceMonitoringData[i], 1);
+
+        SetInstancesMonitoringData(averageNodeMonitoringData[i],
+            Array<Pair<String, InstanceMonitoringData>>(&averageInstanceMonitoringData[i], 1));
+
         receivedNodeMonitoringData.mTimestamp = averageNodeMonitoringData[i].mTimestamp;
 
         EXPECT_EQ(averageNodeMonitoringData[i], receivedNodeMonitoringData);

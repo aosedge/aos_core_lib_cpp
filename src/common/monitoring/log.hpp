@@ -8,7 +8,7 @@
 #ifndef LOG_HPP_
 #define LOG_HPP_
 
-#define LOG_MODULE "resourcemonitor"
+#define LOG_MODULE "monitoring"
 
 #include "aos/common/tools/logger.hpp"
 

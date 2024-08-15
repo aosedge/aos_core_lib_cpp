@@ -63,13 +63,16 @@ Error Average::Update(const NodeMonitoringData& data)
         return err;
     }
 
-    if (data.mServiceInstances.Size() != mAverageInstancesData.Size()) {
-        return Error(ErrorEnum::eInvalidArgument, "service instances size mismatch");
-    }
+    for (auto& instance : data.mServiceInstances) {
+        auto averageInstance = mAverageInstancesData.At(instance.mInstanceIdent);
+        if (!averageInstance.mError.IsNone()) {
+            LOG_ERR() << "Instance not found: instanceIdent=" << instance.mInstanceIdent;
 
-    for (size_t i = 0; i < data.mServiceInstances.Size(); ++i) {
-        if (!(err = UpdateMonitoringData(mAverageInstancesData[i].mAverageData.mMonitoringData,
-                  data.mServiceInstances[i].mMonitoringData, mAverageInstancesData[i].mAverageData.mIsInitialized))
+            return AOS_ERROR_WRAP(averageInstance.mError);
+        }
+
+        if (!(err = UpdateMonitoringData(averageInstance.mValue.mMonitoringData, instance.mMonitoringData,
+                  averageInstance.mValue.mIsInitialized))
                  .IsNone()) {
             return err;
         }
@@ -87,15 +90,13 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     data.mServiceInstances.Clear();
 
-    for (const auto& instance : mAverageInstancesData) {
-        if (!(err = data.mServiceInstances.EmplaceBack(
-                  InstanceMonitoringData {instance.mInstanceID, instance.mInstanceIdent, {}}))
-                 .IsNone()) {
+    for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
+        if (!(err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent, {}})).IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
         if (!(err = GetMonitoringData(
-                  data.mServiceInstances.Back().mValue.mMonitoringData, instance.mAverageData.mMonitoringData))
+                  data.mServiceInstances.Back().mValue.mMonitoringData, averageMonitoringData.mMonitoringData))
                  .IsNone()) {
             return err;
         }
@@ -104,16 +105,15 @@ Error Average::GetData(NodeMonitoringData& data) const
     return ErrorEnum::eNone;
 }
 
-Error Average::StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig)
+Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringConfig)
 {
-    auto findInstance = mAverageInstancesData.Find(
-        [&instanceID](const AverageInstanceData& instance) { return instance.mInstanceID == instanceID; });
-    if (findInstance.mError.IsNone()) {
+    auto averageInstance = mAverageInstancesData.At(monitoringConfig.mInstanceIdent);
+    if (averageInstance.mError.IsNone()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    auto err = mAverageInstancesData.EmplaceBack(AverageInstanceData {instanceID, monitoringConfig.mInstanceIdent,
-        AverageData {false, MonitoringData {0, 0, monitoringConfig.mPartitions, 0, 0}}});
+    auto err = mAverageInstancesData.Emplace(monitoringConfig.mInstanceIdent,
+        AverageData {false, MonitoringData {0, 0, monitoringConfig.mPartitions, 0, 0}});
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -121,12 +121,9 @@ Error Average::StartInstanceMonitoring(const String& instanceID, const InstanceM
     return ErrorEnum::eNone;
 }
 
-Error Average::StopInstanceMonitoring(const String& instanceID)
+Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
 {
-    auto err
-        = mAverageInstancesData
-              .Remove([&instanceID](const AverageInstanceData& instance) { return instance.mInstanceID == instanceID; })
-              .mError;
+    auto err = mAverageInstancesData.Remove(instanceIdent);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

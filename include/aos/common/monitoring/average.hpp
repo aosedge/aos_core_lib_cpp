@@ -9,6 +9,7 @@
 #define AOS_AVERAGE_HPP_
 
 #include "aos/common/monitoring/monitoring.hpp"
+#include "aos/common/tools/map.hpp"
 
 namespace aos::monitoring {
 
@@ -45,19 +46,18 @@ public:
     /**
      * Starts instance monitoring.
      *
-     * @param instanceID instance ID.
      * @param monitoringConfig monitoring config.
      * @return Error.
      */
-    Error StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig);
+    Error StartInstanceMonitoring(const InstanceMonitorParams& monitoringConfig);
 
     /**
      * Stops instance monitoring.
      *
-     * @param instanceID instance ID.
+     * @param instanceIdent instance identification.
      * @return Error.
      */
-    Error StopInstanceMonitoring(const String& instanceID);
+    Error StopInstanceMonitoring(const InstanceIdent& instanceIdent);
 
 private:
     struct AverageData {
@@ -65,18 +65,12 @@ private:
         MonitoringData mMonitoringData;
     };
 
-    struct AverageInstanceData {
-        StaticString<cInstanceIDLen> mInstanceID;
-        InstanceIdent                mInstanceIdent;
-        AverageData                  mAverageData;
-    };
-
     Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized);
     Error GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const;
 
-    size_t                                             mWindowCount = 0;
-    AverageData                                        mAverageNodeData {};
-    StaticArray<AverageInstanceData, cMaxNumInstances> mAverageInstancesData {};
+    size_t                                                  mWindowCount = 0;
+    AverageData                                             mAverageNodeData {};
+    StaticMap<InstanceIdent, AverageData, cMaxNumInstances> mAverageInstancesData {};
 };
 
 } // namespace aos::monitoring

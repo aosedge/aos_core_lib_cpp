@@ -74,19 +74,18 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
 
     LOG_DBG() << "Start instance monitoring: instanceID=" << instanceID;
 
-    auto findInstance = mNodeMonitoringData.mServiceInstances.Find(
-        [&instanceID](const InstanceMonitoringData& instance) { return instance.mInstanceID == instanceID; });
+    auto findInstance = mInstanceMonitoringData.At(instanceID);
     if (findInstance.mError.IsNone()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    auto err = mNodeMonitoringData.mServiceInstances.EmplaceBack(
-        instanceID, monitoringConfig.mInstanceIdent, MonitoringData {0, 0, monitoringConfig.mPartitions, 0, 0});
+    auto err = mInstanceMonitoringData.Emplace(instanceID,
+        InstanceMonitoringData {monitoringConfig.mInstanceIdent, {0, 0, monitoringConfig.mPartitions, 0, 0}});
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!(mAverage.StartInstanceMonitoring(instanceID, monitoringConfig)).IsNone()) {
+    if (!(mAverage.StartInstanceMonitoring(monitoringConfig)).IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -101,16 +100,17 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 
     LOG_DBG() << "Stop instance monitoring: instanceID=" << instanceID;
 
-    auto nodeError = mNodeMonitoringData.mServiceInstances
-                         .Remove([&instanceID](const InstanceMonitoringData& instance) {
-                             return instance.mInstanceID == instanceID;
-                         })
-                         .mError;
-    if (!nodeError.IsNone() && err.IsNone()) {
-        err = AOS_ERROR_WRAP(nodeError);
+    auto instanceData = mInstanceMonitoringData.At(instanceID);
+    if (!instanceData.mError.IsNone()) {
+        err = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance monitoring not found"));
     }
 
-    auto averageError = mAverage.StopInstanceMonitoring(instanceID);
+    auto removeError = mInstanceMonitoringData.Remove(instanceID);
+    if (!removeError.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(removeError);
+    }
+
+    auto averageError = mAverage.StopInstanceMonitoring(instanceData.mValue.mInstanceIdent);
     if (!averageError.IsNone() && err.IsNone()) {
         err = AOS_ERROR_WRAP(averageError);
     }
@@ -170,11 +170,15 @@ void ResourceMonitor::ProcessMonitoring()
             LOG_ERR() << "Failed to get node monitoring data: " << err;
         }
 
-        for (auto& instance : mNodeMonitoringData.mServiceInstances) {
-            err = mResourceUsageProvider->GetInstanceMonitoringData(instance.mInstanceID, instance.mMonitoringData);
+        mNodeMonitoringData.mServiceInstances.Clear();
+
+        for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
+            err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData.mMonitoringData);
             if (!err.IsNone()) {
                 LOG_ERR() << "Failed to get instance monitoring data: " << err;
             }
+
+            mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
         }
 
         if (!(err = mAverage.Update(mNodeMonitoringData)).IsNone()) {

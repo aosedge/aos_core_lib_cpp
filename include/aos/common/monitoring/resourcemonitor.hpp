@@ -87,7 +87,8 @@ private:
 
     Average mAverage;
 
-    NodeMonitoringData mNodeMonitoringData {};
+    NodeMonitoringData                                          mNodeMonitoringData {};
+    StaticMap<String, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
 
     bool mFinishMonitoring {};
     bool mSendMonitoring {};

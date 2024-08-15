@@ -59,21 +59,17 @@ struct InstanceMonitoringData {
     /**
      * Constructs a new Instance Monitoring Data object.
      *
-     * @param instanceID instance ID.
      * @param instanceIdent instance ident.
      * @param monitoringData monitoring data.
      */
-    InstanceMonitoringData(
-        const String& instanceID, const InstanceIdent& instanceIdent, const MonitoringData& monitoringData)
-        : mInstanceID(instanceID)
-        , mInstanceIdent(instanceIdent)
+    InstanceMonitoringData(const InstanceIdent& instanceIdent, const MonitoringData& monitoringData)
+        : mInstanceIdent(instanceIdent)
         , mMonitoringData(monitoringData)
     {
     }
 
-    StaticString<cInstanceIDLen> mInstanceID;
-    InstanceIdent                mInstanceIdent;
-    MonitoringData               mMonitoringData;
+    InstanceIdent  mInstanceIdent;
+    MonitoringData mMonitoringData;
 
     /**
      * Compares instance monitoring data.
@@ -83,8 +79,7 @@ struct InstanceMonitoringData {
      */
     bool operator==(const InstanceMonitoringData& data) const
     {
-        return mInstanceID == data.mInstanceID && mInstanceIdent == data.mInstanceIdent
-            && mMonitoringData == data.mMonitoringData;
+        return mInstanceIdent == data.mInstanceIdent && mMonitoringData == data.mMonitoringData;
     }
 
     /**
