@@ -98,7 +98,11 @@ public:
             mLineNumber = err.mLineNumber;
         }
 
-        CopyMessage(msg);
+        if (msg) {
+            CopyMessage(msg);
+        } else {
+            CopyMessage(err.mMessage);
+        }
     }
 
     /**
