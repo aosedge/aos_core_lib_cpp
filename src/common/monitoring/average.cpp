@@ -90,6 +90,7 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     data.mServiceInstances.Clear();
 
+    // cppcheck-suppress unassignedVariable
     for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
         if (!(err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent, {}})).IsNone()) {
             return AOS_ERROR_WRAP(err);

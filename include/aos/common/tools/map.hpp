@@ -97,6 +97,7 @@ public:
     {
         auto cur = At(key);
         if (cur.mError.IsNone()) {
+            // cppcheck-suppress unreadVariable
             cur.mValue = value;
 
             return ErrorEnum::eNone;

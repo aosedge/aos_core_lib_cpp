@@ -15,6 +15,7 @@ namespace aos::monitoring {
  * Public
  **********************************************************************************************************************/
 
+// cppcheck-suppress constParameter
 Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
     ConnectionPublisherItf& connectionPublisher)
