@@ -43,9 +43,9 @@ constexpr auto cServicePermissionMaxCount = AOS_CONFIG_PERMHANDLER_SERVICE_PERMS
 constexpr auto cFunctionalServiceNameLen = AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN;
 
 /**
- * Maximum number of permhandler functional services per instance.
+ * Maximum number of permhandler functional services.
  */
-constexpr auto cInstanceFuncServiceMaxCount = AOS_CONFIG_PERMHANDLER_INSTANCE_FUNC_SERVICE_MAX_COUNT;
+constexpr auto cFuncServiceMaxCount = AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_MAX_COUNT;
 
 /**
  * Maximum length of permhandler secret.
@@ -80,9 +80,9 @@ struct FunctionalServicePermissions {
  * Instance permissions.
  */
 struct InstancePermissions {
-    StaticString<cSecretLen>                                                mSecret;
-    InstanceIdent                                                           mInstanceIdent;
-    StaticArray<FunctionalServicePermissions, cInstanceFuncServiceMaxCount> mFuncServicePerms;
+    StaticString<cSecretLen>                                        mSecret;
+    InstanceIdent                                                   mInstanceIdent;
+    StaticArray<FunctionalServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
 };
 
 /**

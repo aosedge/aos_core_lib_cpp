@@ -86,10 +86,10 @@
 #endif
 
 /**
- * Maximum number of permhandler functional services per instance.
+ * Maximum number of permhandler functional services.
  */
-#ifndef AOS_CONFIG_PERMHANDLER_INSTANCE_FUNC_SERVICE_MAX_COUNT
-#define AOS_CONFIG_PERMHANDLER_INSTANCE_FUNC_SERVICE_MAX_COUNT 16
+#ifndef AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_MAX_COUNT
+#define AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_MAX_COUNT 16
 #endif
 
 /**
