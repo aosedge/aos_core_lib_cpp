@@ -28,23 +28,22 @@ Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfo
 
     NodeInfo nodeInfo;
 
-    auto err = nodeInfoProvider.GetNodeInfo(nodeInfo);
-    if (!err.IsNone()) {
+    if (auto err = nodeInfoProvider.GetNodeInfo(nodeInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     mNodeMonitoringData.mNodeID         = nodeInfo.mNodeID;
     mNodeMonitoringData.mMonitoringData = MonitoringData {0, 0, nodeInfo.mPartitions, 0, 0};
 
-    if (!(err = mAverage.Init(nodeInfo.mPartitions, cAverageWindow / cPollPeriod)).IsNone()) {
+    if (auto err = mAverage.Init(nodeInfo.mPartitions, cAverageWindow / cPollPeriod); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!(err = mConnectionPublisher->Subscribes(*this)).IsNone()) {
+    if (auto err = mConnectionPublisher->Subscribes(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!(err = mThread.Run([this](void*) { ProcessMonitoring(); })).IsNone()) {
+    if (auto err = mThread.Run([this](void*) { ProcessMonitoring(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -75,18 +74,17 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
 
     LOG_DBG() << "Start instance monitoring: instanceID=" << instanceID;
 
-    auto findInstance = mInstanceMonitoringData.At(instanceID);
-    if (findInstance.mError.IsNone()) {
+    if (mInstanceMonitoringData.At(instanceID).mError.IsNone()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    auto err = mInstanceMonitoringData.Emplace(instanceID,
-        InstanceMonitoringData {monitoringConfig.mInstanceIdent, {0, 0, monitoringConfig.mPartitions, 0, 0}});
-    if (!err.IsNone()) {
+    if (auto err = mInstanceMonitoringData.Emplace(instanceID,
+            InstanceMonitoringData {monitoringConfig.mInstanceIdent, {0, 0, monitoringConfig.mPartitions, 0, 0}});
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!(mAverage.StartInstanceMonitoring(monitoringConfig)).IsNone()) {
+    if (auto err = mAverage.StartInstanceMonitoring(monitoringConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -165,24 +163,25 @@ void ResourceMonitor::ProcessMonitoring()
 
         mNodeMonitoringData.mTimestamp = Time::Now();
 
-        auto err = mResourceUsageProvider->GetNodeMonitoringData(
-            mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
-        if (!err.IsNone()) {
+        if (auto err = mResourceUsageProvider->GetNodeMonitoringData(
+                mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
+            !err.IsNone()) {
             LOG_ERR() << "Failed to get node monitoring data: " << err;
         }
 
         mNodeMonitoringData.mServiceInstances.Clear();
 
         for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
-            err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData.mMonitoringData);
-            if (!err.IsNone()) {
+            if (auto err
+                = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData.mMonitoringData);
+                !err.IsNone()) {
                 LOG_ERR() << "Failed to get instance monitoring data: " << err;
             }
 
             mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
         }
 
-        if (!(err = mAverage.Update(mNodeMonitoringData)).IsNone()) {
+        if (auto err = mAverage.Update(mNodeMonitoringData); !err.IsNone()) {
             LOG_ERR() << "Failed to update average monitoring data: err=" << err;
         }
 
@@ -190,7 +189,7 @@ void ResourceMonitor::ProcessMonitoring()
             continue;
         }
 
-        if (!(err = mMonitorSender->SendMonitoringData(mNodeMonitoringData)).IsNone()) {
+        if (auto err = mMonitorSender->SendMonitoringData(mNodeMonitoringData); !err.IsNone()) {
             LOG_ERR() << "Failed to send monitoring data: " << err;
         }
     }

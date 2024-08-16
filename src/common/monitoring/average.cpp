@@ -57,9 +57,10 @@ Error Average::Init(const PartitionInfoStaticArray& nodeDisks, size_t windowCoun
 
 Error Average::Update(const NodeMonitoringData& data)
 {
-    auto err
+
+    if (auto err
         = UpdateMonitoringData(mAverageNodeData.mMonitoringData, data.mMonitoringData, mAverageNodeData.mIsInitialized);
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return err;
     }
 
@@ -71,9 +72,9 @@ Error Average::Update(const NodeMonitoringData& data)
             return AOS_ERROR_WRAP(averageInstance.mError);
         }
 
-        if (!(err = UpdateMonitoringData(averageInstance.mValue.mMonitoringData, instance.mMonitoringData,
-                  averageInstance.mValue.mIsInitialized))
-                 .IsNone()) {
+        if (auto err = UpdateMonitoringData(averageInstance.mValue.mMonitoringData, instance.mMonitoringData,
+                averageInstance.mValue.mIsInitialized);
+            err.IsNone()) {
             return err;
         }
     }
@@ -83,8 +84,7 @@ Error Average::Update(const NodeMonitoringData& data)
 
 Error Average::GetData(NodeMonitoringData& data) const
 {
-    auto err = GetMonitoringData(data.mMonitoringData, mAverageNodeData.mMonitoringData);
-    if (!err.IsNone()) {
+    if (auto err = GetMonitoringData(data.mMonitoringData, mAverageNodeData.mMonitoringData); !err.IsNone()) {
         return err;
     }
 
@@ -92,13 +92,13 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     // cppcheck-suppress unassignedVariable
     for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
-        if (!(err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent, {}})).IsNone()) {
+        if (auto err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent, {}}); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        if (!(err = GetMonitoringData(
-                  data.mServiceInstances.Back().mValue.mMonitoringData, averageMonitoringData.mMonitoringData))
-                 .IsNone()) {
+        if (auto err = GetMonitoringData(
+                data.mServiceInstances.Back().mValue.mMonitoringData, averageMonitoringData.mMonitoringData);
+            !err.IsNone()) {
             return err;
         }
     }
