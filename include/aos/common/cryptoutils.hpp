@@ -22,15 +22,6 @@ namespace cryptoutils {
 class CertLoaderItf {
 public:
     /**
-     * Initializes object instance.
-     *
-     * @param cryptoProvider crypto provider interface.
-     * @param pkcs11Manager PKCS11 library manager.
-     * @return Error.
-     */
-    virtual Error Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager) = 0;
-
-    /**
      * Loads certificate chain by URL.
      *
      * @param url input url.
@@ -64,7 +55,7 @@ public:
      * @param pkcs11Manager PKCS11 library manager.
      * @return Error.
      */
-    Error Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager) override;
+    Error Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager);
 
     /**
      * Loads certificate chain by URL.
