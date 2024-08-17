@@ -683,7 +683,6 @@ using PartitionInfoStaticArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
  * CPU info.
  */
 struct CPUInfo {
-    size_t                          mID;
     StaticString<cCPUModelNameLen>  mModelName;
     size_t                          mNumCores;
     size_t                          mNumThreads;
@@ -699,9 +698,8 @@ struct CPUInfo {
      */
     bool operator==(const CPUInfo& info) const
     {
-        return mID == info.mID && mModelName == info.mModelName && mNumCores == info.mNumCores
-            && mNumThreads == info.mNumThreads && mArch == info.mArch && mArchFamily == info.mArchFamily
-            && mMaxDMIPS == info.mMaxDMIPS;
+        return mModelName == info.mModelName && mNumCores == info.mNumCores && mNumThreads == info.mNumThreads
+            && mArch == info.mArch && mArchFamily == info.mArchFamily && mMaxDMIPS == info.mMaxDMIPS;
     }
 
     /**
