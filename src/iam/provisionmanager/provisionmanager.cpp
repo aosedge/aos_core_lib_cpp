@@ -14,7 +14,7 @@ namespace aos::iam::provisionmanager {
  * Public
  **********************************************************************************************************************/
 
-Error ProvisionManager::Init(ProvisionManagerCallback& callback, certhandler::CertHandlerItf& certHandler)
+Error ProvisionManager::Init(ProvisionManagerCallbackItf& callback, certhandler::CertHandlerItf& certHandler)
 {
     LOG_DBG() << "Init provision manager";
 

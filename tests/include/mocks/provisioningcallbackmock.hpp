@@ -15,7 +15,7 @@
 /**
  * Provision manager callback mock.
  */
-class ProvisionManagerCallbackMock : public aos::iam::provisionmanager::ProvisionManagerCallback {
+class ProvisionManagerCallbackMock : public aos::iam::provisionmanager::ProvisionManagerCallbackItf {
 public:
     MOCK_METHOD(aos::Error, OnStartProvisioning, (const aos::String&), (override));
     MOCK_METHOD(aos::Error, OnFinishProvisioning, (const aos::String&), (override));

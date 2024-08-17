@@ -20,12 +20,12 @@ namespace aos::iam::provisionmanager {
 /**
  * Provision manager callback interface.
  */
-class ProvisionManagerCallback {
+class ProvisionManagerCallbackItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~ProvisionManagerCallback() = default;
+    virtual ~ProvisionManagerCallbackItf() = default;
 
     /**
      * Called when provisioning starts.
@@ -154,7 +154,7 @@ public:
      * @param certHandler certificate handler.
      * @returns Error.
      */
-    Error Init(ProvisionManagerCallback& callback, certhandler::CertHandlerItf& certHandler);
+    Error Init(ProvisionManagerCallbackItf& callback, certhandler::CertHandlerItf& certHandler);
 
     /**
      * Starts provisioning.
@@ -221,7 +221,7 @@ public:
     Error Deprovision(const String& password) override;
 
 private:
-    ProvisionManagerCallback*    mCallback {};
+    ProvisionManagerCallbackItf* mCallback {};
     certhandler::CertHandlerItf* mCertHandler {};
 };
 
