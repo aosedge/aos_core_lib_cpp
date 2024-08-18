@@ -214,16 +214,12 @@ Error ResourceManager::LoadConfig()
 
     auto err = FS::ReadFileToString(mConfigPath, config);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to read config file: path=" << mConfigPath << ", error=" << err;
-
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = mJsonProvider->ParseNodeConfig(config, mConfig);
     if (!err.IsNone()) {
-        LOG_ERR() << "Failed to parse config file: " << err;
-
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
