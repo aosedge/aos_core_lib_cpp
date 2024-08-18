@@ -214,7 +214,9 @@ Error ResourceManager::LoadConfig()
 
     auto err = FS::ReadFileToString(mConfigPath, config);
     if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        if (err == ENOENT) {
+            return ErrorEnum::eNone;
+        }
     }
 
     err = mJsonProvider->ParseNodeConfig(config, mConfig);
