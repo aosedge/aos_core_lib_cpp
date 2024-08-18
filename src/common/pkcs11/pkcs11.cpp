@@ -296,6 +296,10 @@ void DynamicLibraryContext::SetHandle(void* handle)
 
 DynamicLibraryContext::~DynamicLibraryContext()
 {
+    if (mHandle == nullptr) {
+        return;
+    }
+
     if (dlclose(mHandle) != 0) {
         LOG_ERR() << "PKCS11 library close failed: error = " << dlerror();
     }
@@ -513,7 +517,7 @@ Error LibraryContext::CloseAllSessions(SlotID slotID)
 LibraryContext::~LibraryContext()
 {
     if (!mFunctionList || !mFunctionList->C_Finalize) {
-        LOG_ERR() << "Finalize library failed: library is not initialized";
+        return;
     }
 
     ClearSessions();
