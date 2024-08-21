@@ -19,6 +19,7 @@ namespace resourcemanager {
 /***********************************************************************************************************************
  * ResourceManager
  **********************************************************************************************************************/
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -33,7 +34,7 @@ Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf&
     mConfigPath        = configPath;
 
     if (auto err = LoadConfig(); !err.IsNone()) {
-        LOG_ERR() << "Failed to load unit config: " << err;
+        LOG_ERR() << "Failed to load unit config: err=" << err;
     }
 
     return ErrorEnum::eNone;
@@ -52,11 +53,11 @@ Error ResourceManager::GetDeviceInfo(const String& deviceName, DeviceInfo& devic
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Get device info: device = " << deviceName;
+    LOG_DBG() << "Get device info: device=" << deviceName;
 
     auto err = GetConfigDeviceInfo(deviceName, deviceInfo);
     if (!err.IsNone()) {
-        LOG_ERR() << "Device not found: device = " << deviceName;
+        LOG_ERR() << "Device not found: device=" << deviceName;
 
         return AOS_ERROR_WRAP(err);
     }
@@ -68,7 +69,7 @@ Error ResourceManager::GetResourceInfo(const String& resourceName, ResourceInfo&
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Get resource info: resourceName = " << resourceName;
+    LOG_DBG() << "Get resource info: resourceName=" << resourceName;
 
     for (const auto& resource : mConfig.mNodeConfig.mResources) {
         if (resource.mName == resourceName) {
@@ -85,7 +86,7 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Allocate device: device = " << deviceName << ", instance = " << instanceID;
+    LOG_DBG() << "Allocate device: device=" << deviceName << ", instance=" << instanceID;
 
     if (!mConfigError.IsNone()) {
         return AOS_ERROR_WRAP(mConfigError);
@@ -95,7 +96,7 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
 
     auto err = GetConfigDeviceInfo(deviceName, deviceInfo);
     if (!err.IsNone()) {
-        LOG_ERR() << "Device not found: device = " << deviceName;
+        LOG_ERR() << "Device not found: device=" << deviceName;
 
         return AOS_ERROR_WRAP(err);
     }
@@ -107,7 +108,7 @@ Error ResourceManager::ReleaseDevice(const String& deviceName, const String& ins
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Release device: device = " << deviceName << ", instance = " << instanceID;
+    LOG_DBG() << "Release device: device=" << deviceName << ", instance=" << instanceID;
 
     return mHostDeviceManager->RemoveInstanceFromDevice(deviceName, instanceID);
 }
@@ -116,7 +117,7 @@ Error ResourceManager::ReleaseDevices(const String& instanceID)
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Release devices: instanceID = " << instanceID;
+    LOG_DBG() << "Release devices: instanceID=" << instanceID;
 
     return mHostDeviceManager->RemoveInstanceFromAllDevices(instanceID);
 }
@@ -126,7 +127,7 @@ Error ResourceManager::GetDeviceInstances(
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Get device instances: device = " << deviceName;
+    LOG_DBG() << "Get device instances: device=" << deviceName;
 
     return mHostDeviceManager->GetDeviceInstances(deviceName, instanceIDs);
 }
@@ -135,7 +136,7 @@ Error ResourceManager::CheckNodeConfig(const String& version, const String& conf
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Check unit config: version = " << version;
+    LOG_DBG() << "Check unit config: version=" << version;
 
     if (version == mConfig.mVersion) {
         LOG_ERR() << "Invalid node config version version";
@@ -162,13 +163,12 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Update config: version = " << version;
+    LOG_DBG() << "Update config: version=" << version;
 
     sm::resourcemanager::NodeConfig updatedConfig;
 
-    auto err = mJsonProvider->ParseNodeConfig(config, updatedConfig);
-    if (!err.IsNone()) {
-        LOG_ERR() << "Failed to parse config: " << err;
+    if (auto err = mJsonProvider->ParseNodeConfig(config, updatedConfig); !err.IsNone()) {
+        LOG_ERR() << "Failed to parse config: err=" << err;
 
         return AOS_ERROR_WRAP(err);
     }
@@ -261,7 +261,7 @@ Error ResourceManager::ValidateDevices(const Array<DeviceInfo>& devices) const
         // check host devices
         for (const auto& hostDevice : device.mHostDevices) {
             if (!mHostDeviceManager->DeviceExists(hostDevice)) {
-                LOG_ERR() << "Host device not found: device = " << hostDevice;
+                LOG_ERR() << "Host device not found: device=" << hostDevice;
 
                 return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
             }
@@ -270,7 +270,7 @@ Error ResourceManager::ValidateDevices(const Array<DeviceInfo>& devices) const
         // check groups
         for (const auto& group : device.mGroups) {
             if (!mHostGroupManager->GroupExists(group)) {
-                LOG_ERR() << "Host group not found: group = " << group;
+                LOG_ERR() << "Host group not found: group=" << group;
 
                 return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
             }
