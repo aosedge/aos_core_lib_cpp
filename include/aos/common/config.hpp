@@ -754,10 +754,10 @@
 #endif
 
 /**
- * Unit config JSON length.
+ * Node config JSON length.
  */
-#ifndef AOS_CONFIG_UNIT_CONFIG_JSON_LEN
-#define AOS_CONFIG_UNIT_CONFIG_JSON_LEN 4096
+#ifndef AOS_CONFIG_NODE_CONFIG_JSON_LEN
+#define AOS_CONFIG_NODE_CONFIG_JSON_LEN 4096
 #endif
 
 /**

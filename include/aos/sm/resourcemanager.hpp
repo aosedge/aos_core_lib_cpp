@@ -19,6 +19,11 @@ namespace sm {
 namespace resourcemanager {
 
 /**
+ * Node config JSON length.
+ */
+static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_NODE_CONFIG_JSON_LEN;
+
+/**
  * Node Config.
  */
 struct NodeConfig {
@@ -317,8 +322,6 @@ public:
     Error UpdateNodeConfig(const String& version, const String& config) override;
 
 private:
-    static constexpr auto cConfigJSONLen = AOS_CONFIG_UNIT_CONFIG_JSON_LEN;
-
     Error LoadConfig();
     Error ValidateNodeConfig(const NodeConfig& config) const;
     Error ValidateDevices(const Array<DeviceInfo>& devices) const;

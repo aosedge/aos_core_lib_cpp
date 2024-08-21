@@ -176,7 +176,8 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 
     updatedConfig.mVersion = version;
 
-    StaticString<cConfigJSONLen> newConfigJson;
+    StaticString<cNodeConfigJSONLen> newConfigJson;
+
     err = mJsonProvider->DumpNodeConfig(updatedConfig, newConfigJson);
     if (!err.IsNone()) {
         LOG_ERR() << "Failed to dump config: " << err;
@@ -209,7 +210,7 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 
 Error ResourceManager::LoadConfig()
 {
-    StaticString<cConfigJSONLen> config;
+    StaticString<cNodeConfigJSONLen> config;
 
     auto err = FS::ReadFileToString(mConfigPath, config);
     if (!err.IsNone()) {
