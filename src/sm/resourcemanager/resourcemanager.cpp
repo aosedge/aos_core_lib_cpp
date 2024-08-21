@@ -34,8 +34,6 @@ Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf&
 
     if (auto err = LoadConfig(); !err.IsNone()) {
         LOG_ERR() << "Failed to load unit config: " << err;
-
-        mConfigError = err;
     }
 
     return ErrorEnum::eNone;
@@ -146,7 +144,8 @@ Error ResourceManager::CheckNodeConfig(const String& version, const String& conf
     }
 
     sm::resourcemanager::NodeConfig updatedConfig;
-    auto                            err = mJsonProvider->ParseNodeConfig(config, updatedConfig);
+
+    auto err = mJsonProvider->ParseNodeConfig(config, updatedConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -176,29 +175,16 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 
     updatedConfig.mVersion = version;
 
-    StaticString<cNodeConfigJSONLen> newConfigJson;
+    if (auto err = WriteConfig(updatedConfig); !err.IsNone()) {
+        LOG_ERR() << "Failed to write config: err=" << err;
 
-    err = mJsonProvider->DumpNodeConfig(updatedConfig, newConfigJson);
-    if (!err.IsNone()) {
-        LOG_ERR() << "Failed to dump config: " << err;
-
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
-    err = FS::WriteStringToFile(mConfigPath, newConfigJson, S_IRUSR | S_IWUSR);
-    if (!err.IsNone()) {
-        LOG_ERR() << "Failed to write config: " << err;
+    if (auto err = LoadConfig(); !err.IsNone()) {
+        LOG_ERR() << "Failed to load config: err=" << err;
 
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = LoadConfig();
-    if (!err.IsNone()) {
-        LOG_ERR() << "Failed to load config: " << err;
-
-        mConfigError = err;
-
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     return ErrorEnum::eNone;
@@ -210,18 +196,44 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 
 Error ResourceManager::LoadConfig()
 {
-    StaticString<cNodeConfigJSONLen> config;
+    auto configJSON = MakeUnique<StaticString<cNodeConfigJSONLen>>(&mAllocator);
 
-    auto err = FS::ReadFileToString(mConfigPath, config);
+    auto err = FS::ReadFileToString(mConfigPath, *configJSON);
     if (!err.IsNone()) {
         if (err == ENOENT) {
             mConfig.mVersion = "0.0.0";
+
             return ErrorEnum::eNone;
         }
+
+        mConfigError = err;
+
+        return AOS_ERROR_WRAP(err);
     }
 
-    err = mJsonProvider->ParseNodeConfig(config, mConfig);
+    err = mJsonProvider->ParseNodeConfig(*configJSON, mConfig);
     if (!err.IsNone()) {
+        mConfigError = err;
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ResourceManager::WriteConfig(const NodeConfig& config)
+{
+    auto configJSON = MakeUnique<StaticString<cNodeConfigJSONLen>>(&mAllocator);
+
+    if (auto err = mJsonProvider->DumpNodeConfig(config, *configJSON); !err.IsNone()) {
+        LOG_ERR() << "Failed to dump config: err=" << err;
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = FS::WriteStringToFile(mConfigPath, *configJSON, S_IRUSR | S_IWUSR); !err.IsNone()) {
+        LOG_ERR() << "Failed to write config: err=" << err;
+
         return AOS_ERROR_WRAP(err);
     }
 

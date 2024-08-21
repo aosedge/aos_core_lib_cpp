@@ -9,6 +9,7 @@
 #define AOS_RESOURCEMANAGER_HPP_
 
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/string.hpp"
 #include "aos/common/tools/thread.hpp"
@@ -323,6 +324,7 @@ public:
 
 private:
     Error LoadConfig();
+    Error WriteConfig(const NodeConfig& config);
     Error ValidateNodeConfig(const NodeConfig& config) const;
     Error ValidateDevices(const Array<DeviceInfo>& devices) const;
     Error GetConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const;
@@ -335,6 +337,8 @@ private:
     StaticString<cFilePathLen> mConfigPath;
     Error                      mConfigError {ErrorEnum::eNone};
     NodeConfig                 mConfig;
+
+    StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>)> mAllocator;
 };
 
 } // namespace resourcemanager
