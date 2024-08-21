@@ -32,8 +32,7 @@ Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf&
     mNodeType          = nodeType;
     mConfigPath        = configPath;
 
-    auto err = LoadConfig();
-    if (!err.IsNone()) {
+    if (auto err = LoadConfig(); !err.IsNone()) {
         LOG_ERR() << "Failed to load unit config: " << err;
 
         mConfigError = err;
@@ -42,13 +41,13 @@ Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf&
     return ErrorEnum::eNone;
 }
 
-RetWithError<StaticString<cVersionLen>> ResourceManager::GetVersion() const
+RetWithError<StaticString<cVersionLen>> ResourceManager::GetNodeConfigVersion() const
 {
     LockGuard lock(mMutex);
 
-    LOG_DBG() << "Get config version";
+    LOG_DBG() << "Get node config version: version=" << mConfig.mVersion;
 
-    return {mConfig.mVendorVersion, ErrorEnum::eNone};
+    return {mConfig.mVersion, mConfigError};
 }
 
 Error ResourceManager::GetDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const
@@ -140,8 +139,8 @@ Error ResourceManager::CheckNodeConfig(const String& version, const String& conf
 
     LOG_DBG() << "Check unit config: version = " << version;
 
-    if (version == mConfig.mVendorVersion) {
-        LOG_INF() << "Invalid vendor version";
+    if (version == mConfig.mVersion) {
+        LOG_ERR() << "Invalid node config version version";
 
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
@@ -175,7 +174,7 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
         return AOS_ERROR_WRAP(err);
     }
 
-    updatedConfig.mVendorVersion = version;
+    updatedConfig.mVersion = version;
 
     StaticString<cConfigJSONLen> newConfigJson;
     err = mJsonProvider->DumpNodeConfig(updatedConfig, newConfigJson);
@@ -215,6 +214,7 @@ Error ResourceManager::LoadConfig()
     auto err = FS::ReadFileToString(mConfigPath, config);
     if (!err.IsNone()) {
         if (err == ENOENT) {
+            mConfig.mVersion = "0.0.0";
             return ErrorEnum::eNone;
         }
     }

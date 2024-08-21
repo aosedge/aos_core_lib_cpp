@@ -100,7 +100,7 @@ protected:
         auto err = FS::WriteStringToFile(cConfigFilePath, cConfigValue, S_IRUSR | S_IWUSR);
         EXPECT_TRUE(err.IsNone()) << "SetUp failed to write string to file: " << err.Message();
 
-        mConfig.mVendorVersion = cConfigVersion;
+        mConfig.mVersion = cConfigVersion;
     }
 
     void InitResourceManager(const ErrorEnum cJSONParseError = ErrorEnum::eNone)
@@ -157,8 +157,7 @@ protected:
 
     void EnrichUnitConfig(aos::sm::resourcemanager::NodeConfig& config, const String& nodeType, const String& version)
     {
-        config.mVendorVersion = version;
-
+        config.mVersion              = version;
         config.mNodeConfig.mNodeType = nodeType;
 
         AddRandomDeviceInfo(config);
@@ -200,8 +199,8 @@ TEST_F(ResourceManagerTest, GetUnitConfigSucceeds)
 {
     InitResourceManager();
 
-    auto ret = mResourceManager.GetVersion();
-    ASSERT_TRUE(ret.mError.IsNone()) << "Failed to get unit config info: " << ret.mError.Message();
+    auto ret = mResourceManager.GetNodeConfigVersion();
+    ASSERT_TRUE(ret.mError.IsNone()) << "Failed to get node config version: " << ret.mError.Message();
 
     EXPECT_EQ(ret.mValue, cConfigVersion) << "lhs: " << ret.mValue.CStr() << " rhs: " << cConfigVersion.CStr();
 }
@@ -396,17 +395,17 @@ TEST_F(ResourceManagerTest, GetDeviceInstancesSucceeds)
     ASSERT_TRUE(err.IsNone()) << "Failed to get device instances: " << err.Message();
 }
 
-TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnVendorVersionMatch)
+TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnVendorMatch)
 {
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, ParseNodeConfig).Times(0);
 
-    auto err = mResourceManager.CheckNodeConfig(mConfig.mVendorVersion, cTestNodeConfigJSON);
+    auto err = mResourceManager.CheckNodeConfig(mConfig.mVersion, cTestNodeConfigJSON);
     ASSERT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << "Expected error invalid argument, got: " << err.Message();
 }
 
-TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnConfigJSONParse)
+TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnConfigJSONParse)
 {
     InitResourceManager();
 
@@ -416,7 +415,7 @@ TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnConfigJSONParse)
     ASSERT_TRUE(err.Is(ErrorEnum::eFailed)) << "Expected error failed, got: " << err.Message();
 }
 
-TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnNodeTypeMismatch)
+TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnNodeTypeMismatch)
 {
     InitResourceManager();
 
@@ -429,7 +428,7 @@ TEST_F(ResourceManagerTest, CheckUnitConfigFailsOnNodeTypeMismatch)
     ASSERT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << "Expected error invalid argument, got: " << err.Message();
 }
 
-TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnEmptyUnitConfigDevices)
+TEST_F(ResourceManagerTest, CheckNodeConfigSucceedsOnEmptyNodeConfigDevices)
 {
     InitResourceManager();
 

@@ -19,11 +19,11 @@ namespace sm {
 namespace resourcemanager {
 
 /**
- * Config.
+ * Node Config.
  */
 struct NodeConfig {
     aos::NodeConfig           mNodeConfig;
-    StaticString<cVersionLen> mVendorVersion;
+    StaticString<cVersionLen> mVersion;
 };
 
 /**
@@ -140,11 +140,11 @@ public:
     virtual ~ResourceManagerItf() = default;
 
     /**
-     * Gets current version.
+     * Returns current node config version.
      *
      * @return RetWithError<StaticString<cVersionLen>>.
      */
-    virtual RetWithError<StaticString<cVersionLen>> GetVersion() const = 0;
+    virtual RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const = 0;
 
     /**
      * Gets device info by name.
@@ -239,11 +239,11 @@ public:
         HostGroupManagerItf& hostGroupManager, const String& nodeType, const String& configPath);
 
     /**
-     * Gets current version.
+     * Returns current node config version.
      *
      * @return RetWithError<StaticString<cVersionLen>>.
      */
-    RetWithError<StaticString<cVersionLen>> GetVersion() const override;
+    RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const override;
 
     /**
      * Gets device info by name.
