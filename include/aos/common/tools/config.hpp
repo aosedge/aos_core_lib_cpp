@@ -54,7 +54,7 @@
  * Configures thread stack alignment.
  */
 #ifndef AOS_CONFIG_THREAD_STACK_ALIGN
-#define AOS_CONFIG_THREAD_STACK_ALIGN sizeof(int)
+#define AOS_CONFIG_THREAD_STACK_ALIGN 4096
 #endif
 
 /**
