@@ -63,7 +63,7 @@ public:
      * @param[out] monitoringData monitoring data.
      * @return Error.
      */
-    Error GetAverageMonitoringData(NodeMonitoringData& monitoringData);
+    Error GetAverageMonitoringData(NodeMonitoringData& monitoringData) override;
 
     /**
      * Responds to a connection event.

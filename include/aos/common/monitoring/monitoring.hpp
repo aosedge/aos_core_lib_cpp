@@ -198,6 +198,14 @@ public:
      * @return Error.
      */
     virtual Error StopInstanceMonitoring(const String& instanceID) = 0;
+
+    /**
+     * Returns average monitoring data.
+     *
+     * @param[out] monitoringData monitoring data.
+     * @return Error.
+     */
+    virtual Error GetAverageMonitoringData(NodeMonitoringData& monitoringData) = 0;
 };
 
 } // namespace aos::monitoring

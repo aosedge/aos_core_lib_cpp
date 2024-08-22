@@ -74,6 +74,13 @@ public:
 
         return ErrorEnum::eNone;
     }
+
+    Error GetAverageMonitoringData(monitoring::NodeMonitoringData& monitoringData) override
+    {
+        (void)monitoringData;
+
+        return ErrorEnum::eNone;
+    }
 };
 
 /**
