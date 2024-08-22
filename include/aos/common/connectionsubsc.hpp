@@ -44,14 +44,14 @@ public:
      *
      * @param subscriber subscriber reference.
      */
-    virtual aos::Error Subscribes(ConnectionSubscriberItf& subscriber) = 0;
+    virtual aos::Error Subscribe(ConnectionSubscriberItf& subscriber) = 0;
 
     /**
      * Unsubscribes the provided ConnectionSubscriberItf from this object.
      *
      * @param subscriber subscriber reference.
      */
-    virtual void Unsubscribes(ConnectionSubscriberItf& subscriber) = 0;
+    virtual void Unsubscribe(ConnectionSubscriberItf& subscriber) = 0;
 };
 
 } // namespace aos

@@ -130,7 +130,7 @@ public:
      */
     ~Launcher()
     {
-        mConnectionPublisher->Unsubscribes(*this);
+        mConnectionPublisher->Unsubscribe(*this);
         mThread.Join();
     }
 

@@ -27,7 +27,7 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
 
     mConnectionPublisher = &connectionPublisher;
 
-    auto err = mConnectionPublisher->Subscribes(*this);
+    auto err = mConnectionPublisher->Subscribe(*this);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

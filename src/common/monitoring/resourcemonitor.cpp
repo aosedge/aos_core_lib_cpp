@@ -39,7 +39,7 @@ Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfo
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mConnectionPublisher->Subscribes(*this); !err.IsNone()) {
+    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -134,7 +134,7 @@ Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringDa
 
 ResourceMonitor::~ResourceMonitor()
 {
-    mConnectionPublisher->Unsubscribes(*this);
+    mConnectionPublisher->Unsubscribe(*this);
 
     {
         LockGuard lock {mMutex};

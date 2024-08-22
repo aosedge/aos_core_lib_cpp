@@ -184,14 +184,14 @@ private:
 
 class MockConnectionPublisher : public ConnectionPublisherItf {
 public:
-    aos::Error Subscribes(ConnectionSubscriberItf& subscriber) override
+    aos::Error Subscribe(ConnectionSubscriberItf& subscriber) override
     {
         mSubscriber = &subscriber;
 
         return ErrorEnum::eNone;
     }
 
-    void Unsubscribes(ConnectionSubscriberItf& subscriber) override
+    void Unsubscribe(ConnectionSubscriberItf& subscriber) override
     {
         EXPECT_TRUE(&subscriber == mSubscriber);
 
