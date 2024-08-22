@@ -110,11 +110,6 @@ constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
 constexpr auto cSHA256Size = 32;
 
 /**
- * SHA512 size.
- */
-constexpr auto cSHA512Size = 64;
-
-/**
  * Error message len.
  */
 constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
@@ -427,7 +422,6 @@ struct ServiceInfo {
     uint32_t                               mGID;
     StaticString<cURLLen>                  mURL;
     aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
-    aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
     size_t                                 mSize;
 
     /**
@@ -439,8 +433,7 @@ struct ServiceInfo {
     bool operator==(const ServiceInfo& info) const
     {
         return mServiceID == info.mServiceID && mProviderID == info.mProviderID && mVersion == info.mVersion
-            && mGID == info.mGID && mURL == info.mURL && mSHA256 == info.mSHA256 && mSHA512 == info.mSHA512
-            && mSize == info.mSize;
+            && mGID == info.mGID && mURL == info.mURL && mSHA256 == info.mSHA256 && mSize == info.mSize;
     }
 
     /**
@@ -468,7 +461,6 @@ struct LayerInfo {
     StaticString<cVersionLen>              mVersion;
     StaticString<cURLLen>                  mURL;
     aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
-    aos::StaticArray<uint8_t, cSHA512Size> mSHA512;
     size_t                                 mSize;
 
     /**
@@ -480,7 +472,7 @@ struct LayerInfo {
     bool operator==(const LayerInfo& info) const
     {
         return mLayerID == info.mLayerID && mLayerDigest == info.mLayerDigest && mVersion == info.mVersion
-            && mURL == info.mURL && mSHA256 == info.mSHA256 && mSHA512 == info.mSHA512 && mSize == info.mSize;
+            && mURL == info.mURL && mSHA256 == info.mSHA256 && mSize == info.mSize;
     }
 
     /**

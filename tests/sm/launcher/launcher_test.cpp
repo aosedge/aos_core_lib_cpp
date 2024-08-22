@@ -401,7 +401,7 @@ TEST(LauncherTest, RunInstances)
                 {{"service1", "subject1", 2}, 0, 0, "", ""},
             },
             std::vector<ServiceInfo> {
-                {"service1", "provider1", "1.0.0", 0, "", {}, {}, 0},
+                {"service1", "provider1", "1.0.0", 0, "", {}, 0},
             },
             {},
             std::vector<InstanceStatus> {
@@ -425,7 +425,7 @@ TEST(LauncherTest, RunInstances)
                 {{"service1", "subject1", 6}, 0, 0, "", ""},
             },
             std::vector<ServiceInfo> {
-                {"service1", "provider1", "2.0.0", 0, "", {}, {}, 0},
+                {"service1", "provider1", "2.0.0", 0, "", {}, 0},
             },
             {},
             std::vector<InstanceStatus> {

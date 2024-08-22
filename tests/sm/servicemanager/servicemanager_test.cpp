@@ -228,10 +228,10 @@ TEST(ServiceManagerTest, InstallServices)
     std::vector<TestData> testData = {
         {
             std::vector<ServiceInfo> {
-                {"service1", "provider1", "1.0.0", 0, "url", {}, {}, 0},
-                {"service2", "provider2", "1.0.0", 0, "url", {}, {}, 0},
-                {"service3", "provider3", "1.0.0", 0, "url", {}, {}, 0},
-                {"service4", "provider4", "1.0.0", 0, "url", {}, {}, 0},
+                {"service1", "provider1", "1.0.0", 0, "url", {}, 0},
+                {"service2", "provider2", "1.0.0", 0, "url", {}, 0},
+                {"service3", "provider3", "1.0.0", 0, "url", {}, 0},
+                {"service4", "provider4", "1.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
                 {"service1", "provider1", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service1"},
@@ -242,10 +242,10 @@ TEST(ServiceManagerTest, InstallServices)
         },
         {
             std::vector<ServiceInfo> {
-                {"service3", "provider3", "1.0.0", 0, "url", {}, {}, 0},
-                {"service4", "provider4", "1.0.0", 0, "url", {}, {}, 0},
-                {"service5", "provider5", "1.0.0", 0, "url", {}, {}, 0},
-                {"service6", "provider6", "1.0.0", 0, "url", {}, {}, 0},
+                {"service3", "provider3", "1.0.0", 0, "url", {}, 0},
+                {"service4", "provider4", "1.0.0", 0, "url", {}, 0},
+                {"service5", "provider5", "1.0.0", 0, "url", {}, 0},
+                {"service6", "provider6", "1.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
                 {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
@@ -256,10 +256,10 @@ TEST(ServiceManagerTest, InstallServices)
         },
         {
             std::vector<ServiceInfo> {
-                {"service3", "provider3", "1.0.0", 0, "url", {}, {}, 0},
-                {"service4", "provider4", "2.0.0", 0, "url", {}, {}, 0},
-                {"service5", "provider5", "3.0.0", 0, "url", {}, {}, 0},
-                {"service6", "provider6", "4.0.0", 0, "url", {}, {}, 0},
+                {"service3", "provider3", "1.0.0", 0, "url", {}, 0},
+                {"service4", "provider4", "2.0.0", 0, "url", {}, 0},
+                {"service5", "provider5", "3.0.0", 0, "url", {}, 0},
+                {"service6", "provider6", "4.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
                 {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
