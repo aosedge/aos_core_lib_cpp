@@ -26,16 +26,17 @@ Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfo
     mMonitorSender         = &monitorSender;
     mConnectionPublisher   = &connectionPublisher;
 
-    NodeInfo nodeInfo;
+    auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
 
-    if (auto err = nodeInfoProvider.GetNodeInfo(nodeInfo); !err.IsNone()) {
+    if (auto err = nodeInfoProvider.GetNodeInfo(*nodeInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mNodeMonitoringData.mNodeID         = nodeInfo.mNodeID;
-    mNodeMonitoringData.mMonitoringData = MonitoringData {0, 0, nodeInfo.mPartitions, 0, 0};
+    mNodeMonitoringData.mNodeID         = nodeInfo->mNodeID;
+    mNodeMonitoringData.mMonitoringData = MonitoringData {0, 0, nodeInfo->mPartitions, 0, 0};
+    mMaxDMIPS                           = nodeInfo->mMaxDMIPS;
 
-    if (auto err = mAverage.Init(nodeInfo.mPartitions, cAverageWindow / cPollPeriod); !err.IsNone()) {
+    if (auto err = mAverage.Init(nodeInfo->mPartitions, cAverageWindow / cPollPeriod); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -169,6 +170,8 @@ void ResourceMonitor::ProcessMonitoring()
             LOG_ERR() << "Failed to get node monitoring data: " << err;
         }
 
+        mNodeMonitoringData.mMonitoringData.mCPU = mNodeMonitoringData.mMonitoringData.mCPU * mMaxDMIPS / 100.0;
+
         mNodeMonitoringData.mServiceInstances.Clear();
 
         for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
@@ -177,6 +180,9 @@ void ResourceMonitor::ProcessMonitoring()
                 !err.IsNone()) {
                 LOG_ERR() << "Failed to get instance monitoring data: " << err;
             }
+
+            instanceMonitoringData.mMonitoringData.mCPU
+                = instanceMonitoringData.mMonitoringData.mCPU * mMaxDMIPS / 100.0;
 
             mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
         }

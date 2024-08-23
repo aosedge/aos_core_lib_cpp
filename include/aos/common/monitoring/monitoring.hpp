@@ -20,7 +20,7 @@ namespace aos::monitoring {
  * Monitoring data.
  */
 struct MonitoringData {
-    size_t                   mCPU;
+    double                   mCPU;
     size_t                   mRAM;
     PartitionInfoStaticArray mDisk;
     uint64_t                 mDownload;

@@ -27,6 +27,12 @@ T GetValue(const T& value, size_t window)
     return Round<T>(static_cast<double>(value) / window);
 }
 
+template <>
+double GetValue(const double& value, size_t window)
+{
+    return value / window;
+}
+
 template <typename T>
 void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
 {

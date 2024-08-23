@@ -231,9 +231,10 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
 {
     PartitionInfo nodePartitionsInfo[] = {{"disk1", {}, "", 512, 256}, {"disk2", {}, "", 1024, 512}};
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
+    auto          nodeInfo             = NodeInfo {
+        "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
-    MockNodeInfoProvider nodeInfoProvider {NodeInfo {
-        "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192}};
+    MockNodeInfoProvider nodeInfoProvider {nodeInfo};
 
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
@@ -269,6 +270,13 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
         Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
     EXPECT_TRUE(sender.WaitMonitoringData(receivedNodeMonitoringData).IsNone());
 
+    providedNodeMonitoringData.mMonitoringData.mCPU
+        = providedNodeMonitoringData.mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
+
+    for (auto& instanceMonitoring : providedNodeMonitoringData.mServiceInstances) {
+        instanceMonitoring.mMonitoringData.mCPU = instanceMonitoring.mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
+    }
+
     receivedNodeMonitoringData.mTimestamp = providedNodeMonitoringData.mTimestamp;
     EXPECT_EQ(providedNodeMonitoringData, receivedNodeMonitoringData);
 }
@@ -277,9 +285,11 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
 {
     PartitionInfo nodePartitionsInfo[] = {{"disk", {}, "", 512, 256}};
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
+    auto          nodeInfo             = NodeInfo {
+        "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
-    MockNodeInfoProvider      nodeInfoProvider {NodeInfo {
-        "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192}};
+    MockNodeInfoProvider nodeInfoProvider {nodeInfo};
+
     MockResourceUsageProvider resourceUsageProvider {};
     MockSender                sender {};
     MockConnectionPublisher   connectionPublisher {};
@@ -368,10 +378,18 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         SetInstancesMonitoringData(averageNodeMonitoringData[i],
             Array<Pair<String, InstanceMonitoringData>>(&averageInstanceMonitoringData[i], 1));
 
+        averageNodeMonitoringData[i].mMonitoringData.mCPU
+            = averageNodeMonitoringData[i].mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
+
+        for (auto& instanceMonitoring : averageNodeMonitoringData[i].mServiceInstances) {
+            instanceMonitoring.mMonitoringData.mCPU
+                = instanceMonitoring.mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
+        }
+
         receivedNodeMonitoringData.mTimestamp = averageNodeMonitoringData[i].mTimestamp;
 
         EXPECT_EQ(averageNodeMonitoringData[i], receivedNodeMonitoringData);
     }
-}
+} // namespace aos::monitoring
 
 } // namespace aos::monitoring

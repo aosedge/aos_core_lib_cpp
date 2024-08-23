@@ -10,6 +10,7 @@
 
 #include "aos/common/monitoring/average.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
+#include "aos/common/tools/memory.hpp"
 
 namespace aos::monitoring {
 
@@ -96,6 +97,10 @@ private:
     Mutex               mMutex;
     ConditionalVariable mCondVar;
     Thread<>            mThread = {};
+
+    uint64_t mMaxDMIPS;
+
+    mutable StaticAllocator<sizeof(NodeInfo)> mAllocator;
 };
 
 } // namespace aos::monitoring
