@@ -691,6 +691,13 @@
 #endif
 
 /**
+ * Max number of cryptoutils allocations.
+ */
+#ifndef AOS_CONFIG_CRYPTOUTILS_NUM_ALLOCATIONS
+#define AOS_CONFIG_CRYPTOUTILS_NUM_ALLOCATIONS 16
+#endif
+
+/**
  * Default PKCS11 library.
  */
 #ifndef AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB
