@@ -245,7 +245,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
 
         err = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(oldKey);
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't delete pending key = " << err.Message();
+            LOG_ERR() << "Can't delete pending key: err=" << err;
         }
 
         mPendingKeys.Remove(mPendingKeys.begin());

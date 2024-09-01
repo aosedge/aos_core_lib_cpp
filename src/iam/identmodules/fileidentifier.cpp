@@ -36,7 +36,7 @@ Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsOb
 
     err = ReadSubjects();
     if (!err.IsNone()) {
-        LOG_WRN() << "Can't read subjects: " << err.Message() << ". Empty subjects will be used";
+        LOG_WRN() << "Can't read subjects: err=" << err << ". Empty subjects will be used";
     }
 
     return ErrorEnum::eNone;
