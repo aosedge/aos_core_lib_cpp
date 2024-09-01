@@ -82,6 +82,11 @@ public:
             return err;
         }
 
+#if AOS_CONFIG_THREAD_STACK_USAGE
+        memset(&mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign)], 0xAA,
+            AlignedSize(cStackSize, cThreadStackAlign));
+#endif
+
 #if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
         if (auto ret = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ); ret != 0) {
             return ret;
@@ -123,6 +128,23 @@ public:
 
         return ErrorEnum::eNone;
     }
+
+#if AOS_CONFIG_THREAD_STACK_USAGE
+    size_t GetStackUsage()
+    {
+        size_t freeSize = 0;
+
+        for (size_t i = 0; i < AlignedSize(cStackSize, cThreadStackAlign); i++) {
+            if (mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign) + i] != 0xAA) {
+                break;
+            }
+
+            freeSize++;
+        }
+
+        return AlignedSize(cStackSize, cThreadStackAlign) - freeSize;
+    }
+#endif
 
 private:
     alignas(cThreadStackAlign) uint8_t

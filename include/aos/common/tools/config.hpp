@@ -65,6 +65,13 @@
 #endif
 
 /**
+ * Configures thread stack usage.
+ */
+#ifndef AOS_CONFIG_THREAD_STACK_USAGE
+#define AOS_CONFIG_THREAD_STACK_USAGE 0
+#endif
+
+/**
  * Configures default thread pool queue size.
  */
 #ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE
