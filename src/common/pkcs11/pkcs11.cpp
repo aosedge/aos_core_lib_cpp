@@ -898,7 +898,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
     LockGuard lock(mMutex);
 
-    LOG_INF() << "Loading library: path = " << library;
+    LOG_INF() << "Open library: path=" << library;
 
     for (auto& lib : mLibraries) {
         if (lib.mFirst == library) {
@@ -919,7 +919,10 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 
     dlerror(); // clean previous error status
 
-    void* handle = dlopen(library.CStr(), RTLD_NOW);
+    LOG_DBG() << "Load library: path=" << library;
+
+    void* handle = dlopen(library.CStr(), RTLD_LAZY);
+
     if (handle == nullptr) {
         LOG_ERR() << "Can't open PKCS11 library: path = " << library << ", err = " << dlerror();
 
