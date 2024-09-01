@@ -19,6 +19,10 @@
 #include "aos/common/tools/queue.hpp"
 #include "aos/common/tools/time.hpp"
 
+#if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
+#include <sys/mman.h>
+#endif
+
 namespace aos {
 
 /**
@@ -32,6 +36,11 @@ constexpr auto cDefaultThreadStackSize = AOS_CONFIG_THREAD_DEFAULT_STACK_SIZE;
 constexpr auto cThreadStackAlign = AOS_CONFIG_THREAD_STACK_ALIGN;
 
 /**
+ * Configures thread stack guard size.
+ */
+constexpr auto cThreadStackGuardSize = AOS_CONFIG_THREAD_STACK_GUARD_SIZE;
+
+/**
  * Default thread pool queue size.
  */
 constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE;
@@ -42,11 +51,21 @@ constexpr auto cDefaultThreadPoolQueueSize = AOS_CONFIG_THREAD_POOL_DEFAULT_QUEU
 template <size_t cFunctionMaxSize = cDefaultFunctionMaxSize, size_t cStackSize = cDefaultThreadStackSize>
 class Thread : private NonCopyable {
 public:
-    // cppcheck-suppress uninitMemberVar
     /**
      * Constructs Aos thread instance and use lambda as argument.
      */
-    Thread() { }
+    Thread() = default;
+
+    /**
+     * Destructor.
+     */
+    ~Thread()
+    {
+#if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
+        auto ret = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ | PROT_WRITE);
+        assert(ret == 0);
+#endif
+    }
 
     /**
      * Runs thread function.
@@ -63,6 +82,12 @@ public:
             return err;
         }
 
+#if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
+        if (auto ret = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ); ret != 0) {
+            return ret;
+        }
+#endif
+
         pthread_attr_t attr;
 
         auto ret = pthread_attr_init(&attr);
@@ -70,7 +95,8 @@ public:
             return ret;
         }
 
-        ret = pthread_attr_setstack(&attr, mStack, ArraySize(mStack));
+        ret = pthread_attr_setstack(&attr, &mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign)],
+            AlignedSize(cStackSize, cThreadStackAlign));
         if (ret != 0) {
             return ret;
         }
@@ -99,7 +125,8 @@ public:
     }
 
 private:
-    alignas(cThreadStackAlign) uint8_t mStack[AlignedSize(cStackSize, cThreadStackAlign)];
+    alignas(cThreadStackAlign) uint8_t
+        mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign) + AlignedSize(cStackSize, cThreadStackAlign)];
     StaticFunction<cFunctionMaxSize> mFunction;
     pthread_t                        mPThread  = {};
     bool                             mJoinable = false;

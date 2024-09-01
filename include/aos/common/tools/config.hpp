@@ -58,6 +58,13 @@
 #endif
 
 /**
+ * Configures thread stack guard size.
+ */
+#ifndef AOS_CONFIG_THREAD_STACK_GUARD_SIZE
+#define AOS_CONFIG_THREAD_STACK_GUARD_SIZE 0
+#endif
+
+/**
  * Configures default thread pool queue size.
  */
 #ifndef AOS_CONFIG_THREAD_POOL_DEFAULT_QUEUE_SIZE
