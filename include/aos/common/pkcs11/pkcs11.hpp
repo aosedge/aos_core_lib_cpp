@@ -472,6 +472,7 @@ private:
     Error FindObjects(Array<ObjectHandle>& objects) const;
     Error FindObjectsFinal() const;
 
+    mutable Mutex        mMutex;
     SessionHandle        mHandle;
     CK_FUNCTION_LIST_PTR mFunctionList;
 };

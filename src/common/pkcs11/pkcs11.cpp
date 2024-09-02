@@ -558,6 +558,8 @@ SessionContext::SessionContext(SessionHandle handle, CK_FUNCTION_LIST_PTR funcLi
 
 Error SessionContext::GetSessionInfo(SessionInfo& info) const
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_GetSessionInfo) {
         return ErrorEnum::eWrongState;
     }
@@ -572,6 +574,8 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
 
 Error SessionContext::Login(UserType userType, const String& pin)
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_Login) {
         return ErrorEnum::eWrongState;
     }
@@ -592,6 +596,8 @@ Error SessionContext::Login(UserType userType, const String& pin)
 
 Error SessionContext::Logout()
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_Logout) {
         return ErrorEnum::eWrongState;
     }
@@ -606,6 +612,8 @@ Error SessionContext::Logout()
 
 Error SessionContext::InitPIN(const String& pin)
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_InitPIN) {
         return ErrorEnum::eWrongState;
     }
@@ -623,6 +631,8 @@ Error SessionContext::InitPIN(const String& pin)
 Error SessionContext::GetAttributeValues(
     ObjectHandle object, const Array<AttributeType>& types, Array<Array<uint8_t>>& values) const
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_GetAttributeValue) {
         return ErrorEnum::eWrongState;
     }
@@ -644,6 +654,8 @@ Error SessionContext::GetAttributeValues(
 
 Error SessionContext::FindObjects(const Array<ObjectAttribute>& templ, Array<ObjectHandle>& objects) const
 {
+    LockGuard lock {mMutex};
+
     Error initErr = FindObjectsInit(templ);
     if (!initErr.IsNone()) {
         return initErr;
@@ -665,6 +677,8 @@ Error SessionContext::FindObjects(const Array<ObjectAttribute>& templ, Array<Obj
 
 RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttribute>& templ)
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_CreateObject) {
         return {0, ErrorEnum::eWrongState};
     }
@@ -688,6 +702,8 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
 Error SessionContext::DestroyObject(ObjectHandle object)
 {
+    LockGuard lock {mMutex};
+
     if (!mFunctionList || !mFunctionList->C_DestroyObject) {
         return ErrorEnum::eWrongState;
     }
@@ -703,6 +719,8 @@ Error SessionContext::DestroyObject(ObjectHandle object)
 Error SessionContext::Sign(
     CK_MECHANISM_PTR mechanism, ObjectHandle privKey, const Array<uint8_t>& data, Array<uint8_t>& signature) const
 {
+    LockGuard lock {mMutex};
+
     auto err = SignInit(mechanism, privKey);
     if (!err.IsNone()) {
         return err;
@@ -723,6 +741,8 @@ Error SessionContext::Sign(
 Error SessionContext::Decrypt(
     CK_MECHANISM_PTR mechanism, ObjectHandle privKey, const Array<uint8_t>& data, Array<uint8_t>& result) const
 {
+    LockGuard lock {mMutex};
+
     auto err = DecryptInit(mechanism, privKey);
     if (!err.IsNone()) {
         return err;
@@ -743,11 +763,15 @@ Error SessionContext::Decrypt(
 
 SessionHandle SessionContext::GetHandle() const
 {
+    LockGuard lock {mMutex};
+
     return mHandle;
 }
 
 CK_FUNCTION_LIST_PTR SessionContext::GetFunctionList() const
 {
+    LockGuard lock {mMutex};
+
     return mFunctionList;
 }
 
