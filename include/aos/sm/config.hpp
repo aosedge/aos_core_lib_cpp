@@ -16,6 +16,20 @@
 #endif
 
 /**
+ * Launcher thread task size.
+ */
+#ifndef AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE
+#define AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE 256
+#endif
+
+/**
+ * Launcher thread stack size.
+ */
+#ifndef AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE
+#define AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE 16384
+#endif
+
+/**
  * Aos runtime dir.
  */
 #ifndef AOS_CONFIG_LAUNCHER_RUNTIME_DIR
