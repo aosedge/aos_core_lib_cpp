@@ -350,7 +350,15 @@ Error LibraryContext::Init()
         return ErrorEnum::eWrongState;
     }
 
+#if AOS_CONFIG_CRYPTOUTILS_PKCS11_OS_LOCKING
+    CK_C_INITIALIZE_ARGS initArgs {};
+
+    initArgs.flags = CKF_OS_LOCKING_OK;
+
+    auto rv = mFunctionList->C_Initialize(&initArgs);
+#else
     auto rv = mFunctionList->C_Initialize(nullptr);
+#endif
     if (rv != CKR_OK) {
         LOG_ERR() << "Initialize library failed: err = " << rv;
 

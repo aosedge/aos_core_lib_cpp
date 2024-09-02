@@ -705,6 +705,13 @@
 #endif
 
 /**
+ * Use PKCS11 OS locking mechanism.
+ */
+#ifndef AOS_CONFIG_CRYPTOUTILS_PKCS11_OS_LOCKING
+#define AOS_CONFIG_CRYPTOUTILS_PKCS11_OS_LOCKING 1
+#endif
+
+/**
  * Maximum number of public keys to be allocated by cryptoprovider simultaneously.
  */
 #ifndef AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT
