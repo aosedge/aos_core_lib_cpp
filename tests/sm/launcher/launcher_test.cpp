@@ -376,6 +376,8 @@ TEST(LauncherTest, RunInstances)
         launcher.Init(serviceManager, runner, ociManager, statusReceiver, storage, resourceMonitor, connectionPublisher)
             .IsNone());
 
+    ASSERT_TRUE(launcher.Start().IsNone());
+
     connectionPublisher.Connect();
 
     // Wait for initial instance status
@@ -463,6 +465,8 @@ TEST(LauncherTest, RunInstances)
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
     EXPECT_TRUE(TestUtils::CompareArrays(
         feature.get(), Array<InstanceStatus>(testData.back().mStatus.data(), testData.back().mStatus.size())));
+
+    EXPECT_TRUE(launcher.Stop().IsNone());
 }
 
 } // namespace launcher

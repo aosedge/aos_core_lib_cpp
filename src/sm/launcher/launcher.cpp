@@ -27,17 +27,34 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
 
     mConnectionPublisher = &connectionPublisher;
 
-    auto err = mConnectionPublisher->Subscribe(*this);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     mServiceManager  = &serviceManager;
     mRunner          = &runner;
     mOCIManager      = &ociManager;
     mStatusReceiver  = &statusReceiver;
     mStorage         = &storage;
     mResourceMonitor = &resourceMonitor;
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::Start()
+{
+    LOG_DBG() << "Start launcher";
+
+    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::Stop()
+{
+    LOG_DBG() << "Stop launcher";
+
+    mConnectionPublisher->Unsubscribe(*this);
+
+    mThread.Join();
 
     return ErrorEnum::eNone;
 }

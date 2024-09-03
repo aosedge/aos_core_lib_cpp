@@ -128,11 +128,7 @@ public:
     /**
      * Destroys launcher instance.
      */
-    ~Launcher()
-    {
-        mConnectionPublisher->Unsubscribe(*this);
-        mThread.Join();
-    }
+    ~Launcher() = default;
 
     /**
      * Initializes launcher.
@@ -145,6 +141,20 @@ public:
     Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner, OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, StorageItf& storage, monitoring::ResourceMonitorItf& resourceMonitor,
         ConnectionPublisherItf& connectionPublisher);
+
+    /**
+     * Starts launcher.
+     *
+     * @return Error.
+     */
+    Error Start();
+
+    /**
+     * Stops launcher.
+     *
+     * @return Error.
+     */
+    Error Stop();
 
     /**
      * Runs specified instances.
