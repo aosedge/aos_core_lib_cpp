@@ -242,6 +242,7 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     ResourceMonitor           monitor {};
 
     EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor.Start().IsNone());
 
     connectionPublisher.NotifyConnect();
 
@@ -279,6 +280,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
 
     receivedNodeMonitoringData.mTimestamp = providedNodeMonitoringData.mTimestamp;
     EXPECT_EQ(providedNodeMonitoringData, receivedNodeMonitoringData);
+
+    EXPECT_TRUE(monitor.Stop().IsNone());
 }
 
 TEST_F(MonitoringTest, GetAverageMonitoringData)
@@ -296,6 +299,7 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     ResourceMonitor           monitor {};
 
     EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor.Start().IsNone());
 
     connectionPublisher.NotifyConnect();
 
@@ -390,6 +394,9 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
 
         EXPECT_EQ(averageNodeMonitoringData[i], receivedNodeMonitoringData);
     }
+
+    EXPECT_TRUE(monitor.Stop().IsNone());
+
 } // namespace aos::monitoring
 
 } // namespace aos::monitoring

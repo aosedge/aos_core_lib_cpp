@@ -20,16 +20,6 @@ namespace aos::monitoring {
 class ResourceMonitor : public ResourceMonitorItf, public ConnectionSubscriberItf {
 public:
     /**
-     * Constructor.
-     */
-    ResourceMonitor() = default;
-
-    /**
-     * Destructor.
-     */
-    ~ResourceMonitor();
-
-    /**
      * Initializes resource monitor.
      *
      * @param nodeInfoProvider node info provider.
@@ -40,6 +30,20 @@ public:
     Error Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
         ConnectionPublisherItf& connectionPublisher);
+
+    /**
+     * Starts monitoring.
+     *
+     * @return Error.
+     */
+    Error Start();
+
+    /**
+     * Stops monitoring.
+     *
+     * @return Error.
+     */
+    Error Stop();
 
     /**
      * Starts instance monitoring.
@@ -98,7 +102,7 @@ private:
     ConditionalVariable mCondVar;
     Thread<>            mThread = {};
 
-    uint64_t mMaxDMIPS;
+    uint64_t mMaxDMIPS {};
 
     mutable StaticAllocator<sizeof(NodeInfo)> mAllocator;
 };

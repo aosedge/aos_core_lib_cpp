@@ -44,9 +44,34 @@ Error ResourceMonitor::Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfo
         return AOS_ERROR_WRAP(err);
     }
 
+    return ErrorEnum::eNone;
+}
+
+Error ResourceMonitor::Start()
+{
+    LOG_DBG() << "Start monitoring";
+
     if (auto err = mThread.Run([this](void*) { ProcessMonitoring(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    return ErrorEnum::eNone;
+}
+
+Error ResourceMonitor::Stop()
+{
+    LOG_DBG() << "Stop monitoring";
+
+    mConnectionPublisher->Unsubscribe(*this);
+
+    {
+        LockGuard lock {mMutex};
+
+        mFinishMonitoring = true;
+        mCondVar.NotifyOne();
+    }
+
+    mThread.Join();
 
     return ErrorEnum::eNone;
 }
@@ -131,20 +156,6 @@ Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringDa
     monitoringData.mNodeID    = mNodeMonitoringData.mNodeID;
 
     return ErrorEnum::eNone;
-}
-
-ResourceMonitor::~ResourceMonitor()
-{
-    mConnectionPublisher->Unsubscribe(*this);
-
-    {
-        LockGuard lock {mMutex};
-
-        mFinishMonitoring = true;
-        mCondVar.NotifyOne();
-    }
-
-    mThread.Join();
 }
 
 /***********************************************************************************************************************
