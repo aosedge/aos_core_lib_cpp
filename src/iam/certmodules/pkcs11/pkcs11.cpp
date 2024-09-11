@@ -835,7 +835,9 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
         AddParam("module-path", mConfig.mLibrary.CStr(), false, query);
     }
 
-    AddParam("pin-value", mUserPIN.CStr(), false, query);
+    if (!mUserPIN.IsEmpty()) {
+        AddParam("pin-source", mConfig.mUserPINPath, false, query);
+    }
 
     // combine opaque & query parts of url
     auto err = url.Format("%s:%s?%s", cPKCS11Scheme, opaque.CStr(), query.CStr());

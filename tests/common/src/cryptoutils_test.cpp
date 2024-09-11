@@ -26,6 +26,8 @@ protected:
     {
         test::InitLog();
 
+        ASSERT_TRUE(FS::WriteStringToFile(mPINSource, mPIN, 0664).IsNone());
+
         ASSERT_TRUE(mCryptoProvider.Init().IsNone());
         ASSERT_TRUE(mSoftHSMEnv.Init(mPIN, mLabel).IsNone());
 
@@ -34,6 +36,8 @@ protected:
         mLibrary = mSoftHSMEnv.GetLibrary();
         mSlotID  = mSoftHSMEnv.GetSlotID();
     }
+
+    void TearDown() override { ASSERT_TRUE(FS::Remove(mPINSource).IsNone()); }
 
     void ImportCertificateChainToPKCS11(const Array<uint8_t>& caID, const Array<uint8_t>& clientID)
     {
@@ -76,8 +80,9 @@ protected:
         ASSERT_TRUE(err.IsNone());
     }
 
-    static constexpr auto mLabel = "cryptoutils";
-    static constexpr auto mPIN   = "admin";
+    static constexpr auto mLabel     = "cryptoutils";
+    static constexpr auto mPIN       = "admin";
+    static constexpr auto mPINSource = "pin.txt";
 
     crypto::MbedTLSCryptoProvider mCryptoProvider;
     test::SoftHSMEnv              mSoftHSMEnv;
@@ -99,7 +104,7 @@ protected:
 TEST_F(CryptoutilsTest, ParseScheme)
 {
     const char* url1 = "pkcs11:token=aoscore;object=diskencryption;id=2e2769b6-be2c-43ff-b16d-25985a04e6b2?module-path="
-                       "/usr/lib/softhsm/libsofthsm2.so&pin-value=42hAGWdIvQr47T8X";
+                       "/usr/lib/softhsm/libsofthsm2.so";
     const char* url2 = "file:/usr/share/.ssh/rsa.pub";
     const char* url3 = "file/usr/share/.ssh/rsa.pub";
 
@@ -129,8 +134,9 @@ TEST_F(CryptoutilsTest, ParseFileURL)
 
 TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
 {
-    const char* url1 = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
-                       "/usr/lib/softhsm/libsofthsm2.so&pin-value=42hAGWdIvQr47T8X";
+    const auto url1 = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
+                      "/usr/lib/softhsm/libsofthsm2.so&pin-source="
+        + std::string(mPINSource);
 
     StaticString<cFilePathLen>            library;
     StaticString<pkcs11::cLabelLen>       token;
@@ -139,12 +145,12 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
     StaticString<pkcs11::cPINLen>         userPIN;
     uint8_t                               expectedID[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
 
-    ASSERT_EQ(ParsePKCS11URL(url1, library, token, label, id, userPIN), ErrorEnum::eNone);
+    ASSERT_EQ(ParsePKCS11URL(url1.c_str(), library, token, label, id, userPIN), ErrorEnum::eNone);
 
     EXPECT_EQ(library, "/usr/lib/softhsm/libsofthsm2.so");
     EXPECT_EQ(token, "aoscore");
     EXPECT_EQ(label, "diskencryption");
-    EXPECT_EQ(userPIN, "42hAGWdIvQr47T8X");
+    EXPECT_EQ(userPIN, mPIN);
     EXPECT_EQ(id, Array(expectedID, ArraySize(expectedID)));
 }
 
@@ -168,6 +174,55 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLRequiredValuesOnly)
     EXPECT_EQ(id, Array(expectedID, ArraySize(expectedID)));
 }
 
+TEST_F(CryptoutilsTest, ParsePKCS11URLPinValue)
+{
+    const auto url = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
+                     "/usr/lib/softhsm/libsofthsm2.so&pin-value="
+        + std::string(mPIN);
+
+    StaticString<cFilePathLen>      library;
+    StaticString<pkcs11::cLabelLen> token;
+    StaticString<pkcs11::cLabelLen> label;
+    uuid::UUID                      id;
+    StaticString<pkcs11::cPINLen>   userPIN;
+
+    ASSERT_EQ(ParsePKCS11URL(url.c_str(), library, token, label, id, userPIN), ErrorEnum::eNone);
+
+    EXPECT_EQ(userPIN, mPIN);
+}
+
+TEST_F(CryptoutilsTest, ParsePKCS11URLPinSource)
+{
+    const auto url = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
+                     "/usr/lib/softhsm/libsofthsm2.so&pin-source="
+        + std::string(mPINSource);
+
+    StaticString<cFilePathLen>      library;
+    StaticString<pkcs11::cLabelLen> token;
+    StaticString<pkcs11::cLabelLen> label;
+    uuid::UUID                      id;
+    StaticString<pkcs11::cPINLen>   userPIN;
+
+    ASSERT_EQ(ParsePKCS11URL(url.c_str(), library, token, label, id, userPIN), ErrorEnum::eNone);
+
+    EXPECT_EQ(userPIN, mPIN);
+}
+
+TEST_F(CryptoutilsTest, ParsePKCS11URLPinValueAndPinSource)
+{
+    const auto url = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
+                     "/usr/lib/softhsm/libsofthsm2.so&pin-source="
+        + std::string(mPINSource) + "&pin-value=" + std::string(mPIN);
+
+    StaticString<cFilePathLen>      library;
+    StaticString<pkcs11::cLabelLen> token;
+    StaticString<pkcs11::cLabelLen> label;
+    uuid::UUID                      id;
+    StaticString<pkcs11::cPINLen>   userPIN;
+
+    ASSERT_NE(ParsePKCS11URL(url.c_str(), library, token, label, id, userPIN), ErrorEnum::eNone);
+}
+
 TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
 {
     constexpr uint8_t caID[]     = {0x00, 0x01, 0x02};
@@ -175,13 +230,14 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
 
     ImportCertificateChainToPKCS11(Array(caID, ArraySize(caID)), Array(clientID, ArraySize(clientID)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%03?module-"
-                      "path=" SOFTHSM2_LIB "&pin-value=admin";
+    const auto url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%03?module-"
+                     "path=" SOFTHSM2_LIB "&pin-source="
+        + std::string(mPINSource);
 
     SharedPtr<crypto::x509::CertificateChain> chain;
     Error                                     error = ErrorEnum::eNone;
 
-    Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url);
+    Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url.c_str());
     ASSERT_TRUE(error.IsNone());
     ASSERT_TRUE(chain);
     ASSERT_EQ(chain->Size(), 2);
@@ -209,13 +265,14 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChainBadURL)
 
     ImportCertificateChainToPKCS11(Array(caID, ArraySize(caID)), Array(clientID, ArraySize(clientID)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%04?module-"
-                      "path=" SOFTHSM2_LIB "&pin-value=admin";
+    const auto url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%04?module-"
+                     "path=" SOFTHSM2_LIB "&pin-source="
+        + std::string(mPINSource);
 
     SharedPtr<crypto::x509::CertificateChain> chain;
     Error                                     error = ErrorEnum::eNone;
 
-    Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url);
+    Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url.c_str());
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
 }
 
@@ -225,13 +282,14 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKey)
 
     GeneratePrivateKey(Array(id, ArraySize(id)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%CC?module-"
-                      "path=" SOFTHSM2_LIB "&pin-value=admin";
+    const auto url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%CC?module-"
+                     "path=" SOFTHSM2_LIB "&pin-source="
+        + std::string(mPINSource);
 
     SharedPtr<crypto::PrivateKeyItf> privKey;
     Error                            error = ErrorEnum::eNone;
 
-    Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url);
+    Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url.c_str());
     ASSERT_TRUE(error.IsNone());
     ASSERT_TRUE(privKey);
 }
@@ -242,13 +300,14 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKeyBadURL)
 
     GeneratePrivateKey(Array(id, ArraySize(id)));
 
-    const char* url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%FF?module-"
-                      "path=" SOFTHSM2_LIB "&pin-value=admin";
+    const auto url = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%FF?module-"
+                     "path=" SOFTHSM2_LIB "&pin-source="
+        + std::string(mPINSource);
 
     SharedPtr<crypto::PrivateKeyItf> privKey;
     Error                            error = ErrorEnum::eNone;
 
-    Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url);
+    Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url.c_str());
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
 }
 
