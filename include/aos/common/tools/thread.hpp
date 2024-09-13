@@ -604,6 +604,23 @@ public:
         return err;
     }
 
+#if AOS_CONFIG_THREAD_STACK_USAGE
+    size_t GetStackUsage()
+    {
+        size_t usedSize = 0;
+
+        for (auto& thread : mThreads) {
+            auto size = thread.GetStackUsage();
+
+            if (size > usedSize) {
+                usedSize = size;
+            }
+        }
+
+        return usedSize;
+    }
+#endif
+
 private:
     Thread<cMaxTaskSize, cThreadStackSize>                mThreads[cNumThreads];
     Mutex                                                 mMutex;
