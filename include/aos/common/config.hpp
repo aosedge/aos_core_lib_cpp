@@ -278,7 +278,7 @@
  * Max number of nodes.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_NODES
-#define AOS_CONFIG_TYPES_MAX_NUM_NODES 4
+#define AOS_CONFIG_TYPES_MAX_NUM_NODES 16
 #endif
 
 /**
