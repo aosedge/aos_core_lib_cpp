@@ -15,7 +15,7 @@ using namespace aos;
 
 class TestLog : private NonCopyable {
 public:
-    static void LogCallback(const char* module, LogLevel level, const String& message)
+    static void LogCallback(const String& module, LogLevel level, const String& message)
     {
         auto& instance = GetInstance();
 
@@ -34,7 +34,7 @@ public:
     bool CheckLog(const char* module, LogLevel level, const String& message)
     {
 
-        if (strcmp(module, mLogModule) != 0) {
+        if (module != mLogModule) {
             return false;
         }
 
@@ -56,7 +56,7 @@ private:
     {
     }
 
-    const char*                    mLogModule;
+    StaticString<64>               mLogModule;
     LogLevel                       mLogLevel;
     StaticString<Log::cMaxLineLen> mLogMessage;
 };

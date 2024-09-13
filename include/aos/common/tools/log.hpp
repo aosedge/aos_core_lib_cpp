@@ -72,7 +72,7 @@ using LogLevel     = EnumStringer<LogLevelType>;
 /**
  * Log line callback. Should be set in application to display log using application logging mechanism.
  */
-using LogCallback = void (*)(const char* module, LogLevel level, const String& message);
+using LogCallback = void (*)(const String& module, LogLevel level, const String& message);
 
 /**
  * Implements log functionality.
@@ -90,7 +90,7 @@ public:
      * @param module log module type.
      * @param level log level type.
      */
-    Log(const char* module, LogLevel level)
+    Log(const String& module, LogLevel level)
         : mModule(module)
         , mLevel(level)
         , mCurrentLen(0) {};
@@ -189,7 +189,7 @@ private:
     }
 
     StaticString<cMaxLineLen> mLogLine;
-    const char*               mModule;
+    String                    mModule;
     LogLevel                  mLevel;
     size_t                    mCurrentLen;
 };
