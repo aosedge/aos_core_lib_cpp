@@ -225,7 +225,7 @@ public:
 
             auto ret = unlink(entryPath.CStr());
             if (ret != 0) {
-                if (errno != ENOTEMPTY) {
+                if (errno != ENOTEMPTY && errno != EACCES) {
                     return errno;
                 }
 
@@ -306,7 +306,7 @@ public:
                 return ErrorEnum::eNone;
             }
 
-            if (errno != ENOTEMPTY) {
+            if (errno != ENOTEMPTY && errno != EACCES) {
                 return errno;
             }
 
