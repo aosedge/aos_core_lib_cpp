@@ -165,12 +165,12 @@ Error ServiceManager::RemoveService(const ServiceData& service)
 
     auto err = FS::RemoveAll(service.mImagePath);
     if (!err.IsNone() && removeErr.IsNone()) {
-        removeErr = err;
+        removeErr = AOS_ERROR_WRAP(err);
     }
 
     err = mStorage->RemoveService(service.mServiceID, service.mVersion);
     if (!err.IsNone() && removeErr.IsNone()) {
-        removeErr = err;
+        removeErr = AOS_ERROR_WRAP(err);
     }
 
     return removeErr;
@@ -186,17 +186,17 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
 
     auto err = FS::ClearDir(data.mImagePath);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = mDownloader->Download(service.mURL, data.mImagePath, DownloadContentEnum::eService);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     err = mStorage->AddService(data);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
