@@ -930,13 +930,13 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
     LockGuard lock(mMutex);
 
-    LOG_INF() << "Open library: path=" << library;
-
     for (auto& lib : mLibraries) {
         if (lib.mFirst == library) {
             return lib.mSecond;
         }
     }
+
+    LOG_INF() << "Open library: path=" << library;
 
     if (mLibraries.MaxSize() == mLibraries.Size()) {
         return nullptr;
