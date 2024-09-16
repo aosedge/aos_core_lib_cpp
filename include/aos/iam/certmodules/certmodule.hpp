@@ -238,6 +238,7 @@ private:
     using CertificateChain      = StaticArray<crypto::x509::Certificate, crypto::cCertChainSize>;
     using SelfSignedCertificate = StaticString<crypto::cCertPEMLen>;
 
+    Error ValidateConfig();
     Error RemoveInvalidCerts(const String& password);
     Error RemoveInvalidKeys(const String& password);
     Error TrimCerts(const String& password);
