@@ -242,10 +242,10 @@ Error ResourceManager::WriteConfig(const NodeConfig& config)
 
 Error ResourceManager::ValidateNodeConfig(const aos::sm::resourcemanager::NodeConfig& config) const
 {
-    if (mNodeType != config.mNodeConfig.mNodeType) {
+    if (!config.mNodeConfig.mNodeType.IsEmpty() && config.mNodeConfig.mNodeType != mNodeType) {
         LOG_ERR() << "Invalid node type";
 
-        return ErrorEnum::eInvalidArgument;
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
     if (auto err = ValidateDevices(config.mNodeConfig.mDevices); !err.IsNone()) {
