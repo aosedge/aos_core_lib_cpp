@@ -22,7 +22,7 @@ namespace aos::monitoring {
 struct MonitoringData {
     double                   mCPU;
     size_t                   mRAM;
-    PartitionInfoStaticArray mDisk;
+    PartitionInfoStaticArray mPartitions;
     uint64_t                 mDownload;
     uint64_t                 mUpload;
 
@@ -34,7 +34,7 @@ struct MonitoringData {
      */
     bool operator==(const MonitoringData& data) const
     {
-        return mCPU == data.mCPU && mRAM == data.mRAM && mDisk == data.mDisk && mDownload == data.mDownload
+        return mCPU == data.mCPU && mRAM == data.mRAM && mPartitions == data.mPartitions && mDownload == data.mDownload
             && mUpload == data.mUpload;
     }
 

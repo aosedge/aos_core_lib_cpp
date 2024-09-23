@@ -55,7 +55,7 @@ Error Average::Init(const PartitionInfoStaticArray& nodeDisks, size_t windowCoun
         mWindowCount = 1;
     }
 
-    mAverageNodeData.mMonitoringData.mDisk = nodeDisks;
+    mAverageNodeData.mMonitoringData.mPartitions = nodeDisks;
     mAverageInstancesData.Clear();
 
     return ErrorEnum::eNone;
@@ -149,12 +149,12 @@ Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& 
     UpdateValue(data.mDownload, newData.mDownload, mWindowCount, isInitialized);
     UpdateValue(data.mUpload, newData.mUpload, mWindowCount, isInitialized);
 
-    if (data.mDisk.Size() != newData.mDisk.Size()) {
+    if (data.mPartitions.Size() != newData.mPartitions.Size()) {
         return Error(ErrorEnum::eInvalidArgument, "service instances disk size mismatch");
     }
 
-    for (size_t i = 0; i < data.mDisk.Size(); ++i) {
-        UpdateValue(data.mDisk[i].mUsedSize, newData.mDisk[i].mUsedSize, mWindowCount, isInitialized);
+    for (size_t i = 0; i < data.mPartitions.Size(); ++i) {
+        UpdateValue(data.mPartitions[i].mUsedSize, newData.mPartitions[i].mUsedSize, mWindowCount, isInitialized);
     }
 
     if (!isInitialized) {
@@ -168,10 +168,10 @@ Error Average::GetMonitoringData(MonitoringData& data, const MonitoringData& ave
 {
     data.mCPU = GetValue(averageData.mCPU, mWindowCount);
     data.mRAM = GetValue(averageData.mRAM, mWindowCount);
-    data.mDisk.Clear();
+    data.mPartitions.Clear();
 
-    for (const auto& disk : averageData.mDisk) {
-        data.mDisk.EmplaceBack(PartitionInfo {
+    for (const auto& disk : averageData.mPartitions) {
+        data.mPartitions.EmplaceBack(PartitionInfo {
             disk.mName, disk.mTypes, disk.mPath, disk.mTotalSize, GetValue(disk.mUsedSize, mWindowCount)});
     }
 

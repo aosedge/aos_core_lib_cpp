@@ -91,12 +91,12 @@ public:
         monitoringData.mDownload = mNodeMonitoringData.mDownload;
         monitoringData.mUpload   = mNodeMonitoringData.mUpload;
 
-        if (monitoringData.mDisk.Size() != mNodeMonitoringData.mDisk.Size()) {
+        if (monitoringData.mPartitions.Size() != mNodeMonitoringData.mPartitions.Size()) {
             return ErrorEnum::eInvalidArgument;
         }
 
-        for (size_t i = 0; i < monitoringData.mDisk.Size(); i++) {
-            monitoringData.mDisk[i].mUsedSize = mNodeMonitoringData.mDisk[i].mUsedSize;
+        for (size_t i = 0; i < monitoringData.mPartitions.Size(); i++) {
+            monitoringData.mPartitions[i].mUsedSize = mNodeMonitoringData.mPartitions[i].mUsedSize;
         }
 
         return ErrorEnum::eNone;
@@ -114,12 +114,13 @@ public:
         monitoringData.mDownload = instanceMonitoringData.mValue.mMonitoringData.mDownload;
         monitoringData.mUpload   = instanceMonitoringData.mValue.mMonitoringData.mUpload;
 
-        if (monitoringData.mDisk.Size() != instanceMonitoringData.mValue.mMonitoringData.mDisk.Size()) {
+        if (monitoringData.mPartitions.Size() != instanceMonitoringData.mValue.mMonitoringData.mPartitions.Size()) {
             return ErrorEnum::eInvalidArgument;
         }
 
-        for (size_t i = 0; i < monitoringData.mDisk.Size(); i++) {
-            monitoringData.mDisk[i].mUsedSize = instanceMonitoringData.mValue.mMonitoringData.mDisk[i].mUsedSize;
+        for (size_t i = 0; i < monitoringData.mPartitions.Size(); i++) {
+            monitoringData.mPartitions[i].mUsedSize
+                = instanceMonitoringData.mValue.mMonitoringData.mPartitions[i].mUsedSize;
         }
 
         return ErrorEnum::eNone;
@@ -360,9 +361,9 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     for (uint64_t i = 0; i < ArraySize(providedNodeMonitoringData); i++) {
         NodeMonitoringData receivedNodeMonitoringData {};
 
-        providedInstanceMonitoringData[i].mSecond.mMonitoringData.mDisk
+        providedInstanceMonitoringData[i].mSecond.mMonitoringData.mPartitions
             = Array<PartitionInfo>(providedInstanceDiskData[i], ArraySize(providedInstanceDiskData[i]));
-        providedNodeMonitoringData[i].mMonitoringData.mDisk
+        providedNodeMonitoringData[i].mMonitoringData.mPartitions
             = Array<PartitionInfo>(providedNodeDiskData[i], ArraySize(providedNodeDiskData[i]));
 
         SetInstancesMonitoringData(providedNodeMonitoringData[i],
@@ -374,9 +375,9 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         EXPECT_TRUE(sender.WaitMonitoringData(receivedNodeMonitoringData).IsNone());
         EXPECT_TRUE(monitor.GetAverageMonitoringData(receivedNodeMonitoringData).IsNone());
 
-        averageInstanceMonitoringData[i].mSecond.mMonitoringData.mDisk
+        averageInstanceMonitoringData[i].mSecond.mMonitoringData.mPartitions
             = Array<PartitionInfo>(averageInstanceDiskData[i], ArraySize(averageInstanceDiskData[i]));
-        averageNodeMonitoringData[i].mMonitoringData.mDisk
+        averageNodeMonitoringData[i].mMonitoringData.mPartitions
             = Array<PartitionInfo>(averageNodeDiskData[i], ArraySize(averageNodeDiskData[i]));
 
         SetInstancesMonitoringData(averageNodeMonitoringData[i],
