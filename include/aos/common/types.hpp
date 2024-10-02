@@ -105,6 +105,11 @@ constexpr auto cNodeIDLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
 constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
 
 /**
+ * Node status len.
+ */
+constexpr auto cNodeStatusLen = AOS_CONFIG_TYPES_NODE_STATUS_LEN;
+
+/**
  * SHA256 size.
  */
 constexpr auto cSHA256Size = 32;

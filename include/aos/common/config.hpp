@@ -303,6 +303,13 @@
 #endif
 
 /**
+ * Node type len.
+ */
+#ifndef AOS_CONFIG_TYPES_NODE_STATUS_LEN
+#define AOS_CONFIG_TYPES_NODE_STATUS_LEN 16
+#endif
+
+/**
  * OS type len.
  */
 #ifndef AOS_CONFIG_TYPES_OS_TYPE_LEN
