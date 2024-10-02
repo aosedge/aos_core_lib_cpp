@@ -290,6 +290,11 @@ constexpr auto cLabelNameLen = AOS_CONFIG_TYPES_LABEL_NAME_LEN;
 constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
 
 /**
+ * Alert message len.
+ */
+constexpr auto cAlertMessageLen = AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {

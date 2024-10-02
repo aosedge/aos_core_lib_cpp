@@ -254,6 +254,13 @@
 #endif
 
 /**
+ * Alert message len.
+ */
+#ifndef AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN
+#define AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN 256
+#endif
+
+/**
  * Max number of partitions.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS
