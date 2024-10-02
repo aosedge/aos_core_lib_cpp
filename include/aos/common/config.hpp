@@ -268,6 +268,13 @@
 #endif
 
 /**
+ * Log message len.
+ */
+#ifndef AOS_CONFIG_TYPES_LOG_MESSAGE_LEN
+#define AOS_CONFIG_TYPES_LOG_MESSAGE_LEN 1024
+#endif
+
+/**
  * Max number of partitions.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS

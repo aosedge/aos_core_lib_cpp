@@ -300,6 +300,11 @@ constexpr auto cAlertMessageLen = AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN;
 constexpr auto cLogIDLen = AOS_CONFIG_TYPES_LOG_ID_LEN;
 
 /**
+ * Log message len.
+ */
+constexpr auto cLogMessageLen = AOS_CONFIG_TYPES_LOG_MESSAGE_LEN;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
