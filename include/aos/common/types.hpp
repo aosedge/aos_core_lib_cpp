@@ -295,6 +295,11 @@ constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
 constexpr auto cAlertMessageLen = AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN;
 
 /**
+ * Log id len.
+ */
+constexpr auto cLogIDLen = AOS_CONFIG_TYPES_LOG_ID_LEN;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {

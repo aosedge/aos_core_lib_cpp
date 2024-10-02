@@ -261,6 +261,13 @@
 #endif
 
 /**
+ * Log id len.
+ */
+#ifndef AOS_CONFIG_TYPES_LOG_ID_LEN
+#define AOS_CONFIG_TYPES_LOG_ID_LEN 40
+#endif
+
+/**
  * Max number of partitions.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS
