@@ -418,7 +418,7 @@ public:
             return err;
         }
 
-        auto fd = open(fileName.CStr(), O_CREAT | O_WRONLY);
+        auto fd = open(fileName.CStr(), O_CREAT | O_WRONLY, perm);
         if (fd < 0) {
             return Error(errno);
         }
