@@ -62,7 +62,7 @@ constexpr auto cMaxIRQsCount = AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT;
 struct ContentDescriptor {
     StaticString<cMaxMediaTypeLen> mMediaType;
     StaticString<cMaxDigestLen>    mDigest;
-    int64_t                        mSize;
+    uint64_t                       mSize;
 
     /**
      * Compares content descriptor.
