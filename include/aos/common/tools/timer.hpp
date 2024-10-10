@@ -44,7 +44,7 @@ public:
     template <typename F>
     Error Create(unsigned int intervalMs, F functor, bool oneShot = true, void* arg = nullptr)
     {
-        aos::LockGuard lock(mMutex);
+        aos::LockGuard lock {mMutex};
 
         if (mTimerID != 0) {
             auto err = Stop();
@@ -98,7 +98,7 @@ public:
      */
     Error Stop()
     {
-        aos::LockGuard lock(mMutex);
+        aos::LockGuard lock {mMutex};
 
         mStop = true;
 

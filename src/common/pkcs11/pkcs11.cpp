@@ -335,7 +335,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 
 Error LibraryContext::Init()
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     Error err = ErrorEnum::eNone;
 
@@ -467,7 +467,7 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 
 RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotID, Flags flags)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     SessionParams params = {slotID, flags};
 
@@ -503,7 +503,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
 
 void LibraryContext::ClearSessions()
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     mSessions.Clear();
 }
@@ -928,7 +928,7 @@ Error SessionContext::FindObjectsFinal() const
 
 SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     for (auto& lib : mLibraries) {
         if (lib.mFirst == library) {

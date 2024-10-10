@@ -479,7 +479,7 @@ public:
     template <typename T>
     Error AddTask(T functor, void* arg = nullptr)
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         auto err = mQueue.Push(Function());
         if (!err.IsNone()) {
@@ -508,7 +508,7 @@ public:
      */
     Error Run()
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         mShutdown = false;
 

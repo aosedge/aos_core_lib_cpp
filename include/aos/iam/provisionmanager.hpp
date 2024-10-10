@@ -120,6 +120,23 @@ public:
         = 0;
 
     /**
+     * Subscribes certificates receiver.
+     *
+     * @param certType certificate type.
+     * @param certReceiver certificate receiver.
+     * @returns Error.
+     */
+    virtual Error SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver) = 0;
+
+    /**
+     * Unsubscribes certificate receiver.
+     *
+     * @param certReceiver certificate receiver.
+     * @returns Error.
+     */
+    virtual Error UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver) = 0;
+
+    /**
      * Finishes provisioning.
      *
      * @param password password.
@@ -203,6 +220,23 @@ public:
      */
     Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
         certhandler::CertInfo& resCert) override;
+
+    /**
+     * Subscribes certificates receiver.
+     *
+     * @param certType certificate type.
+     * @param certReceiver certificate receiver.
+     * @returns Error.
+     */
+    Error SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver) override;
+
+    /**
+     * Unsubscribes certificate receiver.
+     *
+     * @param certReceiver certificate receiver.
+     * @returns Error.
+     */
+    Error UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver) override;
 
     /**
      * Finishes provisioning.

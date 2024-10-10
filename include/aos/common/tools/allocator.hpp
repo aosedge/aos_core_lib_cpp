@@ -92,7 +92,7 @@ public:
      */
     void Clear()
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         mAllocations->Clear();
     }
@@ -105,7 +105,7 @@ public:
      */
     void* Allocate(size_t size)
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         if (mAllocations->IsFull() || GetAllocatedSize() + size > mMaxSize) {
             assert(false);
@@ -130,7 +130,7 @@ public:
      */
     void Free(void* data)
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         [[maybe_unused]] auto curEnd = mAllocations->end();
         [[maybe_unused]] auto newEnd
@@ -147,7 +147,7 @@ public:
      */
     RetWithError<Allocation*> FindAllocation(const void* data)
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         return mAllocations->Find([data](const Allocation& allocation) { return allocation.Data() == data; });
     }
@@ -185,7 +185,7 @@ public:
      */
     size_t FreeSize() const
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         return mMaxSize - GetAllocatedSize();
     }
@@ -197,7 +197,7 @@ public:
      */
     size_t MaxSize() const
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         return mMaxSize;
     }
@@ -209,7 +209,7 @@ public:
      */
     size_t MaxAllocatedSize() const
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         return mMaxAllocatedSize;
     }
@@ -219,7 +219,7 @@ public:
      */
     void ResetMaxAllocatedSize()
     {
-        LockGuard lock(mMutex);
+        LockGuard lock {mMutex};
 
         mMaxAllocatedSize = 0;
     }
