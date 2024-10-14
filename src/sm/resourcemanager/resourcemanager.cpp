@@ -144,14 +144,14 @@ Error ResourceManager::CheckNodeConfig(const String& version, const String& conf
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    sm::resourcemanager::NodeConfig updatedConfig;
+    auto updatedConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
-    auto err = mJsonProvider->ParseNodeConfig(config, updatedConfig);
+    auto err = mJsonProvider->ParseNodeConfig(config, *updatedConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ValidateNodeConfig(updatedConfig);
+    err = ValidateNodeConfig(*updatedConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -165,17 +165,17 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 
     LOG_DBG() << "Update config: version=" << version;
 
-    sm::resourcemanager::NodeConfig updatedConfig;
+    auto updatedConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
-    if (auto err = mJsonProvider->ParseNodeConfig(config, updatedConfig); !err.IsNone()) {
+    if (auto err = mJsonProvider->ParseNodeConfig(config, *updatedConfig); !err.IsNone()) {
         LOG_ERR() << "Failed to parse config: err=" << err;
 
         return AOS_ERROR_WRAP(err);
     }
 
-    updatedConfig.mVersion = version;
+    updatedConfig->mVersion = version;
 
-    if (auto err = WriteConfig(updatedConfig); !err.IsNone()) {
+    if (auto err = WriteConfig(*updatedConfig); !err.IsNone()) {
         LOG_ERR() << "Failed to write config: err=" << err;
 
         return err;

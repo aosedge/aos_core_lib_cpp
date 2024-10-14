@@ -338,7 +338,7 @@ private:
     Error                      mConfigError {ErrorEnum::eNone};
     NodeConfig                 mConfig;
 
-    StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>)> mAllocator;
+    mutable StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig)> mAllocator;
 };
 
 } // namespace resourcemanager
