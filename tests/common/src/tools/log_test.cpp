@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "log.hpp"
+#include "aos/test/log.hpp"
 
 using namespace aos;
 

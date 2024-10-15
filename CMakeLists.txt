@@ -40,11 +40,16 @@ set(CMAKE_CXX_FLAGS "${common_flags} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_STANDARD 17)
 
+if(WITH_TEST)
+    add_compile_definitions(AOS_CONFIG_TYPES_URL_LEN=512)
+    add_compile_definitions(AOS_CONFIG_FS_FILE_PATH_LEN=512)
+endif()
+
+set(AOS_CORE_LIB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
 # ######################################################################################################################
 # Dependencies
 # ######################################################################################################################
-
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 if(WITH_TEST)
     include(FetchContent)
@@ -72,18 +77,10 @@ if(WITH_COVERAGE)
 endif()
 
 # ######################################################################################################################
-# Includes
-# ######################################################################################################################
-
-include_directories(include)
-
-# ######################################################################################################################
 # Targets
 # ######################################################################################################################
 
-add_subdirectory(src/common)
-add_subdirectory(src/sm)
-add_subdirectory(src/iam)
+add_subdirectory(src)
 
 if(WITH_TEST)
     add_subdirectory(tests)

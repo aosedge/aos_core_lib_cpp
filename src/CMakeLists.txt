@@ -1,37 +1,19 @@
-#
-# Copyright (C) 2023 Renesas Electronics Corporation.
-# Copyright (C) 2023 EPAM Systems, Inc.
-#
-# SPDX-License-Identifier: Apache-2.0
-#
-
-set(TARGET aossm)
-
 # ######################################################################################################################
-# Sources
+# Dependencies
 # ######################################################################################################################
 
-set(SOURCES launcher/launcher.cpp launcher/instance.cpp launcher/service.cpp resourcemanager/resourcemanager.cpp
-            servicemanager/servicemanager.cpp
-)
+set(CMAKE_MODULE_PATH ${AOS_CORE_LIB_ROOT_DIR}/cmake)
 
 # ######################################################################################################################
-# Target
+# Includes
 # ######################################################################################################################
 
-add_library(${TARGET} STATIC ${SOURCES})
-
-target_include_directories(${TARGET} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+include_directories(${AOS_CORE_LIB_ROOT_DIR}/include)
 
 # ######################################################################################################################
-# Install
+# Targets
 # ######################################################################################################################
 
-install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
-
-install(
-    DIRECTORY ${PROJECT_SOURCE_DIR}/include/aos/sm
-    DESTINATION include/aos
-    FILES_MATCHING
-    PATTERN "*.hpp"
-)
+add_subdirectory(common)
+add_subdirectory(sm)
+add_subdirectory(iam)

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "softhsmenv.hpp"
+#include "aos/test/softhsmenv.hpp"
 
 namespace aos {
 namespace test {
