@@ -145,7 +145,7 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 
 Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringData)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     auto err = mAverage.GetData(monitoringData);
     if (!err.IsNone()) {

@@ -12,6 +12,7 @@
 #include "aos/iam/certmodules/pkcs11/pkcs11.hpp"
 #include "log.hpp"
 #include "mbedtls/pk.h"
+#include "mocks/certreceivermock.hpp"
 #include "softhsmenv.hpp"
 #include "stubs/storagestub.hpp"
 
@@ -368,13 +369,34 @@ TEST_F(IAMTest, GetCertificateEmptySerial)
     ASSERT_TRUE(mStorage.GetCertsInfo("iam", storageCerts).IsNone());
     ASSERT_EQ(storageCerts.Size(), 2);
 
-    // check GetCertificate returns certificate with minimal mNotAfter
+    // check GetCertificate returns certificate with max mNotAfter
     CertInfo certInfo;
 
     const auto empty = Array<uint8_t>(nullptr, 0);
 
     ASSERT_TRUE(mCertHandler->GetCertificate("iam", empty, empty, certInfo).IsNone());
-    ASSERT_EQ(certInfo, storageCerts[0]);
+    ASSERT_EQ(certInfo, storageCerts[1]);
+}
+
+TEST_F(IAMTest, SubscribeCertChanged)
+{
+    RegisterPKCS11Module("iam");
+
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+    ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
+
+    StaticArray<CertInfo, 2> storageCerts;
+
+    ASSERT_TRUE(mStorage.GetCertsInfo("iam", storageCerts).IsNone());
+    ASSERT_EQ(storageCerts.Size(), 1);
+
+    CertReceiverItfMock certReceiver;
+
+    EXPECT_CALL(certReceiver, OnCertChanged(_));
+    ASSERT_TRUE(mCertHandler->SubscribeCertChanged("iam", certReceiver).IsNone());
+    sleep(1);
+    ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
+    ASSERT_TRUE(mCertHandler->UnsubscribeCertChanged(certReceiver).IsNone());
 }
 
 TEST_F(IAMTest, Clear)
@@ -414,12 +436,13 @@ TEST_F(IAMTest, TrimCertificates)
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
 
     // create maximum number of certificates
-    auto       maxCertificates = GetCertModuleConfig(crypto::KeyTypeEnum::eRSA).mMaxCertificates;
-    const auto empty           = Array<uint8_t>(nullptr, 0);
-    CertInfo   oldCertificate;
+    auto                     maxCertificates = GetCertModuleConfig(crypto::KeyTypeEnum::eRSA).mMaxCertificates;
+    StaticArray<CertInfo, 1> oldCertificates;
 
     ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
-    ASSERT_TRUE(mCertHandler->GetCertificate("iam", empty, empty, oldCertificate).IsNone());
+
+    ASSERT_TRUE(mStorage.GetCertsInfo("iam", oldCertificates).IsNone());
+    ASSERT_EQ(oldCertificates.Size(), 1);
 
     sleep(1);
 
@@ -436,7 +459,7 @@ TEST_F(IAMTest, TrimCertificates)
     ASSERT_TRUE(mStorage.GetCertsInfo("iam", storageCerts).IsNone());
     ASSERT_EQ(storageCerts.Size(), maxCertificates);
     // and old certificate is removed
-    EXPECT_THAT(std::vector<CertInfo>(storageCerts.begin(), storageCerts.end()), Not(Contains(oldCertificate)));
+    EXPECT_THAT(std::vector<CertInfo>(storageCerts.begin(), storageCerts.end()), Not(Contains(oldCertificates[0])));
 
     // ensure PKCS11 storage contains exactly allowed number of certificates
     StaticArray<pkcs11::ObjectHandle, cCertsPerModule> handles;

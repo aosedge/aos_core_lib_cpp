@@ -40,7 +40,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
     }
 
     for (const auto& certType : certTypes) {
-        LOG_DBG() << "Clear cert storage: type = " << certType;
+        LOG_DBG() << "Clear cert storage: type=" << certType;
 
         if (err = mCertHandler->Clear(certType); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -48,7 +48,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
     }
 
     for (const auto& certType : certTypes) {
-        LOG_DBG() << "Set owner: type = " << certType;
+        LOG_DBG() << "Set owner: type=" << certType;
 
         if (err = mCertHandler->SetOwner(certType, password); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -60,7 +60,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
         }
 
         if (certModuleConfig.mValue.mIsSelfSigned) {
-            LOG_DBG() << "Create self signed cert: type = " << certType;
+            LOG_DBG() << "Create self signed cert: type=" << certType;
 
             if (err = mCertHandler->CreateSelfSignedCert(certType, password); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
@@ -125,14 +125,14 @@ RetWithError<CertTypes> ProvisionManager::GetCertTypes()
 
 Error ProvisionManager::CreateKey(const String& certType, const String& subject, const String& password, String& csr)
 {
-    LOG_DBG() << "Create key: type = " << certType;
+    LOG_DBG() << "Create key: type=" << certType;
 
     return AOS_ERROR_WRAP(mCertHandler->CreateKey(certType, subject, password, csr));
 }
 
 Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo)
 {
-    LOG_DBG() << "Apply cert: type = " << certType;
+    LOG_DBG() << "Apply cert: type=" << certType;
 
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
 }
@@ -140,9 +140,23 @@ Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert,
 Error ProvisionManager::GetCert(
     const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, certhandler::CertInfo& resCert)
 {
-    LOG_DBG() << "Get cert: type = " << certType;
+    LOG_DBG() << "Get cert: type=" << certType;
 
     return AOS_ERROR_WRAP(mCertHandler->GetCertificate(certType, issuer, serial, resCert));
+}
+
+Error ProvisionManager::SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver)
+{
+    LOG_DBG() << "Subscribe cert receiver: type=" << certType;
+
+    return AOS_ERROR_WRAP(mCertHandler->SubscribeCertChanged(certType, certReceiver));
+}
+
+Error ProvisionManager::UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver)
+{
+    LOG_DBG() << "Unsubscribe cert receiver";
+
+    return AOS_ERROR_WRAP(mCertHandler->UnsubscribeCertChanged(certReceiver));
 }
 
 } // namespace aos::iam::provisionmanager

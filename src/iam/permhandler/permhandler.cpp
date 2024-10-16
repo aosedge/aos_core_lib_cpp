@@ -20,9 +20,9 @@ namespace permhandler {
 RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
     const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
-    LOG_DBG() << "Register instance: instance = " << instanceIdent;
+    LOG_DBG() << "Register instance: instance=" << instanceIdent;
 
     Error                    err;
     StaticString<cSecretLen> secret;
@@ -44,13 +44,13 @@ RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
 
 Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
-    LOG_DBG() << "Unregister instance: instance = " << instanceIdent;
+    LOG_DBG() << "Unregister instance: instance=" << instanceIdent;
 
     auto result = FindByInstanceIdent(instanceIdent);
     if (!result.mError.IsNone()) {
-        LOG_WRN() << "Unregister instance not registered: instance = " << instanceIdent;
+        LOG_WRN() << "Unregister instance not registered: instance=" << instanceIdent;
 
         return AOS_ERROR_WRAP(result.mError);
     }
@@ -61,9 +61,9 @@ Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
 Error PermHandler::GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
     Array<PermKeyValue>& servicePermissions)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
-    LOG_DBG() << "Get permission: secret = " << secret << ", funcServerID = " << funcServerID;
+    LOG_DBG() << "Get permission: secret=" << secret << ", funcServerID=" << funcServerID;
 
     const auto result = FindBySecret(secret);
     if (!result.mError.IsNone()) {

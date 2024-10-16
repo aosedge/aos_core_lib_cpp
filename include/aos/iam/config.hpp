@@ -51,6 +51,13 @@
 #endif
 
 /**
+ * Max number of certificate change subscriptions.
+ */
+#ifndef AOS_CONFIG_CERTHANDLER_CERT_SUBS_MAX_COUNT
+#define AOS_CONFIG_CERTHANDLER_CERT_SUBS_MAX_COUNT AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUNT * 3
+#endif
+
+/**
  * Maximum length of TEE Login type.
  */
 #ifndef AOS_CONFIG_CERTMODULE_PKCS11_TEE_LOGIN_TYPE_LEN

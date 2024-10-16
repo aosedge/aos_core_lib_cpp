@@ -16,7 +16,7 @@ namespace aos::iam::nodemanager {
 
 Error NodeManager::Init(NodeInfoStorageItf& storage)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     mStorage = &storage;
 
@@ -46,7 +46,7 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
 
 Error NodeManager::SetNodeInfo(const NodeInfo& info)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     Error err = ErrorEnum::eNone;
 
@@ -80,7 +80,7 @@ Error NodeManager::SetNodeStatus(const String& nodeId, NodeStatus status)
 
 Error NodeManager::GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     auto cachedInfo = GetNodeFromCache(nodeId);
 
@@ -95,7 +95,7 @@ Error NodeManager::GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const
 
 Error NodeManager::GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     for (const auto& nodeInfo : mNodeInfoCache) {
         auto err = ids.PushBack(nodeInfo.mNodeID);
@@ -109,7 +109,7 @@ Error NodeManager::GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const
 
 Error NodeManager::RemoveNodeInfo(const String& nodeId)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     auto cachedInfo = GetNodeFromCache(nodeId);
     if (cachedInfo == nullptr) {
@@ -136,7 +136,7 @@ Error NodeManager::RemoveNodeInfo(const String& nodeId)
 
 Error NodeManager::SubscribeNodeInfoChange(NodeInfoListenerItf& listener)
 {
-    LockGuard lock(mMutex);
+    LockGuard lock {mMutex};
 
     mNodeInfoListener = &listener;
 

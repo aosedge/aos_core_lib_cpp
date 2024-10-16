@@ -10,6 +10,7 @@
 #include <aos/iam/provisionmanager.hpp>
 
 #include "mocks/certhandlermock.hpp"
+#include "mocks/certreceivermock.hpp"
 #include "mocks/provisioningcallbackmock.hpp"
 
 using namespace testing;
@@ -291,6 +292,19 @@ TEST_F(ProvisionManagerTest, GetCert)
     aos::iam::certhandler::CertInfo result;
     ASSERT_TRUE(mProvisionManager.GetCert("certType", certInfo.mIssuer, certInfo.mSerial, result).IsNone());
     EXPECT_EQ(result, certInfo);
+}
+
+TEST_F(ProvisionManagerTest, SubscribeCertChanged)
+{
+    const aos::String certType = "iam";
+
+    CertReceiverItfMock certReceiver;
+
+    EXPECT_CALL(mCertHandler, SubscribeCertChanged(certType, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ASSERT_TRUE(mProvisionManager.SubscribeCertChanged(certType, certReceiver).IsNone());
+
+    EXPECT_CALL(mCertHandler, UnsubscribeCertChanged(Ref(certReceiver))).WillOnce(Return(aos::ErrorEnum::eNone));
+    ASSERT_TRUE(mProvisionManager.UnsubscribeCertChanged(certReceiver).IsNone());
 }
 
 TEST_F(ProvisionManagerTest, Deprovision)
