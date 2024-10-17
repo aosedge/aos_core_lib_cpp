@@ -39,10 +39,16 @@ Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::
 
 Error Launcher::Start()
 {
+    LockGuard lock {mMutex};
+
     LOG_DBG() << "Start launcher";
 
     if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = RunLastInstances(); !err.IsNone()) {
+        LOG_ERR() << "Error running last instances: " << err;
     }
 
     return ErrorEnum::eNone;
@@ -50,9 +56,17 @@ Error Launcher::Start()
 
 Error Launcher::Stop()
 {
-    LOG_DBG() << "Stop launcher";
+    {
+        LockGuard lock {mMutex};
 
-    mConnectionPublisher->Unsubscribe(*this);
+        LOG_DBG() << "Stop launcher";
+
+        mConnectionPublisher->Unsubscribe(*this);
+
+        mClose = true;
+
+        mCondVar.NotifyOne();
+    }
 
     mThread.Join();
 
@@ -163,8 +177,6 @@ Error Launcher::UpdateStorage(const Array<InstanceInfo>& instances)
 
 Error Launcher::RunLastInstances()
 {
-    UniqueLock lock {mMutex};
-
     LOG_DBG() << "Run last instances";
 
     if (mLaunchInProgress) {
@@ -172,8 +184,6 @@ Error Launcher::RunLastInstances()
     }
 
     mLaunchInProgress = true;
-
-    lock.Unlock();
 
     // Wait in case previous request is not yet finished
     mThread.Join();
@@ -190,7 +200,13 @@ Error Launcher::RunLastInstances()
     err = mThread.Run([this, instances](void*) mutable {
         ProcessInstances(*instances);
 
-        LockGuard lock {mMutex};
+        UniqueLock lock {mMutex};
+
+        mCondVar.Wait(lock, [&] { return mConnected || mClose; });
+
+        if (mClose) {
+            return;
+        }
 
         SendRunStatus();
 
@@ -460,14 +476,24 @@ Error Launcher::StopInstance(const InstanceIdent& ident)
 
 void Launcher::OnConnect()
 {
-    auto err = RunLastInstances();
-    if (!err.IsNone()) {
-        LOG_ERR() << "Error running last instances: " << err;
+    LockGuard lock {mMutex};
+
+    if (!mLaunchInProgress) {
+        if (auto err = RunLastInstances(); !err.IsNone()) {
+            LOG_ERR() << "Error running last instances: " << err;
+        }
     }
+
+    mConnected = true;
+    mCondVar.NotifyOne();
 }
 
 void Launcher::OnDisconnect()
 {
+    LockGuard lock {mMutex};
+
+    mConnected = false;
+    mCondVar.NotifyOne();
 }
 
 } // namespace launcher

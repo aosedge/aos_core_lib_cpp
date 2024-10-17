@@ -21,7 +21,7 @@ inline void InitLog()
         static std::mutex           sLogMutex;
         std::lock_guard<std::mutex> lock(sLogMutex);
 
-        std::cout << level.ToString().CStr() << " | " << module << " | " << message.CStr() << std::endl;
+        std::cout << level.ToString().CStr() << " | " << module.CStr() << " | " << message.CStr() << std::endl;
     });
 }
 
