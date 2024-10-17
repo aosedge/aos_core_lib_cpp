@@ -58,7 +58,7 @@ void Instance::SetService(const Service* service, const Error& err)
 
 Error Instance::Start()
 {
-    LOG_DBG() << "Start instance: " << *this;
+    LOG_INF() << "Start instance: " << *this;
 
     StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
 
@@ -91,7 +91,7 @@ Error Instance::Start()
 
 Error Instance::Stop()
 {
-    LOG_DBG() << "Stop instance: " << *this;
+    LOG_INF() << "Stop instance: " << *this;
 
     StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
     Error                      stopErr;

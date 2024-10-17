@@ -13,7 +13,7 @@
 #include "aos/common/connectionsubsc.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/ocispec.hpp"
-#include "aos/common/tools/array.hpp"
+#include "aos/common/tools/map.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
@@ -201,17 +201,7 @@ private:
     void  UpdateInstanceServices();
     Error UpdateStorage(const Array<InstanceInfo>& instances);
 
-    RetWithError<const Service*> GetService(const String& serviceID) const
-    {
-        auto findService = mCurrentServices.Find(
-            [&serviceID](const Service& service) { return service.Data().mServiceID == serviceID; });
-
-        if (!findService.mError.IsNone()) {
-            return {nullptr, findService.mError};
-        }
-
-        return findService.mValue;
-    }
+    RetWithError<const Service&> GetService(const String& serviceID) const { return mCurrentServices.At(serviceID); }
 
     Error StartInstance(const InstanceInfo& info);
     Error StopInstance(const InstanceIdent& ident);
@@ -236,8 +226,8 @@ private:
         cThreadStackSize>
         mLaunchPool;
 
-    StaticArray<Service, cMaxNumServices>   mCurrentServices;
-    StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
+    StaticMap<StaticString<cServiceIDLen>, Service, cMaxNumServices> mCurrentServices;
+    StaticMap<InstanceIdent, Instance, cMaxNumInstances>             mCurrentInstances;
 };
 
 /** @}*/
