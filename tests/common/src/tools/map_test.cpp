@@ -8,11 +8,12 @@
 #include <gmock/gmock.h>
 
 #include "aos/common/tools/map.hpp"
+#include "aos/common/tools/string.hpp"
 
 using namespace aos;
 
 template <typename T>
-Array<T> ConvertToArray(const std::initializer_list<T>& list)
+Array<T> static ConvertToArray(const std::initializer_list<T>& list)
 {
     return Array<T>(list.begin(), list.size());
 }
@@ -168,4 +169,17 @@ TEST(MapTest, Clear)
 
     map.Clear();
     EXPECT_EQ(map.Size(), 0);
+}
+
+TEST(MapTest, Const)
+{
+    class TestClass { };
+
+    StaticMap<StaticString<16>, TestClass, 4> map;
+
+    auto constCbk
+        = [](const Map<StaticString<16>, TestClass>& map) -> RetWithError<const TestClass&> { return map.At("test"); };
+
+    EXPECT_TRUE(map.Emplace("test", TestClass {}).IsNone());
+    EXPECT_TRUE(constCbk(map).mError.IsNone());
 }

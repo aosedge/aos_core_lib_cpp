@@ -47,7 +47,17 @@ public:
      * @param key
      * @return RetWithError<const Value&>
      */
-    RetWithError<const Value&> At(const Key& key) const { return const_cast<Map<Key, Value>&>(*this).At(key); }
+    RetWithError<const Value&> At(const Key& key) const
+    {
+        auto item = mItems.Find([&key](const Pair<Key, Value>& item) { return item.mFirst == key; });
+
+        if (!item.mError.IsNone()) {
+            // cppcheck-suppress nullPointer
+            return {*static_cast<const Value*>(nullptr), item.mError};
+        }
+
+        return {item.mValue->mSecond, item.mError};
+    }
 
     /**
      * Replaces map with elements from the array.
