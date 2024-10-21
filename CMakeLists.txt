@@ -47,28 +47,34 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 if(WITH_TEST)
-    include(FetchContent)
+    if(NOT DEFINED BUILD_TESTING OR NOT BUILD_TESTING)
+        enable_testing()
+    endif()
 
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.13.0
-    )
-    FetchContent_MakeAvailable(googletest)
+    if(NOT TARGET GTest::gtest)
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG v1.13.0
+        )
+        FetchContent_MakeAvailable(googletest)
+    endif()
 
     include(GoogleTest)
-
-    enable_testing()
 endif()
 
 if(WITH_COVERAGE)
-    include(CodeCoverage)
+    # Check if coverage has already been set up
+    if(NOT TARGET coverage)
+        include(CodeCoverage)
 
-    append_coverage_compiler_flags()
+        append_coverage_compiler_flags()
 
-    set(COVERAGE_EXCLUDES "build/*" "/usr/*" "*_test.cpp")
+        set(COVERAGE_EXCLUDES "build/" "/usr/" "*_test.cpp")
 
-    setup_target_for_coverage_lcov(NAME coverage EXECUTABLE ctest)
+        setup_target_for_coverage_lcov(NAME coverage EXECUTABLE ctest)
+    endif()
 endif()
 
 # ######################################################################################################################

@@ -12,8 +12,8 @@ set(TARGET aoscommoncpp_test)
 # ######################################################################################################################
 
 set(SOURCES
-    ${CMAKE_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/monitoring/average.cpp
+    ${PROJECT_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
+    ${PROJECT_SOURCE_DIR}/src/common/monitoring/average.cpp
     src/crypto_test.cpp
     src/cryptoutils_test.cpp
     src/monitoring_test.cpp
@@ -49,6 +49,6 @@ add_definitions(-DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1 -DAOS_CONFIG_MONITORIN
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} aoscommoncpp testutils GTest::gmock_main)
+target_link_libraries(${TARGET} aoscommon testutils GTest::gmock_main)
 
 gtest_discover_tests(${TARGET})
