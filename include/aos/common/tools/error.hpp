@@ -9,6 +9,7 @@
 #define AOS_ERROR_HPP_
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "aos/common/config.hpp"
@@ -271,13 +272,12 @@ private:
     void CopyMessage(const char* msg)
     {
         if (msg != nullptr) {
-            strncpy(mMessage, msg, sizeof(mMessage) - 1);
-            mMessage[sizeof(mMessage) - 1] = 0;
+            snprintf(mMessage, sizeof(mMessage), "%s", msg);
 
             return;
         }
 
-        mMessage[0] = 0;
+        mMessage[0] = '\0';
     }
 
     /**
