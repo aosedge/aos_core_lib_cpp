@@ -11,7 +11,7 @@
 
 #include "aos/common/tools/buffer.hpp"
 #include "aos/iam/permhandler.hpp"
-#include "log.hpp"
+#include "aos/test/log.hpp"
 #include "mocks/subjectsobservermock.hpp"
 
 using namespace aos;

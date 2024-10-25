@@ -40,11 +40,17 @@ set(CMAKE_CXX_FLAGS "${common_flags} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_STANDARD 17)
 
+set(AOS_CORE_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(WITH_TEST)
+    add_definitions(-include ${AOS_CORE_LIB_DIR}/include/aos/test/aoscoretestconfig.hpp)
+endif()
+
 # ######################################################################################################################
 # Dependencies
 # ######################################################################################################################
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${AOS_CORE_LIB_DIR}/cmake)
 
 if(WITH_TEST)
     include(FetchContent)

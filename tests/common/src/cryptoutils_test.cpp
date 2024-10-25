@@ -9,8 +9,8 @@
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
 #include "aos/common/cryptoutils.hpp"
-#include "log.hpp"
-#include "softhsmenv.hpp"
+#include "aos/test/log.hpp"
+#include "aos/test/softhsmenv.hpp"
 
 namespace aos {
 namespace cryptoutils {

@@ -12,9 +12,9 @@
 #include "aos/common/tools/fs.hpp"
 #include "aos/sm/resourcemanager.hpp"
 
-#include "log.hpp"
+#include "aos/test/log.hpp"
+#include "aos/test/utils.hpp"
 #include "mocks/resourcemanagermock.hpp"
-#include "utils.hpp"
 
 using namespace ::testing;
 

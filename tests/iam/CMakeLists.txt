@@ -27,7 +27,7 @@ set(SOURCES
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} aosiamcpp aoscommoncpp testutils GTest::gmock_main)
+target_link_libraries(${TARGET} aosiam aoscommon testutils GTest::gmock_main)
 target_include_directories(${TARGET} PRIVATE ../include stubs)
 
 gtest_discover_tests(${TARGET})

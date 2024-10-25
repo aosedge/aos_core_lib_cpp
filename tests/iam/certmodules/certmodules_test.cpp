@@ -9,7 +9,7 @@
 
 #include "aos/iam/certmodules/certmodule.hpp"
 
-#include "log.hpp"
+#include "aos/test/log.hpp"
 #include "mocks/hsmmock.hpp"
 #include "mocks/x509providermock.hpp"
 #include "storagestub.hpp"

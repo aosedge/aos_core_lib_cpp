@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aoscommoncpp)
+set(TARGET aoscommon)
 
 option(WITH_MBEDTLS "build with mbedTLS" ON)
 
@@ -16,18 +16,23 @@ message(STATUS)
 # Versioning
 # ######################################################################################################################
 
+set(CMAKE_MODULE_PATH ${AOS_CORE_LIB_DIR}/cmake)
+
 find_package(Git)
 
 if(NOT GIT_FOUND)
     set(GIT_EXECUTABLE git)
 endif()
 
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common)
+
 execute_process(
-    OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/version.hpp
+    OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp
     COMMAND
         ${CMAKE_COMMAND} -D GIT_EXECUTABLE=${GIT_EXECUTABLE} -D
-        INPUT_FILE=${CMAKE_SOURCE_DIR}/src/common/version.hpp.in -D OUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/version.hpp
-        -D GIT_SOURCE_DIR=${CMAKE_SOURCE_DIR} -P ${CMAKE_MODULE_PATH}/GenerateVersion.cmake
+        INPUT_FILE=${AOS_CORE_LIB_DIR}/src/common/version.hpp.in -D
+        OUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp -D GIT_SOURCE_DIR=${AOS_CORE_LIB_DIR} -P
+        ${CMAKE_MODULE_PATH}/GenerateVersion.cmake
 )
 
 # ######################################################################################################################
@@ -56,7 +61,7 @@ if(WITH_MBEDTLS)
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers_no_static.c && cp
             ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers/psa_crypto_driver_wrappers.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.h && cp
-            ${CMAKE_SOURCE_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
+            ${AOS_CORE_LIB_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include/mbedtls/mbedtls_config.h
     )
 
@@ -91,11 +96,13 @@ add_library(
     tools/uuid.cpp
 )
 
-target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/version.hpp)
+target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp)
 
 if(WITH_MBEDTLS)
     target_link_libraries(${TARGET} PUBLIC mbedcrypto mbedx509 mbedtls)
 endif()
+
+target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # ######################################################################################################################
 # Install
@@ -104,11 +111,11 @@ endif()
 install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
 
 install(
-    DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/common
+    DIRECTORY ${AOS_CORE_LIB_DIR}/include/aos/common
     DESTINATION include/aos
     FILES_MATCHING
     PATTERN "*.hpp"
     PATTERN "*.h"
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.hpp DESTINATION include/aos/common)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp DESTINATION include/aos/common)

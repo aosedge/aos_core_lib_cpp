@@ -10,10 +10,10 @@
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
 #include "aos/iam/certhandler.hpp"
 #include "aos/iam/certmodules/pkcs11/pkcs11.hpp"
-#include "log.hpp"
+#include "aos/test/log.hpp"
+#include "aos/test/softhsmenv.hpp"
 #include "mbedtls/pk.h"
 #include "mocks/certreceivermock.hpp"
-#include "softhsmenv.hpp"
 #include "stubs/storagestub.hpp"
 
 namespace aos {

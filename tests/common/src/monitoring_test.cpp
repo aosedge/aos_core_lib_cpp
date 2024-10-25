@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "aos/common/monitoring/resourcemonitor.hpp"
-#include "log.hpp"
+#include "aos/test/log.hpp"
 
 namespace aos::monitoring {
 

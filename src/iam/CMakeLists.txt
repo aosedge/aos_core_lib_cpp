@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aosiamcpp)
+set(TARGET aosiam)
 
 # ######################################################################################################################
 # Sources
@@ -28,6 +28,8 @@ set(SOURCES
 
 add_library(${TARGET} STATIC ${SOURCES})
 
+target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
+
 # ######################################################################################################################
 # Install
 # ######################################################################################################################
@@ -35,7 +37,7 @@ add_library(${TARGET} STATIC ${SOURCES})
 install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
 
 install(
-    DIRECTORY ${CMAKE_SOURCE_DIR}/include/aos/iam
+    DIRECTORY ${AOS_CORE_LIB_DIR}/include/aos/iam
     DESTINATION include/aos
     FILES_MATCHING
     PATTERN "*.hpp"

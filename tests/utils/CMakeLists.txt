@@ -29,7 +29,7 @@ add_library(${TARGET} ${SOURCES})
 createsofthsmtestenv(${TARGET} "${CMAKE_CURRENT_BINARY_DIR}/certificates")
 gencertificates(${TARGET} "${CMAKE_CURRENT_BINARY_DIR}/softhsm")
 
-target_include_directories(${TARGET} PUBLIC include)
+target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
 
 # ######################################################################################################################
 # Install
@@ -39,7 +39,7 @@ install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
 
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    DESTINATION include/test/utils
+    DESTINATION include/aos/test
     FILES_MATCHING
     PATTERN "*.hpp"
     PATTERN "*.h"

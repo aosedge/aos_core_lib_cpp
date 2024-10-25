@@ -13,15 +13,15 @@ set(TARGET aossmcpp_test)
 
 set(SOURCES
     # launcher
-    ${CMAKE_SOURCE_DIR}/src/sm/launcher/launcher.cpp
-    ${CMAKE_SOURCE_DIR}/src/sm/launcher/instance.cpp
-    ${CMAKE_SOURCE_DIR}/src/sm/launcher/service.cpp
+    ${PROJECT_SOURCE_DIR}/src/sm/launcher/launcher.cpp
+    ${PROJECT_SOURCE_DIR}/src/sm/launcher/instance.cpp
+    ${PROJECT_SOURCE_DIR}/src/sm/launcher/service.cpp
     launcher/launcher_test.cpp
     # resourcemanager
-    ${CMAKE_SOURCE_DIR}/src/sm/resourcemanager/resourcemanager.cpp
+    ${PROJECT_SOURCE_DIR}/src/sm/resourcemanager/resourcemanager.cpp
     resourcemanager/resourcemanager_test.cpp
     # servicemanager
-    ${CMAKE_SOURCE_DIR}/src/sm/servicemanager/servicemanager.cpp
+    ${PROJECT_SOURCE_DIR}/src/sm/servicemanager/servicemanager.cpp
     servicemanager/servicemanager_test.cpp
 )
 
@@ -29,7 +29,7 @@ set(SOURCES
 # Includes
 # ######################################################################################################################
 
-include_directories(${CMAKE_SOURCE_DIR}/tests/include)
+include_directories(${PROJECT_SOURCE_DIR}/tests/include)
 
 # ######################################################################################################################
 # Definitions

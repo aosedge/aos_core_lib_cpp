@@ -14,9 +14,8 @@
 #include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/uuid.hpp"
-#include "softhsmenv.hpp"
-
-#include "log.hpp"
+#include "aos/test/log.hpp"
+#include "aos/test/softhsmenv.hpp"
 
 using namespace testing;
 
