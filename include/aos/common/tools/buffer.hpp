@@ -111,49 +111,6 @@ private:
 };
 
 /**
- * Dynamic buffer instance.
- */
-class DynamicBuffer : public Buffer {
-public:
-    /**
-     * Creates dynamic buffer instance with specified size.
-     *
-     * @param size buffer size.
-     */
-    explicit DynamicBuffer(size_t size)
-        : Buffer(operator new(size), size)
-    {
-    }
-
-    // cppcheck-suppress noExplicitConstructor
-    /**
-     * Constructs dynamic buffer from another buffer.
-     *
-     * @param buffer buffer to crate from.
-     */
-    DynamicBuffer(const Buffer& buffer)
-        : Buffer(operator new(buffer.Size()), buffer.Size())
-    {
-        Buffer::operator=(buffer);
-    }
-
-    /**
-     * Copies one buffer to another.
-     *
-     * @param buffer to copy from.
-     * @return Buffer&.
-     */
-    DynamicBuffer& operator=(const Buffer& buffer)
-    {
-        Buffer::operator=(buffer);
-
-        return *this;
-    }
-
-    ~DynamicBuffer() { operator delete(Get()); }
-};
-
-/**
  * Static buffer instance.
  */
 template <size_t cSize>

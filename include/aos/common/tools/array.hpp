@@ -558,40 +558,6 @@ private:
 };
 
 /**
- * Dynamic array instance.
- *
- * @tparam T type of items.
- * @tparam cMaxSize max size.
- */
-template <typename T, size_t cMaxSize>
-class DynamicArray : public Array<T> {
-public:
-    /**
-     * Create dynamic array.
-     */
-    explicit DynamicArray()
-        : mBuffer(cMaxSize * sizeof(T))
-    {
-        Array<T>::SetBuffer(mBuffer);
-    }
-
-    // cppcheck-suppress noExplicitConstructor
-    /**
-     * Creates dynamic array from another array.
-     *
-     * @param array array to create from.
-     */
-    DynamicArray(const Array<T>& array)
-    {
-        Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
-    }
-
-private:
-    DynamicBuffer mBuffer;
-};
-
-/**
  * Static array instance.
  *
  * @tparam T type of items.

@@ -283,40 +283,6 @@ private:
 };
 
 /**
- * Dynamic queue instance.
- *
- * @tparam T type of items.
- * @tparam cMaxSize max size.
- */
-template <typename T, size_t cMaxSize>
-class DynamicQueue : public Queue<T> {
-public:
-    /**
-     * Create dynamic queue.
-     */
-    explicit DynamicQueue()
-        : mBuffer(cMaxSize * sizeof(T))
-    {
-        Queue<T>::SetBuffer(mBuffer);
-    }
-
-    // cppcheck-suppress noExplicitConstructor
-    /**
-     * Creates dynamic queue from another queue.
-     *
-     * @param queue queue to create from.
-     */
-    DynamicQueue(const Queue<T>& queue)
-    {
-        Queue<T>::SetBuffer(mBuffer);
-        Queue<T>::operator=(queue);
-    }
-
-private:
-    DynamicBuffer mBuffer;
-};
-
-/**
  * Static queue instance.
  *
  * @tparam T type of items.

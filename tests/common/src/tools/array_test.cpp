@@ -32,16 +32,9 @@ TEST(ArrayTest, Basic)
     EXPECT_EQ(staticArray.Size(), 3);
     EXPECT_EQ(staticArray.MaxSize(), cNumItems);
 
-    // Dynamic array
-
-    DynamicArray<int, cNumItems> dynamicArray;
-
-    EXPECT_TRUE(dynamicArray.Resize(cNumItems).IsNone());
-
-    EXPECT_EQ(dynamicArray.Size(), cNumItems);
-    EXPECT_EQ(dynamicArray.MaxSize(), cNumItems);
-
     // Fill array by push
+
+    bufferArray.Clear();
 
     for (size_t i = 0; i < cNumItems; i++) {
         EXPECT_TRUE(bufferArray.PushBack(i).IsNone());
@@ -51,8 +44,10 @@ TEST(ArrayTest, Basic)
 
     // Fill array by index
 
-    for (size_t i = 0; i < dynamicArray.Size(); i++) {
-        dynamicArray[i] = i;
+    EXPECT_TRUE(staticArray.Resize(cNumItems).IsNone());
+
+    for (size_t i = 0; i < staticArray.Size(); i++) {
+        staticArray[i] = i;
     }
 
     // Check At
@@ -61,7 +56,7 @@ TEST(ArrayTest, Basic)
         auto ret1 = bufferArray.At(i);
         EXPECT_TRUE(ret1.mError.IsNone());
 
-        auto ret2 = dynamicArray.At(i);
+        auto ret2 = staticArray.At(i);
         EXPECT_TRUE(ret2.mError.IsNone());
 
         EXPECT_EQ(ret1.mValue, ret2.mValue);
@@ -72,7 +67,7 @@ TEST(ArrayTest, Basic)
     auto i = 0;
 
     for (const auto& value : bufferArray) {
-        EXPECT_EQ(value, dynamicArray[i++]);
+        EXPECT_EQ(value, staticArray[i++]);
     }
 
     // Check pop operation
@@ -81,8 +76,8 @@ TEST(ArrayTest, Basic)
         auto ret1 = bufferArray.Back();
         EXPECT_TRUE(bufferArray.PopBack().IsNone());
 
-        auto ret2 = dynamicArray.Back();
-        EXPECT_TRUE(dynamicArray.PopBack().IsNone());
+        auto ret2 = staticArray.Back();
+        EXPECT_TRUE(staticArray.PopBack().IsNone());
 
         EXPECT_EQ(ret1.mValue, ret2.mValue);
     }

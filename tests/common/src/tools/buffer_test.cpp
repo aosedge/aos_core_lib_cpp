@@ -15,19 +15,17 @@ TEST(BufferTest, Basic)
 {
     constexpr auto cBufferSize = 256;
 
-    DynamicBuffer bufferA(cBufferSize);
-    EXPECT_EQ(bufferA.Size(), cBufferSize);
-
     StaticBuffer<cBufferSize> staticBufferA;
     EXPECT_EQ(staticBufferA.Size(), cBufferSize);
 
-    DynamicBuffer bufferB(32);
+    StaticBuffer<cBufferSize> staticBufferB;
+    EXPECT_EQ(staticBufferB.Size(), cBufferSize);
 
-    strcpy(static_cast<char*>(bufferB.Get()), "test string");
+    strcpy(static_cast<char*>(staticBufferB.Get()), "test string");
 
-    bufferA = bufferB;
+    staticBufferA = staticBufferB;
 
-    EXPECT_EQ(strcmp(static_cast<char*>(bufferA.Get()), static_cast<char*>(bufferB.Get())), 0);
+    EXPECT_EQ(strcmp(static_cast<char*>(staticBufferA.Get()), static_cast<char*>(staticBufferB.Get())), 0);
 
-    StaticBuffer<512> bufferC(bufferA);
+    StaticBuffer<512> bufferC(staticBufferA);
 }
