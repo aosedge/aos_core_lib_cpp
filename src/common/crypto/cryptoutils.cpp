@@ -8,6 +8,8 @@
 #include "aos/common/crypto/utils.hpp"
 #include "aos/common/tools/fs.hpp"
 
+#include "log.hpp"
+
 namespace aos {
 namespace crypto {
 
@@ -25,6 +27,8 @@ constexpr auto cSchemeMaxLength = Max(sizeof(cSchemeFile), sizeof(cSchemePKCS11)
 
 Error CertLoader::Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager)
 {
+    LOG_DBG() << "Init cert loader";
+
     mCryptoProvider = &cryptoProvider;
     mPKCS11         = &pkcs11Manager;
 
@@ -33,6 +37,8 @@ Error CertLoader::Init(crypto::x509::ProviderItf& cryptoProvider, pkcs11::PKCS11
 
 RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsChainByURL(const String& url)
 {
+    LOG_DBG() << "Load certs chain by URL: url=" << url;
+
     StaticString<cSchemeMaxLength> scheme;
 
     auto err = ParseURLScheme(url, scheme);
@@ -76,6 +82,8 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsCha
 
 RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(const String& url)
 {
+    LOG_DBG() << "Load private key by URL: url=" << url;
+
     StaticString<cSchemeMaxLength> scheme;
 
     auto err = ParseURLScheme(url, scheme);
@@ -123,6 +131,8 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
     const String& libraryPath, const String& token, const String& userPIN)
 {
     const char* correctedPath = libraryPath.IsEmpty() ? cDefaultPKCS11Library : libraryPath.CStr();
+
+    LOG_DBG() << "Open PKCS11 session: library=" << correctedPath << ", token=" << token;
 
     auto library = mPKCS11->OpenLibrary(correctedPath);
     if (!library) {
@@ -179,6 +189,8 @@ RetWithError<pkcs11::SlotID> CertLoader::FindToken(const pkcs11::LibraryContext&
 
 RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsFromFile(const String& fileName)
 {
+    LOG_DBG() << "Load certs chain from file: fileName=" << fileName;
+
     auto buff = MakeUnique<PEMCertChainBlob>(&mAllocator);
 
     auto err = FS::ReadFileToString(fileName, *buff);
@@ -195,6 +207,8 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> CertLoader::LoadCertsFro
 
 RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const String& fileName)
 {
+    LOG_DBG() << "Load private key from file: fileName=" << fileName;
+
     auto buff = MakeUnique<StaticString<crypto::cPrivKeyPEMLen>>(&mAllocator);
 
     auto err = FS::ReadFileToString(fileName, *buff);

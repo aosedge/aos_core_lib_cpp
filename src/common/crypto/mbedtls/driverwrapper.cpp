@@ -349,13 +349,14 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
             }
 
             default:
-                LOG_ERR() << "Not supported key type: keyType = " << privKey.GetPublic().GetKeyType();
+                LOG_ERR() << "Not supported key type: keyType=" << privKey.GetPublic().GetKeyType();
 
                 return aos::RetWithError<KeyInfo>(
                     KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, aos::ErrorEnum::eNotSupported);
             }
 
-            LOG_DBG() << "Add Aos PSA key: keyID = " << key.mKeyID << ", slotNumber = " << key.mSlotNumber;
+            LOG_DBG() << "Add Aos PSA key: keyType=" << privKey.GetPublic().GetKeyType() << ", keyID=" << key.mKeyID
+                      << ", slotNumber=" << key.mSlotNumber;
 
             return aos::RetWithError<KeyInfo>(
                 KeyInfo {key.mKeyID, sMDTypes[static_cast<int>(key.mHashAlg)]}, sBuiltinKeys.PushBack(key));
@@ -420,7 +421,11 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
     (void)keyBuffer;
     (void)keyBufferLength;
 
-    LOG_DBG() << "Get Aos built-in key: slotNumber = " << slotNumber;
+    if (!keyBuffer) {
+        LOG_DBG() << "Get Aos built-in key size: slotNumber=" << slotNumber;
+    } else {
+        LOG_DBG() << "Get Aos built-in key: slotNumber=" << slotNumber;
+    }
 
     for (auto& key : sBuiltinKeys) {
         if (key.mSlotNumber == slotNumber) {

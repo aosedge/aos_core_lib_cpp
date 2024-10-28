@@ -7,6 +7,8 @@
 
 #include "aos/common/pkcs11/privatekey.hpp"
 
+#include "log.hpp"
+
 namespace aos {
 namespace pkcs11 {
 
@@ -26,6 +28,7 @@ PKCS11RSAPrivateKey::PKCS11RSAPrivateKey(
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)
 {
+    LOG_DBG() << "Create RSA private key";
 }
 
 const crypto::PublicKeyItf& PKCS11RSAPrivateKey::GetPublic() const
@@ -83,6 +86,7 @@ PKCS11ECDSAPrivateKey::PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& se
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)
 {
+    LOG_DBG() << "Create EC private key";
 }
 
 const crypto::PublicKeyItf& PKCS11ECDSAPrivateKey::GetPublic() const
