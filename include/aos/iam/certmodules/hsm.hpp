@@ -8,7 +8,7 @@
 #ifndef AOS_IAM_MODULES_HSM_HPP_
 #define AOS_IAM_MODULES_HSM_HPP_
 
-#include "aos/common/crypto.hpp"
+#include "aos/common/crypto/crypto.hpp"
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/iam/config.hpp"

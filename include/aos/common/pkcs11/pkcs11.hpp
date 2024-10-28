@@ -8,7 +8,7 @@
 #ifndef AOS_PKCS11_HPP_
 #define AOS_PKCS11_HPP_
 
-#include "aos/common/crypto.hpp"
+#include "aos/common/crypto/crypto.hpp"
 #include "aos/common/pkcs11/cryptoki/pkcs11.h"
 #include "aos/common/tools/log.hpp"
 #include "aos/common/tools/memory.hpp"

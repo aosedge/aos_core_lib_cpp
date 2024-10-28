@@ -10,7 +10,7 @@
 
 #include <psa/crypto.h>
 
-#include "aos/common/crypto.hpp"
+#include "aos/common/crypto/crypto.hpp"
 
 /**
  * Key description.

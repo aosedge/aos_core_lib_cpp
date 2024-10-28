@@ -14,7 +14,7 @@
 #include <mbedtls/x509_csr.h>
 #include <psa/crypto_types.h>
 
-#include "aos/common/crypto.hpp"
+#include "aos/common/crypto/crypto.hpp"
 #include "aos/common/crypto/mbedtls/driverwrapper.hpp"
 
 namespace aos {
@@ -176,7 +176,7 @@ public:
 
 private:
     static constexpr auto cAllocatorSize
-        = AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));
+        = AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));
 
     Error              ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
     Error              GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);

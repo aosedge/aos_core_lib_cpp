@@ -88,7 +88,7 @@ add_library(
     ${TARGET} STATIC
     crypto/mbedtls/cryptoprovider.cpp
     crypto/mbedtls/driverwrapper.cpp
-    cryptoutils.cpp
+    crypto/cryptoutils.cpp
     monitoring/resourcemonitor.cpp
     monitoring/average.cpp
     pkcs11/pkcs11.cpp

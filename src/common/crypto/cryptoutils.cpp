@@ -5,11 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/cryptoutils.hpp"
+#include "aos/common/crypto/utils.hpp"
 #include "aos/common/tools/fs.hpp"
 
 namespace aos {
-namespace cryptoutils {
+namespace crypto {
 
 /***********************************************************************************************************************
  * Constants
@@ -432,5 +432,5 @@ Error ParsePKCS11URL(
     return ErrorEnum::eNone;
 }
 
-} // namespace cryptoutils
+} // namespace crypto
 } // namespace aos

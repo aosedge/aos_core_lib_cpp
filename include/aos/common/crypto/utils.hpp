@@ -8,13 +8,13 @@
 #ifndef AOS_CRYPTOUTILS_HPP_
 #define AOS_CRYPTOUTILS_HPP_
 
-#include "aos/common/crypto.hpp"
+#include "aos/common/crypto/crypto.hpp"
 #include "aos/common/pkcs11/pkcs11.hpp"
 #include "aos/common/pkcs11/privatekey.hpp"
 #include "aos/common/tools/uuid.hpp"
 
 namespace aos {
-namespace cryptoutils {
+namespace crypto {
 
 /**
  * Loads certificates and keys interface.
@@ -77,13 +77,13 @@ private:
     using PEMCertChainBlob = StaticString<crypto::cCertPEMLen * crypto::cCertChainSize>;
 
     static constexpr auto cCertAllocatorSize
-        = AOS_CONFIG_CRYPTOUTILS_CERTIFICATE_CHAINS_COUNT * crypto::cCertChainSize * sizeof(crypto::x509::Certificate)
+        = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT * crypto::cCertChainSize * sizeof(crypto::x509::Certificate)
         + sizeof(PEMCertChainBlob);
     static constexpr auto cKeyAllocatorSize
-        = AOS_CONFIG_CRYPTOUTILS_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cPrivKeyPEMLen);
-    static constexpr auto cNumAllocation = AOS_CONFIG_CRYPTOUTILS_NUM_ALLOCATIONS;
+        = AOS_CONFIG_CRYPTO_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cPrivKeyPEMLen);
+    static constexpr auto cNumAllocation = AOS_CONFIG_CRYPTO_NUM_ALLOCATIONS;
 
-    static constexpr auto cDefaultPKCS11Library = AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB;
+    static constexpr auto cDefaultPKCS11Library = AOS_CONFIG_CRYPTO_DEFAULT_PKCS11_LIB;
 
     RetWithError<SharedPtr<pkcs11::SessionContext>> OpenSession(
         const String& libraryPath, const String& token, const String& userPIN);
@@ -149,7 +149,7 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id);
 Error ParsePKCS11URL(
     const String& url, String& library, String& token, String& label, Array<uint8_t>& id, String& userPin);
 
-} // namespace cryptoutils
+} // namespace crypto
 } // namespace aos
 
 #endif

@@ -558,6 +558,48 @@
 #endif
 
 /**
+ * Number of certificate chains to be stored in crypto::CertLoader.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT
+#define AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT 8
+#endif
+
+/**
+ * Number of private keys to be stored in crypto::CertLoader.
+ */
+#ifndef AOS_CONFIG_CRYPTO_KEYS_COUNT
+#define AOS_CONFIG_CRYPTO_KEYS_COUNT 8
+#endif
+
+/**
+ * Max number of crypto allocations.
+ */
+#ifndef AOS_CONFIG_CRYPTO_NUM_ALLOCATIONS
+#define AOS_CONFIG_CRYPTO_NUM_ALLOCATIONS 16
+#endif
+
+/**
+ * Default PKCS11 library.
+ */
+#ifndef AOS_CONFIG_CRYPTO_DEFAULT_PKCS11_LIB
+#define AOS_CONFIG_CRYPTO_DEFAULT_PKCS11_LIB "/usr/lib/softhsm/libsofthsm2.so"
+#endif
+
+/**
+ * Use PKCS11 OS locking mechanism.
+ */
+#ifndef AOS_CONFIG_CRYPTO_PKCS11_OS_LOCKING
+#define AOS_CONFIG_CRYPTO_PKCS11_OS_LOCKING 1
+#endif
+
+/**
+ * Maximum number of public keys to be allocated by cryptoprovider simultaneously.
+ */
+#ifndef AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT
+#define AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT 8
+#endif
+
+/**
  * Maximum length of PKCS11 slot description.
  */
 #ifndef AOS_CONFIG_PKCS11_SLOT_DESCRIPTION_LEN
@@ -674,48 +716,6 @@
  */
 #ifndef AOS_CONFIG_UUID_LEN
 #define AOS_CONFIG_UUID_LEN AOS_CONFIG_UUID_SIZE * 2 + 4 + 1 // 32 hex digits + 4 '-' symbols + '\0'
-#endif
-
-/**
- * Number of certificate chains to be stored in cryptoutils::CertLoader.
- */
-#ifndef AOS_CONFIG_CRYPTOUTILS_CERTIFICATE_CHAINS_COUNT
-#define AOS_CONFIG_CRYPTOUTILS_CERTIFICATE_CHAINS_COUNT 5
-#endif
-
-/**
- * Number of private keys to be stored in cryptoutils::CertLoader.
- */
-#ifndef AOS_CONFIG_CRYPTOUTILS_KEYS_COUNT
-#define AOS_CONFIG_CRYPTOUTILS_KEYS_COUNT 5
-#endif
-
-/**
- * Max number of cryptoutils allocations.
- */
-#ifndef AOS_CONFIG_CRYPTOUTILS_NUM_ALLOCATIONS
-#define AOS_CONFIG_CRYPTOUTILS_NUM_ALLOCATIONS 16
-#endif
-
-/**
- * Default PKCS11 library.
- */
-#ifndef AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB
-#define AOS_CONFIG_CRYPTOUTILS_DEFAULT_PKCS11_LIB "/usr/lib/softhsm/libsofthsm2.so"
-#endif
-
-/**
- * Use PKCS11 OS locking mechanism.
- */
-#ifndef AOS_CONFIG_CRYPTOUTILS_PKCS11_OS_LOCKING
-#define AOS_CONFIG_CRYPTOUTILS_PKCS11_OS_LOCKING 1
-#endif
-
-/**
- * Maximum number of public keys to be allocated by cryptoprovider simultaneously.
- */
-#ifndef AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT
-#define AOS_CONFIG_CRYPTOPROVIDER_PUB_KEYS_COUNT 5
 #endif
 
 /**

@@ -350,7 +350,7 @@ Error LibraryContext::Init()
         return ErrorEnum::eWrongState;
     }
 
-#if AOS_CONFIG_CRYPTOUTILS_PKCS11_OS_LOCKING
+#if AOS_CONFIG_CRYPTO_PKCS11_OS_LOCKING
     CK_C_INITIALIZE_ARGS initArgs {};
 
     initArgs.flags = CKF_OS_LOCKING_OK;

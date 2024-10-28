@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/cryptoutils.hpp"
+#include "aos/common/crypto/utils.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/os.hpp"
 #include "aos/common/tools/uuid.hpp"
@@ -824,7 +824,7 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     if (!id.IsEmpty()) {
         StaticString<pkcs11::cIDStrLen> idStr;
 
-        auto err = cryptoutils::EncodePKCS11ID(id, idStr);
+        auto err = crypto::EncodePKCS11ID(id, idStr);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -856,7 +856,7 @@ Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& i
     StaticString<pkcs11::cLabelLen> token;
     StaticString<pkcs11::cPINLen>   userPIN;
 
-    auto err = cryptoutils::ParsePKCS11URL(url, library, token, label, id, userPIN);
+    auto err = crypto::ParsePKCS11URL(url, library, token, label, id, userPIN);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
