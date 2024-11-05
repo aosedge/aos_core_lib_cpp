@@ -25,6 +25,7 @@ set(SOURCES
     src/tools/error_test.cpp
     src/tools/fs_test.cpp
     src/tools/function_test.cpp
+    src/tools/list_test.cpp
     src/tools/log_test.cpp
     src/tools/map_test.cpp
     src/tools/memory_test.cpp

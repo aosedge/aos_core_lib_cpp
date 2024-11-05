@@ -167,6 +167,67 @@ inline typename RemoveRef<T>::type&& Move(T&& object)
     return static_cast<typename RemoveRef<T>::type&&>(object);
 }
 
+/**
+ * Forward conditional template.
+ *
+ * @tparam B condition.
+ * @tparam T true type.
+ * @tparam F false type.
+ */
+template <bool B, typename T, typename F>
+struct ConditionalStruct {
+    typedef T type;
+};
+
+/**
+ * Forward conditional template.
+ *
+ * @tparam T true type.
+ * @tparam F false type.
+ */
+template <typename T, typename F>
+struct ConditionalStruct<false, T, F> {
+    typedef F type;
+};
+
+/**
+ * Conditional template.
+ *
+ * @tparam B condition.
+ * @tparam T true type.
+ * @tparam F false type.
+ */
+template <bool B, typename T, typename F>
+using Conditional = typename ConditionalStruct<B, T, F>::type;
+
+/**
+ * Forward condition template.
+ *
+ * @tparam B condition.
+ * @tparam T true type.
+ */
+template <bool B, typename T = void>
+struct EnableStruct { };
+
+/**
+ * Forward condition template.
+ *
+ * @tparam T
+ */
+template <typename T>
+struct EnableStruct<true, T> {
+    typedef T type;
+};
+
+/**
+ * Enable if template.
+ *
+ * @tparam B condition.
+ * @tparam T true type.
+ */
+template <bool B, typename T = void>
+using EnableIf = typename EnableStruct<B, T>::type;
+
 } // namespace aos
 
 #endif
