@@ -141,13 +141,53 @@ TEST(ArrayTest, Find)
 
     result = array.Find(13);
     EXPECT_TRUE(result.mError.Is(ErrorEnum::eNotFound));
-    EXPECT_EQ(result.mValue, nullptr);
+    EXPECT_EQ(result.mValue, array.end());
 
     // Found matched
 
-    result = array.Find([](const int& value) { return value == 8 ? true : false; });
+    result = array.FindIf([](const int& value) { return value == 8 ? true : false; });
     EXPECT_TRUE(result.mError.IsNone());
     EXPECT_EQ(*result.mValue, 8);
+}
+
+TEST(ArrayTest, Erase)
+{
+    int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+    Array<int> array(inputArray, ArraySize(inputArray));
+
+    // Erase last element
+
+    {
+        auto result = array.Erase(&array[0]);
+        EXPECT_EQ(result, &array[0]);
+
+        int resultArray[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
+
+    // Erase one element
+
+    {
+        auto result = array.Erase(&array[4]);
+        EXPECT_EQ(result, &array[4]);
+
+        int resultArray[] = {1, 2, 3, 5, 6, 7, 8, 9};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
+
+    // Erase last element
+
+    {
+        auto result = array.Erase(&array[7]);
+        EXPECT_EQ(result, array.end());
+
+        int resultArray[] = {1, 2, 3, 5, 6, 7, 8};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
 }
 
 TEST(ArrayTest, Remove)
@@ -156,14 +196,35 @@ TEST(ArrayTest, Remove)
 
     Array<int> array(inputArray, ArraySize(inputArray));
 
+    // Remove first element
+
+    {
+        auto result = array.Remove(0);
+        EXPECT_EQ(result, 1);
+
+        int resultArray[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
+
     // Remove one element
 
     {
-        auto result = array.Remove(&array[4]);
-        EXPECT_TRUE(result.mError.IsNone());
-        EXPECT_EQ(*result.mValue, 5);
+        auto result = array.Remove(4);
+        EXPECT_EQ(result, 1);
 
-        int resultArray[] = {0, 1, 2, 3, 5, 6, 7, 8, 9};
+        int resultArray[] = {1, 2, 3, 5, 6, 7, 8, 9};
+        EXPECT_EQ(array.Size(), ArraySize(resultArray));
+        EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
+    }
+
+    // Remove last element
+
+    {
+        auto result = array.Remove(9);
+        EXPECT_EQ(result, 1);
+
+        int resultArray[] = {1, 2, 3, 5, 6, 7, 8};
         EXPECT_EQ(array.Size(), ArraySize(resultArray));
         EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
     }
@@ -171,12 +232,10 @@ TEST(ArrayTest, Remove)
     // Remove matching condition
 
     {
-        auto result = array.Remove([](const int& value) { return value == 6 ? true : false; });
+        auto result = array.RemoveIf([](const int& value) { return value == 6 ? true : false; });
+        EXPECT_EQ(result, 1);
 
-        EXPECT_TRUE(result.mError.IsNone());
-        EXPECT_EQ(result.mValue, array.end());
-
-        int resultArray[] = {0, 1, 2, 3, 5, 7, 8, 9};
+        int resultArray[] = {1, 2, 3, 5, 7, 8};
         EXPECT_EQ(array.Size(), ArraySize(resultArray));
         EXPECT_EQ(memcmp(array.begin(), resultArray, ArraySize(resultArray)), 0);
     }
@@ -215,7 +274,7 @@ TEST(ArrayTest, Sort)
         EXPECT_EQ(array[i], i);
     }
 
-    array.Sort([](int a, int b) { return a < b; });
+    array.Sort([](int a, int b) { return a > b; });
 
     for (size_t i = 0; i < ArraySize(intValues); i++) {
         EXPECT_EQ(array[i], ArraySize(intValues) - i - 1);

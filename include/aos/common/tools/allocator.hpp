@@ -21,7 +21,7 @@ namespace aos {
 /**
  * Allocator instance.
  */
-class Allocator : private NonCopyable {
+class Allocator {
 public:
     /**
      * Allocation instance.
@@ -134,7 +134,7 @@ public:
 
         [[maybe_unused]] auto curEnd = mAllocations->end();
         [[maybe_unused]] auto newEnd
-            = mAllocations->Remove([data](const Allocation& allocation) { return allocation.Data() == data; }).mValue;
+            = mAllocations->RemoveIf([data](const Allocation& allocation) { return allocation.Data() == data; }).mValue;
 
         assert(newEnd && curEnd != newEnd);
     }
@@ -149,7 +149,7 @@ public:
     {
         LockGuard lock {mMutex};
 
-        return mAllocations->Find([data](const Allocation& allocation) { return allocation.Data() == data; });
+        return mAllocations->FindIf([data](const Allocation& allocation) { return allocation.Data() == data; });
     }
 
     /**

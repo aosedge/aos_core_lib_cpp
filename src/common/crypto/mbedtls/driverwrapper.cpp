@@ -373,16 +373,10 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
 
     LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
-    for (auto& key : sBuiltinKeys) {
-        if (key.mKeyID == keyID) {
-            sBuiltinKeys.Remove(&key);
+    if (sBuiltinKeys.RemoveIf([&keyID](const KeyDescription& key) { return key.mKeyID == keyID; })) {
+        lock.Unlock();
 
-            lock.Unlock();
-
-            psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
-
-            return;
-        }
+        psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
     }
 }
 

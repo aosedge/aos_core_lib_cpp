@@ -248,7 +248,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
             LOG_ERR() << "Can't delete pending key: err=" << err;
         }
 
-        mPendingKeys.Remove(mPendingKeys.begin());
+        mPendingKeys.Erase(mPendingKeys.begin());
     }
 
     mPendingKeys.PushBack(pendingKey);
@@ -273,7 +273,7 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
     for (auto it = mPendingKeys.begin(); it != mPendingKeys.end(); ++it) {
         if (CheckCertificate(certChain[0], *it->mKey.GetPrivKey())) {
             curKey.SetValue(*it);
-            mPendingKeys.Remove(it);
+            mPendingKeys.Erase(it);
 
             break;
         }
@@ -907,22 +907,9 @@ Error PKCS11Module::GetValidInfo(const pkcs11::SessionContext& session, Array<Se
             return AOS_ERROR_WRAP(err);
         }
 
-        auto ret = certs.Remove(cert);
-        if (!ret.mError.IsNone()) {
-            return AOS_ERROR_WRAP(ret.mError);
-        }
-
-        ret = pubKeys.Remove(pubKey);
-        if (!ret.mError.IsNone()) {
-            return AOS_ERROR_WRAP(ret.mError);
-        }
-
-        ret = privKeys.Remove(privKey);
-        if (!ret.mError.IsNone()) {
-            return AOS_ERROR_WRAP(ret.mError);
-        }
-
-        privKey = ret.mValue;
+        certs.Erase(cert);
+        pubKeys.Erase(pubKey);
+        privKey = privKeys.Erase(privKey);
     }
 
     return ErrorEnum::eNone;

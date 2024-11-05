@@ -53,7 +53,7 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
 
     for (const auto& service : *installedServices) {
         if (!services
-                 .Find([&service](const ServiceInfo& info) {
+                 .FindIf([&service](const ServiceInfo& info) {
                      return service.mServiceID == info.mServiceID && service.mVersion == info.mVersion;
                  })
                  .mError.IsNone()) {
@@ -82,7 +82,7 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
 
     for (const auto& info : services) {
         if (!installedServices
-                 ->Find([&info](const ServiceData& service) { return info.mServiceID == service.mServiceID; })
+                 ->FindIf([&info](const ServiceData& service) { return info.mServiceID == service.mServiceID; })
                  .mError.IsNone()) {
             err = mInstallPool.AddTask([this, &info](void*) {
                 auto err = InstallService(info);

@@ -26,12 +26,8 @@ namespace aos::iam::nodeinfoprovider {
 
 bool IsMainNode(const NodeInfo& nodeInfo)
 {
-    aos::NodeAttribute* attr = nullptr;
-    aos::Error          err;
-
-    aos::Tie(attr, err)
-        = nodeInfo.mAttrs.Find([](const auto& attr) { return CaseInsensitiveEqual(attr.mName, cAttrMainNode); });
-
+    auto [attr, err]
+        = nodeInfo.mAttrs.FindIf([](const auto& attr) { return CaseInsensitiveEqual(attr.mName, cAttrMainNode); });
     if (err != aos::ErrorEnum::eNone) {
         assert(err.Is(aos::ErrorEnum::eNotFound));
 

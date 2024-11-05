@@ -351,7 +351,7 @@ Error CertModule::TrimCerts(const String& password)
             return AOS_ERROR_WRAP(err);
         }
 
-        certsInStorage->Remove(info);
+        certsInStorage->Erase(info);
     }
 
     return ErrorEnum::eNone;
@@ -425,7 +425,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
         }
 
         if (storedCert != nullptr) {
-            certsInStorage->Remove(storedCert);
+            certsInStorage->Erase(storedCert);
         } else {
             LOG_WRN() << "Add missing cert to DB: type=" << GetCertType() << ", certInfo=" << moduleCert;
 

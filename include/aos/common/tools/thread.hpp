@@ -165,7 +165,7 @@ private:
 /**
  * Aos mutex.
  */
-class Mutex : private NonCopyable {
+class Mutex {
 public:
     /**
      * Constructs Aos mutex.

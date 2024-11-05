@@ -10,8 +10,8 @@
 
 #include <assert.h>
 
+#include "aos/common/tools/algorithm.hpp"
 #include "aos/common/tools/buffer.hpp"
-#include "aos/common/tools/error.hpp"
 #include "aos/common/tools/new.hpp"
 #include "aos/common/tools/utils.hpp"
 
@@ -240,7 +240,8 @@ protected:
  * @tparam T list type.
  */
 template <typename T>
-class List : protected ListImpl<T> {
+class List : public AlgorithmItf<T, typename ListImpl<T>::Iterator<false>, typename ListImpl<T>::Iterator<true>>,
+             protected ListImpl<T> {
 public:
     using Iterator      = typename ListImpl<T>::Iterator<false>;
     using ConstIterator = typename ListImpl<T>::Iterator<true>;
@@ -285,25 +286,18 @@ public:
     }
 
     /**
-     * Checks if list is full.
-     *
-     * @return bool.
-     */
-    bool IsFull() const { return this->mSize == mMaxSize; }
-
-    /**
-     * Returns current list size.
+     * Returns current list sizeq.
      *
      * @return size_t.
      */
-    size_t Size() const { return this->mSize; }
+    size_t Size() const override { return this->mSize; }
 
     /**
      * Returns maximum available list size.
      *
      * @return size_t.
      */
-    size_t MaxSize() const { return mMaxSize; }
+    size_t MaxSize() const override { return mMaxSize; }
 
     /**
      * Clears list.
@@ -482,7 +476,7 @@ public:
      * @param first last item to erase.
      * @return next after deleted item iterator.
      */
-    Iterator Erase(ConstIterator first, ConstIterator last)
+    Iterator Erase(ConstIterator first, ConstIterator last) override
     {
         for (auto it = first; it != last; ++it) {
             ListImpl<T>::RemoveNode(*const_cast<RemoveConstType<Node>*>(it.mCurrentNode));
@@ -497,7 +491,7 @@ public:
      * @param it item to erase.
      * @return next after deleted item iterator.
      */
-    Iterator Erase(ConstIterator it)
+    Iterator Erase(ConstIterator it) override
     {
         auto next = it;
 
@@ -505,10 +499,10 @@ public:
     }
 
     // Used for range based loop.
-    Iterator      begin(void) { return Iterator(this->mTerminalNode.mNext); }
-    Iterator      end(void) { return Iterator(&this->mTerminalNode); }
-    ConstIterator begin(void) const { return ConstIterator(this->mTerminalNode.mNext); }
-    ConstIterator end(void) const { return ConstIterator(&this->mTerminalNode); }
+    Iterator      begin(void) override { return Iterator(this->mTerminalNode.mNext); }
+    Iterator      end(void) override { return Iterator(&this->mTerminalNode); }
+    ConstIterator begin(void) const override { return ConstIterator(this->mTerminalNode.mNext); }
+    ConstIterator end(void) const override { return ConstIterator(&this->mTerminalNode); }
 
 protected:
     using Node = typename ListImpl<T>::Node;

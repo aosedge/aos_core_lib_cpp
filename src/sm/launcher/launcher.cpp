@@ -297,7 +297,7 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
 
     for (const auto& [_, instance] : mCurrentInstances) {
         auto found = instances
-                         .Find([&instance = instance](const InstanceInfo& info) {
+                         .FindIf([&instance = instance](const InstanceInfo& info) {
                              auto compareInfo = info;
 
                              compareInfo.mPriority = instance.Info().mPriority;
@@ -308,7 +308,7 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
 
         // Stop instance if: forceRestart or not in instances array or not active state or Aos version changed
         if (!forceRestart && found && instance.RunState() == InstanceRunStateEnum::eActive) {
-            auto findService = services->Find([&instance = instance](const servicemanager::ServiceData& service) {
+            auto findService = services->FindIf([&instance = instance](const servicemanager::ServiceData& service) {
                 return instance.Info().mInstanceIdent.mServiceID == service.mServiceID;
             });
 

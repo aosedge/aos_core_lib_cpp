@@ -112,12 +112,7 @@ RetWithError<CertTypes> ProvisionManager::GetCertTypes()
             continue;
         }
 
-        auto item = certTypes.Remove(it);
-        if (!item.mError.IsNone()) {
-            return {certTypes, item.mError};
-        }
-
-        it = item.mValue;
+        it = certTypes.Erase(it);
     }
 
     return {certTypes, aos::ErrorEnum::eNone};

@@ -10,8 +10,8 @@
 
 #include <assert.h>
 
+#include "aos/common/tools/algorithm.hpp"
 #include "aos/common/tools/buffer.hpp"
-#include "aos/common/tools/error.hpp"
 #include "aos/common/tools/new.hpp"
 
 namespace aos {
@@ -21,8 +21,11 @@ namespace aos {
  * @tparam T array type.
  */
 template <typename T>
-class Array {
+class Array : public AlgorithmItf<T, T*, const T*> {
 public:
+    using Iterator      = T*;
+    using ConstIterator = const T*;
+
     /**
      * Crates empty array instance.
      */
@@ -92,32 +95,18 @@ public:
     }
 
     /**
-     * Checks if array is empty.
-     *
-     * @return bool.
-     */
-    bool IsEmpty() const { return mSize == 0; }
-
-    /**
-     * Checks if arrays is full.
-     *
-     * @return bool.
-     */
-    bool IsFull() const { return mSize == mMaxSize; }
-
-    /**
      * Returns current array size.
      *
      * @return size_t.
      */
-    size_t Size() const { return mSize; }
+    size_t Size() const override { return mSize; }
 
     /**
      * Returns maximum available array size.
      *
      * @return size_t.
      */
-    size_t MaxSize() const { return mMaxSize; }
+    size_t MaxSize() const override { return mMaxSize; }
 
     /**
      * Sets new array size.
@@ -213,62 +202,6 @@ public:
     }
 
     /**
-     * Returns array first item.
-     *
-     * @return RetWithError<T&>.
-     */
-    RetWithError<T&> Front()
-    {
-        if (IsEmpty()) {
-            return {mItems[0], ErrorEnum::eNotFound};
-        }
-
-        return mItems[0];
-    }
-
-    /**
-     * Returns array const first item.
-     *
-     * @return RetWithError<const T&>.
-     */
-    RetWithError<const T&> Front() const
-    {
-        if (IsEmpty()) {
-            return {mItems[0], ErrorEnum::eNotFound};
-        }
-
-        return mItems[0];
-    }
-
-    /**
-     * Returns array last item.
-     *
-     * @return RetWithError<T&>.
-     */
-    RetWithError<T&> Back()
-    {
-        if (IsEmpty()) {
-            return {mItems[0], ErrorEnum::eNotFound};
-        }
-
-        return mItems[mSize - 1];
-    }
-
-    /**
-     * Returns array const last item.
-     *
-     * @return RetWithError<const T&>.
-     */
-    RetWithError<const T&> Back() const
-    {
-        if (IsEmpty()) {
-            return {mItems[0], ErrorEnum::eNotFound};
-        }
-
-        return mItems[mSize - 1];
-    }
-
-    /**
      * Pushes item at the end of array.
      *
      * @param item item to push.
@@ -276,7 +209,7 @@ public:
      */
     Error PushBack(const T& item)
     {
-        if (IsFull()) {
+        if (mSize == mMaxSize) {
             return ErrorEnum::eNoMemory;
         }
 
@@ -296,7 +229,7 @@ public:
     template <typename... Args>
     Error EmplaceBack(Args&&... args)
     {
-        if (IsFull()) {
+        if (mSize == mMaxSize) {
             return ErrorEnum::eNoMemory;
         }
 
@@ -314,7 +247,7 @@ public:
      */
     Error PopBack()
     {
-        if (IsEmpty()) {
+        if (mSize == 0) {
             return ErrorEnum::eNotFound;
         }
 
@@ -415,125 +348,53 @@ public:
     Array& operator+=(const Array& array) { return Append(array); }
 
     /**
-     * Finds element in array.
+     * Erases items range from array.
      *
-     * @param item element to find.
-     * @return RetWithError<T*>.
+     * @param first first item to erase.
+     * @param first last item to erase.
+     * @return next after deleted item iterator.
      */
-    RetWithError<T*> Find(const T& item) const
+    Iterator Erase(ConstIterator first, ConstIterator last) override
     {
-        for (auto it = mItems; it != end(); it++) {
-            if (*it == item) {
-                return it;
-            }
+        if (first < begin() || first >= end() || last < begin() || last > end()) {
+            assert(false);
         }
 
-        return {nullptr, ErrorEnum::eNotFound};
+        auto curEnd = end();
+
+        for (auto it = first; it != last; ++it) {
+            it->~T();
+            mSize--;
+        }
+
+        auto curFirst = first;
+
+        for (auto it = last; it != curEnd; ++it, ++curFirst) {
+            new (const_cast<RemoveConstType<T>*>(curFirst)) T(*it);
+            it->~T();
+        }
+
+        return const_cast<Iterator>(first);
     }
 
     /**
-     * Finds element in array that match argument.
+     * Erases item from array.
      *
-     * @param match match function.
-     * @return RetWithError<T*>.
+     * @param it item to erase.
+     * @return next after deleted item iterator.
      */
-    template <typename P>
-    RetWithError<T*> Find(P match) const
+    Iterator Erase(ConstIterator it) override
     {
-        for (auto it = mItems; it != end(); it++) {
-            if (match(*it)) {
-                return it;
-            }
-        }
+        auto next = it;
 
-        return {nullptr, ErrorEnum::eNotFound};
-    }
-
-    /**
-     * Removes item from array.
-     *
-     * @param item item to remove.
-     * @return RetWithError<T*> pointer to next after deleted item.
-     */
-    RetWithError<T*> Remove(T* item)
-    {
-        if (item < begin() || item >= end()) {
-            return {nullptr, ErrorEnum::eInvalidArgument};
-        }
-
-        if (item == end() - 1) {
-            (item)->~T();
-        } else {
-            for (auto i = 0; i < end() - item - 1; i++) {
-                (item + i)->~T();
-                new (item + i) T(*(item + i + 1));
-                (item + i + 1)->~T();
-            }
-        }
-
-        mSize--;
-
-        return item;
-    }
-
-    /**
-     * Removes element from array that match argument.
-     *
-     * @param match match function.
-     * @return RetWithError<T*> pointer to end of new array.
-     */
-    template <typename P>
-    RetWithError<T*> Remove(P match)
-    {
-        for (auto it = begin(); it != end();) {
-            if (match(*it)) {
-                auto result = Remove(it);
-                if (!result.mError.IsNone()) {
-                    return result;
-                }
-
-                it = result.mValue;
-            } else {
-                it++;
-            }
-        }
-
-        return end();
-    }
-
-    /*
-     * Sorts array items using sort function.
-     *
-     * @tparam F type of sort function.
-     * @param sortFunc sort function.
-     */
-    template <typename F>
-    void Sort(F sortFunc)
-    {
-        for (size_t i = 0; i < mSize - 1; i++) {
-            for (size_t j = 0; j < mSize - i - 1; j++) {
-                if (sortFunc(mItems[j], mItems[j + 1])) {
-                    auto tmp      = mItems[j + 1];
-                    mItems[j + 1] = mItems[j];
-                    mItems[j]     = tmp;
-                }
-            }
-        }
-    }
-
-    /**
-     * Sorts array items using default comparision operator.
-     */
-    void Sort()
-    {
-        Sort([](const T& val1, const T& val2) { return val1 > val2; });
+        return Erase(it, ++next);
     }
 
     // Used for range based loop.
-    T*       begin(void) { return &mItems[0]; }
-    T*       end(void) { return &mItems[mSize]; }
-    const T* begin(void) const { return &mItems[0]; }
-    const T* end(void) const { return &mItems[mSize]; }
+    T*       begin(void) override { return &mItems[0]; }
+    T*       end(void) override { return &mItems[mSize]; }
+    const T* begin(void) const override { return &mItems[0]; }
+    const T* end(void) const override { return &mItems[mSize]; }
 
 protected:
     void SetBuffer(const Buffer& buffer, size_t maxSize = 0)

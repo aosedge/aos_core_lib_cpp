@@ -122,10 +122,7 @@ Error NodeManager::RemoveNodeInfo(const String& nodeId)
         return err;
     }
 
-    err = mNodeInfoCache.Remove(cachedInfo).mError;
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    mNodeInfoCache.Erase(cachedInfo);
 
     if (mNodeInfoListener) {
         mNodeInfoListener->OnNodeRemoved(nodeId);

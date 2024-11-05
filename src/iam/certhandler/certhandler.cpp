@@ -183,15 +183,14 @@ Error CertHandler::UnsubscribeCertChanged(CertReceiverItf& certReceiver)
 {
     LockGuard lock {mMutex};
 
-    Error                     err          = ErrorEnum::eNone;
-    CertReceiverSubscription* subscription = nullptr;
+    if (mCertReceiverSubscriptions.RemoveIf([&certReceiver](const CertReceiverSubscription& subscription) {
+            return subscription.mReceiver == &certReceiver;
+        })
+        == 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
 
-    Tie(subscription, err)
-        = mCertReceiverSubscriptions.Remove([&certReceiver](const CertReceiverSubscription& subscription) {
-              return subscription.mReceiver == &certReceiver;
-          });
-
-    return err;
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::CreateSelfSignedCert(const String& certType, const String& password)
@@ -236,7 +235,7 @@ CertHandler::~CertHandler()
 
 CertModule* CertHandler::FindModule(const String& certType) const
 {
-    auto module = mModules.Find([certType](CertModule* module) { return module->GetCertType() == certType; });
+    auto module = mModules.FindIf([certType](CertModule* module) { return module->GetCertType() == certType; });
 
     return !module.mError.IsNone() ? nullptr : *module.mValue;
 }
