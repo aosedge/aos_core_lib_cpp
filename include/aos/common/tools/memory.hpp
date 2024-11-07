@@ -336,7 +336,7 @@ public:
         : SmartPtr<T>(ptr.GetAllocator(), ptr.Get())
         , mAllocation(ptr.mAllocation)
     {
-        if (mAllocation) {
+        if (SmartPtr<T>::GetAllocator()) {
             SmartPtr<T>::GetAllocator()->TakeAllocation(mAllocation);
         }
     }
@@ -351,7 +351,7 @@ public:
         SmartPtr<T>::Release(ptr.GetAllocator(), ptr.Get());
         mAllocation = ptr.mAllocation;
 
-        if (mAllocation) {
+        if (SmartPtr<T>::GetAllocator()) {
             SmartPtr<T>::GetAllocator()->TakeAllocation(mAllocation);
         }
 
@@ -364,12 +364,11 @@ public:
      * @param ptr pointer to create from.
      */
     template <typename P>
-    // cppcheck-suppress noExplicitConstructor
     SharedPtr(const SharedPtr<P>& ptr)
         : SmartPtr<T>(ptr.GetAllocator(), ptr.Get())
         , mAllocation(ptr.mAllocation)
     {
-        if (mAllocation) {
+        if (SmartPtr<T>::GetAllocator()) {
             SmartPtr<T>::GetAllocator()->TakeAllocation(mAllocation);
         }
     }
@@ -385,7 +384,7 @@ public:
         SmartPtr<T>::Release(ptr.GetAllocator(), ptr.Get());
         mAllocation = ptr.mAllocation;
 
-        if (mAllocation) {
+        if (SmartPtr<T>::GetAllocator()) {
             SmartPtr<T>::GetAllocator()->TakeAllocation(mAllocation);
         }
 
@@ -400,12 +399,12 @@ public:
      */
     void Reset(Allocator* allocator = nullptr, T* object = nullptr)
     {
-        if (mAllocation && SmartPtr<T>::GetAllocator()->GiveAllocation(mAllocation) == 0) {
+        if (SmartPtr<T>::GetAllocator() && SmartPtr<T>::GetAllocator()->GiveAllocation(mAllocation) == 0) {
             SmartPtr<T>::Reset(allocator, object);
         }
 
         SmartPtr<T>::Release(allocator, object);
-        mAllocation = nullptr;
+        mAllocation = {};
 
         if (allocator && object) {
             mAllocation = allocator->FindAllocation(object).mValue;
@@ -422,7 +421,7 @@ private:
     template <typename>
     friend class SharedPtr;
 
-    Allocator::Allocation* mAllocation = nullptr;
+    List<Allocator::Allocation>::Iterator mAllocation;
 };
 
 /**

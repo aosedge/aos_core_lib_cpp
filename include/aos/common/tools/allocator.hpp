@@ -11,8 +11,8 @@
 #include <assert.h>
 #include <cstdint>
 
-#include "aos/common/tools/array.hpp"
 #include "aos/common/tools/buffer.hpp"
+#include "aos/common/tools/list.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/thread.hpp"
 
@@ -28,6 +28,11 @@ public:
      */
     class Allocation {
     public:
+        /**
+         * Creates allocation.
+         */
+        Allocation() = default;
+
         /**
          * Creates allocation.
          *
@@ -82,9 +87,9 @@ public:
         }
 
     private:
-        uint8_t* mData;
-        size_t   mSize;
-        size_t   mSharedCount;
+        uint8_t* mData        = nullptr;
+        size_t   mSize        = 0;
+        size_t   mSharedCount = 0;
     };
 
     /**
@@ -132,20 +137,20 @@ public:
     {
         LockGuard lock {mMutex};
 
-        [[maybe_unused]] auto curEnd = mAllocations->end();
-        [[maybe_unused]] auto newEnd
-            = mAllocations->RemoveIf([data](const Allocation& allocation) { return allocation.Data() == data; }).mValue;
+        [[maybe_unused]] auto curSize = mAllocations->Size();
+        mAllocations->RemoveIf([data](const Allocation& allocation) { return allocation.Data() == data; });
+        [[maybe_unused]] auto newSize = mAllocations->Size();
 
-        assert(newEnd && curEnd != newEnd);
+        assert(curSize != newSize);
     }
 
     /**
      * Finds allocation by data.
      *
      * @param data allocated data.
-     * @return void* pointer to allocation.
+     * @return List<Allocation>::Iterator.
      */
-    RetWithError<Allocation*> FindAllocation(const void* data)
+    RetWithError<List<Allocation>::Iterator> FindAllocation(const void* data)
     {
         LockGuard lock {mMutex};
 
@@ -155,28 +160,18 @@ public:
     /**
      * Increases allocation shared count.
      *
-     * @param allocation allocation to increase shared count.
+     * @param it allocation to increase shared count.
      * @return size_t allocation shared count.
      */
-    size_t TakeAllocation(Allocation* allocation)
-    {
-        assert(allocation);
-
-        return allocation->Take(mMutex);
-    }
+    size_t TakeAllocation(List<Allocation>::Iterator it) { return it->Take(mMutex); }
 
     /**
      * Decreases allocation shared count.
      *
-     * @param allocation allocation to increase shared count.
+     * @param it allocation to increase shared count.
      * @return size_t allocation shared count.
      */
-    size_t GiveAllocation(Allocation* allocation)
-    {
-        assert(allocation);
-
-        return allocation->Give(mMutex);
-    }
+    size_t GiveAllocation(List<Allocation>::Iterator it) { return it->Give(mMutex); }
 
     /**
      * Returns allocator free size.
@@ -225,7 +220,7 @@ public:
     }
 
 protected:
-    void SetBuffer(const Buffer& buffer, Array<Allocation>& allocations)
+    void SetBuffer(const Buffer& buffer, List<Allocation>& allocations)
     {
         mBuffer      = static_cast<uint8_t*>(buffer.Get());
         mMaxSize     = buffer.Size();
@@ -247,11 +242,11 @@ private:
         return static_cast<uint8_t*>(lastAllocation.Data()) + lastAllocation.Size();
     }
 
-    uint8_t*           mBuffer           = {};
-    Array<Allocation>* mAllocations      = {};
-    size_t             mMaxSize          = {};
-    size_t             mMaxAllocatedSize = {};
-    mutable Mutex      mMutex;
+    uint8_t*          mBuffer           = {};
+    List<Allocation>* mAllocations      = {};
+    size_t            mMaxSize          = {};
+    size_t            mMaxAllocatedSize = {};
+    mutable Mutex     mMutex;
 };
 
 /**
@@ -281,8 +276,8 @@ public:
     StaticAllocator() { SetBuffer(mBuffer, mAllocations); }
 
 private:
-    StaticBuffer<cSize>                                 mBuffer;
-    StaticArray<Allocator::Allocation, cNumAllocations> mAllocations;
+    StaticBuffer<cSize>                                mBuffer;
+    StaticList<Allocator::Allocation, cNumAllocations> mAllocations;
 };
 
 } // namespace aos
