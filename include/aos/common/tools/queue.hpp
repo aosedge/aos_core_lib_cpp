@@ -30,7 +30,7 @@ public:
     Queue() = default;
 
     /**
-     * Crates queue from buffer.
+     * Creates queue from buffer.
      *
      * @param buffer buffer to create queue.
      */
