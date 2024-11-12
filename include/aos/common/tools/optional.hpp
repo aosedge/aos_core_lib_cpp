@@ -133,6 +133,33 @@ public:
     }
 
     /**
+     * Compares optional instances.
+     *
+     * @param other instance to compare with.
+     * @return bool.
+     */
+    bool operator==(const Optional& other) const
+    {
+        if (!HasValue() && !other.HasValue()) {
+            return true;
+        }
+
+        if (HasValue() != other.HasValue()) {
+            return false;
+        }
+
+        return GetValue() == other.GetValue();
+    }
+
+    /**
+     * Compares optional instances.
+     *
+     * @param other instance to compare with.
+     * @return bool.
+     */
+    bool operator!=(const Optional& other) const { return !operator==(other); }
+
+    /**
      * Destroys optional instance.
      */
     ~Optional() { Reset(); }
