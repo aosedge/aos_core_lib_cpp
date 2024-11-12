@@ -266,6 +266,7 @@ void Launcher::SendRunStatus()
 {
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
+    // cppcheck-suppress unusedVariable
     for (const auto& [_, instance] : mCurrentInstances) {
         LOG_DBG() << "Instance status: instance=" << instance << ", serviceVersion=" << instance.GetServiceVersion()
                   << ", runState=" << instance.RunState() << ", err=" << instance.RunError();
@@ -399,6 +400,7 @@ void Launcher::CacheServices(const Array<InstanceInfo>& instances)
 
 void Launcher::UpdateInstanceServices()
 {
+    // cppcheck-suppress unusedVariable
     for (auto& [_, instance] : mCurrentInstances) {
         auto findService = GetService(instance.Info().mInstanceIdent.mServiceID);
         if (!findService.mError.IsNone()) {

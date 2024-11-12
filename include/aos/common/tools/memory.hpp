@@ -364,6 +364,7 @@ public:
      * @param ptr pointer to create from.
      */
     template <typename P>
+    // cppcheck-suppress noExplicitConstructor
     SharedPtr(const SharedPtr<P>& ptr)
         : SmartPtr<T>(ptr.GetAllocator(), ptr.Get())
         , mAllocation(ptr.mAllocation)

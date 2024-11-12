@@ -62,12 +62,14 @@ protected:
         /**
          * Copy constructor.
          */
+        // cppcheck-suppress noExplicitConstructor
         Iterator(const Iterator&) = default;
 
         /**
          * Copy constructor.
          */
         template <bool WasConst = IsConst, typename = EnableIf<IsConst || !WasConst>>
+        // cppcheck-suppress noExplicitConstructor
         Iterator(const Iterator<WasConst>& it)
             : mCurrentNode(it.mCurrentNode)
         {
