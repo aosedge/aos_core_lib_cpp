@@ -117,15 +117,26 @@ public:
             return nullptr;
         }
 
-        auto data = End();
+        auto* pos = mBuffer;
+        auto  it  = mAllocations->begin();
 
-        mAllocations->EmplaceBack(data, size);
+        for (; it != mAllocations->end(); ++it) {
+            size_t availableSize = it->Data() - pos;
 
-        if (GetAllocatedSize() > mMaxAllocatedSize) {
-            mMaxAllocatedSize = GetAllocatedSize();
+            if (availableSize >= size) {
+                return Allocate(it, pos, size);
+            }
+
+            pos = it->Data() + it->Size();
         }
 
-        return data;
+        if (pos + size <= mBuffer + mMaxSize) {
+            return Allocate(mAllocations->end(), pos, size);
+        }
+
+        assert(false);
+
+        return nullptr;
     }
 
     /**
@@ -229,17 +240,27 @@ protected:
     }
 
 private:
-    size_t GetAllocatedSize() const { return End() - mBuffer; }
-
-    uint8_t* End() const
+    void* Allocate(List<Allocation>::ConstIterator it, uint8_t* data, size_t size)
     {
-        if (mAllocations->IsEmpty()) {
-            return mBuffer;
+        auto err = mAllocations->Emplace(it, Allocation(data, size));
+        assert(err.IsNone());
+
+        if (GetAllocatedSize() > mMaxAllocatedSize) {
+            mMaxAllocatedSize = GetAllocatedSize();
         }
 
-        auto const& lastAllocation = mAllocations->Back().mValue;
+        return data;
+    }
 
-        return static_cast<uint8_t*>(lastAllocation.Data()) + lastAllocation.Size();
+    size_t GetAllocatedSize() const
+    {
+        size_t allocatedSize = 0;
+
+        for (const auto& allocation : *mAllocations) {
+            allocatedSize += allocation.Size();
+        }
+
+        return allocatedSize;
     }
 
     uint8_t*          mBuffer           = {};

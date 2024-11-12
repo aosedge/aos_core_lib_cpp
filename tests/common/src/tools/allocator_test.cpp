@@ -34,12 +34,10 @@ TEST(AllocatorTest, Allocator)
     }
 
     for (size_t i = 0; i < ArraySize(testData); i++) {
+        freeSize += testData[i].mSize;
         allocator.Free(testData[i].mData);
-        if (i < ArraySize(testData) - 1) {
-            EXPECT_EQ(allocator.FreeSize(), freeSize);
-        } else {
-            EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
-        }
+
+        EXPECT_EQ(allocator.FreeSize(), freeSize);
     }
 
     allocator.Allocate(32);
