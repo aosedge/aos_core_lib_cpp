@@ -53,7 +53,7 @@ public:
      * @param[out] certTypes result certificate types.
      * @returns Error.
      */
-    virtual Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) = 0;
+    virtual Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const = 0;
 
     /**
      * Owns security storage.
@@ -178,7 +178,7 @@ public:
      * @param[out] certTypes result certificate types.
      * @returns Error.
      */
-    Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) override;
+    Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const override;
 
     /**
      * Owns security storage.

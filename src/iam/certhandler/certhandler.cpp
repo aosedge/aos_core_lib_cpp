@@ -28,7 +28,7 @@ Error CertHandler::RegisterModule(CertModule& module)
     return AOS_ERROR_WRAP(mModules.PushBack(&module));
 }
 
-Error CertHandler::GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes)
+Error CertHandler::GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const
 {
     LockGuard lock {mMutex};
 

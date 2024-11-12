@@ -83,7 +83,7 @@ public:
      *
      * @returns RetWithError<CertTypes>.
      */
-    virtual RetWithError<CertTypes> GetCertTypes() = 0;
+    virtual RetWithError<CertTypes> GetCertTypes() const = 0;
 
     /**
      * Creates key.
@@ -116,7 +116,7 @@ public:
      * @returns Error.
      */
     virtual Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        certhandler::CertInfo& resCert)
+        certhandler::CertInfo& resCert) const
         = 0;
 
     /**
@@ -186,7 +186,7 @@ public:
      *
      * @returns RetWithError<CertTypes>.
      */
-    RetWithError<CertTypes> GetCertTypes() override;
+    RetWithError<CertTypes> GetCertTypes() const override;
 
     /**
      * Creates key.
@@ -219,7 +219,7 @@ public:
      * @returns Error.
      */
     Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        certhandler::CertInfo& resCert) override;
+        certhandler::CertInfo& resCert) const override;
 
     /**
      * Subscribes certificates receiver.

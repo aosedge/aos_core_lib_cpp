@@ -89,7 +89,7 @@ Error ProvisionManager::Deprovision(const String& password)
     return AOS_ERROR_WRAP(mCallback->OnDeprovision(password));
 }
 
-RetWithError<CertTypes> ProvisionManager::GetCertTypes()
+RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
 {
     LOG_DBG() << "Get cert types";
 
@@ -132,8 +132,8 @@ Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert,
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
 }
 
-Error ProvisionManager::GetCert(
-    const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, certhandler::CertInfo& resCert)
+Error ProvisionManager::GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+    certhandler::CertInfo& resCert) const
 {
     LOG_DBG() << "Get cert: type=" << certType;
 
