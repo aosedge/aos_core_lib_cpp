@@ -625,13 +625,12 @@ public:
     }
 
     /**
-     * Assigns static string from another static string.
+     * Assigns string from another static string.
      *
-     * @param str string to create from.
+     * @param str string to assign from.
      */
     StaticString& operator=(const StaticString& str)
     {
-        String::SetBuffer(mBuffer, cMaxSize);
         String::operator=(str);
 
         return *this;
@@ -647,6 +646,18 @@ public:
     {
         String::SetBuffer(mBuffer, cMaxSize);
         String::operator=(str);
+    }
+
+    /**
+     * Assigns string from another  string.
+     *
+     * @param str string to assign from.
+     */
+    StaticString& operator=(const String& str)
+    {
+        String::operator=(str);
+
+        return *this;
     }
 
     // cppcheck-suppress noExplicitConstructor
