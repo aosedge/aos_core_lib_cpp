@@ -114,7 +114,31 @@ public:
      * @param size new size.
      * @return Error.
      */
-    Error Resize(size_t size, const T& value = T())
+    Error Resize(size_t size)
+    {
+        if (size > mMaxSize) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        if (size > mSize) {
+            for (auto it = end(); it != end() + size - mSize; it++) {
+                new (it) T();
+            }
+        }
+
+        mSize = size;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Sets new array size and fills it with value.
+     *
+     * @param size new size.
+     * @param value value to fill.
+     * @return Error.
+     */
+    Error Resize(size_t size, const T& value)
     {
         if (size > mMaxSize) {
             return ErrorEnum::eNoMemory;
