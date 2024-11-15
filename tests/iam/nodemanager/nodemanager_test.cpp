@@ -53,7 +53,7 @@ NodeInfo CreateNodeInfo(const String& id, aos::NodeStatusEnum status)
 class NodeInfoListenerMock : public NodeInfoListenerItf {
 public:
     MOCK_METHOD(void, OnNodeInfoChange, (const NodeInfo& info));
-    MOCK_METHOD(void, OnNodeRemoved, (const String& nodeId));
+    MOCK_METHOD(void, OnNodeRemoved, (const String& nodeID));
 };
 
 /***********************************************************************************************************************
@@ -72,15 +72,17 @@ TEST_F(NodeManagerTest, Init)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorage, GetNodeInfo(node0.mNodeID, _)).WillOnce(Invoke([&](const String& nodeId, NodeInfo& nodeInfo) {
-        (void)nodeId;
+    EXPECT_CALL(mStorage, GetNodeInfo(node0.mNodeID, _)).WillOnce(Invoke([&](const String& nodeID, NodeInfo& nodeInfo) {
+        (void)nodeID;
+
         nodeInfo = node0;
 
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorage, GetNodeInfo(node1.mNodeID, _)).WillOnce(Invoke([&](const String& nodeId, NodeInfo& nodeInfo) {
-        (void)nodeId;
+    EXPECT_CALL(mStorage, GetNodeInfo(node1.mNodeID, _)).WillOnce(Invoke([&](const String& nodeID, NodeInfo& nodeInfo) {
+        (void)nodeID;
+
         nodeInfo = node1;
 
         return ErrorEnum::eNone;

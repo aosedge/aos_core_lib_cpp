@@ -18,19 +18,21 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
 {
     LockGuard lock {mMutex};
 
+    LOG_DBG() << "Init node manager";
+
     mStorage = &storage;
 
-    StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum> nodeIds;
+    StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum> nodeIDs;
 
-    auto err = storage.GetAllNodeIds(nodeIds);
+    auto err = storage.GetAllNodeIds(nodeIDs);
     if (!err.IsNone()) {
         return err;
     }
 
-    for (const auto& nodeId : nodeIds) {
+    for (const auto& nodeID : nodeIDs) {
         NodeInfo nodeInfo;
 
-        err = storage.GetNodeInfo(nodeId, nodeInfo);
+        err = storage.GetNodeInfo(nodeID, nodeInfo);
         if (!err.IsNone()) {
             return err;
         }
@@ -48,41 +50,36 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    Error err = ErrorEnum::eNone;
+    LOG_DBG() << "Set node info: nodeID=" << info.mNodeID << ", status=" << info.mStatus;
 
-    if (info.mStatus == NodeStatusEnum::eUnprovisioned) {
-        err = mStorage->RemoveNodeInfo(info.mNodeID);
-        if (err.Is(ErrorEnum::eNotFound)) {
-            err = ErrorEnum::eNone;
-        }
-    } else {
-        err = mStorage->SetNodeInfo(info);
-    }
-
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    return UpdateCache(info);
+    return UpdateNodeInfo(info);
 }
 
-Error NodeManager::SetNodeStatus(const String& nodeId, NodeStatus status)
-{
-    NodeInfo nodeInfo;
-
-    GetNodeInfo(nodeId, nodeInfo);
-
-    nodeInfo.mNodeID = nodeId;
-    nodeInfo.mStatus = status;
-
-    return SetNodeInfo(nodeInfo);
-}
-
-Error NodeManager::GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const
+Error NodeManager::SetNodeStatus(const String& nodeID, NodeStatus status)
 {
     LockGuard lock {mMutex};
 
-    auto cachedInfo = GetNodeFromCache(nodeId);
+    LOG_DBG() << "Set node status: nodeID=" << nodeID << ", status=" << status;
+
+    NodeInfo nodeInfo {};
+
+    auto cachedInfo = GetNodeFromCache(nodeID);
+
+    if (cachedInfo != nullptr) {
+        nodeInfo = *cachedInfo;
+    }
+
+    nodeInfo.mNodeID = nodeID;
+    nodeInfo.mStatus = status;
+
+    return UpdateNodeInfo(nodeInfo);
+}
+
+Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const
+{
+    LockGuard lock {mMutex};
+
+    auto cachedInfo = GetNodeFromCache(nodeID);
 
     if (cachedInfo == nullptr) {
         return ErrorEnum::eNotFound;
@@ -107,17 +104,19 @@ Error NodeManager::GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::RemoveNodeInfo(const String& nodeId)
+Error NodeManager::RemoveNodeInfo(const String& nodeID)
 {
     LockGuard lock {mMutex};
 
-    auto cachedInfo = GetNodeFromCache(nodeId);
+    LOG_DBG() << "Remove node info: nodeID=" << nodeID;
+
+    auto cachedInfo = GetNodeFromCache(nodeID);
     if (cachedInfo == nullptr) {
         // Cache contains all the entries, so if not found => just return error.
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto err = mStorage->RemoveNodeInfo(nodeId);
+    auto err = mStorage->RemoveNodeInfo(nodeID);
     if (!err.IsNone()) {
         return err;
     }
@@ -125,7 +124,7 @@ Error NodeManager::RemoveNodeInfo(const String& nodeId)
     mNodeInfoCache.Erase(cachedInfo);
 
     if (mNodeInfoListener) {
-        mNodeInfoListener->OnNodeRemoved(nodeId);
+        mNodeInfoListener->OnNodeRemoved(nodeID);
     }
 
     return ErrorEnum::eNone;
@@ -144,10 +143,10 @@ Error NodeManager::SubscribeNodeInfoChange(NodeInfoListenerItf& listener)
  * Private
  **********************************************************************************************************************/
 
-NodeInfo* NodeManager::GetNodeFromCache(const String& nodeId)
+NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
 {
     for (auto& nodeInfo : mNodeInfoCache) {
-        if (nodeInfo.mNodeID == nodeId) {
+        if (nodeInfo.mNodeID == nodeID) {
             return &nodeInfo;
         }
     }
@@ -155,9 +154,9 @@ NodeInfo* NodeManager::GetNodeFromCache(const String& nodeId)
     return nullptr;
 }
 
-const NodeInfo* NodeManager::GetNodeFromCache(const String& nodeId) const
+const NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID) const
 {
-    return const_cast<NodeManager*>(this)->GetNodeFromCache(nodeId);
+    return const_cast<NodeManager*>(this)->GetNodeFromCache(nodeID);
 }
 
 Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
@@ -182,6 +181,26 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
     }
 
     return ErrorEnum::eNone;
+}
+
+Error NodeManager::UpdateNodeInfo(const NodeInfo& info)
+{
+    Error err = ErrorEnum::eNone;
+
+    if (info.mStatus == NodeStatusEnum::eUnprovisioned) {
+        err = mStorage->RemoveNodeInfo(info.mNodeID);
+        if (err.Is(ErrorEnum::eNotFound)) {
+            err = ErrorEnum::eNone;
+        }
+    } else {
+        err = mStorage->SetNodeInfo(info);
+    }
+
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return UpdateCache(info);
 }
 
 RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache()

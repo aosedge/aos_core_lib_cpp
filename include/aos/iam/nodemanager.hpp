@@ -59,20 +59,20 @@ public:
     /**
      * Updates node status.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @param status node status.
      * @return Error.
      */
-    virtual Error SetNodeStatus(const String& nodeId, NodeStatus status) = 0;
+    virtual Error SetNodeStatus(const String& nodeID, NodeStatus status) = 0;
 
     /**
      * Returns node info.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @param[out] nodeInfo result node identifier.
      * @return Error.
      */
-    virtual Error GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
 
     /**
      * Returns ids for all the node in the manager.
@@ -85,10 +85,10 @@ public:
     /**
      * Removes node info by its id.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @return Error.
      */
-    virtual Error RemoveNodeInfo(const String& nodeId) = 0;
+    virtual Error RemoveNodeInfo(const String& nodeID) = 0;
 
     /**
      * Subscribes listener for node info updates.
@@ -120,11 +120,11 @@ public:
     /**
      * Returns node info.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @param[out] nodeInfo result node identifier.
      * @return Error.
      */
-    virtual Error GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
 
     /**
      * Returns ids for all the node in the manager.
@@ -137,10 +137,10 @@ public:
     /**
      * Removes node info by its id.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @return Error.
      */
-    virtual Error RemoveNodeInfo(const String& nodeId) = 0;
+    virtual Error RemoveNodeInfo(const String& nodeID) = 0;
 
     /**
      * Destroys object instance.
@@ -172,20 +172,20 @@ public:
     /**
      * Updates status for a node.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @param status node status.
      * @return Error.
      */
-    Error SetNodeStatus(const String& nodeId, NodeStatus status) override;
+    Error SetNodeStatus(const String& nodeID, NodeStatus status) override;
 
     /**
      * Returns node info.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @param[out] nodeInfo result node identifier.
      * @return Error.
      */
-    Error GetNodeInfo(const String& nodeId, NodeInfo& nodeInfo) const override;
+    Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const override;
 
     /**
      * Returns ids for all the node in the manager.
@@ -198,10 +198,10 @@ public:
     /**
      * Removes node info by its id.
      *
-     * @param nodeId node identifier.
+     * @param nodeID node identifier.
      * @return Error.
      */
-    Error RemoveNodeInfo(const String& nodeId) override;
+    Error RemoveNodeInfo(const String& nodeID) override;
 
     /**
      * Subscribes listener for node info updates.
@@ -214,8 +214,9 @@ public:
 private:
     static constexpr auto cNodeMaxNum = AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM;
 
-    NodeInfo*       GetNodeFromCache(const String& nodeId);
-    const NodeInfo* GetNodeFromCache(const String& nodeId) const;
+    NodeInfo*       GetNodeFromCache(const String& nodeID);
+    const NodeInfo* GetNodeFromCache(const String& nodeID) const;
+    Error           UpdateNodeInfo(const NodeInfo& info);
 
     Error UpdateCache(const NodeInfo& nodeInfo);
 

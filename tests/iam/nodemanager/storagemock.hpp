@@ -19,9 +19,9 @@ namespace nodemanager {
 class NodeInfoStorageMock : public NodeInfoStorageItf {
 public:
     MOCK_METHOD(Error, SetNodeInfo, (const NodeInfo& info), (override));
-    MOCK_METHOD(Error, GetNodeInfo, (const String& nodeId, NodeInfo& nodeInfo), (const, override));
+    MOCK_METHOD(Error, GetNodeInfo, (const String& nodeID, NodeInfo& nodeInfo), (const, override));
     MOCK_METHOD(Error, GetAllNodeIds, (Array<StaticString<cNodeIDLen>> & ids), (const, override));
-    MOCK_METHOD(Error, RemoveNodeInfo, (const String& nodeId), (override));
+    MOCK_METHOD(Error, RemoveNodeInfo, (const String& nodeID), (override));
 };
 
 } // namespace nodemanager
