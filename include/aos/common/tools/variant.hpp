@@ -8,6 +8,12 @@
 #ifndef AOS_VARIANT_HPP_
 #define AOS_VARIANT_HPP_
 
+#include <assert.h>
+#include <cstdint>
+#include <stdlib.h>
+
+#include "aos/common/tools/utils.hpp"
+
 namespace aos {
 
 /**
