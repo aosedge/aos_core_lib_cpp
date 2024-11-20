@@ -17,12 +17,12 @@ namespace uuid {
 /**
  *  UUID length
  */
-constexpr auto cUUIDSize = AOS_CONFIG_UUID_SIZE;
+constexpr auto cUUIDSize = AOS_CONFIG_TOOLS_UUID_SIZE;
 
 /**
  *  Length of UUID string representation
  */
-constexpr auto cUUIDLen = AOS_CONFIG_UUID_LEN;
+constexpr auto cUUIDLen = AOS_CONFIG_TOOLS_UUID_LEN;
 
 /**
  * A UUID is a 128 bit (16 byte) Universal Unique IDentifier as defined in RFC 4122.

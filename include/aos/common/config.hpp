@@ -9,6 +9,34 @@
 #define AOS_COMMON_CONFIG_HPP_
 
 /**
+ * Max error message len.
+ */
+#ifndef AOS_CONFIG_TOOLS_ERROR_MESSAGE_LEN
+#define AOS_CONFIG_TOOLS_ERROR_MESSAGE_LEN 64
+#endif
+
+/**
+ * Max error print message len.
+ */
+#ifndef AOS_CONFIG_TOOLS_ERROR_STR_LEN
+#define AOS_CONFIG_TOOLS_ERROR_STR_LEN 128
+#endif
+
+/**
+ *  UUID size.
+ */
+#ifndef AOS_CONFIG_TOOLS_UUID_SIZE
+#define AOS_CONFIG_TOOLS_UUID_SIZE 16
+#endif
+
+/**
+ *  Length of UUID string representation.
+ */
+#ifndef AOS_CONFIG_TOOLS_UUID_LEN
+#define AOS_CONFIG_TOOLS_UUID_LEN AOS_CONFIG_TOOLS_UUID_SIZE * 2 + 4 + 1 // 32 hex digits + 4 '-' symbols + '\0'
+#endif
+
+/**
  * Service provider ID len.
  */
 #ifndef AOS_CONFIG_TYPES_PROVIDER_ID_LEN
@@ -705,20 +733,6 @@
 #endif
 
 /**
- *  UUID size.
- */
-#ifndef AOS_CONFIG_UUID_SIZE
-#define AOS_CONFIG_UUID_SIZE 16
-#endif
-
-/**
- *  Length of UUID string representation.
- */
-#ifndef AOS_CONFIG_UUID_LEN
-#define AOS_CONFIG_UUID_LEN AOS_CONFIG_UUID_SIZE * 2 + 4 + 1 // 32 hex digits + 4 '-' symbols + '\0'
-#endif
-
-/**
  * Max media type len.
  */
 #ifndef AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN
@@ -773,19 +787,4 @@
 #ifndef AOS_CONFIG_NODE_CONFIG_JSON_LEN
 #define AOS_CONFIG_NODE_CONFIG_JSON_LEN 4096
 #endif
-
-/**
- * Max error message len.
- */
-#ifndef AOS_CONFIG_ERROR_MESSAGE_LEN
-#define AOS_CONFIG_ERROR_MESSAGE_LEN 64
-#endif
-
-/**
- * Max error print message len.
- */
-#ifndef AOS_CONFIG_ERROR_STR_LEN
-#define AOS_CONFIG_ERROR_STR_LEN 128
-#endif
-
 #endif

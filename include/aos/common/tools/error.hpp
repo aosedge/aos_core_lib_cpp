@@ -31,7 +31,7 @@ namespace aos {
 /**
  * Maximum error message length.
  */
-constexpr static auto cMaxErrorStrLen = AOS_CONFIG_ERROR_STR_LEN;
+constexpr static auto cMaxErrorStrLen = AOS_CONFIG_TOOLS_ERROR_STR_LEN;
 
 /**
  * Aos errors.
@@ -262,7 +262,7 @@ public:
     friend bool operator!=(Enum value, const Error& err) { return err.mErr != value; };
 
 private:
-    constexpr static size_t cMaxMessageLen = AOS_CONFIG_ERROR_MESSAGE_LEN + 1;
+    constexpr static size_t cMaxMessageLen = AOS_CONFIG_TOOLS_ERROR_MESSAGE_LEN + 1;
 
     /**
      * Copies error message.
