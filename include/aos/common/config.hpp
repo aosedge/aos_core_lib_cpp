@@ -816,4 +816,11 @@
 #define AOS_CONFIG_CLOUD_PROTOCOL_ALERT_RESOURCE_ERRORS_SIZE 4
 #endif
 
+/**
+ * Environment variable name value.
+ */
+#ifndef AOS_CONFIG_CLOUD_PROTOCOL_ENV_VAR_VALUE_LEN
+#define AOS_CONFIG_CLOUD_PROTOCOL_ENV_VAR_VALUE_LEN 32
+#endif
+
 #endif
