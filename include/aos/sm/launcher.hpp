@@ -10,6 +10,7 @@
 
 #include <assert.h>
 
+#include "aos/common/cloudprotocol/envvars.hpp"
 #include "aos/common/connectionsubsc.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/ocispec.hpp"
@@ -45,6 +46,25 @@ public:
     virtual Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
         const Array<InstanceInfo>& instances, bool forceRestart)
         = 0;
+
+    /**
+     * Overrides environment variables for specified instances.
+     *
+     * @param envVarsInfo environment variables info.
+     * @param statuses[out] environment variables statuses.
+     * @return Error
+     */
+    virtual Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
+        cloudprotocol::EnvVarsInstanceStatusArray&                                 statuses)
+        = 0;
+
+    /**
+     * Sets cloud connection status.
+     *
+     * @param connected cloud connection status.
+     * @return Error
+     */
+    virtual Error SetCloudConnection(bool connected) = 0;
 };
 
 /**
@@ -167,6 +187,24 @@ public:
      */
     Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
         const Array<InstanceInfo>& instances, bool forceRestart = false) override;
+
+    /**
+     * Overrides environment variables for specified instances.
+     *
+     * @param envVarsInfo environment variables info.
+     * @param statuses[out] environment variables statuses.
+     * @return Error
+     */
+    Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
+        cloudprotocol::EnvVarsInstanceStatusArray&                         statuses) override;
+
+    /**
+     * Sets cloud connection status.
+     *
+     * @param connected cloud connection status.
+     * @return Error
+     */
+    Error SetCloudConnection(bool connected) override;
 
     /**
      * Updates run instances status.
