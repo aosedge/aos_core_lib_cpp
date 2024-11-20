@@ -8,6 +8,9 @@
 #ifndef AOS_OPTIONAL_HPP_
 #define AOS_OPTIONAL_HPP_
 
+#include <assert.h>
+#include <cstdint>
+
 namespace aos {
 
 /**
