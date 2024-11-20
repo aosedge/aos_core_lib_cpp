@@ -210,6 +210,31 @@ constexpr auto cFSMountMaxNumOptions = AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS
 constexpr auto cIPLen = AOS_CONFIG_TYPES_IP_LEN;
 
 /**
+ * Port len.
+ */
+constexpr auto cPortLen = AOS_CONFIG_TYPES_PORT_LEN;
+
+/**
+ * Protocol name len.
+ */
+constexpr auto cProtocolNameLen = AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN;
+
+/**
+ * Max number of DNS servers.
+ */
+constexpr auto cMaxNumDNSServers = AOS_CONFIG_TYPES_MAX_NUM_DNS_SERVERS;
+
+/**
+ * Max number of firewall rules.
+ */
+constexpr auto cMaxNumFirewallRules = AOS_CONFIG_TYPES_MAX_NUM_FIREWALL_RULES;
+
+/**
+ * Max number of networks.
+ */
+constexpr auto cMaxNumNetworks = AOS_CONFIG_TYPES_MAX_NUM_NETWORKS;
+
+/**
  * Host name len.
  */
 constexpr auto cHostNameLen = AOS_CONFIG_TYPES_HOST_NAME_LEN;
@@ -323,10 +348,73 @@ struct InstanceIdent {
 };
 
 /**
+ * Firewall rule.
+ */
+struct FirewallRule {
+    StaticString<cIPLen>           mDstIP;
+    StaticString<cPortLen>         mDstPort;
+    StaticString<cProtocolNameLen> mProto;
+    StaticString<cIPLen>           mSrcIP;
+
+    /**
+     * Compares firewall rule.
+     *
+     * @param rule firewall rule to compare.
+     * @return bool.
+     */
+    bool operator==(const FirewallRule& rule) const
+    {
+        return mDstIP == rule.mDstIP && mDstPort == rule.mDstPort && mProto == rule.mProto && mSrcIP == rule.mSrcIP;
+    }
+
+    /**
+     * Compares firewall rule.
+     *
+     * @param rule firewall rule to compare.
+     * @return bool.
+     */
+    bool operator!=(const FirewallRule& rule) const { return !operator==(rule); }
+};
+
+/**
+ * Networks parameters.
+ */
+struct NetworkParameters {
+    StaticString<cHostNameLen>                            mNetworkID;
+    StaticString<cIPLen>                                  mSubnet;
+    StaticString<cIPLen>                                  mIP;
+    uint64_t                                              mVlanID;
+    StaticArray<StaticString<cURLLen>, cMaxNumDNSServers> mDNSServers;
+    StaticArray<FirewallRule, cMaxNumFirewallRules>       mFirewallRules;
+
+    /**
+     * Compares network parameters.
+     *
+     * @param networkParams network parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const NetworkParameters& networkParams) const
+    {
+        return mNetworkID == networkParams.mNetworkID && mSubnet == networkParams.mSubnet && mIP == networkParams.mIP
+            && mVlanID == networkParams.mVlanID && mDNSServers == networkParams.mDNSServers
+            && mFirewallRules == networkParams.mFirewallRules;
+    }
+
+    /**
+     * Compares network parameters.
+     *
+     * @param networkParams network parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const NetworkParameters& networkParams) const { return !operator==(networkParams); }
+};
+
+/**
  * Instance info.
  */
 struct InstanceInfo {
     InstanceIdent              mInstanceIdent;
+    NetworkParameters          mNetworkParameters;
     uint32_t                   mUID;
     uint64_t                   mPriority;
     StaticString<cFilePathLen> mStoragePath;
@@ -340,8 +428,9 @@ struct InstanceInfo {
      */
     bool operator==(const InstanceInfo& instance) const
     {
-        return mInstanceIdent == instance.mInstanceIdent && mUID == instance.mUID && mPriority == instance.mPriority
-            && mStoragePath == instance.mStoragePath && mStatePath == instance.mStatePath;
+        return mInstanceIdent == instance.mInstanceIdent && mNetworkParameters == instance.mNetworkParameters
+            && mUID == instance.mUID && mPriority == instance.mPriority && mStoragePath == instance.mStoragePath
+            && mStatePath == instance.mStatePath;
     }
 
     /**

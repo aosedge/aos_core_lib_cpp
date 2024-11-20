@@ -177,6 +177,41 @@
 #endif
 
 /**
+ * Port len.
+ */
+#ifndef AOS_CONFIG_TYPES_PORT_LEN
+#define AOS_CONFIG_TYPES_PORT_LEN 8
+#endif
+
+/**
+ * Protocol name len.
+ */
+#ifndef AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN
+#define AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN 16
+#endif
+
+/**
+ * Max number of DNS servers.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_DNS_SERVERS
+#define AOS_CONFIG_TYPES_MAX_NUM_DNS_SERVERS 4
+#endif
+
+/**
+ * Max number of firewall rules.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_FIREWALL_RULES
+#define AOS_CONFIG_TYPES_MAX_NUM_FIREWALL_RULES 10
+#endif
+
+/**
+ * Max number of networks.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NETWORKS
+#define AOS_CONFIG_TYPES_MAX_NUM_NETWORKS 4
+#endif
+
+/**
  * Host name len.
  */
 #ifndef AOS_CONFIG_TYPES_HOST_NAME_LEN
