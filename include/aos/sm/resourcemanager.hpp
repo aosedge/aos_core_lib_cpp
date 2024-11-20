@@ -14,6 +14,7 @@
 #include "aos/common/tools/string.hpp"
 #include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
+#include "aos/sm/config.hpp"
 
 namespace aos {
 namespace sm {
@@ -22,7 +23,7 @@ namespace resourcemanager {
 /**
  * Node config JSON length.
  */
-static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_NODE_CONFIG_JSON_LEN;
+static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_RESOURCEMANAGER_NODE_CONFIG_JSON_LEN;
 
 /**
  * Node Config.

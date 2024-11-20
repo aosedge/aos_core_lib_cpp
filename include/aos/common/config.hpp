@@ -781,10 +781,4 @@
 #define AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT 20
 #endif
 
-/**
- * Node config JSON length.
- */
-#ifndef AOS_CONFIG_NODE_CONFIG_JSON_LEN
-#define AOS_CONFIG_NODE_CONFIG_JSON_LEN 4096
-#endif
 #endif
