@@ -234,10 +234,14 @@ TEST(ServiceManagerTest, InstallServices)
                 {"service4", "provider4", "1.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
-                {"service1", "provider1", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service1"},
-                {"service2", "provider2", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service2"},
-                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
-                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
+                {"service1", "provider1", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service1", "", {}, false, 0,
+                    0},
+                {"service2", "provider2", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service2", "", {}, false, 0,
+                    0},
+                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3", "", {}, false, 0,
+                    0},
+                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4", "", {}, false, 0,
+                    0},
             },
         },
         {
@@ -248,10 +252,14 @@ TEST(ServiceManagerTest, InstallServices)
                 {"service6", "provider6", "1.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
-                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
-                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
-                {"service5", "provider5", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5"},
-                {"service6", "provider6", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6"},
+                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3", "", {}, false, 0,
+                    0},
+                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4", "", {}, false, 0,
+                    0},
+                {"service5", "provider5", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5", "", {}, false, 0,
+                    0},
+                {"service6", "provider6", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6", "", {}, false, 0,
+                    0},
             },
         },
         {
@@ -262,10 +270,14 @@ TEST(ServiceManagerTest, InstallServices)
                 {"service6", "provider6", "4.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
-                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3"},
-                {"service4", "provider4", "2.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4"},
-                {"service5", "provider5", "3.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5"},
-                {"service6", "provider6", "4.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6"},
+                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3", "", {}, false, 0,
+                    0},
+                {"service4", "provider4", "2.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4", "", {}, false, 0,
+                    0},
+                {"service5", "provider5", "3.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5", "", {}, false, 0,
+                    0},
+                {"service6", "provider6", "4.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6", "", {}, false, 0,
+                    0},
             },
         },
         {
@@ -296,7 +308,7 @@ TEST(ServiceManagerTest, GetImageParts)
 
     EXPECT_TRUE(serviceManager.Init(ociManager, downloader, storage).IsNone());
 
-    ServiceData serviceData = {"service0", "provider0", "2.1.0", "/aos/services/service1"};
+    ServiceData serviceData = {"service0", "provider0", "2.1.0", "/aos/services/service1", "", {}, false, 0, 0};
 
     auto imageParts = serviceManager.GetImageParts(serviceData);
     EXPECT_TRUE(imageParts.mError.IsNone());
