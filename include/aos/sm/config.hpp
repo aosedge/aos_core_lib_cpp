@@ -57,4 +57,18 @@
 #define AOS_CONFIG_RESOURCEMANAGER_NODE_CONFIG_JSON_LEN 4096
 #endif
 
+/**
+ * Max number of network manager aliases.
+ */
+#ifndef AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES
+#define AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES 4
+#endif
+
+/**
+ * Max number of network manager exposed ports.
+ */
+#ifndef AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS
+#define AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS 8
+#endif
+
 #endif
