@@ -127,6 +127,52 @@ public:
     virtual Error GetAllInstances(Array<InstanceInfo>& instances) = 0;
 
     /**
+     * Returns operation version.
+     *
+     * @return RetWithError<uint64_t>.
+     */
+    virtual RetWithError<uint64_t> GetOperationVersion() const = 0;
+
+    /**
+     * Sets operation version.
+     *
+     * @param version operation version.
+     * @return Error.
+     */
+    virtual Error SetOperationVersion(uint64_t version) = 0;
+
+    /**
+     * Returns instances's override environment variables array.
+     *
+     * @param envVarsInstanceInfos[out] instances's override environment variables array.
+     * @return Error.
+     */
+    virtual Error GetOverrideEnvVars(cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) const = 0;
+
+    /**
+     * Sets instances's override environment variables array.
+     *
+     * @param envVarsInstanceInfos instances's override environment variables array.
+     * @return Error.
+     */
+    virtual Error SetOverrideEnvVars(const cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) = 0;
+
+    /**
+     * Returns online time.
+     *
+     * @return RetWithError<Time>.
+     */
+    virtual RetWithError<Time> GetOnlineTime() const = 0;
+
+    /**
+     * Sets online time.
+     *
+     * @param time online time.
+     * @return Error.
+     */
+    virtual Error SetOnlineTime(const Time& time) = 0;
+
+    /**
      * Destroys storage interface.
      */
     virtual ~StorageItf() = default;
@@ -223,6 +269,14 @@ public:
      * Notifies publisher is disconnected.
      */
     void OnDisconnect() override;
+
+    /**
+     * Defines current operation version
+     * if new functionality doesn't allow existing services to work properly,
+     * this value should be increased.
+     * It will force to remove all services and their storages before first start.
+     */
+    static constexpr uint32_t cOperationVersion = 9;
 
 private:
     static constexpr auto cNumLaunchThreads = AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;

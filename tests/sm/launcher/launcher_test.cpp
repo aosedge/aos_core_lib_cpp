@@ -97,7 +97,7 @@ public:
         std::transform(
             services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
                 return ServiceData {service.mServiceID, service.mProviderID, service.mVersion,
-                    FS::JoinPath("/aos/storages", service.mServiceID)};
+                    FS::JoinPath("/aos/storages", service.mServiceID), "", Time::Now(), false, 0, 0};
             });
 
         return ErrorEnum::eNone;
@@ -309,9 +309,63 @@ public:
         return ErrorEnum::eNone;
     }
 
+    RetWithError<uint64_t> GetOperationVersion() const override
+    {
+        std::lock_guard lock {mMutex};
+
+        return {mOperationVersion, ErrorEnum::eNone};
+    }
+
+    Error SetOperationVersion(uint64_t version) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mOperationVersion = version;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error GetOverrideEnvVars(cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) const override
+    {
+        std::lock_guard lock {mMutex};
+
+        envVarsInstanceInfos = mEnvVarsInstanceInfos;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SetOverrideEnvVars(const cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mEnvVarsInstanceInfos = envVarsInstanceInfos;
+
+        return ErrorEnum::eNone;
+    }
+
+    RetWithError<Time> GetOnlineTime() const override
+    {
+        std::lock_guard lock {mMutex};
+
+        return {mOnlineTime, ErrorEnum::eNone};
+    }
+
+    Error SetOnlineTime(const Time& time) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mOnlineTime = time;
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     std::vector<InstanceInfo> mInstances;
-    std::mutex                mMutex;
+    mutable std::mutex        mMutex;
+
+    uint64_t                                mOperationVersion = launcher::Launcher::cOperationVersion;
+    cloudprotocol::EnvVarsInstanceInfoArray mEnvVarsInstanceInfos;
+    Time                                    mOnlineTime = Time::Now();
 };
 
 /**
