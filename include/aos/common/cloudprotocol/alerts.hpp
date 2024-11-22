@@ -509,25 +509,6 @@ struct ServiceInstanceAlert : AlertItem {
 using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
     DeviceAllocateAlert, ResourceValidateAlert, ServiceInstanceAlert>;
 
-/**
- * Alert sender interface.
- */
-class AlertSenderItf {
-public:
-    /**
-     * Sends alert data.
-     *
-     * @param alert alert variant.
-     * @return Error.
-     */
-    virtual Error SendAlert(const AlertVariant& alert) = 0;
-
-    /**
-     * Destructor.
-     */
-    virtual ~AlertSenderItf() = default;
-};
-
 } // namespace cloudprotocol
 } // namespace aos
 
