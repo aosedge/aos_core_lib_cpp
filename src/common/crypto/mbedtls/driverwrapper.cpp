@@ -27,26 +27,28 @@
  * Key description.
  */
 struct KeyDescription {
+    KeyDescription() = default;
+
     /**
      * Key ID.
      */
-    psa_key_id_t mKeyID;
+    psa_key_id_t mKeyID {};
     /**
      * Key lifetime.
      */
-    psa_key_lifetime_t mLifetime;
-    /**
-     * Slot number.
-     */
-    psa_drv_slot_number_t mSlotNumber;
+    psa_key_lifetime_t mLifetime {};
     /**
      * Hash algorithm.
      */
-    aos::crypto::HashEnum mHashAlg;
+    aos::crypto::HashEnum mHashAlg {};
+    /**
+     * Free key flag.
+     */
+    bool mAllocated {};
     /**
      * Private key.
      */
-    const aos::crypto::PrivateKeyItf* mPrivKey;
+    const aos::crypto::PrivateKeyItf* mPrivKey {};
 };
 
 /***********************************************************************************************************************
@@ -58,8 +60,9 @@ static constexpr psa_algorithm_t sPSAAlgs[]
 static constexpr mbedtls_md_type_t sMDTypes[]
     = {MBEDTLS_MD_SHA1, MBEDTLS_MD_SHA224, MBEDTLS_MD_SHA256, MBEDTLS_MD_SHA384, MBEDTLS_MD_SHA512};
 
-static aos::StaticArray<KeyDescription, MBEDTLS_PSA_KEY_SLOT_COUNT> sBuiltinKeys;
-static aos::Mutex                                                   sMutex;
+static aos::StaticArray<KeyDescription, MBEDTLS_PSA_KEY_SLOT_COUNT> sBuiltinKeys(MBEDTLS_PSA_KEY_SLOT_COUNT);
+
+static aos::Mutex sMutex;
 
 static int ExportRSAPublicKeyToDER(
     const aos::crypto::RSAPublicKey& rsaKey, uint8_t* data, size_t dataSize, size_t* dataLength)
@@ -222,6 +225,23 @@ static int ExportECPublicKeyToDER(
     return 0;
 }
 
+static bool IsKeyInBuiltinList(psa_key_id_t keyID)
+{
+    auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
+
+    return ret.mError.IsNone();
+}
+
+static aos::RetWithError<KeyDescription*> FindFreeSlot()
+{
+    auto ret = sBuiltinKeys.FindIf([](const KeyDescription& key) { return !key.mAllocated; });
+    if (!ret.mError.IsNone()) {
+        return aos::RetWithError<KeyDescription*>(nullptr, aos::ErrorEnum::eNotFound);
+    }
+
+    return aos::RetWithError<KeyDescription*>(ret.mValue, aos::ErrorEnum::eNone);
+}
+
 aos::crypto::HashEnum GetRSASHAAlgorithm(size_t modulusBitlen)
 {
     if (modulusBitlen < 2048) {
@@ -298,69 +318,66 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
     aos::LockGuard lock(sMutex);
 
     for (psa_key_id_t keyID = MBEDTLS_PSA_KEY_ID_BUILTIN_MIN; keyID <= MBEDTLS_PSA_KEY_ID_BUILTIN_MAX; ++keyID) {
-        bool found {};
-
-        for (auto& key : sBuiltinKeys) {
-            if (key.mKeyID == keyID) {
-                found = true;
-
-                break;
-            }
+        if (IsKeyInBuiltinList(keyID)) {
+            continue;
         }
 
-        if (!found) {
-            KeyDescription key;
+        auto [keyDescription, err] = FindFreeSlot();
+        if (!err.IsNone()) {
+            return aos::RetWithError<KeyInfo>(KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, err);
+        }
 
-            key.mKeyID    = keyID;
-            key.mLifetime = PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
-                PSA_KEY_PERSISTENCE_DEFAULT, PSA_CRYPTO_AOS_DRIVER_LOCATION);
-            key.mSlotNumber = sBuiltinKeys.Size();
-            key.mPrivKey    = &privKey;
+        keyDescription->mKeyID     = keyID;
+        keyDescription->mAllocated = true;
+        keyDescription->mLifetime  = PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+            PSA_KEY_PERSISTENCE_DEFAULT, PSA_CRYPTO_AOS_DRIVER_LOCATION);
+        keyDescription->mPrivKey = &privKey;
 
-            switch (privKey.GetPublic().GetKeyType().GetValue()) {
-            case aos::crypto::KeyTypeEnum::eRSA: {
-                auto algDesc = GetRSAAlgFromPubKey(static_cast<const aos::crypto::RSAPublicKey&>(privKey.GetPublic()));
+        aos::crypto::HashEnum hashAlg;
 
-                if (!algDesc.mError.IsNone()) {
-                    LOG_ERR() << "Error getting RSA algorithm description: " << algDesc.mError;
+        switch (privKey.GetPublic().GetKeyType().GetValue()) {
+        case aos::crypto::KeyTypeEnum::eRSA: {
+            auto algDesc = GetRSAAlgFromPubKey(static_cast<const aos::crypto::RSAPublicKey&>(privKey.GetPublic()));
 
-                    return aos::RetWithError<KeyInfo>(
-                        KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, algDesc.mError);
-                }
-
-                key.mHashAlg = algDesc.mValue;
-
-                break;
-            }
-
-            case aos::crypto::KeyTypeEnum::eECDSA: {
-                auto algDesc
-                    = GetECCAlgFromPubKey(static_cast<const aos::crypto::ECDSAPublicKey&>(privKey.GetPublic()));
-                if (!algDesc.mError.IsNone()) {
-                    LOG_ERR() << "Error getting ECC algorithm description: " << algDesc.mError;
-
-                    return aos::RetWithError<KeyInfo>(
-                        KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, algDesc.mError);
-                }
-
-                key.mHashAlg = algDesc.mValue;
-
-                break;
-            }
-
-            default:
-                LOG_ERR() << "Not supported key type: keyType=" << privKey.GetPublic().GetKeyType();
+            if (!algDesc.mError.IsNone()) {
+                LOG_ERR() << "Error getting RSA algorithm description: " << algDesc.mError;
 
                 return aos::RetWithError<KeyInfo>(
-                    KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, aos::ErrorEnum::eNotSupported);
+                    KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, algDesc.mError);
             }
 
-            LOG_DBG() << "Add Aos PSA key: keyType=" << privKey.GetPublic().GetKeyType() << ", keyID=" << key.mKeyID
-                      << ", slotNumber=" << key.mSlotNumber;
+            hashAlg = algDesc.mValue;
+
+            break;
+        }
+
+        case aos::crypto::KeyTypeEnum::eECDSA: {
+            auto algDesc = GetECCAlgFromPubKey(static_cast<const aos::crypto::ECDSAPublicKey&>(privKey.GetPublic()));
+            if (!algDesc.mError.IsNone()) {
+                LOG_ERR() << "Error getting ECC algorithm description: " << algDesc.mError;
+
+                return aos::RetWithError<KeyInfo>(
+                    KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, algDesc.mError);
+            }
+
+            hashAlg = algDesc.mValue;
+
+            break;
+        }
+
+        default:
+            LOG_ERR() << "Not supported key type: keyType=" << privKey.GetPublic().GetKeyType();
 
             return aos::RetWithError<KeyInfo>(
-                KeyInfo {key.mKeyID, sMDTypes[static_cast<int>(key.mHashAlg)]}, sBuiltinKeys.PushBack(key));
+                KeyInfo {MBEDTLS_PSA_KEY_ID_BUILTIN_MAX + 1, MBEDTLS_MD_NONE}, aos::ErrorEnum::eNotSupported);
         }
+
+        keyDescription->mHashAlg = hashAlg;
+
+        LOG_DBG() << "Add Aos PSA key: keyType=" << privKey.GetPublic().GetKeyType() << ", keyID=" << keyID
+                  << ", slotNumber=" << keyDescription - sBuiltinKeys.begin();
+
+        return aos::RetWithError<KeyInfo>(KeyInfo {keyID, sMDTypes[static_cast<int>(hashAlg)]}, aos::ErrorEnum::eNone);
     }
 
     return aos::RetWithError<KeyInfo>(
@@ -373,11 +390,15 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
 
     LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
-    if (sBuiltinKeys.RemoveIf([&keyID](const KeyDescription& key) { return key.mKeyID == keyID; })) {
-        lock.Unlock();
+    auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
 
-        psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
+    if (!ret.mError.IsNone()) {
+        return;
     }
+
+    ret.mValue->mAllocated = false;
+
+    psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
 }
 
 /***********************************************************************************************************************
@@ -395,18 +416,18 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
 
     aos::LockGuard lock(sMutex);
 
-    for (auto& key : sBuiltinKeys) {
-        if (key.mKeyID == appKeyID) {
-            *lifetime   = key.mLifetime;
-            *slotNumber = key.mSlotNumber;
+    auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == appKeyID; });
 
-            return PSA_SUCCESS;
-        }
+    if (!ret.mError.IsNone()) {
+        return PSA_ERROR_DOES_NOT_EXIST;
     }
+
+    *lifetime   = ret.mValue->mLifetime;
+    *slotNumber = ret.mValue - sBuiltinKeys.begin();
 
     LOG_ERR() << "Built-in key not found: keyID = " << keyID;
 
-    return PSA_ERROR_DOES_NOT_EXIST;
+    return PSA_SUCCESS;
 }
 
 psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attributes_t* attributes, uint8_t* keyBuffer,
@@ -421,48 +442,49 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
         LOG_DBG() << "Get Aos built-in key: slotNumber=" << slotNumber;
     }
 
-    for (auto& key : sBuiltinKeys) {
-        if (key.mSlotNumber == slotNumber) {
-            switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
-            case aos::crypto::KeyTypeEnum::eRSA:
-                psa_set_key_type(attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
-                psa_set_key_algorithm(attributes, PSA_ALG_RSA_PKCS1V15_SIGN(sPSAAlgs[static_cast<int>(key.mHashAlg)]));
+    if (slotNumber >= sBuiltinKeys.Size()) {
+        LOG_ERR() << "Slot number out of range: slotNumber = " << slotNumber;
 
-                break;
-
-            case aos::crypto::KeyTypeEnum::eECDSA: {
-                psa_set_key_algorithm(attributes, PSA_ALG_ECDSA(sPSAAlgs[static_cast<int>(key.mHashAlg)]));
-                auto oid = static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()).GetECParamsOID();
-                auto curveParameters = FindPsaECGroupByOID(oid);
-                if (curveParameters.mSecond == 0) {
-                    LOG_ERR() << "EC group not found: slotNumber = " << slotNumber;
-
-                    return PSA_ERROR_NOT_SUPPORTED;
-                }
-
-                psa_set_key_type(attributes, PSA_KEY_TYPE_ECC_KEY_PAIR(curveParameters.mFirst));
-                psa_set_key_bits(attributes, curveParameters.mSecond);
-
-                break;
-            }
-
-            default:
-                LOG_ERR() << "Not supported key type: keyType = " << key.mPrivKey->GetPublic().GetKeyType();
-
-                return PSA_ERROR_NOT_SUPPORTED;
-            }
-
-            psa_set_key_id(attributes, key.mKeyID);
-            psa_set_key_lifetime(attributes, key.mLifetime);
-            psa_set_key_usage_flags(attributes, PSA_KEY_USAGE_SIGN_HASH | PSA_KEY_USAGE_VERIFY_HASH);
-
-            return keyBufferSize != 0 ? PSA_SUCCESS : PSA_ERROR_BUFFER_TOO_SMALL;
-        }
+        return PSA_ERROR_INVALID_ARGUMENT;
     }
 
-    LOG_ERR() << "Built-in key not found: slotNumber = " << slotNumber;
+    switch (sBuiltinKeys[slotNumber].mPrivKey->GetPublic().GetKeyType().GetValue()) {
+    case aos::crypto::KeyTypeEnum::eRSA:
+        psa_set_key_type(attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_algorithm(
+            attributes, PSA_ALG_RSA_PKCS1V15_SIGN(sPSAAlgs[static_cast<int>(sBuiltinKeys[slotNumber].mHashAlg)]));
 
-    return PSA_ERROR_DOES_NOT_EXIST;
+        break;
+
+    case aos::crypto::KeyTypeEnum::eECDSA: {
+        psa_set_key_algorithm(attributes, PSA_ALG_ECDSA(sPSAAlgs[static_cast<int>(sBuiltinKeys[slotNumber].mHashAlg)]));
+        auto oid = static_cast<const aos::crypto::ECDSAPublicKey&>(sBuiltinKeys[slotNumber].mPrivKey->GetPublic())
+                       .GetECParamsOID();
+        auto curveParameters = FindPsaECGroupByOID(oid);
+        if (curveParameters.mSecond == 0) {
+            LOG_ERR() << "EC group not found: slotNumber = " << slotNumber;
+
+            return PSA_ERROR_NOT_SUPPORTED;
+        }
+
+        psa_set_key_type(attributes, PSA_KEY_TYPE_ECC_KEY_PAIR(curveParameters.mFirst));
+        psa_set_key_bits(attributes, curveParameters.mSecond);
+
+        break;
+    }
+
+    default:
+        LOG_ERR() << "Not supported key type: keyType = "
+                  << sBuiltinKeys[slotNumber].mPrivKey->GetPublic().GetKeyType();
+
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+
+    psa_set_key_id(attributes, sBuiltinKeys[slotNumber].mKeyID);
+    psa_set_key_lifetime(attributes, sBuiltinKeys[slotNumber].mLifetime);
+    psa_set_key_usage_flags(attributes, PSA_KEY_USAGE_SIGN_HASH | PSA_KEY_USAGE_VERIFY_HASH);
+
+    return keyBufferSize != 0 ? PSA_SUCCESS : PSA_ERROR_BUFFER_TOO_SMALL;
 }
 
 psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, const uint8_t* key_buffer,
