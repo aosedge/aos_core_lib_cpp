@@ -82,7 +82,8 @@ struct ServiceData {
     bool operator==(const ServiceData& data) const
     {
         return mServiceID == data.mServiceID && mProviderID == data.mProviderID && mVersion == data.mVersion
-            && mImagePath == data.mImagePath && mCached == data.mCached && mSize == data.mSize && mGID == data.mGID;
+            && mImagePath == data.mImagePath && data.mManifestDigest == mManifestDigest && mCached == data.mCached
+            && mSize == data.mSize && mGID == data.mGID;
     }
 
     /**
