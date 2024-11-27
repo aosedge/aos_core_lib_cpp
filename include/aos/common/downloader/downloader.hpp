@@ -19,11 +19,11 @@ namespace aos::downloader {
  */
 class DownloadContentType {
 public:
-    enum class Enum { eService };
+    enum class Enum { eService, eLayer };
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sContentTypeStrings[] = {"service"};
+        static const char* const sContentTypeStrings[] = {"service", "layer"};
 
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
     };
