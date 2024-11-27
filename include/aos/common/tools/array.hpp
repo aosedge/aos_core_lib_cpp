@@ -326,7 +326,7 @@ public:
      */
     Error Insert(T* pos, const T* from, const T* till)
     {
-        auto size = till - from;
+        const size_t size = till - from;
 
         if (mSize + size > mMaxSize) {
             return ErrorEnum::eNoMemory;
@@ -340,7 +340,7 @@ public:
             new (pos + size + i) T(*(pos + i));
         }
 
-        for (auto i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; i++) {
             new (pos + i) T(*(from + i));
         }
 
