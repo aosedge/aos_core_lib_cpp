@@ -21,6 +21,21 @@ static void TakeSharedPtr(SharedPtr<uint32_t> shPtr)
     EXPECT_TRUE(shPtr);
 }
 
+namespace {
+class BaseClass {
+public:
+    BaseClass() {};
+    virtual ~BaseClass() {};
+};
+
+class NewClass : public BaseClass {
+public:
+    NewClass() {};
+    virtual ~NewClass() {};
+};
+
+}; // namespace
+
 TEST(MemoryTest, UniquePtr)
 {
     StaticAllocator<256> allocator;
@@ -111,20 +126,29 @@ TEST(MemoryTest, SharedPtr)
     EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
 
+TEST(MemoryTest, UniquePtrDerivedClass)
+{
+    StaticAllocator<256> allocator;
+
+    {
+        UniquePtr<BaseClass> basePtr;
+
+        {
+            auto newPtr = MakeUnique<NewClass>(&allocator);
+
+            EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
+
+            basePtr = Move(newPtr);
+        }
+
+        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
+    }
+
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+}
+
 TEST(MemoryTest, SharedPtrDerivedClass)
 {
-    class BaseClass {
-    public:
-        BaseClass() {};
-        virtual ~BaseClass() {};
-    };
-
-    class NewClass : public BaseClass {
-    public:
-        NewClass() {};
-        virtual ~NewClass() {};
-    };
-
     StaticAllocator<256> allocator;
 
     {

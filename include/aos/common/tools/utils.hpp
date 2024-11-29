@@ -228,6 +228,25 @@ struct EnableStruct<true, T> {
 template <bool B, typename T = void>
 using EnableIf = typename EnableStruct<B, T>::type;
 
+/**
+ * Checks if a type is a base of the other type.
+ *
+ * @tparam B base type.
+ * @tparam D derived type.
+ */
+template <typename B, typename D>
+struct IsBaseOf {
+private:
+    typedef char Yes[1];
+    typedef char No[2];
+
+    static Yes& Test(B*);
+    static No&  Test(...);
+
+public:
+    static const bool value = sizeof(Test(static_cast<D*>(0))) == sizeof(Yes);
+};
+
 } // namespace aos
 
 #endif

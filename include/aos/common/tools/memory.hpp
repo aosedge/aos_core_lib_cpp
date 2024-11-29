@@ -32,7 +32,7 @@ public:
      * Move constructor for a DefaultDeleter of a derived class.
      */
     template <typename P>
-    DefaultDeleter(DefaultDeleter<P>&& other)
+    explicit DefaultDeleter(DefaultDeleter<P>&& other)
     {
         *this = Move(other);
     }
@@ -43,10 +43,17 @@ public:
     template <typename P>
     DefaultDeleter& operator=(DefaultDeleter<P>&& other)
     {
-        mAllocator = other.mAllocator;
+        mAllocator = other.GetAllocator();
 
         return *this;
     }
+
+    /**
+     * Returns allocator.
+     *
+     * @return Allocator*.
+     */
+    Allocator* GetAllocator() const { return mAllocator; }
 
     /**
      * Destroys object & deallocates memory.
@@ -218,8 +225,8 @@ public:
      *
      * @param ptr unique pointer to move from.
      */
-    template <typename P, typename D>
-    UniquePtr(UniquePtr<P, D>&& ptr)
+    template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
+    explicit UniquePtr(UniquePtr<P, D>&& ptr)
     {
         *this = Move(ptr);
     }
@@ -229,35 +236,42 @@ public:
      *
      * @param ptr unique pointer to assign from.
      */
-    template <typename P, typename D>
+    template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
     UniquePtr& operator=(UniquePtr<P, D>&& ptr)
     {
-        mObject  = ptr.mObject;
-        mDeleter = Move(ptr.mDeleter);
-
-        ptr.Release();
+        mObject  = ptr.Release();
+        mDeleter = Move(ptr.GetDeleter());
 
         return *this;
     }
 
     /**
      * Resets unique pointer.
+     *
+     * @param object new object.
      */
-    void Reset()
+    void Reset(T* object = nullptr)
     {
         if (mObject) {
             mDeleter(mObject);
             mObject = nullptr;
         }
+
+        mObject = object;
     }
 
     /**
-     * Releases stored pointer.
+     * Releases stored pointer and returns it.
+     *
+     * @return T* stored pointer.
      */
-    void Release()
+    T* Release()
     {
-        mObject  = nullptr;
-        mDeleter = Deleter();
+        auto object = mObject;
+
+        mObject = nullptr;
+
+        return object;
     }
 
     /**
@@ -282,6 +296,20 @@ public:
      * @return T* holding object.
      */
     T* Get() const { return mObject; }
+
+    /**
+     * Returns deleter.
+     *
+     * @return Deleter&.
+     */
+    Deleter& GetDeleter() { return mDeleter; }
+
+    /**
+     * Returns deleter.
+     *
+     * @return const Deleter&.
+     */
+    const Deleter& GetDeleter() const { return mDeleter; }
 
     /**
      * Provides access to holding object fields.
