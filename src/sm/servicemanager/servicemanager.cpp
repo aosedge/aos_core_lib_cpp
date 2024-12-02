@@ -104,7 +104,21 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services)
 
 RetWithError<ServiceData> ServiceManager::GetService(const String& serviceID)
 {
-    return mStorage->GetService(serviceID);
+    auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+
+    if (auto err = mStorage->GetAllServices(*services); !err.IsNone()) {
+        return {{}, err};
+    }
+
+    services->Sort([](const ServiceData& lhs, const ServiceData& rhs) { return lhs.mVersion < rhs.mVersion; });
+
+    for (const auto& service : *services) {
+        if (service.mServiceID == serviceID && service.mState != ServiceStateEnum::eCached) {
+            return {service, {}};
+        }
+    }
+
+    return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
 }
 
 Error ServiceManager::GetAllServices(Array<ServiceData>& services)

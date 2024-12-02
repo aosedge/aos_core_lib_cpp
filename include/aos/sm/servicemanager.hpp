@@ -157,12 +157,13 @@ public:
     virtual Error AddService(const ServiceData& service) = 0;
 
     /**
-     * Returns service data by service ID.
+     * Returns service versions by service ID.
      *
      * @param serviceID service ID.
-     * @return  RetWithError<ServiceData>.
+     * @param services[out] service version for the given id.
+     * @return Error.
      */
-    virtual RetWithError<ServiceData> GetService(const String& serviceID) = 0;
+    virtual Error GetServiceVersions(const String& serviceID, Array<sm::servicemanager::ServiceData>& services) = 0;
 
     /**
      * Updates previously stored service.

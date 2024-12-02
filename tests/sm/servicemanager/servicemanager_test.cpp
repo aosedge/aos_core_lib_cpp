@@ -134,18 +134,25 @@ public:
         return ErrorEnum::eNone;
     }
 
-    RetWithError<ServiceData> GetService(const String& serviceID) override
+    Error GetServiceVersions(const String& serviceID, Array<sm::servicemanager::ServiceData>& services) override
     {
         std::lock_guard lock {mMutex};
 
-        auto it = std::find_if(mServices.begin(), mServices.end(),
-            [&serviceID](const ServiceData& data) { return serviceID == data.mServiceID; });
+        Error err = ErrorEnum::eNotFound;
 
-        if (it == mServices.end()) {
-            return {*mServices.begin(), ErrorEnum::eNotFound};
+        for (const auto& service : mServices) {
+            if (service.mServiceID == serviceID) {
+                if (auto errPushBack = services.PushBack(service); !err.IsNone()) {
+                    err = AOS_ERROR_WRAP(errPushBack);
+
+                    break;
+                }
+
+                err = ErrorEnum::eNone;
+            }
         }
 
-        return *it;
+        return ErrorEnum::eNone;
     }
 
     Error UpdateService(const ServiceData& service) override
