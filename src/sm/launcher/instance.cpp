@@ -18,7 +18,6 @@ namespace launcher {
  * Static
  **********************************************************************************************************************/
 
-size_t                                        Instance::sInstanceID = 0;
 Mutex                                         Instance::sMutex {};
 StaticAllocator<Instance::cSpecAllocatorSize> Instance::sAllocator {};
 
@@ -26,20 +25,14 @@ StaticAllocator<Instance::cSpecAllocatorSize> Instance::sAllocator {};
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::RunnerItf& runner,
-    monitoring::ResourceMonitorItf& resourceMonitor)
-    : mInstanceID("instance-")
+Instance::Instance(const InstanceInfo& info, const String& instanceID, OCISpecItf& ociManager,
+    runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor)
+    : mInstanceID(instanceID)
     , mInfo(info)
     , mOCIManager(ociManager)
     , mRunner(runner)
     , mResourceMonitor(resourceMonitor)
 {
-    StaticString<cInstanceIDLen> tmp;
-
-    tmp.Convert(static_cast<uint64_t>(sInstanceID++));
-
-    mInstanceID.Append(tmp);
-
     LOG_INF() << "Create instance: " << mInfo.mInstanceIdent << ", ID: " << *this;
 }
 

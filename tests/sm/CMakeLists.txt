@@ -44,6 +44,6 @@ add_definitions(
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} GTest::gmock_main testutils)
+target_link_libraries(${TARGET} aoscommon GTest::gmock_main testutils)
 
 gtest_discover_tests(${TARGET})

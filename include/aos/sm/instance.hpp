@@ -29,7 +29,7 @@ public:
      *
      * @param info instance info.
      */
-    Instance(const InstanceInfo& info, OCISpecItf& ociManager, runner::RunnerItf& runner,
+    Instance(const InstanceInfo& info, const String& instanceID, OCISpecItf& ociManager, runner::RunnerItf& runner,
         monitoring::ResourceMonitorItf& resourceMonitor);
 
     /**
@@ -140,13 +140,11 @@ public:
 
 private:
     static constexpr auto cRuntimeDir        = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
-    static constexpr auto cInstanceIDLen     = 16;
     static constexpr auto cSpecAllocatorSize = sizeof(oci::RuntimeSpec) + sizeof(oci::VM);
     static constexpr auto cRuntimeSpecFile   = "config.json";
 
     Error CreateRuntimeSpec(const String& path);
 
-    static size_t                              sInstanceID;
     static StaticAllocator<cSpecAllocatorSize> sAllocator;
     static Mutex                               sMutex;
 

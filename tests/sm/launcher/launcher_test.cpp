@@ -92,12 +92,15 @@ public:
     {
         std::lock_guard lock {mMutex};
 
+        LOG_DBG() << "Install services has been called";
+
         mServicesData.clear();
 
         std::transform(
             services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
                 return ServiceData {service.mServiceID, service.mProviderID, service.mVersion,
-                    FS::JoinPath("/aos/storages", service.mServiceID), "", Time::Now(), false, 0, 0};
+                    FS::JoinPath("/aos/storages", service.mServiceID), "", Time::Now(), ServiceStateEnum::eActive, 0,
+                    0};
             });
 
         return ErrorEnum::eNone;
@@ -250,12 +253,12 @@ private:
  */
 class MockStorage : public sm::launcher::StorageItf {
 public:
-    Error AddInstance(const InstanceInfo& instance) override
+    Error AddInstance(const InstanceData& instance) override
     {
         std::lock_guard lock {mMutex};
 
         if (std::find_if(mInstances.begin(), mInstances.end(),
-                [&instance](const InstanceInfo& info) { return instance.mInstanceIdent == info.mInstanceIdent; })
+                [&instance](const InstanceData& info) { return instance == info; })
             != mInstances.end()) {
             return ErrorEnum::eAlreadyExist;
         }
@@ -265,12 +268,12 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error UpdateInstance(const InstanceInfo& instance) override
+    Error UpdateInstance(const InstanceData& instance) override
     {
         std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mInstances.begin(), mInstances.end(),
-            [&instance](const InstanceInfo& info) { return instance.mInstanceIdent == info.mInstanceIdent; });
+            [&instance](const auto& info) { return instance.mInstanceID == info.mInstanceID; });
         if (it == mInstances.end()) {
             return ErrorEnum::eNotFound;
         }
@@ -280,12 +283,12 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error RemoveInstance(const InstanceIdent& instanceIdent) override
+    Error RemoveInstance(const String& instanceID) override
     {
         std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mInstances.begin(), mInstances.end(),
-            [&instanceIdent](const InstanceInfo& instance) { return instance.mInstanceIdent == instanceIdent; });
+            [&instanceID](const auto& instance) { return instance.mInstanceID == instanceID; });
         if (it == mInstances.end()) {
             return ErrorEnum::eNotFound;
         }
@@ -295,7 +298,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error GetAllInstances(Array<InstanceInfo>& instances) override
+    Error GetAllInstances(Array<InstanceData>& instances) override
     {
         std::lock_guard lock {mMutex};
 
@@ -360,7 +363,7 @@ public:
     }
 
 private:
-    std::vector<InstanceInfo> mInstances;
+    std::vector<InstanceData> mInstances;
     mutable std::mutex        mMutex;
 
     uint64_t                                mOperationVersion = launcher::Launcher::cOperationVersion;
@@ -495,6 +498,8 @@ TEST(LauncherTest, RunInstances)
     // Run instances
 
     for (auto& testItem : testData) {
+        LOG_INF() << "Test run instances: iteration=" << &testItem - &testData.front();
+
         feature = statusReceiver.GetFeature();
 
         EXPECT_TRUE(launcher

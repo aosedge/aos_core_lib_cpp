@@ -90,6 +90,36 @@ public:
 };
 
 /**
+ * Instance data.
+ */
+struct InstanceData {
+public:
+    InstanceInfo                 mInstanceInfo;
+    StaticString<cInstanceIDLen> mInstanceID;
+
+    /**
+     * Compares instance data.
+     *
+     * @param data instance data to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceData& data) const
+    {
+        return mInstanceInfo == data.mInstanceInfo && mInstanceID == data.mInstanceID;
+    }
+
+    /**
+     * Compares instance data.
+     *
+     * @param data instance data to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceData& data) const { return !operator==(data); }
+};
+
+using InstanceDataStaticArray = StaticArray<InstanceData, cMaxNumInstances>;
+
+/**
  * Launcher storage interface.
  */
 class StorageItf {
@@ -100,7 +130,7 @@ public:
      * @param instance instance to add.
      * @return Error.
      */
-    virtual Error AddInstance(const InstanceInfo& instance) = 0;
+    virtual Error AddInstance(const InstanceData& instance) = 0;
 
     /**
      * Updates previously stored instance.
@@ -108,7 +138,7 @@ public:
      * @param instance instance to update.
      * @return Error.
      */
-    virtual Error UpdateInstance(const InstanceInfo& instance) = 0;
+    virtual Error UpdateInstance(const InstanceData& instance) = 0;
 
     /**
      * Removes previously stored instance.
@@ -116,7 +146,7 @@ public:
      * @param instanceID instance ID to remove.
      * @return Error.
      */
-    virtual Error RemoveInstance(const InstanceIdent& instanceIdent) = 0;
+    virtual Error RemoveInstance(const String& instanceID) = 0;
 
     /**
      * Returns all stored instances.
@@ -124,7 +154,7 @@ public:
      * @param instances array to return stored instances.
      * @return Error.
      */
-    virtual Error GetAllInstances(Array<InstanceInfo>& instances) = 0;
+    virtual Error GetAllInstances(Array<InstanceData>& instances) = 0;
 
     /**
      * Returns operation version.
@@ -283,20 +313,20 @@ private:
     static constexpr auto cThreadTaskSize   = AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE;
     static constexpr auto cThreadStackSize  = AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE;
 
-    void  ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
+    void  ProcessInstances(const Array<InstanceData>& instances, bool forceRestart = false);
     void  ProcessServices(const Array<ServiceInfo>& services);
     void  ProcessLayers(const Array<LayerInfo>& layers);
     void  SendRunStatus();
-    void  StopInstances(const Array<InstanceInfo>& instances, bool forceRestart);
-    void  StartInstances(const Array<InstanceInfo>& instances);
-    void  CacheServices(const Array<InstanceInfo>& instances);
+    void  StopInstances(const Array<InstanceData>& instances, bool forceRestart);
+    void  StartInstances(const Array<InstanceData>& instances);
+    void  CacheServices(const Array<InstanceData>& instances);
     void  UpdateInstanceServices();
-    Error UpdateStorage(const Array<InstanceInfo>& instances);
+    Error GetRunningInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& runningInstances);
 
     RetWithError<const Service&> GetService(const String& serviceID) const { return mCurrentServices.At(serviceID); }
 
-    Error StartInstance(const InstanceInfo& info);
-    Error StopInstance(const InstanceIdent& ident);
+    Error StartInstance(const InstanceData& info);
+    Error StopInstance(const String& instanceID);
     Error RunLastInstances();
 
     ConnectionPublisherItf*            mConnectionPublisher {};
@@ -307,8 +337,9 @@ private:
     OCISpecItf*                        mOCIManager {};
     monitoring::ResourceMonitorItf*    mResourceMonitor {};
 
-    StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)
-        + sizeof(servicemanager::ServiceDataStaticArray) + sizeof(InstanceStatusStaticArray)>
+    StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
+        + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
+        + sizeof(InstanceStatusStaticArray)>
         mAllocator;
 
     bool                                      mLaunchInProgress = false;
@@ -321,8 +352,8 @@ private:
     bool                mClose     = false;
     bool                mConnected = false;
 
-    StaticMap<StaticString<cServiceIDLen>, Service, cMaxNumServices> mCurrentServices;
-    StaticMap<InstanceIdent, Instance, cMaxNumInstances>             mCurrentInstances;
+    StaticMap<StaticString<cServiceIDLen>, Service, cMaxNumServices>    mCurrentServices;
+    StaticMap<StaticString<cInstanceIDLen>, Instance, cMaxNumInstances> mCurrentInstances;
 };
 
 /** @}*/

@@ -20,6 +20,7 @@ set(SOURCES launcher/launcher.cpp launcher/instance.cpp launcher/service.cpp res
 # ######################################################################################################################
 
 add_library(${TARGET} STATIC ${SOURCES})
+target_link_libraries(${TARGET} PRIVATE aoscommon)
 
 target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
 

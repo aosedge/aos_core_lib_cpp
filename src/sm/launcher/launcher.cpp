@@ -7,6 +7,7 @@
 
 #include "aos/sm/launcher.hpp"
 #include "aos/common/tools/memory.hpp"
+#include "aos/common/tools/uuid.hpp"
 #include "log.hpp"
 
 namespace aos {
@@ -104,12 +105,13 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
               ProcessLayers(*layers);
               ProcessServices(*services);
 
-              auto err = UpdateStorage(*instances);
-              if (!err.IsNone()) {
-                  LOG_ERR() << "Can't update storage: " << err;
+              auto runInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+
+              if (auto err = GetRunningInstances(*instances, *runInstances); !err.IsNone()) {
+                  LOG_WRN() << "Error occurred while getting running instances: " << err;
               }
 
-              ProcessInstances(*instances, forceRestart);
+              ProcessInstances(*runInstances, forceRestart);
 
               LockGuard lock {mMutex};
 
@@ -157,32 +159,61 @@ Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::UpdateStorage(const Array<InstanceInfo>& instances)
+Error Launcher::GetRunningInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& runningInstances)
 {
-    auto currentInstances = MakeUnique<InstanceInfoStaticArray>(&mAllocator);
+    LOG_DBG() << "Get running instances";
 
-    auto err = mStorage->GetAllInstances(*currentInstances);
-    if (!err.IsNone()) {
+    auto currentInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+
+    if (auto err = mStorage->GetAllInstances(*currentInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    for (const auto& currentInstance : *currentInstances) {
-        auto findResult = instances.Find(currentInstance);
-        if (!findResult.mError.IsNone()) {
-            err = mStorage->RemoveInstance(currentInstance.mInstanceIdent);
-            if (!err.IsNone()) {
-                LOG_ERR() << "Can't remove instance " << currentInstance.mInstanceIdent << " from storage: " << err;
+    for (const auto& desiredInstance : desiredInstances) {
+        Error                       err             = ErrorEnum::eNone;
+        sm::launcher::InstanceData* currentInstance = nullptr;
+
+        Tie(currentInstance, err) = currentInstances->FindIf([&desiredInstance](const InstanceData& instance) {
+            return instance.mInstanceInfo.mInstanceIdent == desiredInstance.mInstanceIdent;
+        });
+
+        if (err.IsNone() && currentInstance) {
+            // Update instance if parameters are changed
+            if (currentInstance->mInstanceInfo != desiredInstance) {
+                if (err = runningInstances.PushBack(*currentInstance); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+
+                auto& updateInstance = runningInstances.Back().mValue;
+
+                updateInstance.mInstanceInfo = desiredInstance;
+
+                if (err = mStorage->UpdateInstance(updateInstance); !err.IsNone()) {
+                    LOG_ERR() << "Can't update instance: instanceID=" << updateInstance.mInstanceID << ", err=" << err;
+                }
             }
+
+            currentInstances->Erase(currentInstance);
+
+            continue;
+        }
+
+        const auto instanceID = uuid::UUIDToString(uuid::CreateUUID());
+
+        if (err = runningInstances.PushBack({desiredInstance, instanceID}); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (err = mStorage->AddInstance(runningInstances.Back().mValue); !err.IsNone()) {
+            LOG_ERR() << "Can't add instance: instanceID=" << instanceID << ", err=" << err;
         }
     }
 
-    for (const auto& instance : instances) {
-        auto findResult = currentInstances->Find(instance);
-        if (!findResult.mError.IsNone()) {
-            err = mStorage->AddInstance(instance);
-            if (!err.IsNone()) {
-                LOG_ERR() << "Can't store instance " << instance.mInstanceIdent << ": " << err;
-            }
+    // Remove old instances
+
+    for (const auto& currentInstance : *currentInstances) {
+        if (auto err = mStorage->RemoveInstance(currentInstance.mInstanceID); !err.IsNone()) {
+            LOG_ERR() << "Can't remove instance: instanceID=" << currentInstance.mInstanceID << ", err=" << err;
         }
     }
 
@@ -208,9 +239,9 @@ Error Launcher::RunLastInstances()
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
-    auto instances = SharedPtr<const Array<InstanceInfo>>(&mAllocator, new (&mAllocator) InstanceInfoStaticArray());
+    auto instances = SharedPtr<const Array<InstanceData>>(&mAllocator, new (&mAllocator) InstanceDataStaticArray());
 
-    auto err = mStorage->GetAllInstances(const_cast<Array<InstanceInfo>&>(*instances));
+    auto err = mStorage->GetAllInstances(const_cast<Array<InstanceData>&>(*instances));
     if (!err.IsNone()) {
         return err;
     }
@@ -260,7 +291,7 @@ void Launcher::ProcessLayers(const Array<LayerInfo>& layers)
     LOG_DBG() << "Process layers";
 }
 
-void Launcher::ProcessInstances(const Array<InstanceInfo>& instances, const bool forceRestart)
+void Launcher::ProcessInstances(const Array<InstanceData>& instances, const bool forceRestart)
 {
     LOG_DBG() << "Process instances: restart=" << forceRestart;
 
@@ -301,7 +332,7 @@ void Launcher::SendRunStatus()
     }
 }
 
-void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRestart)
+void Launcher::StopInstances(const Array<InstanceData>& instances, bool forceRestart)
 {
     UniqueLock lock {mMutex};
 
@@ -316,12 +347,13 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
 
     for (const auto& [_, instance] : mCurrentInstances) {
         auto found = instances
-                         .FindIf([&instance = instance](const InstanceInfo& info) {
+                         .FindIf([&instance = instance](const InstanceData& info) {
                              auto compareInfo = info;
 
-                             compareInfo.mPriority = instance.Info().mPriority;
+                             compareInfo.mInstanceInfo.mPriority = instance.Info().mPriority;
 
-                             return compareInfo == instance.Info();
+                             return compareInfo.mInstanceID == instance.InstanceID()
+                                 && compareInfo.mInstanceInfo == instance.Info();
                          })
                          .mError.IsNone();
 
@@ -336,10 +368,12 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
             }
         }
 
-        err = mLaunchPool.AddTask([this, ident = instance.Info().mInstanceIdent](void*) mutable {
-            auto err = StopInstance(ident);
+        StaticString<cInstanceIDLen> instanceID {instance.InstanceID()};
+
+        err = mLaunchPool.AddTask([this, instanceID = Move(instanceID)](void*) mutable {
+            auto err = StopInstance(instanceID);
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't stop instance " << ident << ": " << err;
+                LOG_ERR() << "Can't stop instance " << instanceID << ": " << err;
             }
         });
         if (!err.IsNone()) {
@@ -352,7 +386,7 @@ void Launcher::StopInstances(const Array<InstanceInfo>& instances, bool forceRes
     mLaunchPool.Wait();
 }
 
-void Launcher::StartInstances(const Array<InstanceInfo>& instances)
+void Launcher::StartInstances(const Array<InstanceData>& instances)
 {
     UniqueLock lock {mMutex};
 
@@ -360,18 +394,20 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
 
     for (const auto& info : instances) {
         // Skip already started instances
-        if (mCurrentInstances.At(info.mInstanceIdent).mError.IsNone()) {
+        if (mCurrentInstances.At(info.mInstanceID).mError.IsNone()) {
             continue;
         }
 
         auto err = mLaunchPool.AddTask([this, &info](void*) {
             auto err = StartInstance(info);
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't start instance " << info.mInstanceIdent << ": " << err;
+                LOG_ERR() << "Can't start instance: id=" << info.mInstanceID
+                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ": " << err;
             }
         });
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't start instance " << info.mInstanceIdent << ": " << err;
+            LOG_ERR() << "Can't start instance: id=" << info.mInstanceID
+                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ": " << err;
         }
     }
 
@@ -380,7 +416,7 @@ void Launcher::StartInstances(const Array<InstanceInfo>& instances)
     mLaunchPool.Wait();
 }
 
-void Launcher::CacheServices(const Array<InstanceInfo>& instances)
+void Launcher::CacheServices(const Array<InstanceData>& instances)
 {
     LockGuard lock {mMutex};
 
@@ -389,26 +425,27 @@ void Launcher::CacheServices(const Array<InstanceInfo>& instances)
     mCurrentServices.Clear();
 
     for (const auto& instance : instances) {
-        if (GetService(instance.mInstanceIdent.mServiceID).mError.IsNone()) {
+        const auto& serviceID = instance.mInstanceInfo.mInstanceIdent.mServiceID;
+
+        if (GetService(serviceID).mError.IsNone()) {
             continue;
         }
 
-        auto findService = mServiceManager->GetService(instance.mInstanceIdent.mServiceID);
+        auto findService = mServiceManager->GetService(serviceID);
         if (!findService.mError.IsNone()) {
-            LOG_ERR() << "Can't get service " << instance.mInstanceIdent.mServiceID << ": " << findService.mError;
+            LOG_ERR() << "Can't get service " << serviceID << ": " << findService.mError;
             continue;
         }
 
-        auto err = mCurrentServices.Emplace(
-            instance.mInstanceIdent.mServiceID, Service(findService.mValue, *mServiceManager, *mOCIManager));
+        auto err = mCurrentServices.Emplace(serviceID, Service(findService.mValue, *mServiceManager, *mOCIManager));
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't cache service " << instance.mInstanceIdent.mServiceID << ": " << err;
+            LOG_ERR() << "Can't cache service " << serviceID << ": " << err;
             continue;
         }
 
-        err = mCurrentServices.At(instance.mInstanceIdent.mServiceID).mValue.LoadSpecs();
+        err = mCurrentServices.At(serviceID).mValue.LoadSpecs();
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't load OCI spec for service " << instance.mInstanceIdent.mServiceID << ": " << err;
+            LOG_ERR() << "Can't load OCI spec for service " << serviceID << ": " << err;
             continue;
         }
     }
@@ -433,23 +470,23 @@ void Launcher::UpdateInstanceServices()
     }
 }
 
-Error Launcher::StartInstance(const InstanceInfo& info)
+Error Launcher::StartInstance(const InstanceData& info)
 {
     UniqueLock lock {mMutex};
 
-    if (mCurrentInstances.At(info.mInstanceIdent).mError.IsNone()) {
+    if (mCurrentInstances.At(info.mInstanceID).mError.IsNone()) {
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
-    auto err
-        = mCurrentInstances.Emplace(info.mInstanceIdent, Instance(info, *mOCIManager, *mRunner, *mResourceMonitor));
+    auto err = mCurrentInstances.Emplace(
+        info.mInstanceID, Instance(info.mInstanceInfo, info.mInstanceID, *mOCIManager, *mRunner, *mResourceMonitor));
     if (!err.IsNone()) {
         return err;
     }
 
-    auto& instance = mCurrentInstances.At(info.mInstanceIdent).mValue;
+    auto& instance = mCurrentInstances.At(info.mInstanceID).mValue;
 
-    auto findService = GetService(info.mInstanceIdent.mServiceID);
+    auto findService = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
 
     instance.SetService(&findService.mValue, findService.mError);
 
@@ -469,18 +506,18 @@ Error Launcher::StartInstance(const InstanceInfo& info)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::StopInstance(const InstanceIdent& ident)
+Error Launcher::StopInstance(const String& instanceID)
 {
     UniqueLock lock {mMutex};
 
-    auto findInstance = mCurrentInstances.At(ident);
+    auto findInstance = mCurrentInstances.At(instanceID);
     if (!findInstance.mError.IsNone()) {
         return findInstance.mError;
     }
 
     auto instance = findInstance.mValue;
 
-    mCurrentInstances.Remove(ident);
+    mCurrentInstances.Remove(instanceID);
 
     lock.Unlock();
 
