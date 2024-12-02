@@ -179,7 +179,8 @@ Error ServiceManager::RemoveService(const ServiceData& service)
 Error ServiceManager::InstallService(const ServiceInfo& service)
 {
     ServiceData data {service.mServiceID, service.mProviderID, service.mVersion,
-        FS::JoinPath(cServicesDir, service.mServiceID), "", Time::Now(), false, service.mSize, service.mGID};
+        FS::JoinPath(cServicesDir, service.mServiceID), "", Time::Now(), ServiceStateEnum::eActive, service.mSize,
+        service.mGID};
 
     LOG_INF() << "Install service: serviceID=" << data.mServiceID << ", providerID=" << data.mProviderID
               << ", version=" << data.mVersion << ", path=" << data.mImagePath;

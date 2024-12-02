@@ -25,6 +25,32 @@ namespace servicemanager {
  */
 
 /**
+ * Service state type.
+ */
+class ServiceStateType {
+public:
+    enum class Enum {
+        eActive,
+        eCached,
+        ePending,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStateStrings[] = {
+            "active",
+            "cached",
+            "pending",
+        };
+
+        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+    };
+};
+
+using ServiceStateEnum = ServiceStateType::Enum;
+using ServiceState     = EnumStringer<ServiceStateType>;
+
+/**
  * Service manager service data.
  */
 struct ServiceData {
@@ -59,9 +85,9 @@ struct ServiceData {
     Time mTimestamp;
 
     /**
-     * Cached flag.
+     * State.
      */
-    bool mCached;
+    ServiceState mState;
 
     /**
      * Service size.
@@ -82,7 +108,7 @@ struct ServiceData {
     bool operator==(const ServiceData& data) const
     {
         return mServiceID == data.mServiceID && mProviderID == data.mProviderID && mVersion == data.mVersion
-            && mImagePath == data.mImagePath && mCached == data.mCached && mSize == data.mSize && mGID == data.mGID;
+            && mImagePath == data.mImagePath && mState == data.mState && mSize == data.mSize && mGID == data.mGID;
     }
 
     /**
