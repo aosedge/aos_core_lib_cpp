@@ -18,38 +18,61 @@ namespace layermanager {
  */
 
 /**
- * Layer info.
+ * Layer state type.
  */
-struct LayerInfo {
+class LayerStateType {
+public:
+    enum class Enum {
+        eActive,
+        eCached,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStateStrings[] = {
+            "active",
+            "cached",
+        };
+
+        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+    };
+};
+
+using LayerStateEnum = LayerStateType::Enum;
+using LayerState     = EnumStringer<LayerStateType>;
+
+/**
+ * Layer data.
+ */
+struct LayerData {
     StaticString<cLayerDigestLen> mLayerDigest;
     StaticString<cLayerIDLen>     mLayerID;
     StaticString<cVersionLen>     mVersion;
     StaticString<cFilePathLen>    mPath;
     StaticString<cVersionLen>     mOSVersion;
     Time                          mTimestamp;
-    bool                          mCached;
+    LayerState                    mState;
     size_t                        mSize;
 
     /**
-     * Compares layer info.
+     * Compares layer data.
      *
-     * @param info info to compare.
+     * @param layer layer data to compare.
      * @return bool.
      */
-    bool operator==(const LayerInfo& info) const
+    bool operator==(const LayerData& layer) const
     {
-        return mLayerDigest == info.mLayerDigest && mLayerID == info.mLayerID && mVersion == info.mVersion
-            && mPath == info.mPath && mOSVersion == info.mOSVersion && mTimestamp == info.mTimestamp
-            && mCached == info.mCached && mSize == info.mSize;
+        return mLayerDigest == layer.mLayerDigest && mLayerID == layer.mLayerID && mVersion == layer.mVersion
+            && mPath == layer.mPath && mOSVersion == layer.mOSVersion && mState == layer.mState && mSize == layer.mSize;
     }
 
     /**
-     * Compares layer info.
+     * Compares layer data.
      *
-     * @param info info to compare.
+     * @param layer layer data to compare.
      * @return bool.
      */
-    bool operator!=(const LayerInfo& info) const { return !operator==(info); }
+    bool operator!=(const LayerData& info) const { return !operator==(info); }
 };
 
 /**
@@ -60,18 +83,18 @@ public:
     /**
      * Adds layer to storage.
      *
-     * @param layer layer info to add.
+     * @param layer layer data to add.
      * @return Error.
      */
-    virtual Error AddLayer(const LayerInfo& layer) = 0;
+    virtual Error AddLayer(const LayerData& layer) = 0;
 
     /**
-     * Removes layer from storage by digest.
+     * Removes layer from storage.
      *
      * @param digest layer digest.
      * @return Error.
      */
-    virtual Error DeleteLayerByDigest(const String& digest) = 0;
+    virtual Error RemoveLayer(const String& digest) = 0;
 
     /**
      * Returns all stored layers.
@@ -79,24 +102,24 @@ public:
      * @param layers[out] array to return stored layers.
      * @return Error.
      */
-    virtual Error GetLayersInfo(Array<LayerInfo>& layers) const = 0;
+    virtual Error GetAllLayers(Array<LayerData>& layers) const = 0;
 
     /**
-     * Returns layer info by digest.
+     * Returns layer data.
      *
      * @param digest layer digest.
-     * @param[out] layer layer info.
+     * @param[out] layer layer data.
      * @return Error.
      */
-    virtual Error GetLayerInfoByDigest(const String& digest, LayerInfo& layer) const = 0;
+    virtual Error GetLayer(const String& digest, LayerData& layer) const = 0;
 
     /**
      * Updates layer.
      *
-     * @param layer layer info to update.
+     * @param layer layer data to update.
      * @return Error.
      */
-    virtual Error UpdateLayer(const LayerInfo& layer) = 0;
+    virtual Error UpdateLayer(const LayerData& layer) = 0;
 
     /**
      * Destroys storage interface.
