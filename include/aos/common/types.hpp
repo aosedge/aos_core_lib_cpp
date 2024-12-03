@@ -28,6 +28,11 @@ constexpr auto cProviderIDLen = AOS_CONFIG_TYPES_PROVIDER_ID_LEN;
  */
 constexpr auto cServiceIDLen = AOS_CONFIG_TYPES_SERVICE_ID_LEN;
 
+/**
+ * Max number of service providers.
+ */
+static constexpr auto cMaxNumServiceProviders = AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS;
+
 /*
  * Subject ID len.
  */
@@ -305,6 +310,26 @@ constexpr auto cLabelNameLen = AOS_CONFIG_TYPES_LABEL_NAME_LEN;
 constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
 
 /**
+ * Max subnet len.
+ */
+static constexpr auto cSubnetLen = AOS_CONFIG_TYPES_SUBNET_LEN;
+
+/**
+ * Max MAC len.
+ */
+static constexpr auto cMacLen = AOS_CONFIG_TYPES_MAC_LEN;
+
+/**
+ * Max iptables chain name length.
+ */
+static constexpr auto cIptablesChainNameLen = AOS_CONFIG_TYPES_IPTABLES_CHAIN_LEN;
+
+/**
+ * Max CNI interface name length.
+ */
+static constexpr auto cInterfaceLen = AOS_CONFIG_TYPES_INTERFACE_NAME_LEN;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
@@ -380,12 +405,12 @@ struct FirewallRule {
  * Networks parameters.
  */
 struct NetworkParameters {
-    StaticString<cHostNameLen>                            mNetworkID;
-    StaticString<cIPLen>                                  mSubnet;
-    StaticString<cIPLen>                                  mIP;
-    uint64_t                                              mVlanID;
-    StaticArray<StaticString<cURLLen>, cMaxNumDNSServers> mDNSServers;
-    StaticArray<FirewallRule, cMaxNumFirewallRules>       mFirewallRules;
+    StaticString<cHostNameLen>                                 mNetworkID;
+    StaticString<cSubnetLen>                                   mSubnet;
+    StaticString<cIPLen>                                       mIP;
+    uint64_t                                                   mVlanID;
+    StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers> mDNSServers;
+    StaticArray<FirewallRule, cMaxNumFirewallRules>            mFirewallRules;
 
     /**
      * Compares network parameters.

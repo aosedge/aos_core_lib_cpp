@@ -44,6 +44,13 @@
 #endif
 
 /**
+ * Max number of service providers.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS
+#define AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS 4
+#endif
+
+/**
  * Service ID len.
  */
 #ifndef AOS_CONFIG_TYPES_SERVICE_ID_LEN
@@ -187,7 +194,7 @@
  * Protocol name len.
  */
 #ifndef AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN
-#define AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN 16
+#define AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN 6
 #endif
 
 /**
@@ -426,6 +433,34 @@
  */
 #ifndef AOS_CONFIG_TYPES_VERSION_LEN
 #define AOS_CONFIG_TYPES_VERSION_LEN 32
+#endif
+
+/**
+ * Max subnet length.
+ */
+#ifndef AOS_CONFIG_TYPES_SUBNET_LEN
+#define AOS_CONFIG_TYPES_SUBNET_LEN 50
+#endif
+
+/**
+ * Max MAC length.
+ */
+#ifndef AOS_CONFIG_TYPES_MAC_LEN
+#define AOS_CONFIG_TYPES_MAC_LEN 18
+#endif
+
+/**
+ * Max iptables chain name length.
+ */
+#ifndef AOS_CONFIG_TYPES_IPTABLES_CHAIN_LEN
+#define AOS_CONFIG_TYPES_IPTABLES_CHAIN_LEN 64
+#endif
+
+/**
+ * Max CNI interface name length.
+ */
+#ifndef AOS_CONFIG_TYPES_INTERFACE_NAME_LEN
+#define AOS_CONFIG_TYPES_INTERFACE_NAME_LEN 64
 #endif
 
 /**

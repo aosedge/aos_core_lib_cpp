@@ -12,7 +12,7 @@ set(TARGET aossm)
 # ######################################################################################################################
 
 set(SOURCES launcher/launcher.cpp launcher/instance.cpp launcher/service.cpp resourcemanager/resourcemanager.cpp
-            servicemanager/servicemanager.cpp
+            servicemanager/servicemanager.cpp networkmanager/networkmanager.cpp
 )
 
 # ######################################################################################################################
