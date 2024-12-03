@@ -26,6 +26,9 @@ set(SOURCES
     # servicemanager
     ${PROJECT_SOURCE_DIR}/src/sm/servicemanager/servicemanager.cpp
     servicemanager/servicemanager_test.cpp
+    #networkmanager
+    ${PROJECT_SOURCE_DIR}/src/sm/networkmanager/networkmanager.cpp
+    networkmanager/networkmanager_test.cpp
 )
 
 # ######################################################################################################################
