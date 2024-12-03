@@ -46,20 +46,20 @@ public:
     /**
      * Dumps config object into string.
      *
-     * @param config config object.
-     * @param[out] json json representation of config.
+     * @param nodeConfig node config object.
+     * @param[out] json node config JSON string.
      * @return Error.
      */
-    virtual Error DumpNodeConfig(const NodeConfig& config, String& json) const = 0;
+    virtual Error NodeConfigToJSON(const NodeConfig& nodeConfig, String& json) const = 0;
 
     /**
-     * Parses config object from string.
+     * Creates node config object from a JSON string.
      *
-     * @param json json representation of config.
-     * @param[out] config config.
+     * @param json node config JSON string.
+     * @param[out] nodeConfig node config object.
      * @return Error.
      */
-    virtual Error ParseNodeConfig(const String& json, NodeConfig& config) const = 0;
+    virtual Error NodeConfigFromJSON(const String& json, NodeConfig& nodeConfig) const = 0;
 };
 
 /**

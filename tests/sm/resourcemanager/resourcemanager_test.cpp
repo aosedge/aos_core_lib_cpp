@@ -105,7 +105,7 @@ protected:
 
     void InitResourceManager(const ErrorEnum cJSONParseError = ErrorEnum::eNone)
     {
-        EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+        EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
             config = mConfig;
 
             return cJSONParseError;
@@ -184,7 +184,7 @@ TEST_F(ResourceManagerTest, InitSucceedsWhenUnitConfigFileDoesNotExist)
 {
     FS::Remove(cConfigFilePath);
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).Times(0);
 
     auto err = mResourceManager.Init(mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cConfigFilePath);
     ASSERT_TRUE(err.IsNone()) << "Failed to initialize resource manager: " << err.Message();
@@ -399,7 +399,7 @@ TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnVendorMatch)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).Times(0);
 
     auto err = mResourceManager.CheckNodeConfig(mConfig.mVersion, cTestNodeConfigJSON);
     ASSERT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << "Expected error invalid argument, got: " << err.Message();
@@ -409,7 +409,7 @@ TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnConfigJSONParse)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Return(ErrorEnum::eFailed));
 
     auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.Is(ErrorEnum::eFailed)) << "Expected error failed, got: " << err.Message();
@@ -419,7 +419,7 @@ TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnNodeTypeMismatch)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
         config.mNodeConfig.mNodeType = "wrongType";
 
         return ErrorEnum::eNone;
@@ -432,7 +432,7 @@ TEST_F(ResourceManagerTest, CheckNodeConfigSucceedsOnEmptyNodeConfigDevices)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
         config.mNodeConfig.mNodeType = cNodeType;
         config.mNodeConfig.mDevices.Clear();
 
@@ -450,7 +450,7 @@ TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnNonEmptyUnitConfigDevices)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Invoke([&](const String&, NodeConfig& config) {
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
         EnrichUnitConfig(config, cNodeType, "1.0.2");
 
         return ErrorEnum::eNone;
@@ -467,11 +467,11 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigFailsOnInvalidJSON)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Return(ErrorEnum::eFailed));
 
     EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
     EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
-    EXPECT_CALL(mJsonProvider, DumpNodeConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, NodeConfigToJSON).Times(0);
 
     auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_FALSE(err.IsNone()) << "Update unit config should fail on invalid JSON";
@@ -481,8 +481,8 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigFailsOnJSONDump)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mJsonProvider, DumpNodeConfig).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mJsonProvider, NodeConfigToJSON).WillOnce(Return(ErrorEnum::eFailed));
 
     EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
     EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
@@ -495,7 +495,7 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigSucceeds)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, ParseNodeConfig)
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON)
         .Times(2)
         .WillRepeatedly(Invoke([&](const String&, aos::sm::resourcemanager::NodeConfig& config) {
             EnrichUnitConfig(config, cNodeType, "1.0.2");
@@ -506,7 +506,7 @@ TEST_F(ResourceManagerTest, UpdateUnitConfigSucceeds)
     EXPECT_CALL(mHostDeviceManager, DeviceExists).WillRepeatedly(Return(true));
     EXPECT_CALL(mHostGroupManager, GroupExists).WillRepeatedly(Return(true));
 
-    EXPECT_CALL(mJsonProvider, DumpNodeConfig).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mJsonProvider, NodeConfigToJSON).WillOnce(Return(ErrorEnum::eNone));
 
     auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();

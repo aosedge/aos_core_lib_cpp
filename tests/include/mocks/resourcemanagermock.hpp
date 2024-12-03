@@ -20,8 +20,8 @@ namespace resourcemanager {
  */
 class JSONProviderMock : public JSONProviderItf {
 public:
-    MOCK_METHOD(Error, DumpNodeConfig, (const NodeConfig&, String&), (const override));
-    MOCK_METHOD(Error, ParseNodeConfig, (const String&, NodeConfig&), (const override));
+    MOCK_METHOD(Error, NodeConfigToJSON, (const NodeConfig&, String&), (const override));
+    MOCK_METHOD(Error, NodeConfigFromJSON, (const String&, NodeConfig&), (const override));
 };
 
 /**

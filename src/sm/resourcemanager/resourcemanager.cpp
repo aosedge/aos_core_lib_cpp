@@ -146,7 +146,7 @@ Error ResourceManager::CheckNodeConfig(const String& version, const String& conf
 
     auto updatedConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
-    auto err = mJsonProvider->ParseNodeConfig(config, *updatedConfig);
+    auto err = mJsonProvider->NodeConfigFromJSON(config, *updatedConfig);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -167,7 +167,7 @@ Error ResourceManager::UpdateNodeConfig(const String& version, const String& con
 
     auto updatedConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
-    if (auto err = mJsonProvider->ParseNodeConfig(config, *updatedConfig); !err.IsNone()) {
+    if (auto err = mJsonProvider->NodeConfigFromJSON(config, *updatedConfig); !err.IsNone()) {
         LOG_ERR() << "Failed to parse config: err=" << err;
 
         return AOS_ERROR_WRAP(err);
@@ -211,7 +211,7 @@ Error ResourceManager::LoadConfig()
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mJsonProvider->ParseNodeConfig(*configJSON, mConfig);
+    err = mJsonProvider->NodeConfigFromJSON(*configJSON, mConfig);
     if (!err.IsNone()) {
         mConfigError = err;
 
@@ -225,7 +225,7 @@ Error ResourceManager::WriteConfig(const NodeConfig& config)
 {
     auto configJSON = MakeUnique<StaticString<cNodeConfigJSONLen>>(&mAllocator);
 
-    if (auto err = mJsonProvider->DumpNodeConfig(config, *configJSON); !err.IsNone()) {
+    if (auto err = mJsonProvider->NodeConfigToJSON(config, *configJSON); !err.IsNone()) {
         LOG_ERR() << "Failed to dump config: err=" << err;
 
         return AOS_ERROR_WRAP(err);
