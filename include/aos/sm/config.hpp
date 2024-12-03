@@ -71,4 +71,78 @@
 #define AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS 8
 #endif
 
+/**
+ * Max resolv.conf line length.
+ */
+#ifndef AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN
+#define AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN 256
+#endif
+
+#ifndef AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS
+#define AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS 10
+#endif
+
+/**
+ * Max CNI name length.
+ */
+#ifndef AOS_CONFIG_CNI_NAME_LEN
+#define AOS_CONFIG_CNI_NAME_LEN 64
+#endif
+
+/**
+ * Max CNI version length.
+ */
+#ifndef AOS_CONFIG_CNI_VERSION_LEN
+#define AOS_CONFIG_CNI_VERSION_LEN 10
+#endif
+
+/**
+ * Max CNI plugin type length.
+ */
+#ifndef AOS_CONFIG_CNI_PLUGIN_TYPE_LEN
+#define AOS_CONFIG_CNI_PLUGIN_TYPE_LEN 64
+#endif
+
+/**
+ * Max CNI number of routers.
+ */
+#ifndef AOS_CONFIG_CNI_MAX_NUM_ROUTERS
+#define AOS_CONFIG_CNI_MAX_NUM_ROUTERS 4
+#endif
+
+/**
+ * Max CNI number of interfaces.
+ */
+#ifndef AOS_CONFIG_CNI_MAX_NUM_INTERFACES
+#define AOS_CONFIG_CNI_MAX_NUM_INTERFACES 6
+#endif
+
+/**
+ * Max CNI number of IPs.
+ */
+#ifndef AOS_CONFIG_CNI_MAX_NUM_IPS
+#define AOS_CONFIG_CNI_MAX_NUM_IPS 4
+#endif
+
+/**
+ * Max CNI number of runtime config arguments.
+ */
+#ifndef AOS_CONFIG_CNI_MAX_NUM_RUNTIME_CONFIG_ARGS
+#define AOS_CONFIG_CNI_MAX_NUM_RUNTIME_CONFIG_ARGS 4
+#endif
+
+/**
+ * Max CNI runtime config argument length.
+ */
+#ifndef AOS_CONFIG_CNI_RUNTIME_CONFIG_ARG_LEN
+#define AOS_CONFIG_CNI_RUNTIME_CONFIG_ARG_LEN 64
+#endif
+
+/**
+ * Max CNI plugin name length.
+ */
+#ifndef AOS_CONFIG_CNI_PLUGIN_NAME_LEN
+#define AOS_CONFIG_CNI_PLUGIN_NAME_LEN 64
+#endif
+
 #endif

@@ -7,7 +7,11 @@
 #ifndef AOS_NETWORKMANAGER_HPP_
 #define AOS_NETWORKMANAGER_HPP_
 
+#include "aos/common/tools/fs.hpp"
+#include "aos/common/tools/map.hpp"
+#include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
+#include "aos/sm/cni.hpp"
 #include "aos/sm/config.hpp"
 
 namespace aos::sm::networkmanager {
@@ -25,6 +29,21 @@ static constexpr auto cMaxNumAliases = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES
  * Max number of network manager exposed ports.
  */
 static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS;
+
+/**
+ * Max number of hosts.
+ */
+static constexpr auto cResolvConfLineLen = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
+
+/**
+ * Max exposed port len.
+ */
+static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
+
+/**
+ * Max number of hosts.
+ */
+static constexpr auto cMaxNumHosts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS;
 
 /**
  * Network parameters set for service provider.
@@ -61,19 +80,19 @@ struct NetworkParameters {
  * Network parameters set for instance.
  */
 struct NetworkParams {
-    InstanceIdent                                              mInstanceIdent;
-    aos::NetworkParameters                                     mNetworkParameters;
-    StaticString<cHostNameLen>                                 mHostname;
-    StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>    mAliases;
-    uint64_t                                                   mIngressKbit;
-    uint64_t                                                   mEgressKbit;
-    StaticArray<StaticString<cPortLen>, cMaxNumExposedPorts>   mExposedPorts;
-    StaticArray<Host, cMaxNumHosts>                            mHosts;
-    StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers> mDNSSevers;
-    StaticString<cFilePathLen>                                 mHostsFilePath;
-    StaticString<cFilePathLen>                                 mResolvConfFilePath;
-    uint64_t                                                   mUploadLimit;
-    uint64_t                                                   mDownloadLimit;
+    InstanceIdent                                                   mInstanceIdent;
+    aos::NetworkParameters                                          mNetworkParameters;
+    StaticString<cHostNameLen>                                      mHostname;
+    StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;
+    uint64_t                                                        mIngressKbit;
+    uint64_t                                                        mEgressKbit;
+    StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
+    StaticArray<Host, cMaxNumHosts>                                 mHosts;
+    StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers>      mDNSSevers;
+    StaticString<cFilePathLen>                                      mHostsFilePath;
+    StaticString<cFilePathLen>                                      mResolvConfFilePath;
+    uint64_t                                                        mUploadLimit;
+    uint64_t                                                        mDownloadLimit;
 
     /**
      * Compares network parameters.
@@ -233,12 +252,257 @@ public:
         = 0;
 
     /**
+     * Gets system traffic.
+     *
+     * @param[out] inputTraffic system input traffic.
+     * @param[out] outputTraffic system output traffic.
+     * @return Error.
+     */
+    virtual Error GetSystemTraffic(uint64_t& inputTraffic, uint64_t& outputTraffic) const = 0;
+
+    /**
      * Sets the traffic period.
      *
      * @param period traffic period.
      * @return Error
      */
     virtual Error SetTrafficPeriod(uint32_t period) = 0;
+};
+
+/**
+ * Traffic monitor interface.
+ */
+class TrafficMonitorItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~TrafficMonitorItf() = default;
+
+    /**
+     * Starts traffic monitoring.
+     *
+     * @return Error.
+     */
+    virtual Error Start() = 0;
+
+    /**
+     * Stops traffic monitoring.
+     *
+     * @return Error.
+     */
+    virtual Error Close() = 0;
+
+    /**
+     * Sets monitoring period.
+     *
+     * @param period monitoring period in seconds.
+     */
+    virtual void SetPeriod(int period) = 0;
+
+    /**
+     * Starts monitoring instance.
+     *
+     * @param instanceID instance ID.
+     * @param IPAddress instance IP address.
+     * @param downloadLimit download limit.
+     * @param uploadLimit upload limit.
+     * @return Error.
+     */
+    virtual Error StartInstanceMonitoring(
+        const String& instanceID, const String& IPAddress, uint64_t downloadLimit, uint64_t uploadLimit)
+        = 0;
+
+    /**
+     * Stops monitoring instance.
+     *
+     * @param instanceID instance ID.
+     * @return Error.
+     */
+    virtual Error StopInstanceMonitoring(const String& instanceID) = 0;
+
+    /**
+     * Returns system traffic data.
+     *
+     * @param inputTraffic input traffic.
+     * @param outputTraffic output traffic.
+     * @return Error.
+     */
+    virtual Error GetSystemData(uint64_t& inputTraffic, uint64_t& outputTraffic) const = 0;
+
+    /**
+     * Returns instance traffic data.
+     *
+     * @param instanceID instance ID.
+     * @param inputTraffic input traffic.
+     * @param outputTraffic output traffic.
+     * @return Error.
+     */
+    virtual Error GetInstanceTraffic(const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic) const
+        = 0;
+};
+
+/**
+ * Network manager.
+ */
+class NetworkManager : public NetworkManagerItf {
+public:
+    /**
+     * Creates network manager instance.
+     */
+    NetworkManager() = default;
+
+    /**
+     * Initializes network manager.
+     *
+     * @param storage storage interface.
+     * @param cni CNI interface.
+     * @param netMonitor traffic monitor.
+     * @param workingDir working directory.
+     * @return Error.
+     */
+    Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, const String& workingDir);
+
+    /**
+     * Destroys network manager.
+     *
+     * @return Error.
+     */
+    Error Close();
+
+    /**
+     * Returns instance's network namespace path.
+     *
+     * @param instanceID instance ID.
+     * @param[out] netnsPath instance's network namespace path.
+     * @return Error.
+     */
+    Error GetNetnsPath(const String& instanceID, String& netnsPath) const override;
+
+    /**
+     * Updates networks.
+     *
+     * @param networks network parameters.
+     * @return Error.
+     */
+    Error UpdateNetworks(const Array<aos::NetworkParameters>& networks) override;
+
+    /**
+     * Adds instance to network.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @param network network parameters.
+     * @return Error.
+     */
+    Error AddInstanceToNetwork(
+        const String& instanceID, const String& networkID, const NetworkParams& network) override;
+
+    /**
+     * Removes instance from network.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @return Error.
+     */
+    Error RemoveInstanceFromNetwork(const String& instanceID, const String& networkID) override;
+
+    /**
+     * Returns instance's IP address.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @param[out] ip instance's IP address.
+     * @return Error.
+     */
+    Error GetInstanceIP(const String& instanceID, const String& networkID, String& ip) const override;
+
+    /**
+     * Returns instance's traffic.
+     *
+     * @param instanceID instance ID.
+     * @param[out] inputTraffic instance's input traffic.
+     * @param[out] outputTraffic instance's output traffic.
+     * @return Error.
+     */
+    Error GetInstanceTraffic(const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic) const override;
+
+    /**
+     * Gets system traffic.
+     *
+     * @param[out] inputTraffic system input traffic.
+     * @param[out] outputTraffic system output traffic.
+     * @return Error.
+     */
+    Error GetSystemTraffic(uint64_t& inputTraffic, uint64_t& outputTraffic) const override;
+
+    /**
+     * Sets the traffic period.
+     *
+     * @param period traffic period.
+     * @return Error
+     */
+    Error SetTrafficPeriod(uint32_t period) override;
+
+private:
+    struct NetworkData {
+        StaticString<cIPLen>                                  IPAddr;
+        StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> mHost;
+    };
+
+    using InstanceCache = StaticMap<StaticString<cInstanceIDLen>, NetworkData, cMaxNumInstances>;
+    using NetworkCache  = StaticMap<StaticString<cProviderIDLen>, InstanceCache, cMaxNumServiceProviders>;
+
+    static constexpr uint64_t cBurstLen              = 12800;
+    static constexpr auto     cMaxExposedPort        = 2;
+    static constexpr auto     cAdminChainPrefix      = "INSTANCE_";
+    static constexpr auto     cInstanceInterfaceName = "eth0";
+    static constexpr auto     cBridgePrefix          = "br-";
+
+    virtual Error CreateNetworkNamespace(const String& instanceID) const                     = 0;
+    virtual Error GetNetworkNamespacePath(const String& instanceID, String& netnsPath) const = 0;
+    virtual Error DeleteNetworkNamespace(const String& instanceID) const                     = 0;
+    virtual Error RemoveInterface(const String& ifname) const                                = 0;
+
+    Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
+    Error AddInstanceToCache(const String& instanceID, const String& networkID);
+    Error PrepareCNIConfig(const String& instanceID, const String& networkID, const NetworkParams& network,
+        cni::NetworkConfigList& net, cni::RuntimeConf& rt, Array<StaticString<cHostNameLen>>& hosts) const;
+    Error PrepareNetworkConfigList(const String& instanceID, const String& networkID, const NetworkParams& network,
+        cni::NetworkConfigList& net) const;
+    Error PrepareRuntimeConfig(
+        const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const;
+
+    Error CreateBridgePluginConfig(
+        const String& networkID, const NetworkParams& network, cni::BridgePluginConf& config) const;
+    Error CreateFirewallPluginConfig(
+        const String& instanceID, const NetworkParams& network, cni::FirewallPluginConf& config) const;
+    Error CreateBandwidthPluginConfig(const NetworkParams& network, cni::BandwidthNetConf& config) const;
+    Error CreateDNSPluginConfig(
+        const String& networkID, const NetworkParams& network, cni::DNSPluginConf& config) const;
+    Error UpdateInstanceNetworkCache(const String& instanceID, const String& networkID, const String& instanceIP,
+        const Array<StaticString<cHostNameLen>>& hosts);
+    Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
+    Error ClearNetwork(const String& networkID);
+    Error PrepareHosts(const String& instanceID, const String& networkID, const NetworkParams& network,
+        Array<StaticString<cHostNameLen>>& hosts) const;
+    Error IsHostnameExist(const InstanceCache& instanceCache, const Array<StaticString<cHostNameLen>>& hosts) const;
+    Error PushHostWithDomain(
+        const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
+    Error CreateHostsFile(const String& networkID, const String& instanceIP, const NetworkParams& network) const;
+    Error WriteHostsFile(const String& filePath, const Array<Host>& hosts, const NetworkParams& network) const;
+
+    Error CreateResolvConfFile(
+        const String& networkID, const NetworkParams& network, const Array<StaticString<cIPLen>>& dns) const;
+    Error WriteResolvConfFile(
+        const String& filePath, const Array<StaticString<cIPLen>>& mainServers, const NetworkParams& network) const;
+
+    StorageItf*                mStorage {};
+    cni::CNIItf*               mCNI {};
+    TrafficMonitorItf*         mNetMonitor {};
+    StaticString<cFilePathLen> mCNINetworkCacheDir;
+    NetworkCache               mNetworkData;
+    mutable Mutex              mMutex;
 };
 
 /** @}*/
