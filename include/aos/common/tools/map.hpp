@@ -187,6 +187,13 @@ public:
     size_t MaxSize() const override { return mItems.MaxSize(); }
 
     /**
+     * Returns true if the map is empty.
+     *
+     * @return bool.
+     */
+    bool IsEmpty() const { return mItems.IsEmpty(); }
+
+    /**
      * Compares contents of two maps.
      *
      * @param other map to be compared with.
@@ -263,6 +270,19 @@ public:
     StaticMap()
         : Map<Key, Value>(mArray)
     {
+    }
+
+    StaticMap(const StaticMap& map)
+        : Map<Key, Value>(mArray)
+        , mArray(map.mArray)
+    {
+    }
+
+    StaticMap& operator=(const StaticMap& map)
+    {
+        mArray = map.mArray;
+
+        return *this;
     }
 
 private:
