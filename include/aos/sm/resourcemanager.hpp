@@ -9,6 +9,7 @@
 #define AOS_RESOURCEMANAGER_HPP_
 
 #include "aos/common/tools/error.hpp"
+#include "aos/common/tools/map.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/string.hpp"
@@ -31,6 +32,25 @@ static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_RESOURCEMANAGER_NODE_CONFI
 struct NodeConfig {
     aos::NodeConfig           mNodeConfig;
     StaticString<cVersionLen> mVersion;
+
+    /**
+     * Compares node config.
+     *
+     * @param nodeConfig node config to compare.
+     * @return bool.
+     */
+    bool operator==(const NodeConfig& nodeConfig) const
+    {
+        return mNodeConfig == nodeConfig.mNodeConfig && mVersion == nodeConfig.mVersion;
+    }
+
+    /**
+     * Compares node config.
+     *
+     * @param nodeConfig node config to compare.
+     * @return bool.
+     */
+    bool operator!=(const NodeConfig& nodeConfig) const { return !operator==(nodeConfig); }
 };
 
 /**
@@ -73,59 +93,12 @@ public:
     virtual ~HostDeviceManagerItf() = default;
 
     /**
-     * Allocates device for instance.
-     *
-     * @param deviceInfo device info.
-     * @param instanceID instance ID.
-     * @return Error.
-     */
-    virtual Error AllocateDevice(const DeviceInfo& deviceInfo, const String& instanceID) = 0;
-
-    /**
-     * Removes instance from device.
-     *
-     * @param deviceName device name.
-     * @param instanceID instance ID.
-     * @return Error.
-     */
-    virtual Error RemoveInstanceFromDevice(const String& deviceName, const String& instanceID) = 0;
-
-    /**
-     * Removes instance from all devices.
-     *
-     * @param instanceID instance ID.
-     * @return Error.
-     */
-    virtual Error RemoveInstanceFromAllDevices(const String& instanceID) = 0;
-
-    /**
-     * Returns ID list of instances that allocate specific device.
-     *
-     * @param deviceName device name.
-     * @param instances[out] param to store instance ID(s).
-     * @return Error.
-     */
-    virtual Error GetDeviceInstances(const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const
-        = 0;
-
-    /**
      * Checks if device exists.
      *
      * @param device device name.
      * @return true if device exists, false otherwise.
      */
-    virtual bool DeviceExists(const String& device) const = 0;
-};
-
-/**
- * Host group manager interface.
- */
-class HostGroupManagerItf {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~HostGroupManagerItf() = default;
+    virtual Error CheckDevice(const String& device) const = 0;
 
     /**
      * Checks if group exists.
@@ -133,7 +106,26 @@ public:
      * @param group group name.
      * @return true if group exists, false otherwise.
      */
-    virtual bool GroupExists(const String& group) const = 0;
+    virtual Error CheckGroup(const String& group) const = 0;
+};
+
+/**
+ * Node config receiver interface.
+ */
+class NodeConfigReceiverItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~NodeConfigReceiverItf() = default;
+
+    /**
+     * Receives node config.
+     *
+     * @param nodeConfig node config.
+     * @return Error.
+     */
+    virtual Error ReceiveNodeConfig(const NodeConfig& nodeConfig) = 0;
 };
 
 /**
@@ -152,6 +144,14 @@ public:
      * @return RetWithError<StaticString<cVersionLen>>.
      */
     virtual RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const = 0;
+
+    /**
+     * Returns node config.
+     *
+     * @param nodeConfig[out] param to store node config.
+     * @return Error.
+     */
+    virtual Error GetNodeConfig(aos::NodeConfig& nodeConfig) const = 0;
 
     /**
      * Gets device info by name.
@@ -198,6 +198,13 @@ public:
     virtual Error ReleaseDevices(const String& instanceID) = 0;
 
     /**
+     * Resets allocated devices.
+     *
+     * @return Error.
+     */
+    virtual Error ResetAllocatedDevices() = 0;
+
+    /**
      * Returns ID list of instances that allocate specific device.
      *
      * @param deviceName device name.
@@ -224,6 +231,22 @@ public:
      * @return Error.
      */
     virtual Error UpdateNodeConfig(const String& version, const String& config) = 0;
+
+    /**
+     * Subscribes to current node config change.
+     *
+     * @param receiver node config receiver.
+     * @return Error.
+     */
+    virtual Error SubscribeCurrentNodeConfigChange(NodeConfigReceiverItf& receiver) = 0;
+
+    /**
+     * Unsubscribes to current node config change.
+     *
+     * @param receiver node config receiver.
+     * @return Error.
+     */
+    virtual Error UnsubscribeCurrentNodeConfigChange(NodeConfigReceiverItf& receiver) = 0;
 };
 
 /**
@@ -233,17 +256,21 @@ public:
 class ResourceManager : public ResourceManagerItf, private NonCopyable {
 public:
     /**
+     * Destructor.
+     */
+    ~ResourceManager();
+
+    /**
      * Initializes the object.
      *
      * @param jsonProvider JSON provider.
      * @param hostDeviceManager host device manager.
-     * @param hostGroupManager host group manager.
      * @param nodeType node type.
      * @param configPath path to config file.
      * @result Error.
      */
-    Error Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf& hostDeviceManager,
-        HostGroupManagerItf& hostGroupManager, const String& nodeType, const String& configPath);
+    Error Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf& hostDeviceManager, const String& nodeType,
+        const String& configPath);
 
     /**
      * Returns current node config version.
@@ -251,6 +278,14 @@ public:
      * @return RetWithError<StaticString<cVersionLen>>.
      */
     RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const override;
+
+    /**
+     * Returns node config.
+     *
+     * @param nodeConfig[out] param to store node config.
+     * @return Error.
+     */
+    Error GetNodeConfig(aos::NodeConfig& nodeConfig) const override;
 
     /**
      * Gets device info by name.
@@ -297,6 +332,13 @@ public:
     Error ReleaseDevices(const String& instanceID) override;
 
     /**
+     * Resets allocated devices.
+     *
+     * @return Error.
+     */
+    Error ResetAllocatedDevices() override;
+
+    /**
      * Returns ID list of instances that allocate specific device.
      *
      * @param deviceName device name.
@@ -323,21 +365,43 @@ public:
      */
     Error UpdateNodeConfig(const String& version, const String& config) override;
 
+    /**
+     * Subscribes to current node config change.
+     *
+     * @param receiver node config receiver.
+     * @return Error.
+     */
+    Error SubscribeCurrentNodeConfigChange(NodeConfigReceiverItf& receiver) override;
+
+    /**
+     * Unsubscribes to current node config change.
+     *
+     * @param receiver node config receiver.
+     * @return Error.
+     */
+    Error UnsubscribeCurrentNodeConfigChange(NodeConfigReceiverItf& receiver) override;
+
 private:
+    static constexpr auto cMaxNodeConfigChangeSubscribers = 2;
+
     Error LoadConfig();
     Error WriteConfig(const NodeConfig& config);
     Error ValidateNodeConfig(const NodeConfig& config) const;
     Error ValidateDevices(const Array<DeviceInfo>& devices) const;
     Error GetConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const;
 
-    mutable Mutex              mMutex;
-    JSONProviderItf*           mJsonProvider {nullptr};
-    HostDeviceManagerItf*      mHostDeviceManager {nullptr};
-    HostGroupManagerItf*       mHostGroupManager {nullptr};
-    StaticString<cNodeTypeLen> mNodeType;
-    StaticString<cFilePathLen> mConfigPath;
-    Error                      mConfigError {ErrorEnum::eNone};
-    NodeConfig                 mConfig;
+    mutable Mutex                                                        mMutex;
+    JSONProviderItf*                                                     mJsonProvider {nullptr};
+    HostDeviceManagerItf*                                                mHostDeviceManager {nullptr};
+    StaticString<cNodeTypeLen>                                           mNodeType;
+    StaticString<cFilePathLen>                                           mConfigPath;
+    Error                                                                mConfigError {ErrorEnum::eNone};
+    NodeConfig                                                           mConfig;
+    StaticArray<NodeConfigReceiverItf*, cMaxNodeConfigChangeSubscribers> mSubscribers;
+
+    mutable StaticMap<StaticString<cDeviceNameLen>, StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>,
+        cMaxNumDevices>
+        mAllocatedDevices;
 
     mutable StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig)> mAllocator;
 };

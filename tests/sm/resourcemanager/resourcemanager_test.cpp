@@ -26,66 +26,50 @@ namespace resourcemanager {
  * Constants
  **********************************************************************************************************************/
 
-constexpr auto      cTestNodeConfigJSON = R"({
-	"nodeType": "mainType",
-	"devices": [
-		{
-			"name": "random",
-			"sharedCount": 0,
-			"groups": [
-				"root"
-			],
-			"hostDevices": [
-				"/dev/random"
-			]
-		},
-		{
-			"name": "null",
-			"sharedCount": 2,
-			"hostDevices": [
-				"/dev/null"
-			]
-		},
-		{
-			"name": "input",
-			"sharedCount": 2,
-			"hostDevices": [
-				"/dev/input/by-path"
-			]
-		},
-		{
-			"name": "stdin",
-			"sharedCount": 2,
-			"hostDevices": [
-				"/dev/stdin"
-			]
-		}
-	],
-	"resources": [
-		{
-			"name": "bluetooth",
-			"groups": ["bluetooth"]
-		},
-		{
-			"name": "wifi",
-			"groups": ["wifi-group"]
-		},
-		{
-			"name": "system-dbus",
-			"mounts": [{
-				"destination": "/var/run/dbus/system_bus_socket",
-				"type": "bind",
-				"source": "/var/run/dbus/system_bus_socket",
-				"options": ["rw", "bind"]
-			}],
-			"env": ["DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket"]
-		}
-	]
-})";
-static const String cConfigFilePath     = "test-config.cfg";
-static const String cConfigValue        = R"({"version": "1.0.0"})";
-static const String cConfigVersion      = "1.0.0";
-static const String cNodeType           = "mainType";
+static constexpr auto cConfigFilePath       = "test-config.cfg";
+static constexpr auto cConfigFileContent    = "";
+static constexpr auto cTestNodeConfigJSON   = "";
+static constexpr auto cConfigVersion        = "1.0.0";
+static constexpr auto cDefaultConfigVersion = "0.0.0";
+static constexpr auto cNodeType             = "mainType";
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+static DeviceInfo CreateDeviceInfo(
+    const String& name, int sharedCount, const std::vector<std::string>& hosts, const std::vector<std::string>& groups)
+{
+    DeviceInfo deviceInfo;
+
+    deviceInfo.mName        = name;
+    deviceInfo.mSharedCount = sharedCount;
+
+    for (const auto& host : hosts) {
+        deviceInfo.mHostDevices.PushBack(host.c_str());
+    }
+
+    for (const auto& group : groups) {
+        deviceInfo.mGroups.PushBack(group.c_str());
+    }
+
+    return deviceInfo;
+}
+
+static NodeConfig CreateNodeConfig(
+    const String& nodeType, const String& version, const std::vector<DeviceInfo>& devices = {})
+{
+    NodeConfig nodeConfig;
+
+    nodeConfig.mVersion              = version;
+    nodeConfig.mNodeConfig.mNodeType = nodeType;
+
+    for (const auto& device : devices) {
+        nodeConfig.mNodeConfig.mDevices.PushBack(device);
+    }
+
+    return nodeConfig;
+}
 
 /***********************************************************************************************************************
  * Suite
@@ -97,112 +81,75 @@ protected:
     {
         InitLog();
 
-        auto err = FS::WriteStringToFile(cConfigFilePath, cConfigValue, S_IRUSR | S_IWUSR);
+        auto err = FS::WriteStringToFile(cConfigFilePath, cConfigFileContent, S_IRUSR | S_IWUSR);
         EXPECT_TRUE(err.IsNone()) << "SetUp failed to write string to file: " << err.Message();
 
         mConfig.mVersion = cConfigVersion;
     }
 
-    void InitResourceManager(const ErrorEnum cJSONParseError = ErrorEnum::eNone)
+    void InitResourceManager(ErrorEnum nodeConfigError = ErrorEnum::eNone)
     {
         EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
-            config = mConfig;
+            if (nodeConfigError == ErrorEnum::eNone) {
+                config = mConfig;
+            }
 
-            return cJSONParseError;
+            return nodeConfigError;
         }));
 
-        auto err
-            = mResourceManager.Init(mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cConfigFilePath);
+        auto err = mResourceManager.Init(mJsonProvider, mHostDeviceManager, cNodeType, cConfigFilePath);
         ASSERT_TRUE(err.IsNone()) << "Failed to initialize resource manager: " << err.Message();
     }
 
-    void AddRandomDeviceInfo(aos::sm::resourcemanager::NodeConfig& config)
-    {
-        DeviceInfo randomDeviceInfo;
-        randomDeviceInfo.mName        = "random";
-        randomDeviceInfo.mSharedCount = 0;
-
-        auto err = randomDeviceInfo.mGroups.PushBack("root");
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to add a new group: " << err;
-        }
-
-        err = randomDeviceInfo.mHostDevices.PushBack("/dev/random");
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to add a new host device: " << err;
-        }
-
-        err = config.mNodeConfig.mDevices.PushBack(Move(randomDeviceInfo));
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to add a new resource: " << err;
-        }
-    }
-
-    void AddNullDeviceInfo(aos::sm::resourcemanager::NodeConfig& config)
-    {
-        DeviceInfo nullDeviceInfo;
-        nullDeviceInfo.mName        = "null";
-        nullDeviceInfo.mSharedCount = 2;
-
-        auto err = nullDeviceInfo.mHostDevices.PushBack("/dev/null");
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to add a new host device: " << err;
-        }
-
-        err = config.mNodeConfig.mDevices.PushBack(Move(nullDeviceInfo));
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to add a new resource: " << err;
-        }
-    }
-
-    void EnrichUnitConfig(aos::sm::resourcemanager::NodeConfig& config, const String& nodeType, const String& version)
-    {
-        config.mVersion              = version;
-        config.mNodeConfig.mNodeType = nodeType;
-
-        AddRandomDeviceInfo(config);
-        AddNullDeviceInfo(config);
-    }
-
-    NodeConfig            mConfig;
-    JSONProviderMock      mJsonProvider;
-    HostDeviceManagerMock mHostDeviceManager;
-    HostGroupManagerMock  mHostGroupManager;
-    ResourceManager       mResourceManager;
+    NodeConfig             mConfig = CreateNodeConfig(cNodeType, cConfigVersion);
+    JSONProviderMock       mJsonProvider;
+    HostDeviceManagerMock  mHostDeviceManager;
+    ResourceManager        mResourceManager;
+    NodeConfigReceiverMock mNodeConfigReceiver;
 };
 
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(ResourceManagerTest, InitSuccessfullyParsesUnitConfigFile)
+TEST_F(ResourceManagerTest, InitSucceeds)
 {
     InitResourceManager();
+
+    aos::NodeConfig nodeConfig;
+
+    ASSERT_TRUE(mResourceManager.GetNodeConfig(nodeConfig).IsNone());
+    EXPECT_EQ(nodeConfig, mConfig.mNodeConfig);
+
+    auto [version, err] = mResourceManager.GetNodeConfigVersion();
+
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_EQ(version, mConfig.mVersion);
 }
 
-TEST_F(ResourceManagerTest, InitSucceedsWhenUnitConfigFileDoesNotExist)
+TEST_F(ResourceManagerTest, NodeConfigFileMissingIsNotAnError)
 {
     FS::Remove(cConfigFilePath);
 
     EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).Times(0);
 
-    auto err = mResourceManager.Init(mJsonProvider, mHostDeviceManager, mHostGroupManager, cNodeType, cConfigFilePath);
-    ASSERT_TRUE(err.IsNone()) << "Failed to initialize resource manager: " << err.Message();
+    ASSERT_TRUE(mResourceManager.Init(mJsonProvider, mHostDeviceManager, cNodeType, cConfigFilePath).IsNone());
+
+    auto [version, err] = mResourceManager.GetNodeConfigVersion();
+
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_EQ(version, String(cDefaultConfigVersion));
 }
 
-TEST_F(ResourceManagerTest, InitSucceedsWhenUnitConfigParseFails)
+TEST_F(ResourceManagerTest, InitSucceedsWhenNodeConfigParseFails)
 {
-    InitResourceManager(ErrorEnum::eFailed);
-}
+    const auto expectedError = ErrorEnum::eFailed;
 
-TEST_F(ResourceManagerTest, GetUnitConfigSucceeds)
-{
-    InitResourceManager();
+    InitResourceManager(expectedError);
 
-    auto ret = mResourceManager.GetNodeConfigVersion();
-    ASSERT_TRUE(ret.mError.IsNone()) << "Failed to get node config version: " << ret.mError.Message();
+    aos::NodeConfig nodeConfig;
 
-    EXPECT_EQ(ret.mValue, cConfigVersion) << "lhs: " << ret.mValue.CStr() << " rhs: " << cConfigVersion.CStr();
+    ASSERT_TRUE(mResourceManager.GetNodeConfig(nodeConfig).Is(expectedError));
 }
 
 TEST_F(ResourceManagerTest, GetDeviceInfoFails)
@@ -219,15 +166,19 @@ TEST_F(ResourceManagerTest, GetDeviceInfoFails)
 
 TEST_F(ResourceManagerTest, GetDeviceInfoSucceeds)
 {
-    DeviceInfo result;
+    const auto deviceInfo = CreateDeviceInfo("random", 0, {"/dev/random"}, {"root"});
 
-    AddRandomDeviceInfo(mConfig);
+    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(deviceInfo).IsNone());
+    EXPECT_CALL(mHostDeviceManager, CheckDevice(String("/dev/random"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mHostDeviceManager, CheckGroup(String("root"))).WillOnce(Return(ErrorEnum::eNone));
+
+    DeviceInfo result;
 
     InitResourceManager();
 
-    auto err = mResourceManager.GetDeviceInfo("random", result);
-    ASSERT_TRUE(err.IsNone()) << "Failed to get device info: " << err.Message();
-    ASSERT_EQ(result.mName, "random") << "Device info name is not equal to expected";
+    ASSERT_TRUE(mResourceManager.GetDeviceInfo(deviceInfo.mName, result).IsNone());
+
+    ASSERT_EQ(deviceInfo, result) << "Device info name is not equal to expected";
 }
 
 TEST_F(ResourceManagerTest, GetResourceInfoFailsOnEmptyResourcesConfig)
@@ -284,115 +235,172 @@ TEST_F(ResourceManagerTest, AllocateDeviceFailsDueToConfigParseError)
 {
     InitResourceManager(ErrorEnum::eFailed);
 
-    auto err = mResourceManager.AllocateDevice("device-name", "instance-id");
-    ASSERT_FALSE(err.IsNone()) << "Allocate device should fail due to config parse error";
+    ASSERT_FALSE(mResourceManager.AllocateDevice("device-name", "instance-id").IsNone());
 }
 
 TEST_F(ResourceManagerTest, AllocateDeviceFailsOnDeviceNotFoundInConfig)
 {
+    mConfig.mNodeConfig.mDevices.Clear();
+
     InitResourceManager();
 
-    EXPECT_CALL(mHostDeviceManager, AllocateDevice).Times(0);
-
-    auto err = mResourceManager.AllocateDevice("device-name", "instance-id");
-    ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Expected error not found, got: " << err.Message();
+    ASSERT_TRUE(mResourceManager.AllocateDevice("device-name", "instance-id").Is(ErrorEnum::eNotFound));
 }
 
-TEST_F(ResourceManagerTest, AllocateDeviceFailsOnHostDeviceManagerSide)
+TEST_F(ResourceManagerTest, AllocateDevice)
 {
-    DeviceInfo deviceInfo;
-    deviceInfo.mName = "device-name";
+    struct TestCase {
+        DeviceInfo                                mDeviceInfo;
+        std::vector<StaticString<cInstanceIDLen>> mInstancesToAllocate;
+        std::vector<StaticString<cInstanceIDLen>> mExpectedInstances;
+    } testCases[] = {
+        {CreateDeviceInfo("device0", 0, {"/dev/zero"}, {"group0"}), {"instance0", "instance1", "instance2"},
+            {"instance0", "instance1", "instance2"}},
+        {CreateDeviceInfo("device1", 1, {"/dev/one"}, {"group1"}), {"instance0", "instance1", "instance2"},
+            {"instance0"}},
+        {CreateDeviceInfo("device2", 2, {"/dev/two"}, {"group2"}), {"instance0", "instance1", "instance2"},
+            {"instance0", "instance1"}},
+    };
 
-    auto err = mConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
-    ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
+    StaticArray<StaticString<cInstanceIDLen>, ArraySize(testCases)> instances;
+
+    // Initialize resource manager config
+    for (const auto& testCase : testCases) {
+        ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(testCase.mDeviceInfo).IsNone());
+
+        EXPECT_CALL(mHostDeviceManager, CheckDevice(testCase.mDeviceInfo.mHostDevices[0]))
+            .WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mHostDeviceManager, CheckGroup(testCase.mDeviceInfo.mGroups[0])).WillOnce(Return(ErrorEnum::eNone));
+    }
 
     InitResourceManager();
 
-    const auto cExpectedError = ErrorEnum::eFailed;
-    EXPECT_CALL(mHostDeviceManager, AllocateDevice).WillOnce(Return(cExpectedError));
+    for (const auto& testCase : testCases) {
+        for (const auto& instance : testCase.mInstancesToAllocate) {
+            bool expected = std::find(testCase.mExpectedInstances.begin(), testCase.mExpectedInstances.end(), instance)
+                != testCase.mExpectedInstances.end();
 
-    err = mResourceManager.AllocateDevice(deviceInfo.mName, "instance-id");
-    ASSERT_TRUE(err.Is(cExpectedError));
+            ASSERT_EQ(mResourceManager.AllocateDevice(testCase.mDeviceInfo.mName, instance).IsNone(), expected)
+                << "Allocate device expected to return " << (expected ? "error" : "success") << " for instance "
+                << instance.CStr();
+        }
+
+        instances.Clear();
+
+        ASSERT_TRUE(mResourceManager.GetDeviceInstances(testCase.mDeviceInfo.mName, instances).IsNone());
+
+        ASSERT_EQ(instances,
+            Array<StaticString<cInstanceIDLen>>(testCase.mExpectedInstances.data(), testCase.mExpectedInstances.size()))
+            << "Allocated instances mismatch for device " << testCase.mDeviceInfo.mName.CStr();
+    }
 }
 
-TEST_F(ResourceManagerTest, AllocateDeviceSucceeds)
+TEST_F(ResourceManagerTest, AllocateDeviceForTheSameInstanceIsNotAnError)
 {
-    DeviceInfo deviceInfo;
-    deviceInfo.mName = "device-name";
+    const auto deviceInfo = CreateDeviceInfo("device0", 1, {"/dev/zero"}, {"group0"});
 
-    auto err = mConfig.mNodeConfig.mDevices.PushBack(deviceInfo);
-    ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
+    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(deviceInfo).IsNone());
+
+    EXPECT_CALL(mHostDeviceManager, CheckDevice(deviceInfo.mHostDevices[0])).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mHostDeviceManager, CheckGroup(deviceInfo.mGroups[0])).WillOnce(Return(ErrorEnum::eNone));
 
     InitResourceManager();
 
-    EXPECT_CALL(mHostDeviceManager, AllocateDevice).WillOnce(Return(ErrorEnum::eNone));
+    for (size_t i = 0; i < 2; ++i) {
+        ASSERT_TRUE(mResourceManager.AllocateDevice(deviceInfo.mName, "instance0").IsNone());
+    }
 
-    err = mResourceManager.AllocateDevice(deviceInfo.mName, "instance-id");
-    ASSERT_TRUE(err.IsNone()) << "Failed to allocate device: " << err.Message();
+    StaticArray<StaticString<cInstanceIDLen>, 2> instances;
+
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(deviceInfo.mName, instances).IsNone());
+
+    ASSERT_EQ(instances.Size(), 1);
+    ASSERT_EQ(instances[0], String("instance0"));
 }
 
-TEST_F(ResourceManagerTest, ReleaseDeviceFails)
+TEST_F(ResourceManagerTest, ReleaseDevice)
 {
+    const auto device0Info = CreateDeviceInfo("device0", 2, {"/dev/null"}, {"group0"});
+    const auto device1Info = CreateDeviceInfo("device1", 2, {"/dev/zero"}, {"group1"});
+
+    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(device0Info).IsNone());
+    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(device1Info).IsNone());
+
     InitResourceManager();
 
-    EXPECT_CALL(mHostDeviceManager, RemoveInstanceFromDevice).WillOnce(Return(ErrorEnum::eNotFound));
+    ASSERT_TRUE(mResourceManager.ReleaseDevice(device0Info.mName, "unknown").Is(ErrorEnum::eNotFound));
+    ASSERT_TRUE(mResourceManager.ReleaseDevices(device1Info.mName).Is(ErrorEnum::eNotFound));
 
-    auto err = mResourceManager.ReleaseDevice("device-name", "instance-id");
-    ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Expected error not found, got: " << err.Message();
+    ASSERT_TRUE(mResourceManager.AllocateDevice(device0Info.mName, "instance0").IsNone());
+    ASSERT_TRUE(mResourceManager.AllocateDevice(device1Info.mName, "instance0").IsNone());
+
+    ASSERT_TRUE(mResourceManager.AllocateDevice(device0Info.mName, "instance1").IsNone());
+
+    // shared count exceeded
+    ASSERT_FALSE(mResourceManager.AllocateDevice(device0Info.mName, "instance2").IsNone());
+
+    // release one instance
+    ASSERT_TRUE(mResourceManager.ReleaseDevice(device0Info.mName, "instance0").IsNone());
+
+    StaticArray<StaticString<cInstanceIDLen>, 2> instances;
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(device0Info.mName, instances).IsNone());
+
+    ASSERT_EQ(instances.Size(), 1);
+    ASSERT_EQ(instances[0], "instance1");
+
+    ASSERT_TRUE(mResourceManager.AllocateDevice(device0Info.mName, "instance2").IsNone());
+
+    instances.Clear();
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(device0Info.mName, instances).IsNone());
+
+    ASSERT_EQ(instances.Size(), 2);
+    ASSERT_EQ(instances[0], String("instance1"));
+    ASSERT_EQ(instances[1], String("instance2"));
+
+    // clear all instances from device
+    ASSERT_TRUE(mResourceManager.ReleaseDevice(device0Info.mName, "instance1").IsNone());
+    ASSERT_TRUE(mResourceManager.ReleaseDevices("instance2").IsNone());
+
+    instances.Clear();
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(device0Info.mName, instances).Is(ErrorEnum::eNotFound));
+
+    instances.Clear();
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(device1Info.mName, instances).IsNone());
+
+    ASSERT_EQ(instances.Size(), 1);
+    ASSERT_EQ(instances[0], "instance0");
 }
 
-TEST_F(ResourceManagerTest, ReleaseDeviceSucceeds)
+TEST_F(ResourceManagerTest, ResetAllocatedDevices)
 {
+    const auto deviceInfo = CreateDeviceInfo("device0", 2, {"/dev/zero"}, {"group0"});
+
+    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(deviceInfo).IsNone());
+
     InitResourceManager();
 
-    EXPECT_CALL(mHostDeviceManager, RemoveInstanceFromDevice).WillOnce(Return(ErrorEnum::eNone));
+    ASSERT_TRUE(mResourceManager.AllocateDevice(deviceInfo.mName, "instance0").IsNone());
+    ASSERT_TRUE(mResourceManager.AllocateDevice(deviceInfo.mName, "instance1").IsNone());
 
-    auto err = mResourceManager.ReleaseDevice("device-name", "instance-id");
-    ASSERT_TRUE(err.IsNone()) << "Failed to release device: " << err.Message();
+    StaticArray<StaticString<cInstanceIDLen>, 2> instances;
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(deviceInfo.mName, instances).IsNone());
+
+    ASSERT_EQ(instances.Size(), 2);
+
+    ASSERT_TRUE(mResourceManager.ResetAllocatedDevices().IsNone());
+
+    // device should be empty cause all instances are released
+    instances.Clear();
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances(deviceInfo.mName, instances).Is(ErrorEnum::eNotFound));
 }
 
-TEST_F(ResourceManagerTest, ReleaseDevicesFails)
+TEST_F(ResourceManagerTest, GetDeviceInstancesReturnsNotFound)
 {
     InitResourceManager();
 
-    EXPECT_CALL(mHostDeviceManager, RemoveInstanceFromAllDevices).WillOnce(Return(ErrorEnum::eNotFound));
+    StaticArray<StaticString<cInstanceIDLen>, 1> instances;
 
-    auto err = mResourceManager.ReleaseDevices("instance-id");
-    ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Expected error not found, got: " << err.Message();
-}
-
-TEST_F(ResourceManagerTest, ReleaseDevicesSucceeds)
-{
-    InitResourceManager();
-
-    EXPECT_CALL(mHostDeviceManager, RemoveInstanceFromAllDevices).WillOnce(Return(ErrorEnum::eNone));
-
-    auto err = mResourceManager.ReleaseDevices("instance-id");
-    ASSERT_TRUE(err.IsNone()) << "Failed to release devices: " << err.Message();
-}
-
-TEST_F(ResourceManagerTest, GetDeviceInstancesFails)
-{
-    Array<StaticString<cInstanceIDLen>> instances;
-
-    InitResourceManager();
-
-    EXPECT_CALL(mHostDeviceManager, GetDeviceInstances).WillOnce(Return(ErrorEnum::eNotFound));
-
-    auto err = mResourceManager.GetDeviceInstances("device-name", instances);
-    ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Expected error not found, got: " << err.Message();
-}
-
-TEST_F(ResourceManagerTest, GetDeviceInstancesSucceeds)
-{
-    Array<StaticString<cInstanceIDLen>> instances;
-
-    InitResourceManager();
-
-    EXPECT_CALL(mHostDeviceManager, GetDeviceInstances).WillOnce(Return(ErrorEnum::eNone));
-
-    auto err = mResourceManager.GetDeviceInstances("device-name", instances);
-    ASSERT_TRUE(err.IsNone()) << "Failed to get device instances: " << err.Message();
+    ASSERT_TRUE(mResourceManager.GetDeviceInstances("unknown", instances).Is(ErrorEnum::eNotFound));
 }
 
 TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnVendorMatch)
@@ -439,77 +447,87 @@ TEST_F(ResourceManagerTest, CheckNodeConfigSucceedsOnEmptyNodeConfigDevices)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
-    EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
+    EXPECT_CALL(mHostDeviceManager, CheckDevice).Times(0);
+    EXPECT_CALL(mHostDeviceManager, CheckGroup).Times(0);
 
     auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();
 }
 
-TEST_F(ResourceManagerTest, CheckUnitConfigSucceedsOnNonEmptyUnitConfigDevices)
-{
-    InitResourceManager();
-
-    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
-        EnrichUnitConfig(config, cNodeType, "1.0.2");
-
-        return ErrorEnum::eNone;
-    }));
-
-    EXPECT_CALL(mHostDeviceManager, DeviceExists).WillRepeatedly(Return(true));
-    EXPECT_CALL(mHostGroupManager, GroupExists).WillRepeatedly(Return(true));
-
-    auto err = mResourceManager.CheckNodeConfig("1.0.2", cTestNodeConfigJSON);
-    ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();
-}
-
-TEST_F(ResourceManagerTest, UpdateUnitConfigFailsOnInvalidJSON)
+TEST_F(ResourceManagerTest, UpdateNodeConfigFailsOnInvalidJSON)
 {
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Return(ErrorEnum::eFailed));
 
-    EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
-    EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
+    EXPECT_CALL(mHostDeviceManager, CheckDevice).Times(0);
+    EXPECT_CALL(mHostDeviceManager, CheckGroup).Times(0);
     EXPECT_CALL(mJsonProvider, NodeConfigToJSON).Times(0);
 
     auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_FALSE(err.IsNone()) << "Update unit config should fail on invalid JSON";
 }
 
-TEST_F(ResourceManagerTest, UpdateUnitConfigFailsOnJSONDump)
+TEST_F(ResourceManagerTest, UpdateNodeConfigFailsOnJSONDump)
 {
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mJsonProvider, NodeConfigToJSON).WillOnce(Return(ErrorEnum::eFailed));
 
-    EXPECT_CALL(mHostDeviceManager, DeviceExists).Times(0);
-    EXPECT_CALL(mHostGroupManager, GroupExists).Times(0);
+    EXPECT_CALL(mHostDeviceManager, CheckDevice).Times(0);
+    EXPECT_CALL(mHostDeviceManager, CheckGroup).Times(0);
 
     auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
     ASSERT_FALSE(err.IsNone()) << "Update unit config should fail on JSON dump";
 }
 
-TEST_F(ResourceManagerTest, UpdateUnitConfigSucceeds)
+TEST_F(ResourceManagerTest, UpdateNodeConfigSucceedsAndObserverIsNotified)
 {
+    const auto device        = CreateDeviceInfo("device-name", 0, {"/dev/random"}, {"root"});
+    const auto updatedConfig = CreateNodeConfig(cNodeType, "1.0.2", {device});
+
     InitResourceManager();
 
-    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON)
-        .Times(2)
-        .WillRepeatedly(Invoke([&](const String&, aos::sm::resourcemanager::NodeConfig& config) {
-            EnrichUnitConfig(config, cNodeType, "1.0.2");
+    ASSERT_TRUE(mResourceManager.SubscribeCurrentNodeConfigChange(mNodeConfigReceiver).IsNone());
 
-            return ErrorEnum::eNone;
-        }));
-
-    EXPECT_CALL(mHostDeviceManager, DeviceExists).WillRepeatedly(Return(true));
-    EXPECT_CALL(mHostGroupManager, GroupExists).WillRepeatedly(Return(true));
-
+    EXPECT_CALL(mNodeConfigReceiver, ReceiveNodeConfig(updatedConfig)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mJsonProvider, NodeConfigToJSON).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(updatedConfig), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mHostDeviceManager, CheckDevice).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mHostDeviceManager, CheckGroup).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    auto err = mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON);
-    ASSERT_TRUE(err.IsNone()) << "Failed to check unit config: " << err.Message();
+    ASSERT_TRUE(mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON).IsNone());
+
+    ASSERT_TRUE(mResourceManager.UnsubscribeCurrentNodeConfigChange(mNodeConfigReceiver).IsNone());
+}
+
+TEST_F(ResourceManagerTest, UpdateNodeConfigFailsAndObserverIsNotNotified)
+{
+    const auto device        = CreateDeviceInfo("device-name", 0, {"/dev/random"}, {"root"});
+    const auto updatedConfig = CreateNodeConfig(cNodeType, "1.0.2", {device});
+
+    InitResourceManager();
+
+    ASSERT_TRUE(mResourceManager.SubscribeCurrentNodeConfigChange(mNodeConfigReceiver).IsNone());
+
+    EXPECT_CALL(mNodeConfigReceiver, ReceiveNodeConfig).Times(0);
+    EXPECT_CALL(mJsonProvider, NodeConfigToJSON).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mJsonProvider, NodeConfigFromJSON)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(updatedConfig), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mHostDeviceManager, CheckDevice).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mHostDeviceManager, CheckGroup).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    ASSERT_FALSE(mResourceManager.UpdateNodeConfig("1.0.2", cTestNodeConfigJSON).IsNone());
+
+    ASSERT_TRUE(mResourceManager.UnsubscribeCurrentNodeConfigChange(mNodeConfigReceiver).IsNone());
+}
+
+TEST_F(ResourceManagerTest, SubscribeReturnsErrorIfAlreadySubscribed)
+{
+    ASSERT_TRUE(mResourceManager.SubscribeCurrentNodeConfigChange(mNodeConfigReceiver).IsNone());
+    ASSERT_TRUE(mResourceManager.SubscribeCurrentNodeConfigChange(mNodeConfigReceiver).Is(ErrorEnum::eAlreadyExist));
 }
 
 } // namespace resourcemanager

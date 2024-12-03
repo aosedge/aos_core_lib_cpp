@@ -29,19 +29,16 @@ public:
  */
 class HostDeviceManagerMock : public HostDeviceManagerItf {
 public:
-    MOCK_METHOD(Error, AllocateDevice, (const DeviceInfo&, const String&), (override));
-    MOCK_METHOD(Error, RemoveInstanceFromDevice, (const String&, const String&), (override));
-    MOCK_METHOD(Error, RemoveInstanceFromAllDevices, (const String&), (override));
-    MOCK_METHOD(Error, GetDeviceInstances, (const String&, Array<StaticString<cInstanceIDLen>>&), (const override));
-    MOCK_METHOD(bool, DeviceExists, (const String&), (const override));
+    MOCK_METHOD(Error, CheckDevice, (const String&), (const override));
+    MOCK_METHOD(Error, CheckGroup, (const String&), (const override));
 };
 
 /**
- * Host group manager mock.
+ * Node config receiver mock.
  */
-class HostGroupManagerMock : public HostGroupManagerItf {
+class NodeConfigReceiverMock : public NodeConfigReceiverItf {
 public:
-    MOCK_METHOD(bool, GroupExists, (const String&), (const override));
+    MOCK_METHOD(Error, ReceiveNodeConfig, (const NodeConfig&), (override));
 };
 
 } // namespace resourcemanager
