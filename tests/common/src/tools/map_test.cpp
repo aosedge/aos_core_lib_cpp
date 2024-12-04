@@ -18,6 +18,78 @@ Array<T> static ConvertToArray(const std::initializer_list<T>& list)
     return Array<T>(list.begin(), list.size());
 }
 
+TEST(MapTest, FindByKey)
+{
+    std::initializer_list<Pair<std::string, int>> source = {
+        {"0xA", 10},
+        {"0xB", 11},
+        {"0xC", 12},
+        {"0xD", 13},
+        {"0xE", 14},
+        {"0xF", 15},
+    };
+
+    StaticMap<std::string, int, 10> map;
+
+    ASSERT_TRUE(map.Assign(ConvertToArray(source)).IsNone());
+
+    for (const auto& [key, value] : source) {
+        auto item = map.Find(key);
+
+        ASSERT_TRUE(item.mError.IsNone());
+        EXPECT_EQ(item.mValue->mFirst, key);
+        EXPECT_EQ(item.mValue->mSecond, value);
+    }
+}
+
+TEST(MapTest, Erase)
+{
+    std::initializer_list<Pair<std::string, int>> source = {
+        {"0xA", 10},
+        {"0xB", 11},
+        {"0xC", 12},
+        {"0xD", 13},
+        {"0xE", 14},
+        {"0xF", 15},
+    };
+
+    StaticMap<std::string, int, 10> map;
+
+    ASSERT_TRUE(map.Assign(ConvertToArray(source)).IsNone());
+
+    ASSERT_EQ(map.Size(), source.size());
+
+    auto it = map.Find("0xC");
+    ASSERT_TRUE(it.mError.IsNone());
+
+    ASSERT_NE(map.Erase(it.mValue), map.end());
+    ASSERT_EQ(map.Size(), source.size() - 1);
+
+    ASSERT_FALSE(map.Contains("0xC"));
+}
+
+TEST(MapTest, Contains)
+{
+    std::initializer_list<Pair<std::string, int>> source = {
+        {"0xA", 10},
+        {"0xB", 11},
+        {"0xC", 12},
+        {"0xD", 13},
+        {"0xE", 14},
+        {"0xF", 15},
+    };
+
+    StaticMap<std::string, int, 10> map;
+
+    ASSERT_TRUE(map.Assign(ConvertToArray(source)).IsNone());
+
+    for (const auto& [key, value] : source) {
+        EXPECT_TRUE(map.Contains(key));
+    }
+
+    EXPECT_FALSE(map.Contains("not found"));
+}
+
 TEST(MapTest, AssignArray)
 {
     std::initializer_list<Pair<std::string, int>> source = {
