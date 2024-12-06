@@ -42,6 +42,14 @@ public:
         = 0;
 
     /**
+     * Validates service.
+     *
+     * @param path service path.
+     * @return Error.
+     */
+    virtual Error ValidateService(const String& path) const = 0;
+
+    /**
      * Calculates digest for the given path or file.
      *
      * @param path root folder or file.

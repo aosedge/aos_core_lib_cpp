@@ -71,6 +71,13 @@ public:
         return {val, ErrorEnum::eNone};
     }
 
+    Error ValidateService(const String& path) const override
+    {
+        (void)path;
+
+        return ErrorEnum::eNone;
+    }
+
     RetWithError<StaticString<oci::cMaxDigestLen>> CalculateDigest(const String& path) const override
     {
         (void)path;

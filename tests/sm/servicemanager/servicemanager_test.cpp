@@ -7,6 +7,7 @@
 
 #include <algorithm>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "aos/sm/servicemanager.hpp"
@@ -14,7 +15,44 @@
 #include "aos/test/log.hpp"
 #include "aos/test/utils.hpp"
 
+#include "imagehandlerstub.hpp"
+#include "spaceallocatorstub.hpp"
+
+using testing::Return;
+
 namespace aos::sm::servicemanager {
+
+/***********************************************************************************************************************
+ * Constants
+ **********************************************************************************************************************/
+
+static constexpr auto cTestRootDir = "servicemanager_test";
+static const auto     cServicesDir = FS::JoinPath(cTestRootDir, "services");
+static const auto     cDownloadDir = FS::JoinPath(cTestRootDir, "download");
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+Config CreateConfig()
+{
+    Config config;
+
+    config.mServicesDir = cServicesDir;
+    config.mDownloadDir = cDownloadDir;
+    config.mTTL         = aos::Time::cSeconds * 30;
+
+    return config;
+}
+
+bool CompareServiceData(const ServiceData& data1, const ServiceData& data2)
+{
+    return data1.mServiceID == data2.mServiceID && data1.mVersion == data2.mVersion && data1.mState == data2.mState;
+}
+
+} // namespace
 
 /***********************************************************************************************************************
  * Types
@@ -45,10 +83,13 @@ public:
     {
         (void)path;
 
-        manifest.mSchemaVersion       = 1;
-        manifest.mConfig.mDigest      = "sha256:11111111";
-        manifest.mAosService->mDigest = "sha256:22222222";
+        manifest.mSchemaVersion  = 1;
+        manifest.mConfig.mDigest = "sha256:11111111";
         manifest.mLayers.PushBack({"", "sha256:33333333", 1234});
+
+        if (manifest.mAosService) {
+            manifest.mAosService->mDigest = "sha256:22222222";
+        }
 
         return ErrorEnum::eNone;
     }
@@ -104,9 +145,12 @@ public:
     Error Download(const String& url, const String& path, downloader::DownloadContent contentType) override
     {
         (void)url;
-        (void)path;
 
         EXPECT_EQ(contentType, downloader::DownloadContentEnum::eService);
+
+        if (auto err = FS::MakeDirAll(path); !err.IsNone()) {
+            return err;
+        };
 
         return ErrorEnum::eNone;
     }
@@ -122,7 +166,9 @@ public:
         std::lock_guard lock {mMutex};
 
         if (std::find_if(mServices.begin(), mServices.end(),
-                [&service](const ServiceData& data) { return service.mServiceID == data.mServiceID; })
+                [&service](const ServiceData& data) {
+                    return service.mServiceID == data.mServiceID && service.mVersion == data.mVersion;
+                })
             != mServices.end()) {
             return ErrorEnum::eAlreadyExist;
         }
@@ -157,8 +203,9 @@ public:
     {
         std::lock_guard lock {mMutex};
 
-        auto it = std::find_if(mServices.begin(), mServices.end(),
-            [&service](const ServiceData& data) { return service.mServiceID == data.mServiceID; });
+        auto it = std::find_if(mServices.begin(), mServices.end(), [&service](const ServiceData& data) {
+            return service.mServiceID == data.mServiceID && service.mVersion == data.mVersion;
+        });
 
         if (it == mServices.end()) {
             return ErrorEnum::eNotFound;
@@ -173,10 +220,9 @@ public:
     {
         std::lock_guard lock {mMutex};
 
-        (void)version;
-
-        auto it = std::find_if(mServices.begin(), mServices.end(),
-            [&serviceID](const ServiceData& data) { return serviceID == data.mServiceID; });
+        auto it = std::find_if(mServices.begin(), mServices.end(), [&serviceID, &version](const ServiceData& data) {
+            return serviceID == data.mServiceID && version == data.mVersion;
+        });
         if (it == mServices.end()) {
             return ErrorEnum::eNotFound;
         }
@@ -200,9 +246,16 @@ public:
         return ErrorEnum::eNone;
     }
 
+    size_t Size() const
+    {
+        std::lock_guard lock {mMutex};
+
+        return mServices.size();
+    }
+
 private:
     std::vector<ServiceData> mServices;
-    std::mutex               mMutex;
+    mutable std::mutex       mMutex;
 };
 
 /***********************************************************************************************************************
@@ -211,24 +264,81 @@ private:
 
 class ServiceManagerTest : public ::testing::Test {
 protected:
-    virtual ~ServiceManagerTest() { }
+    void SetUp() override
+    {
+        InitLog();
 
-    virtual void SetUp() override { InitLog(); }
+        FS::ClearDir(cTestRootDir);
+
+        mImageHanlder.Init(mServiceSpaceAllocator);
+    }
+
+    Config                             mConfig = CreateConfig();
+    MockOCIManager                     mOciManager;
+    MockDownloader                     mDownloader;
+    MockStorage                        mStorage;
+    spaceallocator::SpaceAllocatorStub mServiceSpaceAllocator;
+    spaceallocator::SpaceAllocatorStub mDownloadSpaceAllocator;
+    imagehandler::ImageHandlerStub     mImageHanlder;
 };
 
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST(ServiceManagerTest, InstallServices)
+TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
 {
-    MockOCIManager ociManager;
-    MockDownloader downloader;
-    MockStorage    storage;
+    mConfig.mTTL = aos::Time::cSeconds;
+
+    const auto        expiredTime    = aos::Time::Now().Add(-mConfig.mTTL);
+    const ServiceData expiredService = {
+        "service1", "provider1", "1.0.0", "/aos/services/service1", "", expiredTime, ServiceStateEnum::eCached, 0, 0};
+    const std::vector<ServiceData> expected = {
+        {"service0", "provider0", "1.0.0", "/aos/services/service0", "", expiredTime, ServiceStateEnum::eActive, 0, 0},
+        {"service1", "provider1", "2.0.0", "/aos/services/service1", "", Time::Now().Add(aos::Time::cHours),
+            ServiceStateEnum::eCached, 0, 0},
+    };
 
     ServiceManager serviceManager;
 
-    EXPECT_TRUE(serviceManager.Init(ociManager, downloader, storage).IsNone());
+    ASSERT_TRUE(serviceManager
+                    .Init(mConfig, mOciManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHanlder)
+                    .IsNone());
+
+    for (const auto& service : expected) {
+        ASSERT_TRUE(mStorage.AddService(service).IsNone());
+    }
+    ASSERT_TRUE(mStorage.AddService(expiredService).IsNone());
+
+    ASSERT_TRUE(serviceManager.Start().IsNone());
+
+    for (size_t i = 1; i < 4; ++i) {
+        if (mStorage.Size() == expected.size()) {
+            break;
+        }
+
+        sleep(i);
+    }
+
+    ASSERT_TRUE(serviceManager.Stop().IsNone());
+
+    ServiceDataStaticArray services;
+
+    ASSERT_TRUE(mStorage.GetAllServices(services).IsNone());
+
+    EXPECT_EQ(services.Size(), expected.size());
+    EXPECT_TRUE(TestUtils::CompareArrays(services, Array<ServiceData>(expected.data(), expected.size())));
+}
+
+TEST_F(ServiceManagerTest, ProcessDesiredServices)
+{
+    ServiceManager serviceManager;
+
+    ASSERT_TRUE(serviceManager
+                    .Init(mConfig, mOciManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHanlder)
+                    .IsNone());
 
     std::vector<TestData> testData = {
         {
@@ -239,13 +349,13 @@ TEST(ServiceManagerTest, InstallServices)
                 {"service4", "provider4", "1.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
-                {"service1", "provider1", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service1", "", {},
+                {"service1", "provider1", "1.0.0", FS::JoinPath(cServicesDir, "service1"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service2", "provider2", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service2", "", {},
+                {"service2", "provider2", "1.0.0", FS::JoinPath(cServicesDir, "service2"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3", "", {},
+                {"service3", "provider3", "1.0.0", FS::JoinPath(cServicesDir, "service3"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4", "", {},
+                {"service4", "provider4", "1.0.0", FS::JoinPath(cServicesDir, "service4"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
             },
         },
@@ -257,13 +367,17 @@ TEST(ServiceManagerTest, InstallServices)
                 {"service6", "provider6", "1.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
-                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3", "", {},
+                {"service1", "provider1", "1.0.0", FS::JoinPath(cServicesDir, "service1"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service2", "provider2", "1.0.0", FS::JoinPath(cServicesDir, "service2"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service3", "provider3", "1.0.0", FS::JoinPath(cServicesDir, "service3"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service4", "provider4", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4", "", {},
+                {"service4", "provider4", "1.0.0", FS::JoinPath(cServicesDir, "service4"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service5", "provider5", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5", "", {},
+                {"service5", "provider5", "1.0.0", FS::JoinPath(cServicesDir, "service5"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service6", "provider6", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6", "", {},
+                {"service6", "provider6", "1.0.0", FS::JoinPath(cServicesDir, "service6"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
             },
         },
@@ -275,44 +389,84 @@ TEST(ServiceManagerTest, InstallServices)
                 {"service6", "provider6", "4.0.0", 0, "url", {}, 0},
             },
             std::vector<ServiceData> {
-                {"service3", "provider3", "1.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service3", "", {},
+                {"service1", "provider1", "1.0.0", FS::JoinPath(cServicesDir, "service1"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service2", "provider2", "1.0.0", FS::JoinPath(cServicesDir, "service2"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service3", "provider3", "1.0.0", FS::JoinPath(cServicesDir, "service3"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service4", "provider4", "2.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service4", "", {},
+                {"service4", "provider4", "1.0.0", FS::JoinPath(cServicesDir, "service4"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service4", "provider4", "2.0.0", FS::JoinPath(cServicesDir, "service4"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service5", "provider5", "3.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service5", "", {},
+                {"service5", "provider5", "1.0.0", FS::JoinPath(cServicesDir, "service5"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service5", "provider5", "3.0.0", FS::JoinPath(cServicesDir, "service5"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
-                {"service6", "provider6", "4.0.0", AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/service6", "", {},
+                {"service6", "provider6", "1.0.0", FS::JoinPath(cServicesDir, "service6"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service6", "provider6", "4.0.0", FS::JoinPath(cServicesDir, "service6"), "", {},
                     ServiceStateEnum::eActive, 0, 0},
             },
         },
         {
             std::vector<ServiceInfo> {},
-            std::vector<ServiceData> {},
+            std::vector<ServiceData> {
+                {"service1", "provider1", "1.0.0", FS::JoinPath(cServicesDir, "service1"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service2", "provider2", "1.0.0", FS::JoinPath(cServicesDir, "service2"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service3", "provider3", "1.0.0", FS::JoinPath(cServicesDir, "service3"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service4", "provider4", "1.0.0", FS::JoinPath(cServicesDir, "service4"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service4", "provider4", "2.0.0", FS::JoinPath(cServicesDir, "service4"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service5", "provider5", "1.0.0", FS::JoinPath(cServicesDir, "service5"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service5", "provider5", "3.0.0", FS::JoinPath(cServicesDir, "service5"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service6", "provider6", "1.0.0", FS::JoinPath(cServicesDir, "service6"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+                {"service6", "provider6", "4.0.0", FS::JoinPath(cServicesDir, "service6"), "", {},
+                    ServiceStateEnum::eCached, 0, 0},
+            },
         },
     };
 
+    size_t i = 0;
+
     for (auto& testItem : testData) {
+        LOG_DBG() << "Running test case #" << i++;
+
+        for (const auto& service : testItem.mData) {
+            mImageHanlder.SetInstallResult(FS::JoinPath(cDownloadDir, service.mServiceID), service.mImagePath);
+        }
+
         EXPECT_TRUE(
-            serviceManager.InstallServices(Array<ServiceInfo>(testItem.mInfo.data(), testItem.mInfo.size())).IsNone());
+            serviceManager.ProcessDesiredServices(Array<ServiceInfo>(testItem.mInfo.data(), testItem.mInfo.size()))
+                .IsNone());
 
         ServiceDataStaticArray installedServices;
 
-        EXPECT_TRUE(storage.GetAllServices(installedServices).IsNone());
-        EXPECT_TRUE(TestUtils::CompareArrays(
-            installedServices, Array<ServiceData>(testItem.mData.data(), testItem.mData.size())));
+        EXPECT_TRUE(mStorage.GetAllServices(installedServices).IsNone());
+
+        EXPECT_THAT(std::vector<ServiceData>(installedServices.begin(), installedServices.end()),
+            testing::UnorderedPointwise(testing::Truly([](const auto& tuple) {
+                return CompareServiceData(std::get<0>(tuple), std::get<1>(tuple));
+            }),
+                testItem.mData));
     }
 }
 
-TEST(ServiceManagerTest, GetImageParts)
+TEST_F(ServiceManagerTest, GetImageParts)
 {
-    MockOCIManager ociManager;
-    MockDownloader downloader;
-    MockStorage    storage;
-
     ServiceManager serviceManager;
 
-    EXPECT_TRUE(serviceManager.Init(ociManager, downloader, storage).IsNone());
-
+    ASSERT_TRUE(serviceManager
+                    .Init(mConfig, mOciManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHanlder)
+                    .IsNone());
     ServiceData serviceData
         = {"service0", "provider0", "2.1.0", "/aos/services/service1", "", {}, ServiceStateEnum::eActive, 0, 0};
 

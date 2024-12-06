@@ -9,10 +9,13 @@
 #define AOS_SERVICEMANAGER_HPP_
 
 #include "aos/common/downloader/downloader.hpp"
+#include "aos/common/image/imagehandler.hpp"
 #include "aos/common/ocispec/ocispec.hpp"
+#include "aos/common/spaceallocator/spaceallocator.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/thread.hpp"
+#include "aos/common/tools/timer.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
 
@@ -201,20 +204,21 @@ public:
 class ServiceManagerItf {
 public:
     /**
-     * Installs services.
+     * Processes desired services.
      *
-     * @param services to install.
-     * @return Error
+     * @param services desired services.
+     * @return Error.
      */
-    virtual Error InstallServices(const Array<ServiceInfo>& services) = 0;
+    virtual Error ProcessDesiredServices(const Array<ServiceInfo>& services) = 0;
 
     /**
      * Returns service item by service ID.
      *
      * @param serviceID service ID.
-     * @return RetWithError<ServiceItem>.
+     * @param service[out] service item.
+     * @return Error.
      */
-    virtual RetWithError<ServiceData> GetService(const String& serviceID) = 0;
+    virtual Error GetService(const String& serviceID, ServiceData& service) = 0;
 
     /**
      * Returns all installed services.
@@ -233,12 +237,29 @@ public:
     virtual RetWithError<ImageParts> GetImageParts(const ServiceData& service) = 0;
 
     /**
+     * Validates service.
+     *
+     * @param service service to validate.
+     * @return Error.
+     */
+    virtual Error ValidateService(const ServiceData& service) = 0;
+
+    /**
      * Destroys storage interface.
      */
     virtual ~ServiceManagerItf() = default;
 };
 
-class ServiceManager : public ServiceManagerItf, private NonCopyable {
+/**
+ * Service manager configuration.
+ */
+struct Config {
+    StaticString<cFilePathLen> mServicesDir;
+    StaticString<cFilePathLen> mDownloadDir;
+    Duration                   mTTL;
+};
+
+class ServiceManager : public ServiceManagerItf, public spaceallocator::ItemRemoverItf, private NonCopyable {
 public:
     /**
      * Creates service manager.
@@ -248,33 +269,54 @@ public:
     /**
      * Destroys service manager.
      */
-    ~ServiceManager() { mInstallPool.Shutdown(); }
+    ~ServiceManager();
 
     /**
      * Initializes service manager.
      *
+     * @param config service manager configuration.
      * @param ociManager OCI manager instance.
      * @param downloader downloader instance.
      * @param storage storage instance.
+     * @param serviceSpaceAllocator service space allocator.
+     * @param downloadSpaceAllocator download space allocator.
+     * @param imageHandler image handler.
      * @return Error.
      */
-    Error Init(oci::OCISpecItf& ociManager, downloader::DownloaderItf& downloader, StorageItf& storage);
+    Error Init(const Config& config, oci::OCISpecItf& ociManager, downloader::DownloaderItf& downloader,
+        StorageItf& storage, spaceallocator::SpaceAllocatorItf& serviceSpaceAllocator,
+        spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, imagehandler::ImageHandlerItf& imageHandler);
 
     /**
-     * Installs services.
+     * Starts service manager.
      *
-     * @param services to install.
-     * @return Error
+     * @return Error.
      */
-    Error InstallServices(const Array<ServiceInfo>& services) override;
+    Error Start();
+
+    /**
+     * Stops service manager.
+     *
+     * @return Error.
+     */
+    Error Stop();
+
+    /**
+     * Process desired services.
+     *
+     * @param services desired services.
+     * @return Error.
+     */
+    Error ProcessDesiredServices(const Array<ServiceInfo>& services) override;
 
     /**
      * Returns service item by service ID.
      *
      * @param serviceID service ID.
-     * @return RetWithError<ServiceItem>.
+     * @param service[out] service item.
+     * @return Error.
      */
-    RetWithError<ServiceData> GetService(const String& serviceID) override;
+    Error GetService(const String& serviceID, ServiceData& service) override;
 
     /**
      * Returns all installed services.
@@ -292,23 +334,52 @@ public:
      */
     RetWithError<ImageParts> GetImageParts(const ServiceData& service) override;
 
+    /**
+     * Validates service.
+     *
+     * @param service service to validate.
+     * @return Error.
+     */
+    Error ValidateService(const ServiceData& service) override;
+
+    /**
+     * Removes item.
+     *
+     * @param id item id.
+     * @return Error.
+     */
+    Error RemoveItem(const String& id) override;
+
 private:
     static constexpr auto cNumInstallThreads = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
-    static constexpr auto cServicesDir       = AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR;
     static constexpr auto cImageManifestFile = "manifest.json";
     static constexpr auto cImageBlobsFolder  = "blobs";
+    static constexpr auto cAllocatorItemLen  = cServiceIDLen + cVersionLen + 1;
 
-    Error                                    RemoveService(const ServiceData& service);
-    Error                                    InstallService(const ServiceInfo& service);
-    RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& imagePath, const String& digest);
+    Error                                          RemoveDamagedServiceFolders(const Array<ServiceData>& services);
+    Error                                          RemoveOutdatedServices(const Array<ServiceData>& services);
+    Error                                          RemoveService(const ServiceData& service);
+    Error                                          InstallService(const ServiceInfo& service);
+    Error                                          SetServiceState(const ServiceData& service, ServiceState state);
+    RetWithError<StaticString<cFilePathLen>>       DigestToPath(const String& imagePath, const String& digest);
+    RetWithError<StaticString<cAllocatorItemLen>>  FormatAllocatorItemID(const ServiceData& service);
+    RetWithError<StaticString<oci::cMaxDigestLen>> GetManifestChecksum(const String& servicePath);
 
-    oci::OCISpecItf*           mOCIManager {};
-    downloader::DownloaderItf* mDownloader {};
-    StorageItf*                mStorage {};
+    Config                             mConfig {};
+    oci::OCISpecItf*                   mOCIManager             = nullptr;
+    downloader::DownloaderItf*         mDownloader             = nullptr;
+    StorageItf*                        mStorage                = nullptr;
+    spaceallocator::SpaceAllocatorItf* mServiceSpaceAllocator  = nullptr;
+    spaceallocator::SpaceAllocatorItf* mDownloadSpaceAllocator = nullptr;
+    imagehandler::ImageHandlerItf*     mImageHandler           = nullptr;
+    Timer                              mTimer;
+    Mutex                              mMutex;
 
-    Mutex mMutex;
-    StaticAllocator<Max(sizeof(ServiceDataStaticArray), sizeof(oci::ImageManifest) + sizeof(oci::ContentDescriptor))>
-                                                    mAllocator;
+    StaticAllocator<2 * sizeof(ServiceDataStaticArray) + sizeof(ServiceInfoStaticArray)
+            + cNumInstallThreads * (sizeof(oci::ImageManifest) + sizeof(oci::ContentDescriptor)),
+        cNumInstallThreads * 3>
+        mAllocator;
+
     ThreadPool<cNumInstallThreads, cMaxNumServices> mInstallPool;
 };
 

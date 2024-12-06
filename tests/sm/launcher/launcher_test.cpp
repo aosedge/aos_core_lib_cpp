@@ -86,11 +86,9 @@ public:
  */
 class MockServiceManager : public ServiceManagerItf {
 public:
-    Error InstallServices(const Array<ServiceInfo>& services) override
+    Error ProcessDesiredServices(const Array<ServiceInfo>& services) override
     {
         std::lock_guard lock {mMutex};
-
-        LOG_DBG() << "Install services has been called";
 
         mServicesData.clear();
 
@@ -104,17 +102,19 @@ public:
         return ErrorEnum::eNone;
     }
 
-    RetWithError<ServiceData> GetService(const String& serviceID) override
+    Error GetService(const String& serviceID, servicemanager::ServiceData& service) override
     {
         std::lock_guard lock {mMutex};
 
         auto it = std::find_if(mServicesData.begin(), mServicesData.end(),
-            [&serviceID](const ServiceData& service) { return service.mServiceID == serviceID; });
+            [&serviceID](const ServiceData& storageService) { return storageService.mServiceID == serviceID; });
         if (it == mServicesData.end()) {
-            return {ServiceData(), ErrorEnum::eNotFound};
+            return ErrorEnum::eNotFound;
         }
 
-        return *it;
+        service = *it;
+
+        return ErrorEnum::eNone;
     }
 
     Error GetAllServices(Array<ServiceData>& services) override
@@ -132,6 +132,13 @@ public:
     {
         return ImageParts {FS::JoinPath(service.mImagePath, "image.json"),
             FS::JoinPath(service.mImagePath, "service.json"), service.mImagePath};
+    }
+
+    Error ValidateService(const ServiceData& service) override
+    {
+        (void)service;
+
+        return ErrorEnum::eNone;
     }
 
 private:

@@ -44,13 +44,6 @@
 #endif
 
 /**
- * Aos service dir.
- */
-#ifndef AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR
-#define AOS_CONFIG_SERVICEMANAGER_SERVICES_DIR "/var/aos/sm/services"
-#endif
-
-/**
  * Node config JSON length.
  */
 #ifndef AOS_CONFIG_RESOURCEMANAGER_NODE_CONFIG_JSON_LEN

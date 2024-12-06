@@ -276,7 +276,7 @@ void Launcher::ProcessServices(const Array<ServiceInfo>& services)
 {
     LOG_DBG() << "Process services";
 
-    auto err = mServiceManager->InstallServices(services);
+    auto err = mServiceManager->ProcessDesiredServices(services);
     if (!err.IsNone()) {
         LOG_ERR() << "Can't install services: " << err;
     }
@@ -429,15 +429,17 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
             continue;
         }
 
-        auto findService = mServiceManager->GetService(serviceID);
-        if (!findService.mError.IsNone()) {
-            LOG_ERR() << "Can't get service " << serviceID << ": " << findService.mError;
+        servicemanager::ServiceData service;
+
+        auto err = mServiceManager->GetService(serviceID, service);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Can't get service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
 
-        auto err = mCurrentServices.Emplace(serviceID, Service(findService.mValue, *mServiceManager, *mOCIManager));
+        err = mCurrentServices.Emplace(serviceID, Service(service, *mServiceManager, *mOCIManager));
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't cache service " << serviceID << ": " << err;
+            LOG_ERR() << "Can't cache service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
 

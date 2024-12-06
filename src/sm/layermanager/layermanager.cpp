@@ -59,7 +59,7 @@ void AcceptAllocatedSpace(spaceallocator::SpaceItf* space)
     }
 
     if (auto err = space->Accept(); !err.IsNone()) {
-        LOG_ERR() << "Can't accept memory: err=" << err;
+        LOG_ERR() << "Can't accept space: err=" << err;
     }
 }
 
@@ -74,7 +74,7 @@ void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
     }
 
     if (auto err = space->Release(); !err.IsNone()) {
-        LOG_ERR() << "Can't release memory: err=" << err;
+        LOG_ERR() << "Can't release space: err=" << err;
     }
 }
 
