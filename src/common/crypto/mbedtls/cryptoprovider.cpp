@@ -32,6 +32,66 @@ int mbedtls_x509_get_name(unsigned char** p, const unsigned char* end, mbedtls_x
 int mbedtls_x509_write_names(unsigned char** p, unsigned char* start, mbedtls_asn1_named_data* first);
 }
 
+namespace {
+
+class SHA256Hash : public aos::crypto::HashItf {
+public:
+    /**
+     * Initializes hasher.
+     *
+     * @return Error.
+     */
+    aos::Error Init()
+    {
+        if (auto ret = psa_hash_setup(&mOperation, mAlgorithm); ret != PSA_SUCCESS) {
+            return AOS_ERROR_WRAP(ret);
+        }
+
+        return aos::ErrorEnum::eNone;
+    }
+    /**
+     * Updates hash with input data.
+     *
+     * @param data input data.
+     * @return Error.
+     */
+    aos::Error Update(const aos::Array<uint8_t>& data) override
+    {
+        if (auto ret = psa_hash_update(&mOperation, data.begin(), data.Size()); ret != PSA_SUCCESS) {
+            return AOS_ERROR_WRAP(ret);
+        }
+
+        return aos::ErrorEnum::eNone;
+    }
+
+    /**
+     * Finalizes hash calculation.
+     *
+     * @param[out] hash result hash.
+     * @return Error.
+     */
+    aos::Error Finalize(aos::String& hash) override
+    {
+        size_t hashSize = 0;
+
+        aos::StaticArray<uint8_t, aos::cSHA256Size> buffer;
+
+        if (auto ret = psa_hash_finish(&mOperation, buffer.begin(), buffer.MaxSize(), &hashSize); ret != PSA_SUCCESS) {
+            return AOS_ERROR_WRAP(ret);
+        }
+
+        return hash.ByteArrayToHex(aos::Array(buffer.begin(), hashSize));
+    }
+
+    ~SHA256Hash() { psa_hash_abort(&mOperation); }
+
+private:
+    psa_hash_operation_t mOperation = PSA_HASH_OPERATION_INIT;
+    psa_algorithm_t      mAlgorithm = PSA_ALG_SHA_256;
+};
+
+} // namespace
+
 namespace aos {
 namespace crypto {
 
@@ -597,6 +657,21 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
     result[8] = (result[8] & 0x3f) | 0x80; // RFC 4122 variant
 
     return result;
+}
+
+RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorithm)
+{
+    if (algorithm.GetValue() == HashEnum::eSHA256) {
+        auto hasher = MakeUnique<SHA256Hash>(&mAllocator);
+
+        if (auto err = hasher->Init(); !err.IsNone()) {
+            return {nullptr, AOS_ERROR_WRAP(err)};
+        }
+
+        return {UniquePtr<HashItf>(Move(hasher)), ErrorEnum::eNone};
+    }
+
+    return {nullptr, ErrorEnum::eNotSupported};
 }
 
 /***********************************************************************************************************************

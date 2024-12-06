@@ -18,6 +18,7 @@
 #include <mbedtls/x509_crt.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
+#include "aos/test/log.hpp"
 
 /***********************************************************************************************************************
  * Static
@@ -392,10 +393,19 @@ public:
 };
 
 /***********************************************************************************************************************
+ * Suite
+ **********************************************************************************************************************/
+
+class CryptoTest : public Test {
+public:
+    void SetUp() override { aos::InitLog(); }
+};
+
+/***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST(CryptoTest, DERToX509Certs)
+TEST_F(CryptoTest, DERToX509Certs)
 {
     aos::crypto::MbedTLSCryptoProvider crypto;
     ASSERT_EQ(crypto.Init(), aos::ErrorEnum::eNone);
@@ -465,7 +475,7 @@ TEST(CryptoTest, DERToX509Certs)
     ASSERT_EQ(error, aos::ErrorEnum::eNone);
 }
 
-TEST(CryptoTest, PEMToX509Certs)
+TEST_F(CryptoTest, PEMToX509Certs)
 {
     aos::crypto::MbedTLSCryptoProvider crypto;
     ASSERT_EQ(crypto.Init(), aos::ErrorEnum::eNone);
@@ -534,7 +544,7 @@ TEST(CryptoTest, PEMToX509Certs)
     ASSERT_EQ(error, aos::ErrorEnum::eNone);
 }
 
-TEST(CryptoTest, CreateCSR)
+TEST_F(CryptoTest, CreateCSR)
 {
     aos::crypto::MbedTLSCryptoProvider crypto;
 
@@ -585,7 +595,7 @@ TEST(CryptoTest, CreateCSR)
     ASSERT_EQ(ret, 0);
 }
 
-TEST(CryptoTest, CreateSelfSignedCert)
+TEST_F(CryptoTest, CreateSelfSignedCert)
 {
     aos::crypto::MbedTLSCryptoProvider crypto;
     ASSERT_EQ(crypto.Init(), aos::ErrorEnum::eNone);
@@ -623,7 +633,7 @@ TEST(CryptoTest, CreateSelfSignedCert)
     ASSERT_EQ(VerifyCertificate(pemCRT), 0);
 }
 
-TEST(CryptoTest, CreateCSRUsingECKey)
+TEST_F(CryptoTest, CreateCSRUsingECKey)
 {
     aos::crypto::MbedTLSCryptoProvider crypto;
 
@@ -695,7 +705,7 @@ TEST(CryptoTest, CreateCSRUsingECKey)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1EncodeObjectIds)
+TEST_F(CryptoTest, ASN1EncodeObjectIds)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -729,7 +739,7 @@ TEST(CryptoTest, ASN1EncodeObjectIds)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1EncodeObjectIdsEmptyOIDS)
+TEST_F(CryptoTest, ASN1EncodeObjectIdsEmptyOIDS)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -755,7 +765,7 @@ TEST(CryptoTest, ASN1EncodeObjectIdsEmptyOIDS)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1EncodeBigInt)
+TEST_F(CryptoTest, ASN1EncodeBigInt)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -791,7 +801,7 @@ TEST(CryptoTest, ASN1EncodeBigInt)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1EncodeDERSequence)
+TEST_F(CryptoTest, ASN1EncodeDERSequence)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -826,7 +836,7 @@ TEST(CryptoTest, ASN1EncodeDERSequence)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1EncodeDERSequenceEmptySequence)
+TEST_F(CryptoTest, ASN1EncodeDERSequenceEmptySequence)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -851,7 +861,7 @@ TEST(CryptoTest, ASN1EncodeDERSequenceEmptySequence)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1EncodeDN)
+TEST_F(CryptoTest, ASN1EncodeDN)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -879,7 +889,7 @@ TEST(CryptoTest, ASN1EncodeDN)
  * print(", ".join(hex(b) for b in encoded_bytes))
  * print("".join('%02x'%b for b in encoded_bytes))
  */
-TEST(CryptoTest, ASN1DecodeDN)
+TEST_F(CryptoTest, ASN1DecodeDN)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -902,7 +912,7 @@ TEST(CryptoTest, ASN1DecodeDN)
  * import uuid
  * uuid.uuid5(uuid.UUID('58ac9ca0-2086-4683-a1b8-ec4bc08e01b6'), 'uid=42')
  */
-TEST(CryptoTest, CreateUUIDv5)
+TEST_F(CryptoTest, CreateUUIDv5)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
 
@@ -917,4 +927,76 @@ TEST(CryptoTest, CreateUUIDv5)
     Tie(sha1, err) = provider.CreateUUIDv5(space, aos::String("uid=42").AsByteArray());
     ASSERT_TRUE(err.IsNone());
     EXPECT_EQ(aos::uuid::UUIDToString(sha1), "31d10f2b-ae42-531d-a158-d9359245d171");
+}
+
+#include <iostream>
+
+TEST_F(CryptoTest, SHA256)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    struct {
+        const char* mString;
+        const char* mExpectedHash;
+    } testCases[] = {
+        {"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+        {"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"},
+        {"string to test has works", "559519b77fd7e43a34ad0d95b5cfda81572849ab40f665165256cb52b5576150"},
+        {"12345678901234567890123456", "5adcb5971681274f04187f2ebb0d69e09df67c8fc23ea13ee7b09c3d59ff5582"},
+    };
+
+    for (const auto& testCase : testCases) {
+        auto [hasherPtr, err] = provider.CreateHash(aos::crypto::HashEnum::eSHA256);
+
+        ASSERT_TRUE(err.IsNone());
+        ASSERT_NE(hasherPtr.Get(), nullptr);
+
+        const aos::Array<uint8_t> data(reinterpret_cast<const uint8_t*>(testCase.mString), strlen(testCase.mString));
+
+        ASSERT_TRUE(hasherPtr->Update(data).IsNone());
+
+        aos::StaticString<aos::cSHA256Size * 2> result;
+
+        ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
+        EXPECT_EQ(result, aos::String(testCase.mExpectedHash));
+    }
+}
+
+TEST_F(CryptoTest, SHA256ByChunks)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    auto [hasherPtr, err] = provider.CreateHash(aos::crypto::HashEnum::eSHA256);
+
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_NE(hasherPtr.Get(), nullptr);
+
+    const char* chunks[] = {
+        "",
+        "abc",
+        "string to test has works",
+    };
+
+    for (const auto& chunk : chunks) {
+        const aos::Array<uint8_t> data(reinterpret_cast<const uint8_t*>(chunk), strlen(chunk));
+
+        ASSERT_TRUE(hasherPtr->Update(data).IsNone());
+    }
+
+    aos::StaticString<aos::cSHA256Size * 2> result;
+
+    ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
+    EXPECT_EQ(result, aos::String("a98c0eb748fcf3c87b8d231c0866f20dd12202923de5e93696ee4a3ad3da91ec"));
+
+    LOG_DBG() << "SHA256: " << result;
+}
+
+TEST_F(CryptoTest, UnimplementedHashAlgorithm)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    auto [hasherPtr, err] = provider.CreateHash(aos::crypto::HashEnum::eSHA512);
+
+    ASSERT_TRUE(err.Is(aos::ErrorEnum::eNotSupported));
+    ASSERT_EQ(hasherPtr.Get(), nullptr);
 }

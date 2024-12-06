@@ -23,7 +23,7 @@ namespace crypto {
 /**
  * MbedTLSCryptoProvider provider.
  */
-class MbedTLSCryptoProvider : public x509::ProviderItf {
+class MbedTLSCryptoProvider : public x509::ProviderItf, HasherItf {
 public:
     /**
      * Initializes the object.
@@ -173,6 +173,14 @@ public:
      * @result RetWithError<uuid::UUID>.
      */
     RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name) override;
+
+    /**
+     * Creates hash instance.
+     *
+     * @param algorithm hash algorithm.
+     * @return RetWithError<UniquePtr<HashItf>>.
+     */
+    RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
 
 private:
     static constexpr auto cAllocatorSize

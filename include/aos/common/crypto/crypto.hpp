@@ -211,6 +211,52 @@ using HashEnum = HashType::Enum;
 using Hash     = EnumStringer<HashType>;
 
 /**
+ * Hash interface.
+ */
+class HashItf {
+public:
+    /**
+     * Updates hash with input data.
+     *
+     * @param data input data.
+     * @return Error.
+     */
+    virtual Error Update(const Array<uint8_t>& data) = 0;
+
+    /**
+     * Finalizes hash calculation.
+     *
+     * @param[out] hash result hash.
+     * @return Error.
+     */
+    virtual Error Finalize(String& hash) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~HashItf() = default;
+};
+
+/**
+ * Hasher interface.
+ */
+class HasherItf {
+public:
+    /**
+     * Creates hash instance.
+     *
+     * @param algorithm hash algorithm.
+     * @return RetWithError<UniquePtr<HashItf>>.
+     */
+    virtual RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~HasherItf() = default;
+};
+
+/**
  * Options being used while signing.
  */
 struct SignOptions {
