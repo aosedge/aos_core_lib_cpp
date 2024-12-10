@@ -457,6 +457,19 @@ public:
     StaticArray() { Array<T>::SetBuffer(mBuffer); }
 
     /**
+     * Creates static array with fixed size.
+     *
+     * @param size fixed size.
+     */
+    explicit StaticArray(size_t size)
+    {
+        Array<T>::SetBuffer(mBuffer);
+        auto err = Array<T>::Resize(size);
+
+        assert(err.IsNone());
+    }
+
+    /**
      * Creates static array from another static array.
      *
      * @param array array to create from.
