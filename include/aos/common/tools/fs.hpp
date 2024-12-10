@@ -33,7 +33,7 @@ public:
      * Appends path to string.
      */
     template <typename... Args>
-    static String& AppendPath(String& path, Args... args)
+    static String& AppendPath(String& path, const Args&... args)
     {
         (AppendPathEntry(path, args), ...);
 
@@ -44,7 +44,7 @@ public:
      * Joins path items.
      */
     template <typename... Args>
-    static StaticString<cFilePathLen> JoinPath(Args... args)
+    static StaticString<cFilePathLen> JoinPath(const Args&... args)
     {
         StaticString<cFilePathLen> path;
 
