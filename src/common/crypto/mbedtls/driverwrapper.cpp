@@ -417,15 +417,14 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
     aos::LockGuard lock(sMutex);
 
     auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == appKeyID; });
-
     if (!ret.mError.IsNone()) {
+        LOG_ERR() << "Built-in key not found: keyID = " << keyID;
+
         return PSA_ERROR_DOES_NOT_EXIST;
     }
 
     *lifetime   = ret.mValue->mLifetime;
     *slotNumber = ret.mValue - sBuiltinKeys.begin();
-
-    LOG_ERR() << "Built-in key not found: keyID = " << keyID;
 
     return PSA_SUCCESS;
 }
