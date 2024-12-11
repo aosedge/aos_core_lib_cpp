@@ -30,6 +30,95 @@ constexpr auto cFilePathLen = AOS_CONFIG_FS_FILE_PATH_LEN;
 class FS {
 public:
     /**
+     * Directory iterator.
+     * The iteration order is unspecified, except that each directory entry is visited only once.
+     */
+    class DirIterator {
+    public:
+        /**
+         * Directory entry.
+         */
+        struct Entry {
+            StaticString<cFilePathLen> mPath;
+            bool                       mIsDir = false;
+        };
+
+        /**
+         * Constructor.
+         *
+         * @param path directory path.
+         */
+        explicit DirIterator(const String& path)
+            : mDir(opendir(path.CStr()))
+            , mRoot(path)
+        {
+        }
+
+        /**
+         * Destructor.
+         */
+        ~DirIterator()
+        {
+            if (mDir) {
+                closedir(mDir);
+            }
+        }
+
+        /**
+         * Moves to the next entry. The special pathnames dot and dot-dot are skipped.
+         *
+         * @return bool.
+         */
+        bool Next()
+        {
+            if (mDir == nullptr) {
+                return false;
+            }
+
+            struct dirent* entry = nullptr;
+
+            while ((entry = readdir(mDir)) != nullptr) {
+                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                    continue;
+                }
+
+                auto        path = JoinPath(mRoot, entry->d_name);
+                struct stat entryStat;
+
+                if (stat(path.CStr(), &entryStat) == -1) {
+                    return false;
+                }
+
+                mEntry.mPath  = entry->d_name;
+                mEntry.mIsDir = S_ISDIR(entryStat.st_mode);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Returns current entry reference.
+         *
+         * @return const Dir&.
+         */
+        const Entry& operator*() const { return mEntry; }
+
+        /**
+         * Returns current entry pointer.
+         *
+         * @return const DirEntry*.
+         */
+        const Entry* operator->() const { return &mEntry; }
+
+    private:
+        DIR*                       mDir = nullptr;
+        Entry                      mEntry;
+        StaticString<cFilePathLen> mRoot;
+    };
+
+    /**
      * Appends path to string.
      */
     template <typename... Args>

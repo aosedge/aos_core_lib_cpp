@@ -12,9 +12,13 @@
 
 #include "aos/common/tools/fs.hpp"
 
+#include "aos/test/log.hpp"
+
+using namespace testing;
+
 using namespace aos;
 
-static const auto kBaseTestDir = std::filesystem::current_path();
+static const auto cBaseTestDir = std::filesystem::current_path() / "fs_test";
 
 static void CreateFile(const char* path, const char* text = "test file", size_t permissions = 0666U)
 {
@@ -37,7 +41,18 @@ static void CheckFile(const char* path, const char* text, const size_t permissio
         << "Wrong permissions for file: " << path;
 }
 
-TEST(FSTest, AppendPath)
+class FSTest : public Test {
+private:
+    void SetUp() override
+    {
+        FS::RemoveAll(cBaseTestDir.c_str());
+        FS::MakeDirAll(cBaseTestDir.c_str());
+
+        aos::InitLog();
+    }
+};
+
+TEST_F(FSTest, AppendPath)
 {
     const auto home  = "/home/root";
     const auto build = "work/aos_core_lib_cpp/build";
@@ -58,7 +73,7 @@ TEST(FSTest, AppendPath)
     EXPECT_EQ(src3, "/home/root/work/aos_core_lib_cpp/build");
 }
 
-TEST(FSTest, JoinPath)
+TEST_F(FSTest, JoinPath)
 {
     const auto home  = "/home/root";
     const auto build = "work/aos_core_lib_cpp/build";
@@ -67,7 +82,7 @@ TEST(FSTest, JoinPath)
     EXPECT_EQ(path1, "/home/root/misc/work/aos_core_lib_cpp/build");
 }
 
-TEST(FSTest, Dir)
+TEST_F(FSTest, Dir)
 {
     const auto test1 = "/home/root/test.txt";
 
@@ -80,18 +95,18 @@ TEST(FSTest, Dir)
     EXPECT_EQ(path2, "/home/root");
 }
 
-TEST(FSTest, DirExist)
+TEST_F(FSTest, DirExist)
 {
-    EXPECT_EQ(FS::DirExist(kBaseTestDir.c_str()), RetWithError<bool>(true));
+    EXPECT_EQ(FS::DirExist(cBaseTestDir.c_str()), RetWithError<bool>(true));
 
-    const auto notExistingDir = FS::JoinPath(kBaseTestDir.c_str(), "dir-doesnt-exist");
+    const auto notExistingDir = FS::JoinPath(cBaseTestDir.c_str(), "dir-doesnt-exist");
 
     EXPECT_EQ(FS::DirExist(notExistingDir), RetWithError<bool>(false));
 }
 
-TEST(FSTest, MakeDir)
+TEST_F(FSTest, MakeDir)
 {
-    const auto testDir = kBaseTestDir / "make-dir-test";
+    const auto testDir = cBaseTestDir / "make-dir-test";
 
     EXPECT_EQ(FS::DirExist(testDir.c_str()), RetWithError<bool>(false));
     EXPECT_TRUE(FS::MakeDir(testDir.c_str()).IsNone());
@@ -100,16 +115,16 @@ TEST(FSTest, MakeDir)
     FS::RemoveAll(testDir.c_str());
 }
 
-TEST(FSTest, MakeDirPathExists)
+TEST_F(FSTest, MakeDirPathExists)
 {
-    EXPECT_EQ(FS::DirExist(kBaseTestDir.c_str()), RetWithError<bool>(true));
-    EXPECT_TRUE(FS::MakeDir(kBaseTestDir.c_str()).IsNone());
-    EXPECT_EQ(FS::DirExist(kBaseTestDir.c_str()), RetWithError<bool>(true));
+    EXPECT_EQ(FS::DirExist(cBaseTestDir.c_str()), RetWithError<bool>(true));
+    EXPECT_TRUE(FS::MakeDir(cBaseTestDir.c_str()).IsNone());
+    EXPECT_EQ(FS::DirExist(cBaseTestDir.c_str()), RetWithError<bool>(true));
 }
 
-TEST(FSTest, MakeDirAll)
+TEST_F(FSTest, MakeDirAll)
 {
-    const auto testDir  = kBaseTestDir / "make-dir-all-test";
+    const auto testDir  = cBaseTestDir / "make-dir-all-test";
     const auto childDir = testDir / "child";
 
     EXPECT_EQ(FS::DirExist(childDir.c_str()), RetWithError<bool>(false));
@@ -119,9 +134,9 @@ TEST(FSTest, MakeDirAll)
     FS::RemoveAll(testDir.c_str());
 }
 
-TEST(FSTest, ClearDir)
+TEST_F(FSTest, ClearDir)
 {
-    const auto testDir   = kBaseTestDir / "clear-dir-test";
+    const auto testDir   = cBaseTestDir / "clear-dir-test";
     const auto childDir  = testDir / "child1/child2";
     const auto childFile = testDir / "test.txt";
 
@@ -135,9 +150,9 @@ TEST(FSTest, ClearDir)
     EXPECT_TRUE(FS::Remove(testDir.c_str()).IsNone());
 }
 
-TEST(FSTest, RemoveFile)
+TEST_F(FSTest, RemoveFile)
 {
-    const auto testDir   = kBaseTestDir / "remove-file-test";
+    const auto testDir   = cBaseTestDir / "remove-file-test";
     const auto childFile = testDir / "test.txt";
 
     EXPECT_TRUE(std::filesystem::create_directories(testDir));
@@ -149,9 +164,9 @@ TEST(FSTest, RemoveFile)
     FS::Remove(testDir.c_str());
 }
 
-TEST(FSTest, RemoveDirEmpty)
+TEST_F(FSTest, RemoveDirEmpty)
 {
-    const auto testDir = kBaseTestDir / "remove-dir-empty-test";
+    const auto testDir = cBaseTestDir / "remove-dir-empty-test";
 
     EXPECT_TRUE(std::filesystem::create_directories(testDir));
 
@@ -160,9 +175,9 @@ TEST(FSTest, RemoveDirEmpty)
     EXPECT_EQ(FS::DirExist(testDir.c_str()), RetWithError<bool>(false));
 }
 
-TEST(FSTest, RemoveDirNotEmpty)
+TEST_F(FSTest, RemoveDirNotEmpty)
 {
-    const auto testDir  = kBaseTestDir / "remove-dir-notempty-test";
+    const auto testDir  = cBaseTestDir / "remove-dir-notempty-test";
     const auto childDir = testDir / "child1";
 
     EXPECT_TRUE(std::filesystem::create_directories(childDir));
@@ -174,9 +189,9 @@ TEST(FSTest, RemoveDirNotEmpty)
     FS::RemoveAll(testDir.c_str());
 }
 
-TEST(FSTest, RemoveAllFile)
+TEST_F(FSTest, RemoveAllFile)
 {
-    const auto testDir   = kBaseTestDir / "remove-all-file-test";
+    const auto testDir   = cBaseTestDir / "remove-all-file-test";
     const auto childFile = testDir / "test.txt";
 
     EXPECT_TRUE(std::filesystem::create_directories(testDir));
@@ -188,9 +203,9 @@ TEST(FSTest, RemoveAllFile)
     FS::Remove(testDir.c_str());
 }
 
-TEST(FSTest, RemoveAllDirNotEmpty)
+TEST_F(FSTest, RemoveAllDirNotEmpty)
 {
-    const auto testDir   = kBaseTestDir / "remove-all-dir-notempty-test";
+    const auto testDir   = cBaseTestDir / "remove-all-dir-notempty-test";
     const auto childDir  = testDir / "child1";
     const auto childFile = testDir / "test.txt";
 
@@ -202,18 +217,18 @@ TEST(FSTest, RemoveAllDirNotEmpty)
     EXPECT_EQ(FS::DirExist(testDir.c_str()), RetWithError<bool>(false));
 }
 
-TEST(FSTest, RemoveAllNotExistingDir)
+TEST_F(FSTest, RemoveAllNotExistingDir)
 {
-    const auto testDir = kBaseTestDir / "remove-all-not-existing-dir-test";
+    const auto testDir = cBaseTestDir / "remove-all-not-existing-dir-test";
 
     EXPECT_EQ(FS::DirExist(testDir.c_str()), RetWithError<bool>(false));
     EXPECT_TRUE(FS::RemoveAll(testDir.c_str()).IsNone());
 }
 
-TEST(FSTest, ReadFile)
+TEST_F(FSTest, ReadFile)
 {
-    const auto testFile      = kBaseTestDir / "read-file-test.txt";
-    const auto wrongFileName = kBaseTestDir / "wrong-file-name.txt";
+    const auto testFile      = cBaseTestDir / "read-file-test.txt";
+    const auto wrongFileName = cBaseTestDir / "wrong-file-name.txt";
 
     const char text[] = "Hello World";
 
@@ -233,10 +248,10 @@ TEST(FSTest, ReadFile)
     FS::RemoveAll(testFile.c_str());
 }
 
-TEST(FSTest, ReadFileToString)
+TEST_F(FSTest, ReadFileToString)
 {
-    const auto testFile      = kBaseTestDir / "read-file-to-string-test.txt";
-    const auto wrongFileName = kBaseTestDir / "wrong-file-name.txt";
+    const auto testFile      = cBaseTestDir / "read-file-to-string-test.txt";
+    const auto wrongFileName = cBaseTestDir / "wrong-file-name.txt";
 
     const char text[] = "Hello World";
 
@@ -254,10 +269,10 @@ TEST(FSTest, ReadFileToString)
     FS::RemoveAll(testFile.c_str());
 }
 
-TEST(FSTest, WriteFile)
+TEST_F(FSTest, WriteFile)
 {
-    const auto newFile      = kBaseTestDir / "write-file-new.txt";
-    const auto existingFile = kBaseTestDir / "write-file-overwrite.txt";
+    const auto newFile      = cBaseTestDir / "write-file-new.txt";
+    const auto existingFile = cBaseTestDir / "write-file-overwrite.txt";
 
     CreateFile(existingFile.c_str(), "dlroW olleH", 0664);
 
@@ -274,10 +289,10 @@ TEST(FSTest, WriteFile)
     FS::RemoveAll(existingFile.c_str());
 }
 
-TEST(FSTest, WriteStringToFile)
+TEST_F(FSTest, WriteStringToFile)
 {
-    const auto newFile      = kBaseTestDir / "write-file-to-string-new.txt";
-    const auto existingFile = kBaseTestDir / "write-file-to-string-overwrite.txt";
+    const auto newFile      = cBaseTestDir / "write-file-to-string-new.txt";
+    const auto existingFile = cBaseTestDir / "write-file-to-string-overwrite.txt";
 
     CreateFile(existingFile.c_str(), "dlroW olleH", 0444);
 
@@ -291,4 +306,36 @@ TEST(FSTest, WriteStringToFile)
 
     FS::RemoveAll(newFile.c_str());
     FS::RemoveAll(existingFile.c_str());
+}
+
+TEST_F(FSTest, DirIterator)
+{
+    const auto walkDirRoot = cBaseTestDir / "walk-dir-test";
+
+    const std::vector folders = {
+        walkDirRoot / "d1",
+        walkDirRoot / "d2",
+        walkDirRoot / "d3",
+    };
+
+    for (const auto& folder : folders) {
+        ASSERT_TRUE(FS::MakeDirAll(folder.c_str()).IsNone());
+    }
+
+    std::vector<std::string> entries;
+
+    for (auto iterator = FS::DirIterator(walkDirRoot.c_str()); iterator.Next();) {
+        if (iterator->mIsDir) {
+            entries.push_back(iterator->mPath.CStr());
+        }
+    }
+
+    EXPECT_EQ(entries.size(), folders.size());
+
+    for (const auto& folder : folders) {
+        EXPECT_TRUE(std::find(entries.begin(), entries.end(), folder.filename()) != entries.end());
+    }
+
+    auto iterator = FS::DirIterator((walkDirRoot / "not-existing-dir").c_str());
+    EXPECT_FALSE(iterator.Next());
 }
