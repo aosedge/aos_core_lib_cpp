@@ -17,6 +17,9 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/sm/launcher/instance.cpp
     ${PROJECT_SOURCE_DIR}/src/sm/launcher/service.cpp
     launcher/launcher_test.cpp
+    # layermanager
+    ${PROJECT_SOURCE_DIR}/src/sm/layermanager/layermanager.cpp
+    layermanager/layermanager_test.cpp
     # resourcemanager
     ${PROJECT_SOURCE_DIR}/src/sm/resourcemanager/resourcemanager.cpp
     resourcemanager/resourcemanager_test.cpp
@@ -45,5 +48,6 @@ add_definitions(
 
 add_executable(${TARGET} ${SOURCES})
 target_link_libraries(${TARGET} aoscommon GTest::gmock_main testutils)
+target_include_directories(${TARGET} PRIVATE stubs)
 
 gtest_discover_tests(${TARGET})

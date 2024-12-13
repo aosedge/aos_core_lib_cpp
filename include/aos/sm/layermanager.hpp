@@ -7,7 +7,13 @@
 #ifndef AOS_LAYERMANAGER_HPP_
 #define AOS_LAYERMANAGER_HPP_
 
+#include "aos/common/downloader/downloader.hpp"
+#include "aos/common/image/imagehandler.hpp"
+#include "aos/common/ocispec/ocispec.hpp"
+#include "aos/common/spaceallocator/spaceallocator.hpp"
+#include "aos/common/tools/timer.hpp"
 #include "aos/common/types.hpp"
+#include "aos/sm/config.hpp"
 
 namespace aos::sm::layermanager {
 
@@ -73,6 +79,8 @@ struct LayerData {
     bool operator!=(const LayerData& info) const { return !operator==(info); }
 };
 
+using LayerDataStaticArray = StaticArray<LayerData, cMaxNumLayers>;
+
 /**
  * Layer manager storage interface.
  */
@@ -123,6 +131,131 @@ public:
      * Destroys storage interface.
      */
     virtual ~StorageItf() = default;
+};
+
+/**
+ * Layer manager interface.
+ */
+class LayerManagerItf {
+public:
+    /**
+     * Returns layer data by digest.
+     *
+     * @param digest layer digest.
+     * @param layer[out] layer data.
+     * @return Error.
+     */
+    virtual Error GetLayer(const String& digest, LayerData& layer) const = 0;
+
+    /**
+     * Processes desired layers.
+     *
+     * @param desiredLayers desired layers.
+     * @return Error.
+     */
+    virtual Error ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers) = 0;
+
+    /**
+     *  Destructor.
+     */
+    virtual ~LayerManagerItf() = default;
+};
+
+/**
+ * Layer manager configuration.
+ */
+struct Config {
+    StaticString<cFilePathLen> mLayersDir;
+    StaticString<cFilePathLen> mDownloadDir;
+    Duration                   mTTL;
+};
+
+/**
+ * Layer manager interface implementation.
+ */
+class LayerManager : public LayerManagerItf, public spaceallocator::ItemRemoverItf {
+public:
+    /**
+     * Initializes layer manager.
+     *
+     * @param config layer manager configuration.
+     * @param layerSpaceAllocator layer space allocator.
+     * @param downloadSpaceAllocator download space allocator.
+     * @param storage layer storage.
+     * @param downloader layer downloader.
+     * @param imageHanlder image handler.
+     * @param ociManager OCI manager instance.
+     * @return Error.
+     */
+    Error Init(const Config& config, spaceallocator::SpaceAllocatorItf& layerSpaceAllocator,
+        spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
+        downloader::DownloaderItf& downloader, imagehandler::ImageHandlerItf& imageHanlder,
+        oci::OCISpecItf& ociManager);
+
+    /**
+     * Starts layer manager.
+     *
+     * @return Error.
+     */
+    Error Start();
+
+    /**
+     * Stops layer manager.
+     *
+     * @return Error.
+     */
+    Error Stop();
+
+    /**
+     * Returns layer data by digest.
+     *
+     * @param digest layer digest.
+     * @param layer[out] layer data.
+     * @return Error.
+     */
+    Error GetLayer(const String& digest, LayerData& layer) const override;
+
+    /**
+     * Processes desired layers.
+     *
+     * @param desiredLayers desired layers.
+     * @return Error.
+     */
+    Error ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers) override;
+
+    /**
+     * Removes item.
+     *
+     * @param id item id.
+     * @return Error.
+     */
+    Error RemoveItem(const String& id) override;
+
+private:
+    static constexpr auto cLayerOCIDescriptor = "layer.json";
+    static constexpr auto cNumInstallThreads  = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
+
+    Error RemoveDamagedLayerFolders();
+    Error SetOutdatedLayers();
+    Error SetLayerState(const LayerData& layer, LayerState state);
+    Error RemoveOutdatedLayers();
+    Error RemoveLayer(const LayerData& layer);
+    Error UpdateCachedLayers(const Array<LayerData>& stored, Array<aos::LayerInfo>& result);
+    Error InstallLayer(const aos::LayerInfo& layer);
+
+    Config                             mConfig                 = {};
+    spaceallocator::SpaceAllocatorItf* mLayerSpaceAllocator    = nullptr;
+    spaceallocator::SpaceAllocatorItf* mDownloadSpaceAllocator = nullptr;
+    StorageItf*                        mStorage                = nullptr;
+    downloader::DownloaderItf*         mDownloader             = nullptr;
+    imagehandler::ImageHandlerItf*     mImageHandler           = nullptr;
+    oci::OCISpecItf*                   mOCIManager             = nullptr;
+    Mutex                              mMutex;
+    Timer                              mTimer;
+
+    StaticAllocator<cNumInstallThreads * sizeof(oci::ImageManifest) + 2 * sizeof(LayerDataStaticArray)> mAllocator;
+
+    ThreadPool<cNumInstallThreads, cMaxNumLayers> mInstallPool;
 };
 
 /** @}*/
