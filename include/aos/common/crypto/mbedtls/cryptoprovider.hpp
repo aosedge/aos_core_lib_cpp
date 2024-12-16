@@ -22,7 +22,7 @@ namespace aos::crypto {
 /**
  * MbedTLSCryptoProvider provider.
  */
-class MbedTLSCryptoProvider : public x509::ProviderItf, HasherItf {
+class MbedTLSCryptoProvider : public x509::ProviderItf, public HasherItf {
 public:
     /**
      * Initializes the object.
