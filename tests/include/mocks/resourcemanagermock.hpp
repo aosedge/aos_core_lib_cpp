@@ -11,9 +11,7 @@
 #include "aos/sm/resourcemanager.hpp"
 #include <gmock/gmock.h>
 
-namespace aos {
-namespace sm {
-namespace resourcemanager {
+namespace aos::sm::resourcemanager {
 
 /**
  * JSON provider mock.
@@ -41,8 +39,6 @@ public:
     MOCK_METHOD(Error, ReceiveNodeConfig, (const NodeConfig&), (override));
 };
 
-} // namespace resourcemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::resourcemanager
 
 #endif

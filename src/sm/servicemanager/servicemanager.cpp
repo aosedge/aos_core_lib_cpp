@@ -10,15 +10,13 @@
 
 #include "log.hpp"
 
-namespace aos {
-namespace sm {
-namespace servicemanager {
+namespace aos::sm::servicemanager {
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-Error ServiceManager::Init(OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage)
+Error ServiceManager::Init(oci::OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage)
 {
     LOG_DBG() << "Initialize service manager";
 
@@ -229,6 +227,4 @@ RetWithError<StaticString<cFilePathLen>> ServiceManager::DigestToPath(const Stri
     return FS::JoinPath(imagePath, cImageBlobsFolder, digestList[0], digestList[1]);
 }
 
-} // namespace servicemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::servicemanager

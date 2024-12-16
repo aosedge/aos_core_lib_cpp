@@ -10,9 +10,8 @@
 
 #include "aos/iam/certmodules/certmodule.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
+
 /**
  * Stoage stub.
  */
@@ -85,8 +84,6 @@ private:
     StaticArray<StorageCell, cCertTypeCount> mStorage;
 };
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler
 
 #endif

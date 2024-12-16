@@ -10,9 +10,7 @@
 #include "aos/common/tools/memory.hpp"
 #include "log.hpp"
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 /***********************************************************************************************************************
  * Static
@@ -25,7 +23,7 @@ StaticAllocator<Instance::cSpecAllocatorSize> Instance::sAllocator {};
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& info, const String& instanceID, OCISpecItf& ociManager,
+Instance::Instance(const InstanceInfo& info, const String& instanceID, oci::OCISpecItf& ociManager,
     runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor)
     : mInstanceID(instanceID)
     , mInfo(info)
@@ -162,6 +160,4 @@ Error Instance::CreateRuntimeSpec(const String& path)
     return ErrorEnum::eNone;
 }
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher

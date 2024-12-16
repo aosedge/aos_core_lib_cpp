@@ -1,8 +1,6 @@
 #include "storagestub.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 Error StorageStub::AddCertInfo(const String& certType, const CertInfo& certInfo)
 {
@@ -102,6 +100,4 @@ StorageStub::StorageCell* StorageStub::FindCell(const String& certType)
     return mStorage.end();
 }
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler

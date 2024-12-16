@@ -10,9 +10,7 @@
 #include "aos/common/tools/uuid.hpp"
 #include "log.hpp"
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 using namespace runner;
 
@@ -21,7 +19,7 @@ using namespace runner;
  **********************************************************************************************************************/
 
 Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
-    OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
+    oci::OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
     monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher)
 {
     LOG_DBG() << "Init launcher";
@@ -553,6 +551,4 @@ void Launcher::OnDisconnect()
     mCondVar.NotifyOne();
 }
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher

@@ -12,9 +12,7 @@
 #include "aos/common/ocispec.hpp"
 #include "aos/sm/servicemanager.hpp"
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 /**
  * Launcher service.
@@ -27,7 +25,7 @@ public:
      * @param data service data.
      */
     explicit Service(const servicemanager::ServiceData& data, servicemanager::ServiceManagerItf& serviceManager,
-        OCISpecItf& ociManager);
+        oci::OCISpecItf& ociManager);
 
     /**
      * Loads specs from loader.
@@ -117,15 +115,13 @@ public:
 private:
     servicemanager::ServiceData        mData;
     servicemanager::ServiceManagerItf& mServiceManager;
-    OCISpecItf&                        mOCIManager;
+    oci::OCISpecItf&                   mOCIManager;
 
     StaticString<cFilePathLen> mServiceFSPath {};
     oci::ImageSpec             mImageSpec {};
     Error                      mSpecErr {ErrorEnum::eNotFound};
 };
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher
 
 #endif

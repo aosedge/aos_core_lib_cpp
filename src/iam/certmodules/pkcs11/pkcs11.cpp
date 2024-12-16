@@ -14,9 +14,7 @@
 
 #include "../../certhandler/log.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 /***********************************************************************************************************************
  * Public
@@ -997,6 +995,4 @@ void PKCS11Module::PrintInvalidObjects(const String& objectType, const Array<Sea
     }
 }
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler

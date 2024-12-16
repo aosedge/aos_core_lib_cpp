@@ -11,8 +11,7 @@
 #include "aos/common/config.hpp"
 #include "aos/common/tools/string.hpp"
 
-namespace aos {
-namespace uuid {
+namespace aos::uuid {
 
 /**
  *  UUID length
@@ -52,7 +51,6 @@ StaticString<cUUIDLen> UUIDToString(const UUID& uuid);
  */
 RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src);
 
-} // namespace uuid
-} // namespace aos
+} // namespace aos::uuid
 
 #endif

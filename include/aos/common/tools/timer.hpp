@@ -18,6 +18,7 @@
 #include "aos/common/tools/thread.hpp"
 
 namespace aos {
+
 /**
  * Timer instance.
  * @tparam T timer callback type.

@@ -15,9 +15,7 @@
 #include "aos/iam/certmodules/hsm.hpp"
 #include "aos/iam/config.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 /**
  * PKCS11 configuration
@@ -229,8 +227,6 @@ private:
     SharedPtr<pkcs11::SessionContext>        mSession;
 };
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler
 
 #endif

@@ -10,8 +10,7 @@
 
 #include "aos/common/pkcs11/pkcs11.hpp"
 
-namespace aos {
-namespace test {
+namespace aos::test {
 
 class SoftHSMEnv {
 public:
@@ -33,7 +32,6 @@ private:
     SharedPtr<pkcs11::LibraryContext> mLibrary;
 };
 
-} // namespace test
-} // namespace aos
+} // namespace aos::test
 
 #endif

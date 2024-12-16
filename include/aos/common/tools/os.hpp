@@ -12,8 +12,7 @@
 
 #include "aos/common/tools/string.hpp"
 
-namespace aos {
-namespace os {
+namespace aos::os {
 
 /**
  * Returns value of specified environment variable.
@@ -32,7 +31,6 @@ inline Error GetEnv(const String& envName, String& env)
     return env.Insert(env.begin(), envValue.begin(), envValue.end());
 }
 
-} // namespace os
-} // namespace aos
+} // namespace aos::os
 
 #endif

@@ -12,9 +12,7 @@
 #include "aos/iam/config.hpp"
 #include "aos/iam/identhandler.hpp"
 
-namespace aos {
-namespace iam {
-namespace identhandler {
+namespace aos::iam::identhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
@@ -95,8 +93,6 @@ private:
 
 /** @}*/
 
-} // namespace identhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::identhandler
 
 #endif

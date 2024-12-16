@@ -16,9 +16,7 @@
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
 
-namespace aos {
-namespace sm {
-namespace servicemanager {
+namespace aos::sm::servicemanager {
 
 /** @addtogroup sm Service Manager
  *  @{
@@ -260,7 +258,7 @@ public:
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage);
+    Error Init(oci::OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage);
 
     /**
      * Installs services.
@@ -304,7 +302,7 @@ private:
     Error                                    InstallService(const ServiceInfo& service);
     RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& imagePath, const String& digest);
 
-    OCISpecItf*    mOCIManager {};
+    oci::OCISpecItf*    mOCIManager {};
     DownloaderItf* mDownloader {};
     StorageItf*    mStorage {};
 
@@ -316,8 +314,6 @@ private:
 
 /** @}*/
 
-} // namespace servicemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::servicemanager
 
 #endif

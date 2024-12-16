@@ -11,9 +11,7 @@
 #include "aos/common/types.hpp"
 #include "aos/iam/config.hpp"
 
-namespace aos {
-namespace iam {
-namespace identhandler {
+namespace aos::iam::identhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
@@ -73,8 +71,6 @@ public:
 
 /** @}*/
 
-} // namespace identhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::identhandler
 
 #endif

@@ -10,8 +10,7 @@
 
 #include "aos/common/tools/uuid.hpp"
 
-namespace aos {
-namespace uuid {
+namespace aos::uuid {
 
 // UUID template assumed to have even number of digits between separators.
 static const String cTemplate  = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
@@ -99,5 +98,4 @@ RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src)
     return {result, ErrorEnum::eNone};
 }
 
-} // namespace uuid
-} // namespace aos
+} // namespace aos::uuid

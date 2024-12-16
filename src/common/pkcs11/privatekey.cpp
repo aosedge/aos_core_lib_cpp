@@ -9,8 +9,7 @@
 
 #include "log.hpp"
 
-namespace aos {
-namespace pkcs11 {
+namespace aos::pkcs11 {
 
 /***********************************************************************************************************************
  * PKCS11RSAPrivateKey
@@ -104,5 +103,4 @@ Error PKCS11ECDSAPrivateKey::Sign(
     return mSession->Sign(&mechanism, mPrivKeyHandle, digest, signature);
 }
 
-} // namespace pkcs11
-} // namespace aos
+} // namespace aos::pkcs11

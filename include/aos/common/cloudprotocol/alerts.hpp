@@ -10,8 +10,7 @@
 #include "aos/common/tools/variant.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace cloudprotocol {
+namespace aos::cloudprotocol {
 
 /**
  * Alert message len.
@@ -508,7 +507,6 @@ struct ServiceInstanceAlert : AlertItem {
 using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
     DeviceAllocateAlert, ResourceValidateAlert, ServiceInstanceAlert>;
 
-} // namespace cloudprotocol
-} // namespace aos
+} // namespace aos::cloudprotocol
 
 #endif

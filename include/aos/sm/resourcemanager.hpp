@@ -17,9 +17,7 @@
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
 
-namespace aos {
-namespace sm {
-namespace resourcemanager {
+namespace aos::sm::resourcemanager {
 
 /**
  * Node config JSON length.
@@ -406,8 +404,6 @@ private:
     mutable StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig)> mAllocator;
 };
 
-} // namespace resourcemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::resourcemanager
 
 #endif

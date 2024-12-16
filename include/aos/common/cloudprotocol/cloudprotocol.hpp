@@ -10,8 +10,7 @@
 #include "aos/common/tools/optional.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace cloudprotocol {
+namespace aos::cloudprotocol {
 
 /**
  * Instance filter.
@@ -41,7 +40,6 @@ struct InstanceFilter {
     bool operator!=(const InstanceFilter& filter) const { return !operator==(filter); }
 };
 
-} // namespace cloudprotocol
-} // namespace aos
+} // namespace aos::cloudprotocol
 
 #endif

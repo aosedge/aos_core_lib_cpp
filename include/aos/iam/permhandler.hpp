@@ -14,9 +14,7 @@
 #include "aos/iam/certmodules/certmodule.hpp"
 #include "aos/iam/config.hpp"
 
-namespace aos {
-namespace iam {
-namespace permhandler {
+namespace aos::iam::permhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
@@ -174,8 +172,6 @@ private:
 
 /** @}*/
 
-} // namespace permhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::permhandler
 
 #endif

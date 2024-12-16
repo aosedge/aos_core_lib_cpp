@@ -7,8 +7,7 @@
 
 #include "aos/test/softhsmenv.hpp"
 
-namespace aos {
-namespace test {
+namespace aos::test {
 
 Error SoftHSMEnv::Init(
     const String& pin, const String& label, const char* confFile, const char* tokensDir, const char* libPath)
@@ -113,6 +112,4 @@ RetWithError<pkcs11::SlotID> SoftHSMEnv::FindTestToken(const String& label)
     return {0, ErrorEnum::eNotFound};
 }
 
-} // namespace test
-
-} // namespace aos
+} // namespace aos::test

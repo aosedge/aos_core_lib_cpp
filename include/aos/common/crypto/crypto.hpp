@@ -17,8 +17,7 @@
 #include "aos/common/tools/variant.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace crypto {
+namespace aos::crypto {
 
 /**
  * Certificate issuer name max length.
@@ -673,7 +672,6 @@ public:
 using CertificateChain = StaticArray<Certificate, cCertChainSize>;
 
 } // namespace x509
-} // namespace crypto
-} // namespace aos
+} // namespace aos::crypto
 
 #endif

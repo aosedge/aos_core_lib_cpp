@@ -10,8 +10,7 @@
 
 #include "aos/common/pkcs11/pkcs11.hpp"
 
-namespace aos {
-namespace pkcs11 {
+namespace aos::pkcs11 {
 
 /**
  * PKCS11 RSA private key.
@@ -144,7 +143,6 @@ private:
  */
 constexpr auto cPrivateKeyMaxSize = Max(sizeof(PKCS11RSAPrivateKey), sizeof(PKCS11ECDSAPrivateKey));
 
-} // namespace pkcs11
-} // namespace aos
+} // namespace aos::pkcs11
 
 #endif

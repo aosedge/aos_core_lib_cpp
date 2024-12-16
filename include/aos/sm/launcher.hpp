@@ -23,9 +23,7 @@
 #include "aos/sm/service.hpp"
 #include "aos/sm/servicemanager.hpp"
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 /** @addtogroup sm Service Manager
  *  @{
@@ -234,9 +232,9 @@ public:
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner, OCISpecItf& ociManager,
-        InstanceStatusReceiverItf& statusReceiver, StorageItf& storage, monitoring::ResourceMonitorItf& resourceMonitor,
-        ConnectionPublisherItf& connectionPublisher);
+    Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
+        oci::OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
+        monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher);
 
     /**
      * Starts launcher.
@@ -334,7 +332,7 @@ private:
     runner::RunnerItf*                 mRunner {};
     InstanceStatusReceiverItf*         mStatusReceiver {};
     StorageItf*                        mStorage {};
-    OCISpecItf*                        mOCIManager {};
+    oci::OCISpecItf*                   mOCIManager {};
     monitoring::ResourceMonitorItf*    mResourceMonitor {};
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
@@ -358,8 +356,6 @@ private:
 
 /** @}*/
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher
 
 #endif

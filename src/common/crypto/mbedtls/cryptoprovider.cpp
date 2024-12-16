@@ -92,8 +92,7 @@ private:
 
 } // namespace
 
-namespace aos {
-namespace crypto {
+namespace aos::crypto {
 
 /***********************************************************************************************************************
  * Static
@@ -1221,5 +1220,4 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_validity(&cert, notBefore.Get(), notAfter.Get()));
 }
 
-} // namespace crypto
-} // namespace aos
+} // namespace aos::crypto

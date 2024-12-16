@@ -12,8 +12,7 @@
 
 #include "aos/common/tools/uuid.hpp"
 
-namespace aos {
-namespace uuid {
+namespace aos::uuid {
 
 TEST(UUIDTest, CreateUUID)
 {
@@ -77,5 +76,4 @@ TEST(UUIDTest, TreatEmptyUUIDValid)
     EXPECT_EQ(result, Array<uint8_t>(expected, uuid::cUUIDSize));
 }
 
-} // namespace uuid
-} // namespace aos
+} // namespace aos::uuid

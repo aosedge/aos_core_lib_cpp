@@ -17,9 +17,7 @@
 
 #include "aos/iam/certmodules/hsm.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 /**
  * Maximum number of module key usages.
@@ -261,8 +259,6 @@ private:
         mAllocator;
 };
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler
 
 #endif

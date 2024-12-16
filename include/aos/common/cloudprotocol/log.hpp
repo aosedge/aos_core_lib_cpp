@@ -13,9 +13,7 @@
 #include "aos/common/tools/optional.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace cloudprotocol {
-
+namespace aos::cloudprotocol {
 /**
  * Log id len.
  */
@@ -235,7 +233,6 @@ struct PushLog {
     bool operator!=(const PushLog& log) const { return !operator==(log); }
 };
 
-} // namespace cloudprotocol
-} // namespace aos
+} // namespace aos::cloudprotocol
 
 #endif

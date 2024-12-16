@@ -12,8 +12,7 @@
 #include "aos/test/log.hpp"
 #include "aos/test/softhsmenv.hpp"
 
-namespace aos {
-namespace crypto {
+namespace aos::crypto {
 
 /***********************************************************************************************************************
  * Suite
@@ -281,5 +280,4 @@ TEST_F(CryptoutilsTest, FindCertificatesFromFile)
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 }
 
-} // namespace crypto
-} // namespace aos
+} // namespace aos::crypto

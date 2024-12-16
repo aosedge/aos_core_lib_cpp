@@ -17,8 +17,7 @@
 
 #include "log.hpp"
 
-namespace aos {
-namespace pkcs11 {
+namespace aos::pkcs11 {
 
 /***********************************************************************************************************************
  * Helpers
@@ -1497,5 +1496,4 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
     return {certificate, err};
 }
 
-} // namespace pkcs11
-} // namespace aos
+} // namespace aos::pkcs11

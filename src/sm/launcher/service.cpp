@@ -8,16 +8,14 @@
 #include "aos/sm/service.hpp"
 #include "log.hpp"
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-Service::Service(
-    const servicemanager::ServiceData& data, servicemanager::ServiceManagerItf& serviceManager, OCISpecItf& ociManager)
+Service::Service(const servicemanager::ServiceData& data, servicemanager::ServiceManagerItf& serviceManager,
+    oci::OCISpecItf& ociManager)
     : mData(data)
     , mServiceManager(serviceManager)
     , mOCIManager(ociManager)
@@ -48,6 +46,4 @@ Error Service::LoadSpecs()
     return mSpecErr;
 }
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher

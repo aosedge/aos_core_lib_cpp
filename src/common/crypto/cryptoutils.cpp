@@ -10,8 +10,7 @@
 
 #include "log.hpp"
 
-namespace aos {
-namespace crypto {
+namespace aos::crypto {
 
 /***********************************************************************************************************************
  * Constants
@@ -408,5 +407,4 @@ Error ParsePKCS11URL(
     return ErrorEnum::eNone;
 }
 
-} // namespace crypto
-} // namespace aos
+} // namespace aos::crypto

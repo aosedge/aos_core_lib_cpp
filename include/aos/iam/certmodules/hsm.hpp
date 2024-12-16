@@ -13,9 +13,7 @@
 #include "aos/common/tools/memory.hpp"
 #include "aos/iam/config.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 /**
  * Certificate type name length.
@@ -161,8 +159,6 @@ public:
     virtual ~HSMItf() = default;
 };
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler
 
 #endif

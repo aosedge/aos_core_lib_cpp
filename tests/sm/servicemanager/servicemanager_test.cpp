@@ -14,9 +14,7 @@
 #include "aos/test/log.hpp"
 #include "aos/test/utils.hpp"
 
-namespace aos {
-namespace sm {
-namespace servicemanager {
+namespace aos::sm::servicemanager {
 
 /***********************************************************************************************************************
  * Types
@@ -41,7 +39,7 @@ static std::mutex sLogMutex;
  * Mock OCI manager.
  */
 
-class MockOCIManager : public OCISpecItf {
+class MockOCIManager : public oci::OCISpecItf {
 public:
     Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
     {
@@ -326,6 +324,4 @@ TEST(ServiceManagerTest, GetImageParts)
     EXPECT_TRUE(imageParts.mValue.mServiceFSPath == "/aos/services/service1/blobs/sha256/33333333");
 }
 
-} // namespace servicemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::servicemanager

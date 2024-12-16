@@ -10,9 +10,7 @@
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
 
-namespace aos {
-namespace sm {
-namespace networkmanager {
+namespace aos::sm::networkmanager {
 
 /** @addtogroup sm Service Manager
  *  @{
@@ -245,8 +243,6 @@ public:
 
 /** @}*/
 
-} // namespace networkmanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::networkmanager
 
 #endif

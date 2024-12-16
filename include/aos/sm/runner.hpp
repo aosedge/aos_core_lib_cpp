@@ -12,10 +12,7 @@
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace sm {
-namespace runner {
-
+namespace aos::sm::runner {
 /**
  * Instance run status.
  */
@@ -72,8 +69,6 @@ public:
     virtual ~RunStatusReceiverItf() = default;
 };
 
-} // namespace runner
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::runner
 
 #endif

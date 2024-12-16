@@ -10,8 +10,7 @@
 #include "aos/common/cloudprotocol/cloudprotocol.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace cloudprotocol {
+namespace aos::cloudprotocol {
 
 /**
  * Environment variable name value.
@@ -132,7 +131,6 @@ struct EnvVarsInstanceStatus {
 
 using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
 
-} // namespace cloudprotocol
-} // namespace aos
+} // namespace aos::cloudprotocol
 
 #endif

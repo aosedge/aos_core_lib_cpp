@@ -23,9 +23,7 @@
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 /***********************************************************************************************************************
  * Consts
@@ -166,7 +164,7 @@ public:
  * Mock OCI manager.
  */
 
-class MockOCIManager : public OCISpecItf {
+class MockOCIManager : public oci::OCISpecItf {
 public:
     Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
     {
@@ -528,6 +526,4 @@ TEST(LauncherTest, RunInstances)
     EXPECT_TRUE(launcher.Stop().IsNone());
 }
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher

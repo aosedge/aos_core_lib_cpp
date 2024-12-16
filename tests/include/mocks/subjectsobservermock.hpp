@@ -11,9 +11,7 @@
 #include "aos/iam/identhandler.hpp"
 #include <gmock/gmock.h>
 
-namespace aos {
-namespace iam {
-namespace identhandler {
+namespace aos::iam::identhandler {
 
 /**
  * Subjects observer mock.
@@ -23,8 +21,6 @@ public:
     MOCK_METHOD(Error, SubjectsChanged, (const Array<StaticString<cSubjectIDLen>>&), (override));
 };
 
-} // namespace identhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::identhandler
 
 #endif

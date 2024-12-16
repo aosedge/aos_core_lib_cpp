@@ -10,8 +10,7 @@
 #include "aos/common/cloudprotocol/alerts.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace alerts {
+namespace aos::alerts {
 
 /**
  * Storage interface.
@@ -59,7 +58,6 @@ public:
     virtual ~SenderItf() = default;
 };
 
-} // namespace alerts
-} // namespace aos
+} // namespace aos::alerts
 
 #endif

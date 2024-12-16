@@ -9,9 +9,7 @@
 #include "aos/common/tools/uuid.hpp"
 #include "log.hpp"
 
-namespace aos {
-namespace iam {
-namespace permhandler {
+namespace aos::iam::permhandler {
 
 /***********************************************************************************************************************
  * Public
@@ -132,6 +130,4 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const I
     return result.mValue->mSecret;
 }
 
-} // namespace permhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::permhandler

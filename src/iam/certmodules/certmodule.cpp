@@ -10,9 +10,7 @@
 
 #include "../certhandler/log.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 /***********************************************************************************************************************
  * Public
@@ -449,6 +447,4 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
     return ErrorEnum::eNone;
 }
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler

@@ -13,8 +13,7 @@
 #include "aos/common/pkcs11/privatekey.hpp"
 #include "aos/common/tools/uuid.hpp"
 
-namespace aos {
-namespace crypto {
+namespace aos::crypto {
 
 /**
  * Loads certificates and keys interface.
@@ -149,7 +148,6 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id);
 Error ParsePKCS11URL(
     const String& url, String& library, String& token, String& label, Array<uint8_t>& id, String& userPin);
 
-} // namespace crypto
-} // namespace aos
+} // namespace aos::crypto
 
 #endif

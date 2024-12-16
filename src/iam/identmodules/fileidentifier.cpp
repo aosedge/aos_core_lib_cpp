@@ -10,9 +10,7 @@
 #include "aos/common/tools/memory.hpp"
 #include "log.hpp"
 
-namespace aos {
-namespace iam {
-namespace identhandler {
+namespace aos::iam::identhandler {
 
 /***********************************************************************************************************************
  * Public
@@ -102,6 +100,4 @@ Error FileIdentifier::ReadSubjects()
     return ErrorEnum::eNone;
 }
 
-} // namespace identhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::identhandler

@@ -12,9 +12,7 @@
 #include "aos/sm/resourcemanager.hpp"
 #include "log.hpp"
 
-namespace aos {
-namespace sm {
-namespace resourcemanager {
+namespace aos::sm::resourcemanager {
 
 /***********************************************************************************************************************
  * ResourceManager
@@ -422,6 +420,4 @@ Error ResourceManager::GetConfigDeviceInfo(const String& deviceName, DeviceInfo&
     return ErrorEnum::eNotFound;
 }
 
-} // namespace resourcemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::resourcemanager

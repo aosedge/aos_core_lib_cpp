@@ -11,8 +11,7 @@
 #include "aos/common/tools/string.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace oci {
+namespace aos::oci {
 
 /**
  * Max media type len.
@@ -334,8 +333,6 @@ struct RuntimeSpec {
     bool operator!=(const RuntimeSpec& spec) const { return !operator==(spec); }
 };
 
-} // namespace oci
-
 /**
  * OCI spec interface.
  */
@@ -401,6 +398,6 @@ public:
     virtual ~OCISpecItf() = default;
 };
 
-} // namespace aos
+} // namespace aos::oci
 
 #endif

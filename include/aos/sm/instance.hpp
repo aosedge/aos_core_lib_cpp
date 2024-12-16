@@ -15,9 +15,7 @@
 #include "aos/sm/runner.hpp"
 #include "aos/sm/service.hpp"
 
-namespace aos {
-namespace sm {
-namespace launcher {
+namespace aos::sm::launcher {
 
 /**
  * Launcher instance.
@@ -29,7 +27,7 @@ public:
      *
      * @param info instance info.
      */
-    Instance(const InstanceInfo& info, const String& instanceID, OCISpecItf& ociManager, runner::RunnerItf& runner,
+    Instance(const InstanceInfo& info, const String& instanceID, oci::OCISpecItf& ociManager, runner::RunnerItf& runner,
         monitoring::ResourceMonitorItf& resourceMonitor);
 
     /**
@@ -150,7 +148,7 @@ private:
 
     StaticString<cInstanceIDLen>    mInstanceID;
     InstanceInfo                    mInfo;
-    OCISpecItf&                     mOCIManager;
+    oci::OCISpecItf&                mOCIManager;
     runner::RunnerItf&              mRunner;
     monitoring::ResourceMonitorItf& mResourceMonitor;
     StaticString<cVersionLen>       mServiceVersion;
@@ -159,8 +157,6 @@ private:
     Error                           mRunError;
 };
 
-} // namespace launcher
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::launcher
 
 #endif

@@ -16,9 +16,7 @@
 #include "mocks/certreceivermock.hpp"
 #include "stubs/storagestub.hpp"
 
-namespace aos {
-namespace iam {
-namespace certhandler {
+namespace aos::iam::certhandler {
 
 using namespace testing;
 
@@ -618,6 +616,4 @@ TEST_F(IAMTest, RenewCertificate)
     ASSERT_EQ(handles.Size(), 3); // 1 root certificate + 2 generated
 }
 
-} // namespace certhandler
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::certhandler

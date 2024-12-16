@@ -17,8 +17,7 @@
 #include "aos/common/crypto/crypto.hpp"
 #include "aos/common/crypto/mbedtls/driverwrapper.hpp"
 
-namespace aos {
-namespace crypto {
+namespace aos::crypto {
 
 /**
  * MbedTLSCryptoProvider provider.
@@ -217,7 +216,6 @@ private:
     StaticAllocator<cAllocatorSize> mAllocator;
 };
 
-} // namespace crypto
-} // namespace aos
+} // namespace aos::crypto
 
 #endif

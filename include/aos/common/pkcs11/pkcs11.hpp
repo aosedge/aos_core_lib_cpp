@@ -15,8 +15,7 @@
 #include "aos/common/tools/utils.hpp"
 #include "aos/common/tools/uuid.hpp"
 
-namespace aos {
-namespace pkcs11 {
+namespace aos::pkcs11 {
 
 /**
  * Maximum length of PKCS11 slot description.
@@ -836,7 +835,6 @@ private:
     Mutex                                                      mMutex;
 };
 
-} // namespace pkcs11
-} // namespace aos
+} // namespace aos::pkcs11
 
 #endif

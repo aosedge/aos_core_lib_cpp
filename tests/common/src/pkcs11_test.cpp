@@ -19,8 +19,7 @@
 
 using namespace testing;
 
-namespace aos {
-namespace pkcs11 {
+namespace aos::pkcs11 {
 
 /***********************************************************************************************************************
  * Suite
@@ -620,5 +619,4 @@ TEST_F(PKCS11Test, PKCS11RSAPrivateKeyDecrypt)
     EXPECT_THAT(actual, ElementsAreArray(expected));
 }
 
-} // namespace pkcs11
-} // namespace aos
+} // namespace aos::pkcs11

@@ -12,9 +12,7 @@
 
 #include "aos/iam/nodemanager.hpp"
 
-namespace aos {
-namespace iam {
-namespace nodemanager {
+namespace aos::iam::nodemanager {
 
 class NodeInfoStorageMock : public NodeInfoStorageItf {
 public:
@@ -24,8 +22,6 @@ public:
     MOCK_METHOD(Error, RemoveNodeInfo, (const String& nodeID), (override));
 };
 
-} // namespace nodemanager
-} // namespace iam
-} // namespace aos
+} // namespace aos::iam::nodemanager
 
 #endif

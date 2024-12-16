@@ -9,9 +9,7 @@
 
 #include "aos/common/types.hpp"
 
-namespace aos {
-namespace sm {
-namespace layermanager {
+namespace aos::sm::layermanager {
 
 /** @addtogroup sm Service Manager
  *  @{
@@ -129,8 +127,6 @@ public:
 
 /** @}*/
 
-} // namespace layermanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::layermanager
 
 #endif

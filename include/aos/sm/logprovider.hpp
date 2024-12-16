@@ -9,9 +9,7 @@
 
 #include "aos/common/cloudprotocol/log.hpp"
 
-namespace aos {
-namespace sm {
-namespace logprovider {
+namespace aos::sm::logprovider {
 
 /** @addtogroup sm Service Manager
  *  @{
@@ -89,8 +87,6 @@ public:
 
 /** @}*/
 
-} // namespace logprovider
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::logprovider
 
 #endif

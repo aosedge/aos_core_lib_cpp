@@ -18,9 +18,7 @@
 
 using namespace ::testing;
 
-namespace aos {
-namespace sm {
-namespace resourcemanager {
+namespace aos::sm::resourcemanager {
 
 /***********************************************************************************************************************
  * Constants
@@ -530,6 +528,4 @@ TEST_F(ResourceManagerTest, SubscribeReturnsErrorIfAlreadySubscribed)
     ASSERT_TRUE(mResourceManager.SubscribeCurrentNodeConfigChange(mNodeConfigReceiver).Is(ErrorEnum::eAlreadyExist));
 }
 
-} // namespace resourcemanager
-} // namespace sm
-} // namespace aos
+} // namespace aos::sm::resourcemanager
