@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/sm/service.hpp"
+#include "aos/sm/launcher/service.hpp"
 #include "log.hpp"
 
 namespace aos::sm::launcher {

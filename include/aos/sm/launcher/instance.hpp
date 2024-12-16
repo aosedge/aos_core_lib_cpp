@@ -12,8 +12,8 @@
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/sm/config.hpp"
+#include "aos/sm/launcher/service.hpp"
 #include "aos/sm/runner.hpp"
-#include "aos/sm/service.hpp"
 
 namespace aos::sm::launcher {
 

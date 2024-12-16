@@ -18,9 +18,9 @@
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
-#include "aos/sm/instance.hpp"
+#include "aos/sm/launcher/instance.hpp"
+#include "aos/sm/launcher/service.hpp"
 #include "aos/sm/runner.hpp"
-#include "aos/sm/service.hpp"
 #include "aos/sm/servicemanager.hpp"
 
 namespace aos::sm::launcher {

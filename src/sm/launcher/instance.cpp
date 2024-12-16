@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/sm/instance.hpp"
+#include "aos/sm/launcher/instance.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "log.hpp"
