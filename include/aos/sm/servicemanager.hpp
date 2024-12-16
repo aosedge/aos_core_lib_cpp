@@ -8,7 +8,7 @@
 #ifndef AOS_SERVICEMANAGER_HPP_
 #define AOS_SERVICEMANAGER_HPP_
 
-#include "aos/common/downloader.hpp"
+#include "aos/common/downloader/downloader.hpp"
 #include "aos/common/ocispec.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/noncopyable.hpp"
@@ -258,7 +258,7 @@ public:
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(oci::OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage);
+    Error Init(oci::OCISpecItf& ociManager, downloader::DownloaderItf& downloader, StorageItf& storage);
 
     /**
      * Installs services.
@@ -302,9 +302,9 @@ private:
     Error                                    InstallService(const ServiceInfo& service);
     RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& imagePath, const String& digest);
 
-    oci::OCISpecItf*    mOCIManager {};
-    DownloaderItf* mDownloader {};
-    StorageItf*    mStorage {};
+    oci::OCISpecItf*           mOCIManager {};
+    downloader::DownloaderItf* mDownloader {};
+    StorageItf*                mStorage {};
 
     Mutex mMutex;
     StaticAllocator<Max(sizeof(ServiceDataStaticArray), sizeof(oci::ImageManifest) + sizeof(oci::ContentDescriptor))>

@@ -16,7 +16,7 @@ namespace aos::sm::servicemanager {
  * Public
  **********************************************************************************************************************/
 
-Error ServiceManager::Init(oci::OCISpecItf& ociManager, DownloaderItf& downloader, StorageItf& storage)
+Error ServiceManager::Init(oci::OCISpecItf& ociManager, downloader::DownloaderItf& downloader, StorageItf& storage)
 {
     LOG_DBG() << "Initialize service manager";
 
@@ -202,7 +202,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mDownloader->Download(service.mURL, data.mImagePath, DownloadContentEnum::eService);
+    err = mDownloader->Download(service.mURL, data.mImagePath, downloader::DownloadContentEnum::eService);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -99,14 +99,14 @@ public:
  * Mock downloader.
  */
 
-class MockDownloader : public DownloaderItf {
+class MockDownloader : public downloader::DownloaderItf {
 public:
-    Error Download(const String& url, const String& path, DownloadContent contentType) override
+    Error Download(const String& url, const String& path, downloader::DownloadContent contentType) override
     {
         (void)url;
         (void)path;
 
-        EXPECT_EQ(contentType, DownloadContentEnum::eService);
+        EXPECT_EQ(contentType, downloader::DownloadContentEnum::eService);
 
         return ErrorEnum::eNone;
     }

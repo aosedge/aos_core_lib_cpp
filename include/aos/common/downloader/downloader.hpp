@@ -12,7 +12,7 @@
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/string.hpp"
 
-namespace aos {
+namespace aos::downloader {
 
 /**
  * Download content type.
@@ -53,6 +53,6 @@ public:
     virtual ~DownloaderItf() = default;
 };
 
-} // namespace aos
+} // namespace aos::downloader
 
 #endif
