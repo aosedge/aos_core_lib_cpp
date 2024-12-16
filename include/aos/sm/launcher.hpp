@@ -13,7 +13,7 @@
 #include "aos/common/cloudprotocol/envvars.hpp"
 #include "aos/common/connectionsubsc.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
-#include "aos/common/ocispec.hpp"
+#include "aos/common/ocispec/ocispec.hpp"
 #include "aos/common/tools/map.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"

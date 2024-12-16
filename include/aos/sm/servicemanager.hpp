@@ -9,7 +9,7 @@
 #define AOS_SERVICEMANAGER_HPP_
 
 #include "aos/common/downloader/downloader.hpp"
-#include "aos/common/ocispec.hpp"
+#include "aos/common/ocispec/ocispec.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/thread.hpp"
