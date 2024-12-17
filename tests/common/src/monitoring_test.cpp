@@ -235,17 +235,17 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     auto          nodeInfo             = NodeInfo {
         "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
-    MockNodeInfoProvider nodeInfoProvider {nodeInfo};
+    auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
+    auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
+    auto sender                = std::make_unique<MockSender>();
+    auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
-    MockResourceUsageProvider resourceUsageProvider {};
-    MockSender                sender {};
-    MockConnectionPublisher   connectionPublisher {};
-    ResourceMonitor           monitor {};
+    auto monitor = std::make_unique<ResourceMonitor>();
 
-    EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
-    EXPECT_TRUE(monitor.Start().IsNone());
+    EXPECT_TRUE(monitor->Init(*nodeInfoProvider, *resourceUsageProvider, *sender, *connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor->Start().IsNone());
 
-    connectionPublisher.NotifyConnect();
+    connectionPublisher->NotifyConnect();
 
     PartitionInfo instancePartitionsInfo[] = {{"state", {}, "", 512, 256}, {"storage", {}, "", 1024, 512}};
     auto          instancePartitions = Array<PartitionInfo>(instancePartitionsInfo, ArraySize(instancePartitionsInfo));
@@ -258,31 +258,36 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
         {"instance1", {instance1Ident, {15000, 1024, instancePartitions, 20, 40}}},
     };
 
-    NodeMonitoringData providedNodeMonitoringData {"node1", {}, {30000, 8192, nodePartitions, 120, 240}, {}};
+    auto providedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
 
-    SetInstancesMonitoringData(providedNodeMonitoringData,
+    *providedNodeMonitoringData = {};
+
+    providedNodeMonitoringData->mNodeID         = "node1";
+    providedNodeMonitoringData->mMonitoringData = {30000, 8192, nodePartitions, 120, 240};
+
+    SetInstancesMonitoringData(*providedNodeMonitoringData,
         Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
 
-    EXPECT_TRUE(monitor.StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
-    EXPECT_TRUE(monitor.StartInstanceMonitoring("instance1", {instance1Ident, instancePartitions}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, instancePartitions}).IsNone());
 
-    NodeMonitoringData receivedNodeMonitoringData {};
+    auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
 
-    resourceUsageProvider.ProvideMonitoringData(providedNodeMonitoringData.mMonitoringData,
+    resourceUsageProvider->ProvideMonitoringData(providedNodeMonitoringData->mMonitoringData,
         Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
-    EXPECT_TRUE(sender.WaitMonitoringData(receivedNodeMonitoringData).IsNone());
+    EXPECT_TRUE(sender->WaitMonitoringData(*receivedNodeMonitoringData).IsNone());
 
-    providedNodeMonitoringData.mMonitoringData.mCPU
-        = providedNodeMonitoringData.mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
+    providedNodeMonitoringData->mMonitoringData.mCPU
+        = providedNodeMonitoringData->mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
 
-    for (auto& instanceMonitoring : providedNodeMonitoringData.mServiceInstances) {
+    for (auto& instanceMonitoring : providedNodeMonitoringData->mServiceInstances) {
         instanceMonitoring.mMonitoringData.mCPU = instanceMonitoring.mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
     }
 
-    receivedNodeMonitoringData.mTimestamp = providedNodeMonitoringData.mTimestamp;
-    EXPECT_EQ(providedNodeMonitoringData, receivedNodeMonitoringData);
+    receivedNodeMonitoringData->mTimestamp = providedNodeMonitoringData->mTimestamp;
+    EXPECT_EQ(*providedNodeMonitoringData, *receivedNodeMonitoringData);
 
-    EXPECT_TRUE(monitor.Stop().IsNone());
+    EXPECT_TRUE(monitor->Stop().IsNone());
 }
 
 TEST_F(MonitoringTest, GetAverageMonitoringData)
@@ -292,23 +297,23 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     auto          nodeInfo             = NodeInfo {
         "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
-    MockNodeInfoProvider nodeInfoProvider {nodeInfo};
+    auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
+    auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
+    auto sender                = std::make_unique<MockSender>();
+    auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
-    MockResourceUsageProvider resourceUsageProvider {};
-    MockSender                sender {};
-    MockConnectionPublisher   connectionPublisher {};
-    ResourceMonitor           monitor {};
+    auto monitor = std::make_unique<ResourceMonitor>();
 
-    EXPECT_TRUE(monitor.Init(nodeInfoProvider, resourceUsageProvider, sender, connectionPublisher).IsNone());
-    EXPECT_TRUE(monitor.Start().IsNone());
+    EXPECT_TRUE(monitor->Init(*nodeInfoProvider, *resourceUsageProvider, *sender, *connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor->Start().IsNone());
 
-    connectionPublisher.NotifyConnect();
+    connectionPublisher->NotifyConnect();
 
     InstanceIdent instance0Ident {"service0", "subject0", 0};
     PartitionInfo instancePartitionsInfo[] = {{"disk", {}, "", 512, 256}};
     auto          instancePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
 
-    EXPECT_TRUE(monitor.StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
 
     PartitionInfo providedNodeDiskData[][1] = {
         {{"disk", {}, "", 512, 100}},
@@ -334,13 +339,13 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         {{"disk", {}, "", 512, 400}},
     };
 
-    NodeMonitoringData providedNodeMonitoringData[] {
+    std::vector<NodeMonitoringData> providedNodeMonitoringData {
         {"node1", {}, {0, 600, {}, 300, 300}, {}},
         {"node1", {}, {900, 300, {}, 0, 300}, {}},
         {"node1", {}, {1200, 200, {}, 200, 0}, {}},
     };
 
-    NodeMonitoringData averageNodeMonitoringData[] {
+    std::vector<NodeMonitoringData> averageNodeMonitoringData {
         {"node1", {}, {0, 600, {}, 300, 300}, {}},
         {"node1", {}, {300, 500, {}, 200, 300}, {}},
         {"node1", {}, {600, 400, {}, 200, 200}, {}},
@@ -358,8 +363,10 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         {"instance0", {instance0Ident, {400, 600, {}, 200, 200}}},
     };
 
-    for (uint64_t i = 0; i < ArraySize(providedNodeMonitoringData); i++) {
-        NodeMonitoringData receivedNodeMonitoringData {};
+    for (size_t i = 0; i < providedNodeMonitoringData.size(); i++) {
+        auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
+
+        *receivedNodeMonitoringData = {};
 
         providedInstanceMonitoringData[i].mSecond.mMonitoringData.mPartitions
             = Array<PartitionInfo>(providedInstanceDiskData[i], ArraySize(providedInstanceDiskData[i]));
@@ -369,11 +376,11 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         SetInstancesMonitoringData(providedNodeMonitoringData[i],
             Array<Pair<String, InstanceMonitoringData>>(&providedInstanceMonitoringData[i], 1));
 
-        resourceUsageProvider.ProvideMonitoringData(providedNodeMonitoringData[i].mMonitoringData,
+        resourceUsageProvider->ProvideMonitoringData(providedNodeMonitoringData[i].mMonitoringData,
             Array<Pair<String, InstanceMonitoringData>>(&providedInstanceMonitoringData[i], 1));
 
-        EXPECT_TRUE(sender.WaitMonitoringData(receivedNodeMonitoringData).IsNone());
-        EXPECT_TRUE(monitor.GetAverageMonitoringData(receivedNodeMonitoringData).IsNone());
+        EXPECT_TRUE(sender->WaitMonitoringData(*receivedNodeMonitoringData).IsNone());
+        EXPECT_TRUE(monitor->GetAverageMonitoringData(*receivedNodeMonitoringData).IsNone());
 
         averageInstanceMonitoringData[i].mSecond.mMonitoringData.mPartitions
             = Array<PartitionInfo>(averageInstanceDiskData[i], ArraySize(averageInstanceDiskData[i]));
@@ -391,13 +398,12 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
                 = instanceMonitoring.mMonitoringData.mCPU * nodeInfo.mMaxDMIPS / 100.0;
         }
 
-        receivedNodeMonitoringData.mTimestamp = averageNodeMonitoringData[i].mTimestamp;
+        receivedNodeMonitoringData->mTimestamp = averageNodeMonitoringData[i].mTimestamp;
 
-        EXPECT_EQ(averageNodeMonitoringData[i], receivedNodeMonitoringData);
+        EXPECT_EQ(averageNodeMonitoringData[i], *receivedNodeMonitoringData);
     }
 
-    EXPECT_TRUE(monitor.Stop().IsNone());
-
-} // namespace aos::monitoring
+    EXPECT_TRUE(monitor->Stop().IsNone());
+}
 
 } // namespace aos::monitoring

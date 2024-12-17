@@ -413,27 +413,28 @@ private:
 
 TEST(LauncherTest, RunInstances)
 {
-    MockServiceManager      serviceManager;
-    MockRunner              runner;
-    MockOCIManager          ociManager;
-    MockStatusReceiver      statusReceiver;
-    MockStorage             storage;
-    MockResourceMonitor     resourceMonitor;
-    MockConnectionPublisher connectionPublisher;
+    auto serviceManager      = std::make_unique<MockServiceManager>();
+    auto runner              = std::make_unique<MockRunner>();
+    auto ociManager          = std::make_unique<MockOCIManager>();
+    auto statusReceiver      = std::make_unique<MockStatusReceiver>();
+    auto storage             = std::make_unique<MockStorage>();
+    auto resourceMonitor     = std::make_unique<MockResourceMonitor>();
+    auto connectionPublisher = std::make_unique<MockConnectionPublisher>();
 
-    Launcher launcher;
+    auto launcher = std::make_unique<Launcher>();
 
     InitLog();
 
-    auto feature = statusReceiver.GetFeature();
+    auto feature = statusReceiver->GetFeature();
 
-    EXPECT_TRUE(
-        launcher.Init(serviceManager, runner, ociManager, statusReceiver, storage, resourceMonitor, connectionPublisher)
-            .IsNone());
+    EXPECT_TRUE(launcher
+                    ->Init(*serviceManager, *runner, *ociManager, *statusReceiver, *storage, *resourceMonitor,
+                        *connectionPublisher)
+                    .IsNone());
 
-    ASSERT_TRUE(launcher.Start().IsNone());
+    ASSERT_TRUE(launcher->Start().IsNone());
 
-    connectionPublisher.Connect();
+    connectionPublisher->Connect();
 
     // Wait for initial instance status
 
@@ -498,10 +499,10 @@ TEST(LauncherTest, RunInstances)
     for (auto& testItem : testData) {
         LOG_INF() << "Test run instances: iteration=" << &testItem - &testData.front();
 
-        feature = statusReceiver.GetFeature();
+        feature = statusReceiver->GetFeature();
 
         EXPECT_TRUE(launcher
-                        .RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
+                        ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
                             Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
                             Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
                         .IsNone());
@@ -513,9 +514,9 @@ TEST(LauncherTest, RunInstances)
 
     // Reset
 
-    feature = statusReceiver.GetFeature();
+    feature = statusReceiver->GetFeature();
 
-    connectionPublisher.Connect();
+    connectionPublisher->Connect();
 
     // Wait for initial instance status
 
@@ -523,7 +524,7 @@ TEST(LauncherTest, RunInstances)
     EXPECT_TRUE(TestUtils::CompareArrays(
         feature.get(), Array<InstanceStatus>(testData.back().mStatus.data(), testData.back().mStatus.size())));
 
-    EXPECT_TRUE(launcher.Stop().IsNone());
+    EXPECT_TRUE(launcher->Stop().IsNone());
 }
 
 } // namespace aos::sm::launcher
