@@ -15,7 +15,7 @@ namespace aos::cloudprotocol {
 /**
  * Environment variable name value.
  */
-constexpr auto cEnvVarValueLen = AOS_CONFIG_CLOUD_PROTOCOL_ENV_VAR_VALUE_LEN;
+constexpr auto cEnvVarValueLen = AOS_CONFIG_CLOUDPROTOCOL_ENV_VAR_VALUE_LEN;
 
 /**
  * Environment variable info.

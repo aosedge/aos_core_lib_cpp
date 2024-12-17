@@ -17,17 +17,17 @@ namespace aos::cloudprotocol {
 /**
  * Log id len.
  */
-constexpr auto cLogIDLen = AOS_CONFIG_CLOUD_PROTOCOL_LOG_ID_LEN;
+constexpr auto cLogIDLen = AOS_CONFIG_CLOUDPROTOCOL_LOG_ID_LEN;
 
 /**
  * Log content len.
  */
-constexpr auto cLogContentLen = AOS_CONFIG_CLOUD_PROTOCOL_LOG_CONTENT_LEN;
+constexpr auto cLogContentLen = AOS_CONFIG_CLOUDPROTOCOL_LOG_CONTENT_LEN;
 
 /**
  * Bearer token len.
  */
-constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUD_PROTOCOL_BEARER_TOKEN_LEN;
+constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
 
 /**
  * Log type type.
