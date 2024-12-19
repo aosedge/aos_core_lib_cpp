@@ -398,7 +398,7 @@ public:
 
 class CryptoTest : public Test {
 public:
-    void SetUp() override { aos::InitLog(); }
+    void SetUp() override { aos::test::InitLog(); }
 };
 
 /***********************************************************************************************************************

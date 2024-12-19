@@ -29,7 +29,7 @@ protected:
 
     void SetUp() override
     {
-        aos::InitLog();
+        aos::test::InitLog();
 
         mModuleConfig.mMaxCertificates = 2;
 

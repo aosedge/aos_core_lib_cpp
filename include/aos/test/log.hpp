@@ -13,7 +13,7 @@
 
 #include "aos/common/tools/logger.hpp"
 
-namespace aos {
+namespace aos::test {
 
 inline void InitLog()
 {
@@ -25,6 +25,6 @@ inline void InitLog()
     });
 }
 
-} // namespace aos
+} // namespace aos::test
 
 #endif

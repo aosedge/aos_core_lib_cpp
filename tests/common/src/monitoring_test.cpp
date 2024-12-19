@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) 2024 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <mutex>
 
 #include <gtest/gtest.h>
@@ -221,7 +227,7 @@ private:
 
 class MonitoringTest : public Test {
 protected:
-    void SetUp() override { InitLog(); }
+    void SetUp() override { test::InitLog(); }
 };
 
 /***********************************************************************************************************************

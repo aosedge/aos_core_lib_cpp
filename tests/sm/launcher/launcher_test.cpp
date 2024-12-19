@@ -430,7 +430,7 @@ TEST(LauncherTest, RunInstances)
 
     auto launcher = std::make_unique<Launcher>();
 
-    InitLog();
+    test::InitLog();
 
     auto feature = statusReceiver->GetFeature();
 
@@ -446,7 +446,7 @@ TEST(LauncherTest, RunInstances)
     // Wait for initial instance status
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(TestUtils::CompareArrays(feature.get(), Array<InstanceStatus>()));
+    EXPECT_TRUE(test::CompareArrays(feature.get(), Array<InstanceStatus>()));
 
     // Test different scenarios
 
@@ -515,7 +515,7 @@ TEST(LauncherTest, RunInstances)
                         .IsNone());
 
         EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-        EXPECT_TRUE(TestUtils::CompareArrays(
+        EXPECT_TRUE(test::CompareArrays(
             feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
     }
 
@@ -528,7 +528,7 @@ TEST(LauncherTest, RunInstances)
     // Wait for initial instance status
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(TestUtils::CompareArrays(
+    EXPECT_TRUE(test::CompareArrays(
         feature.get(), Array<InstanceStatus>(testData.back().mStatus.data(), testData.back().mStatus.size())));
 
     EXPECT_TRUE(launcher->Stop().IsNone());

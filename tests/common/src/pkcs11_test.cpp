@@ -29,7 +29,7 @@ class PKCS11Test : public Test {
 protected:
     void SetUp() override
     {
-        InitLog();
+        aos::test::InitLog();
 
         ASSERT_TRUE(mCryptoProvider.Init().IsNone());
         ASSERT_TRUE(mSoftHSMEnv.Init(mPIN, mLabel).IsNone());

@@ -266,7 +266,7 @@ class ServiceManagerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        InitLog();
+        test::InitLog();
 
         FS::ClearDir(cTestRootDir);
 
@@ -328,7 +328,7 @@ TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
     ASSERT_TRUE(mStorage.GetAllServices(services).IsNone());
 
     EXPECT_EQ(services.Size(), expected.size());
-    EXPECT_TRUE(TestUtils::CompareArrays(services, Array<ServiceData>(expected.data(), expected.size())));
+    EXPECT_TRUE(test::CompareArrays(services, Array<ServiceData>(expected.data(), expected.size())));
 }
 
 TEST_F(ServiceManagerTest, ProcessDesiredServices)

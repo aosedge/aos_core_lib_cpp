@@ -77,7 +77,7 @@ class ResourceManagerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        InitLog();
+        test::InitLog();
 
         auto err = FS::WriteStringToFile(cConfigFilePath, cConfigFileContent, S_IRUSR | S_IWUSR);
         EXPECT_TRUE(err.IsNone()) << "SetUp failed to write string to file: " << err.Message();

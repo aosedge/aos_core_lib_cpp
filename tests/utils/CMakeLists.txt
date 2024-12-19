@@ -18,7 +18,7 @@ include(cmake/gencertificates.cmake)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES src/softhsmenv.cpp)
+set(SOURCES src/softhsmenv.cpp src/utils.cpp)
 
 # ######################################################################################################################
 # Set SOFTHSM test environment

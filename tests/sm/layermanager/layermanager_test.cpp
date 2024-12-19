@@ -190,7 +190,7 @@ class LayerManagerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        InitLog();
+        test::InitLog();
 
         FS::ClearDir(FS::JoinPath(cLayersDir, "sha256"));
         FS::ClearDir(cDownloadDir);
@@ -395,7 +395,7 @@ TEST_F(LayerManagerTest, ValidateOutdateLayersByTimer)
 
     sleep(1);
 
-    ASSERT_TRUE(TestUtils::CompareArrays(dbLayers, Array<LayerData>(expectedLayers.data(), expectedLayers.size())));
+    ASSERT_TRUE(test::CompareArrays(dbLayers, Array<LayerData>(expectedLayers.data(), expectedLayers.size())));
 }
 
 TEST_F(LayerManagerTest, ProcessDesiredLayers)

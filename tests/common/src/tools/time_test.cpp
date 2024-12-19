@@ -15,7 +15,7 @@ using namespace aos;
 
 class TimeTest : public Test {
 private:
-    void SetUp() override { InitLog(); }
+    void SetUp() override { test::InitLog(); }
 };
 
 TEST_F(TimeTest, Add4Years)

@@ -48,7 +48,7 @@ private:
         FS::RemoveAll(cBaseTestDir.c_str());
         FS::MakeDirAll(cBaseTestDir.c_str());
 
-        aos::InitLog();
+        aos::test::InitLog();
     }
 };
 
