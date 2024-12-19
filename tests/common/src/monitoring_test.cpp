@@ -5,7 +5,9 @@
  */
 
 #include <mutex>
+#include <queue>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "aos/common/monitoring/resourcemonitor.hpp"
@@ -25,6 +27,8 @@ static constexpr auto cWaitTimeout = std::chrono::seconds {5};
  * Static
  **********************************************************************************************************************/
 
+namespace {
+
 void SetInstancesMonitoringData(
     NodeMonitoringData& nodeMonitoringData, const Array<Pair<String, InstanceMonitoringData>>& instancesData)
 {
@@ -33,6 +37,40 @@ void SetInstancesMonitoringData(
     for (const auto& [instanceID, instanceData] : instancesData) {
         nodeMonitoringData.mServiceInstances.PushBack(instanceData);
     }
+}
+
+class GetAlertVariantVisitor : public StaticVisitor<void> {
+public:
+    GetAlertVariantVisitor(std::vector<cloudprotocol::SystemQuotaAlert>& systemAlerts,
+        std::vector<cloudprotocol::InstanceQuotaAlert>&                  instanceAlerts)
+        : mSystemAlerts(systemAlerts)
+        , mInstanceAlerts(instanceAlerts)
+    {
+    }
+
+    void Visit(const cloudprotocol::SystemQuotaAlert& alert) const { mSystemAlerts.push_back(alert); }
+
+    void Visit(const cloudprotocol::InstanceQuotaAlert& alert) const { mInstanceAlerts.push_back(alert); }
+
+    void Visit(...) const { }
+
+private:
+    std::vector<cloudprotocol::SystemQuotaAlert>&   mSystemAlerts;
+    std::vector<cloudprotocol::InstanceQuotaAlert>& mInstanceAlerts;
+};
+
+struct AlertData {
+    std::string                mTag;
+    std::string                mParameter;
+    uint64_t                   mValue;
+    cloudprotocol::AlertStatus mStatus;
+};
+
+template <typename T>
+bool operator==(const AlertData& lhs, const T& rhs)
+{
+    return lhs.mTag == lhs.mTag && lhs.mParameter == rhs.mParameter.CStr() && lhs.mValue == rhs.mValue
+        && lhs.mStatus == rhs.mStatus;
 }
 
 /***********************************************************************************************************************
@@ -76,6 +114,102 @@ public:
 
 private:
     NodeInfo mNodeInfo {};
+};
+
+class MockResourceManager : public sm::resourcemanager::ResourceManagerItf {
+public:
+    MockResourceManager(Optional<AlertRules> alertRules = {}) { mConfig.mNodeConfig.mAlertRules = alertRules; }
+
+    RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const override { return mConfig.mVersion; }
+
+    Error GetNodeConfig(aos::NodeConfig& nodeConfig) const override
+    {
+        nodeConfig = mConfig.mNodeConfig;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error GetDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const override
+    {
+        (void)deviceName;
+        (void)deviceInfo;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error GetResourceInfo(const String& resourceName, ResourceInfo& resourceInfo) const override
+    {
+        (void)resourceName;
+        (void)resourceInfo;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error AllocateDevice(const String& deviceName, const String& instanceID) override
+    {
+        (void)deviceName;
+        (void)instanceID;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error ReleaseDevice(const String& deviceName, const String& instanceID) override
+    {
+        (void)deviceName;
+        (void)instanceID;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error ReleaseDevices(const String& instanceID) override
+    {
+        (void)instanceID;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error ResetAllocatedDevices() override { return ErrorEnum::eNone; }
+
+    Error GetDeviceInstances(const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const override
+    {
+        (void)deviceName;
+        (void)instanceIDs;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error CheckNodeConfig(const String& version, const String& config) const override
+    {
+        (void)version;
+        (void)config;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error UpdateNodeConfig(const String& version, const String& config) override
+    {
+        (void)version;
+        (void)config;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error SubscribeCurrentNodeConfigChange(sm::resourcemanager::NodeConfigReceiverItf& receiver) override
+    {
+        (void)receiver;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error UnsubscribeCurrentNodeConfigChange(sm::resourcemanager::NodeConfigReceiverItf& receiver) override
+    {
+        (void)receiver;
+
+        return ErrorEnum::eNone;
+    }
+
+private:
+    sm::resourcemanager::NodeConfig mConfig {};
 };
 
 class MockResourceUsageProvider : public ResourceUsageProviderItf {
@@ -189,6 +323,39 @@ private:
     NodeMonitoringData      mMonitoringData {};
 };
 
+class AlertSenderStub : public alerts::SenderItf {
+public:
+    Error SendAlert(const cloudprotocol::AlertVariant& alert) override
+    {
+        std::lock_guard lock {mMutex};
+
+        GetAlertVariantVisitor visitor {mSystemQuotaAlerts, mInstanceQuotaAlerts};
+
+        alert.ApplyVisitor(visitor);
+
+        return ErrorEnum::eNone;
+    }
+
+    std::vector<cloudprotocol::SystemQuotaAlert> GetSystemQuotaAlerts() const
+    {
+        std::lock_guard lock {mMutex};
+
+        return mSystemQuotaAlerts;
+    }
+
+    std::vector<cloudprotocol::InstanceQuotaAlert> GetInstanceQuotaAlerts() const
+    {
+        std::lock_guard lock {mMutex};
+
+        return mInstanceQuotaAlerts;
+    }
+
+private:
+    mutable std::mutex                             mMutex;
+    std::vector<cloudprotocol::SystemQuotaAlert>   mSystemQuotaAlerts;
+    std::vector<cloudprotocol::InstanceQuotaAlert> mInstanceQuotaAlerts;
+};
+
 class MockConnectionPublisher : public ConnectionPublisherItf {
 public:
     aos::Error Subscribe(ConnectionSubscriberItf& subscriber) override
@@ -221,6 +388,8 @@ private:
     ConnectionSubscriberItf* mSubscriber {};
 };
 
+} // namespace
+
 /***********************************************************************************************************************
  * Suite
  **********************************************************************************************************************/
@@ -241,14 +410,30 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     auto          nodeInfo             = NodeInfo {
         "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
+    AlertRules alertRules;
+    alertRules.mCPU.SetValue(AlertRulePercents {10, 20, Time::cMilliseconds});
+    alertRules.mRAM.SetValue(AlertRulePercents {20, 30, Time::cMilliseconds});
+    alertRules.mDownload.SetValue(AlertRulePoints {10, 20, Time::cMilliseconds});
+    alertRules.mUpload.SetValue(AlertRulePoints {10, 20, Time::cMilliseconds});
+
+    for (const auto& partition : nodePartitionsInfo) {
+        ASSERT_TRUE(alertRules.mPartitions.PushBack(PartitionAlertRule {10, 20, Time::cMilliseconds, partition.mName})
+                        .IsNone());
+    }
+
     auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
+    auto resourceManager       = std::make_unique<MockResourceManager>(Optional<AlertRules> {alertRules});
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
+    auto alertSender           = std::make_unique<AlertSenderStub>();
     auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
     auto monitor = std::make_unique<ResourceMonitor>();
 
-    EXPECT_TRUE(monitor->Init(*nodeInfoProvider, *resourceUsageProvider, *sender, *connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor
+                    ->Init(Config {Time::cMilliseconds, Time::cMilliseconds}, *nodeInfoProvider, *resourceManager,
+                        *resourceUsageProvider, *sender, *alertSender, *connectionPublisher)
+                    .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
     connectionPublisher->NotifyConnect();
@@ -277,8 +462,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     SetInstancesMonitoringData(*providedNodeMonitoringData,
         Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
 
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, partitionParams, 0, 0}).IsNone());
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, partitionParams, 0, 0}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, partitionParams, 0, 0, {}}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, partitionParams, 0, 0, {}}).IsNone());
 
     auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
 
@@ -307,13 +492,18 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
     auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
+    auto resourceManager       = std::make_unique<MockResourceManager>();
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
+    auto alertSender           = std::make_unique<AlertSenderStub>();
     auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
     auto monitor = std::make_unique<ResourceMonitor>();
 
-    EXPECT_TRUE(monitor->Init(*nodeInfoProvider, *resourceUsageProvider, *sender, *connectionPublisher).IsNone());
+    EXPECT_TRUE(monitor
+                    ->Init(Config {}, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender,
+                        *alertSender, *connectionPublisher)
+                    .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
     connectionPublisher->NotifyConnect();
@@ -322,7 +512,7 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     PartitionParam partitionParmsData[] = {{"disk", ""}};
     auto           partitionParams      = Array<PartitionParam>(partitionParmsData, ArraySize(partitionParmsData));
 
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, partitionParams, 0, 0}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, partitionParams, 0, 0, {}}).IsNone());
 
     PartitionInfo providedNodeDiskData[][1] = {
         {{"disk", {}, "", 512, 100}},
@@ -360,13 +550,13 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         {"node1", {}, {600, 400, {}, 200, 200}, {}},
     };
 
-    Pair<String, InstanceMonitoringData> providedInstanceMonitoringData[] {
+    std::vector<Pair<String, InstanceMonitoringData>> providedInstanceMonitoringData {
         {"instance0", {instance0Ident, {600, 0, {}, 300, 300}}},
         {"instance0", {instance0Ident, {300, 900, {}, 300, 0}}},
         {"instance0", {instance0Ident, {200, 1200, {}, 0, 200}}},
     };
 
-    Pair<String, InstanceMonitoringData> averageInstanceMonitoringData[] {
+    std::vector<Pair<String, InstanceMonitoringData>> averageInstanceMonitoringData {
         {"instance0", {instance0Ident, {600, 0, {}, 300, 300}}},
         {"instance0", {instance0Ident, {500, 300, {}, 300, 200}}},
         {"instance0", {instance0Ident, {400, 600, {}, 200, 200}}},
@@ -413,6 +603,137 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     }
 
     EXPECT_TRUE(monitor->Stop().IsNone());
+}
+
+TEST_F(MonitoringTest, QuotaAlertsAreSent)
+{
+    const auto    maxDmips             = 10000;
+    PartitionInfo nodePartitionsInfo[] = {{"disk1", {}, "", 512, 256}, {"disk2", {}, "", 1024, 512},
+        {"state", {}, "", 512, 128}, {"storage", {}, "", 1024, 256}};
+    auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
+    auto          nodeInfo             = NodeInfo {
+        "node1", "type1", "name1", NodeStatusEnum::eProvisioned, "linux", {}, nodePartitions, {}, maxDmips, 8192};
+
+    AlertRules alertRules;
+    alertRules.mCPU.SetValue(AlertRulePercents {Time::cMilliseconds, 10.0, 20.0});
+    alertRules.mRAM.SetValue(AlertRulePercents {Time::cMilliseconds, 20.0, 30.0});
+    alertRules.mDownload.SetValue(AlertRulePoints {Time::cMilliseconds, 10, 20});
+    alertRules.mUpload.SetValue(AlertRulePoints {Time::cMilliseconds, 10, 20});
+
+    for (const auto& partition : nodePartitionsInfo) {
+        ASSERT_TRUE(
+            alertRules.mPartitions.PushBack(PartitionAlertRule {Time::cMilliseconds, 40.0, 50.0, partition.mName})
+                .IsNone());
+    }
+
+    Config config {Time::cMilliseconds, Time::cMilliseconds};
+    auto   nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
+    auto   resourceManager       = std::make_unique<MockResourceManager>(Optional<AlertRules> {alertRules});
+    auto   resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
+    auto   sender                = std::make_unique<MockSender>();
+    auto   alertSender           = std::make_unique<AlertSenderStub>();
+    auto   connectionPublisher   = std::make_unique<MockConnectionPublisher>();
+
+    auto monitor = std::make_unique<ResourceMonitor>();
+
+    EXPECT_TRUE(monitor
+                    ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
+                        *connectionPublisher)
+                    .IsNone());
+    EXPECT_TRUE(monitor->Start().IsNone());
+
+    connectionPublisher->NotifyConnect();
+
+    auto instancePartitions = Array<PartitionInfo>(&nodePartitionsInfo[2], 2);
+
+    PartitionParam partitionParamsData[] = {{instancePartitions[0].mName, ""}, {instancePartitions[1].mName, ""}};
+    auto           partitionParams       = Array<PartitionParam>(partitionParamsData, ArraySize(partitionParamsData));
+
+    auto instanceAlertRules = alertRules;
+    instanceAlertRules.mPartitions.Clear();
+    instanceAlertRules.mPartitions.PushBack({Time::cMilliseconds, 10.0, 20.0, "state"});
+    instanceAlertRules.mPartitions.PushBack({Time::cMilliseconds, 10.0, 20.0, "storage"});
+
+    InstanceIdent instance0Ident {"service0", "subject0", 0};
+    InstanceIdent instance1Ident {"service1", "subject1", 1};
+
+    Pair<String, InstanceMonitoringData> instancesMonitoringData[] = {
+        {"instance0", {instance0Ident, {100, 2048, instancePartitions, 10, 20}}},
+        {"instance1", {instance1Ident, {150, 1024, instancePartitions, 20, 40}}},
+    };
+
+    const std::vector<Pair<InstanceIdent, AlertData>> expectedInstanceAlerts = {
+        {instance0Ident, {"instanceQuotaAlert", "cpu", 100 * maxDmips / 100, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "state", 128, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "storage", 256, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "download", 20, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "cpu", 150 * maxDmips / 100, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "state", 128, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "storage", 256, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "download", 20, cloudprotocol::AlertStatusEnum::eRaise}},
+    };
+
+    auto providedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
+
+    *providedNodeMonitoringData = {};
+
+    providedNodeMonitoringData->mNodeID         = "node1";
+    providedNodeMonitoringData->mTimestamp      = Time::Now().Add(Time::cSeconds);
+    providedNodeMonitoringData->mMonitoringData = {100, 8192, nodePartitions, 120, 240};
+
+    const std::vector<AlertData> expectedSystemAlerts = {
+        {"systemQuotaAlert", "cpu", maxDmips, cloudprotocol::AlertStatusEnum::eRaise},
+        {"systemQuotaAlert", "ram", 8192, cloudprotocol::AlertStatusEnum::eRaise},
+        {"systemQuotaAlert", "disk1", 256, cloudprotocol::AlertStatusEnum::eRaise},
+        {"systemQuotaAlert", "disk2", 512, cloudprotocol::AlertStatusEnum::eRaise},
+        {"systemQuotaAlert", "download", 120, cloudprotocol::AlertStatusEnum::eRaise},
+        {"systemQuotaAlert", "upload", 240, cloudprotocol::AlertStatusEnum::eRaise},
+    };
+
+    SetInstancesMonitoringData(*providedNodeMonitoringData,
+        Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
+
+    EXPECT_TRUE(monitor
+                    ->StartInstanceMonitoring(
+                        "instance0", {instance0Ident, partitionParams, 0, 0, Optional<AlertRules> {instanceAlertRules}})
+                    .IsNone());
+    EXPECT_TRUE(monitor
+                    ->StartInstanceMonitoring(
+                        "instance1", {instance1Ident, partitionParams, 0, 0, Optional<AlertRules> {instanceAlertRules}})
+                    .IsNone());
+
+    auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
+
+    resourceUsageProvider->ProvideMonitoringData(providedNodeMonitoringData->mMonitoringData,
+        Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
+    EXPECT_TRUE(sender->WaitMonitoringData(*receivedNodeMonitoringData).IsNone());
+
+    providedNodeMonitoringData->mTimestamp = providedNodeMonitoringData->mTimestamp.Add(Time::cSeconds);
+
+    resourceUsageProvider->ProvideMonitoringData(providedNodeMonitoringData->mMonitoringData,
+        Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
+    EXPECT_TRUE(sender->WaitMonitoringData(*receivedNodeMonitoringData).IsNone());
+
+    EXPECT_TRUE(monitor->Stop().IsNone());
+
+    auto systemQuotaAlerts = alertSender->GetSystemQuotaAlerts();
+    ASSERT_FALSE(systemQuotaAlerts.empty());
+
+    ASSERT_EQ(systemQuotaAlerts.size(), expectedSystemAlerts.size());
+    for (const auto& received : systemQuotaAlerts) {
+        EXPECT_THAT(expectedSystemAlerts, Contains(received));
+    }
+
+    auto instanceQuotaAlerts = alertSender->GetInstanceQuotaAlerts();
+    ASSERT_FALSE(instanceQuotaAlerts.empty());
+
+    for (const auto& received : instanceQuotaAlerts) {
+        EXPECT_NE(std::find_if(expectedInstanceAlerts.begin(), expectedInstanceAlerts.end(),
+                      [&](const Pair<InstanceIdent, AlertData>& expected) {
+                          return expected.mFirst == received.mInstanceIdent && expected.mSecond == received;
+                      }),
+            expectedInstanceAlerts.end());
+    }
 }
 
 } // namespace aos::monitoring

@@ -9,6 +9,7 @@
 #define AOS_MONITORING_HPP_
 
 #include "aos/common/connectionsubsc.hpp"
+#include "aos/common/monitoring/alertprocessor.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
@@ -61,6 +62,7 @@ struct InstanceMonitorParams {
     StaticArray<PartitionParam, cMaxNumPartitions> mPartitions;
     uint32_t                                       mUID;
     uint32_t                                       mGID;
+    Optional<AlertRules>                           mAlertRules;
 };
 
 /**
@@ -85,11 +87,10 @@ struct InstanceMonitoringData {
     /**
      * Constructs a new Instance Monitoring Data object.
      *
-     * @param instanceIdent instance ident.
      * @param monitoringParams monitoring params.
      */
-    InstanceMonitoringData(const InstanceIdent& instanceIdent, const InstanceMonitorParams& monitoringParams)
-        : mInstanceIdent(instanceIdent)
+    explicit InstanceMonitoringData(const InstanceMonitorParams& monitoringParams)
+        : mInstanceIdent(monitoringParams.mInstanceIdent)
         , mMonitoringData({0, 0, {}, 0, 0})
         , mUID(monitoringParams.mUID)
         , mGID(monitoringParams.mGID)

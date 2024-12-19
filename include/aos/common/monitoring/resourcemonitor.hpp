@@ -8,28 +8,45 @@
 #ifndef AOS_RESOURCEMONITOR_HPP_
 #define AOS_RESOURCEMONITOR_HPP_
 
+#include "aos/common/monitoring/alertprocessor.hpp"
 #include "aos/common/monitoring/average.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/memory.hpp"
+#include "aos/sm/resourcemanager.hpp"
 
 namespace aos::monitoring {
 
 /**
+ * Resource monitor config.
+ */
+struct Config {
+    Duration mPollPeriod    = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC * Time::cSeconds;
+    Duration mAverageWindow = AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC * Time::cSeconds;
+};
+
+/**
  * Resource monitor.
  */
-class ResourceMonitor : public ResourceMonitorItf, public ConnectionSubscriberItf {
+class ResourceMonitor : public ResourceMonitorItf,
+                        public ConnectionSubscriberItf,
+                        public sm::resourcemanager::NodeConfigReceiverItf,
+                        private NonCopyable {
 public:
     /**
      * Initializes resource monitor.
      *
+     * @param config config.
      * @param nodeInfoProvider node info provider.
+     * @param resourceManager resource manager.
      * @param resourceUsageProvider resource usage provider.
      * @param monitorSender monitor sender.
+     * @param alertSender alert sender.
+     * @param connectionPublisher connection publisher.
      * @return Error.
      */
-    Error Init(iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        ResourceUsageProviderItf& resourceUsageProvider, SenderItf& monitorSender,
-        ConnectionPublisherItf& connectionPublisher);
+    Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+        sm::resourcemanager::ResourceManagerItf& resourceManager, ResourceUsageProviderItf& resourceUsageProvider,
+        SenderItf& monitorSender, alerts::SenderItf& alertSender, ConnectionPublisherItf& connectionPublisher);
 
     /**
      * Starts monitoring.
@@ -80,20 +97,42 @@ public:
      */
     void OnDisconnect() override;
 
+    /**
+     * Receives node config.
+     *
+     * @param nodeConfig node config.
+     * @return Error.
+     */
+    Error ReceiveNodeConfig(const sm::resourcemanager::NodeConfig& nodeConfig) override;
+
 private:
-    static constexpr auto cPollPeriod    = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC * Time::cSeconds;
-    static constexpr auto cAverageWindow = AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC * Time::cSeconds;
+    String                      GetParameterName(const ResourceIdentifier& id) const;
+    cloudprotocol::AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
+    cloudprotocol::AlertVariant CreateInstanceQuotaAlertTemplate(
+        const InstanceIdent& instanceIdent, const ResourceIdentifier& resourceIdentifier) const;
+    double CPUToDMIPs(double cpuPersentage) const;
 
-    void ProcessMonitoring();
+    Error SetupAlerts(
+        const ResourceIdentifier identifierTemplate, const AlertRules& rules, Array<AlertProcessor>& alertProcessors);
 
-    ResourceUsageProviderItf* mResourceUsageProvider {};
-    SenderItf*                mMonitorSender {};
-    ConnectionPublisherItf*   mConnectionPublisher {};
+    Error SetupSystemAlerts(const NodeConfig& nodeConfig);
+    Error SetupInstanceAlerts(const String& instanceID, const InstanceMonitorParams& instanceParams);
+    void  ProcessMonitoring();
+    void  ProcessAlerts(const MonitoringData& monitoringData, const Time& time, Array<AlertProcessor>& alertProcessors);
+    RetWithError<uint64_t> GetCurrentUsage(const ResourceIdentifier& id, const MonitoringData& monitoringData) const;
+    RetWithError<uint64_t> GetPartitionTotalSize(const String& name) const;
+
+    Config                                   mConfig;
+    ResourceUsageProviderItf*                mResourceUsageProvider {};
+    sm::resourcemanager::ResourceManagerItf* mResourceManager {};
+    SenderItf*                               mMonitorSender {};
+    alerts::SenderItf*                       mAlertSender = {};
+    ConnectionPublisherItf*                  mConnectionPublisher {};
 
     Average mAverage;
 
-    NodeMonitoringData                                          mNodeMonitoringData {};
-    StaticMap<String, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
+    NodeMonitoringData                                                                mNodeMonitoringData {};
+    StaticMap<StaticString<cInstanceIDLen>, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
 
     bool mFinishMonitoring {};
     bool mSendMonitoring {};
@@ -103,8 +142,12 @@ private:
     Thread<>            mThread = {};
 
     uint64_t mMaxDMIPS {};
+    uint64_t mMaxMemory {};
 
-    mutable StaticAllocator<sizeof(NodeInfo)> mAllocator;
+    AlertProcessorStaticArray                                                            mAlertProcessors;
+    StaticMap<StaticString<cInstanceIDLen>, AlertProcessorStaticArray, cMaxNumInstances> mInstanceAlertProcessors;
+
+    mutable StaticAllocator<sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig)> mAllocator;
 };
 
 } // namespace aos::monitoring
