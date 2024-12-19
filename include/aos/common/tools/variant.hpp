@@ -99,6 +99,31 @@ public:
     Variant() = default;
 
     /**
+     * Copy constructor.
+     *
+     * @param other variant to copy from.
+     */
+    // cppcheck-suppress uninitMemberVar
+    Variant(const Variant& other) { CopyObject(other); }
+
+    /**
+     * Assignment operator.
+     *
+     * @param other variant to copy from.
+     * @return Variant&.
+     */
+    // cppcheck-suppress uninitMemberVar
+    // cppcheck-suppress operatorEqVarError
+    Variant& operator=(const Variant& other)
+    {
+        if (this != &other) {
+            CopyObject(other);
+        }
+
+        return *this;
+    }
+
+    /**
      * Sets new variant value.
      *
      * @param args... argument list for constructor of a new object.
@@ -181,12 +206,34 @@ private:
         }
     };
 
+    struct ObjectCopier : StaticVisitor<void> {
+        explicit ObjectCopier(Variant* variant)
+            : mVariant(variant)
+        {
+        }
+
+        template <typename T>
+        void Visit(const T& val) const
+        {
+            mVariant->SetValue<T>(val);
+        }
+
+        Variant* mVariant;
+    };
+
     void DestroyObject()
     {
         if (mTypeIndex != cInvalidTypeIndex) {
             ApplyVisitor(ObjectDestroyer {});
             mTypeIndex = cInvalidTypeIndex;
         }
+    }
+
+    void CopyObject(const Variant& other)
+    {
+        ObjectCopier visitor {this};
+
+        other.ApplyVisitor(visitor);
     }
 
     int mTypeIndex = cInvalidTypeIndex;

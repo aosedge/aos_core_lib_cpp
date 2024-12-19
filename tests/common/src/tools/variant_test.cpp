@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <memory>
+
 #include <gmock/gmock.h>
 
 #include "aos/common/tools/string.hpp"
@@ -76,4 +78,18 @@ TEST(VariantTest, GetBaseTest)
 
     EXPECT_EQ(GetBase<Foo>(variant).GetName(), "Child1");
     EXPECT_EQ(GetBase<Foo>(const_cast<const AnyChild&>(variant)).GetName(), "Child1");
+}
+
+TEST(VariantTest, CopyVariant)
+{
+    auto ptr = std::make_shared<std::string>("Hello");
+
+    Variant<std::shared_ptr<std::string>, int> variant1;
+    variant1.SetValue<std::shared_ptr<std::string>>(ptr);
+
+    EXPECT_TRUE(ptr.use_count() == 2);
+
+    auto variant2 = variant1;
+
+    EXPECT_TRUE(ptr.use_count() == 3);
 }
