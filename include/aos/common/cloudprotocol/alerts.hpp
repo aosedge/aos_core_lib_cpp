@@ -318,6 +318,10 @@ struct SystemQuotaAlert : AlertItem {
      */
     SystemQuotaAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eSystemQuotaAlert, timestamp)
+        , mNodeID()
+        , mParameter()
+        , mValue(0)
+        , mStatus()
     {
     }
 
@@ -358,6 +362,10 @@ struct InstanceQuotaAlert : AlertItem {
      */
     InstanceQuotaAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eInstanceQuotaAlert, timestamp)
+        , mInstanceIdent()
+        , mParameter()
+        , mValue(0)
+        , mStatus()
     {
     }
 
@@ -398,6 +406,7 @@ struct DeviceAllocateAlert : AlertItem {
      */
     DeviceAllocateAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eDeviceAllocateAlert, timestamp)
+        , mInstanceIdent()
     {
     }
 
@@ -476,6 +485,7 @@ struct ServiceInstanceAlert : AlertItem {
      */
     ServiceInstanceAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eServiceInstanceAlert, timestamp)
+        , mInstanceIdent()
     {
     }
 
