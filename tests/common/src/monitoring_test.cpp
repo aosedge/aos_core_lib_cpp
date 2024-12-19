@@ -108,25 +108,25 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error GetInstanceMonitoringData(const String& instanceID, MonitoringData& monitoringData) override
+    Error GetInstanceMonitoringData(const String& instanceID, InstanceMonitoringData& instanceMonitoringData) override
     {
-        auto instanceMonitoringData = mInstancesMonitoringData.At(instanceID);
-        if (!instanceMonitoringData.mError.IsNone()) {
-            return AOS_ERROR_WRAP(instanceMonitoringData.mError);
+        const auto& [data, err] = mInstancesMonitoringData.At(instanceID);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
-        monitoringData.mCPU      = instanceMonitoringData.mValue.mMonitoringData.mCPU;
-        monitoringData.mRAM      = instanceMonitoringData.mValue.mMonitoringData.mRAM;
-        monitoringData.mDownload = instanceMonitoringData.mValue.mMonitoringData.mDownload;
-        monitoringData.mUpload   = instanceMonitoringData.mValue.mMonitoringData.mUpload;
+        instanceMonitoringData.mMonitoringData.mCPU      = data.mMonitoringData.mCPU;
+        instanceMonitoringData.mMonitoringData.mRAM      = data.mMonitoringData.mRAM;
+        instanceMonitoringData.mMonitoringData.mDownload = data.mMonitoringData.mDownload;
+        instanceMonitoringData.mMonitoringData.mUpload   = data.mMonitoringData.mUpload;
 
-        if (monitoringData.mPartitions.Size() != instanceMonitoringData.mValue.mMonitoringData.mPartitions.Size()) {
+        if (instanceMonitoringData.mMonitoringData.mPartitions.Size() != data.mMonitoringData.mPartitions.Size()) {
             return ErrorEnum::eInvalidArgument;
         }
 
-        for (size_t i = 0; i < monitoringData.mPartitions.Size(); i++) {
-            monitoringData.mPartitions[i].mUsedSize
-                = instanceMonitoringData.mValue.mMonitoringData.mPartitions[i].mUsedSize;
+        for (size_t i = 0; i < instanceMonitoringData.mMonitoringData.mPartitions.Size(); i++) {
+            instanceMonitoringData.mMonitoringData.mPartitions[i].mUsedSize
+                = data.mMonitoringData.mPartitions[i].mUsedSize;
         }
 
         return ErrorEnum::eNone;
@@ -274,8 +274,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     SetInstancesMonitoringData(*providedNodeMonitoringData,
         Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
 
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, instancePartitions}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions, 0, 0}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, instancePartitions, 0, 0}).IsNone());
 
     auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
 
@@ -319,7 +319,7 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     PartitionInfo instancePartitionsInfo[] = {{"disk", {}, "", 512, 256}};
     auto          instancePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
 
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions, 0, 0}).IsNone());
 
     PartitionInfo providedNodeDiskData[][1] = {
         {{"disk", {}, "", 512, 100}},

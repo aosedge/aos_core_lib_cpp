@@ -104,8 +104,8 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    if (auto err = mInstanceMonitoringData.Emplace(instanceID,
-            InstanceMonitoringData {monitoringConfig.mInstanceIdent, {0, 0, monitoringConfig.mPartitions, 0, 0}});
+    if (auto err = mInstanceMonitoringData.Emplace(
+            instanceID, InstanceMonitoringData {monitoringConfig.mInstanceIdent, monitoringConfig});
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -186,8 +186,7 @@ void ResourceMonitor::ProcessMonitoring()
         mNodeMonitoringData.mServiceInstances.Clear();
 
         for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
-            if (auto err
-                = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData.mMonitoringData);
+            if (auto err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData);
                 !err.IsNone()) {
                 LOG_ERR() << "Failed to get instance monitoring data: " << err;
             }

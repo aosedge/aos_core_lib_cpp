@@ -48,6 +48,16 @@ struct MonitoringData {
 };
 
 /**
+ * Instance resource monitor parameters.
+ */
+struct InstanceMonitorParams {
+    InstanceIdent            mInstanceIdent;
+    PartitionInfoStaticArray mPartitions;
+    uint32_t                 mUID;
+    uint32_t                 mGID;
+};
+
+/**
  * Instance monitoring data.
  */
 struct InstanceMonitoringData {
@@ -55,6 +65,30 @@ struct InstanceMonitoringData {
      * Constructs a new Instance Monitoring Data object.
      */
     InstanceMonitoringData() = default;
+
+    /**
+     * Constructs a new Instance Monitoring Data object.
+     *
+     * @param instanceIdent instance ident.
+     */
+    explicit InstanceMonitoringData(const InstanceIdent& instanceIdent)
+        : mInstanceIdent(instanceIdent)
+    {
+    }
+
+    /**
+     * Constructs a new Instance Monitoring Data object.
+     *
+     * @param instanceIdent instance ident.
+     * @param monitoringParams monitoring params.
+     */
+    InstanceMonitoringData(const InstanceIdent& instanceIdent, const InstanceMonitorParams& monitoringParams)
+        : mInstanceIdent(instanceIdent)
+        , mMonitoringData({0, 0, monitoringParams.mPartitions, 0, 0})
+        , mUID(monitoringParams.mUID)
+        , mGID(monitoringParams.mGID)
+    {
+    }
 
     /**
      * Constructs a new Instance Monitoring Data object.
@@ -68,8 +102,10 @@ struct InstanceMonitoringData {
     {
     }
 
-    InstanceIdent  mInstanceIdent;
-    MonitoringData mMonitoringData;
+    InstanceIdent  mInstanceIdent  = {};
+    MonitoringData mMonitoringData = {};
+    uint32_t       mUID            = 0;
+    uint32_t       mGID            = 0;
 
     /**
      * Compares instance monitoring data.
@@ -79,7 +115,8 @@ struct InstanceMonitoringData {
      */
     bool operator==(const InstanceMonitoringData& data) const
     {
-        return mInstanceIdent == data.mInstanceIdent && mMonitoringData == data.mMonitoringData;
+        return mInstanceIdent == data.mInstanceIdent && mMonitoringData == data.mMonitoringData && mUID == data.mUID
+            && mGID == data.mGID;
     }
 
     /**
@@ -122,14 +159,6 @@ struct NodeMonitoringData {
 };
 
 /**
- * Instance resource monitor parameters.
- */
-struct InstanceMonitorParams {
-    InstanceIdent            mInstanceIdent;
-    PartitionInfoStaticArray mPartitions;
-};
-
-/**
  * Resource usage provider interface.
  */
 class ResourceUsageProviderItf {
@@ -152,10 +181,10 @@ public:
      * Returns instance monitoring data.
      *
      * @param instanceID instance ID.
-     * @param[out] monitoringData monitoring data.
+     * @param[out] monitoringData instance monitoring data.
      * @return Error.
      */
-    virtual Error GetInstanceMonitoringData(const String& instanceID, MonitoringData& monitoringData) = 0;
+    virtual Error GetInstanceMonitoringData(const String& instanceID, InstanceMonitoringData& monitoringData) = 0;
 };
 
 /**

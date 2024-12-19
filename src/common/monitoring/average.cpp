@@ -98,7 +98,7 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     // cppcheck-suppress unassignedVariable
     for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
-        if (auto err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent, {}}); !err.IsNone()) {
+        if (auto err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent}); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
