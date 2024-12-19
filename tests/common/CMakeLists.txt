@@ -12,8 +12,10 @@ set(TARGET aoscommon_test)
 # ######################################################################################################################
 
 set(SOURCES
-    ${PROJECT_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
     ${PROJECT_SOURCE_DIR}/src/common/monitoring/average.cpp
+    ${PROJECT_SOURCE_DIR}/src/common/monitoring/alertprocessor.cpp
+    ${PROJECT_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
+    src/alertprocessor_test.cpp
     src/crypto_test.cpp
     src/cryptoutils_test.cpp
     src/monitoring_test.cpp
@@ -40,6 +42,12 @@ set(SOURCES
     src/tools/variant_test.cpp
     src/types_test.cpp
 )
+
+# ######################################################################################################################
+# Includes
+# ######################################################################################################################
+
+include_directories(${PROJECT_SOURCE_DIR}/tests/include)
 
 # ######################################################################################################################
 # Definitions
