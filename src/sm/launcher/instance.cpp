@@ -135,8 +135,8 @@ Error Instance::CreateRuntimeSpec(const String& path)
     }
 
     auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
-    auto vm          = MakeUnique<oci::VM>(&sAllocator);
-    runtimeSpec->mVM = vm.Get();
+
+    runtimeSpec->mVM.EmplaceValue();
 
     if (imageSpec.mValue.mConfig.mEntryPoint.Size() == 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);

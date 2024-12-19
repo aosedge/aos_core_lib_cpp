@@ -376,7 +376,7 @@ private:
     Mutex                              mMutex;
 
     StaticAllocator<2 * sizeof(ServiceDataStaticArray) + sizeof(ServiceInfoStaticArray)
-            + cNumInstallThreads * (sizeof(oci::ImageManifest) + sizeof(oci::ContentDescriptor)),
+            + cNumInstallThreads * sizeof(oci::ImageManifest),
         cNumInstallThreads * 3>
         mAllocator;
 

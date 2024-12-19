@@ -17,6 +17,7 @@ set(SOURCES
     src/crypto_test.cpp
     src/cryptoutils_test.cpp
     src/monitoring_test.cpp
+    src/ocispec_test.cpp
     src/pkcs11_test.cpp
     src/tools/allocator_test.cpp
     src/tools/array_test.cpp

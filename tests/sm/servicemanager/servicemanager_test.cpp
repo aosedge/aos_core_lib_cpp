@@ -85,11 +85,8 @@ public:
 
         manifest.mSchemaVersion  = 1;
         manifest.mConfig.mDigest = "sha256:11111111";
-        manifest.mLayers.PushBack({"", "sha256:33333333", 1234});
-
-        if (manifest.mAosService) {
-            manifest.mAosService->mDigest = "sha256:22222222";
-        }
+        manifest.mLayers.EmplaceBack("", "sha256:33333333", 1234);
+        manifest.mAosService.EmplaceValue("", "sha256:22222222", 1234);
 
         return ErrorEnum::eNone;
     }

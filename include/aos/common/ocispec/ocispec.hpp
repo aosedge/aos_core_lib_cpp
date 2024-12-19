@@ -25,7 +25,7 @@ public:
      * @param manifest image manifest.
      * @return Error.
      */
-    virtual Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) = 0;
+    virtual Error LoadImageManifest(const String& path, ImageManifest& manifest) = 0;
 
     /**
      * Saves OCI image manifest.
@@ -34,7 +34,7 @@ public:
      * @param manifest image manifest.
      * @return Error.
      */
-    virtual Error SaveImageManifest(const String& path, const oci::ImageManifest& manifest) = 0;
+    virtual Error SaveImageManifest(const String& path, const ImageManifest& manifest) = 0;
 
     /**
      * Loads OCI image spec.
@@ -43,7 +43,7 @@ public:
      * @param imageSpec image spec.
      * @return Error.
      */
-    virtual Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) = 0;
+    virtual Error LoadImageSpec(const String& path, ImageSpec& imageSpec) = 0;
 
     /**
      * Saves OCI image spec.
@@ -52,7 +52,7 @@ public:
      * @param imageSpec image spec.
      * @return Error.
      */
-    virtual Error SaveImageSpec(const String& path, const oci::ImageSpec& imageSpec) = 0;
+    virtual Error SaveImageSpec(const String& path, const ImageSpec& imageSpec) = 0;
 
     /**
      * Loads OCI runtime spec.
@@ -61,7 +61,7 @@ public:
      * @param runtimeSpec runtime spec.
      * @return Error.
      */
-    virtual Error LoadRuntimeSpec(const String& path, oci::RuntimeSpec& runtimeSpec) = 0;
+    virtual Error LoadRuntimeSpec(const String& path, RuntimeSpec& runtimeSpec) = 0;
 
     /**
      * Saves OCI runtime spec.
@@ -70,7 +70,7 @@ public:
      * @param runtimeSpec runtime spec.
      * @return Error.
      */
-    virtual Error SaveRuntimeSpec(const String& path, const oci::RuntimeSpec& runtimeSpec) = 0;
+    virtual Error SaveRuntimeSpec(const String& path, const RuntimeSpec& runtimeSpec) = 0;
 
     /**
      * Destroys OCI spec interface.

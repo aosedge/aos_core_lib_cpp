@@ -273,10 +273,7 @@ RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& servic
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
-    auto manifest   = MakeUnique<oci::ImageManifest>(&mAllocator);
-    auto aosService = MakeUnique<oci::ContentDescriptor>(&mAllocator);
-
-    manifest->mAosService = aosService.Get();
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
 
     auto err = mOCIManager->LoadImageManifest(FS::JoinPath(service.mImagePath, cImageManifestFile), *manifest);
     if (!err.IsNone()) {

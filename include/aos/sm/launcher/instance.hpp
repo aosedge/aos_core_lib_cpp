@@ -138,7 +138,7 @@ public:
 
 private:
     static constexpr auto cRuntimeDir        = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
-    static constexpr auto cSpecAllocatorSize = sizeof(oci::RuntimeSpec) + sizeof(oci::VM);
+    static constexpr auto cSpecAllocatorSize = sizeof(oci::RuntimeSpec);
     static constexpr auto cRuntimeSpecFile   = "config.json";
 
     Error CreateRuntimeSpec(const String& path);

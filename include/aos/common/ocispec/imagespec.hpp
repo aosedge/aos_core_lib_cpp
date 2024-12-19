@@ -8,6 +8,7 @@
 #define AOS_IMAGESPEC_HPP_
 
 #include "aos/common/ocispec/common.hpp"
+#include "aos/common/tools/optional.hpp"
 #include "aos/common/types.hpp"
 
 namespace aos::oci {
@@ -28,6 +29,25 @@ constexpr auto cMaxDigestLen = AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE;
  */
 
 struct ContentDescriptor {
+    /**
+     * Crates content descriptor.
+     */
+    ContentDescriptor() = default;
+
+    /**
+     * Creates content descriptor.
+     *
+     * @param mediaType media type.
+     * @param digest digest.
+     * @param size size.
+     */
+    ContentDescriptor(const String& mediaType, const String& digest, uint64_t size)
+        : mMediaType(mediaType)
+        , mDigest(digest)
+        , mSize(size)
+    {
+    }
+
     StaticString<cMaxMediaTypeLen> mMediaType;
     StaticString<cMaxDigestLen>    mDigest;
     uint64_t                       mSize;
@@ -60,7 +80,7 @@ struct ImageManifest {
     StaticString<cMaxMediaTypeLen>                mMediaType;
     ContentDescriptor                             mConfig;
     StaticArray<ContentDescriptor, cMaxNumLayers> mLayers;
-    ContentDescriptor*                            mAosService;
+    Optional<ContentDescriptor>                   mAosService;
 
     /**
      * Compares image manifest.
@@ -71,9 +91,7 @@ struct ImageManifest {
     bool operator==(const ImageManifest& manifest) const
     {
         return mSchemaVersion == manifest.mSchemaVersion && mMediaType == manifest.mMediaType
-            && mConfig == manifest.mConfig && mLayers == manifest.mLayers
-            && ((!mAosService && !manifest.mAosService)
-                || (mAosService && manifest.mAosService && *mAosService == *manifest.mAosService));
+            && mConfig == manifest.mConfig && mLayers == manifest.mLayers && mAosService == manifest.mAosService;
     }
 
     /**

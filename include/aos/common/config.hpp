@@ -173,7 +173,7 @@
  * Max number of file system mount options.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS
-#define AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS 4
+#define AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS 8
 #endif
 
 /**
@@ -827,7 +827,21 @@
  * Spec parameter max count.
  */
 #ifndef AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT
-#define AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT 8
+#define AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT 16
+#endif
+
+/**
+ * Max device type len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_DEV_TYPE_LEN
+#define AOS_CONFIG_OCISPEC_DEV_TYPE_LEN 32
+#endif
+
+/**
+ * Max device access len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_DEV_ACCESS_LEN
+#define AOS_CONFIG_OCISPEC_DEV_ACCESS_LEN 8
 #endif
 
 /**
