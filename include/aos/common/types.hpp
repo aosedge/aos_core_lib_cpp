@@ -15,6 +15,7 @@
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/log.hpp"
+#include "aos/common/tools/optional.hpp"
 
 namespace aos {
 
@@ -719,6 +720,118 @@ struct ResourceInfo {
 };
 
 /**
+ * Alert rule percents.
+ */
+struct AlertRulePercents {
+    Duration mMinTimeout;
+    double   mMinThreshold;
+    double   mMaxThreshold;
+
+    /**
+     * Compares alert rule percents.
+     *
+     * @param rule alert rule percents to compare.
+     * @return bool.
+     */
+    bool operator==(const AlertRulePercents& rule) const
+    {
+        return mMinTimeout == rule.mMinTimeout && mMinThreshold == rule.mMinThreshold
+            && mMaxThreshold == rule.mMaxThreshold;
+    }
+
+    /**
+     * Compares alert rule percents.
+     *
+     * @param rule alert rule percents to compare.
+     * @return bool.
+     */
+    bool operator!=(const AlertRulePercents& rule) const { return !operator==(rule); }
+};
+
+struct AlertRulePoints {
+    Duration mMinTimeout;
+    uint64_t mMinThreshold;
+    uint64_t mMaxThreshold;
+
+    /**
+     * Compares alert rule points.
+     *
+     * @param rule alert rule points to compare.
+     * @return bool.
+     */
+    bool operator==(const AlertRulePoints& rule) const
+    {
+        return mMinTimeout == rule.mMinTimeout && mMinThreshold == rule.mMinThreshold
+            && mMaxThreshold == rule.mMaxThreshold;
+    }
+
+    /**
+     * Compares alert rule points.
+     *
+     * @param rule alert rule points to compare.
+     * @return bool.
+     */
+    bool operator!=(const AlertRulePoints& rule) const { return !operator==(rule); }
+};
+
+/**
+ * Partition alert rule.
+ */
+struct PartitionAlertRule : public AlertRulePercents {
+    StaticString<cPartitionNameLen> mName;
+
+    /**
+     * Compares partition alert rule.
+     *
+     * @param rule partition alert rule to compare.
+     * @return bool.
+     */
+    bool operator==(const PartitionAlertRule& rule) const
+    {
+        return mName == rule.mName && static_cast<const AlertRulePercents&>(*this) == rule;
+    }
+
+    /**
+     * Compares partition alert rule.
+     *
+     * @param rule partition alert rule to compare.
+     * @return bool.
+     */
+    bool operator!=(const PartitionAlertRule& rule) const { return !operator==(rule); }
+};
+
+/**
+ * Alert rules.
+ */
+struct AlertRules {
+    Optional<AlertRulePercents>                        mRAM;
+    Optional<AlertRulePercents>                        mCPU;
+    StaticArray<PartitionAlertRule, cMaxNumPartitions> mPartitions;
+    Optional<AlertRulePoints>                          mDownload;
+    Optional<AlertRulePoints>                          mUpload;
+
+    /**
+     * Compares alert rules.
+     *
+     * @param rules alert rules to compare.
+     * @return bool.
+     */
+    bool operator==(const AlertRules& rules) const
+    {
+        return mRAM == rules.mRAM && mCPU == rules.mCPU && mPartitions == rules.mPartitions
+            && mDownload == rules.mDownload && mUpload == rules.mUpload;
+    }
+
+    /**
+     * Compares alert rules.
+     *
+     * @param rules alert rules to compare.
+     * @return bool.
+     */
+    bool operator!=(const AlertRules& rules) const { return !operator==(rules); }
+};
+
+/**
  * Node config.
  */
 struct NodeConfig {
@@ -727,6 +840,7 @@ struct NodeConfig {
     StaticArray<ResourceInfo, cMaxNumNodeResources>             mResources;
     StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
     uint32_t                                                    mPriority {0};
+    Optional<AlertRules>                                        mAlertRules;
 
     /**
      * Compares node configs.
@@ -737,8 +851,8 @@ struct NodeConfig {
     bool operator==(const NodeConfig& nodeConfig) const
     {
         return mNodeType == nodeConfig.mNodeType && mDevices == nodeConfig.mDevices
-            && mResources == nodeConfig.mResources && mLabels == nodeConfig.mLabels
-            && mPriority == nodeConfig.mPriority;
+            && mResources == nodeConfig.mResources && mLabels == nodeConfig.mLabels && mPriority == nodeConfig.mPriority
+            && mAlertRules == nodeConfig.mAlertRules;
     }
 
     /**
