@@ -160,6 +160,34 @@ public:
     bool operator!=(const Optional& other) const { return !operator==(other); }
 
     /**
+     * Returns pointer to contained value.
+     *
+     * @return T*.
+     */
+    T* operator->() { return &GetValue(); }
+
+    /**
+     * Returns pointer to contained value.
+     *
+     * @return T*.
+     */
+    const T* operator->() const { return &GetValue(); }
+
+    /**
+     * Dereferences holding object.
+     *
+     * @return T&.
+     */
+    T& operator*() { return GetValue(); }
+
+    /**
+     * Dereferences holding object.
+     *
+     * @return T&.
+     */
+    const T& operator*() const { return GetValue(); }
+
+    /**
      * Destroys optional instance.
      */
     ~Optional() { Reset(); }
