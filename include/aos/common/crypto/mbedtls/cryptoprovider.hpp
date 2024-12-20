@@ -182,8 +182,24 @@ public:
     RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
 
 private:
+    class SHA256Hash : public aos::crypto::HashItf, private NonCopyable {
+    public:
+        Error Init();
+
+        Error Update(const aos::Array<uint8_t>& data);
+
+        Error Finalize(aos::Array<uint8_t>& hash) override;
+
+        ~SHA256Hash();
+
+    private:
+        psa_hash_operation_t mOperation = PSA_HASH_OPERATION_INIT;
+        psa_algorithm_t      mAlgorithm = PSA_ALG_SHA_256;
+    };
+
     static constexpr auto cAllocatorSize
-        = AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey));
+        = AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey))
+        + AOS_CONFIG_CRYPTO_HASHER_COUNT * sizeof(SHA256Hash);
 
     Error              ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
     Error              GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);

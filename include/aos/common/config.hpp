@@ -698,6 +698,13 @@
 #endif
 
 /**
+ * Maximum number of hasher instances to be allocated by cryptoprovider.
+ */
+#ifndef AOS_CONFIG_CRYPTO_HASHER_COUNT
+#define AOS_CONFIG_CRYPTO_HASHER_COUNT 32
+#endif
+
+/**
  * Maximum length of PKCS11 slot description.
  */
 #ifndef AOS_CONFIG_PKCS11_SLOT_DESCRIPTION_LEN

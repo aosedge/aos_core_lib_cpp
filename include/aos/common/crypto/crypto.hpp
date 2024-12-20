@@ -228,7 +228,7 @@ public:
      * @param[out] hash result hash.
      * @return Error.
      */
-    virtual Error Finalize(String& hash) = 0;
+    virtual Error Finalize(Array<uint8_t>& hash) = 0;
 
     /**
      * Destructor.

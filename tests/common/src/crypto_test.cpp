@@ -955,10 +955,15 @@ TEST_F(CryptoTest, SHA256)
 
         ASSERT_TRUE(hasherPtr->Update(data).IsNone());
 
-        aos::StaticString<aos::cSHA256Size * 2> result;
+        aos::StaticArray<uint8_t, aos::cSHA256Size> result;
 
         ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
-        EXPECT_EQ(result, aos::String(testCase.mExpectedHash));
+
+        aos::StaticString<aos::cSHA256Size * 2> hashStr;
+        ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
+
+        EXPECT_EQ(hashStr, aos::String(testCase.mExpectedHash));
+        LOG_DBG() << "SHA256: " << hashStr;
     }
 }
 
@@ -983,12 +988,16 @@ TEST_F(CryptoTest, SHA256ByChunks)
         ASSERT_TRUE(hasherPtr->Update(data).IsNone());
     }
 
-    aos::StaticString<aos::cSHA256Size * 2> result;
+    aos::StaticArray<uint8_t, aos::cSHA256Size> result;
 
     ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
-    EXPECT_EQ(result, aos::String("a98c0eb748fcf3c87b8d231c0866f20dd12202923de5e93696ee4a3ad3da91ec"));
 
-    LOG_DBG() << "SHA256: " << result;
+    aos::StaticString<aos::cSHA256Size * 2> hashStr;
+    ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
+
+    EXPECT_EQ(hashStr, aos::String("a98c0eb748fcf3c87b8d231c0866f20dd12202923de5e93696ee4a3ad3da91ec"));
+
+    LOG_DBG() << "SHA256: " << hashStr;
 }
 
 TEST_F(CryptoTest, UnimplementedHashAlgorithm)
