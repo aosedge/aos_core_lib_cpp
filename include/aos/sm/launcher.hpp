@@ -18,6 +18,7 @@
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
+#include "aos/sm/launcher/config.hpp"
 #include "aos/sm/launcher/instance.hpp"
 #include "aos/sm/launcher/service.hpp"
 #include "aos/sm/runner.hpp"
@@ -227,12 +228,13 @@ public:
     /**
      * Initializes launcher.
      *
+     * @param config launcher configuration.
      * @param statusReceiver status receiver instance.
      * @param runner runner instance.
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
+    Error Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
         oci::OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
         monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher);
 
@@ -327,6 +329,7 @@ private:
     Error StopInstance(const String& instanceID);
     Error RunLastInstances();
 
+    Config                             mConfig;
     ConnectionPublisherItf*            mConnectionPublisher {};
     servicemanager::ServiceManagerItf* mServiceManager {};
     runner::RunnerItf*                 mRunner {};

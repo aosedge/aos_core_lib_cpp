@@ -37,6 +37,13 @@
 #endif
 
 /**
+ * Max num of host directory binds.
+ */
+#ifndef AOS_CONFIG_LAUNCHER_MAX_NUM_HOST_BINDS
+#define AOS_CONFIG_LAUNCHER_MAX_NUM_HOST_BINDS 64
+#endif
+
+/**
  * Number of parallel service installs.
  */
 #ifndef AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS

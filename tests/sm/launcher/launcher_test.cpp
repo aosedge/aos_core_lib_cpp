@@ -436,8 +436,8 @@ TEST(LauncherTest, RunInstances)
     auto feature = statusReceiver->GetFeature();
 
     EXPECT_TRUE(launcher
-                    ->Init(*serviceManager, *runner, *ociManager, *statusReceiver, *storage, *resourceMonitor,
-                        *connectionPublisher)
+                    ->Init(Config {}, *serviceManager, *runner, *ociManager, *statusReceiver, *storage,
+                        *resourceMonitor, *connectionPublisher)
                     .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());

@@ -18,20 +18,20 @@ using namespace runner;
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::Init(servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
+Error Launcher::Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
     oci::OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
     monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher)
 {
     LOG_DBG() << "Init launcher";
 
+    mConfig              = config;
     mConnectionPublisher = &connectionPublisher;
-
-    mServiceManager  = &serviceManager;
-    mRunner          = &runner;
-    mOCIManager      = &ociManager;
-    mStatusReceiver  = &statusReceiver;
-    mStorage         = &storage;
-    mResourceMonitor = &resourceMonitor;
+    mServiceManager      = &serviceManager;
+    mRunner              = &runner;
+    mOCIManager          = &ociManager;
+    mStatusReceiver      = &statusReceiver;
+    mStorage             = &storage;
+    mResourceMonitor     = &resourceMonitor;
 
     return ErrorEnum::eNone;
 }
