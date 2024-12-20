@@ -47,7 +47,7 @@ Error Launcher::Start()
     }
 
     if (auto err = RunLastInstances(); !err.IsNone()) {
-        LOG_ERR() << "Error running last instances: " << err;
+        LOG_ERR() << "Error running last instances: err=" << err;
     }
 
     return ErrorEnum::eNone;
@@ -106,7 +106,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
               auto runInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
 
               if (auto err = GetRunningInstances(*instances, *runInstances); !err.IsNone()) {
-                  LOG_WRN() << "Error occurred while getting running instances: " << err;
+                  LOG_WRN() << "Error occurred while getting running instances: err=" << err;
               }
 
               ProcessInstances(*runInstances, forceRestart);
@@ -271,7 +271,7 @@ void Launcher::ProcessServices(const Array<ServiceInfo>& services)
 
     auto err = mServiceManager->ProcessDesiredServices(services);
     if (!err.IsNone()) {
-        LOG_ERR() << "Can't install services: " << err;
+        LOG_ERR() << "Can't install services: err=" << err;
     }
 }
 
@@ -288,7 +288,7 @@ void Launcher::ProcessInstances(const Array<InstanceData>& instances, const bool
 
     auto err = mLaunchPool.Run();
     if (!err.IsNone()) {
-        LOG_ERR() << "Can't run launcher thread pool: " << err;
+        LOG_ERR() << "Can't run launcher thread pool: err=" << err;
     }
 
     StopInstances(instances, forceRestart);
@@ -319,7 +319,7 @@ void Launcher::SendRunStatus()
 
     auto err = mStatusReceiver->InstancesRunStatus(*status);
     if (!err.IsNone()) {
-        LOG_ERR() << "Sending run status error: " << err;
+        LOG_ERR() << "Sending run status error: err=" << err;
     }
 }
 
@@ -333,7 +333,7 @@ void Launcher::StopInstances(const Array<InstanceData>& instances, bool forceRes
 
     auto err = mServiceManager->GetAllServices(*services);
     if (!err.IsNone()) {
-        LOG_ERR() << "Can't get current services: " << err;
+        LOG_ERR() << "Can't get current services: err=" << err;
     }
 
     for (const auto& [_, instance] : mCurrentInstances) {
@@ -364,11 +364,11 @@ void Launcher::StopInstances(const Array<InstanceData>& instances, bool forceRes
         err = mLaunchPool.AddTask([this, instanceID = Move(instanceID)](void*) mutable {
             auto err = StopInstance(instanceID);
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't stop instance " << instanceID << ": " << err;
+                LOG_ERR() << "Can't stop instance: instanceID=" << instanceID << ", err=" << err;
             }
         });
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't stop instance " << instance << ": " << err;
+            LOG_ERR() << "Can't stop instance: instance=" << instance << ", err=" << err;
         }
     }
 
@@ -392,13 +392,13 @@ void Launcher::StartInstances(const Array<InstanceData>& instances)
         auto err = mLaunchPool.AddTask([this, &info](void*) {
             auto err = StartInstance(info);
             if (!err.IsNone()) {
-                LOG_ERR() << "Can't start instance: id=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ": " << err;
+                LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
+                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
             }
         });
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't start instance: id=" << info.mInstanceID
-                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ": " << err;
+            LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
+                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
         }
     }
 
@@ -438,7 +438,7 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
 
         err = mCurrentServices.At(serviceID).mValue.LoadSpecs();
         if (!err.IsNone()) {
-            LOG_ERR() << "Can't load OCI spec for service " << serviceID << ": " << err;
+            LOG_ERR() << "Can't load OCI spec for service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
     }
@@ -530,7 +530,7 @@ void Launcher::OnConnect()
 
     if (!mLaunchInProgress) {
         if (auto err = RunLastInstances(); !err.IsNone()) {
-            LOG_ERR() << "Error running last instances: " << err;
+            LOG_ERR() << "Error running last instances: err=" << err;
         }
     }
 

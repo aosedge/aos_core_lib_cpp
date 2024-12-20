@@ -31,7 +31,7 @@ Instance::Instance(const InstanceInfo& info, const String& instanceID, oci::OCIS
     , mRunner(runner)
     , mResourceMonitor(resourceMonitor)
 {
-    LOG_INF() << "Create instance: " << mInfo.mInstanceIdent << ", ID: " << *this;
+    LOG_INF() << "Create instance: ident=" << mInfo.mInstanceIdent << ", instanceID=" << *this;
 }
 
 void Instance::SetService(const Service* service, const Error& err)
@@ -42,14 +42,14 @@ void Instance::SetService(const Service* service, const Error& err)
     if (mService) {
         mServiceVersion = mService->Data().mVersion;
 
-        LOG_DBG() << "Set service " << *service << " for instance " << *this
-                  << ", service version: " << mServiceVersion;
+        LOG_DBG() << "Set service for instance: serviceID=" << *service << ", version=" << mServiceVersion
+                  << ", instanceID=" << *this;
     }
 }
 
 Error Instance::Start()
 {
-    LOG_INF() << "Start instance: " << *this;
+    LOG_INF() << "Start instance: instanceID=" << *this;
 
     StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
 
@@ -82,7 +82,7 @@ Error Instance::Start()
 
 Error Instance::Stop()
 {
-    LOG_INF() << "Stop instance: " << *this;
+    LOG_INF() << "Stop instance: instanceID=" << *this;
 
     StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
     Error                      stopErr;
@@ -113,7 +113,7 @@ Error Instance::CreateRuntimeSpec(const String& path)
 {
     LockGuard lock(sMutex);
 
-    LOG_DBG() << "Create runtime spec: " << path;
+    LOG_DBG() << "Create runtime spec: path=" << path;
 
     auto err = FS::ClearDir(path);
     if (!err.IsNone()) {
@@ -150,7 +150,7 @@ Error Instance::CreateRuntimeSpec(const String& path)
     runtimeSpec->mVM->mKernel.mPath       = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
     runtimeSpec->mVM->mKernel.mParameters = imageSpec.mValue.mConfig.mCmd;
 
-    LOG_DBG() << "Unikernel path: " << runtimeSpec->mVM->mKernel.mPath;
+    LOG_DBG() << "Unikernel path: path=" << runtimeSpec->mVM->mKernel.mPath;
 
     err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(path, cRuntimeSpecFile), *runtimeSpec);
     if (!err.IsNone()) {

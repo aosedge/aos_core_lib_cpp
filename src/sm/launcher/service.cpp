@@ -20,12 +20,12 @@ Service::Service(const servicemanager::ServiceData& data, servicemanager::Servic
     , mServiceManager(serviceManager)
     , mOCIManager(ociManager)
 {
-    LOG_DBG() << "Create service: " << *this;
+    LOG_DBG() << "Create service: serviceID=" << *this;
 }
 
 Error Service::LoadSpecs()
 {
-    LOG_DBG() << "Load specs: " << *this;
+    LOG_DBG() << "Load specs: serviceID=" << *this;
 
     auto result = mServiceManager.GetImageParts(mData);
     if (!result.mError.IsNone()) {
