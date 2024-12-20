@@ -141,13 +141,6 @@ Error Launcher::OverrideEnvVars(
     return ErrorEnum::eNone;
 }
 
-Error Launcher::SetCloudConnection(bool connected)
-{
-    LOG_DBG() << "Set cloud connection: connected=" << connected;
-
-    return ErrorEnum::eNone;
-}
-
 Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
 {
     (void)instances;

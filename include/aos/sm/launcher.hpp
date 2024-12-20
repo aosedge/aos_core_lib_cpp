@@ -56,14 +56,6 @@ public:
     virtual Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
         cloudprotocol::EnvVarsInstanceStatusArray&                                 statuses)
         = 0;
-
-    /**
-     * Sets cloud connection status.
-     *
-     * @param connected cloud connection status.
-     * @return Error
-     */
-    virtual Error SetCloudConnection(bool connected) = 0;
 };
 
 /**
@@ -273,14 +265,6 @@ public:
      */
     Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
         cloudprotocol::EnvVarsInstanceStatusArray&                         statuses) override;
-
-    /**
-     * Sets cloud connection status.
-     *
-     * @param connected cloud connection status.
-     * @return Error
-     */
-    Error SetCloudConnection(bool connected) override;
 
     /**
      * Updates run instances status.
