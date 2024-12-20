@@ -22,8 +22,17 @@ public:
     {
     }
 
-    Error    Accept() override { return ErrorEnum::eNone; }
-    Error    Release() override { return ErrorEnum::eNone; }
+    Error Accept() override { return ErrorEnum::eNone; }
+
+    Error Release() override { return ErrorEnum::eNone; }
+
+    Error Resize(uint64_t size) override
+    {
+        mSize = size;
+
+        return ErrorEnum::eNone;
+    }
+
     uint64_t Size() const override { return mSize; }
 
 private:

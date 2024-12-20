@@ -49,6 +49,14 @@ public:
     virtual Error Release() = 0;
 
     /**
+     * Resizes space.
+     *
+     * @param size new size.
+     * @return Error.
+     */
+    virtual Error Resize(uint64_t size) = 0;
+
+    /**
      * Returns space size.
      *
      * @return uint64_t.
