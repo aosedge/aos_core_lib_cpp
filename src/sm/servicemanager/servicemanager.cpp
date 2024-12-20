@@ -507,7 +507,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         }
     }
 
-    if (Tie(servicePath, err) = mImageHandler->InstallService(archivePath, serviceSpace); !err.IsNone()) {
+    if (Tie(servicePath, err) = mImageHandler->InstallService(service, archivePath, serviceSpace); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

@@ -26,8 +26,10 @@ public:
     }
 
     RetWithError<StaticString<cFilePathLen>> InstallLayer(
-        const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const override
+        const LayerInfo& layer, const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const override
     {
+        (void)layer;
+
         LockGuard lock(mMutex);
 
         auto [val, err] = mUnpackResults.At(archivePath);
@@ -48,9 +50,11 @@ public:
         return {val, ErrorEnum::eNone};
     }
 
-    RetWithError<StaticString<cFilePathLen>> InstallService(
-        const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const override
+    RetWithError<StaticString<cFilePathLen>> InstallService(const ServiceInfo& service, const String& archivePath,
+        UniquePtr<spaceallocator::SpaceItf>& space) const override
     {
+        (void)service;
+
         LockGuard lock(mMutex);
 
         auto [val, err] = mUnpackResults.At(archivePath);

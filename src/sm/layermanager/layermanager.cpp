@@ -464,7 +464,7 @@ Error LayerManager::InstallLayer(const aos::LayerInfo& layer)
         }
     }
 
-    if (Tie(storeLayerPath, err) = mImageHandler->InstallLayer(archivePath, unpackedSpace); !err.IsNone()) {
+    if (Tie(storeLayerPath, err) = mImageHandler->InstallLayer(layer, archivePath, unpackedSpace); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

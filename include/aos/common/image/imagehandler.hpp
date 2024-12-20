@@ -22,23 +22,25 @@ public:
     /**
      * Installs layer from the provided archive.
      *
+     * @param layer layer info.
      * @param archivePath archive path.
      * @param space[out] installed layer space.
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     virtual RetWithError<StaticString<cFilePathLen>> InstallLayer(
-        const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const
+        const LayerInfo& layer, const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const
         = 0;
 
     /**
      * Installs service from the provided archive.
      *
+     * @param service service info.
      * @param archivePath archive path.
      * @param space[out] installed service space.
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     virtual RetWithError<StaticString<cFilePathLen>> InstallService(
-        const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const
+        const ServiceInfo& service, const String& archivePath, UniquePtr<spaceallocator::SpaceItf>& space) const
         = 0;
 
     /**
