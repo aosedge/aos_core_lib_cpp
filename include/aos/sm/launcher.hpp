@@ -21,6 +21,7 @@
 #include "aos/sm/launcher/config.hpp"
 #include "aos/sm/launcher/instance.hpp"
 #include "aos/sm/launcher/service.hpp"
+#include "aos/sm/layermanager.hpp"
 #include "aos/sm/runner.hpp"
 #include "aos/sm/servicemanager.hpp"
 
@@ -221,14 +222,20 @@ public:
      * Initializes launcher.
      *
      * @param config launcher configuration.
-     * @param statusReceiver status receiver instance.
+     * @param serviceManager service manager instance.
+     * @param layerManager layer manager instance.
      * @param runner runner instance.
+     * @param resourceMonitor resource monitor instance.
+     * @param ociManager OCI manager instance.
+     * @param statusReceiver status receiver instance.
+     * @param connectionPublisher connection publisher instance.
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
-        oci::OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
-        monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher);
+    Error Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager,
+        layermanager::LayerManagerItf& layerManager, runner::RunnerItf& runner,
+        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+        InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
 
     /**
      * Starts launcher.
@@ -315,12 +322,13 @@ private:
 
     Config                             mConfig;
     ConnectionPublisherItf*            mConnectionPublisher {};
-    servicemanager::ServiceManagerItf* mServiceManager {};
-    runner::RunnerItf*                 mRunner {};
     InstanceStatusReceiverItf*         mStatusReceiver {};
-    StorageItf*                        mStorage {};
-    oci::OCISpecItf*                   mOCIManager {};
+    layermanager::LayerManagerItf*     mLayerManager {};
     monitoring::ResourceMonitorItf*    mResourceMonitor {};
+    oci::OCISpecItf*                   mOCIManager {};
+    runner::RunnerItf*                 mRunner {};
+    servicemanager::ServiceManagerItf* mServiceManager {};
+    StorageItf*                        mStorage {};
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)

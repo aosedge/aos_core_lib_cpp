@@ -18,20 +18,22 @@ using namespace runner;
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager, runner::RunnerItf& runner,
-    oci::OCISpecItf& ociManager, InstanceStatusReceiverItf& statusReceiver, StorageItf& storage,
-    monitoring::ResourceMonitorItf& resourceMonitor, ConnectionPublisherItf& connectionPublisher)
+Error Launcher::Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager,
+    layermanager::LayerManagerItf& layerManager, runner::RunnerItf& runner,
+    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+    InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage)
 {
     LOG_DBG() << "Init launcher";
 
     mConfig              = config;
     mConnectionPublisher = &connectionPublisher;
-    mServiceManager      = &serviceManager;
-    mRunner              = &runner;
+    mLayerManager        = &layerManager;
     mOCIManager          = &ociManager;
+    mResourceMonitor     = &resourceMonitor;
+    mRunner              = &runner;
+    mServiceManager      = &serviceManager;
     mStatusReceiver      = &statusReceiver;
     mStorage             = &storage;
-    mResourceMonitor     = &resourceMonitor;
 
     return ErrorEnum::eNone;
 }
@@ -277,9 +279,12 @@ void Launcher::ProcessServices(const Array<ServiceInfo>& services)
 
 void Launcher::ProcessLayers(const Array<LayerInfo>& layers)
 {
-    (void)layers;
-
     LOG_DBG() << "Process layers";
+
+    auto err = mLayerManager->ProcessDesiredLayers(layers);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't install layers: err=" << err;
+    }
 }
 
 void Launcher::ProcessInstances(const Array<InstanceData>& instances, const bool forceRestart)

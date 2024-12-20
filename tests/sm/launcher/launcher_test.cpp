@@ -22,6 +22,7 @@
 
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
+using namespace aos::sm::layermanager;
 
 namespace aos::sm::launcher {
 
@@ -144,6 +145,46 @@ public:
 private:
     std::mutex               mMutex;
     std::vector<ServiceData> mServicesData;
+};
+
+/**
+ * Mocks layer manager.
+ */
+class MockLayerManager : public LayerManagerItf {
+public:
+    Error GetLayer(const String& digest, LayerData& layer) const override
+    {
+        std::lock_guard lock {mMutex};
+
+        auto it = std::find_if(mLayersData.begin(), mLayersData.end(),
+            [&digest](const LayerData& layer) { return layer.mLayerDigest == digest; });
+        if (it == mLayersData.end()) {
+            return ErrorEnum::eNotFound;
+        }
+
+        layer = *it;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mLayersData.clear();
+
+        std::transform(
+            desiredLayers.begin(), desiredLayers.end(), std::back_inserter(mLayersData), [](const LayerInfo& layer) {
+                return LayerData {layer.mLayerDigest, layer.mLayerID, layer.mVersion,
+                    FS::JoinPath("/aos/storages", layer.mLayerDigest), "", Time::Now(), LayerStateEnum::eActive, 0};
+            });
+
+        return ErrorEnum::eNone;
+    }
+
+private:
+    mutable std::mutex     mMutex;
+    std::vector<LayerData> mLayersData;
 };
 
 /**
@@ -421,13 +462,14 @@ private:
 
 TEST(LauncherTest, RunInstances)
 {
-    auto serviceManager      = std::make_unique<MockServiceManager>();
-    auto runner              = std::make_unique<MockRunner>();
+    auto connectionPublisher = std::make_unique<MockConnectionPublisher>();
+    auto layerManager        = std::make_unique<MockLayerManager>();
     auto ociManager          = std::make_unique<MockOCIManager>();
+    auto resourceMonitor     = std::make_unique<MockResourceMonitor>();
+    auto runner              = std::make_unique<MockRunner>();
+    auto serviceManager      = std::make_unique<MockServiceManager>();
     auto statusReceiver      = std::make_unique<MockStatusReceiver>();
     auto storage             = std::make_unique<MockStorage>();
-    auto resourceMonitor     = std::make_unique<MockResourceMonitor>();
-    auto connectionPublisher = std::make_unique<MockConnectionPublisher>();
 
     auto launcher = std::make_unique<Launcher>();
 
@@ -436,8 +478,8 @@ TEST(LauncherTest, RunInstances)
     auto feature = statusReceiver->GetFeature();
 
     EXPECT_TRUE(launcher
-                    ->Init(Config {}, *serviceManager, *runner, *ociManager, *statusReceiver, *storage,
-                        *resourceMonitor, *connectionPublisher)
+                    ->Init(Config {}, *serviceManager, *layerManager, *runner, *resourceMonitor, *ociManager,
+                        *statusReceiver, *connectionPublisher, *storage)
                     .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());
