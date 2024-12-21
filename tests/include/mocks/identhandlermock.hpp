@@ -5,11 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SUBJECTS_OBSERVER_MOCK_HPP_
-#define AOS_SUBJECTS_OBSERVER_MOCK_HPP_
+#ifndef AOS_IDENTHANDLER_MOCK_HPP_
+#define AOS_IDENTHANDLER_MOCK_HPP_
+
+#include <gmock/gmock.h>
 
 #include "aos/iam/identhandler.hpp"
-#include <gmock/gmock.h>
 
 namespace aos::iam::identhandler {
 

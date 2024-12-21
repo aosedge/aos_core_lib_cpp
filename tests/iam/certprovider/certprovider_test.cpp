@@ -10,7 +10,6 @@
 #include <aos/iam/certprovider.hpp>
 
 #include "mocks/certhandlermock.hpp"
-#include "mocks/certreceivermock.hpp"
 
 using namespace testing;
 using namespace aos::iam;
@@ -24,8 +23,8 @@ class CertProviderTest : public testing::Test {
 protected:
     void SetUp() override { mCertProvider.Init(mCertHandler); }
 
-    CertHandlerItfMock mCertHandler;
-    CertProvider       mCertProvider;
+    certhandler::CertHandlerMock mCertHandler;
+    CertProvider                 mCertProvider;
 };
 
 /***********************************************************************************************************************
@@ -60,7 +59,7 @@ TEST_F(CertProviderTest, SubscribeCertChanged)
 {
     const aos::String certType = "iam";
 
-    CertReceiverItfMock certReceiver;
+    certhandler::CertReceiverMock certReceiver;
 
     EXPECT_CALL(mCertHandler, SubscribeCertChanged(certType, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     ASSERT_TRUE(mCertHandler.SubscribeCertChanged(certType, certReceiver).IsNone());

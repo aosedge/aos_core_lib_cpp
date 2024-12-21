@@ -5,36 +5,56 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef CERT_HANDLER_MOCK_HPP_
-#define CERT_HANDLER_MOCK_HPP_
+#ifndef AOS_CERTHANDLER_MOCK_HPP_
+#define AOS_CERTHANDLER_MOCK_HPP_
 
 #include <gmock/gmock.h>
 
 #include <aos/iam/certhandler.hpp>
 
+namespace aos::iam::certhandler {
 /**
  * Certificate handler mock.
  */
-class CertHandlerItfMock : public aos::iam::certhandler::CertHandlerItf {
+class CertHandlerMock : public CertHandlerItf {
 public:
-    MOCK_METHOD(aos::Error, GetCertTypes, (aos::Array<aos::StaticString<aos::iam::certhandler::cCertTypeLen>>&),
-        (const override));
-    MOCK_METHOD(aos::Error, SetOwner, (const aos::String&, const aos::String&), (override));
-    MOCK_METHOD(aos::Error, Clear, (const aos::String&), (override));
+    MOCK_METHOD(Error, GetCertTypes, (Array<StaticString<cCertTypeLen>>&), (const override));
+    MOCK_METHOD(Error, SetOwner, (const String&, const String&), (override));
+    MOCK_METHOD(Error, Clear, (const String&), (override));
+    MOCK_METHOD(Error, CreateKey, (const String&, const String&, const String&, String&), (override));
+    MOCK_METHOD(Error, ApplyCertificate, (const String&, const String&, CertInfo&), (override));
     MOCK_METHOD(
-        aos::Error, CreateKey, (const aos::String&, const aos::String&, const aos::String&, aos::String&), (override));
-    MOCK_METHOD(aos::Error, ApplyCertificate,
-        (const aos::String&, const aos::String&, aos::iam::certhandler::CertInfo&), (override));
-    MOCK_METHOD(aos::Error, GetCertificate,
-        (const aos::String&, const aos::Array<uint8_t>&, const aos::Array<uint8_t>&, aos::iam::certhandler::CertInfo&),
-        (override));
-    MOCK_METHOD(
-        aos::Error, SubscribeCertChanged, (const aos::String&, aos::iam::certhandler::CertReceiverItf&), (override));
-    MOCK_METHOD(
-        aos::Error, UnsubscribeCertChanged, (aos::iam::certhandler::CertReceiverItf & certReceiver), (override));
-    MOCK_METHOD(aos::Error, CreateSelfSignedCert, (const aos::String&, const aos::String&), (override));
-    MOCK_METHOD(aos::RetWithError<aos::iam::certhandler::ModuleConfig>, GetModuleConfig, (const aos::String&),
-        (const, override));
+        Error, GetCertificate, (const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo&), (override));
+    MOCK_METHOD(Error, SubscribeCertChanged, (const String&, CertReceiverItf&), (override));
+    MOCK_METHOD(Error, UnsubscribeCertChanged, (CertReceiverItf & certReceiver), (override));
+    MOCK_METHOD(Error, CreateSelfSignedCert, (const String&, const String&), (override));
+    MOCK_METHOD(RetWithError<ModuleConfig>, GetModuleConfig, (const String&), (const, override));
 };
+
+/**
+ * Certificate receiver mock.
+ */
+class CertReceiverMock : public CertReceiverItf {
+public:
+    MOCK_METHOD(void, OnCertChanged, (const CertInfo& info), (override));
+};
+
+/**
+ * Provides interface to mock HSM interface.
+ */
+class HSMMock : public HSMItf {
+public:
+    MOCK_METHOD(Error, SetOwner, (const String&), (override));
+    MOCK_METHOD(Error, Clear, (), (override));
+    MOCK_METHOD(
+        RetWithError<SharedPtr<crypto::PrivateKeyItf>>, CreateKey, (const String&, crypto::KeyType), (override));
+    MOCK_METHOD(Error, ApplyCert, (const Array<crypto::x509::Certificate>&, CertInfo&, String&), (override));
+    MOCK_METHOD(Error, RemoveCert, (const String&, const String&), (override));
+    MOCK_METHOD(Error, RemoveKey, (const String&, const String&), (override));
+    MOCK_METHOD(Error, ValidateCertificates,
+        (Array<StaticString<cURLLen>>&, Array<StaticString<cURLLen>>&, Array<CertInfo>&), (override));
+};
+
+} // namespace aos::iam::certhandler
 
 #endif

@@ -10,7 +10,7 @@
 #include <aos/iam/provisionmanager.hpp>
 
 #include "mocks/certhandlermock.hpp"
-#include "mocks/provisioningcallbackmock.hpp"
+#include "mocks/provisionmanagermock.hpp"
 
 using namespace testing;
 using namespace aos::iam;
@@ -25,7 +25,7 @@ protected:
     void SetUp() override { mProvisionManager.Init(mCallback, mCertHandler); }
 
     ProvisionManagerCallbackMock mCallback;
-    CertHandlerItfMock           mCertHandler;
+    certhandler::CertHandlerMock mCertHandler;
     ProvisionManager             mProvisionManager;
 };
 

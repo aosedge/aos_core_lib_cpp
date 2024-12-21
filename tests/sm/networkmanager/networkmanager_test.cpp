@@ -11,10 +11,11 @@
 #include "aos/test/log.hpp"
 
 #include "mocks/cnimock.hpp"
-#include "mocks/storagemock.hpp"
-#include "mocks/trafficmonitormock.hpp"
+#include "mocks/networkmanagermock.hpp"
 
 using namespace aos::sm::networkmanager;
+using namespace aos::sm::cni;
+using namespace testing;
 
 class TestNetworkManager : public NetworkManager {
 public:
@@ -93,9 +94,9 @@ protected:
         return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     }
 
-    MockStorageItf                       mStorage;
-    MockCNI                              mCNI;
-    MockTrafficMonitor                   mTrafficMonitor;
+    StorageMock                          mStorage;
+    CNIMock                              mCNI;
+    TrafficMonitorMock                   mTrafficMonitor;
     TestNetworkManager                   mNetManager;
     aos::StaticString<aos::cFilePathLen> mWorkingDir;
 };

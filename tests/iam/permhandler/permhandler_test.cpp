@@ -12,7 +12,7 @@
 #include "aos/common/tools/buffer.hpp"
 #include "aos/iam/permhandler.hpp"
 #include "aos/test/log.hpp"
-#include "mocks/subjectsobservermock.hpp"
+#include "mocks/identhandlermock.hpp"
 
 using namespace aos;
 using namespace aos::iam::permhandler;

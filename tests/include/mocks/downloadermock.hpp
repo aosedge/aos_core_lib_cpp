@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef DOWNLOADER_MOCK_HPP_
-#define DOWNLOADER_MOCK_HPP_
+#ifndef AOS_DOWNLOADER_MOCK_HPP_
+#define AOS_DOWNLOADER_MOCK_HPP_
 
 #include <gmock/gmock.h>
 

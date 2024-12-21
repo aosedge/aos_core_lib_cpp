@@ -10,8 +10,8 @@
 #include "aos/iam/certmodules/certmodule.hpp"
 
 #include "aos/test/log.hpp"
-#include "mocks/hsmmock.hpp"
-#include "mocks/x509providermock.hpp"
+#include "mocks/certhandlermock.hpp"
+#include "mocks/cryptomock.hpp"
 #include "storagestub.hpp"
 
 using namespace aos;
@@ -39,10 +39,10 @@ protected:
 
     CertInfo mCertInfo;
 
-    ModuleConfig    mModuleConfig;
-    ProviderItfMock mX509Provider;
-    HSMItfMock      mHSM;
-    StorageStub     mStorage;
+    ModuleConfig               mModuleConfig;
+    crypto::x509::ProviderMock mX509Provider;
+    HSMMock                    mHSM;
+    StorageStub                mStorage;
 };
 
 /***********************************************************************************************************************

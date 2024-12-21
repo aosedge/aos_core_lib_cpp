@@ -13,7 +13,7 @@
 #include "aos/test/log.hpp"
 #include "aos/test/softhsmenv.hpp"
 #include "mbedtls/pk.h"
-#include "mocks/certreceivermock.hpp"
+#include "mocks/certhandlermock.hpp"
 #include "stubs/storagestub.hpp"
 
 namespace aos::iam::certhandler {
@@ -388,7 +388,7 @@ TEST_F(IAMTest, SubscribeCertChanged)
     ASSERT_TRUE(mStorage.GetCertsInfo("iam", storageCerts).IsNone());
     ASSERT_EQ(storageCerts.Size(), 1);
 
-    CertReceiverItfMock certReceiver;
+    CertReceiverMock certReceiver;
 
     EXPECT_CALL(certReceiver, OnCertChanged(_));
     ASSERT_TRUE(mCertHandler->SubscribeCertChanged("iam", certReceiver).IsNone());

@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "mocks/subjectsobservermock.hpp"
+#include "mocks/identhandlermock.hpp"
 
 #include "aos/common/tools/buffer.hpp"
 #include "aos/iam/identmodules/fileidentifier.hpp"
