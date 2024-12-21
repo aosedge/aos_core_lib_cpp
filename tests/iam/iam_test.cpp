@@ -14,7 +14,7 @@
 #include "aos/test/softhsmenv.hpp"
 #include "mbedtls/pk.h"
 #include "mocks/certhandlermock.hpp"
-#include "stubs/storagestub.hpp"
+#include "stubs/certhandlerstub.hpp"
 
 namespace aos::iam::certhandler {
 

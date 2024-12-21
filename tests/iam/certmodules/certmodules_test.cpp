@@ -12,7 +12,7 @@
 #include "aos/test/log.hpp"
 #include "mocks/certhandlermock.hpp"
 #include "mocks/cryptomock.hpp"
-#include "storagestub.hpp"
+#include "stubs/certhandlerstub.hpp"
 
 using namespace aos;
 using namespace aos::iam::certhandler;

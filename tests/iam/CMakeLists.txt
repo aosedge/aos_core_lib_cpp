@@ -19,7 +19,7 @@ set(SOURCES
     nodemanager/nodemanager_test.cpp
     permhandler/permhandler_test.cpp
     provisionmanager/provisionmanager_test.cpp
-    stubs/storagestub.cpp
+    stubs/certhandlerstub.cpp
     iam_test.cpp
 )
 
@@ -29,6 +29,6 @@ set(SOURCES
 
 add_executable(${TARGET} ${SOURCES})
 target_link_libraries(${TARGET} aosiam aoscommon testutils GTest::gmock_main)
-target_include_directories(${TARGET} PRIVATE ../include stubs)
+target_include_directories(${TARGET} PRIVATE ../include .)
 
 gtest_discover_tests(${TARGET})
