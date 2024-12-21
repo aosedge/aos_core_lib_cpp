@@ -15,10 +15,14 @@
 #include "aos/test/log.hpp"
 #include "aos/test/utils.hpp"
 
-#include "imagehandlerstub.hpp"
-#include "spaceallocatorstub.hpp"
+#include "mocks/downloadermock.hpp"
+#include "mocks/ocispecmock.hpp"
 
-using testing::Return;
+#include "stubs/imagehandlerstub.hpp"
+#include "stubs/servicemanagerstub.hpp"
+#include "stubs/spaceallocatorstub.hpp"
+
+using namespace testing;
 
 namespace aos::sm::servicemanager {
 
@@ -64,198 +68,6 @@ struct TestData {
 };
 
 /***********************************************************************************************************************
- * Vars
- **********************************************************************************************************************/
-
-static std::mutex sLogMutex;
-
-/***********************************************************************************************************************
- * Mocks
- **********************************************************************************************************************/
-
-/**
- * Mock OCI manager.
- */
-
-class MockOCIManager : public oci::OCISpecItf {
-public:
-    Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
-    {
-        (void)path;
-
-        manifest.mSchemaVersion  = 1;
-        manifest.mConfig.mDigest = "sha256:11111111";
-        manifest.mLayers.EmplaceBack("", "sha256:33333333", 1234);
-        manifest.mAosService.EmplaceValue("", "sha256:22222222", 1234);
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SaveImageManifest(const String& path, const oci::ImageManifest& manifest) override
-    {
-        (void)path;
-        (void)manifest;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
-    {
-        (void)path;
-
-        imageSpec.mConfig.mCmd.EmplaceBack("unikernel");
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SaveImageSpec(const String& path, const oci::ImageSpec& imageSpec) override
-    {
-        (void)path;
-        (void)imageSpec;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error LoadRuntimeSpec(const String& path, oci::RuntimeSpec& runtimeSpec) override
-    {
-        (void)path;
-        (void)runtimeSpec;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SaveRuntimeSpec(const String& path, const oci::RuntimeSpec& runtimeSpec) override
-    {
-        (void)path;
-        (void)runtimeSpec;
-
-        return ErrorEnum::eNone;
-    }
-};
-
-/**
- * Mock downloader.
- */
-
-class MockDownloader : public downloader::DownloaderItf {
-public:
-    Error Download(const String& url, const String& path, downloader::DownloadContent contentType) override
-    {
-        (void)url;
-
-        EXPECT_EQ(contentType, downloader::DownloadContentEnum::eService);
-
-        if (auto err = FS::MakeDirAll(path); !err.IsNone()) {
-            return err;
-        };
-
-        return ErrorEnum::eNone;
-    }
-};
-
-/**
- * Mock storage.
- */
-class MockStorage : public StorageItf {
-public:
-    Error AddService(const ServiceData& service) override
-    {
-        std::lock_guard lock {mMutex};
-
-        if (std::find_if(mServices.begin(), mServices.end(),
-                [&service](const ServiceData& data) {
-                    return service.mServiceID == data.mServiceID && service.mVersion == data.mVersion;
-                })
-            != mServices.end()) {
-            return ErrorEnum::eAlreadyExist;
-        }
-
-        mServices.push_back(service);
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetServiceVersions(const String& serviceID, Array<sm::servicemanager::ServiceData>& services) override
-    {
-        std::lock_guard lock {mMutex};
-
-        Error err = ErrorEnum::eNotFound;
-
-        for (const auto& service : mServices) {
-            if (service.mServiceID == serviceID) {
-                if (auto errPushBack = services.PushBack(service); !err.IsNone()) {
-                    err = AOS_ERROR_WRAP(errPushBack);
-
-                    break;
-                }
-
-                err = ErrorEnum::eNone;
-            }
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    Error UpdateService(const ServiceData& service) override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = std::find_if(mServices.begin(), mServices.end(), [&service](const ServiceData& data) {
-            return service.mServiceID == data.mServiceID && service.mVersion == data.mVersion;
-        });
-
-        if (it == mServices.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        *it = service;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error RemoveService(const String& serviceID, const String& version) override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = std::find_if(mServices.begin(), mServices.end(), [&serviceID, &version](const ServiceData& data) {
-            return serviceID == data.mServiceID && version == data.mVersion;
-        });
-        if (it == mServices.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        mServices.erase(it);
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetAllServices(Array<ServiceData>& services) override
-    {
-        std::lock_guard lock {mMutex};
-
-        for (const auto& service : mServices) {
-            auto err = services.PushBack(service);
-            if (!err.IsNone()) {
-                return err;
-            }
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    size_t Size() const
-    {
-        std::lock_guard lock {mMutex};
-
-        return mServices.size();
-    }
-
-private:
-    std::vector<ServiceData> mServices;
-    mutable std::mutex       mMutex;
-};
-
-/***********************************************************************************************************************
  * Suite
  **********************************************************************************************************************/
 
@@ -267,16 +79,16 @@ protected:
 
         FS::ClearDir(cTestRootDir);
 
-        mImageHanlder.Init(mServiceSpaceAllocator);
+        mImageHandler.Init(mServiceSpaceAllocator);
     }
 
     Config                             mConfig = CreateConfig();
-    MockOCIManager                     mOciManager;
-    MockDownloader                     mDownloader;
-    MockStorage                        mStorage;
+    oci::OCISpecMock                   mOCIManager;
+    downloader::DownloaderMock         mDownloader;
+    StorageStub                        mStorage;
     spaceallocator::SpaceAllocatorStub mServiceSpaceAllocator;
     spaceallocator::SpaceAllocatorStub mDownloadSpaceAllocator;
-    imagehandler::ImageHandlerStub     mImageHanlder;
+    imagehandler::ImageHandlerStub     mImageHandler;
 };
 
 /***********************************************************************************************************************
@@ -299,8 +111,8 @@ TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
     ServiceManager serviceManager;
 
     ASSERT_TRUE(serviceManager
-                    .Init(mConfig, mOciManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
-                        mImageHanlder)
+                    .Init(mConfig, mOCIManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHandler)
                     .IsNone());
 
     for (const auto& service : expected) {
@@ -333,8 +145,8 @@ TEST_F(ServiceManagerTest, ProcessDesiredServices)
     ServiceManager serviceManager;
 
     ASSERT_TRUE(serviceManager
-                    .Init(mConfig, mOciManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
-                        mImageHanlder)
+                    .Init(mConfig, mOCIManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHandler)
                     .IsNone());
 
     std::vector<TestData> testData = {
@@ -437,7 +249,7 @@ TEST_F(ServiceManagerTest, ProcessDesiredServices)
         LOG_DBG() << "Running test case #" << i++;
 
         for (const auto& service : testItem.mData) {
-            mImageHanlder.SetInstallResult(FS::JoinPath(cDownloadDir, service.mServiceID), service.mImagePath);
+            mImageHandler.SetInstallResult(FS::JoinPath(cDownloadDir, service.mServiceID), service.mImagePath);
         }
 
         EXPECT_TRUE(
@@ -461,11 +273,23 @@ TEST_F(ServiceManagerTest, GetImageParts)
     ServiceManager serviceManager;
 
     ASSERT_TRUE(serviceManager
-                    .Init(mConfig, mOciManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
-                        mImageHanlder)
+                    .Init(mConfig, mOCIManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHandler)
                     .IsNone());
+
     ServiceData serviceData
         = {"service0", "provider0", "2.1.0", "/aos/services/service1", "", {}, ServiceStateEnum::eActive, 0, 0};
+
+    EXPECT_CALL(mOCIManager, LoadImageManifest).WillOnce(Invoke([&](const String& path, oci::ImageManifest& manifest) {
+        (void)path;
+
+        manifest.mSchemaVersion  = 1;
+        manifest.mConfig.mDigest = "sha256:11111111";
+        manifest.mAosService.EmplaceValue("", "sha256:22222222", 0);
+        manifest.mLayers.EmplaceBack("", "sha256:33333333", 0);
+
+        return ErrorEnum::eNone;
+    }));
 
     auto imageParts = serviceManager.GetImageParts(serviceData);
     EXPECT_TRUE(imageParts.mError.IsNone());

@@ -7,16 +7,17 @@
 #ifndef AOS_OCISPEC_STUB_HPP_
 #define AOS_OCISPEC_STUB_HPP_
 
+#include <mutex>
+#include <string>
+#include <unordered_map>
+
 #include "aos/common/ocispec/ocispec.hpp"
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/thread.hpp"
 
 namespace aos::oci {
 
 /**
  * OCI spec stub.
  */
-template <size_t cImageManifestSize = 8, size_t cImageSpecSize = 8, size_t cRuntimeSpecSize = 8>
 class OCISpecStub : public OCISpecItf {
 public:
     /**
@@ -28,14 +29,13 @@ public:
      */
     Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
     {
-        LockGuard lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        const auto& [val, err] = mImageManifests.At(path);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        if (mImageManifests.find(path.CStr()) == mImageManifests.end()) {
+            return ErrorEnum::eNotFound;
         }
 
-        manifest = val;
+        manifest = mImageManifests.at(path.CStr());
 
         return ErrorEnum::eNone;
     }
@@ -49,11 +49,9 @@ public:
      */
     Error SaveImageManifest(const String& path, const oci::ImageManifest& manifest) override
     {
-        LockGuard lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        if (auto err = mImageManifests.Set(path, manifest); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        mImageManifests[path.CStr()] = manifest;
 
         return ErrorEnum::eNone;
     }
@@ -67,14 +65,13 @@ public:
      */
     Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
     {
-        LockGuard lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        const auto& [val, err] = mImageSpecs.At(path);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        if (mImageSpecs.find(path.CStr()) == mImageSpecs.end()) {
+            return ErrorEnum::eNotFound;
         }
 
-        imageSpec = val;
+        imageSpec = mImageSpecs.at(path.CStr());
 
         return ErrorEnum::eNone;
     }
@@ -88,11 +85,9 @@ public:
      */
     Error SaveImageSpec(const String& path, const oci::ImageSpec& imageSpec) override
     {
-        LockGuard lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        if (auto err = mImageSpecs.Set(path, imageSpec); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        mImageSpecs[path.CStr()] = imageSpec;
 
         return ErrorEnum::eNone;
     }
@@ -106,14 +101,13 @@ public:
      */
     Error LoadRuntimeSpec(const String& path, oci::RuntimeSpec& runtimeSpec) override
     {
-        LockGuard lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        const auto& [val, err] = mRuntimeSpecs.At(path);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        if (mImageSpecs.find(path.CStr()) == mImageSpecs.end()) {
+            return ErrorEnum::eNotFound;
         }
 
-        runtimeSpec = val;
+        runtimeSpec = mRuntimeSpecs.at(path.CStr());
 
         return ErrorEnum::eNone;
     }
@@ -127,20 +121,18 @@ public:
      */
     Error SaveRuntimeSpec(const String& path, const oci::RuntimeSpec& runtimeSpec) override
     {
-        LockGuard lock(mMutex);
+        std::lock_guard lock {mMutex};
 
-        if (auto err = mRuntimeSpecs.Set(path, runtimeSpec); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        mRuntimeSpecs[path.CStr()] = runtimeSpec;
 
         return ErrorEnum::eNone;
     }
 
 private:
-    Mutex                                                                    mMutex;
-    StaticMap<StaticString<cFilePathLen>, ImageManifest, cImageManifestSize> mImageManifests;
-    StaticMap<StaticString<cFilePathLen>, ImageSpec, cImageSpecSize>         mImageSpecs;
-    StaticMap<StaticString<cFilePathLen>, RuntimeSpec, cRuntimeSpecSize>     mRuntimeSpecs;
+    std::mutex                           mMutex;
+    std::map<std::string, ImageManifest> mImageManifests;
+    std::map<std::string, ImageSpec>     mImageSpecs;
+    std::map<std::string, RuntimeSpec>   mRuntimeSpecs;
 };
 
 } // namespace aos::oci

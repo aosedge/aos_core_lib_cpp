@@ -20,441 +20,42 @@
 #include "aos/test/log.hpp"
 #include "aos/test/utils.hpp"
 
+#include "stubs/connectionsubscstub.hpp"
+#include "stubs/launcherstub.hpp"
+#include "stubs/layermanagerstub.hpp"
+#include "stubs/monitoringstub.hpp"
+#include "stubs/ocispecstub.hpp"
+#include "stubs/runnerstub.hpp"
+#include "stubs/servicemanagerstub.hpp"
+
+using namespace aos::monitoring;
+using namespace aos::oci;
+using namespace aos::sm::layermanager;
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
-using namespace aos::sm::layermanager;
 
 namespace aos::sm::launcher {
+
+namespace {
 
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
 
-static constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
+constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
 
 /***********************************************************************************************************************
  * Types
  **********************************************************************************************************************/
 
 struct TestData {
-    std::vector<InstanceInfo>   mInstances;
-    std::vector<ServiceInfo>    mServices;
-    std::vector<LayerInfo>      mLayers;
-    std::vector<InstanceStatus> mStatus;
+    std::vector<aos::InstanceInfo>   mInstances;
+    std::vector<aos::ServiceInfo>    mServices;
+    std::vector<aos::LayerInfo>      mLayers;
+    std::vector<aos::InstanceStatus> mStatus;
 };
 
-/***********************************************************************************************************************
- * Vars
- **********************************************************************************************************************/
-
-static std::mutex sLogMutex;
-
-/***********************************************************************************************************************
- * Mocks
- **********************************************************************************************************************/
-
-/**
- * Mocks resource monitor.
- */
-class MockResourceMonitor : public monitoring::ResourceMonitorItf {
-public:
-    Error StartInstanceMonitoring(
-        const String& instanceID, const monitoring::InstanceMonitorParams& monitoringConfig) override
-    {
-        (void)instanceID;
-        (void)monitoringConfig;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error StopInstanceMonitoring(const String& instanceID) override
-    {
-        (void)instanceID;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetAverageMonitoringData(monitoring::NodeMonitoringData& monitoringData) override
-    {
-        (void)monitoringData;
-
-        return ErrorEnum::eNone;
-    }
-};
-
-/**
- * Mocks service manager.
- */
-class MockServiceManager : public ServiceManagerItf {
-public:
-    Error ProcessDesiredServices(const Array<ServiceInfo>& services) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mServicesData.clear();
-
-        std::transform(
-            services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
-                return ServiceData {service.mServiceID, service.mProviderID, service.mVersion,
-                    FS::JoinPath("/aos/storages", service.mServiceID), "", Time::Now(), ServiceStateEnum::eActive, 0,
-                    0};
-            });
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetService(const String& serviceID, servicemanager::ServiceData& service) override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = std::find_if(mServicesData.begin(), mServicesData.end(),
-            [&serviceID](const ServiceData& storageService) { return storageService.mServiceID == serviceID; });
-        if (it == mServicesData.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        service = *it;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetAllServices(Array<ServiceData>& services) override
-    {
-        std::lock_guard lock {mMutex};
-
-        for (const auto& service : mServicesData) {
-            services.PushBack(service);
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    RetWithError<ImageParts> GetImageParts(const ServiceData& service) override
-    {
-        return ImageParts {FS::JoinPath(service.mImagePath, "image.json"),
-            FS::JoinPath(service.mImagePath, "service.json"), service.mImagePath};
-    }
-
-    Error ValidateService(const ServiceData& service) override
-    {
-        (void)service;
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    std::mutex               mMutex;
-    std::vector<ServiceData> mServicesData;
-};
-
-/**
- * Mocks layer manager.
- */
-class MockLayerManager : public LayerManagerItf {
-public:
-    Error GetLayer(const String& digest, LayerData& layer) const override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = std::find_if(mLayersData.begin(), mLayersData.end(),
-            [&digest](const LayerData& layer) { return layer.mLayerDigest == digest; });
-        if (it == mLayersData.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        layer = *it;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mLayersData.clear();
-
-        std::transform(
-            desiredLayers.begin(), desiredLayers.end(), std::back_inserter(mLayersData), [](const LayerInfo& layer) {
-                return LayerData {layer.mLayerDigest, layer.mLayerID, layer.mVersion,
-                    FS::JoinPath("/aos/storages", layer.mLayerDigest), "", Time::Now(), LayerStateEnum::eActive, 0};
-            });
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    mutable std::mutex     mMutex;
-    std::vector<LayerData> mLayersData;
-};
-
-/**
- * Mocks runner.
- */
-class MockRunner : public RunnerItf {
-public:
-    RunStatus StartInstance(const String& instanceID, const String& runtimeDir, const RunParameters& params) override
-    {
-        (void)instanceID;
-        (void)runtimeDir;
-        (void)params;
-
-        return RunStatus {};
-    }
-
-    Error StopInstance(const String& instanceID) override
-    {
-        (void)instanceID;
-
-        return ErrorEnum::eNone;
-    }
-};
-
-/**
- * Mock OCI manager.
- */
-
-class MockOCIManager : public oci::OCISpecItf {
-public:
-    Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
-    {
-        (void)path;
-        (void)manifest;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SaveImageManifest(const String& path, const oci::ImageManifest& manifest) override
-    {
-        (void)path;
-        (void)manifest;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
-    {
-        (void)path;
-
-        imageSpec.mConfig.mEntryPoint.EmplaceBack("unikernel");
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SaveImageSpec(const String& path, const oci::ImageSpec& imageSpec) override
-    {
-        (void)path;
-        (void)imageSpec;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error LoadRuntimeSpec(const String& path, oci::RuntimeSpec& runtimeSpec) override
-    {
-        (void)path;
-        (void)runtimeSpec;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SaveRuntimeSpec(const String& path, const oci::RuntimeSpec& runtimeSpec) override
-    {
-        (void)path;
-        (void)runtimeSpec;
-
-        return ErrorEnum::eNone;
-    }
-};
-
-/**
- * Mocks status receiver.
- */
-class MockStatusReceiver : public InstanceStatusReceiverItf {
-public:
-    auto GetFeature()
-    {
-        mPromise = std::promise<const Array<InstanceStatus>>();
-
-        return mPromise.get_future();
-    }
-
-    Error InstancesRunStatus(const Array<InstanceStatus>& status) override
-    {
-        mPromise.set_value(status);
-
-        return ErrorEnum::eNone;
-    }
-
-    Error InstancesUpdateStatus(const Array<InstanceStatus>& status) override
-    {
-        mPromise.set_value(status);
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    std::promise<const Array<InstanceStatus>> mPromise;
-};
-
-/**
- * Mocks storage.
- */
-class MockStorage : public sm::launcher::StorageItf {
-public:
-    Error AddInstance(const InstanceData& instance) override
-    {
-        std::lock_guard lock {mMutex};
-
-        if (std::find_if(mInstances.begin(), mInstances.end(),
-                [&instance](const InstanceData& info) { return instance == info; })
-            != mInstances.end()) {
-            return ErrorEnum::eAlreadyExist;
-        }
-
-        mInstances.push_back(instance);
-
-        return ErrorEnum::eNone;
-    }
-
-    Error UpdateInstance(const InstanceData& instance) override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = std::find_if(mInstances.begin(), mInstances.end(),
-            [&instance](const auto& info) { return instance.mInstanceID == info.mInstanceID; });
-        if (it == mInstances.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        *it = instance;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error RemoveInstance(const String& instanceID) override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = std::find_if(mInstances.begin(), mInstances.end(),
-            [&instanceID](const auto& instance) { return instance.mInstanceID == instanceID; });
-        if (it == mInstances.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        mInstances.erase(it);
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetAllInstances(Array<InstanceData>& instances) override
-    {
-        std::lock_guard lock {mMutex};
-
-        for (const auto& instance : mInstances) {
-            auto err = instances.PushBack(instance);
-            if (!err.IsNone()) {
-                return err;
-            }
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    RetWithError<uint64_t> GetOperationVersion() const override
-    {
-        std::lock_guard lock {mMutex};
-
-        return {mOperationVersion, ErrorEnum::eNone};
-    }
-
-    Error SetOperationVersion(uint64_t version) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mOperationVersion = version;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetOverrideEnvVars(cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) const override
-    {
-        std::lock_guard lock {mMutex};
-
-        envVarsInstanceInfos = mEnvVarsInstanceInfos;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SetOverrideEnvVars(const cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mEnvVarsInstanceInfos = envVarsInstanceInfos;
-
-        return ErrorEnum::eNone;
-    }
-
-    RetWithError<Time> GetOnlineTime() const override
-    {
-        std::lock_guard lock {mMutex};
-
-        return {mOnlineTime, ErrorEnum::eNone};
-    }
-
-    Error SetOnlineTime(const Time& time) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mOnlineTime = time;
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    std::vector<InstanceData> mInstances;
-    mutable std::mutex        mMutex;
-
-    uint64_t                                mOperationVersion = launcher::Launcher::cOperationVersion;
-    cloudprotocol::EnvVarsInstanceInfoArray mEnvVarsInstanceInfos;
-    Time                                    mOnlineTime = Time::Now();
-};
-
-/**
- * Mocks connection publisher.
- */
-
-class MockConnectionPublisher : public ConnectionPublisherItf {
-public:
-    aos::Error Subscribe(ConnectionSubscriberItf& subscriber) override
-    {
-        mSubscriber = &subscriber;
-        return ErrorEnum::eNone;
-    }
-
-    void Unsubscribe(ConnectionSubscriberItf& subscriber) override
-    {
-        (void)subscriber;
-        mSubscriber = nullptr;
-    }
-
-    ConnectionSubscriberItf* GetSubscriber() const { return mSubscriber; }
-
-    void Connect()
-    {
-        if (mSubscriber) {
-            mSubscriber->OnConnect();
-        }
-    }
-
-    void Disconnect()
-    {
-        if (mSubscriber) {
-            mSubscriber->OnDisconnect();
-        }
-    }
-
-private:
-    ConnectionSubscriberItf* mSubscriber = nullptr;
-};
+} // namespace
 
 /***********************************************************************************************************************
  * Tests
@@ -462,14 +63,14 @@ private:
 
 TEST(LauncherTest, RunInstances)
 {
-    auto connectionPublisher = std::make_unique<MockConnectionPublisher>();
-    auto layerManager        = std::make_unique<MockLayerManager>();
-    auto ociManager          = std::make_unique<MockOCIManager>();
-    auto resourceMonitor     = std::make_unique<MockResourceMonitor>();
-    auto runner              = std::make_unique<MockRunner>();
-    auto serviceManager      = std::make_unique<MockServiceManager>();
-    auto statusReceiver      = std::make_unique<MockStatusReceiver>();
-    auto storage             = std::make_unique<MockStorage>();
+    auto connectionPublisher = std::make_unique<ConnectionPublisherStub>();
+    auto layerManager        = std::make_unique<LayerManagerStub>();
+    auto ociManager          = std::make_unique<OCISpecStub>();
+    auto resourceMonitor     = std::make_unique<ResourceMonitorStub>();
+    auto runner              = std::make_unique<RunnerStub>();
+    auto serviceManager      = std::make_unique<ServiceManagerStub>();
+    auto statusReceiver      = std::make_unique<StatusReceiverStub>();
+    auto storage             = std::make_unique<StorageStub>();
 
     auto launcher = std::make_unique<Launcher>();
 
@@ -550,6 +151,14 @@ TEST(LauncherTest, RunInstances)
         LOG_INF() << "Test run instances: iteration=" << &testItem - &testData.front();
 
         feature = statusReceiver->GetFeature();
+
+        auto imageSpec = std::make_unique<oci::ImageSpec>();
+
+        imageSpec->mConfig.mEntryPoint.PushBack("unikernel");
+
+        for (const auto& service : testItem.mServices) {
+            ociManager->SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
+        }
 
         EXPECT_TRUE(launcher
                         ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),

@@ -17,15 +17,36 @@ namespace aos::spaceallocator {
  */
 class SpaceStub : public SpaceItf {
 public:
-    SpaceStub(uint64_t size)
+    /**
+     * Creates space stub.
+     *
+     * @param size space size.
+     */
+    explicit SpaceStub(uint64_t size)
         : mSize(size)
     {
     }
 
+    /**
+     * Accepts space.
+     *
+     * @return Error.
+     */
     Error Accept() override { return ErrorEnum::eNone; }
 
+    /**
+     * Releases space.
+     *
+     * @return Error.
+     */
     Error Release() override { return ErrorEnum::eNone; }
 
+    /**
+     * Resizes space.
+     *
+     * @param size new size.
+     * @return Error.
+     */
     Error Resize(uint64_t size) override
     {
         mSize = size;
@@ -33,6 +54,11 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Returns space size.
+     *
+     * @return uint64_t.
+     */
     uint64_t Size() const override { return mSize; }
 
 private:
