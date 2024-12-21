@@ -35,7 +35,6 @@ public:
      * Crates array instance over the buffer.
      *
      * @param buffer underlying buffer.
-     * @param size current array size.
      */
     explicit Array(const Buffer& buffer) { SetBuffer(buffer); }
 

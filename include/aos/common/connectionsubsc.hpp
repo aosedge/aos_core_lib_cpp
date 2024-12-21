@@ -40,14 +40,14 @@ public:
     virtual ~ConnectionPublisherItf() { }
 
     /**
-     * Subscribes the provided ConnectionSubscriberItf to this object.
+     * Subscribes to cloud connection events.
      *
      * @param subscriber subscriber reference.
      */
     virtual aos::Error Subscribe(ConnectionSubscriberItf& subscriber) = 0;
 
     /**
-     * Unsubscribes the provided ConnectionSubscriberItf from this object.
+     * Unsubscribes from cloud connection events.
      *
      * @param subscriber subscriber reference.
      */
