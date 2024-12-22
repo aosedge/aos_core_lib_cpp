@@ -147,8 +147,10 @@ TEST(LauncherTest, RunInstances)
 
     // Run instances
 
+    auto i = 0;
+
     for (auto& testItem : testData) {
-        LOG_INF() << "Test run instances: iteration=" << &testItem - &testData.front();
+        LOG_INF() << "Running test case #" << i++;
 
         feature = statusReceiver->GetFeature();
 

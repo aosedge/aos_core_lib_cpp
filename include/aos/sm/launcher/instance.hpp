@@ -25,10 +25,10 @@ public:
     /**
      * Creates instance.
      *
-     * @param info instance info.
+     * @param instanceInfo instance info.
      */
-    Instance(const InstanceInfo& info, const String& instanceID, oci::OCISpecItf& ociManager, runner::RunnerItf& runner,
-        monitoring::ResourceMonitorItf& resourceMonitor);
+    Instance(const InstanceInfo& instanceInfo, const String& instanceID, oci::OCISpecItf& ociManager,
+        runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor);
 
     /**
      * Starts instance.
@@ -54,17 +54,27 @@ public:
     /**
      * Returns instance info.
      *
-     * @return const InstanceInfo& instance info.
+     * @return instance info.
      */
-    const InstanceInfo& Info() const { return mInfo; };
+    const InstanceInfo& Info() const { return mInstanceInfo; };
 
     /**
      * Sets corresponding service.
      *
      * @param service service.
-     * @param err service error.
      */
-    void SetService(const Service* service, const Error& err = ErrorEnum::eNone);
+    void SetService(const Service* service);
+
+    /**
+     * Sets run error.
+     *
+     * @param error run error.
+     */
+    void SetRunError(const Error& error)
+    {
+        mRunState = InstanceRunStateEnum::eFailed;
+        mRunError = error;
+    }
 
     /**
      * Returns instance run state.
@@ -100,7 +110,7 @@ public:
      * @param instance instance to compare.
      * @return bool.
      */
-    bool operator==(const Instance& instance) const { return mInfo == instance.mInfo; }
+    bool operator==(const Instance& instance) const { return mInstanceInfo == instance.mInstanceInfo; }
 
     /**
      * Compares instance info.
@@ -116,7 +126,7 @@ public:
      * @param info info to compare.
      * @return bool.
      */
-    bool operator==(const InstanceInfo& info) const { return mInfo == info; }
+    bool operator==(const InstanceInfo& info) const { return mInstanceInfo == info; }
 
     /**
      * Compares instance with instance info.
@@ -147,11 +157,10 @@ private:
     static Mutex                               sMutex;
 
     StaticString<cInstanceIDLen>    mInstanceID;
-    InstanceInfo                    mInfo;
+    InstanceInfo                    mInstanceInfo;
     oci::OCISpecItf&                mOCIManager;
     runner::RunnerItf&              mRunner;
     monitoring::ResourceMonitorItf& mResourceMonitor;
-    StaticString<cVersionLen>       mServiceVersion;
     const Service*                  mService = nullptr;
     InstanceRunState                mRunState;
     Error                           mRunError;

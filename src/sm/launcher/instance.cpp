@@ -23,26 +23,23 @@ StaticAllocator<Instance::cSpecAllocatorSize> Instance::sAllocator {};
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& info, const String& instanceID, oci::OCISpecItf& ociManager,
+Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID, oci::OCISpecItf& ociManager,
     runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor)
     : mInstanceID(instanceID)
-    , mInfo(info)
+    , mInstanceInfo(instanceInfo)
     , mOCIManager(ociManager)
     , mRunner(runner)
     , mResourceMonitor(resourceMonitor)
 {
-    LOG_INF() << "Create instance: ident=" << mInfo.mInstanceIdent << ", instanceID=" << *this;
+    LOG_INF() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
 }
 
-void Instance::SetService(const Service* service, const Error& err)
+void Instance::SetService(const Service* service)
 {
-    mService  = service;
-    mRunError = err;
+    mService = service;
 
     if (mService) {
-        mServiceVersion = mService->Data().mVersion;
-
-        LOG_DBG() << "Set service for instance: serviceID=" << *service << ", version=" << mServiceVersion
+        LOG_DBG() << "Set service for instance: serviceID=" << *service << ", version=" << mService->Data().mVersion
                   << ", instanceID=" << *this;
     }
 }
@@ -70,7 +67,7 @@ Error Instance::Start()
     }
 
     err = mResourceMonitor.StartInstanceMonitoring(
-        mInstanceID, monitoring::InstanceMonitorParams {mInfo.mInstanceIdent, {}});
+        mInstanceID, monitoring::InstanceMonitorParams {mInstanceInfo.mInstanceIdent, {}});
     if (!err.IsNone()) {
         mRunError = err;
 

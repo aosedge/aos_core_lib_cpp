@@ -476,30 +476,33 @@ Error Launcher::StartInstance(const InstanceData& info)
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
-    auto err = mCurrentInstances.Emplace(
-        info.mInstanceID, Instance(info.mInstanceInfo, info.mInstanceID, *mOCIManager, *mRunner, *mResourceMonitor));
-    if (!err.IsNone()) {
+    if (auto err = mCurrentInstances.Emplace(info.mInstanceID,
+            Instance(info.mInstanceInfo, info.mInstanceID, *mOCIManager, *mRunner, *mResourceMonitor));
+        !err.IsNone()) {
         return err;
     }
 
     auto& instance = mCurrentInstances.At(info.mInstanceID).mValue;
 
     auto findService = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
-
-    instance.SetService(&findService.mValue, findService.mError);
-
     if (!findService.mError.IsNone()) {
+        instance.SetService(nullptr);
+        instance.SetRunError(findService.mError);
+
         return findService.mError;
     }
 
+    instance.SetService(&findService.mValue);
+
     lock.Unlock();
 
-    err = instance.Start();
-    if (!err.IsNone()) {
+    if (auto err = instance.Start(); !err.IsNone()) {
+        instance.SetRunError(err);
+
         return err;
     }
 
-    LOG_INF() << "Instance started: " << instance;
+    LOG_INF() << "Instance started: instanceID=" << instance;
 
     return ErrorEnum::eNone;
 }
