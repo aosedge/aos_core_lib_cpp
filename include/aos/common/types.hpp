@@ -439,11 +439,11 @@ struct NetworkParameters {
  */
 struct InstanceInfo {
     InstanceIdent              mInstanceIdent;
-    NetworkParameters          mNetworkParameters;
     uint32_t                   mUID;
     uint64_t                   mPriority;
     StaticString<cFilePathLen> mStoragePath;
     StaticString<cFilePathLen> mStatePath;
+    NetworkParameters          mNetworkParameters;
 
     /**
      * Compares instance info.
@@ -453,9 +453,9 @@ struct InstanceInfo {
      */
     bool operator==(const InstanceInfo& instance) const
     {
-        return mInstanceIdent == instance.mInstanceIdent && mNetworkParameters == instance.mNetworkParameters
-            && mUID == instance.mUID && mPriority == instance.mPriority && mStoragePath == instance.mStoragePath
-            && mStatePath == instance.mStatePath;
+        return mInstanceIdent == instance.mInstanceIdent && mUID == instance.mUID && mPriority == instance.mPriority
+            && mStoragePath == instance.mStoragePath && mStatePath == instance.mStatePath
+            && mNetworkParameters == instance.mNetworkParameters;
     }
 
     /**

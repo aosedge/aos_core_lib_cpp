@@ -105,9 +105,9 @@ TEST(LauncherTest, RunInstances)
         // Run instances first time
         {
             std::vector<InstanceInfo> {
-                {{"service1", "subject1", 0}, {}, 0, 0, "", ""},
-                {{"service1", "subject1", 1}, {}, 0, 0, "", ""},
-                {{"service1", "subject1", 2}, {}, 0, 0, "", ""},
+                {{"service1", "subject1", 0}, 0, 0, "", "", {}},
+                {{"service1", "subject1", 1}, 0, 0, "", "", {}},
+                {{"service1", "subject1", 2}, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service1", "provider1", "1.0.0", 0, "", {}, 0},
@@ -129,9 +129,9 @@ TEST(LauncherTest, RunInstances)
         // Another instances round
         {
             std::vector<InstanceInfo> {
-                {{"service1", "subject1", 4}, {}, 0, 0, "", ""},
-                {{"service1", "subject1", 5}, {}, 0, 0, "", ""},
-                {{"service1", "subject1", 6}, {}, 0, 0, "", ""},
+                {{"service1", "subject1", 4}, 0, 0, "", "", {}},
+                {{"service1", "subject1", 5}, 0, 0, "", "", {}},
+                {{"service1", "subject1", 6}, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service1", "provider1", "2.0.0", 0, "", {}, 0},
