@@ -477,11 +477,11 @@ using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
  */
 class InstanceRunStateType {
 public:
-    enum class Enum { eActive, eFailed, eNumStates };
+    enum class Enum { eFailed, eActive, eNumStates };
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sInstanceRunStateStrings[] = {"active", "failed"};
+        static const char* const sInstanceRunStateStrings[] = {"failed", "active"};
 
         return Array<const char* const>(sInstanceRunStateStrings, ArraySize(sInstanceRunStateStrings));
     };

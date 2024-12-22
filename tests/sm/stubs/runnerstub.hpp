@@ -29,7 +29,7 @@ public:
         (void)runtimeDir;
         (void)runParams;
 
-        return RunStatus {};
+        return RunStatus {instanceID, InstanceRunStateEnum::eActive, ErrorEnum::eNone};
     }
 
     /**
