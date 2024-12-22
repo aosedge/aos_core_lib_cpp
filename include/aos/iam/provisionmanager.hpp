@@ -107,36 +107,6 @@ public:
     virtual Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo) = 0;
 
     /**
-     * Returns certificate info.
-     *
-     * @param certType certificate type.
-     * @param issuer issuer name.
-     * @param serial serial number.
-     * @param[out] resCert result certificate.
-     * @returns Error.
-     */
-    virtual Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        certhandler::CertInfo& resCert) const
-        = 0;
-
-    /**
-     * Subscribes certificates receiver.
-     *
-     * @param certType certificate type.
-     * @param certReceiver certificate receiver.
-     * @returns Error.
-     */
-    virtual Error SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver) = 0;
-
-    /**
-     * Unsubscribes certificate receiver.
-     *
-     * @param certReceiver certificate receiver.
-     * @returns Error.
-     */
-    virtual Error UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver) = 0;
-
-    /**
      * Finishes provisioning.
      *
      * @param password password.
@@ -166,7 +136,6 @@ public:
     /**
      * Initializes provision manager.
      *
-     * @param certTypeConfigs certificate type configurations.
      * @param callback provision manager callback.
      * @param certHandler certificate handler.
      * @returns Error.
@@ -208,35 +177,6 @@ public:
      * @returns Error.
      */
     Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo) override;
-
-    /**
-     * Returns certificate info.
-     *
-     * @param certType certificate type.
-     * @param issuer issuer name.
-     * @param serial serial number.
-     * @param[out] resCert result certificate.
-     * @returns Error.
-     */
-    Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        certhandler::CertInfo& resCert) const override;
-
-    /**
-     * Subscribes certificates receiver.
-     *
-     * @param certType certificate type.
-     * @param certReceiver certificate receiver.
-     * @returns Error.
-     */
-    Error SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver) override;
-
-    /**
-     * Unsubscribes certificate receiver.
-     *
-     * @param certReceiver certificate receiver.
-     * @returns Error.
-     */
-    Error UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver) override;
 
     /**
      * Finishes provisioning.

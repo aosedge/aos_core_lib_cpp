@@ -12,14 +12,15 @@ set(TARGET aosiamcpp_test)
 # ######################################################################################################################
 
 set(SOURCES
-    iam_test.cpp
     certmodules/certmodules_test.cpp
-    stubs/storagestub.cpp
+    certprovider/certprovider_test.cpp
     identmodules/fileidentifier_test.cpp
     nodeinfoprovider/nodeinfoprovider_test.cpp
+    nodemanager/nodemanager_test.cpp
     permhandler/permhandler_test.cpp
     provisionmanager/provisionmanager_test.cpp
-    nodemanager/nodemanager_test.cpp
+    stubs/storagestub.cpp
+    iam_test.cpp
 )
 
 # ######################################################################################################################

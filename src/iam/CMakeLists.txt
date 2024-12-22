@@ -15,6 +15,7 @@ set(SOURCES
     certhandler/certhandler.cpp
     certmodules/certmodule.cpp
     certmodules/pkcs11/pkcs11.cpp
+    certprovider/certprovider.cpp
     identmodules/fileidentifier.cpp
     nodeinfoprovider/nodeinfoprovider.cpp
     nodemanager/nodemanager.cpp

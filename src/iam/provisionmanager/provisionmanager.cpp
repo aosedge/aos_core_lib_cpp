@@ -132,26 +132,4 @@ Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert,
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
 }
 
-Error ProvisionManager::GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-    certhandler::CertInfo& resCert) const
-{
-    LOG_DBG() << "Get cert: type=" << certType;
-
-    return AOS_ERROR_WRAP(mCertHandler->GetCertificate(certType, issuer, serial, resCert));
-}
-
-Error ProvisionManager::SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver)
-{
-    LOG_DBG() << "Subscribe cert receiver: type=" << certType;
-
-    return AOS_ERROR_WRAP(mCertHandler->SubscribeCertChanged(certType, certReceiver));
-}
-
-Error ProvisionManager::UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver)
-{
-    LOG_DBG() << "Unsubscribe cert receiver";
-
-    return AOS_ERROR_WRAP(mCertHandler->UnsubscribeCertChanged(certReceiver));
-}
-
 } // namespace aos::iam::provisionmanager
