@@ -564,9 +564,12 @@ RetWithError<StaticString<cFilePathLen>> ServiceManager::DigestToPath(const Stri
 {
     StaticArray<const StaticString<oci::cMaxDigestLen>, 2> digestList;
 
-    auto err = digest.Split(digestList, ':');
-    if (!err.IsNone()) {
+    if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
         return {"", AOS_ERROR_WRAP(err)};
+    }
+
+    if (digestList.Size() != 2) {
+        return {"", AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
     }
 
     return FS::JoinPath(imagePath, cImageBlobsFolder, digestList[0], digestList[1]);
