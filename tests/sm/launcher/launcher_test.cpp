@@ -20,6 +20,8 @@
 #include "aos/test/log.hpp"
 #include "aos/test/utils.hpp"
 
+#include "mocks/networkmanagermock.hpp"
+
 #include "stubs/connectionsubscstub.hpp"
 #include "stubs/launcherstub.hpp"
 #include "stubs/layermanagerstub.hpp"
@@ -33,6 +35,7 @@ using namespace aos::oci;
 using namespace aos::sm::layermanager;
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
+using namespace aos::sm::networkmanager;
 
 namespace aos::sm::launcher {
 
@@ -65,6 +68,7 @@ TEST(LauncherTest, RunInstances)
 {
     auto connectionPublisher = std::make_unique<ConnectionPublisherStub>();
     auto layerManager        = std::make_unique<LayerManagerStub>();
+    auto networkManager      = std::make_unique<NetworkManagerMock>();
     auto ociManager          = std::make_unique<OCISpecStub>();
     auto resourceMonitor     = std::make_unique<ResourceMonitorStub>();
     auto runner              = std::make_unique<RunnerStub>();
@@ -79,8 +83,8 @@ TEST(LauncherTest, RunInstances)
     auto feature = statusReceiver->GetFeature();
 
     EXPECT_TRUE(launcher
-                    ->Init(Config {}, *serviceManager, *layerManager, *runner, *resourceMonitor, *ociManager,
-                        *statusReceiver, *connectionPublisher, *storage)
+                    ->Init(Config {}, *serviceManager, *layerManager, *networkManager, *runner, *resourceMonitor,
+                        *ociManager, *statusReceiver, *connectionPublisher, *storage)
                     .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());

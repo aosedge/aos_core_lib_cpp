@@ -12,7 +12,9 @@
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/allocator.hpp"
 #include "aos/sm/config.hpp"
+#include "aos/sm/launcher/config.hpp"
 #include "aos/sm/launcher/service.hpp"
+#include "aos/sm/networkmanager.hpp"
 #include "aos/sm/runner.hpp"
 
 namespace aos::sm::launcher {
@@ -25,10 +27,17 @@ public:
     /**
      * Creates instance.
      *
+     * @param config launcher configuration.
      * @param instanceInfo instance info.
+     * @param instanceID instance ID.
+     * @param networkManager network manager.
+     * @param runner runner instance.
+     * @param resourceMonitor resource monitor.
+     * @param ociManager OCI manager.
      */
-    Instance(const InstanceInfo& instanceInfo, const String& instanceID, oci::OCISpecItf& ociManager,
-        runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor);
+    Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
+        networkmanager::NetworkManagerItf& networkManager, runner::RunnerItf& runner,
+        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager);
 
     /**
      * Starts instance.
@@ -147,23 +156,31 @@ public:
     friend Log& operator<<(Log& log, const Instance& instance) { return log << instance.mInstanceID; }
 
 private:
-    static constexpr auto cRuntimeDir        = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
-    static constexpr auto cSpecAllocatorSize = sizeof(oci::RuntimeSpec);
-    static constexpr auto cRuntimeSpecFile   = "config.json";
+    static constexpr auto cRuntimeDir    = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
+    static constexpr auto cAllocatorSize = Max(sizeof(oci::RuntimeSpec), sizeof(networkmanager::NetworkParams),
+                                               sizeof(monitoring::InstanceMonitorParams))
+        * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
+    static constexpr auto cRuntimeSpecFile = "config.json";
+    static constexpr auto cMountPointsDir  = "mounts";
 
-    Error CreateRuntimeSpec(const String& path);
+    Error SetupNetwork();
+    Error CreateRuntimeSpec();
+    Error SetupMonitoring();
 
-    static StaticAllocator<cSpecAllocatorSize> sAllocator;
-    static Mutex                               sMutex;
+    static StaticAllocator<cAllocatorSize> sAllocator;
 
-    StaticString<cInstanceIDLen>    mInstanceID;
-    InstanceInfo                    mInstanceInfo;
-    oci::OCISpecItf&                mOCIManager;
-    runner::RunnerItf&              mRunner;
-    monitoring::ResourceMonitorItf& mResourceMonitor;
-    const Service*                  mService = nullptr;
-    InstanceRunState                mRunState;
-    Error                           mRunError;
+    const Config&                      mConfig;
+    StaticString<cInstanceIDLen>       mInstanceID;
+    InstanceInfo                       mInstanceInfo;
+    networkmanager::NetworkManagerItf& mNetworkManager;
+    runner::RunnerItf&                 mRunner;
+    monitoring::ResourceMonitorItf&    mResourceMonitor;
+    oci::OCISpecItf&                   mOCIManager;
+
+    StaticString<cFilePathLen> mRuntimeDir;
+    const Service*             mService = nullptr;
+    InstanceRunState           mRunState;
+    Error                      mRunError;
 };
 
 } // namespace aos::sm::launcher

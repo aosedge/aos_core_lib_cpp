@@ -16,20 +16,23 @@ namespace aos::sm::launcher {
  * Static
  **********************************************************************************************************************/
 
-Mutex                                         Instance::sMutex {};
-StaticAllocator<Instance::cSpecAllocatorSize> Instance::sAllocator {};
+StaticAllocator<Instance::cAllocatorSize> Instance::sAllocator {};
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID, oci::OCISpecItf& ociManager,
-    runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor)
-    : mInstanceID(instanceID)
+Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
+    networkmanager::NetworkManagerItf& networkmanager, runner::RunnerItf& runner,
+    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager)
+    : mConfig(config)
+    , mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
-    , mOCIManager(ociManager)
+    , mNetworkManager(networkmanager)
     , mRunner(runner)
     , mResourceMonitor(resourceMonitor)
+    , mOCIManager(ociManager)
+    , mRuntimeDir(FS::JoinPath(cRuntimeDir, mInstanceID))
 {
     LOG_INF() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
 }
@@ -46,31 +49,33 @@ void Instance::SetService(const Service* service)
 
 Error Instance::Start()
 {
-    LOG_INF() << "Start instance: instanceID=" << *this;
+    LOG_INF() << "Start instance: instanceID=" << *this << ", runtimeDir=" << mRuntimeDir;
 
-    StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
+    if (!mService) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "service not found"));
+    }
 
-    auto err = CreateRuntimeSpec(instanceDir);
-    if (!err.IsNone()) {
-        mRunError = err;
+    if (auto err = FS::ClearDir(mRuntimeDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
+    if (auto err = SetupNetwork(); !err.IsNone()) {
         return err;
     }
 
-    auto runStatus = mRunner.StartInstance(mInstanceID, instanceDir, {});
-
-    mRunState = runStatus.mState;
-    mRunError = runStatus.mError;
-
-    if (!runStatus.mError.IsNone()) {
-        return runStatus.mError;
+    if (auto err = CreateRuntimeSpec(); !err.IsNone()) {
+        return err;
     }
 
-    err = mResourceMonitor.StartInstanceMonitoring(
-        mInstanceID, monitoring::InstanceMonitorParams {mInstanceInfo.mInstanceIdent, {}});
-    if (!err.IsNone()) {
-        mRunError = err;
+    auto runStatus = mRunner.StartInstance(mInstanceID, mRuntimeDir, {});
 
+    mRunState = runStatus.mState;
+
+    if (!runStatus.mError.IsNone()) {
+        return AOS_ERROR_WRAP(runStatus.mError);
+    }
+
+    if (auto err = SetupMonitoring(); !err.IsNone()) {
         return err;
     }
 
@@ -79,24 +84,32 @@ Error Instance::Start()
 
 Error Instance::Stop()
 {
-    LOG_INF() << "Stop instance: instanceID=" << *this;
-
     StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
     Error                      stopErr;
 
-    auto err = mRunner.StopInstance(mInstanceID);
-    if (!err.IsNone() && stopErr.IsNone()) {
+    LOG_INF() << "Stop instance: instanceID=" << *this;
+
+    if (!mService && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "service not found"));
+    }
+
+    if (auto err = mRunner.StopInstance(mInstanceID); !err.IsNone() && stopErr.IsNone()) {
         stopErr = err;
     }
 
-    err = FS::RemoveAll(instanceDir);
-    if (!err.IsNone() && stopErr.IsNone()) {
+    if (auto err = mResourceMonitor.StopInstanceMonitoring(mInstanceID); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = err;
+    }
+
+    if (mService) {
+        if (auto err = mNetworkManager.RemoveInstanceFromNetwork(mInstanceID, mService->Data().mProviderID);
+            !err.IsNone() && stopErr.IsNone()) {
+            stopErr = err;
+        }
+    }
+
+    if (auto err = FS::RemoveAll(instanceDir); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
-    }
-
-    err = mResourceMonitor.StopInstanceMonitoring(mInstanceID);
-    if (!err.IsNone() && stopErr.IsNone()) {
-        stopErr = err;
     }
 
     return stopErr;
@@ -106,20 +119,29 @@ Error Instance::Stop()
  * Private
  **********************************************************************************************************************/
 
-Error Instance::CreateRuntimeSpec(const String& path)
+Error Instance::SetupNetwork()
 {
-    LockGuard lock(sMutex);
+    LOG_DBG() << "Setup network: instanceID=" << *this;
 
-    LOG_DBG() << "Create runtime spec: path=" << path;
+    auto networkParams = MakeUnique<networkmanager::NetworkParams>(&sAllocator);
 
-    auto err = FS::ClearDir(path);
-    if (!err.IsNone()) {
+    networkParams->mInstanceIdent      = mInstanceInfo.mInstanceIdent;
+    networkParams->mHostsFilePath      = FS::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "hosts");
+    networkParams->mResolvConfFilePath = FS::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "resolv.conf");
+    networkParams->mHosts              = mConfig.mHosts;
+    networkParams->mNetworkParameters  = mInstanceInfo.mNetworkParameters;
+
+    if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService->Data().mProviderID, *networkParams);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!mService) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
-    }
+    return aos::ErrorEnum::eNone;
+}
+
+Error Instance::CreateRuntimeSpec()
+{
+    LOG_DBG() << "Create runtime spec: instanceID=" << *this;
 
     auto imageSpec = mService->ImageSpec();
     if (!imageSpec.mError.IsNone()) {
@@ -149,9 +171,24 @@ Error Instance::CreateRuntimeSpec(const String& path)
 
     LOG_DBG() << "Unikernel path: path=" << runtimeSpec->mVM->mKernel.mPath;
 
-    err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(path, cRuntimeSpecFile), *runtimeSpec);
-    if (!err.IsNone()) {
+    if (auto err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(mRuntimeDir, cRuntimeSpecFile), *runtimeSpec);
+        !err.IsNone()) {
         return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Instance::SetupMonitoring()
+{
+    LOG_DBG() << "Setup monitoring: instanceID=" << *this;
+
+    auto monitoringParms = MakeUnique<monitoring::InstanceMonitorParams>(&sAllocator);
+
+    monitoringParms->mInstanceIdent = mInstanceInfo.mInstanceIdent;
+
+    if (auto err = mResourceMonitor.StartInstanceMonitoring(mInstanceID, *monitoringParms); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;

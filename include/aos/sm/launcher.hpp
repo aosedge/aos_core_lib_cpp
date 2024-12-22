@@ -22,6 +22,7 @@
 #include "aos/sm/launcher/instance.hpp"
 #include "aos/sm/launcher/service.hpp"
 #include "aos/sm/layermanager.hpp"
+#include "aos/sm/networkmanager.hpp"
 #include "aos/sm/runner.hpp"
 #include "aos/sm/servicemanager.hpp"
 
@@ -224,6 +225,7 @@ public:
      * @param config launcher configuration.
      * @param serviceManager service manager instance.
      * @param layerManager layer manager instance.
+     * @param networkManager network manager instance.
      * @param runner runner instance.
      * @param resourceMonitor resource monitor instance.
      * @param ociManager OCI manager instance.
@@ -233,8 +235,8 @@ public:
      * @return Error.
      */
     Error Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager,
-        layermanager::LayerManagerItf& layerManager, runner::RunnerItf& runner,
-        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+        layermanager::LayerManagerItf& layerManager, networkmanager::NetworkManagerItf& networkManager,
+        runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
 
     /**
@@ -324,6 +326,7 @@ private:
     ConnectionPublisherItf*            mConnectionPublisher {};
     InstanceStatusReceiverItf*         mStatusReceiver {};
     layermanager::LayerManagerItf*     mLayerManager {};
+    networkmanager::NetworkManagerItf* mNetworkManager {};
     monitoring::ResourceMonitorItf*    mResourceMonitor {};
     oci::OCISpecItf*                   mOCIManager {};
     runner::RunnerItf*                 mRunner {};

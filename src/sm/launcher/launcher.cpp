@@ -19,8 +19,8 @@ using namespace runner;
  **********************************************************************************************************************/
 
 Error Launcher::Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager,
-    layermanager::LayerManagerItf& layerManager, runner::RunnerItf& runner,
-    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+    layermanager::LayerManagerItf& layerManager, networkmanager::NetworkManagerItf& networkManager,
+    runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
     InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage)
 {
     LOG_DBG() << "Init launcher";
@@ -28,6 +28,7 @@ Error Launcher::Init(const Config& config, servicemanager::ServiceManagerItf& se
     mConfig              = config;
     mConnectionPublisher = &connectionPublisher;
     mLayerManager        = &layerManager;
+    mNetworkManager      = &networkManager;
     mOCIManager          = &ociManager;
     mResourceMonitor     = &resourceMonitor;
     mRunner              = &runner;
@@ -477,7 +478,8 @@ Error Launcher::StartInstance(const InstanceData& info)
     }
 
     if (auto err = mCurrentInstances.Emplace(info.mInstanceID,
-            Instance(info.mInstanceInfo, info.mInstanceID, *mOCIManager, *mRunner, *mResourceMonitor));
+            Instance(mConfig, info.mInstanceInfo, info.mInstanceID, *mNetworkManager, *mRunner, *mResourceMonitor,
+                *mOCIManager));
         !err.IsNone()) {
         return err;
     }
