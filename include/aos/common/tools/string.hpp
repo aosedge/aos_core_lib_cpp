@@ -110,8 +110,25 @@ public:
     String& Append(const String& str)
     {
         [[maybe_unused]] auto err = Array::Insert(end(), str.begin(), str.end());
-        *end()                    = 0;
         assert(err.IsNone());
+
+        *end() = 0;
+
+        return *this;
+    }
+
+    /**
+     * Prepends string.
+     *
+     * @param str string to prepend.
+     * @return String&.
+     */
+    String& Prepend(const String& str)
+    {
+        [[maybe_unused]] auto err = Array::Insert(begin(), str.begin(), str.end());
+        assert(err.IsNone());
+
+        *end() = 0;
 
         return *this;
     }

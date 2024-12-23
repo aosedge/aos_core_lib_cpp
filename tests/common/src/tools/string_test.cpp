@@ -57,6 +57,13 @@ TEST(StringTest, Basic)
 
     EXPECT_EQ(str, "test1test2");
 
+    // Test prepend
+
+    str = "string";
+    str.Prepend("test");
+
+    EXPECT_EQ(str, "teststring");
+
     StaticString<4> convertStr;
 
     // Convert to int
