@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET testutils)
+set(TARGET aostestutils)
 
 # ######################################################################################################################
 # Setup softhsm environment
@@ -29,7 +29,7 @@ add_library(${TARGET} ${SOURCES})
 createsofthsmtestenv(${TARGET} "${CMAKE_CURRENT_BINARY_DIR}/certificates")
 gencertificates(${TARGET} "${CMAKE_CURRENT_BINARY_DIR}/softhsm")
 
-target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
+target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include ${AOS_CORE_LIB_DIR}/tests/include)
 
 # ######################################################################################################################
 # Install

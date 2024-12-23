@@ -50,7 +50,7 @@ add_definitions(
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} aoscommon GTest::gmock_main testutils)
+target_link_libraries(${TARGET} aoscommon GTest::gmock_main aostestutils)
 target_include_directories(${TARGET} PRIVATE .)
 
 gtest_discover_tests(${TARGET})

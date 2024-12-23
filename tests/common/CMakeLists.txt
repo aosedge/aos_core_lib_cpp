@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aoscommoncpp_test)
+set(TARGET aoscommon_test)
 
 # ######################################################################################################################
 # Sources
@@ -51,6 +51,6 @@ add_definitions(-DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1 -DAOS_CONFIG_MONITORIN
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} aoscommon testutils GTest::gmock_main)
+target_link_libraries(${TARGET} aoscommon aostestutils GTest::gmock_main)
 
 gtest_discover_tests(${TARGET})
