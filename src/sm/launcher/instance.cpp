@@ -69,7 +69,7 @@ Error Instance::Start()
         return err;
     }
 
-    auto runStatus = mRunner.StartInstance(mInstanceID, instanceDir);
+    auto runStatus = mRunner.StartInstance(mInstanceID, instanceDir, {});
 
     mRunState = runStatus.mState;
     mRunError = runStatus.mError;

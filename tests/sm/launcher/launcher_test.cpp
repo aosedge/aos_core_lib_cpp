@@ -143,10 +143,11 @@ private:
  */
 class MockRunner : public RunnerItf {
 public:
-    RunStatus StartInstance(const String& instanceID, const String& runtimeDir) override
+    RunStatus StartInstance(const String& instanceID, const String& runtimeDir, const RunParameters& params) override
     {
         (void)instanceID;
         (void)runtimeDir;
+        (void)params;
 
         return RunStatus {};
     }

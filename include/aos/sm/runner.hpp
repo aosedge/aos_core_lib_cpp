@@ -26,6 +26,15 @@ struct RunStatus {
 };
 
 /**
+ * Service run parameters.
+ */
+struct RunParameters {
+    aos::Duration mStartInterval;
+    aos::Duration mRestartInterval;
+    long          mStartBurst;
+};
+
+/**
  * Runner interface.
  */
 class RunnerItf {
@@ -35,9 +44,11 @@ public:
      *
      * @param instanceID instance ID.
      * @param runtimeDir directory with runtime spec.
+     * @param runParams runtime parameters.
      * @return RunStatus.
      */
-    virtual RunStatus StartInstance(const String& instanceID, const String& runtimeDir) = 0;
+    virtual RunStatus StartInstance(const String& instanceID, const String& runtimeDir, const RunParameters& runParams)
+        = 0;
 
     /**
      * Stops instance.
