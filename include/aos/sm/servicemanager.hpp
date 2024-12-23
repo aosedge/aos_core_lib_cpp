@@ -18,6 +18,7 @@
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/image/imagehandler.hpp"
+#include "aos/sm/image/imageparts.hpp"
 
 namespace aos::sm::servicemanager {
 
@@ -128,24 +129,6 @@ struct ServiceData {
 using ServiceDataStaticArray = StaticArray<ServiceData, cMaxNumServices>;
 
 /**
- * Image parts.
- */
-struct ImageParts {
-    /**
-     * Image config path.
-     */
-    StaticString<cFilePathLen> mImageConfigPath;
-    /**
-     * Service config path.
-     */
-    StaticString<cFilePathLen> mServiceConfigPath;
-    /**
-     * Service root FS path.
-     */
-    StaticString<cFilePathLen> mServiceFSPath;
-};
-
-/**
  * Service manager storage interface.
  */
 class StorageItf {
@@ -232,9 +215,9 @@ public:
      * Returns service image parts.
      *
      * @param service service item.
-     * @return RetWithError<ImageParts>.
+     * @return RetWithError<image::ImageParts>.
      */
-    virtual RetWithError<ImageParts> GetImageParts(const ServiceData& service) = 0;
+    virtual RetWithError<image::ImageParts> GetImageParts(const ServiceData& service) = 0;
 
     /**
      * Validates service.
@@ -330,9 +313,9 @@ public:
      * Returns service image parts.
      *
      * @param service service item.
-     * @return RetWithError<ImageParts>.
+     * @return RetWithError<image::ImageParts>.
      */
-    RetWithError<ImageParts> GetImageParts(const ServiceData& service) override;
+    RetWithError<image::ImageParts> GetImageParts(const ServiceData& service) override;
 
     /**
      * Validates service.

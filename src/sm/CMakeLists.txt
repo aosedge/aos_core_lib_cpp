@@ -12,6 +12,7 @@ set(TARGET aossm)
 # ######################################################################################################################
 
 set(SOURCES
+    image/imageparts.cpp
     launcher/launcher.cpp
     launcher/instance.cpp
     launcher/service.cpp

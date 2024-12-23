@@ -265,7 +265,7 @@ Error ServiceManager::GetAllServices(Array<ServiceData>& services)
     return mStorage->GetAllServices(services);
 }
 
-RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& service)
+RetWithError<image::ImageParts> ServiceManager::GetImageParts(const ServiceData& service)
 {
     LockGuard lock {mMutex};
 
@@ -280,26 +280,17 @@ RetWithError<ImageParts> ServiceManager::GetImageParts(const ServiceData& servic
         return {{}, err};
     }
 
-    auto imageConfig = DigestToPath(service.mImagePath, manifest->mConfig.mDigest);
-    if (!imageConfig.mError.IsNone()) {
-        return {{}, imageConfig.mError};
+    image::ImageParts imageParts;
+
+    if (Tie(imageParts, err) = image::GetImagePartsFromManifest(*manifest); !err.IsNone()) {
+        return {{}, err};
     }
 
-    auto serviceConfig = DigestToPath(service.mImagePath, manifest->mAosService->mDigest);
-    if (!serviceConfig.mError.IsNone()) {
-        return {{}, serviceConfig.mError};
-    }
+    imageParts.mImageConfigPath   = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mImageConfigPath);
+    imageParts.mServiceConfigPath = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceConfigPath);
+    imageParts.mServiceFSPath     = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceFSPath);
 
-    if (!manifest->mLayers) {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
-    }
-
-    auto serviceFS = DigestToPath(service.mImagePath, manifest->mLayers[0].mDigest);
-    if (!serviceFS.mError.IsNone()) {
-        return {{}, serviceFS.mError};
-    }
-
-    return ImageParts {imageConfig.mValue, serviceConfig.mValue, serviceFS.mValue};
+    return {imageParts, ErrorEnum::eNone};
 }
 
 Error ServiceManager::ValidateService(const ServiceData& service)
@@ -558,21 +549,6 @@ Error ServiceManager::SetServiceState(const ServiceData& service, ServiceState s
     }
 
     return ErrorEnum::eNone;
-}
-
-RetWithError<StaticString<cFilePathLen>> ServiceManager::DigestToPath(const String& imagePath, const String& digest)
-{
-    StaticArray<const StaticString<oci::cMaxDigestLen>, 2> digestList;
-
-    if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
-        return {"", AOS_ERROR_WRAP(err)};
-    }
-
-    if (digestList.Size() != 2) {
-        return {"", AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
-    }
-
-    return FS::JoinPath(imagePath, cImageBlobsFolder, digestList[0], digestList[1]);
 }
 
 RetWithError<StaticString<ServiceManager::cAllocatorItemLen>> ServiceManager::FormatAllocatorItemID(

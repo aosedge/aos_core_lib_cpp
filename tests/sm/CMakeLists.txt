@@ -12,6 +12,9 @@ set(TARGET aossmcpp_test)
 # ######################################################################################################################
 
 set(SOURCES
+    # image
+    ${PROJECT_SOURCE_DIR}/src/sm/image/imageparts.cpp
+    image/image_test.cpp
     # launcher
     ${PROJECT_SOURCE_DIR}/src/sm/launcher/launcher.cpp
     ${PROJECT_SOURCE_DIR}/src/sm/launcher/instance.cpp
