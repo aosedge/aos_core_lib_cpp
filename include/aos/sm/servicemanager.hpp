@@ -9,7 +9,6 @@
 #define AOS_SERVICEMANAGER_HPP_
 
 #include "aos/common/downloader/downloader.hpp"
-#include "aos/common/image/imagehandler.hpp"
 #include "aos/common/ocispec/ocispec.hpp"
 #include "aos/common/spaceallocator/spaceallocator.hpp"
 #include "aos/common/tools/allocator.hpp"
@@ -18,6 +17,7 @@
 #include "aos/common/tools/timer.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
+#include "aos/sm/image/imagehandler.hpp"
 
 namespace aos::sm::servicemanager {
 

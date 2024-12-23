@@ -7,11 +7,11 @@
 #ifndef AOS_IMAGEHANDLER_STUB_HPP_
 #define AOS_IMAGEHANDLER_STUB_HPP_
 
-#include "aos/common/image/imagehandler.hpp"
 #include "aos/common/tools/map.hpp"
 #include "aos/common/tools/utils.hpp"
+#include "aos/sm/image/imagehandler.hpp"
 
-namespace aos::imagehandler {
+namespace aos::sm::imagehandler {
 
 /**
  * Image handler stub.
@@ -147,6 +147,6 @@ private:
     StaticMap<StaticString<cFilePathLen>, StaticString<cFilePathLen>, cMaxNumLayers + cMaxNumServices> mUnpackResults;
 };
 
-} // namespace aos::imagehandler
+} // namespace aos::sm::imagehandler
 
 #endif
