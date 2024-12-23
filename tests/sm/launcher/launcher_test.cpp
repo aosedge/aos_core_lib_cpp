@@ -5,16 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <algorithm>
-#include <chrono>
-#include <future>
-
 #include <gtest/gtest.h>
 
-#include "aos/common/monitoring/monitoring.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/log.hpp"
 #include "aos/sm/launcher.hpp"
 
 #include "aos/test/log.hpp"
@@ -22,12 +14,12 @@
 
 #include "mocks/connectionsubscmock.hpp"
 #include "mocks/networkmanagermock.hpp"
+#include "mocks/runnermock.hpp"
 
 #include "stubs/launcherstub.hpp"
 #include "stubs/layermanagerstub.hpp"
 #include "stubs/monitoringstub.hpp"
 #include "stubs/ocispecstub.hpp"
-#include "stubs/runnerstub.hpp"
 #include "stubs/servicemanagerstub.hpp"
 
 using namespace aos::monitoring;
@@ -36,6 +28,7 @@ using namespace aos::sm::layermanager;
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
 using namespace aos::sm::networkmanager;
+using namespace testing;
 
 namespace aos::sm::launcher {
 
@@ -58,33 +51,42 @@ struct TestData {
     std::vector<aos::InstanceStatus> mStatus;
 };
 
+/***********************************************************************************************************************
+ * Suite
+ **********************************************************************************************************************/
+
+class LauncherTest : public Test {
+protected:
+    void SetUp() override { aos::test::InitLog(); }
+
+    ConnectionPublisherMock mConnectionPublisher;
+    LayerManagerStub        mLayerManager;
+    NetworkManagerMock      mNetworkManager;
+    OCISpecStub             mOCIManager;
+    ResourceMonitorStub     mResourceMonitor;
+    RunnerMock              mRunner;
+    ServiceManagerStub      mServiceManager;
+    StatusReceiverStub      mStatusReceiver;
+    StorageStub             mStorage;
+};
+
 } // namespace
 
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST(LauncherTest, RunInstances)
+TEST_F(LauncherTest, RunInstances)
 {
-    auto connectionPublisher = std::make_unique<ConnectionPublisherMock>();
-    auto layerManager        = std::make_unique<LayerManagerStub>();
-    auto networkManager      = std::make_unique<NetworkManagerMock>();
-    auto ociManager          = std::make_unique<OCISpecStub>();
-    auto resourceMonitor     = std::make_unique<ResourceMonitorStub>();
-    auto runner              = std::make_unique<RunnerStub>();
-    auto serviceManager      = std::make_unique<ServiceManagerStub>();
-    auto statusReceiver      = std::make_unique<StatusReceiverStub>();
-    auto storage             = std::make_unique<StorageStub>();
-
     auto launcher = std::make_unique<Launcher>();
 
     test::InitLog();
 
-    auto feature = statusReceiver->GetFeature();
+    auto feature = mStatusReceiver.GetFeature();
 
     EXPECT_TRUE(launcher
-                    ->Init(Config {}, *serviceManager, *layerManager, *networkManager, *runner, *resourceMonitor,
-                        *ociManager, *statusReceiver, *connectionPublisher, *storage)
+                    ->Init(Config {}, mServiceManager, mLayerManager, mNetworkManager, mRunner, mResourceMonitor,
+                        mOCIManager, mStatusReceiver, mConnectionPublisher, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());
@@ -151,19 +153,22 @@ TEST(LauncherTest, RunInstances)
 
     // Run instances
 
+    EXPECT_CALL(mRunner, StartInstance)
+        .WillRepeatedly(Return(RunStatus {"", InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
+
     auto i = 0;
 
     for (auto& testItem : testData) {
         LOG_INF() << "Running test case #" << i++;
 
-        feature = statusReceiver->GetFeature();
+        feature = mStatusReceiver.GetFeature();
 
         auto imageSpec = std::make_unique<oci::ImageSpec>();
 
         imageSpec->mConfig.mEntryPoint.PushBack("unikernel");
 
         for (const auto& service : testItem.mServices) {
-            ociManager->SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
+            mOCIManager.SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
         }
 
         EXPECT_TRUE(launcher
@@ -179,7 +184,7 @@ TEST(LauncherTest, RunInstances)
 
     // Reset
 
-    feature = statusReceiver->GetFeature();
+    feature = mStatusReceiver.GetFeature();
 
     launcher->OnConnect();
 

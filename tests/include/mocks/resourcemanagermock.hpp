@@ -8,8 +8,9 @@
 #ifndef AOS_JSON_PROVIDER_MOCK_HPP_
 #define AOS_JSON_PROVIDER_MOCK_HPP_
 
-#include "aos/sm/resourcemanager.hpp"
 #include <gmock/gmock.h>
+
+#include "aos/sm/resourcemanager.hpp"
 
 namespace aos::sm::resourcemanager {
 
