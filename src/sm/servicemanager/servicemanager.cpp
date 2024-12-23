@@ -586,14 +586,7 @@ RetWithError<StaticString<ServiceManager::cAllocatorItemLen>> ServiceManager::Fo
 
 RetWithError<StaticString<oci::cMaxDigestLen>> ServiceManager::GetManifestChecksum(const String& servicePath)
 {
-    auto ociManifest = MakeUnique<oci::ImageManifest>(&mAllocator);
-
-    if (auto err = mOCIManager->LoadImageManifest(FS::JoinPath(servicePath, cImageManifestFile), *ociManifest);
-        !err.IsNone()) {
-        return {"", AOS_ERROR_WRAP(err)};
-    }
-
-    return {ociManifest->mConfig.mDigest, {}};
+    return mImageHandler->CalculateDigest(FS::JoinPath(servicePath, cImageManifestFile));
 }
 
 } // namespace aos::sm::servicemanager

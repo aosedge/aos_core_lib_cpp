@@ -124,7 +124,7 @@ public:
     {
         (void)path;
 
-        return {{}, ErrorEnum::eFailed};
+        return {{}, ErrorEnum::eNone};
     }
 
     /**
