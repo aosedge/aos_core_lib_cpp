@@ -17,6 +17,7 @@
 #include "aos/common/tools/map.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
+#include "aos/iam/permhandler.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/launcher/config.hpp"
 #include "aos/sm/launcher/instance.hpp"
@@ -229,6 +230,7 @@ public:
      * @param layerManager layer manager instance.
      * @param resourceManager resource manager instance.
      * @param networkManager network manager instance.
+     * @param permHandler permission handler instance.
      * @param runner runner instance.
      * @param resourceMonitor resource monitor instance.
      * @param ociManager OCI manager instance.
@@ -240,7 +242,8 @@ public:
     Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
         resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
-        runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner,
+        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
 
     /**
