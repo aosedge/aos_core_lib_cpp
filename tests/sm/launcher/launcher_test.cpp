@@ -20,9 +20,9 @@
 #include "aos/test/log.hpp"
 #include "aos/test/utils.hpp"
 
+#include "mocks/connectionsubscmock.hpp"
 #include "mocks/networkmanagermock.hpp"
 
-#include "stubs/connectionsubscstub.hpp"
 #include "stubs/launcherstub.hpp"
 #include "stubs/layermanagerstub.hpp"
 #include "stubs/monitoringstub.hpp"
@@ -66,7 +66,7 @@ struct TestData {
 
 TEST(LauncherTest, RunInstances)
 {
-    auto connectionPublisher = std::make_unique<ConnectionPublisherStub>();
+    auto connectionPublisher = std::make_unique<ConnectionPublisherMock>();
     auto layerManager        = std::make_unique<LayerManagerStub>();
     auto networkManager      = std::make_unique<NetworkManagerMock>();
     auto ociManager          = std::make_unique<OCISpecStub>();
@@ -89,7 +89,7 @@ TEST(LauncherTest, RunInstances)
 
     ASSERT_TRUE(launcher->Start().IsNone());
 
-    connectionPublisher->Connect();
+    launcher->OnConnect();
 
     // Wait for initial instance status
 
@@ -181,7 +181,7 @@ TEST(LauncherTest, RunInstances)
 
     feature = statusReceiver->GetFeature();
 
-    connectionPublisher->Connect();
+    launcher->OnConnect();
 
     // Wait for initial instance status
 
