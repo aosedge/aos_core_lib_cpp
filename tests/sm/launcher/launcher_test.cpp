@@ -13,12 +13,12 @@
 #include "aos/test/utils.hpp"
 
 #include "mocks/connectionsubscmock.hpp"
+#include "mocks/monitoringmock.hpp"
 #include "mocks/networkmanagermock.hpp"
 #include "mocks/runnermock.hpp"
 
 #include "stubs/launcherstub.hpp"
 #include "stubs/layermanagerstub.hpp"
-#include "stubs/monitoringstub.hpp"
 #include "stubs/ocispecstub.hpp"
 #include "stubs/servicemanagerstub.hpp"
 
@@ -63,7 +63,7 @@ protected:
     LayerManagerStub        mLayerManager;
     NetworkManagerMock      mNetworkManager;
     OCISpecStub             mOCIManager;
-    ResourceMonitorStub     mResourceMonitor;
+    ResourceMonitorMock     mResourceMonitor;
     RunnerMock              mRunner;
     ServiceManagerStub      mServiceManager;
     StatusReceiverStub      mStatusReceiver;
