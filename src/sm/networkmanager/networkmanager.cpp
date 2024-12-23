@@ -223,7 +223,7 @@ Error NetworkManager::GetInstanceTraffic(
     return AOS_ERROR_WRAP(mNetMonitor->GetInstanceTraffic(instanceID, inputTraffic, outputTraffic));
 }
 
-Error NetworkManager::SetTrafficPeriod(uint32_t period)
+Error NetworkManager::SetTrafficPeriod(TrafficPeriod period)
 {
     LOG_DBG() << "Set traffic period: period=" << period;
 

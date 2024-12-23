@@ -184,6 +184,24 @@ public:
 };
 
 /**
+ * Traffic period type.
+ */
+class TrafficPeriodType {
+public:
+    enum class Enum { eMinutePeriod, eHourPeriod, eDayPeriod, eMonthPeriod, eYearPeriod };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sTrafficPeriodStrings[] = {"minute", "hour", "day", "month", "year"};
+
+        return Array<const char* const>(sTrafficPeriodStrings, ArraySize(sTrafficPeriodStrings));
+    };
+};
+
+using TrafficPeriodEnum = InstanceRunStateType::Enum;
+using TrafficPeriod     = EnumStringer<InstanceRunStateType>;
+
+/**
  * Network manager interface.
  */
 class NetworkManagerItf {
@@ -266,7 +284,7 @@ public:
      * @param period traffic period.
      * @return Error
      */
-    virtual Error SetTrafficPeriod(uint32_t period) = 0;
+    virtual Error SetTrafficPeriod(TrafficPeriod period) = 0;
 };
 
 /**
@@ -298,7 +316,7 @@ public:
      *
      * @param period monitoring period in seconds.
      */
-    virtual void SetPeriod(int period) = 0;
+    virtual void SetPeriod(TrafficPeriod period) = 0;
 
     /**
      * Starts monitoring instance.
@@ -442,7 +460,7 @@ public:
      * @param period traffic period.
      * @return Error
      */
-    Error SetTrafficPeriod(uint32_t period) override;
+    Error SetTrafficPeriod(TrafficPeriod period) override;
 
 private:
     struct NetworkData {
