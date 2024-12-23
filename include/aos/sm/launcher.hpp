@@ -223,6 +223,7 @@ public:
      * Initializes launcher.
      *
      * @param config launcher configuration.
+     * @param nodeInfoProvider node info provider.
      * @param serviceManager service manager instance.
      * @param layerManager layer manager instance.
      * @param networkManager network manager instance.
@@ -234,9 +235,10 @@ public:
      * @param storage storage instance.
      * @return Error.
      */
-    Error Init(const Config& config, servicemanager::ServiceManagerItf& serviceManager,
-        layermanager::LayerManagerItf& layerManager, networkmanager::NetworkManagerItf& networkManager,
-        runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+    Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+        servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
+        networkmanager::NetworkManagerItf& networkManager, runner::RunnerItf& runner,
+        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
 
     /**

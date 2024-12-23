@@ -15,6 +15,7 @@
 #include "mocks/connectionsubscmock.hpp"
 #include "mocks/monitoringmock.hpp"
 #include "mocks/networkmanagermock.hpp"
+#include "mocks/nodeinfoprovider.hpp"
 #include "mocks/runnermock.hpp"
 
 #include "stubs/launcherstub.hpp"
@@ -28,6 +29,7 @@ using namespace aos::sm::layermanager;
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
 using namespace aos::sm::networkmanager;
+using namespace aos::iam::nodeinfoprovider;
 using namespace testing;
 
 namespace aos::sm::launcher {
@@ -62,6 +64,7 @@ protected:
     ConnectionPublisherMock mConnectionPublisher;
     LayerManagerStub        mLayerManager;
     NetworkManagerMock      mNetworkManager;
+    NodeInfoProviderMock    mNodeInfoProvider;
     OCISpecStub             mOCIManager;
     ResourceMonitorMock     mResourceMonitor;
     RunnerMock              mRunner;
@@ -85,8 +88,8 @@ TEST_F(LauncherTest, RunInstances)
     auto feature = mStatusReceiver.GetFeature();
 
     EXPECT_TRUE(launcher
-                    ->Init(Config {}, mServiceManager, mLayerManager, mNetworkManager, mRunner, mResourceMonitor,
-                        mOCIManager, mStatusReceiver, mConnectionPublisher, mStorage)
+                    ->Init(Config {}, mNodeInfoProvider, mServiceManager, mLayerManager, mNetworkManager, mRunner,
+                        mResourceMonitor, mOCIManager, mStatusReceiver, mConnectionPublisher, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());
