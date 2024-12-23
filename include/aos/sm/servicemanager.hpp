@@ -268,7 +268,7 @@ public:
      */
     Error Init(const Config& config, oci::OCISpecItf& ociManager, downloader::DownloaderItf& downloader,
         StorageItf& storage, spaceallocator::SpaceAllocatorItf& serviceSpaceAllocator,
-        spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, imagehandler::ImageHandlerItf& imageHandler);
+        spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, image::ImageHandlerItf& imageHandler);
 
     /**
      * Starts service manager.
@@ -354,7 +354,7 @@ private:
     StorageItf*                        mStorage                = nullptr;
     spaceallocator::SpaceAllocatorItf* mServiceSpaceAllocator  = nullptr;
     spaceallocator::SpaceAllocatorItf* mDownloadSpaceAllocator = nullptr;
-    imagehandler::ImageHandlerItf*     mImageHandler           = nullptr;
+    image::ImageHandlerItf*            mImageHandler           = nullptr;
     Timer                              mTimer;
     Mutex                              mMutex;
 

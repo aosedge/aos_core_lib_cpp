@@ -157,7 +157,7 @@ protected:
     spaceallocator::SpaceAllocatorStub mDownloadSpaceAllocator;
     StorageStub                        mStorage;
     downloader::DownloaderMock         mDownloader;
-    imagehandler::ImageHandlerStub     mImageHandler;
+    image::ImageHandlerStub            mImageHandler;
     oci::OCISpecStub                   mOCISpecManager;
 };
 

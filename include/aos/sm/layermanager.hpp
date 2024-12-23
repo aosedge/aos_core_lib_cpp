@@ -189,8 +189,7 @@ public:
      */
     Error Init(const Config& config, spaceallocator::SpaceAllocatorItf& layerSpaceAllocator,
         spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
-        downloader::DownloaderItf& downloader, imagehandler::ImageHandlerItf& imageHanlder,
-        oci::OCISpecItf& ociManager);
+        downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHanlder, oci::OCISpecItf& ociManager);
 
     /**
      * Starts layer manager.
@@ -248,7 +247,7 @@ private:
     spaceallocator::SpaceAllocatorItf* mDownloadSpaceAllocator = nullptr;
     StorageItf*                        mStorage                = nullptr;
     downloader::DownloaderItf*         mDownloader             = nullptr;
-    imagehandler::ImageHandlerItf*     mImageHandler           = nullptr;
+    image::ImageHandlerItf*            mImageHandler           = nullptr;
     oci::OCISpecItf*                   mOCIManager             = nullptr;
     Mutex                              mMutex;
     Timer                              mTimer;

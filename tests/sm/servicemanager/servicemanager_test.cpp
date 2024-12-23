@@ -88,7 +88,7 @@ protected:
     StorageStub                        mStorage;
     spaceallocator::SpaceAllocatorStub mServiceSpaceAllocator;
     spaceallocator::SpaceAllocatorStub mDownloadSpaceAllocator;
-    imagehandler::ImageHandlerStub     mImageHandler;
+    image::ImageHandlerStub            mImageHandler;
 };
 
 /***********************************************************************************************************************

@@ -81,7 +81,7 @@ ServiceManager::~ServiceManager()
 
 Error ServiceManager::Init(const Config& config, oci::OCISpecItf& ociManager, downloader::DownloaderItf& downloader,
     StorageItf& storage, spaceallocator::SpaceAllocatorItf& serviceSpaceAllocator,
-    spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, imagehandler::ImageHandlerItf& imageHandler)
+    spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, image::ImageHandlerItf& imageHandler)
 {
     LOG_DBG() << "Initialize service manager";
 

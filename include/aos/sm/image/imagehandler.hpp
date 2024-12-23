@@ -12,7 +12,7 @@
 #include "aos/common/tools/string.hpp"
 #include "aos/common/types.hpp"
 
-namespace aos::sm::imagehandler {
+namespace aos::sm::image {
 
 /**
  * Image handler interface.
@@ -67,6 +67,6 @@ public:
     virtual ~ImageHandlerItf() = default;
 };
 
-} // namespace aos::sm::imagehandler
+} // namespace aos::sm::image
 
 #endif

@@ -11,7 +11,7 @@
 #include "aos/common/tools/utils.hpp"
 #include "aos/sm/image/imagehandler.hpp"
 
-namespace aos::sm::imagehandler {
+namespace aos::sm::image {
 
 /**
  * Image handler stub.
@@ -147,6 +147,6 @@ private:
     StaticMap<StaticString<cFilePathLen>, StaticString<cFilePathLen>, cMaxNumLayers + cMaxNumServices> mUnpackResults;
 };
 
-} // namespace aos::sm::imagehandler
+} // namespace aos::sm::image
 
 #endif

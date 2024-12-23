@@ -90,7 +90,7 @@ void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
 
 Error LayerManager::Init(const Config& config, spaceallocator::SpaceAllocatorItf& layerSpaceAllocator,
     spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
-    downloader::DownloaderItf& downloader, imagehandler::ImageHandlerItf& imageHandler, oci::OCISpecItf& ociManager)
+    downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHandler, oci::OCISpecItf& ociManager)
 {
     LOG_DBG() << "Initialize layer manager";
 
