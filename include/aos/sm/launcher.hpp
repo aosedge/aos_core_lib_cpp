@@ -23,6 +23,7 @@
 #include "aos/sm/launcher/service.hpp"
 #include "aos/sm/layermanager.hpp"
 #include "aos/sm/networkmanager.hpp"
+#include "aos/sm/resourcemanager.hpp"
 #include "aos/sm/runner.hpp"
 #include "aos/sm/servicemanager.hpp"
 
@@ -226,6 +227,7 @@ public:
      * @param nodeInfoProvider node info provider.
      * @param serviceManager service manager instance.
      * @param layerManager layer manager instance.
+     * @param resourceManager resource manager instance.
      * @param networkManager network manager instance.
      * @param runner runner instance.
      * @param resourceMonitor resource monitor instance.
@@ -237,8 +239,8 @@ public:
      */
     Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-        networkmanager::NetworkManagerItf& networkManager, runner::RunnerItf& runner,
-        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+        resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
+        runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
 
     /**

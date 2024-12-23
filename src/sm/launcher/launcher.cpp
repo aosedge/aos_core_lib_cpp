@@ -20,13 +20,14 @@ using namespace runner;
 
 Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-    networkmanager::NetworkManagerItf& networkManager, runner::RunnerItf& runner,
-    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
+    resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
+    runner::RunnerItf& runner, monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
     InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage)
 {
     LOG_DBG() << "Init launcher";
 
     (void)nodeInfoProvider;
+    (void)resourceManager;
 
     mConfig              = config;
     mConnectionPublisher = &connectionPublisher;

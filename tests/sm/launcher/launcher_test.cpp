@@ -16,6 +16,7 @@
 #include "mocks/monitoringmock.hpp"
 #include "mocks/networkmanagermock.hpp"
 #include "mocks/nodeinfoprovider.hpp"
+#include "mocks/resourcemanagermock.hpp"
 #include "mocks/runnermock.hpp"
 
 #include "stubs/launcherstub.hpp"
@@ -23,13 +24,14 @@
 #include "stubs/ocispecstub.hpp"
 #include "stubs/servicemanagerstub.hpp"
 
+using namespace aos::iam::nodeinfoprovider;
 using namespace aos::monitoring;
 using namespace aos::oci;
 using namespace aos::sm::layermanager;
+using namespace aos::sm::networkmanager;
+using namespace aos::sm::resourcemanager;
 using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
-using namespace aos::sm::networkmanager;
-using namespace aos::iam::nodeinfoprovider;
 using namespace testing;
 
 namespace aos::sm::launcher {
@@ -66,6 +68,7 @@ protected:
     NetworkManagerMock      mNetworkManager;
     NodeInfoProviderMock    mNodeInfoProvider;
     OCISpecStub             mOCIManager;
+    ResourceManagerMock     mResourceManager;
     ResourceMonitorMock     mResourceMonitor;
     RunnerMock              mRunner;
     ServiceManagerStub      mServiceManager;
@@ -87,10 +90,11 @@ TEST_F(LauncherTest, RunInstances)
 
     auto feature = mStatusReceiver.GetFeature();
 
-    EXPECT_TRUE(launcher
-                    ->Init(Config {}, mNodeInfoProvider, mServiceManager, mLayerManager, mNetworkManager, mRunner,
-                        mResourceMonitor, mOCIManager, mStatusReceiver, mConnectionPublisher, mStorage)
-                    .IsNone());
+    EXPECT_TRUE(
+        launcher
+            ->Init(Config {}, mNodeInfoProvider, mServiceManager, mLayerManager, mResourceManager, mNetworkManager,
+                mRunner, mResourceMonitor, mOCIManager, mStatusReceiver, mConnectionPublisher, mStorage)
+            .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());
 
