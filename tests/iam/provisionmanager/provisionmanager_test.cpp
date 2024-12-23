@@ -35,16 +35,17 @@ protected:
 
 TEST_F(ProvisionManagerTest, StartProvisioningSucceeds)
 {
-    CertTypes gneratedCertTypes;
-    gneratedCertTypes.EmplaceBack("certType1");
-    gneratedCertTypes.EmplaceBack("certType2");
-    gneratedCertTypes.EmplaceBack("certType3");
-    gneratedCertTypes.EmplaceBack("diskEncryption");
+    CertTypes generatedCertTypes;
+
+    generatedCertTypes.EmplaceBack("certType1");
+    generatedCertTypes.EmplaceBack("certType2");
+    generatedCertTypes.EmplaceBack("certType3");
+    generatedCertTypes.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
 
     certhandler::ModuleConfig moduleConfig1;
     certhandler::ModuleConfig moduleConfig2;
@@ -74,16 +75,17 @@ TEST_F(ProvisionManagerTest, StartProvisioningSucceeds)
 
 TEST_F(ProvisionManagerTest, StartProvisioningFails)
 {
-    CertTypes gneratedCertTypes;
-    gneratedCertTypes.EmplaceBack("certType1");
-    gneratedCertTypes.EmplaceBack("certType2");
-    gneratedCertTypes.EmplaceBack("certType3");
-    gneratedCertTypes.EmplaceBack("diskEncryption");
+    CertTypes generatedCertTypes;
+
+    generatedCertTypes.EmplaceBack("certType1");
+    generatedCertTypes.EmplaceBack("certType2");
+    generatedCertTypes.EmplaceBack("certType3");
+    generatedCertTypes.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mCertHandler, Clear).WillOnce(Return(aos::ErrorEnum::eFailed));
     EXPECT_CALL(mCertHandler, SetOwner).Times(0);
@@ -95,7 +97,7 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).WillOnce(Return(aos::ErrorEnum::eFailed));
     EXPECT_CALL(mCertHandler, GetModuleConfig).Times(0);
@@ -107,16 +109,17 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
 
 TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
 {
-    CertTypes gneratedCertTypes;
-    gneratedCertTypes.EmplaceBack("certType1");
-    gneratedCertTypes.EmplaceBack("certType2");
-    gneratedCertTypes.EmplaceBack("certType3");
-    gneratedCertTypes.EmplaceBack("diskEncryption");
+    CertTypes generatedCertTypes;
+
+    generatedCertTypes.EmplaceBack("certType1");
+    generatedCertTypes.EmplaceBack("certType2");
+    generatedCertTypes.EmplaceBack("certType3");
+    generatedCertTypes.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).Times(4);
@@ -148,7 +151,7 @@ TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).Times(4);
     EXPECT_CALL(mCertHandler, GetModuleConfig)
@@ -167,15 +170,16 @@ TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
 
 TEST_F(ProvisionManagerTest, GetCertTypes)
 {
-    CertTypes gneratedCertTypes;
-    gneratedCertTypes.EmplaceBack("certType1");
-    gneratedCertTypes.EmplaceBack("certType2");
-    gneratedCertTypes.EmplaceBack("certType3");
-    gneratedCertTypes.EmplaceBack("diskEncryption");
+    CertTypes generatedCertTypes;
+
+    generatedCertTypes.EmplaceBack("certType1");
+    generatedCertTypes.EmplaceBack("certType2");
+    generatedCertTypes.EmplaceBack("certType3");
+    generatedCertTypes.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCertHandler, GetCertTypes)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(gneratedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
 
     certhandler::ModuleConfig moduleConfig1;
     certhandler::ModuleConfig moduleConfig2;
