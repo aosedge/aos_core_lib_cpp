@@ -37,6 +37,7 @@ public:
 };
 
 class NetworkManagerMock : public NetworkManagerItf {
+public:
     MOCK_METHOD(Error, GetNetnsPath, (const String& instanceID, String& netnsPath), (const, override));
     MOCK_METHOD(Error, UpdateNetworks, (const Array<aos::NetworkParameters>& networks), (override));
     MOCK_METHOD(Error, AddInstanceToNetwork,
