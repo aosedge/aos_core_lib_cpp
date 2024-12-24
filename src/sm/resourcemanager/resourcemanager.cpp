@@ -22,11 +22,6 @@ namespace aos::sm::resourcemanager {
  * Public
  **********************************************************************************************************************/
 
-ResourceManager::~ResourceManager()
-{
-    LOG_DBG() << "Destroy resource manager";
-}
-
 Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf& hostDeviceManager,
     const String& nodeType, const String& configPath)
 {

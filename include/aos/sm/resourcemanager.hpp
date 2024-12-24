@@ -254,11 +254,6 @@ public:
 class ResourceManager : public ResourceManagerItf, private NonCopyable {
 public:
     /**
-     * Destructor.
-     */
-    ~ResourceManager();
-
-    /**
      * Initializes the object.
      *
      * @param jsonProvider JSON provider.
