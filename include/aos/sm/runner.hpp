@@ -20,6 +20,25 @@ struct RunStatus {
     StaticString<cInstanceIDLen> mInstanceID;
     InstanceRunState             mState;
     Error                        mError;
+
+    /**
+     * Compares run statuses.
+     *
+     * @param other run status to compare.
+     * @return bool.
+     */
+    bool operator==(const RunStatus& other) const
+    {
+        return mInstanceID == other.mInstanceID && mState == other.mState && mError == other.mError;
+    }
+
+    /**
+     * Compares run statuses.
+     *
+     * @param other run status to compare.
+     * @return bool.
+     */
+    bool operator!=(const RunStatus& other) const { return !(*this == other); }
 };
 
 /**
