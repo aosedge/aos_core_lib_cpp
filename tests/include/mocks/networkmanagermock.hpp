@@ -38,7 +38,7 @@ public:
 
 class NetworkManagerMock : public NetworkManagerItf {
 public:
-    MOCK_METHOD(Error, GetNetnsPath, (const String& instanceID, String& netnsPath), (const, override));
+    MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetNetnsPath, (const String& instanceID), (const, override));
     MOCK_METHOD(Error, UpdateNetworks, (const Array<aos::NetworkParameters>& networks), (override));
     MOCK_METHOD(Error, AddInstanceToNetwork,
         (const String& instanceID, const String& networkID, const NetworkParams& network), (override));
@@ -49,6 +49,19 @@ public:
         (const, override));
     MOCK_METHOD(Error, GetSystemTraffic, (uint64_t & inputTraffic, uint64_t& outputTraffic), (const, override));
     MOCK_METHOD(Error, SetTrafficPeriod, (TrafficPeriod period), (override));
+};
+
+class NamespaceManagerMock : public NamespaceManagerItf {
+public:
+    MOCK_METHOD(Error, CreateNetworkNamespace, (const String& instanceID), (override));
+    MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetNetworkNamespacePath, (const String& instanceID),
+        (const, override));
+    MOCK_METHOD(Error, DeleteNetworkNamespace, (const String& instanceID), (override));
+};
+
+class NetworkInterfaceManagerMock : public NetworkInterfaceManagerItf {
+public:
+    MOCK_METHOD(Error, RemoveInterface, (const String& ifname), (override));
 };
 
 } // namespace aos::sm::networkmanager
