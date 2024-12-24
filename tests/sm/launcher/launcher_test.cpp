@@ -15,7 +15,7 @@
 #include "mocks/connectionsubscmock.hpp"
 #include "mocks/monitoringmock.hpp"
 #include "mocks/networkmanagermock.hpp"
-#include "mocks/nodeinfoprovider.hpp"
+#include "mocks/nodeinfoprovidermock.hpp"
 #include "mocks/permhandlermock.hpp"
 #include "mocks/resourcemanagermock.hpp"
 #include "mocks/runnermock.hpp"
