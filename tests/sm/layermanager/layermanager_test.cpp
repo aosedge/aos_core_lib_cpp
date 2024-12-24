@@ -23,16 +23,15 @@ using namespace testing;
 
 namespace aos::sm::layermanager {
 
-#define LAYERMANAGER_TEST_DIR_ROOT "layermanager_test"
-
 namespace {
 
 /***********************************************************************************************************************
  * Constants
  **********************************************************************************************************************/
 
-constexpr auto cLayersDir   = LAYERMANAGER_TEST_DIR_ROOT "/layers";
-constexpr auto cDownloadDir = LAYERMANAGER_TEST_DIR_ROOT "/download";
+constexpr auto cTestRootDir = "layermanager_test";
+const auto     cLayersDir   = FS::JoinPath(cTestRootDir, "layers");
+const auto     cDownloadDir = FS::JoinPath(cTestRootDir, "download");
 constexpr auto cTTL         = Time::cSeconds * 30;
 
 /***********************************************************************************************************************
