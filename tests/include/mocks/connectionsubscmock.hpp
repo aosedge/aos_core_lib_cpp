@@ -14,6 +14,15 @@
 namespace aos {
 
 /**
+ * Connection subscriber mock.
+ */
+class ConnectionSubscriberMock : public ConnectionSubscriberItf {
+public:
+    MOCK_METHOD(void, OnConnect, (), (override));
+    MOCK_METHOD(void, OnDisconnect, (), (override));
+};
+
+/**
  * Connection publisher mock.
  */
 class ConnectionPublisherMock : public ConnectionPublisherItf {
