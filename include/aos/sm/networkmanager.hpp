@@ -215,10 +215,9 @@ public:
      * Returns instance's network namespace path.
      *
      * @param instanceID instance id.
-     * @param[out] netnsPath instance's network namespace path.
-     * @return Error.
+     * @return RetWithError<StaticString<cFilePathLen>>.
      */
-    virtual Error GetNetnsPath(const String& instanceID, String& netnsPath) const = 0;
+    virtual RetWithError<StaticString<cFilePathLen>> GetNetnsPath(const String& instanceID) const = 0;
 
     /**
      * Updates networks.
@@ -361,6 +360,59 @@ public:
 };
 
 /**
+ * Namespace manager interface.
+ */
+class NamespaceManagerItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~NamespaceManagerItf() = default;
+
+    /**
+     * Creates network namespace.
+     * @param instanceID instance ID.
+     * @return Error.
+     */
+    virtual Error CreateNetworkNamespace(const String& instanceID) = 0;
+
+    /**
+     * Returns network namespace path.
+     *
+     * @param instanceID instance ID.
+     * @return RetWithError<StaticString<cFilePathLen>>.
+     */
+    virtual RetWithError<StaticString<cFilePathLen>> GetNetworkNamespacePath(const String& instanceID) const = 0;
+
+    /**
+     * Deletes network namespace.
+     *
+     * @param instanceID instance ID.
+     * @return Error.
+     */
+    virtual Error DeleteNetworkNamespace(const String& instanceID) = 0;
+};
+
+/**
+ * Network interface manager interface.
+ */
+class NetworkInterfaceManagerItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~NetworkInterfaceManagerItf() = default;
+
+    /**
+     * Removes interface.
+     *
+     * @param ifname interface name.
+     * @return Error.
+     */
+    virtual Error RemoveInterface(const String& ifname) = 0;
+};
+
+/**
  * Network manager.
  */
 class NetworkManager : public NetworkManagerItf {
@@ -376,10 +428,13 @@ public:
      * @param storage storage interface.
      * @param cni CNI interface.
      * @param netMonitor traffic monitor.
+     * @param netns namespace manager.
+     * @param netIf network interface manager.
      * @param workingDir working directory.
      * @return Error.
      */
-    Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, const String& workingDir);
+    Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
+        NetworkInterfaceManagerItf& netIf, const String& workingDir);
 
     /**
      * Destroys network manager.
@@ -392,10 +447,9 @@ public:
      * Returns instance's network namespace path.
      *
      * @param instanceID instance ID.
-     * @param[out] netnsPath instance's network namespace path.
-     * @return Error.
+     * @return RetWithError<StaticString<cFilePathLen>>.
      */
-    Error GetNetnsPath(const String& instanceID, String& netnsPath) const override;
+    RetWithError<StaticString<cFilePathLen>> GetNetnsPath(const String& instanceID) const override;
 
     /**
      * Updates networks.
@@ -477,11 +531,6 @@ private:
     static constexpr auto     cInstanceInterfaceName = "eth0";
     static constexpr auto     cBridgePrefix          = "br-";
 
-    virtual Error CreateNetworkNamespace(const String& instanceID) const                     = 0;
-    virtual Error GetNetworkNamespacePath(const String& instanceID, String& netnsPath) const = 0;
-    virtual Error DeleteNetworkNamespace(const String& instanceID) const                     = 0;
-    virtual Error RemoveInterface(const String& ifname) const                                = 0;
-
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
     Error PrepareCNIConfig(const String& instanceID, const String& networkID, const NetworkParams& network,
@@ -515,12 +564,14 @@ private:
     Error WriteResolvConfFile(
         const String& filePath, const Array<StaticString<cIPLen>>& mainServers, const NetworkParams& network) const;
 
-    StorageItf*                mStorage {};
-    cni::CNIItf*               mCNI {};
-    TrafficMonitorItf*         mNetMonitor {};
-    StaticString<cFilePathLen> mCNINetworkCacheDir;
-    NetworkCache               mNetworkData;
-    mutable Mutex              mMutex;
+    StorageItf*                 mStorage {};
+    cni::CNIItf*                mCNI {};
+    TrafficMonitorItf*          mNetMonitor {};
+    NamespaceManagerItf*        mNetns {};
+    NetworkInterfaceManagerItf* mNetIf {};
+    StaticString<cFilePathLen>  mCNINetworkCacheDir;
+    NetworkCache                mNetworkData;
+    mutable Mutex               mMutex;
 };
 
 /** @}*/

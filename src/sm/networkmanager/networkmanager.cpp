@@ -15,14 +15,16 @@ namespace aos::sm::networkmanager {
  * Public
  **********************************************************************************************************************/
 
-Error NetworkManager::Init(
-    StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, const String& workingDir)
+Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor,
+    NamespaceManagerItf& netns, NetworkInterfaceManagerItf& netIf, const String& workingDir)
 {
     LOG_DBG() << "Initialize network manager";
 
     mStorage    = &storage;
     mCNI        = &cni;
     mNetMonitor = &netMonitor;
+    mNetns      = &netns;
+    mNetIf      = &netIf;
 
     auto cniDir = FS::JoinPath(workingDir, "cni");
 
@@ -71,21 +73,23 @@ Error NetworkManager::AddInstanceToNetwork(
 
     auto cleanupInstanceCache = DeferRelease(&instanceID, [this, networkID, &err](const aos::String* instanceID) {
         if (!err.IsNone()) {
-            if (err = RemoveInstanceFromCache(*instanceID, networkID); !err.IsNone()) {
+            if (auto errRemoveInstanceFromCache = RemoveInstanceFromCache(*instanceID, networkID);
+                !errRemoveInstanceFromCache.IsNone()) {
                 LOG_ERR() << "Failed to remove instance from cache: instanceID=" << *instanceID
-                          << ", networkID=" << networkID;
+                          << ", networkID=" << networkID << ", err=" << errRemoveInstanceFromCache;
             }
         }
     });
 
-    if (err = CreateNetworkNamespace(instanceID); !err.IsNone()) {
+    if (err = mNetns->CreateNetworkNamespace(instanceID); !err.IsNone()) {
         return err;
     }
 
     auto cleanupNetworkNamespace = DeferRelease(&instanceID, [this, &err](const aos::String* instanceID) {
         if (!err.IsNone()) {
-            if (err = DeleteNetworkNamespace(*instanceID); !err.IsNone()) {
-                LOG_ERR() << "Failed to delete network namespace: instanceID=" << *instanceID;
+            if (auto errDelNetNs = mNetns->DeleteNetworkNamespace(*instanceID); !errDelNetNs.IsNone()) {
+                LOG_ERR() << "Failed to delete network namespace: instanceID=" << *instanceID
+                          << ", err=" << errDelNetNs;
             }
         }
     });
@@ -107,8 +111,8 @@ Error NetworkManager::AddInstanceToNetwork(
 
     auto cleanupCNI = DeferRelease(&instanceID, [this, &netConfigList, &rtConfig, &err](const aos::String* instanceID) {
         if (!err.IsNone()) {
-            if (err = mCNI->DeleteNetworkList(netConfigList, rtConfig); !err.IsNone()) {
-                LOG_ERR() << "Failed to delete network list: instanceID=" << *instanceID;
+            if (auto errCleanCNI = mCNI->DeleteNetworkList(netConfigList, rtConfig); !errCleanCNI.IsNone()) {
+                LOG_ERR() << "Failed to delete network list: instanceID=" << *instanceID << ", err=" << errCleanCNI;
             }
         }
     });
@@ -157,21 +161,24 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
 
     rtConfig.mContainerID = instanceID;
 
-    if (auto err = GetNetnsPath(instanceID, rtConfig.mNetNS); !err.IsNone()) {
+    Error err;
+
+    Tie(rtConfig.mNetNS, err) = GetNetnsPath(instanceID);
+    if (!err.IsNone()) {
         return err;
     }
 
     rtConfig.mIfName = cInstanceInterfaceName;
 
-    if (auto err = mCNI->DeleteNetworkList(netConfig, rtConfig); !err.IsNone()) {
+    if (err = mCNI->DeleteNetworkList(netConfig, rtConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = DeleteNetworkNamespace(instanceID); !err.IsNone()) {
+    if (err = mNetns->DeleteNetworkNamespace(instanceID); !err.IsNone()) {
         return err;
     }
 
-    if (auto err = RemoveInstanceFromCache(instanceID, networkID); !err.IsNone()) {
+    if (err = RemoveInstanceFromCache(instanceID, networkID); !err.IsNone()) {
         return err;
     }
 
@@ -180,11 +187,11 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::GetNetnsPath(const String& instanceID, String& netnsPath) const
+RetWithError<StaticString<cFilePathLen>> NetworkManager::GetNetnsPath(const String& instanceID) const
 {
     LOG_DBG() << "Get network namespace path: instanceID=" << instanceID;
 
-    return GetNetworkNamespacePath(instanceID, netnsPath);
+    return mNetns->GetNetworkNamespacePath(instanceID);
 }
 
 Error NetworkManager::GetInstanceIP(const String& instanceID, const String& networkID, String& ip) const
@@ -325,7 +332,7 @@ Error NetworkManager::ClearNetwork(const String& networkID)
 
     StaticString<cInterfaceLen> ifName;
 
-    if (auto err = RemoveInterface(ifName.Append(cBridgePrefix).Append(networkID)); !err.IsNone()) {
+    if (auto err = mNetIf->RemoveInterface(ifName.Append(cBridgePrefix).Append(networkID)); !err.IsNone()) {
         return err;
     }
 
@@ -596,7 +603,10 @@ Error NetworkManager::PrepareRuntimeConfig(
 
     rt.mContainerID = instanceID;
 
-    if (auto err = GetNetnsPath(instanceID, rt.mNetNS); !err.IsNone()) {
+    Error err;
+
+    Tie(rt.mNetNS, err) = GetNetnsPath(instanceID);
+    if (!err.IsNone()) {
         return err;
     }
 
