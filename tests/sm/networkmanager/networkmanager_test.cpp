@@ -35,9 +35,15 @@ protected:
 
         ASSERT_EQ(
             mNetManager.Init(mStorage, *mCNI, mTrafficMonitor, *mNetns, *mNetIf, mWorkingDir), aos::ErrorEnum::eNone);
+        ASSERT_EQ(mNetManager.Start(), aos::ErrorEnum::eNone);
     }
 
-    void TearDown() override { std::filesystem::remove_all(mWorkingDir.CStr()); }
+    void TearDown() override
+    {
+        ASSERT_EQ(mNetManager.Stop(), aos::ErrorEnum::eNone);
+
+        std::filesystem::remove_all(mWorkingDir.CStr());
+    }
 
     NetworkParams CreateTestNetworkParams()
     {

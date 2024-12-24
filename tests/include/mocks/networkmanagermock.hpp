@@ -26,7 +26,7 @@ public:
 class TrafficMonitorMock : public TrafficMonitorItf {
 public:
     MOCK_METHOD(Error, Start, (), (override));
-    MOCK_METHOD(Error, Close, (), (override));
+    MOCK_METHOD(Error, Stop, (), (override));
     MOCK_METHOD(void, SetPeriod, (TrafficPeriod period), (override));
     MOCK_METHOD(Error, StartInstanceMonitoring,
         (const String& instanceID, const String& IPAddress, uint64_t downloadLimit, uint64_t uploadLimit), (override));

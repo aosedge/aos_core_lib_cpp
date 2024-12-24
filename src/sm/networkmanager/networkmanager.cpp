@@ -34,14 +34,21 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
 
     mCNINetworkCacheDir = FS::JoinPath(cniDir, "networks");
 
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::Start()
+{
+    LOG_DBG() << "Start network manager";
+
     return AOS_ERROR_WRAP(mNetMonitor->Start());
 }
 
-Error NetworkManager::Close()
+Error NetworkManager::Stop()
 {
-    LOG_DBG() << "Close network manager";
+    LOG_DBG() << "Stop network manager";
 
-    return AOS_ERROR_WRAP(mNetMonitor->Close());
+    return AOS_ERROR_WRAP(mNetMonitor->Stop());
 }
 
 Error NetworkManager::UpdateNetworks(const Array<aos::NetworkParameters>& networks)

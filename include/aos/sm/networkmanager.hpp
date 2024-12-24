@@ -308,7 +308,7 @@ public:
      *
      * @return Error.
      */
-    virtual Error Close() = 0;
+    virtual Error Stop() = 0;
 
     /**
      * Sets monitoring period.
@@ -437,11 +437,18 @@ public:
         NetworkInterfaceManagerItf& netIf, const String& workingDir);
 
     /**
-     * Destroys network manager.
+     * Starts network manager.
      *
      * @return Error.
      */
-    Error Close();
+    Error Start();
+
+    /**
+     * Stops network manager.
+     *
+     * @return Error.
+     */
+    Error Stop();
 
     /**
      * Returns instance's network namespace path.
