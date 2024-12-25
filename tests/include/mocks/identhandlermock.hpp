@@ -22,6 +22,16 @@ public:
     MOCK_METHOD(Error, SubjectsChanged, (const Array<StaticString<cSubjectIDLen>>&), (override));
 };
 
+/**
+ * IdentHandler interface mock
+ */
+class IdentHandlerMock : public IdentHandlerItf {
+public:
+    MOCK_METHOD(RetWithError<StaticString<cSystemIDLen>>, GetSystemID, (), (override));
+    MOCK_METHOD(RetWithError<StaticString<cUnitModelLen>>, GetUnitModel, (), (override));
+    MOCK_METHOD(Error, GetSubjects, (Array<StaticString<cSubjectIDLen>> & subjects), (override));
+};
+
 } // namespace aos::iam::identhandler
 
 #endif
