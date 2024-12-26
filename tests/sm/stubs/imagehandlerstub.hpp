@@ -41,7 +41,7 @@ public:
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     RetWithError<StaticString<cFilePathLen>> InstallLayer(const String& archivePath, const String& installBasePath,
-        const LayerInfo& layer, UniquePtr<spaceallocator::SpaceItf>& space) const override
+        const LayerInfo& layer, UniquePtr<spaceallocator::SpaceItf>& space) override
     {
         (void)installBasePath;
         (void)layer;
@@ -76,7 +76,7 @@ public:
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     RetWithError<StaticString<cFilePathLen>> InstallService(const String& archivePath, const String& installBasePath,
-        const ServiceInfo& service, UniquePtr<spaceallocator::SpaceItf>& space) const override
+        const ServiceInfo& service, UniquePtr<spaceallocator::SpaceItf>& space) override
     {
         (void)installBasePath;
         (void)service;

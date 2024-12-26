@@ -29,7 +29,7 @@ public:
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     virtual RetWithError<StaticString<cFilePathLen>> InstallLayer(const String& archivePath,
-        const String& installBasePath, const LayerInfo& layer, UniquePtr<spaceallocator::SpaceItf>& space) const
+        const String& installBasePath, const LayerInfo& layer, UniquePtr<spaceallocator::SpaceItf>& space)
         = 0;
 
     /**
@@ -42,7 +42,7 @@ public:
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     virtual RetWithError<StaticString<cFilePathLen>> InstallService(const String& archivePath,
-        const String& installBasePath, const ServiceInfo& service, UniquePtr<spaceallocator::SpaceItf>& space) const
+        const String& installBasePath, const ServiceInfo& service, UniquePtr<spaceallocator::SpaceItf>& space)
         = 0;
 
     /**
