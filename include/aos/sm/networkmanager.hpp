@@ -198,8 +198,8 @@ public:
     };
 };
 
-using TrafficPeriodEnum = InstanceRunStateType::Enum;
-using TrafficPeriod     = EnumStringer<InstanceRunStateType>;
+using TrafficPeriodEnum = TrafficPeriodType::Enum;
+using TrafficPeriod     = EnumStringer<TrafficPeriodType>;
 
 /**
  * Network manager interface.
