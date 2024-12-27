@@ -332,46 +332,4 @@ TEST_F(LayerManagerTest, ProcessDesiredLayers)
     }
 }
 
-TEST_F(LayerManagerTest, ProcessDesiredLayersFromFileURI)
-{
-    InitTest();
-
-    struct {
-        std::vector<std::string> mDesiredLayers;
-        std::vector<std::string> mInstalledDigests;
-        std::vector<std::string> mRemovedDigests;
-        std::vector<std::string> mRestoredDigests;
-    } testCases[] = {
-        // Desired layers, installed layers, removed layers, restored layers
-        {{"layer1", "layer2", "layer3"}, {"sha256:layer1", "sha256:layer2", "sha256:layer3"}, {}, {}},
-        {{"layer1", "layer3"}, {"sha256:layer1", "sha256:layer3"}, {"sha256:layer2"}, {}},
-        {{"layer1", "layer2"}, {"sha256:layer1", "sha256:layer2"}, {"sha256:layer3"}, {"sha256:layer2"}},
-    };
-
-    SetProcessDesiredLayerExpectedCalls();
-
-    for (const auto& testCase : testCases) {
-
-        auto desiredLayers = CreateAosLayers(testCase.mDesiredLayers, "file://");
-
-        auto err = mManager.ProcessDesiredLayers(desiredLayers);
-        ASSERT_TRUE(err.IsNone()) << err.Message();
-
-        StaticArray<LayerData, 4> dbLayers;
-
-        err = mStorage.GetAllLayers(dbLayers);
-        ASSERT_TRUE(err.IsNone()) << err.Message();
-
-        for (const auto& expectedLayer : testCase.mInstalledDigests) {
-            EXPECT_TRUE(dbLayers
-                            .FindIf([&expectedLayer](const auto& layer) {
-                                return layer.mLayerDigest == expectedLayer.c_str()
-                                    && layer.mState == LayerStateEnum::eActive;
-                            })
-                            .mError.IsNone())
-                << "Layer " << expectedLayer << " is not installed";
-        }
-    }
-}
-
 } // namespace aos::sm::layermanager

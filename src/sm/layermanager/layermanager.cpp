@@ -16,27 +16,6 @@ namespace aos::sm::layermanager {
 
 namespace {
 
-RetWithError<StaticString<cFilePathLen>> FilePathFromURI(const String& uri)
-{
-    StaticArray<StaticString<cFilePathLen>, 2> parts;
-
-    if (auto err = uri.Split(parts, ':'); !err.IsNone()) {
-        return {"", err};
-    }
-
-    if (parts.Size() != 2) {
-        return {"", ErrorEnum::eInvalidArgument};
-    }
-
-    if (parts[0] != "file") {
-        return {"", ErrorEnum::eInvalidArgument};
-    }
-
-    parts[1].LeftTrim("/");
-
-    return {parts[1], ErrorEnum::eNone};
-}
-
 LayerData CreateLayerData(const aos::LayerInfo& layer, const aos::oci::ImageManifest& manifest, const String& path)
 {
     LayerData layerData = {};
@@ -446,22 +425,15 @@ Error LayerManager::InstallLayer(const aos::LayerInfo& layer)
         ReleaseAllocatedSpace(storeLayerPath, unpackedSpace.Get());
     });
 
-    if (auto [path, uriErr] = FilePathFromURI(layer.mURL); uriErr.IsNone()) {
-        archivePath = path;
+    Tie(downloadSpace, err) = mDownloadSpaceAllocator->AllocateSpace(layer.mSize);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-        cleanupDownload.Release();
-    } else {
-        Tie(downloadSpace, err) = mDownloadSpaceAllocator->AllocateSpace(layer.mSize);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    archivePath = FS::JoinPath(mConfig.mDownloadDir, layer.mLayerDigest);
 
-        archivePath = FS::JoinPath(mConfig.mDownloadDir, layer.mLayerDigest);
-
-        if (err = mDownloader->Download(layer.mURL, archivePath, downloader::DownloadContentEnum::eLayer);
-            !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (err = mDownloader->Download(layer.mURL, archivePath, downloader::DownloadContentEnum::eLayer); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     if (Tie(storeLayerPath, err) = mImageHandler->InstallLayer(archivePath, mConfig.mLayersDir, layer, unpackedSpace);

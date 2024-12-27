@@ -45,27 +45,6 @@ void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
     }
 }
 
-RetWithError<StaticString<cFilePathLen>> FilePathFromURI(const String& uri)
-{
-    StaticArray<StaticString<cFilePathLen>, 2> parts;
-
-    if (auto err = uri.Split(parts, ':'); !err.IsNone()) {
-        return {"", err};
-    }
-
-    if (parts.Size() != 2) {
-        return {"", ErrorEnum::eInvalidArgument};
-    }
-
-    if (parts[0] != "file") {
-        return {"", ErrorEnum::eInvalidArgument};
-    }
-
-    parts[1].LeftTrim("/");
-
-    return {parts[1], ErrorEnum::eNone};
-}
-
 } // namespace
 
 /***********************************************************************************************************************
@@ -477,22 +456,16 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         AcceptAllocatedSpace(serviceSpace.Get());
     });
 
-    if (auto [path, uriErr] = FilePathFromURI(service.mURL); uriErr.IsNone()) {
-        archivePath = path;
+    Tie(downloadSpace, err) = mDownloadSpaceAllocator->AllocateSpace(service.mSize);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-        cleanupDownload.Release();
-    } else {
-        Tie(downloadSpace, err) = mDownloadSpaceAllocator->AllocateSpace(service.mSize);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    archivePath = FS::JoinPath(mConfig.mDownloadDir, service.mServiceID);
 
-        archivePath = FS::JoinPath(mConfig.mDownloadDir, service.mServiceID);
-
-        if (err = mDownloader->Download(service.mURL, archivePath, downloader::DownloadContentEnum::eService);
-            !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (err = mDownloader->Download(service.mURL, archivePath, downloader::DownloadContentEnum::eService);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     if (Tie(servicePath, err) = mImageHandler->InstallService(archivePath, mConfig.mServicesDir, service, serviceSpace);
