@@ -212,6 +212,33 @@ TEST(MapTest, Emplace)
     EXPECT_FALSE(map.Emplace("0xD", 13).IsNone());
 }
 
+TEST(MapTest, TryEmplace)
+{
+    std::initializer_list<Pair<std::string, int>> source = {
+        {"0xA", 10},
+        {"0xB", 11},
+        {"0xC", 12},
+    };
+    StaticMap<std::string, int, 4> map;
+
+    EXPECT_TRUE(map.Assign(ConvertToArray(source)).IsNone());
+
+    // Try emplace new value
+    EXPECT_TRUE(map.TryEmplace("0xF", 15).IsNone());
+
+    EXPECT_TRUE(map.At("0xF").mError.IsNone());
+    EXPECT_EQ(map.At("0xF").mValue, 15);
+
+    // Try emplace existing value
+    EXPECT_TRUE(map.TryEmplace("0xA", 1).IsNone());
+
+    EXPECT_TRUE(map.At("0xA").mError.IsNone());
+    EXPECT_EQ(map.At("0xA").mValue, 10);
+
+    // Emplace no memory
+    EXPECT_FALSE(map.TryEmplace("0xD", 13).IsNone());
+}
+
 TEST(MapTest, Remove)
 {
     std::initializer_list<Pair<std::string, int>> source = {

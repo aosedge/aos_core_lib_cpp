@@ -147,6 +147,23 @@ public:
     }
 
     /**
+     * Tries to emplace a new value into the map. If key already exists, do nothing. Otherwise, emplace a new value.
+     *
+     * @param key key to insert.
+     * @param args list of arguments to construct a new element.
+     * @return Error.
+     */
+    template <typename... Args>
+    Error TryEmplace(const Key& key, Args&&... args)
+    {
+        if (auto cur = At(key); !cur.mError.IsNone()) {
+            return mItems.EmplaceBack(key, Value(args...));
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Removes element with the specified key from the map.
      *
      * @param key key to remove.
