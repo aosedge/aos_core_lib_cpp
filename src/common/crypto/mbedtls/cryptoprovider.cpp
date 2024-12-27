@@ -600,24 +600,35 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
 
 RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorithm)
 {
+    psa_algorithm_t alg = PSA_ALG_SHA3_256;
+
     if (algorithm.GetValue() == HashEnum::eSHA256) {
-        auto hasher = MakeUnique<SHA256Hash>(&mAllocator);
-
-        if (auto err = hasher->Init(); !err.IsNone()) {
-            return {nullptr, AOS_ERROR_WRAP(err)};
-        }
-
-        return {UniquePtr<HashItf>(Move(hasher)), ErrorEnum::eNone};
+        alg = PSA_ALG_SHA_256;
+    } else if (algorithm.GetValue() == HashEnum::eSHA3_256) {
+        alg = PSA_ALG_SHA3_256;
+    } else {
+        return {nullptr, ErrorEnum::eNotSupported};
     }
 
-    return {nullptr, ErrorEnum::eNotSupported};
+    auto hasher = MakeUnique<MBedTLSHash>(&mAllocator, alg);
+
+    if (auto err = hasher->Init(); !err.IsNone()) {
+        return {nullptr, AOS_ERROR_WRAP(err)};
+    }
+
+    return {UniquePtr<HashItf>(Move(hasher)), ErrorEnum::eNone};
 }
 
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
 
-Error MbedTLSCryptoProvider::SHA256Hash::Init()
+MbedTLSCryptoProvider::MBedTLSHash::MBedTLSHash(psa_algorithm_t algorithm)
+    : mAlgorithm(algorithm)
+{
+}
+
+Error MbedTLSCryptoProvider::MBedTLSHash::Init()
 {
     if (auto ret = psa_hash_setup(&mOperation, mAlgorithm); ret != PSA_SUCCESS) {
         return AOS_ERROR_WRAP(ret);
@@ -626,7 +637,7 @@ Error MbedTLSCryptoProvider::SHA256Hash::Init()
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::SHA256Hash::Update(const Array<uint8_t>& data)
+Error MbedTLSCryptoProvider::MBedTLSHash::Update(const Array<uint8_t>& data)
 {
     if (auto ret = psa_hash_update(&mOperation, data.begin(), data.Size()); ret != PSA_SUCCESS) {
         return AOS_ERROR_WRAP(ret);
@@ -635,7 +646,7 @@ Error MbedTLSCryptoProvider::SHA256Hash::Update(const Array<uint8_t>& data)
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::SHA256Hash::Finalize(Array<uint8_t>& hash)
+Error MbedTLSCryptoProvider::MBedTLSHash::Finalize(Array<uint8_t>& hash)
 {
     size_t hashSize = 0;
 
@@ -650,7 +661,7 @@ Error MbedTLSCryptoProvider::SHA256Hash::Finalize(Array<uint8_t>& hash)
     return ErrorEnum::eNone;
 }
 
-MbedTLSCryptoProvider::SHA256Hash::~SHA256Hash()
+MbedTLSCryptoProvider::MBedTLSHash::~MBedTLSHash()
 {
     psa_hash_abort(&mOperation);
 }

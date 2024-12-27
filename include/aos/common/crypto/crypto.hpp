@@ -197,11 +197,27 @@ public:
  */
 class HashType {
 public:
-    enum class Enum { eSHA1, eSHA224, eSHA256, eSHA384, eSHA512, eNone };
+    enum class Enum {
+        eSHA1,
+        eSHA224,
+        eSHA256,
+        eSHA384,
+        eSHA512,
+        eSHA3_256,
+        eNone,
+    };
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sContentTypeStrings[] = {"NONE", "SHA1", "SHA224", "SHA256", "SHA384", "SHA512"};
+        static const char* const sContentTypeStrings[] = {
+            "SHA1",
+            "SHA224",
+            "SHA256",
+            "SHA384",
+            "SHA512",
+            "SHA3-256",
+            "NONE",
+        };
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
     };
 };

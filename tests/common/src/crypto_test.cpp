@@ -967,6 +967,42 @@ TEST_F(CryptoTest, SHA256)
     }
 }
 
+TEST_F(CryptoTest, SHA3_256)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+
+    struct {
+        const char* mString;
+        const char* mExpectedHash;
+    } testCases[] = {
+        {"", "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"},
+        {"abc", "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532"},
+        {"string to test hash works", "220941491180a0e859654930be610f7ddf2c9e7307c7127f2bc1eb440b6ebfaf"},
+        {"12345678901234567890123456", "d40b0546ca03c77f13cf28ef7c547aeea41fd6ae272bdfb3007eab5ce23f8aa7"},
+    };
+
+    for (const auto& testCase : testCases) {
+        auto [hasherPtr, err] = provider.CreateHash(aos::crypto::HashEnum::eSHA3_256);
+
+        ASSERT_TRUE(err.IsNone());
+        ASSERT_NE(hasherPtr.Get(), nullptr);
+
+        const aos::Array<uint8_t> data(reinterpret_cast<const uint8_t*>(testCase.mString), strlen(testCase.mString));
+
+        ASSERT_TRUE(hasherPtr->Update(data).IsNone());
+
+        aos::StaticArray<uint8_t, aos::cSHA256Size> result;
+
+        ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
+
+        aos::StaticString<aos::cSHA256Size * 2> hashStr;
+        ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
+
+        EXPECT_EQ(hashStr, aos::String(testCase.mExpectedHash));
+        LOG_DBG() << "SHA3_256: " << hashStr;
+    }
+}
+
 TEST_F(CryptoTest, SHA256ByChunks)
 {
     aos::crypto::MbedTLSCryptoProvider provider;
