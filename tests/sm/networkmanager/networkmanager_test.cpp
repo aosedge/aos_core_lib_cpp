@@ -114,14 +114,20 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
     EXPECT_EQ(ip, params.mNetworkParameters.mIP);
 
     std::string hostsContent = ReadFile(params.mHostsFilePath.CStr());
+
     EXPECT_THAT(hostsContent, HasSubstr("127.0.0.1\tlocalhost"));
     EXPECT_THAT(hostsContent, HasSubstr("::1\tlocalhost ip6-localhost ip6-loopback"));
-    EXPECT_THAT(hostsContent, HasSubstr(params.mNetworkParameters.mIP + "\t" + networkID));
+    EXPECT_THAT(hostsContent, HasSubstr(std::string(params.mNetworkParameters.mIP.CStr()) + "\t" + networkID.CStr()));
     EXPECT_THAT(hostsContent, HasSubstr("10.0.0.1\thost1.example.com"));
     EXPECT_THAT(hostsContent, HasSubstr("10.0.0.2\thost2.example.com"));
 
+    LOG_INF() << "Hosts file content: " << hostsContent.c_str();
+    LOG_INF() << "Host: " << params.mHostname;
+
     if (!params.mHostname.IsEmpty()) {
-        EXPECT_THAT(hostsContent, HasSubstr(params.mNetworkParameters.mIP + "\t" + params.mHostname));
+        EXPECT_THAT(hostsContent,
+            HasSubstr(std::string(params.mNetworkParameters.mIP.CStr()) + "\t" + networkID.CStr() + " "
+                + params.mHostname.CStr()));
     }
 }
 
