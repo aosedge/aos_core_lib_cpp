@@ -252,6 +252,38 @@ public:
     bool operator!=(const String& str) const { return Array::operator!=(str); };
 
     /**
+     * Checks if str is less than another string.
+     *
+     * @param str string to compare with.
+     * @return bool.
+     */
+    bool operator<(const String& str) const { return strcmp(CStr(), str.CStr()) < 0; }
+
+    /**
+     * Checks if str is less or equal to another string.
+     *
+     * @param str string to compare with.
+     * @return bool
+     */
+    bool operator<=(const String& str) const { return strcmp(CStr(), str.CStr()) <= 0; }
+
+    /**
+     * Checks if str is greater than another string.
+     *
+     * @param str string to compare with.
+     * @return bool.
+     */
+    bool operator>(const String& str) const { return strcmp(CStr(), str.CStr()) > 0; }
+
+    /**
+     * Checks if str is greater or equal to another string.
+     *
+     * @param str string to compare with.
+     * @return bool.
+     */
+    bool operator>=(const String& str) const { return strcmp(CStr(), str.CStr()) >= 0; }
+
+    /**
      * Checks if C string equals to string.
      *
      * @param cStr C string to compare with.
