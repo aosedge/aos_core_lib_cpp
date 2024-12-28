@@ -78,7 +78,7 @@ public:
      *
      * @return bool.
      */
-    operator bool() const { return Size() > 0; }
+    explicit operator bool() const { return Size() > 0; }
 
     /**
      * Checks if container equals to another container.

@@ -280,13 +280,6 @@ public:
     }
 
     /**
-     * Returns true if array is not empty.
-     *
-     * @return bool.
-     */
-    operator bool() const { return Size() > 0; }
-
-    /**
      * Checks if array equals to another array.
      *
      * @param array to compare with.
