@@ -323,7 +323,17 @@ private:
     void  UpdateInstanceServices();
     Error GetRunningInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& runningInstances);
 
-    RetWithError<const Service&> GetService(const String& serviceID) const { return mCurrentServices.At(serviceID); }
+    RetWithError<Service*> GetService(const String& serviceID)
+    {
+        return mCurrentServices.FindIf(
+            [&serviceID](const Service& service) { return serviceID == service.Data().mServiceID; });
+    }
+
+    RetWithError<Instance*> GetInstance(const String& instanceID)
+    {
+        return mCurrentInstances.FindIf(
+            [&instanceID](const Instance& instance) { return instanceID == instance.InstanceID(); });
+    }
 
     Error StartInstance(const InstanceData& info);
     Error StopInstance(const String& instanceID);
@@ -355,8 +365,8 @@ private:
     bool                mClose     = false;
     bool                mConnected = false;
 
-    StaticMap<StaticString<cServiceIDLen>, Service, cMaxNumServices>    mCurrentServices;
-    StaticMap<StaticString<cInstanceIDLen>, Instance, cMaxNumInstances> mCurrentInstances;
+    StaticArray<Service, cMaxNumServices>   mCurrentServices;
+    StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
 };
 
 /** @}*/

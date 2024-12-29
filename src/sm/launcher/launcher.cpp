@@ -318,8 +318,7 @@ void Launcher::SendRunStatus()
 {
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
-    // cppcheck-suppress unusedVariable
-    for (const auto& [_, instance] : mCurrentInstances) {
+    for (const auto& instance : mCurrentInstances) {
         LOG_DBG() << "Instance status: instance=" << instance << ", serviceVersion=" << instance.GetServiceVersion()
                   << ", runState=" << instance.RunState() << ", err=" << instance.RunError();
 
@@ -348,7 +347,7 @@ void Launcher::StopInstances(const Array<InstanceData>& instances, bool forceRes
         LOG_ERR() << "Can't get current services: err=" << err;
     }
 
-    for (const auto& [_, instance] : mCurrentInstances) {
+    for (const auto& instance : mCurrentInstances) {
         auto found = instances
                          .FindIf([&instance = instance](const InstanceData& info) {
                              auto compareInfo = info;
@@ -397,7 +396,7 @@ void Launcher::StartInstances(const Array<InstanceData>& instances)
 
     for (const auto& info : instances) {
         // Skip already started instances
-        if (mCurrentInstances.At(info.mInstanceID).mError.IsNone()) {
+        if (GetInstance(info.mInstanceID).mError.IsNone()) {
             continue;
         }
 
@@ -436,22 +435,17 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
 
         servicemanager::ServiceData serviceData;
 
-        auto err = mServiceManager->GetService(serviceID, serviceData);
-        if (!err.IsNone()) {
+        if (auto err = mServiceManager->GetService(serviceID, serviceData); !err.IsNone()) {
             LOG_ERR() << "Can't get service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
 
-        auto service = MakeUnique<Service>(&mAllocator, serviceData, *mServiceManager, *mOCIManager);
-
-        err = mCurrentServices.Emplace(serviceID, *service);
-        if (!err.IsNone()) {
+        if (auto err = mCurrentServices.EmplaceBack(serviceData, *mServiceManager, *mOCIManager); !err.IsNone()) {
             LOG_ERR() << "Can't cache service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
 
-        err = mCurrentServices.At(serviceID).mValue.LoadSpecs();
-        if (!err.IsNone()) {
+        if (auto err = mCurrentServices[mCurrentServices.Size() - 1].LoadSpecs(); !err.IsNone()) {
             LOG_ERR() << "Can't load OCI spec for service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
@@ -464,8 +458,7 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
 
 void Launcher::UpdateInstanceServices()
 {
-    // cppcheck-suppress unusedVariable
-    for (auto& [_, instance] : mCurrentInstances) {
+    for (auto& instance : mCurrentInstances) {
         auto findService = GetService(instance.Info().mInstanceIdent.mServiceID);
         if (!findService.mError.IsNone()) {
             LOG_ERR() << "Can't get service for instance " << instance << ": " << findService.mError;
@@ -475,7 +468,7 @@ void Launcher::UpdateInstanceServices()
             continue;
         }
 
-        instance.SetService(&findService.mValue);
+        instance.SetService(findService.mValue);
     }
 }
 
@@ -483,18 +476,17 @@ Error Launcher::StartInstance(const InstanceData& info)
 {
     UniqueLock lock {mMutex};
 
-    if (mCurrentInstances.At(info.mInstanceID).mError.IsNone()) {
+    if (GetInstance(info.mInstanceID).mError.IsNone()) {
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
-    if (auto err = mCurrentInstances.Emplace(info.mInstanceID,
-            Instance(mConfig, info.mInstanceInfo, info.mInstanceID, *mNetworkManager, *mRunner, *mResourceMonitor,
-                *mOCIManager));
+    if (auto err = mCurrentInstances.EmplaceBack(
+            mConfig, info.mInstanceInfo, info.mInstanceID, *mNetworkManager, *mRunner, *mResourceMonitor, *mOCIManager);
         !err.IsNone()) {
         return err;
     }
 
-    auto& instance = mCurrentInstances.At(info.mInstanceID).mValue;
+    auto& instance = mCurrentInstances[mCurrentInstances.Size() - 1];
 
     auto findService = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
     if (!findService.mError.IsNone()) {
@@ -504,7 +496,7 @@ Error Launcher::StartInstance(const InstanceData& info)
         return findService.mError;
     }
 
-    instance.SetService(&findService.mValue);
+    instance.SetService(findService.mValue);
 
     lock.Unlock();
 
@@ -523,23 +515,20 @@ Error Launcher::StopInstance(const String& instanceID)
 {
     UniqueLock lock {mMutex};
 
-    auto findInstance = mCurrentInstances.At(instanceID);
-    if (!findInstance.mError.IsNone()) {
-        return findInstance.mError;
-    }
-
-    auto instance = findInstance.mValue;
-
-    mCurrentInstances.Remove(instanceID);
-
-    lock.Unlock();
-
-    auto err = instance.Stop();
+    auto [instance, err] = GetInstance(instanceID);
     if (!err.IsNone()) {
         return err;
     }
 
-    LOG_INF() << "Instance stopped: " << instance;
+    mCurrentInstances.RemoveIf([&instanceID](const Instance& inst) { return inst.InstanceID() == instanceID; });
+
+    lock.Unlock();
+
+    if (err = instance->Stop(); !err.IsNone()) {
+        return err;
+    }
+
+    LOG_INF() << "Instance stopped: instanceID=" << *instance;
 
     return ErrorEnum::eNone;
 }
