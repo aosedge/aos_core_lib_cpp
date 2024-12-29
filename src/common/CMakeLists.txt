@@ -93,6 +93,7 @@ add_library(
     monitoring/average.cpp
     pkcs11/pkcs11.cpp
     pkcs11/privatekey.cpp
+    tools/semver.cpp
     tools/uuid.cpp
 )
 

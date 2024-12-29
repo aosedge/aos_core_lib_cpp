@@ -7,6 +7,7 @@
 
 #include "aos/sm/servicemanager.hpp"
 #include "aos/common/tools/memory.hpp"
+#include "aos/common/tools/semver.hpp"
 #include "aos/common/tools/uuid.hpp"
 
 #include "log.hpp"
@@ -226,7 +227,9 @@ Error ServiceManager::GetService(const String& serviceID, ServiceData& service)
         return AOS_ERROR_WRAP(err);
     }
 
-    services->Sort([](const ServiceData& lhs, const ServiceData& rhs) { return lhs.mVersion < rhs.mVersion; });
+    services->Sort([](const ServiceData& lhs, const ServiceData& rhs) {
+        return semver::CompareSemver(lhs.mVersion, rhs.mVersion).mValue == -1;
+    });
 
     for (const auto& storageService : *services) {
         if (storageService.mServiceID == serviceID && storageService.mState != ServiceStateEnum::eCached) {

@@ -32,6 +32,7 @@ set(SOURCES
     src/tools/memory_test.cpp
     src/tools/optional_test.cpp
     src/tools/queue_test.cpp
+    src/tools/semver_test.cpp
     src/tools/string_test.cpp
     src/tools/thread_test.cpp
     src/tools/time_test.cpp
