@@ -42,15 +42,6 @@ struct RunStatus {
 };
 
 /**
- * Service run parameters.
- */
-struct RunParameters {
-    aos::Duration mStartInterval;
-    aos::Duration mRestartInterval;
-    long          mStartBurst;
-};
-
-/**
  * Runner interface.
  */
 class RunnerItf {

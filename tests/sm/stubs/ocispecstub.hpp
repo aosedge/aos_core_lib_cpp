@@ -128,11 +128,48 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Loads Aos service config.
+     *
+     * @param path file path.
+     * @param serviceConfig service config.
+     * @return Error.
+     */
+    Error LoadServiceConfig(const String& path, ServiceConfig& serviceConfig) override
+    {
+        std::lock_guard lock {mMutex};
+
+        if (mServiceConfigs.find(path.CStr()) == mServiceConfigs.end()) {
+            return ErrorEnum::eNotFound;
+        }
+
+        serviceConfig = mServiceConfigs.at(path.CStr());
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Saves Aos service config.
+     *
+     * @param path file path.
+     * @param serviceConfig service config.
+     * @return Error.
+     */
+    Error SaveServiceConfig(const String& path, const ServiceConfig& serviceConfig) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mServiceConfigs[path.CStr()] = serviceConfig;
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     std::mutex                           mMutex;
     std::map<std::string, ImageManifest> mImageManifests;
     std::map<std::string, ImageSpec>     mImageSpecs;
     std::map<std::string, RuntimeSpec>   mRuntimeSpecs;
+    std::map<std::string, ServiceConfig> mServiceConfigs;
 };
 
 } // namespace aos::oci

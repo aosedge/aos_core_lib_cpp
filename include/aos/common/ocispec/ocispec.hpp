@@ -10,6 +10,7 @@
 
 #include "aos/common/ocispec/imagespec.hpp"
 #include "aos/common/ocispec/runtimespec.hpp"
+#include "aos/common/ocispec/serviceconfig.hpp"
 
 namespace aos::oci {
 
@@ -71,6 +72,24 @@ public:
      * @return Error.
      */
     virtual Error SaveRuntimeSpec(const String& path, const RuntimeSpec& runtimeSpec) = 0;
+
+    /**
+     * Loads Aos service config.
+     *
+     * @param path file path.
+     * @param serviceConfig service config.
+     * @return Error.
+     */
+    virtual Error LoadServiceConfig(const String& path, ServiceConfig& serviceConfig) = 0;
+
+    /**
+     * Saves Aos service config.
+     *
+     * @param path file path.
+     * @param serviceConfig service config.
+     * @return Error.
+     */
+    virtual Error SaveServiceConfig(const String& path, const ServiceConfig& serviceConfig) = 0;
 
     /**
      * Destroys OCI spec interface.

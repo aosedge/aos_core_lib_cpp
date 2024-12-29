@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 EPAM Systems, Inc.
+ * Copyright (C) 2024 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */

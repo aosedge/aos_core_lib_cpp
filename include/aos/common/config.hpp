@@ -887,6 +887,20 @@
 #endif
 
 /**
+ * Author len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_AUTHOR_LEN
+#define AOS_CONFIG_OCISPEC_AUTHOR_LEN 64
+#endif
+
+/**
+ * Balancing policy len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN
+#define AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN 32
+#endif
+
+/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN

@@ -24,6 +24,8 @@ public:
     MOCK_METHOD(Error, SaveImageSpec, (const String& path, const ImageSpec& manifest), (override));
     MOCK_METHOD(Error, LoadRuntimeSpec, (const String& path, RuntimeSpec& manifest), (override));
     MOCK_METHOD(Error, SaveRuntimeSpec, (const String& path, const RuntimeSpec& manifest), (override));
+    MOCK_METHOD(Error, LoadServiceConfig, (const String& path, ServiceConfig& manifest), (override));
+    MOCK_METHOD(Error, SaveServiceConfig, (const String& path, const ServiceConfig& manifest), (override));
 };
 
 } // namespace aos::oci

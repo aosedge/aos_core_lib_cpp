@@ -1111,6 +1111,15 @@ struct NodeInfo {
     bool operator!=(const NodeInfo& info) const { return !operator==(info); }
 };
 
+/**
+ * Service run parameters.
+ */
+struct RunParameters {
+    Duration mStartInterval;
+    Duration mRestartInterval;
+    long     mStartBurst;
+};
+
 } // namespace aos
 
 #endif
