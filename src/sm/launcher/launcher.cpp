@@ -12,7 +12,15 @@
 
 namespace aos::sm::launcher {
 
-using namespace runner;
+namespace {
+
+/***********************************************************************************************************************
+ * Consts
+ **********************************************************************************************************************/
+
+const char* const cDefaultHostFSBinds[] = {"bin", "sbin", "lib", "lib64", "usr"};
+
+} // namespace
 
 /***********************************************************************************************************************
  * Public
@@ -21,7 +29,7 @@ using namespace runner;
 Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
     resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
-    iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner,
+    iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
     monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
     InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage)
 {
@@ -38,9 +46,24 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
     mOCIManager          = &ociManager;
     mResourceMonitor     = &resourceMonitor;
     mRunner              = &runner;
+    mRuntime             = &runtime;
     mServiceManager      = &serviceManager;
     mStatusReceiver      = &statusReceiver;
     mStorage             = &storage;
+
+    if (mConfig.mHostBinds.IsEmpty()) {
+        for (const auto& bind : cDefaultHostFSBinds) {
+            if (auto err = mConfig.mHostBinds.PushBack(bind); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    mHostWhiteoutsDir = FS::JoinPath(mConfig.mWorkDir, cHostFSWhiteoutsDir);
+
+    if (auto err = mRuntime->CreateHostFSWhiteouts(mHostWhiteoutsDir, mConfig.mHostBinds); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -150,7 +173,7 @@ Error Launcher::OverrideEnvVars(
     return ErrorEnum::eNone;
 }
 
-Error Launcher::UpdateRunStatus(const Array<RunStatus>& instances)
+Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
 {
     (void)instances;
 
@@ -480,8 +503,8 @@ Error Launcher::StartInstance(const InstanceData& info)
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
-    if (auto err = mCurrentInstances.EmplaceBack(
-            mConfig, info.mInstanceInfo, info.mInstanceID, *mNetworkManager, *mRunner, *mResourceMonitor, *mOCIManager);
+    if (auto err = mCurrentInstances.EmplaceBack(mConfig, info.mInstanceInfo, info.mInstanceID, *mServiceManager,
+            *mLayerManager, *mNetworkManager, *mRunner, *mRuntime, *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir);
         !err.IsNone()) {
         return err;
     }

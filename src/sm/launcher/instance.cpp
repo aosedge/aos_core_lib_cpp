@@ -16,22 +16,27 @@ namespace aos::sm::launcher {
  * Static
  **********************************************************************************************************************/
 
-StaticAllocator<Instance::cAllocatorSize> Instance::sAllocator {};
+StaticAllocator<Instance::cAllocatorSize, Instance::cNumAllocations> Instance::sAllocator {};
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
 Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
-    networkmanager::NetworkManagerItf& networkmanager, runner::RunnerItf& runner,
-    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager)
+    servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
+    networkmanager::NetworkManagerItf& networkmanager, runner::RunnerItf& runner, RuntimeItf& runtime,
+    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir)
     : mConfig(config)
     , mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
+    , mServiceManager(serviceManager)
+    , mLayerManager(layerManager)
     , mNetworkManager(networkmanager)
     , mRunner(runner)
+    , mRuntime(runtime)
     , mResourceMonitor(resourceMonitor)
     , mOCIManager(ociManager)
+    , mHostWhiteoutsDir(hostWhiteoutsDir)
     , mRuntimeDir(FS::JoinPath(cRuntimeDir, mInstanceID))
 {
     LOG_INF() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
@@ -63,7 +68,18 @@ Error Instance::Start()
         return err;
     }
 
-    if (auto err = CreateRuntimeSpec(); !err.IsNone()) {
+    auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
+
+    if (auto err = CreateRuntimeSpec(*runtimeSpec); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = PrepareRootFS(*runtimeSpec); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(mRuntimeDir, cRuntimeSpecFile), *runtimeSpec);
+        !err.IsNone()) {
         return err;
     }
 
@@ -84,8 +100,7 @@ Error Instance::Start()
 
 Error Instance::Stop()
 {
-    StaticString<cFilePathLen> instanceDir = FS::JoinPath(cRuntimeDir, mInstanceID);
-    Error                      stopErr;
+    Error stopErr;
 
     LOG_INF() << "Stop instance: instanceID=" << *this;
 
@@ -108,7 +123,11 @@ Error Instance::Stop()
         }
     }
 
-    if (auto err = FS::RemoveAll(instanceDir); !err.IsNone() && stopErr.IsNone()) {
+    if (auto err = mRuntime.ReleaseServiceRootFS(mRuntimeDir); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = FS::RemoveAll(mRuntimeDir); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
@@ -139,7 +158,7 @@ Error Instance::SetupNetwork()
     return aos::ErrorEnum::eNone;
 }
 
-Error Instance::CreateRuntimeSpec()
+Error Instance::CreateRuntimeSpec(oci::RuntimeSpec& runtimeSpec)
 {
     LOG_DBG() << "Create runtime spec: instanceID=" << *this;
 
@@ -153,28 +172,21 @@ Error Instance::CreateRuntimeSpec()
         return serviceFS.mError;
     }
 
-    auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
-
-    runtimeSpec->mVM.EmplaceValue();
+    runtimeSpec.mVM.EmplaceValue();
 
     if (imageSpec.mValue.mConfig.mEntryPoint.Size() == 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
     // Set default HW config values. Normally they should be taken from service config.
-    runtimeSpec->mVM->mHWConfig.mVCPUs = 1;
+    runtimeSpec.mVM->mHWConfig.mVCPUs = 1;
     // For xen this value should be aligned to 1024Kb
-    runtimeSpec->mVM->mHWConfig.mMemKB = 8192;
+    runtimeSpec.mVM->mHWConfig.mMemKB = 8192;
 
-    runtimeSpec->mVM->mKernel.mPath       = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
-    runtimeSpec->mVM->mKernel.mParameters = imageSpec.mValue.mConfig.mCmd;
+    runtimeSpec.mVM->mKernel.mPath       = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
+    runtimeSpec.mVM->mKernel.mParameters = imageSpec.mValue.mConfig.mCmd;
 
-    LOG_DBG() << "Unikernel path: path=" << runtimeSpec->mVM->mKernel.mPath;
-
-    if (auto err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(mRuntimeDir, cRuntimeSpecFile), *runtimeSpec);
-        !err.IsNone()) {
-        return err;
-    }
+    LOG_DBG() << "Unikernel path: path=" << runtimeSpec.mVM->mKernel.mPath;
 
     return ErrorEnum::eNone;
 }
@@ -188,6 +200,34 @@ Error Instance::SetupMonitoring()
     monitoringParms->mInstanceIdent = mInstanceInfo.mInstanceIdent;
 
     if (auto err = mResourceMonitor.StartInstanceMonitoring(mInstanceID, *monitoringParms); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Instance::PrepareRootFS(oci::RuntimeSpec& runtimeSpec)
+{
+    LOG_DBG() << "Prepare root FS: instanceID=" << *this;
+
+    auto layers     = MakeUnique<LayersStaticArray>(&sAllocator);
+    auto imageParts = MakeUnique<image::ImageParts>(&sAllocator);
+
+    if (auto err = mServiceManager.GetImageParts(mService->Data(), *imageParts); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = layers->PushBack(imageParts->mServiceFSPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = layers->PushBack(mHostWhiteoutsDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mRuntime.PrepareServiceRootFS(FS::JoinPath(mRuntimeDir, cRootFSDir),
+            FS::JoinPath(mRuntimeDir, cMountPointsDir), runtimeSpec.mMounts, *layers);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

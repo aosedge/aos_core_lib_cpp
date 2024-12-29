@@ -232,6 +232,7 @@ public:
      * @param networkManager network manager instance.
      * @param permHandler permission handler instance.
      * @param runner runner instance.
+     * @param runtime runtime instance.
      * @param resourceMonitor resource monitor instance.
      * @param ociManager OCI manager instance.
      * @param statusReceiver status receiver instance.
@@ -242,7 +243,7 @@ public:
     Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
         resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
-        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner,
+        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
         monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
 
@@ -313,6 +314,8 @@ private:
     static constexpr auto cThreadTaskSize   = AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE;
     static constexpr auto cThreadStackSize  = AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE;
 
+    static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
+
     void  ProcessInstances(const Array<InstanceData>& instances, bool forceRestart = false);
     void  ProcessServices(const Array<ServiceInfo>& services);
     void  ProcessLayers(const Array<LayerInfo>& layers);
@@ -349,6 +352,7 @@ private:
     runner::RunnerItf*                 mRunner {};
     servicemanager::ServiceManagerItf* mServiceManager {};
     StorageItf*                        mStorage {};
+    RuntimeItf*                        mRuntime {};
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
@@ -367,6 +371,7 @@ private:
 
     StaticArray<Service, cMaxNumServices>   mCurrentServices;
     StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
+    StaticString<cFilePathLen>              mHostWhiteoutsDir;
 };
 
 /** @}*/

@@ -13,6 +13,7 @@
 #include "aos/test/utils.hpp"
 
 #include "mocks/connectionsubscmock.hpp"
+#include "mocks/launchermock.hpp"
 #include "mocks/monitoringmock.hpp"
 #include "mocks/networkmanagermock.hpp"
 #include "mocks/nodeinfoprovidermock.hpp"
@@ -74,6 +75,7 @@ protected:
     ResourceManagerMock     mResourceManager;
     ResourceMonitorMock     mResourceMonitor;
     RunnerMock              mRunner;
+    RuntimeMock             mRuntime;
     ServiceManagerStub      mServiceManager;
     StatusReceiverStub      mStatusReceiver;
     StorageStub             mStorage;
@@ -93,11 +95,13 @@ TEST_F(LauncherTest, RunInstances)
 
     auto feature = mStatusReceiver.GetFeature();
 
-    EXPECT_TRUE(
-        launcher
-            ->Init(Config {}, mNodeInfoProvider, mServiceManager, mLayerManager, mResourceManager, mNetworkManager,
-                mPermHandler, mRunner, mResourceMonitor, mOCIManager, mStatusReceiver, mConnectionPublisher, mStorage)
-            .IsNone());
+    LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
+
+    ASSERT_TRUE(launcher
+                    ->Init(Config {}, mNodeInfoProvider, mServiceManager, mLayerManager, mResourceManager,
+                        mNetworkManager, mPermHandler, mRunner, mRuntime, mResourceMonitor, mOCIManager,
+                        mStatusReceiver, mConnectionPublisher, mStorage)
+                    .IsNone());
 
     ASSERT_TRUE(launcher->Start().IsNone());
 
