@@ -464,6 +464,20 @@
 #endif
 
 /**
+ * Max num runners.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_RUNNERS
+#define AOS_CONFIG_TYPES_MAX_NUM_RUNNERS 4
+#endif
+
+/**
+ * Runner name max length.
+ */
+#ifndef AOS_CONFIG_TYPES_RUNNER_NAME_LEN
+#define AOS_CONFIG_TYPES_RUNNER_NAME_LEN 16
+#endif
+
+/**
  * Monitoring poll period.
  */
 #ifndef AOS_CONFIG_MONITORING_POLL_PERIOD_SEC

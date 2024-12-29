@@ -331,6 +331,16 @@ static constexpr auto cIptablesChainNameLen = AOS_CONFIG_TYPES_IPTABLES_CHAIN_LE
 static constexpr auto cInterfaceLen = AOS_CONFIG_TYPES_INTERFACE_NAME_LEN;
 
 /**
+ *  Max num runners.
+ */
+static constexpr auto cMaxNumRunners = AOS_CONFIG_TYPES_MAX_NUM_RUNNERS;
+
+/**
+ * Runner name max length.
+ */
+static constexpr auto cRunnerNameLen = AOS_CONFIG_TYPES_RUNNER_NAME_LEN;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
@@ -937,6 +947,58 @@ struct CPUInfo {
 using CPUInfoStaticArray = StaticArray<CPUInfo, cMaxNumCPUs>;
 
 /**
+ * Node attribute enum.
+ */
+class NodeAttributeType {
+public:
+    enum class Enum {
+        eMainNode,
+        eAosComponents,
+        eNodeRunners,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sNodeStatusStrings[] = {
+            "MainNode",
+            "AosComponents",
+            "NodeRunners",
+        };
+
+        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+    };
+};
+
+using NodeAttributeEnum = NodeAttributeType::Enum;
+using NodeAttributeName = EnumStringer<NodeAttributeType>;
+
+/**
+ * Runner enum.
+ */
+class RunnerType {
+public:
+    enum class Enum {
+        eRUNC,
+        eCRUN,
+        eXRUN,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sNodeStatusStrings[] = {
+            "runc",
+            "crun",
+            "xrun",
+        };
+
+        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+    };
+};
+
+using RunnerEnum = RunnerType::Enum;
+using Runner     = EnumStringer<RunnerType>;
+
+/**
  * Node attribute.
  */
 struct NodeAttribute {
@@ -1006,6 +1068,26 @@ struct NodeInfo {
     NodeAttributeStaticArray   mAttrs;
     uint64_t                   mMaxDMIPS = 0;
     uint64_t                   mTotalRAM = 0;
+
+    Error GetRunners(Array<StaticString<cRunnerNameLen>>& runners) const
+    {
+        auto [attr, err] = mAttrs.FindIf([](const NodeAttribute& attr) {
+            return attr.mName == NodeAttributeName(NodeAttributeEnum::eNodeRunners).ToString();
+        });
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        if (err = attr->mValue.Split(runners, ','); !err.IsNone()) {
+            return err;
+        }
+
+        for (auto& runner : runners) {
+            runner.Trim(" ");
+        }
+
+        return ErrorEnum::eNone;
+    }
 
     /**
      * Compares node info.
