@@ -8,6 +8,7 @@
 #define AOS_RUNTIMESPEC_HPP_
 
 #include "aos/common/ocispec/common.hpp"
+#include "aos/common/tools/map.hpp"
 #include "aos/common/types.hpp"
 
 namespace aos::oci {
@@ -387,10 +388,12 @@ struct LinuxNamespace {
  * Linux contains platform-specific configuration for Linux based containers.
  */
 struct Linux {
-    Optional<LinuxResources>                                mResources;
-    StaticArray<LinuxNamespace, cMaxNumNamespaces>          mNamespaces;
-    StaticArray<StaticString<cFilePathLen>, cMaxParamCount> mMaskedPaths;
-    StaticArray<StaticString<cFilePathLen>, cMaxParamCount> mReadonlyPaths;
+    StaticMap<StaticString<cMaxParamLen>, StaticString<cMaxParamLen>, cMaxParamCount> mSysctl;
+    Optional<LinuxResources>                                                          mResources;
+    StaticString<cFilePathLen>                                                        mCgroupsPath;
+    StaticArray<LinuxNamespace, cMaxNumNamespaces>                                    mNamespaces;
+    StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                           mMaskedPaths;
+    StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                           mReadonlyPaths;
 
     /**
      * Compares Linux spec.
@@ -400,7 +403,8 @@ struct Linux {
      */
     bool operator==(const Linux& linuxSpec) const
     {
-        return mResources == linuxSpec.mResources && mNamespaces == linuxSpec.mNamespaces
+        return mSysctl == linuxSpec.mSysctl && mResources == linuxSpec.mResources
+            && mCgroupsPath == linuxSpec.mCgroupsPath && mNamespaces == linuxSpec.mNamespaces
             && mMaskedPaths == linuxSpec.mMaskedPaths && mReadonlyPaths == linuxSpec.mReadonlyPaths;
     }
 
