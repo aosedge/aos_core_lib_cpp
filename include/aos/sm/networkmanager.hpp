@@ -88,7 +88,7 @@ struct NetworkParams {
     uint64_t                                                        mEgressKbit;
     StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
     StaticArray<Host, cMaxNumHosts>                                 mHosts;
-    StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers>      mDNSSevers;
+    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>            mDNSSevers;
     StaticString<cFilePathLen>                                      mHostsFilePath;
     StaticString<cFilePathLen>                                      mResolvConfFilePath;
     uint64_t                                                        mUploadLimit;
