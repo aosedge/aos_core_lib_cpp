@@ -9,6 +9,7 @@
 #define AOS_MONITORING_HPP_
 
 #include "aos/common/connectionsubsc.hpp"
+#include "aos/common/monitoring/alertprocessor.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/thread.hpp"
 #include "aos/common/types.hpp"
@@ -55,6 +56,7 @@ struct InstanceMonitorParams {
     PartitionInfoStaticArray mPartitions;
     uint32_t                 mUID;
     uint32_t                 mGID;
+    Optional<AlertRules>     mAlertRules;
 };
 
 /**

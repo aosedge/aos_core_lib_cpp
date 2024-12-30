@@ -478,6 +478,13 @@
 #endif
 
 /**
+ * Monitoring alert processor system resources size.
+ */
+#ifndef AOS_CONFIG_MONITORING_ALERT_PROCESSOR_SYSTEM_RESOURCES_SIZE
+#define AOS_CONFIG_MONITORING_ALERT_PROCESSOR_SYSTEM_RESOURCES_SIZE 4
+#endif
+
+/**
  * Certificate issuer max size is not specified in general.
  * (RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue)
  */
