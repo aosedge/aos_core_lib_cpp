@@ -230,6 +230,7 @@ struct NetworkConfigList {
     FirewallPluginConf        mFirewall;
     BandwidthNetConf          mBandwidth;
     DNSPluginConf             mDNS;
+    Result                    mPrevResult;
 };
 
 /**
