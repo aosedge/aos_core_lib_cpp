@@ -99,6 +99,17 @@ public:
     Variant() = default;
 
     /**
+     * Constructs object instance.
+     *
+     * @param args... argument list for constructor of a new object.
+     */
+    template <typename T, typename = EnableIf<(GetTypeIndex<T, VarArgs...>::Value != -1)>>
+    explicit Variant(const T& val)
+    {
+        SetValue(val);
+    }
+
+    /**
      * Copy constructor.
      *
      * @param other variant to copy from.
@@ -139,6 +150,21 @@ public:
     }
 
     /**
+     * Sets new variant value.
+     *
+     * @param args... argument list for constructor of a new object.
+     */
+    template <typename T, typename = EnableIf<(GetTypeIndex<T, VarArgs...>::Value != -1)>>
+    void SetValue(const T& value)
+    {
+        DestroyObject();
+
+        new (mBuffer) T(value);
+
+        mTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+    }
+
+    /**
      * Returns a value based on its type.
      *
      * @tparam T type to be returned.
@@ -150,6 +176,20 @@ public:
         assert(mTypeIndex == cTypeIndex);
 
         return *reinterpret_cast<T*>(mBuffer);
+    }
+
+    /**
+     * Returns a value based on its type.
+     *
+     * @tparam T type to be returned.
+     */
+    template <typename T>
+    const T& GetValue() const
+    {
+        [[maybe_unused]] static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+        assert(mTypeIndex == cTypeIndex);
+
+        return *reinterpret_cast<const T*>(mBuffer);
     }
 
     /**
@@ -191,6 +231,29 @@ public:
     }
 
     /**
+     * Compares two variant objects.
+     *
+     * @param other input variant object.
+     * @return bool.
+     */
+    bool operator==(const Variant& other) const
+    {
+        if (mTypeIndex != other.mTypeIndex) {
+            return false;
+        }
+
+        return ApplyVisitor(EqualsVisitor {other});
+    }
+
+    /**
+     * Compares two variant objects.
+     *
+     * @param other input variant object.
+     * @return bool.
+     */
+    bool operator!=(const Variant& other) const { return !(*this == other); }
+
+    /**
      * Destroys object instance.
      */
     ~Variant() { DestroyObject(); }
@@ -219,6 +282,21 @@ private:
         }
 
         Variant* mVariant;
+    };
+
+    struct EqualsVisitor : StaticVisitor<bool> {
+        explicit EqualsVisitor(const Variant& other)
+            : mOther(other)
+        {
+        }
+
+        template <typename T>
+        bool Visit(const T& val) const
+        {
+            return val == mOther.GetValue<T>();
+        }
+
+        const Variant& mOther;
     };
 
     void DestroyObject()

@@ -93,3 +93,18 @@ TEST(VariantTest, CopyVariant)
 
     EXPECT_TRUE(ptr.use_count() == 3);
 }
+
+TEST(VariantTest, CompareVariant)
+{
+    auto ptr = std::make_shared<std::string>("Hello");
+
+    Variant<std::shared_ptr<std::string>, int> variant1 {ptr};
+
+    auto variant2 = variant1;
+
+    EXPECT_EQ(variant1, variant2);
+
+    variant2.SetValue(10);
+
+    EXPECT_NE(variant1, variant2);
+}
