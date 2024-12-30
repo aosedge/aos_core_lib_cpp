@@ -20,6 +20,7 @@ public:
         (RetWithError<Result>), AddNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt), (override));
     MOCK_METHOD(Error, DeleteNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt), (override));
     MOCK_METHOD(Error, ValidateNetworkList, (const NetworkConfigList& net), (override));
+    MOCK_METHOD(aos::Error, GetNetworkListCachedConfig, (NetworkConfigList & net, RuntimeConf& rt), (override));
 };
 
 } // namespace aos::sm::cni

@@ -177,6 +177,10 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
 
     rtConfig.mIfName = cInstanceInterfaceName;
 
+    if (err = mCNI->GetNetworkListCachedConfig(netConfig, rtConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (err = mCNI->DeleteNetworkList(netConfig, rtConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
