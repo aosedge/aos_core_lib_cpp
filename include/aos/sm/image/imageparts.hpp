@@ -30,15 +30,21 @@ struct ImageParts {
      * Service root FS path.
      */
     StaticString<cFilePathLen> mServiceFSPath;
+
+    /**
+     * Layer digests.
+     */
+    StaticArray<StaticString<cLayerDigestLen>, cMaxNumLayers> mLayerDigests;
 };
 
 /**
  * Returns image parts.
  *
  * @param manifest image manifest.
- * @return RetWithError<ImageParts>.
+ * @param imageParts[out] image parts.
+ * @return Error.
  */
-RetWithError<ImageParts> GetImagePartsFromManifest(const oci::ImageManifest& manifest);
+Error GetImagePartsFromManifest(const oci::ImageManifest& manifest, ImageParts& imageParts);
 
 } // namespace aos::sm::image
 

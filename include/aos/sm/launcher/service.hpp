@@ -120,6 +120,8 @@ private:
     StaticString<cFilePathLen> mServiceFSPath {};
     oci::ImageSpec             mImageSpec {};
     Error                      mSpecErr {ErrorEnum::eNotFound};
+
+    StaticAllocator<sizeof(image::ImageParts)> mAllocator;
 };
 
 } // namespace aos::sm::launcher

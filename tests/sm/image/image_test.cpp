@@ -28,19 +28,26 @@ protected:
 
 TEST_F(ImageTest, GetImageParts)
 {
-    auto manifest = std::make_unique<oci::ImageManifest>();
+    auto imageParts = std::make_unique<ImageParts>();
+    auto manifest   = std::make_unique<oci::ImageManifest>();
 
     manifest->mConfig.mDigest = "sha256:11111111";
     manifest->mAosService.EmplaceValue("", "sha256:22222222", 0);
     manifest->mLayers.EmplaceBack("", "sha256:33333333", 0);
+    manifest->mLayers.EmplaceBack("", "sha256:44444444", 0);
+    manifest->mLayers.EmplaceBack("", "sha256:55555555", 0);
 
-    auto [imageParts, err] = GetImagePartsFromManifest(*manifest);
+    auto err = GetImagePartsFromManifest(*manifest, *imageParts);
 
     EXPECT_TRUE(err.IsNone());
 
-    EXPECT_EQ(imageParts.mImageConfigPath, String("sha256/11111111"));
-    EXPECT_EQ(imageParts.mServiceConfigPath, String("sha256/22222222"));
-    EXPECT_EQ(imageParts.mServiceFSPath, String("sha256/33333333"));
+    EXPECT_EQ(imageParts->mImageConfigPath, String("sha256/11111111"));
+    EXPECT_EQ(imageParts->mServiceConfigPath, String("sha256/22222222"));
+    EXPECT_EQ(imageParts->mServiceFSPath, String("sha256/33333333"));
+
+    ASSERT_EQ(imageParts->mLayerDigests.Size(), 2);
+    EXPECT_EQ(imageParts->mLayerDigests[0], String("sha256:44444444"));
+    EXPECT_EQ(imageParts->mLayerDigests[1], String("sha256:55555555"));
 }
 
 } // namespace aos::sm::image

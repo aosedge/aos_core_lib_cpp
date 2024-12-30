@@ -223,12 +223,16 @@ public:
      * Returns service image parts.
      *
      * @param service service item.
-     * @return RetWithError<image::ImageParts>.
+     * @param imageParts[out] image parts.
+     * @return Error.
      */
-    RetWithError<image::ImageParts> GetImageParts(const ServiceData& service) override
+    Error GetImageParts(const ServiceData& service, image::ImageParts& imageParts) override
     {
-        return image::ImageParts {FS::JoinPath(service.mImagePath, "image.json"),
-            FS::JoinPath(service.mImagePath, "service.json"), service.mImagePath};
+        imageParts.mImageConfigPath   = FS::JoinPath(service.mImagePath, "image.json");
+        imageParts.mServiceConfigPath = FS::JoinPath(service.mImagePath, "service.json");
+        imageParts.mServiceFSPath     = service.mImagePath;
+
+        return ErrorEnum::eNone;
     }
 
     /**

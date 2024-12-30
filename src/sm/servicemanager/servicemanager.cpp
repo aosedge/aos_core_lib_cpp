@@ -244,7 +244,7 @@ Error ServiceManager::GetAllServices(Array<ServiceData>& services)
     return mStorage->GetAllServices(services);
 }
 
-RetWithError<image::ImageParts> ServiceManager::GetImageParts(const ServiceData& service)
+Error ServiceManager::GetImageParts(const ServiceData& service, image::ImageParts& imageParts)
 {
     LockGuard lock {mMutex};
 
@@ -254,22 +254,20 @@ RetWithError<image::ImageParts> ServiceManager::GetImageParts(const ServiceData&
 
     auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
 
-    auto err = mOCIManager->LoadImageManifest(FS::JoinPath(service.mImagePath, cImageManifestFile), *manifest);
-    if (!err.IsNone()) {
-        return {{}, err};
+    if (auto err = mOCIManager->LoadImageManifest(FS::JoinPath(service.mImagePath, cImageManifestFile), *manifest);
+        !err.IsNone()) {
+        return err;
     }
 
-    image::ImageParts imageParts;
-
-    if (Tie(imageParts, err) = image::GetImagePartsFromManifest(*manifest); !err.IsNone()) {
-        return {{}, err};
+    if (auto err = image::GetImagePartsFromManifest(*manifest, imageParts); !err.IsNone()) {
+        return err;
     }
 
     imageParts.mImageConfigPath   = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mImageConfigPath);
     imageParts.mServiceConfigPath = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceConfigPath);
     imageParts.mServiceFSPath     = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceFSPath);
 
-    return {imageParts, ErrorEnum::eNone};
+    return ErrorEnum::eNone;
 }
 
 Error ServiceManager::ValidateService(const ServiceData& service)

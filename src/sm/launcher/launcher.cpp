@@ -434,15 +434,17 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
             continue;
         }
 
-        servicemanager::ServiceData service;
+        servicemanager::ServiceData serviceData;
 
-        auto err = mServiceManager->GetService(serviceID, service);
+        auto err = mServiceManager->GetService(serviceID, serviceData);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't get service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
 
-        err = mCurrentServices.Emplace(serviceID, Service(service, *mServiceManager, *mOCIManager));
+        auto service = MakeUnique<Service>(&mAllocator, serviceData, *mServiceManager, *mOCIManager);
+
+        err = mCurrentServices.Emplace(serviceID, *service);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't cache service: serviceID=" << serviceID << ", err=" << err;
             continue;
@@ -456,6 +458,8 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
     }
 
     UpdateInstanceServices();
+
+    LOG_DBG() << "Services cached: count=" << mCurrentServices.Size();
 }
 
 void Launcher::UpdateInstanceServices()

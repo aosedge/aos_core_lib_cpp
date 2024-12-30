@@ -215,9 +215,10 @@ public:
      * Returns service image parts.
      *
      * @param service service item.
-     * @return RetWithError<image::ImageParts>.
+     * @param imageParts[out] image parts.
+     * @return Error.
      */
-    virtual RetWithError<image::ImageParts> GetImageParts(const ServiceData& service) = 0;
+    virtual Error GetImageParts(const ServiceData& service, image::ImageParts& imageParts) = 0;
 
     /**
      * Validates service.
@@ -313,9 +314,10 @@ public:
      * Returns service image parts.
      *
      * @param service service item.
-     * @return RetWithError<image::ImageParts>.
+     * @param imageParts[out] image parts.
+     * @return Error.
      */
-    RetWithError<image::ImageParts> GetImageParts(const ServiceData& service) override;
+    Error GetImageParts(const ServiceData& service, image::ImageParts& imageParts) override;
 
     /**
      * Validates service.

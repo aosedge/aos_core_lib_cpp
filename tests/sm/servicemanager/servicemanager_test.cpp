@@ -287,16 +287,21 @@ TEST_F(ServiceManagerTest, GetImageParts)
         manifest.mConfig.mDigest = "sha256:11111111";
         manifest.mAosService.EmplaceValue("", "sha256:22222222", 0);
         manifest.mLayers.EmplaceBack("", "sha256:33333333", 0);
+        manifest.mLayers.EmplaceBack("", "sha256:44444444", 0);
 
         return ErrorEnum::eNone;
     }));
 
-    auto imageParts = serviceManager.GetImageParts(serviceData);
-    EXPECT_TRUE(imageParts.mError.IsNone());
+    auto imageParts = std::make_unique<image::ImageParts>();
 
-    EXPECT_TRUE(imageParts.mValue.mImageConfigPath == "/aos/services/service1/blobs/sha256/11111111");
-    EXPECT_TRUE(imageParts.mValue.mServiceConfigPath == "/aos/services/service1/blobs/sha256/22222222");
-    EXPECT_TRUE(imageParts.mValue.mServiceFSPath == "/aos/services/service1/blobs/sha256/33333333");
+    ASSERT_TRUE(serviceManager.GetImageParts(serviceData, *imageParts).IsNone());
+
+    EXPECT_TRUE(imageParts->mImageConfigPath == "/aos/services/service1/blobs/sha256/11111111");
+    EXPECT_TRUE(imageParts->mServiceConfigPath == "/aos/services/service1/blobs/sha256/22222222");
+    EXPECT_TRUE(imageParts->mServiceFSPath == "/aos/services/service1/blobs/sha256/33333333");
+
+    ASSERT_TRUE(imageParts->mLayerDigests.Size() == 1);
+    EXPECT_EQ(imageParts->mLayerDigests[0], "sha256:44444444");
 }
 
 } // namespace aos::sm::servicemanager

@@ -27,17 +27,23 @@ Error Service::LoadSpecs()
 {
     LOG_DBG() << "Load specs: serviceID=" << *this;
 
-    auto result = mServiceManager.GetImageParts(mData);
-    if (!result.mError.IsNone()) {
-        mSpecErr = result.mError;
+    auto imageParts = MakeUnique<image::ImageParts>(&mAllocator);
+
+    if (auto err = mServiceManager.GetImageParts(mData, *imageParts); !err.IsNone()) {
+        mSpecErr = err;
+
         return mSpecErr;
     }
 
-    mServiceFSPath = result.mValue.mServiceFSPath;
+    if (mServiceFSPath = imageParts->mServiceFSPath; mServiceFSPath.IsEmpty()) {
+        mSpecErr = ErrorEnum::eNotFound;
 
-    auto err = mOCIManager.LoadImageSpec(result.mValue.mImageConfigPath, mImageSpec);
-    if (!err.IsNone()) {
+        return mSpecErr;
+    }
+
+    if (auto err = mOCIManager.LoadImageSpec(imageParts->mImageConfigPath, mImageSpec); !err.IsNone()) {
         mSpecErr = err;
+
         return mSpecErr;
     }
 

@@ -35,32 +35,35 @@ RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& digest)
  * Public
  **********************************************************************************************************************/
 
-RetWithError<ImageParts> GetImagePartsFromManifest(const oci::ImageManifest& manifest)
+Error GetImagePartsFromManifest(const oci::ImageManifest& manifest, ImageParts& imageParts)
 {
-    auto imageConfig = DigestToPath(manifest.mConfig.mDigest);
-    if (!imageConfig.mError.IsNone()) {
-        return {{}, imageConfig.mError};
+    Error err;
+
+    if (Tie(imageParts.mImageConfigPath, err) = DigestToPath(manifest.mConfig.mDigest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
-    if (!manifest.mAosService.HasValue()) {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+    if (manifest.mAosService.HasValue()) {
+        if (Tie(imageParts.mServiceConfigPath, err) = DigestToPath(manifest.mAosService->mDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
-    auto serviceConfig = DigestToPath(manifest.mAosService->mDigest);
-    if (!serviceConfig.mError.IsNone()) {
-        return {{}, serviceConfig.mError};
+    if (manifest.mLayers.IsEmpty()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (!manifest.mLayers) {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+    if (Tie(imageParts.mServiceFSPath, err) = DigestToPath(manifest.mLayers[0].mDigest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
-    auto serviceFS = DigestToPath(manifest.mLayers[0].mDigest);
-    if (!serviceFS.mError.IsNone()) {
-        return {{}, serviceFS.mError};
+    for (auto it = manifest.mLayers.begin() + 1; it != manifest.mLayers.end(); ++it) {
+        if (err = imageParts.mLayerDigests.PushBack(it->mDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
-    return image::ImageParts {imageConfig.mValue, serviceConfig.mValue, serviceFS.mValue};
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::sm::image

@@ -342,7 +342,7 @@ private:
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-        + sizeof(InstanceStatusStaticArray)>
+        + sizeof(InstanceStatusStaticArray) + sizeof(Service)>
         mAllocator;
 
     bool                                      mLaunchInProgress = false;
