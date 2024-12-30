@@ -222,7 +222,7 @@
  * Host name len.
  */
 #ifndef AOS_CONFIG_TYPES_HOST_NAME_LEN
-#define AOS_CONFIG_TYPES_HOST_NAME_LEN 48
+#define AOS_CONFIG_TYPES_HOST_NAME_LEN 128
 #endif
 
 /**
