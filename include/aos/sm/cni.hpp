@@ -277,6 +277,15 @@ public:
      * @return Error.
      */
     virtual Error ValidateNetworkList(const NetworkConfigList& net) = 0;
+
+    /**
+     * Returns network list from cache.
+     *
+     * @param[out] net Network list.
+     * @param[out] rt Runtime configuration.
+     * @return Error.
+     */
+    virtual Error GetNetworkListCachedConfig(NetworkConfigList& net, RuntimeConf& rt) = 0;
 };
 
 } // namespace aos::sm::cni

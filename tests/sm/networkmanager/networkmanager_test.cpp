@@ -417,6 +417,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(*mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(*mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(*mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(*mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -467,6 +468,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID1)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(*mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(*mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(*mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID1, networkID), aos::ErrorEnum::eNone);
@@ -503,6 +505,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(*mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(*mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(*mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(*mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -535,6 +538,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(*mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eRuntime));
+    EXPECT_CALL(*mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eRuntime);
 }
