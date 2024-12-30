@@ -351,3 +351,13 @@ TEST(StringTest, FindAny)
     ASSERT_FALSE(err.IsNone());
     EXPECT_EQ(pos, str.Size());
 }
+
+TEST(StringTest, Assign)
+{
+    String str1;
+    String str2("Hello World!");
+
+    str1.Rebind(str2);
+
+    EXPECT_EQ(str1, str2);
+}

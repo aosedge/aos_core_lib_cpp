@@ -82,6 +82,20 @@ public:
     }
 
     /**
+     * Rebinds internal buffer to another array buffer.
+     *
+     * @param array another array instance.
+     */
+    void Rebind(const Array& array)
+    {
+        Clear();
+
+        mItems   = array.mItems;
+        mSize    = array.mSize;
+        mMaxSize = array.mMaxSize;
+    }
+
+    /**
      * Clears array.
      */
     void Clear()

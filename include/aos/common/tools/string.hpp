@@ -66,7 +66,9 @@ public:
     String& operator=(const String& str)
     {
         Array::operator=(str);
-        *end() = 0;
+        if (*end()) {
+            *end() = 0;
+        }
 
         return *this;
     }
@@ -77,6 +79,19 @@ public:
      * @return const char* C string.
      */
     const char* CStr() const { return Get(); }
+
+    /**
+     * Rebinds internal buffer to another string buffer.
+     *
+     * @param string another string instance.
+     */
+    void Rebind(const String& string)
+    {
+        Array::Rebind(string);
+        if (*end()) {
+            *end() = 0;
+        }
+    }
 
     /**
      * Sets new string size.
@@ -144,7 +159,8 @@ public:
     Error Insert(char* pos, const char* from, const char* till)
     {
         auto err = Array::Insert(pos, from, till);
-        *end()   = 0;
+
+        *end() = 0;
 
         return err;
     }
