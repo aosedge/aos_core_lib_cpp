@@ -9,6 +9,30 @@
 namespace aos::sm::launcher {
 
 /***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+RetWithError<StaticString<cEnvVarNameLen>> GetEnvVarName(const String& envVar)
+{
+    StaticString<cEnvVarNameLen> tmpStr = envVar;
+
+    auto result = tmpStr.FindSubstr(0, "=");
+    if (result.mError.IsNone()) {
+        if (auto err = tmpStr.Resize(result.mValue); !err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+    }
+
+    tmpStr.Trim(" ");
+
+    return {tmpStr, ErrorEnum::eNone};
+}
+
+} // namespace
+
+/***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
@@ -43,6 +67,45 @@ Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
         }
     } else {
         *existNS = ns;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error AddEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars, oci::RuntimeSpec& runtimeSpec)
+{
+    for (const auto& newEnvVar : envVars) {
+        StaticString<cEnvVarNameLen> newEnvVarName;
+        Error                        err;
+
+        Tie(newEnvVarName, err) = GetEnvVarName(newEnvVar);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        auto updated = false;
+
+        for (auto& existingEnvVar : runtimeSpec.mProcess->mEnv) {
+            StaticString<cEnvVarNameLen> existingEnvVarName;
+
+            Tie(existingEnvVarName, err) = GetEnvVarName(existingEnvVar);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            if (newEnvVarName == existingEnvVarName) {
+                existingEnvVar = newEnvVar;
+                updated        = true;
+
+                break;
+            }
+        }
+
+        if (!updated) {
+            if (err = runtimeSpec.mProcess->mEnv.PushBack(newEnvVar); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
     }
 
     return ErrorEnum::eNone;

@@ -164,6 +164,52 @@ Error Instance::BindHostDirs(oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
+Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
+{
+    auto envVars = MakeUnique<StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>>(&sAllocator);
+    StaticString<cEnvVarNameLen> envVar;
+
+    if (auto err = envVar.Format("%s=%s", cEnvAosServiceID, mService->mServiceID.CStr()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVars->PushBack(envVar); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVar.Format("%s=%s", cEnvAosSubjectID, mInstanceInfo.mInstanceIdent.mSubjectID.CStr());
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVars->PushBack(envVar); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVar.Format("%s=%d", cEnvAosInstanceIndex, mInstanceInfo.mInstanceIdent.mInstance);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVars->PushBack(envVar); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVar.Format("%s=%s", cEnvAosInstanceID, mInstanceID.CStr()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = envVars->PushBack(envVar); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = AddEnvVars(*envVars, runtimeSpec); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Instance::CreateVMSpec(
     const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec)
 {
@@ -222,6 +268,10 @@ Error Instance::CreateLinuxSpec(
     if (auto err
         = AddNamespace(oci::LinuxNamespace {oci::LinuxNamespaceEnum::eNetwork, instanceNetns.mValue}, runtimeSpec);
         !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = CreateAosEnvVars(runtimeSpec); !err.IsNone()) {
         return err;
     }
 

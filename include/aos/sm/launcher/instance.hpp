@@ -243,7 +243,8 @@ private:
     static constexpr auto cAllocatorSize
         = (sizeof(oci::RuntimeSpec) + sizeof(image::ImageParts)
               + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
-                  sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig),
+                  sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig)
+                      + sizeof(StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>),
                   sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(oci::Mount)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cNumAllocations  = 4 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
@@ -252,7 +253,13 @@ private:
     static constexpr auto cRootFSDir       = "rootfs";
     static constexpr auto cCgroupsPath     = "/system.slice/system-aos\\x2dservice.slice";
 
+    static constexpr auto cEnvAosServiceID     = "AOS_SERVICE_ID";
+    static constexpr auto cEnvAosSubjectID     = "AOS_SUBJECT_ID";
+    static constexpr auto cEnvAosInstanceIndex = "AOS_INSTANCE_INDEX";
+    static constexpr auto cEnvAosInstanceID    = "AOS_INSTANCE_ID";
+
     Error BindHostDirs(oci::RuntimeSpec& runtimeSpec);
+    Error CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec);
     Error CreateLinuxSpec(
         const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error CreateVMSpec(const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);

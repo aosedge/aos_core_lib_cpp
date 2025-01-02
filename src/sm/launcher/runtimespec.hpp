@@ -29,6 +29,15 @@ Error AddMount(const oci::Mount& mount, oci::RuntimeSpec& runtimeSpec);
  */
 Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec);
 
+/**
+ * Adds environment variables.
+ *
+ * @param envVars environment variables to set.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error AddEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars, oci::RuntimeSpec& runtimeSpec);
+
 } // namespace aos::sm::launcher
 
 #endif
