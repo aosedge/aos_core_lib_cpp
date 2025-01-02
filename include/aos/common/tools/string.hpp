@@ -603,12 +603,12 @@ public:
      * @return Error.
      */
     template <typename... Args>
-    Error Format(const char* format, Args... args)
+    Error Format(const String& format, Args... args)
     {
         Clear();
 
         // cppcheck-suppress wrongPrintfScanfArgNum
-        auto ret = snprintf(Get(), MaxSize() + 1, format, args...);
+        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...);
         if (ret < 0) {
             return ret;
         }
