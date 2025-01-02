@@ -1118,6 +1118,26 @@ struct RunParameters {
     Duration mStartInterval;
     Duration mRestartInterval;
     long     mStartBurst;
+
+    /**
+     * Compares run parameters.
+     *
+     * @param params run parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const RunParameters& params) const
+    {
+        return mStartInterval == params.mStartInterval && mRestartInterval == params.mRestartInterval
+            && mStartBurst == params.mStartBurst;
+    }
+
+    /**
+     * Compares run parameters.
+     *
+     * @param params run parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const RunParameters& params) const { return !operator==(params); }
 };
 
 } // namespace aos
