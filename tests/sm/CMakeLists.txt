@@ -18,7 +18,6 @@ set(SOURCES
     # launcher
     ${PROJECT_SOURCE_DIR}/src/sm/launcher/launcher.cpp
     ${PROJECT_SOURCE_DIR}/src/sm/launcher/instance.cpp
-    ${PROJECT_SOURCE_DIR}/src/sm/launcher/service.cpp
     launcher/launcher_test.cpp
     # layermanager
     ${PROJECT_SOURCE_DIR}/src/sm/layermanager/layermanager.cpp

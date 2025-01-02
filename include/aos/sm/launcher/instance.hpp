@@ -13,10 +13,10 @@
 #include "aos/common/tools/allocator.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/launcher/config.hpp"
-#include "aos/sm/launcher/service.hpp"
 #include "aos/sm/layermanager.hpp"
 #include "aos/sm/networkmanager.hpp"
 #include "aos/sm/runner.hpp"
+#include "aos/sm/servicemanager.hpp"
 
 namespace aos::sm::launcher {
 
@@ -141,9 +141,9 @@ public:
     /**
      * Sets corresponding service.
      *
-     * @param service service.
+     * @param service service data.
      */
-    void SetService(const Service* service);
+    void SetService(const servicemanager::ServiceData* service);
 
     /**
      * Sets run error.
@@ -178,7 +178,7 @@ public:
     StaticString<cVersionLen> GetServiceVersion() const
     {
         if (mService) {
-            return mService->Data().mVersion;
+            return mService->mVersion;
         }
 
         return "";
@@ -236,9 +236,9 @@ private:
 
     static constexpr auto cRuntimeDir = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
     static constexpr auto cAllocatorSize
-        = (sizeof(oci::RuntimeSpec)
+        = (sizeof(oci::RuntimeSpec) + sizeof(image::ImageParts)
               + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
-                  sizeof(LayersStaticArray) + sizeof(image::ImageParts)))
+                  sizeof(oci::ImageSpec) + sizeof(LayersStaticArray) + sizeof(layermanager::LayerData)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cNumAllocations  = 4 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cRuntimeSpecFile = "config.json";
@@ -246,9 +246,9 @@ private:
     static constexpr auto cRootFSDir       = "rootfs";
 
     Error SetupNetwork();
-    Error CreateRuntimeSpec(oci::RuntimeSpec& runtimeSpec);
+    Error CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
     Error SetupMonitoring();
-    Error PrepareRootFS(oci::RuntimeSpec& runtimeSpec);
+    Error PrepareRootFS(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
 
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
@@ -264,10 +264,10 @@ private:
     oci::OCISpecItf&                   mOCIManager;
     const String&                      mHostWhiteoutsDir;
 
-    StaticString<cFilePathLen> mRuntimeDir;
-    const Service*             mService = nullptr;
-    InstanceRunState           mRunState;
-    Error                      mRunError;
+    StaticString<cFilePathLen>         mRuntimeDir;
+    const servicemanager::ServiceData* mService = nullptr;
+    InstanceRunState                   mRunState;
+    Error                              mRunError;
 };
 
 } // namespace aos::sm::launcher

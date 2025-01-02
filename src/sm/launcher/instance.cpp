@@ -42,12 +42,12 @@ Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const
     LOG_INF() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
 }
 
-void Instance::SetService(const Service* service)
+void Instance::SetService(const servicemanager::ServiceData* service)
 {
     mService = service;
 
     if (mService) {
-        LOG_DBG() << "Set service for instance: serviceID=" << *service << ", version=" << mService->Data().mVersion
+        LOG_DBG() << "Set service for instance: serviceID=" << service->mServiceID << ", version=" << mService->mVersion
                   << ", instanceID=" << *this;
     }
 }
@@ -69,12 +69,17 @@ Error Instance::Start()
     }
 
     auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
+    auto imageParts  = MakeUnique<image::ImageParts>(&sAllocator);
 
-    if (auto err = CreateRuntimeSpec(*runtimeSpec); !err.IsNone()) {
+    if (auto err = mServiceManager.GetImageParts(*mService, *imageParts); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = CreateRuntimeSpec(*imageParts, *runtimeSpec); !err.IsNone()) {
         return err;
     }
 
-    if (auto err = PrepareRootFS(*runtimeSpec); !err.IsNone()) {
+    if (auto err = PrepareRootFS(*imageParts, *runtimeSpec); !err.IsNone()) {
         return err;
     }
 
@@ -117,7 +122,7 @@ Error Instance::Stop()
     }
 
     if (mService) {
-        if (auto err = mNetworkManager.RemoveInstanceFromNetwork(mInstanceID, mService->Data().mProviderID);
+        if (auto err = mNetworkManager.RemoveInstanceFromNetwork(mInstanceID, mService->mProviderID);
             !err.IsNone() && stopErr.IsNone()) {
             stopErr = err;
         }
@@ -156,7 +161,7 @@ Error Instance::SetupNetwork()
     networkParams->mHosts              = mConfig.mHosts;
     networkParams->mNetworkParameters  = mInstanceInfo.mNetworkParameters;
 
-    if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService->Data().mProviderID, *networkParams);
+    if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService->mProviderID, *networkParams);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -164,23 +169,19 @@ Error Instance::SetupNetwork()
     return aos::ErrorEnum::eNone;
 }
 
-Error Instance::CreateRuntimeSpec(oci::RuntimeSpec& runtimeSpec)
+Error Instance::CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec)
 {
     LOG_DBG() << "Create runtime spec: instanceID=" << *this;
 
-    auto imageSpec = mService->ImageSpec();
-    if (!imageSpec.mError.IsNone()) {
-        return imageSpec.mError;
-    }
+    auto imageSpec = MakeUnique<oci::ImageSpec>(&sAllocator);
 
-    auto serviceFS = mService->ServiceFSPath();
-    if (!serviceFS.mError.IsNone()) {
-        return serviceFS.mError;
+    if (auto err = mOCIManager.LoadImageSpec(imageParts.mImageConfigPath, *imageSpec); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     runtimeSpec.mVM.EmplaceValue();
 
-    if (imageSpec.mValue.mConfig.mEntryPoint.Size() == 0) {
+    if (imageSpec->mConfig.mEntryPoint.Size() == 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
@@ -189,8 +190,8 @@ Error Instance::CreateRuntimeSpec(oci::RuntimeSpec& runtimeSpec)
     // For xen this value should be aligned to 1024Kb
     runtimeSpec.mVM->mHWConfig.mMemKB = 8192;
 
-    runtimeSpec.mVM->mKernel.mPath       = FS::JoinPath(serviceFS.mValue, imageSpec.mValue.mConfig.mEntryPoint[0]);
-    runtimeSpec.mVM->mKernel.mParameters = imageSpec.mValue.mConfig.mCmd;
+    runtimeSpec.mVM->mKernel.mPath       = FS::JoinPath(imageParts.mServiceFSPath, imageSpec->mConfig.mEntryPoint[0]);
+    runtimeSpec.mVM->mKernel.mParameters = imageSpec->mConfig.mCmd;
 
     LOG_DBG() << "Unikernel path: path=" << runtimeSpec.mVM->mKernel.mPath;
 
@@ -212,19 +213,26 @@ Error Instance::SetupMonitoring()
     return ErrorEnum::eNone;
 }
 
-Error Instance::PrepareRootFS(oci::RuntimeSpec& runtimeSpec)
+Error Instance::PrepareRootFS(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec)
 {
     LOG_DBG() << "Prepare root FS: instanceID=" << *this;
 
-    auto layers     = MakeUnique<LayersStaticArray>(&sAllocator);
-    auto imageParts = MakeUnique<image::ImageParts>(&sAllocator);
+    auto layers = MakeUnique<LayersStaticArray>(&sAllocator);
 
-    if (auto err = mServiceManager.GetImageParts(mService->Data(), *imageParts); !err.IsNone()) {
+    if (auto err = layers->PushBack(imageParts.mServiceFSPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = layers->PushBack(imageParts->mServiceFSPath); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    auto layerData = MakeUnique<layermanager::LayerData>(&sAllocator);
+
+    for (const auto& digest : imageParts.mLayerDigests) {
+        if (auto err = mLayerManager.GetLayer(digest, *layerData); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = layers->PushBack(layerData->mPath); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     if (auto err = layers->PushBack(mHostWhiteoutsDir); !err.IsNone()) {

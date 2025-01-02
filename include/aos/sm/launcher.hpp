@@ -21,7 +21,6 @@
 #include "aos/sm/config.hpp"
 #include "aos/sm/launcher/config.hpp"
 #include "aos/sm/launcher/instance.hpp"
-#include "aos/sm/launcher/service.hpp"
 #include "aos/sm/layermanager.hpp"
 #include "aos/sm/networkmanager.hpp"
 #include "aos/sm/resourcemanager.hpp"
@@ -326,10 +325,10 @@ private:
     void  UpdateInstanceServices();
     Error GetRunningInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& runningInstances);
 
-    RetWithError<Service*> GetService(const String& serviceID)
+    RetWithError<servicemanager::ServiceData*> GetService(const String& serviceID)
     {
         return mCurrentServices.FindIf(
-            [&serviceID](const Service& service) { return serviceID == service.Data().mServiceID; });
+            [&serviceID](const servicemanager::ServiceData& service) { return serviceID == service.mServiceID; });
     }
 
     RetWithError<Instance*> GetInstance(const String& instanceID)
@@ -356,7 +355,7 @@ private:
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-        + sizeof(InstanceStatusStaticArray) + sizeof(Service)>
+        + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData)>
         mAllocator;
 
     bool                                      mLaunchInProgress = false;
@@ -369,9 +368,9 @@ private:
     bool                mClose     = false;
     bool                mConnected = false;
 
-    StaticArray<Service, cMaxNumServices>   mCurrentServices;
-    StaticArray<Instance, cMaxNumInstances> mCurrentInstances;
-    StaticString<cFilePathLen>              mHostWhiteoutsDir;
+    StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
+    StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;
+    StaticString<cFilePathLen>                                mHostWhiteoutsDir;
 };
 
 /** @}*/

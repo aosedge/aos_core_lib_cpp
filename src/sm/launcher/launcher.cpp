@@ -467,13 +467,8 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
             continue;
         }
 
-        if (auto err = mCurrentServices.EmplaceBack(serviceData, *mServiceManager, *mOCIManager); !err.IsNone()) {
+        if (auto err = mCurrentServices.EmplaceBack(serviceData); !err.IsNone()) {
             LOG_ERR() << "Can't cache service: serviceID=" << serviceID << ", err=" << err;
-            continue;
-        }
-
-        if (auto err = mCurrentServices[mCurrentServices.Size() - 1].LoadSpecs(); !err.IsNone()) {
-            LOG_ERR() << "Can't load OCI spec for service: serviceID=" << serviceID << ", err=" << err;
             continue;
         }
     }
