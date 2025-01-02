@@ -44,7 +44,7 @@ public:
      *
      * @param subscriber subscriber reference.
      */
-    virtual aos::Error Subscribe(ConnectionSubscriberItf& subscriber) = 0;
+    virtual Error Subscribe(ConnectionSubscriberItf& subscriber) = 0;
 
     /**
      * Unsubscribes from cloud connection events.

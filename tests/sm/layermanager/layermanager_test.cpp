@@ -101,7 +101,7 @@ protected:
         ASSERT_TRUE(err.IsNone()) << err.Message();
     }
 
-    void StoreImageManifest(const aos::LayerInfo& layer)
+    void StoreImageManifest(const LayerInfo& layer)
     {
         oci::ImageManifest content = {};
 
@@ -117,9 +117,9 @@ protected:
         }
     }
 
-    aos::LayerInfo CreateAosLayer(const String& layerID, const std::string& uriPrefix)
+    LayerInfo CreateAosLayer(const String& layerID, const std::string& uriPrefix)
     {
-        aos::LayerInfo layer = {};
+        LayerInfo layer = {};
 
         layer.mLayerID = layerID;
         layer.mLayerDigest.Append("sha256:").Append(layerID);

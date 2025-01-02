@@ -182,15 +182,15 @@ public:
     RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
 
 private:
-    class MBedTLSHash : public aos::crypto::HashItf, private NonCopyable {
+    class MBedTLSHash : public crypto::HashItf, private NonCopyable {
     public:
         explicit MBedTLSHash(psa_algorithm_t algorithm);
 
         Error Init();
 
-        Error Update(const aos::Array<uint8_t>& data);
+        Error Update(const Array<uint8_t>& data);
 
-        Error Finalize(aos::Array<uint8_t>& hash) override;
+        Error Finalize(Array<uint8_t>& hash) override;
 
         ~MBedTLSHash();
 

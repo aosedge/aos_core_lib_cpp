@@ -78,7 +78,7 @@ Error NetworkManager::AddInstanceToNetwork(
         return err;
     }
 
-    auto cleanupInstanceCache = DeferRelease(&instanceID, [this, networkID, &err](const aos::String* instanceID) {
+    auto cleanupInstanceCache = DeferRelease(&instanceID, [this, networkID, &err](const String* instanceID) {
         if (!err.IsNone()) {
             if (auto errRemoveInstanceFromCache = RemoveInstanceFromCache(*instanceID, networkID);
                 !errRemoveInstanceFromCache.IsNone()) {
@@ -92,7 +92,7 @@ Error NetworkManager::AddInstanceToNetwork(
         return err;
     }
 
-    auto cleanupNetworkNamespace = DeferRelease(&instanceID, [this, &err](const aos::String* instanceID) {
+    auto cleanupNetworkNamespace = DeferRelease(&instanceID, [this, &err](const String* instanceID) {
         if (!err.IsNone()) {
             if (auto errDelNetNs = mNetns->DeleteNetworkNamespace(*instanceID); !errDelNetNs.IsNone()) {
                 LOG_ERR() << "Failed to delete network namespace: instanceID=" << *instanceID
@@ -116,7 +116,7 @@ Error NetworkManager::AddInstanceToNetwork(
         return AOS_ERROR_WRAP(err);
     }
 
-    auto cleanupCNI = DeferRelease(&instanceID, [this, &netConfigList, &rtConfig, &err](const aos::String* instanceID) {
+    auto cleanupCNI = DeferRelease(&instanceID, [this, &netConfigList, &rtConfig, &err](const String* instanceID) {
         if (!err.IsNone()) {
             if (auto errCleanCNI = mCNI->DeleteNetworkList(netConfigList, rtConfig); !errCleanCNI.IsNone()) {
                 LOG_ERR() << "Failed to delete network list: instanceID=" << *instanceID << ", err=" << errCleanCNI;

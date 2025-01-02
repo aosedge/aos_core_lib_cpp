@@ -541,13 +541,13 @@ using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
  */
 
 struct ServiceInfo {
-    StaticString<cServiceIDLen>            mServiceID;
-    StaticString<cProviderIDLen>           mProviderID;
-    StaticString<cVersionLen>              mVersion;
-    uint32_t                               mGID;
-    StaticString<cURLLen>                  mURL;
-    aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                                 mSize;
+    StaticString<cServiceIDLen>       mServiceID;
+    StaticString<cProviderIDLen>      mProviderID;
+    StaticString<cVersionLen>         mVersion;
+    uint32_t                          mGID;
+    StaticString<cURLLen>             mURL;
+    StaticArray<uint8_t, cSHA256Size> mSHA256;
+    size_t                            mSize;
 
     /**
      * Compares service info.
@@ -581,12 +581,12 @@ using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 // LayerInfo layer info.
 struct LayerInfo {
-    StaticString<cLayerIDLen>              mLayerID;
-    StaticString<cLayerDigestLen>          mLayerDigest;
-    StaticString<cVersionLen>              mVersion;
-    StaticString<cURLLen>                  mURL;
-    aos::StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                                 mSize;
+    StaticString<cLayerIDLen>         mLayerID;
+    StaticString<cLayerDigestLen>     mLayerDigest;
+    StaticString<cVersionLen>         mVersion;
+    StaticString<cURLLen>             mURL;
+    StaticArray<uint8_t, cSHA256Size> mSHA256;
+    size_t                            mSize;
 
     /**
      * Compares layer info.

@@ -362,7 +362,7 @@ Error ResourceManager::WriteConfig(const NodeConfig& config)
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::ValidateNodeConfig(const aos::sm::resourcemanager::NodeConfig& config) const
+Error ResourceManager::ValidateNodeConfig(const resourcemanager::NodeConfig& config) const
 {
     if (!config.mNodeConfig.mNodeType.IsEmpty() && config.mNodeConfig.mNodeType != mNodeType) {
         LOG_ERR() << "Invalid node type";

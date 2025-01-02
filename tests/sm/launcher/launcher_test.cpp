@@ -52,10 +52,10 @@ constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
  **********************************************************************************************************************/
 
 struct TestData {
-    std::vector<aos::InstanceInfo>   mInstances;
-    std::vector<aos::ServiceInfo>    mServices;
-    std::vector<aos::LayerInfo>      mLayers;
-    std::vector<aos::InstanceStatus> mStatus;
+    std::vector<InstanceInfo>   mInstances;
+    std::vector<ServiceInfo>    mServices;
+    std::vector<LayerInfo>      mLayers;
+    std::vector<InstanceStatus> mStatus;
 };
 
 /***********************************************************************************************************************
@@ -64,7 +64,7 @@ struct TestData {
 
 class LauncherTest : public Test {
 protected:
-    void SetUp() override { aos::test::InitLog(); }
+    void SetUp() override { test::InitLog(); }
 
     ConnectionPublisherMock mConnectionPublisher;
     LayerManagerStub        mLayerManager;
@@ -182,7 +182,9 @@ TEST_F(LauncherTest, RunInstances)
         imageSpec->mConfig.mEntryPoint.PushBack("unikernel");
 
         for (const auto& service : testItem.mServices) {
-            mOCIManager.SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
+            ASSERT_TRUE(
+                mOCIManager.SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec)
+                    .IsNone());
         }
 
         EXPECT_TRUE(launcher

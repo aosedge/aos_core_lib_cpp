@@ -153,7 +153,7 @@ public:
      * @param desiredLayers desired layers.
      * @return Error.
      */
-    virtual Error ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers) = 0;
+    virtual Error ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers) = 0;
 
     /**
      *  Destructor.
@@ -220,7 +220,7 @@ public:
      * @param desiredLayers desired layers.
      * @return Error.
      */
-    Error ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers) override;
+    Error ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers) override;
 
     /**
      * Removes item.

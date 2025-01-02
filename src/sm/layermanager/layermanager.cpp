@@ -16,7 +16,7 @@ namespace aos::sm::layermanager {
 
 namespace {
 
-LayerData CreateLayerData(const aos::LayerInfo& layer, const aos::oci::ImageManifest& manifest, const String& path)
+LayerData CreateLayerData(const LayerInfo& layer, const oci::ImageManifest& manifest, const String& path)
 {
     LayerData layerData = {};
 
@@ -148,7 +148,7 @@ Error LayerManager::GetLayer(const String& digest, LayerData& layer) const
     return mStorage->GetLayer(digest, layer);
 }
 
-Error LayerManager::ProcessDesiredLayers(const Array<aos::LayerInfo>& desiredLayers)
+Error LayerManager::ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers)
 {
     LockGuard lock {mMutex};
 
@@ -363,7 +363,7 @@ Error LayerManager::RemoveLayer(const LayerData& layer)
     return ErrorEnum::eNone;
 }
 
-Error LayerManager::UpdateCachedLayers(const Array<LayerData>& stored, Array<aos::LayerInfo>& result)
+Error LayerManager::UpdateCachedLayers(const Array<LayerData>& stored, Array<LayerInfo>& result)
 {
     LOG_DBG() << "Update cached layers";
 
@@ -394,7 +394,7 @@ Error LayerManager::UpdateCachedLayers(const Array<LayerData>& stored, Array<aos
     return ErrorEnum::eNone;
 }
 
-Error LayerManager::InstallLayer(const aos::LayerInfo& layer)
+Error LayerManager::InstallLayer(const LayerInfo& layer)
 {
     LOG_DBG() << "Install layer: id=" << layer.mLayerID << ", version=" << layer.mVersion
               << ", digest=" << layer.mLayerDigest;

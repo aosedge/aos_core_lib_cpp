@@ -45,7 +45,7 @@ public:
     template <typename F>
     Error Create(unsigned int intervalMs, F functor, bool oneShot = true, void* arg = nullptr)
     {
-        aos::LockGuard lock {mMutex};
+        LockGuard lock {mMutex};
 
         if (mTimerID != 0) {
             auto err = Stop();
@@ -99,7 +99,7 @@ public:
      */
     Error Stop()
     {
-        aos::LockGuard lock {mMutex};
+        LockGuard lock {mMutex};
 
         mStop = true;
 
@@ -146,7 +146,7 @@ private:
         auto timer = static_cast<Timer*>(arg.sival_ptr);
 
         {
-            aos::LockGuard lock(timer->mMutex);
+            LockGuard lock(timer->mMutex);
             if (timer->mStop) {
                 return;
             }
