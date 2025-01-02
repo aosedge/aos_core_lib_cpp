@@ -44,6 +44,13 @@
 #endif
 
 /**
+ * Enable cgroup v2.
+ */
+#ifndef AOS_CONFIG_LAUNCHER_CGROUP_V2
+#define AOS_CONFIG_LAUNCHER_CGROUP_V2 1
+#endif
+
+/**
  * Number of parallel service installs.
  */
 #ifndef AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS

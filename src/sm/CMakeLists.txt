@@ -15,6 +15,7 @@ set(SOURCES
     image/imageparts.cpp
     launcher/launcher.cpp
     launcher/instance.cpp
+    launcher/runtimespec.cpp
     layermanager/layermanager.cpp
     resourcemanager/resourcemanager.cpp
     servicemanager/servicemanager.cpp

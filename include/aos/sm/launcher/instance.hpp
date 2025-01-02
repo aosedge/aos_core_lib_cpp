@@ -21,6 +21,11 @@
 namespace aos::sm::launcher {
 
 /**
+ * Enable cgroup v2.
+ */
+constexpr auto cGroupV2 = AOS_CONFIG_LAUNCHER_CGROUP_V2;
+
+/**
  * Runtime interface.
  */
 class RuntimeItf {
@@ -238,17 +243,23 @@ private:
     static constexpr auto cAllocatorSize
         = (sizeof(oci::RuntimeSpec) + sizeof(image::ImageParts)
               + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
-                  sizeof(oci::ImageSpec) + sizeof(LayersStaticArray) + sizeof(layermanager::LayerData)))
+                  sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig),
+                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(oci::Mount)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cNumAllocations  = 4 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cRuntimeSpecFile = "config.json";
     static constexpr auto cMountPointsDir  = "mounts";
     static constexpr auto cRootFSDir       = "rootfs";
+    static constexpr auto cCgroupsPath     = "/system.slice/system-aos\\x2dservice.slice";
 
-    Error SetupNetwork();
+    Error BindHostDirs(oci::RuntimeSpec& runtimeSpec);
+    Error CreateLinuxSpec(
+        const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
+    Error CreateVMSpec(const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
     Error CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
     Error SetupMonitoring();
-    Error PrepareRootFS(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
+    Error SetupNetwork();
+    Error PrepareRootFS(const image::ImageParts& imageParts, const Array<oci::Mount>& mounts);
 
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
