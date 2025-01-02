@@ -39,6 +39,29 @@ struct ServiceQuotas {
     Optional<uint64_t> mDownloadSpeed;
     Optional<uint64_t> mUploadLimit;
     Optional<uint64_t> mDownloadLimit;
+
+    /**
+     * Compares service quotas.
+     *
+     * @param quotas service quotas to compare.
+     * @return bool.
+     */
+    bool operator==(const ServiceQuotas& quotas) const
+    {
+        return mCPUDMIPSLimit == quotas.mCPUDMIPSLimit && mRAMLimit == quotas.mRAMLimit
+            && mPIDsLimit == quotas.mPIDsLimit && mNoFileLimit == quotas.mNoFileLimit && mTmpLimit == quotas.mTmpLimit
+            && mStateLimit == quotas.mStateLimit && mStorageLimit == quotas.mStorageLimit
+            && mUploadSpeed == quotas.mUploadSpeed && mDownloadSpeed == quotas.mDownloadSpeed
+            && mUploadLimit == quotas.mUploadLimit && mDownloadLimit == quotas.mDownloadLimit;
+    }
+
+    /**
+     * Compares service quotas.
+     *
+     * @param quotas service quotas to compare.
+     * @return bool.
+     */
+    bool operator!=(const ServiceQuotas& quotas) const { return !operator==(quotas); }
 };
 
 /**
@@ -49,6 +72,26 @@ struct RequestedResources {
     Optional<uint64_t> mRAM;
     Optional<uint64_t> mStorage;
     Optional<uint64_t> mState;
+
+    /**
+     * Compares requested resources.
+     *
+     * @param resources requested resources to compare.
+     * @return bool.
+     */
+    bool operator==(const RequestedResources& resources) const
+    {
+        return mCPU == resources.mCPU && mRAM == resources.mRAM && mStorage == resources.mStorage
+            && mState == resources.mState;
+    }
+
+    /**
+     * Compares requested resources.
+     *
+     * @param resources requested resources to compare.
+     * @return bool.
+     */
+    bool operator!=(const RequestedResources& resources) const { return !operator==(resources); }
 };
 
 /**
@@ -67,6 +110,30 @@ struct ServiceConfig {
     ServiceQuotas                                                                     mQuotas;
     Optional<RequestedResources>                                                      mRequestedResources;
     Optional<AlertRules>                                                              mAlertRules;
+
+    /**
+     * Compares service config.
+     *
+     * @param config service config to compare.
+     * @return bool.
+     */
+    bool operator==(const ServiceConfig& config) const
+    {
+        return mCreated == config.mCreated && mAuthor == config.mAuthor
+            && mSkipResourceLimits == config.mSkipResourceLimits && mHostname == config.mHostname
+            && mBalancingPolicy == config.mBalancingPolicy && mRunners == config.mRunners
+            && mRunParameters == config.mRunParameters && mSysctl == config.mSysctl && mOfflineTTL == config.mOfflineTTL
+            && mQuotas == config.mQuotas && mRequestedResources == config.mRequestedResources
+            && mAlertRules == config.mAlertRules;
+    }
+
+    /**
+     * Compares service config.
+     *
+     * @param config service config to compare.
+     * @return bool.
+     */
+    bool operator!=(const ServiceConfig& config) const { return !operator==(config); }
 };
 
 } // namespace aos::oci
