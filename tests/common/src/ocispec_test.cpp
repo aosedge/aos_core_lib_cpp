@@ -52,7 +52,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
 
     EXPECT_EQ(spec->mProcess->mArgs, args);
 
-    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> env;
+    StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables> env;
 
     env.PushBack("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
     env.PushBack("TERM=xterm");

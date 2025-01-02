@@ -271,14 +271,14 @@
  * Environment variable name len.
  */
 #ifndef AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN
-#define AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN 32
+#define AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN 256
 #endif
 
 /**
  * Max number of environment variables.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES
-#define AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES 4
+#define AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES 16
 #endif
 
 /**
