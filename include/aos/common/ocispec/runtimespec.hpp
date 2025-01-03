@@ -388,12 +388,12 @@ struct LinuxNamespace {
  * Linux contains platform-specific configuration for Linux based containers.
  */
 struct Linux {
-    StaticMap<StaticString<cMaxParamLen>, StaticString<cMaxParamLen>, cMaxParamCount> mSysctl;
-    Optional<LinuxResources>                                                          mResources;
-    StaticString<cFilePathLen>                                                        mCgroupsPath;
-    StaticArray<LinuxNamespace, cMaxNumNamespaces>                                    mNamespaces;
-    StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                           mMaskedPaths;
-    StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                           mReadonlyPaths;
+    StaticMap<StaticString<cSysctlLen>, StaticString<cSysctlLen>, cSysctlMaxCount> mSysctl;
+    Optional<LinuxResources>                                                       mResources;
+    StaticString<cFilePathLen>                                                     mCgroupsPath;
+    StaticArray<LinuxNamespace, cMaxNumNamespaces>                                 mNamespaces;
+    StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                        mMaskedPaths;
+    StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                        mReadonlyPaths;
 
     /**
      * Compares Linux spec.

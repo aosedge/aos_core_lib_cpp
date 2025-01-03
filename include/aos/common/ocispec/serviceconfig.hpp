@@ -93,18 +93,18 @@ struct RequestedResources {
  * Service configuration.
  */
 struct ServiceConfig {
-    Time                                                                              mCreated;
-    StaticString<cAuthorLen>                                                          mAuthor;
-    bool                                                                              mSkipResourceLimits;
-    Optional<StaticString<cHostNameLen>>                                              mHostname;
-    StaticString<cBalancingPolicyLen>                                                 mBalancingPolicy;
-    StaticArray<StaticString<cRunnerNameLen>, cMaxNumRunners>                         mRunners;
-    RunParameters                                                                     mRunParameters;
-    StaticMap<StaticString<cMaxParamLen>, StaticString<cMaxParamLen>, cMaxParamCount> mSysctl;
-    Duration                                                                          mOfflineTTL;
-    ServiceQuotas                                                                     mQuotas;
-    Optional<RequestedResources>                                                      mRequestedResources;
-    Optional<AlertRules>                                                              mAlertRules;
+    Time                                                                           mCreated;
+    StaticString<cAuthorLen>                                                       mAuthor;
+    bool                                                                           mSkipResourceLimits;
+    Optional<StaticString<cHostNameLen>>                                           mHostname;
+    StaticString<cBalancingPolicyLen>                                              mBalancingPolicy;
+    StaticArray<StaticString<cRunnerNameLen>, cMaxNumRunners>                      mRunners;
+    RunParameters                                                                  mRunParameters;
+    StaticMap<StaticString<cSysctlLen>, StaticString<cSysctlLen>, cSysctlMaxCount> mSysctl;
+    Duration                                                                       mOfflineTTL;
+    ServiceQuotas                                                                  mQuotas;
+    Optional<RequestedResources>                                                   mRequestedResources;
+    Optional<AlertRules>                                                           mAlertRules;
 
     /**
      * Compares service config.

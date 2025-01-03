@@ -901,6 +901,20 @@
 #endif
 
 /**
+ * Max sysctl name len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_SYSCTL_LEN
+#define AOS_CONFIG_OCISPEC_SYSCTL_LEN 32
+#endif
+
+/**
+ * Max sysctl count.
+ */
+#ifndef AOS_CONFIG_OCISPEC_SYSCTL_MAX_COUNT
+#define AOS_CONFIG_OCISPEC_SYSCTL_MAX_COUNT 32
+#endif
+
+/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN
