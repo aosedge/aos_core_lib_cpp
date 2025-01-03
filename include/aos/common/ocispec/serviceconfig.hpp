@@ -15,11 +15,6 @@
 namespace aos::oci {
 
 /**
- * Author len.
- */
-constexpr auto cAuthorLen = AOS_CONFIG_OCISPEC_AUTHOR_LEN;
-
-/**
  * Balancing policy len.
  */
 constexpr auto cBalancingPolicyLen = AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN;

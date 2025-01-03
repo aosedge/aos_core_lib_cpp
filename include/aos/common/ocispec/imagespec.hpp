@@ -132,10 +132,42 @@ struct ImageConfig {
 };
 
 /**
+ * Describes the platform which the image in the manifest runs on.
+ */
+struct Platform {
+    StaticString<cCPUArchFamilyLen> mArchitecture;
+    StaticString<cOSTypeLen>        mOS;
+    StaticString<cVersionLen>       mOSVersion;
+    StaticString<cCPUArchLen>       mVariant;
+
+    /**
+     * Compares platform.
+     *
+     * @param platform platform to compare.
+     * @return bool.
+     */
+    bool operator==(const Platform& platform) const
+    {
+        return mArchitecture == platform.mArchitecture && mOS == platform.mOS && mOSVersion == platform.mOSVersion
+            && mVariant == platform.mVariant;
+    }
+
+    /**
+     * Compares platform.
+     *
+     * @param platform platform to compare.
+     * @return bool.
+     */
+    bool operator!=(const Platform& platform) const { return !operator==(platform); }
+};
+
+/**
  * OCI image specification.
  */
-struct ImageSpec {
-    ImageConfig mConfig;
+struct ImageSpec : public Platform {
+    Time                     mCreated;
+    StaticString<cAuthorLen> mAuthor;
+    ImageConfig              mConfig;
 
     /**
      * Compares image spec.

@@ -23,6 +23,11 @@ constexpr auto cMaxParamLen = AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_LEN;
  */
 constexpr auto cMaxParamCount = AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_COUNT;
 
+/**
+ * Author len.
+ */
+constexpr auto cAuthorLen = AOS_CONFIG_OCISPEC_AUTHOR_LEN;
+
 } // namespace aos::oci
 
 #endif
