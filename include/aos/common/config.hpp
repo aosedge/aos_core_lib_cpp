@@ -271,7 +271,7 @@
  * Max number of file system mounts.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS
-#define AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS 4
+#define AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS 16
 #endif
 
 /**

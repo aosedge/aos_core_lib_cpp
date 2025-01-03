@@ -30,7 +30,8 @@ StaticAllocator<Instance::cAllocatorSize, Instance::cNumAllocations> Instance::s
 Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
     networkmanager::NetworkManagerItf& networkmanager, runner::RunnerItf& runner, RuntimeItf& runtime,
-    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir)
+    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
+    const NodeInfo& nodeInfo)
     : mConfig(config)
     , mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
@@ -42,6 +43,7 @@ Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const
     , mResourceMonitor(resourceMonitor)
     , mOCIManager(ociManager)
     , mHostWhiteoutsDir(hostWhiteoutsDir)
+    , mNodeInfo(nodeInfo)
     , mRuntimeDir(FS::JoinPath(cRuntimeDir, mInstanceID))
 {
     LOG_INF() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
@@ -245,6 +247,88 @@ Error Instance::ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSp
     return ErrorEnum::eNone;
 }
 
+size_t Instance::GetNumCPUCores() const
+{
+    int numCores = 0;
+
+    for (const auto& cpu : mNodeInfo.mCPUs) {
+        numCores += cpu.mNumCores;
+    }
+
+    if (numCores == 0) {
+        LOG_WRN() << "Can't identify number of CPU cores, default value (1) will be taken: instanceID=" << *this;
+
+        numCores = 1;
+    }
+
+    return numCores;
+}
+
+Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec)
+{
+    if (serviceConfig.mHostname.HasValue()) {
+        runtimeSpec.mHostname = *serviceConfig.mHostname;
+    }
+
+    runtimeSpec.mLinux->mSysctl = serviceConfig.mSysctl;
+
+    if (serviceConfig.mQuotas.mCPUDMIPSLimit.HasValue()) {
+        int64_t quota
+            = *serviceConfig.mQuotas.mCPUDMIPSLimit * cDefaultCPUPeriod * GetNumCPUCores() / mNodeInfo.mMaxDMIPS;
+        if (quota < cMinCPUQuota) {
+            quota = cMinCPUQuota;
+        }
+
+        if (auto err = SetCPULimit(quota, cDefaultCPUPeriod, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (serviceConfig.mQuotas.mRAMLimit.HasValue()) {
+        if (auto err = SetRAMLimit(*serviceConfig.mQuotas.mRAMLimit, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (serviceConfig.mQuotas.mPIDsLimit.HasValue()) {
+        auto pidLimit = *serviceConfig.mQuotas.mPIDsLimit;
+
+        if (auto err = SetPIDLimit(pidLimit, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = AddRLimit(oci::POSIXRlimit {"RLIMIT_NPROC", pidLimit, pidLimit}, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (serviceConfig.mQuotas.mNoFileLimit.HasValue()) {
+        auto noFileLimit = *serviceConfig.mQuotas.mNoFileLimit;
+
+        if (auto err = AddRLimit(oci::POSIXRlimit {"RLIMIT_NOFILE", noFileLimit, noFileLimit}, runtimeSpec);
+            !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (serviceConfig.mQuotas.mTmpLimit.HasValue()) {
+        StaticString<cFSMountOptionLen> tmpFSOpts;
+
+        if (auto err = tmpFSOpts.Format("nosuid,strictatime,mode=1777,size=%lu", *serviceConfig.mQuotas.mTmpLimit);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto mount = MakeShared<oci::Mount>(&sAllocator, "tmpfs", "/tmp", "tmpfs", tmpFSOpts);
+
+        if (auto err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Instance::CreateVMSpec(
     const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec)
 {
@@ -310,6 +394,10 @@ Error Instance::CreateLinuxSpec(
     }
 
     if (auto err = ApplyImageConfig(imageSpec, runtimeSpec); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = ApplyServiceConfig(serviceConfig, runtimeSpec); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

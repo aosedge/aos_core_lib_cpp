@@ -111,4 +111,53 @@ Error AddEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars, oci::Runtim
     return ErrorEnum::eNone;
 }
 
+Error SetCPULimit(int64_t quota, uint64_t period, oci::RuntimeSpec& runtimeSpec)
+{
+    if (!runtimeSpec.mLinux->mResources->mCPU.HasValue()) {
+        runtimeSpec.mLinux->mResources->mCPU.EmplaceValue();
+    }
+
+    runtimeSpec.mLinux->mResources->mCPU->mPeriod = period;
+    runtimeSpec.mLinux->mResources->mCPU->mQuota  = quota;
+
+    return ErrorEnum::eNone;
+}
+
+Error SetRAMLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
+{
+    if (!runtimeSpec.mLinux->mResources->mMemory.HasValue()) {
+        runtimeSpec.mLinux->mResources->mMemory.EmplaceValue();
+    }
+
+    runtimeSpec.mLinux->mResources->mMemory->mLimit = limit;
+
+    return ErrorEnum::eNone;
+}
+
+Error SetPIDLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
+{
+    if (!runtimeSpec.mLinux->mResources->mPids.HasValue()) {
+        runtimeSpec.mLinux->mResources->mPids.EmplaceValue();
+    }
+
+    runtimeSpec.mLinux->mResources->mPids->mLimit = limit;
+
+    return ErrorEnum::eNone;
+}
+
+Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec)
+{
+    auto [existRlimit, err] = runtimeSpec.mProcess->mRlimits.FindIf(
+        [&type = rlimit.mType](const oci::POSIXRlimit& rlimit) { return rlimit.mType == type; });
+    if (!err.IsNone()) {
+        if (err = runtimeSpec.mProcess->mRlimits.PushBack(rlimit); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    } else {
+        *existRlimit = rlimit;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::sm::launcher

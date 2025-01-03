@@ -38,6 +38,43 @@ Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
  */
 Error AddEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars, oci::RuntimeSpec& runtimeSpec);
 
+/**
+ * Sets CPU limit.
+ *
+ * @param quota quota.
+ * @param period period.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error SetCPULimit(int64_t quota, uint64_t period, oci::RuntimeSpec& runtimeSpec);
+
+/**
+ * Sets RAM limit.
+ *
+ * @param limit RAM limit.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error SetRAMLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec);
+
+/**
+ * Sets PID limit.
+ *
+ * @param limit PID limit.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error SetPIDLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec);
+
+/**
+ * Adds rlimit.
+ *
+ * @param rlimit rlimit to add.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec);
+
 } // namespace aos::sm::launcher
 
 #endif

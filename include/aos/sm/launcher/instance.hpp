@@ -109,11 +109,13 @@ public:
      * @param resourceMonitor resource monitor.
      * @param ociManager OCI manager.
      * @param hostWhiteoutsDir host whiteouts directory.
+     * @param nodeInfo node info.
      */
     Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
         networkmanager::NetworkManagerItf& networkManager, runner::RunnerItf& runner, RuntimeItf& runtime,
-        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir);
+        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
+        const NodeInfo& nodeInfo);
 
     /**
      * Starts instance.
@@ -247,7 +249,7 @@ private:
                       + sizeof(StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>),
                   sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(oci::Mount)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
-    static constexpr auto cNumAllocations  = 4 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
+    static constexpr auto cNumAllocations  = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cRuntimeSpecFile = "config.json";
     static constexpr auto cMountPointsDir  = "mounts";
     static constexpr auto cRootFSDir       = "rootfs";
@@ -259,11 +261,16 @@ private:
     static constexpr auto cEnvAosInstanceIndex = "AOS_INSTANCE_INDEX";
     static constexpr auto cEnvAosInstanceID    = "AOS_INSTANCE_ID";
 
-    Error BindHostDirs(oci::RuntimeSpec& runtimeSpec);
-    Error CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec);
-    Error ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
-    Error CreateLinuxSpec(
-        const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
+    static constexpr auto cDefaultCPUPeriod = 100000;
+    static constexpr auto cMinCPUQuota      = 1000;
+
+    Error  BindHostDirs(oci::RuntimeSpec& runtimeSpec);
+    Error  CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec);
+    Error  ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
+    size_t GetNumCPUCores() const;
+    Error  ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
+    Error  CreateLinuxSpec(
+         const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error CreateVMSpec(const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
     Error CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
     Error SetupMonitoring();
@@ -283,6 +290,7 @@ private:
     monitoring::ResourceMonitorItf&    mResourceMonitor;
     oci::OCISpecItf&                   mOCIManager;
     const String&                      mHostWhiteoutsDir;
+    const NodeInfo&                    mNodeInfo;
 
     StaticString<cFilePathLen>         mRuntimeDir;
     const servicemanager::ServiceData* mService = nullptr;

@@ -64,7 +64,16 @@ struct TestData {
 
 class LauncherTest : public Test {
 protected:
-    void SetUp() override { test::InitLog(); }
+    void SetUp() override
+    {
+        test::InitLog();
+
+        EXPECT_CALL(mRunner, StartInstance)
+            .WillRepeatedly(Return(RunStatus {"", InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
+
+        EXPECT_CALL(mNetworkManager, GetNetnsPath)
+            .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>("/var/run/netns")));
+    }
 
     ConnectionPublisherMock mConnectionPublisher;
     LayerManagerStub        mLayerManager;
@@ -167,9 +176,6 @@ TEST_F(LauncherTest, RunInstances)
 
     // Run instances
 
-    EXPECT_CALL(mRunner, StartInstance)
-        .WillRepeatedly(Return(RunStatus {"", InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
-
     auto i = 0;
 
     for (auto& testItem : testData) {
@@ -179,12 +185,20 @@ TEST_F(LauncherTest, RunInstances)
 
         auto imageSpec = std::make_unique<oci::ImageSpec>();
 
-        imageSpec->mConfig.mEntryPoint.PushBack("unikernel");
+        imageSpec->mOS = "linux";
+
+        auto serviceConfig = std::make_unique<ServiceConfig>();
+
+        serviceConfig->mRunners.PushBack("runc");
 
         for (const auto& service : testItem.mServices) {
             ASSERT_TRUE(
                 mOCIManager.SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec)
                     .IsNone());
+            ASSERT_TRUE(mOCIManager
+                            .SaveServiceConfig(
+                                FS::JoinPath("/aos/services", service.mServiceID, "service.json"), *serviceConfig)
+                            .IsNone());
         }
 
         EXPECT_TRUE(launcher

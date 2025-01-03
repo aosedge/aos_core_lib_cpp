@@ -371,6 +371,7 @@ private:
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
     StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;
     StaticString<cFilePathLen>                                mHostWhiteoutsDir;
+    NodeInfo                                                  mNodeInfo;
 };
 
 /** @}*/
