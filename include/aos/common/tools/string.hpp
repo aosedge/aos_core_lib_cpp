@@ -200,8 +200,9 @@ public:
      * Removes leading characters.
      *
      * @param chars characters to be removed.
+     * @return String&.
      */
-    void LeftTrim(const String& chars)
+    String& LeftTrim(const String& chars)
     {
         auto newStart = 0U;
 
@@ -213,23 +214,30 @@ public:
             }
         }
 
-        Remove(begin(), begin() + newStart);
+        [[maybe_unused]] auto err = Remove(begin(), begin() + newStart);
+        assert(err.IsNone());
+
+        return *this;
     }
 
     /**
      * Removes trailing characters.
      *
      * @param chars characters to be removed.
+     * @return String&.s
      */
-    void RightTrim(const String& chars)
+    String& RightTrim(const String& chars)
     {
         while (Size() > 0) {
             if (chars.Find(Back().mValue).mError.IsNone()) {
-                PopBack();
+                [[maybe_unused]] auto err = PopBack();
+                assert(err.IsNone());
             } else {
                 break;
             }
         }
+
+        return *this;
     }
 
     /**
@@ -237,10 +245,12 @@ public:
      *
      * @param chars characters to be removed.
      */
-    void Trim(const String& chars)
+    String& Trim(const String& chars)
     {
         LeftTrim(chars);
         RightTrim(chars);
+
+        return *this;
     }
 
     /**
