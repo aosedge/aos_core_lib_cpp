@@ -110,6 +110,7 @@ struct ImageConfig {
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEnv;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEntryPoint;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mCmd;
+    StaticString<cFilePathLen>                              mWorkingDir;
 
     /**
      * Compares image config.
@@ -119,7 +120,8 @@ struct ImageConfig {
      */
     bool operator==(const ImageConfig& config) const
     {
-        return mEnv == config.mEnv && mEntryPoint == config.mEntryPoint && mCmd == config.mCmd;
+        return mEnv == config.mEnv && mEntryPoint == config.mEntryPoint && mCmd == config.mCmd
+            && mWorkingDir == config.mWorkingDir;
     }
 
     /**
