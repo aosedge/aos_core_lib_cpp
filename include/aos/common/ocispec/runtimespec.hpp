@@ -284,10 +284,93 @@ struct LinuxDeviceCgroup {
 };
 
 /**
+ * Linux cgroup 'memory' resource management.
+ */
+struct LinuxMemory {
+    Optional<int64_t>  mLimit;
+    Optional<int64_t>  mReservation;
+    Optional<int64_t>  mSwap;
+    Optional<int64_t>  mKernel;
+    Optional<int64_t>  mKernelTCP;
+    Optional<uint64_t> mSwappiness;
+    Optional<bool>     mDisableOOMKiller;
+    Optional<bool>     mUseHierarchy;
+    Optional<bool>     mCheckBeforeUpdate;
+
+    /**
+     * Compares LinuxMemory spec.
+     *
+     * @param memory LinuxMemory spec to compare.
+     * @return bool.
+     */
+    bool operator==(const LinuxMemory& memory) const
+    {
+        return mLimit == memory.mLimit && mReservation == memory.mReservation && mSwap == memory.mSwap
+            && mKernel == memory.mKernel && mKernelTCP == memory.mKernelTCP && mSwappiness == memory.mSwappiness
+            && mDisableOOMKiller == memory.mDisableOOMKiller && mUseHierarchy == memory.mUseHierarchy
+            && mCheckBeforeUpdate == memory.mCheckBeforeUpdate;
+    }
+
+    /**
+     * Compares LinuxMemory spec.
+     *
+     * @param memory LinuxMemory spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const LinuxMemory& memory) const { return !operator==(memory); }
+};
+
+/**
+ * Linux cgroup 'cpu' resource management.
+ */
+struct LinuxCPU {
+    Optional<uint64_t>                   mShares;
+    Optional<int64_t>                    mQuota;
+    Optional<uint64_t>                   mBurst;
+    Optional<uint64_t>                   mPeriod;
+    Optional<int64_t>                    mRealtimeRuntime;
+    Optional<uint64_t>                   mRealtimePeriod;
+    Optional<StaticString<cMaxParamLen>> mCpus;
+    Optional<StaticString<cMaxParamLen>> mMems;
+    Optional<int64_t>                    mIdle;
+
+    /**
+     * Compares LinuxCPU spec.
+     *
+     * @param cpu LinuxCPU spec to compare.
+     * @return bool.
+     */
+    bool operator==(const LinuxCPU& cpu) const
+    {
+        return mShares == cpu.mShares && mQuota == cpu.mQuota && mBurst == cpu.mBurst && mPeriod == cpu.mPeriod
+            && mRealtimeRuntime == cpu.mRealtimeRuntime && mRealtimePeriod == cpu.mRealtimePeriod && mCpus == cpu.mCpus
+            && mMems == cpu.mMems && mIdle == cpu.mIdle;
+    }
+
+    /**
+     * Compares LinuxCPU spec.
+     *
+     * @param cpu LinuxCPU spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const LinuxCPU& cpu) const { return !operator==(cpu); }
+};
+
+/**
+ * Linux cgroup 'pids' resource management (Linux 4.3).
+ */
+struct LinuxPids {
+    int64_t mLimit;
+};
+
+/**
  * LinuxResources has container runtime resource constraints.
  */
 struct LinuxResources {
     StaticArray<LinuxDeviceCgroup, cMaxNumHostDevices> mDevices;
+    Optional<LinuxMemory>                              mMemory;
+    Optional<LinuxCPU>                                 mCPU;
+    Optional<LinuxPids>                                mPids;
 
     /**
      * Compares LinuxResources spec.
