@@ -185,13 +185,9 @@ private:
     class MBedTLSHash : public crypto::HashItf, private NonCopyable {
     public:
         explicit MBedTLSHash(psa_algorithm_t algorithm);
-
         Error Init();
-
-        Error Update(const Array<uint8_t>& data);
-
+        Error Update(const Array<uint8_t>& data) override;
         Error Finalize(Array<uint8_t>& hash) override;
-
         ~MBedTLSHash();
 
     private:
