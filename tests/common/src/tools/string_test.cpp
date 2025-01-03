@@ -352,7 +352,7 @@ TEST(StringTest, FindAny)
     EXPECT_EQ(pos, str.Size());
 }
 
-TEST(StringTest, Assign)
+TEST(StringTest, Rebind)
 {
     String str1;
     String str2("Hello World!");
@@ -360,4 +360,22 @@ TEST(StringTest, Assign)
     str1.Rebind(str2);
 
     EXPECT_EQ(str1, str2);
+}
+
+TEST(StringTest, ToLower)
+{
+    StaticString<100> str = "Hello World!";
+
+    str.ToLower();
+
+    EXPECT_EQ(str, "hello world!");
+}
+
+TEST(StringTest, ToUpper)
+{
+    StaticString<100> str = "Hello World!";
+
+    str.ToUpper();
+
+    EXPECT_EQ(str, "HELLO WORLD!");
 }

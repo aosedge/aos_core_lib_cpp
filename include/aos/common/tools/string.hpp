@@ -254,6 +254,34 @@ public:
     }
 
     /**
+     * Converts string to lower case.
+     *
+     * @return String&.
+     */
+    String& ToLower()
+    {
+        for (auto& ch : *this) {
+            ch = static_cast<char>(tolower(ch));
+        }
+
+        return *this;
+    }
+
+    /**
+     * Converts string to upper case.
+     *
+     * @return String&
+     */
+    String& ToUpper()
+    {
+        for (auto& ch : *this) {
+            ch = static_cast<char>(toupper(ch));
+        }
+
+        return *this;
+    }
+
+    /**
      * Appends string operator.
      *
      * @param str string to append with.
