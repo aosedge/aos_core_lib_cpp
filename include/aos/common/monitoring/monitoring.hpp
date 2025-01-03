@@ -47,14 +47,20 @@ struct MonitoringData {
     bool operator!=(const MonitoringData& data) const { return !operator==(data); }
 };
 
+// Partition monitoring param.
+struct PartitionParam {
+    StaticString<cPartitionNameLen> mName;
+    StaticString<cFilePathLen>      mPath;
+};
+
 /**
  * Instance resource monitor parameters.
  */
 struct InstanceMonitorParams {
-    InstanceIdent            mInstanceIdent;
-    PartitionInfoStaticArray mPartitions;
-    uint32_t                 mUID;
-    uint32_t                 mGID;
+    InstanceIdent                                  mInstanceIdent;
+    StaticArray<PartitionParam, cMaxNumPartitions> mPartitions;
+    uint32_t                                       mUID;
+    uint32_t                                       mGID;
 };
 
 /**
@@ -84,10 +90,16 @@ struct InstanceMonitoringData {
      */
     InstanceMonitoringData(const InstanceIdent& instanceIdent, const InstanceMonitorParams& monitoringParams)
         : mInstanceIdent(instanceIdent)
-        , mMonitoringData({0, 0, monitoringParams.mPartitions, 0, 0})
+        , mMonitoringData({0, 0, {}, 0, 0})
         , mUID(monitoringParams.mUID)
         , mGID(monitoringParams.mGID)
     {
+        for (const auto& partition : monitoringParams.mPartitions) {
+            PartitionInfo partitionInfo = {partition.mName, {}, partition.mPath, 0, 0};
+
+            [[maybe_unused]] auto err = mMonitoringData.mPartitions.PushBack(partitionInfo);
+            assert(err.IsNone());
+        }
     }
 
     /**

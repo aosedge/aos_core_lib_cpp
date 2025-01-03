@@ -119,9 +119,17 @@ Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringCo
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    auto err = mAverageInstancesData.Emplace(monitoringConfig.mInstanceIdent,
-        AverageData {false, MonitoringData {0, 0, monitoringConfig.mPartitions, 0, 0}});
-    if (!err.IsNone()) {
+    AverageData averageData {};
+
+    for (const auto& partition : monitoringConfig.mPartitions) {
+        if (auto err = averageData.mMonitoringData.mPartitions.PushBack(
+                PartitionInfo {partition.mName, {}, partition.mPath, 0, 0});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (auto err = mAverageInstancesData.Set(monitoringConfig.mInstanceIdent, averageData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

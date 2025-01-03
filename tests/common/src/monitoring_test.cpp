@@ -253,8 +253,11 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
 
     connectionPublisher->NotifyConnect();
 
-    PartitionInfo instancePartitionsInfo[] = {{"state", {}, "", 512, 256}, {"storage", {}, "", 1024, 512}};
-    auto          instancePartitions = Array<PartitionInfo>(instancePartitionsInfo, ArraySize(instancePartitionsInfo));
+    PartitionParam partitionParamsData[] = {{"state", ""}, {"storage", ""}};
+    auto           partitionParams       = Array<PartitionParam>(partitionParamsData, ArraySize(partitionParamsData));
+
+    PartitionInfo instancePartitionsData[] = {{"state", {}, "", 0, 256}, {"storage", {}, "", 0, 512}};
+    auto          instancePartitions = Array<PartitionInfo>(instancePartitionsData, ArraySize(instancePartitionsData));
 
     InstanceIdent instance0Ident {"service0", "subject0", 0};
     InstanceIdent instance1Ident {"service1", "subject1", 1};
@@ -274,8 +277,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     SetInstancesMonitoringData(*providedNodeMonitoringData,
         Array<Pair<String, InstanceMonitoringData>>(instancesMonitoringData, ArraySize(instancesMonitoringData)));
 
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions, 0, 0}).IsNone());
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, instancePartitions, 0, 0}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, partitionParams, 0, 0}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance1", {instance1Ident, partitionParams, 0, 0}).IsNone());
 
     auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
 
@@ -315,11 +318,11 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
 
     connectionPublisher->NotifyConnect();
 
-    InstanceIdent instance0Ident {"service0", "subject0", 0};
-    PartitionInfo instancePartitionsInfo[] = {{"disk", {}, "", 512, 256}};
-    auto          instancePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
+    InstanceIdent  instance0Ident {"service0", "subject0", 0};
+    PartitionParam partitionParmsData[] = {{"disk", ""}};
+    auto           partitionParams      = Array<PartitionParam>(partitionParmsData, ArraySize(partitionParmsData));
 
-    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, instancePartitions, 0, 0}).IsNone());
+    EXPECT_TRUE(monitor->StartInstanceMonitoring("instance0", {instance0Ident, partitionParams, 0, 0}).IsNone());
 
     PartitionInfo providedNodeDiskData[][1] = {
         {{"disk", {}, "", 512, 100}},
@@ -334,15 +337,15 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     };
 
     PartitionInfo providedInstanceDiskData[][1] = {
-        {{"disk", {}, "", 512, 300}},
-        {{"disk", {}, "", 512, 0}},
-        {{"disk", {}, "", 512, 800}},
+        {{"disk", {}, "", 0, 300}},
+        {{"disk", {}, "", 0, 0}},
+        {{"disk", {}, "", 0, 800}},
     };
 
     PartitionInfo averageInstanceDiskData[][1] = {
-        {{"disk", {}, "", 512, 300}},
-        {{"disk", {}, "", 512, 200}},
-        {{"disk", {}, "", 512, 400}},
+        {{"disk", {}, "", 0, 300}},
+        {{"disk", {}, "", 0, 200}},
+        {{"disk", {}, "", 0, 400}},
     };
 
     std::vector<NodeMonitoringData> providedNodeMonitoringData {
