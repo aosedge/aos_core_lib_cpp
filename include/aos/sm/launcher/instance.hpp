@@ -252,6 +252,7 @@ private:
     static constexpr auto cMountPointsDir  = "mounts";
     static constexpr auto cRootFSDir       = "rootfs";
     static constexpr auto cCgroupsPath     = "/system.slice/system-aos\\x2dservice.slice";
+    static constexpr auto cLinuxOS         = "linux";
 
     static constexpr auto cEnvAosServiceID     = "AOS_SERVICE_ID";
     static constexpr auto cEnvAosSubjectID     = "AOS_SUBJECT_ID";
@@ -260,6 +261,7 @@ private:
 
     Error BindHostDirs(oci::RuntimeSpec& runtimeSpec);
     Error CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec);
+    Error ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
     Error CreateLinuxSpec(
         const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error CreateVMSpec(const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);

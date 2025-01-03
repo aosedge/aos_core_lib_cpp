@@ -210,6 +210,41 @@ Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
+Error Instance::ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec)
+{
+    StaticString<cOSTypeLen> os = imageSpec.mOS;
+
+    if (os.ToLower() != cLinuxOS) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "unsupported OS in image config"));
+    }
+
+    runtimeSpec.mProcess->mArgs.Clear();
+
+    for (const auto& arg : imageSpec.mConfig.mEntryPoint) {
+        if (auto err = runtimeSpec.mProcess->mArgs.PushBack(arg); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& arg : imageSpec.mConfig.mCmd) {
+        if (auto err = runtimeSpec.mProcess->mArgs.PushBack(arg); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    runtimeSpec.mProcess->mCwd = imageSpec.mConfig.mWorkingDir;
+
+    if (runtimeSpec.mProcess->mCwd.IsEmpty()) {
+        runtimeSpec.mProcess->mCwd = "/";
+    }
+
+    if (auto err = AddEnvVars(imageSpec.mConfig.mEnv, runtimeSpec); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Instance::CreateVMSpec(
     const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec)
 {
@@ -246,7 +281,6 @@ Error Instance::CreateLinuxSpec(
         return AOS_ERROR_WRAP(err);
     }
 
-    runtimeSpec.mProcess->mArgs.Clear();
     runtimeSpec.mProcess->mTerminal  = false;
     runtimeSpec.mProcess->mUser.mUID = mInstanceInfo.mUID;
     runtimeSpec.mProcess->mUser.mGID = mService->mGID;
@@ -273,6 +307,10 @@ Error Instance::CreateLinuxSpec(
 
     if (auto err = CreateAosEnvVars(runtimeSpec); !err.IsNone()) {
         return err;
+    }
+
+    if (auto err = ApplyImageConfig(imageSpec, runtimeSpec); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
