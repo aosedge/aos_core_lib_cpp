@@ -81,6 +81,14 @@ public:
     virtual Error PrepareServiceState(const String& path, uint32_t uid, uint32_t gid) = 0;
 
     /**
+     * Returns absolute path of FS item.
+     *
+     * @param path path to convert.
+     * @return RetWithError<StaticString<cFilePathLen>>.
+     */
+    virtual RetWithError<StaticString<cFilePathLen>> GetAbsPath(const String& path) = 0;
+
+    /**
      * Destroys runtime interface.
      */
     virtual ~RuntimeItf() = default;
@@ -264,11 +272,18 @@ private:
     static constexpr auto cDefaultCPUPeriod = 100000;
     static constexpr auto cMinCPUQuota      = 1000;
 
+    static constexpr auto cStatePartitionName   = "state";
+    static constexpr auto cStoragePartitionName = "storage";
+
+    static constexpr auto cInstanceStateFile  = "/state.dat";
+    static constexpr auto cInstanceStorageDir = "/storage";
+
     Error  BindHostDirs(oci::RuntimeSpec& runtimeSpec);
     Error  CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec);
     Error  ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
     size_t GetNumCPUCores() const;
     Error  ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
+    Error  ApplyStateStorage(oci::RuntimeSpec& runtimeSpec);
     Error  CreateLinuxSpec(
          const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error CreateVMSpec(const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
@@ -276,6 +291,16 @@ private:
     Error SetupMonitoring();
     Error SetupNetwork();
     Error PrepareRootFS(const image::ImageParts& imageParts, const Array<oci::Mount>& mounts);
+
+    StaticString<cFilePathLen> GetFullStatePath(const String& path) const
+    {
+        return FS::JoinPath(mConfig.mStateDir, path);
+    }
+
+    StaticString<cFilePathLen> GetFullStoragePath(const String& path) const
+    {
+        return FS::JoinPath(mConfig.mStorageDir, path);
+    }
 
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 

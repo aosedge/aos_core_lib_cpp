@@ -44,6 +44,7 @@ public:
     MOCK_METHOD(Error, ReleaseServiceRootFS, (const String& runtimeDir), (override));
     MOCK_METHOD(Error, PrepareServiceStorage, (const String& path, uint32_t uid, uint32_t gid), (override));
     MOCK_METHOD(Error, PrepareServiceState, (const String& path, uint32_t uid, uint32_t gid), (override));
+    MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetAbsPath, (const String& path), (override));
 };
 
 } // namespace aos::sm::launcher

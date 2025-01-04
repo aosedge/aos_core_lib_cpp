@@ -87,6 +87,22 @@ Error Instance::Start()
         return err;
     }
 
+    if (!mInstanceInfo.mStatePath.IsEmpty()) {
+        if (auto err = mRuntime.PrepareServiceState(
+                GetFullStatePath(mInstanceInfo.mStatePath), mInstanceInfo.mUID, mService->mGID);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (!mInstanceInfo.mStoragePath.IsEmpty()) {
+        if (auto err = mRuntime.PrepareServiceStorage(
+                GetFullStoragePath(mInstanceInfo.mStoragePath), mInstanceInfo.mUID, mService->mGID);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     if (auto err = PrepareRootFS(*imageParts, runtimeSpec->mMounts); !err.IsNone()) {
         return err;
     }
@@ -329,6 +345,37 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
     return ErrorEnum::eNone;
 }
 
+Error Instance::ApplyStateStorage(oci::RuntimeSpec& runtimeSpec)
+{
+    if (!mInstanceInfo.mStatePath.IsEmpty()) {
+        auto [absPath, err] = mRuntime.GetAbsPath(GetFullStatePath(mInstanceInfo.mStatePath));
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto mount = MakeShared<oci::Mount>(&sAllocator, absPath, cInstanceStateFile, "bind", "bind,rw");
+
+        if (err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (!mInstanceInfo.mStoragePath.IsEmpty()) {
+        auto [absPath, err] = mRuntime.GetAbsPath(GetFullStatePath(mInstanceInfo.mStatePath));
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto mount = MakeShared<oci::Mount>(&sAllocator, absPath, cInstanceStorageDir, "bind", "bind,rw");
+
+        if (err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Instance::CreateVMSpec(
     const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec)
 {
@@ -401,6 +448,10 @@ Error Instance::CreateLinuxSpec(
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = ApplyStateStorage(runtimeSpec); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -464,6 +515,14 @@ Error Instance::SetupMonitoring()
     auto monitoringParms = MakeUnique<monitoring::InstanceMonitorParams>(&sAllocator);
 
     monitoringParms->mInstanceIdent = mInstanceInfo.mInstanceIdent;
+
+    if (!mInstanceInfo.mStatePath.IsEmpty()) {
+        monitoringParms->mPartitions.PushBack({cStatePartitionName, GetFullStatePath(mInstanceInfo.mStatePath)});
+    }
+
+    if (!mInstanceInfo.mStoragePath.IsEmpty()) {
+        monitoringParms->mPartitions.PushBack({cStoragePartitionName, GetFullStoragePath(mInstanceInfo.mStoragePath)});
+    }
 
     if (auto err = mResourceMonitor.StartInstanceMonitoring(mInstanceID, *monitoringParms); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
