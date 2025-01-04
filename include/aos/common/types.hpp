@@ -291,9 +291,9 @@ constexpr auto cMaxNumEnvVariables = AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES;
 constexpr auto cMaxNumHosts = AOS_CONFIG_TYPES_MAX_NUM_HOSTS;
 
 /**
- * Max number of devices.
+ * Max number of node's devices.
  */
-constexpr auto cMaxNumDevices = AOS_CONFIG_TYPES_MAX_NUM_DEVICES;
+constexpr auto cMaxNumNodeDevices = AOS_CONFIG_TYPES_MAX_NUM_NODE_DEVICES;
 
 /**
  * Max number of node's resources.
@@ -846,7 +846,7 @@ struct AlertRules {
  */
 struct NodeConfig {
     StaticString<cNodeTypeLen>                                  mNodeType;
-    StaticArray<DeviceInfo, cMaxNumDevices>                     mDevices;
+    StaticArray<DeviceInfo, cMaxNumNodeDevices>                 mDevices;
     StaticArray<ResourceInfo, cMaxNumNodeResources>             mResources;
     StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
     uint32_t                                                    mPriority {0};

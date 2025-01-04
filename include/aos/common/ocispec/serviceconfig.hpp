@@ -90,6 +90,14 @@ struct RequestedResources {
 };
 
 /**
+ * Service devices rules.
+ */
+struct ServiceDevice {
+    StaticString<cDeviceNameLen> mDevice;
+    StaticString<cDeviceNameLen> mPermissions;
+};
+
+/**
  * Service configuration.
  */
 struct ServiceConfig {
@@ -104,6 +112,8 @@ struct ServiceConfig {
     Duration                                                                       mOfflineTTL;
     ServiceQuotas                                                                  mQuotas;
     Optional<RequestedResources>                                                   mRequestedResources;
+    StaticArray<ServiceDevice, cMaxNumNodeDevices>                                 mDevices;
+    StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
     Optional<AlertRules>                                                           mAlertRules;
 
     /**

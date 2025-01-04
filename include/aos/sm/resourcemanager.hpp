@@ -393,7 +393,7 @@ private:
     StaticArray<NodeConfigReceiverItf*, cMaxNodeConfigChangeSubscribers> mSubscribers;
 
     mutable StaticMap<StaticString<cDeviceNameLen>, StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>,
-        cMaxNumDevices>
+        cMaxNumNodeDevices>
         mAllocatedDevices;
 
     mutable StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig)> mAllocator;

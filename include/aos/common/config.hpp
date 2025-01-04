@@ -289,10 +289,10 @@
 #endif
 
 /**
- * Max number of devices.
+ * Max number of node's devices.
  */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_DEVICES
-#define AOS_CONFIG_TYPES_MAX_NUM_DEVICES 8
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_DEVICES
+#define AOS_CONFIG_TYPES_MAX_NUM_NODE_DEVICES 8
 #endif
 
 /**
