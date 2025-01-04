@@ -216,6 +216,11 @@ Error ServiceManager::ProcessDesiredServices(const Array<ServiceInfo>& services)
     mInstallPool.Wait();
     mInstallPool.Shutdown();
 
+    LOG_DBG() << "Allocator: size=" << mAllocator.MaxSize() << ", maxAllocated=" << mAllocator.MaxAllocatedSize();
+#if AOS_CONFIG_THREAD_STACK_USAGE
+    LOG_DBG() << "Stack usage: size=" << mInstallPool.GetStackUsage();
+#endif
+
     return ErrorEnum::eNone;
 }
 

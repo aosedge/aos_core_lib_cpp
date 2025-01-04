@@ -193,6 +193,11 @@ Error LayerManager::ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers)
         return AOS_ERROR_WRAP(err);
     }
 
+    LOG_DBG() << "Allocator: size=" << mAllocator.MaxSize() << ", maxAllocated=" << mAllocator.MaxAllocatedSize();
+#if AOS_CONFIG_THREAD_STACK_USAGE
+    LOG_DBG() << "Stack usage: size=" << mInstallPool.GetStackUsage();
+#endif
+
     return ErrorEnum::eNone;
 }
 
