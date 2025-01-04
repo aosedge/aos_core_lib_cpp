@@ -265,15 +265,17 @@ struct LinuxDeviceCgroup {
      * Creates LinuxDeviceCgroup.
      */
     LinuxDeviceCgroup(const String& type, const String& access, bool allow)
-        : mType(type)
+        : mAllow(allow)
+        , mType(type)
         , mAccess(access)
-        , mAllow(allow)
     {
     }
 
-    StaticString<cDeviceTypeLen>   mType;
-    StaticString<cDeviceAccessLen> mAccess;
     bool                           mAllow;
+    StaticString<cDeviceTypeLen>   mType;
+    Optional<int64_t>              mMajor;
+    Optional<int64_t>              mMinor;
+    StaticString<cDeviceAccessLen> mAccess;
 
     /**
      * Compares LinuxDeviceCgroup spec.
@@ -283,7 +285,8 @@ struct LinuxDeviceCgroup {
      */
     bool operator==(const LinuxDeviceCgroup& deviceCgroup) const
     {
-        return mType == deviceCgroup.mType && mAccess == deviceCgroup.mAccess && mAllow == deviceCgroup.mAllow;
+        return mType == deviceCgroup.mType && mAccess == deviceCgroup.mAccess && mAllow == deviceCgroup.mAllow
+            && mMajor == deviceCgroup.mMajor && mMinor == deviceCgroup.mMinor;
     }
 
     /**
