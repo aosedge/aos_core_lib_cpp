@@ -480,6 +480,39 @@ struct LinuxNamespace {
 };
 
 /**
+ * Represents the mknod information for a Linux special device file.
+ */
+struct LinuxDevice {
+    StaticString<cFilePathLen>   mPath;
+    StaticString<cDeviceTypeLen> mType;
+    int64_t                      mMajor;
+    int64_t                      mMinor;
+    Optional<uint32_t>           mFileMode;
+    Optional<uint32_t>           mUID;
+    Optional<uint32_t>           mGID;
+
+    /**
+     * Compares LinuxDevice spec.
+     *
+     * @param device LinuxDevice spec to compare.
+     * @return bool.
+     */
+    bool operator==(const LinuxDevice& device) const
+    {
+        return mPath == device.mPath && mType == device.mType && mMajor == device.mMajor && mMinor == device.mMinor
+            && mFileMode == device.mFileMode && mUID == device.mUID && mGID == device.mGID;
+    }
+
+    /**
+     * Compares LinuxDevice spec.
+     *
+     * @param device LinuxDevice spec to compare.
+     * @return bool.
+     */
+    bool operator!=(const LinuxDevice& device) const { return !operator==(device); }
+};
+
+/**
  * Linux contains platform-specific configuration for Linux based containers.
  */
 struct Linux {
@@ -487,6 +520,7 @@ struct Linux {
     Optional<LinuxResources>                                                       mResources;
     StaticString<cFilePathLen>                                                     mCgroupsPath;
     StaticArray<LinuxNamespace, cMaxNumNamespaces>                                 mNamespaces;
+    StaticArray<LinuxDevice, cMaxNumHostDevices>                                   mDevices;
     StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                        mMaskedPaths;
     StaticArray<StaticString<cFilePathLen>, cMaxParamCount>                        mReadonlyPaths;
 
