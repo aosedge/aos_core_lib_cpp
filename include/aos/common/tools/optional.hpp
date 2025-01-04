@@ -106,23 +106,20 @@ public:
      * Assigns value.
      *
      * @param value
-     * @return void.
      */
     template <typename... Args>
     void EmplaceValue(Args... args)
     {
         if (HasValue()) {
-            *reinterpret_cast<T*>(mBuffer) = T(args...);
-        } else {
-            ::new (static_cast<void*>(mBuffer)) T(args...);
-            mHasValue = true;
+            GetValue().~T();
         }
+
+        ::new (static_cast<void*>(mBuffer)) T(args...);
+        mHasValue = true;
     }
 
     /**
      * Destroys contained value.
-     *
-     * @return void.
      */
     void Reset()
     {
