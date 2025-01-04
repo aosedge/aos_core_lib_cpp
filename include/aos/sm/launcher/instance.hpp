@@ -11,6 +11,7 @@
 
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/allocator.hpp"
+#include "aos/iam/permhandler.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/launcher/config.hpp"
 #include "aos/sm/layermanager.hpp"
@@ -113,6 +114,7 @@ public:
      * @param serviceManager service manager.
      * @param layerManager layer manager.
      * @param networkManager network manager.
+     * @param permHandler permission handler.
      * @param runner runner instance.
      * @param resourceMonitor resource monitor.
      * @param ociManager OCI manager.
@@ -121,9 +123,9 @@ public:
      */
     Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-        networkmanager::NetworkManagerItf& networkManager, runner::RunnerItf& runner, RuntimeItf& runtime,
-        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
-        const NodeInfo& nodeInfo);
+        networkmanager::NetworkManagerItf& networkManager, iam::permhandler::PermHandlerItf& permHandler,
+        runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
+        oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo);
 
     /**
      * Starts instance.
@@ -268,6 +270,7 @@ private:
     static constexpr auto cEnvAosSubjectID     = "AOS_SUBJECT_ID";
     static constexpr auto cEnvAosInstanceIndex = "AOS_INSTANCE_INDEX";
     static constexpr auto cEnvAosInstanceID    = "AOS_INSTANCE_ID";
+    static constexpr auto cEnvAosSecret        = "AOS_SECRET";
 
     static constexpr auto cDefaultCPUPeriod = 100000;
     static constexpr auto cMinCPUQuota      = 1000;
@@ -310,6 +313,7 @@ private:
     servicemanager::ServiceManagerItf& mServiceManager;
     layermanager::LayerManagerItf&     mLayerManager;
     networkmanager::NetworkManagerItf& mNetworkManager;
+    iam::permhandler::PermHandlerItf&  mPermHandler;
     runner::RunnerItf&                 mRunner;
     RuntimeItf&                        mRuntime;
     monitoring::ResourceMonitorItf&    mResourceMonitor;
@@ -321,6 +325,7 @@ private:
     const servicemanager::ServiceData* mService = nullptr;
     InstanceRunState                   mRunState;
     Error                              mRunError;
+    bool                               mPermissionsRegistered = false;
 };
 
 } // namespace aos::sm::launcher

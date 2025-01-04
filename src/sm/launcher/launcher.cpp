@@ -35,7 +35,6 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
 {
     LOG_DBG() << "Init launcher";
 
-    (void)permHandler;
     (void)resourceManager;
 
     mConfig              = config;
@@ -43,6 +42,7 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
     mLayerManager        = &layerManager;
     mNetworkManager      = &networkManager;
     mOCIManager          = &ociManager;
+    mPermHandler         = &permHandler;
     mResourceMonitor     = &resourceMonitor;
     mRunner              = &runner;
     mRuntime             = &runtime;
@@ -505,9 +505,9 @@ Error Launcher::StartInstance(const InstanceData& info)
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
-    if (auto err
-        = mCurrentInstances.EmplaceBack(mConfig, info.mInstanceInfo, info.mInstanceID, *mServiceManager, *mLayerManager,
-            *mNetworkManager, *mRunner, *mRuntime, *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
+    if (auto err = mCurrentInstances.EmplaceBack(mConfig, info.mInstanceInfo, info.mInstanceID, *mServiceManager,
+            *mLayerManager, *mNetworkManager, *mPermHandler, *mRunner, *mRuntime, *mResourceMonitor, *mOCIManager,
+            mHostWhiteoutsDir, mNodeInfo);
         !err.IsNone()) {
         return err;
     }

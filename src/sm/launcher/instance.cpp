@@ -29,15 +29,16 @@ StaticAllocator<Instance::cAllocatorSize, Instance::cNumAllocations> Instance::s
 
 Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-    networkmanager::NetworkManagerItf& networkmanager, runner::RunnerItf& runner, RuntimeItf& runtime,
-    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
-    const NodeInfo& nodeInfo)
+    networkmanager::NetworkManagerItf& networkmanager, iam::permhandler::PermHandlerItf& permHandler,
+    runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
+    oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo)
     : mConfig(config)
     , mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
     , mServiceManager(serviceManager)
     , mLayerManager(layerManager)
     , mNetworkManager(networkmanager)
+    , mPermHandler(permHandler)
     , mRunner(runner)
     , mRuntime(runtime)
     , mResourceMonitor(resourceMonitor)
@@ -138,6 +139,15 @@ Error Instance::Stop()
 
     if (auto err = mResourceMonitor.StopInstanceMonitoring(mInstanceID); !err.IsNone() && stopErr.IsNone()) {
         stopErr = err;
+    }
+
+    if (mPermissionsRegistered) {
+        if (auto err = mPermHandler.UnregisterInstance(mInstanceInfo.mInstanceIdent);
+            !err.IsNone() && stopErr.IsNone()) {
+            stopErr = err;
+        }
+
+        mPermissionsRegistered = false;
     }
 
     if (mService) {
@@ -338,6 +348,25 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
         auto mount = MakeShared<oci::Mount>(&sAllocator, "tmpfs", "/tmp", "tmpfs", tmpFSOpts);
 
         if (auto err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (!serviceConfig.mPermissions.IsEmpty()) {
+        auto [secret, err] = mPermHandler.RegisterInstance(mInstanceInfo.mInstanceIdent, serviceConfig.mPermissions);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        mPermissionsRegistered = true;
+
+        StaticString<cEnvVarNameLen> envVar;
+
+        if (err = envVar.Format("%s=%s", cEnvAosSecret, secret.CStr()); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (err = AddEnvVars(Array<StaticString<cEnvVarNameLen>>(&envVar, 1), runtimeSpec); !err.IsNone()) {
             return err;
         }
     }

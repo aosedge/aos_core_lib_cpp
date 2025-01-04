@@ -17,7 +17,6 @@
 #include "aos/common/tools/map.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
-#include "aos/iam/permhandler.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/launcher/config.hpp"
 #include "aos/sm/launcher/instance.hpp"
@@ -346,6 +345,7 @@ private:
     InstanceStatusReceiverItf*         mStatusReceiver {};
     layermanager::LayerManagerItf*     mLayerManager {};
     networkmanager::NetworkManagerItf* mNetworkManager {};
+    iam::permhandler::PermHandlerItf*  mPermHandler {};
     monitoring::ResourceMonitorItf*    mResourceMonitor {};
     oci::OCISpecItf*                   mOCIManager {};
     runner::RunnerItf*                 mRunner {};
