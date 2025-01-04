@@ -149,8 +149,10 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
               mLaunchInProgress = false;
 
-              LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
-                        << ", max allocated size: " << mAllocator.MaxAllocatedSize();
+              Instance::ShowAllocatorStats();
+
+              LOG_DBG() << "Launcher allocator: size=" << mAllocator.MaxSize()
+                        << ", maxAllocated=" << mAllocator.MaxAllocatedSize();
 #if AOS_CONFIG_THREAD_STACK_USAGE
               LOG_DBG() << "Stack usage: size=" << mThread.GetStackUsage();
 #endif
@@ -284,11 +286,13 @@ Error Launcher::RunLastInstances()
 
         mLaunchInProgress = false;
 
+        Instance::ShowAllocatorStats();
+
+        LOG_DBG() << "Launcher allocator: size=" << mAllocator.MaxSize()
+                  << ", maxAllocated=" << mAllocator.MaxAllocatedSize();
 #if AOS_CONFIG_THREAD_STACK_USAGE
         LOG_DBG() << "Stack usage: size=" << mThread.GetStackUsage();
 #endif
-        LOG_DBG() << "Allocator size: " << mAllocator.MaxSize()
-                  << ", max allocated size: " << mAllocator.MaxAllocatedSize();
     });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);

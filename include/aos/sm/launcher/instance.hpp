@@ -185,6 +185,11 @@ public:
     };
 
     /**
+     * Displays allocator statistics.
+     */
+    static void ShowAllocatorStats();
+
+    /**
      * Compares instances.
      *
      * @param instance instance to compare.
