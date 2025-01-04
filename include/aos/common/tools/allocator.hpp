@@ -243,7 +243,7 @@ private:
     // cppcheck-suppress passedByValue
     void* Allocate(List<Allocation>::ConstIterator it, uint8_t* data, size_t size)
     {
-        auto err = mAllocations->Emplace(it, Allocation(data, size));
+        [[maybe_unused]] auto err = mAllocations->Emplace(it, Allocation(data, size));
         assert(err.IsNone());
 
         if (GetAllocatedSize() > mMaxAllocatedSize) {
