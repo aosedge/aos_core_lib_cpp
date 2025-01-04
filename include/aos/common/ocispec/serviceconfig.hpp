@@ -114,6 +114,7 @@ struct ServiceConfig {
     Optional<RequestedResources>                                                   mRequestedResources;
     StaticArray<ServiceDevice, cMaxNumNodeDevices>                                 mDevices;
     StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
+    StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
     Optional<AlertRules>                                                           mAlertRules;
 
     /**

@@ -16,7 +16,7 @@ namespace aos::iam::permhandler {
  **********************************************************************************************************************/
 
 RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
-    const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions)
+    const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
 {
     LockGuard lock {mMutex};
 
@@ -55,7 +55,7 @@ Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
 }
 
 Error PermHandler::GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
-    Array<PermKeyValue>& servicePermissions)
+    Array<FunctionPermissions>& servicePermissions)
 {
     LockGuard lock {mMutex};
 
@@ -88,7 +88,7 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
  **********************************************************************************************************************/
 
 Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instanceIdent,
-    const Array<FunctionalServicePermissions>& instancePermissions)
+    const Array<FunctionServicePermissions>& instancePermissions)
 {
     const auto err = mInstancesPerms.PushBack(InstancePermissions {secret, instanceIdent, instancePermissions});
     if (!err.IsNone()) {

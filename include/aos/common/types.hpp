@@ -268,7 +268,7 @@ constexpr auto cGroupNameLen = AOS_CONFIG_TYPES_GROUP_NAME_LEN;
 /**
  * Max number of groups.
  */
-constexpr auto cMaxNumGroups = 8;
+constexpr auto cMaxNumGroups = AOS_CONFIG_TYPES_MAX_NUM_GROUPS;
 
 /**
  * Max number of file system mounts.
@@ -339,6 +339,31 @@ static constexpr auto cMaxNumRunners = AOS_CONFIG_TYPES_MAX_NUM_RUNNERS;
  * Runner name max length.
  */
 static constexpr auto cRunnerNameLen = AOS_CONFIG_TYPES_RUNNER_NAME_LEN;
+
+/**
+ * Permissions length.
+ */
+static constexpr auto cPermissionsLen = AOS_CONFIG_TYPES_PERMISSIONS_LEN;
+
+/**
+ * Function name length.
+ */
+static constexpr auto cFunctionLen = AOS_CONFIG_TYPES_FUNCTION_LEN;
+
+/**
+ * Max number of functions for functional service.
+ */
+static constexpr auto cFunctionsMaxCount = AOS_CONFIG_TYPES_FUNCTIONS_MAX_COUNT;
+
+/**
+ * Functional service name length.
+ */
+static constexpr auto cFuncServiceLen = AOS_CONFIG_TYPES_FUNC_SERVICE_LEN;
+
+/**
+ * Maximum number of functional services.
+ */
+static constexpr auto cFuncServiceMaxCount = AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT;
 
 /**
  * Instance identification.
@@ -1138,6 +1163,33 @@ struct RunParameters {
      * @return bool.
      */
     bool operator!=(const RunParameters& params) const { return !operator==(params); }
+};
+
+/**
+ * Function permissions.
+ */
+struct FunctionPermissions {
+    StaticString<cFunctionLen>    mFunction;
+    StaticString<cPermissionsLen> mPermissions;
+
+    /**
+     * Compares permission key value.
+     *
+     * @param rhs object to compare.
+     * @return bool.
+     */
+    bool operator==(const FunctionPermissions& rhs)
+    {
+        return (mFunction == rhs.mFunction) && (mPermissions == rhs.mPermissions);
+    }
+};
+
+/**
+ * Function service permissions.
+ */
+struct FunctionServicePermissions {
+    StaticString<cFuncServiceLen>                        mName;
+    StaticArray<FunctionPermissions, cFunctionsMaxCount> mPermissions;
 };
 
 } // namespace aos

@@ -261,6 +261,13 @@
 #endif
 
 /**
+ * Max number of groups.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_GROUPS
+#define AOS_CONFIG_TYPES_MAX_NUM_GROUPS 32
+#endif
+
+/**
  * Max number of file system mounts.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS
@@ -475,6 +482,41 @@
  */
 #ifndef AOS_CONFIG_TYPES_RUNNER_NAME_LEN
 #define AOS_CONFIG_TYPES_RUNNER_NAME_LEN 16
+#endif
+
+/**
+ * Function name length.
+ */
+#ifndef AOS_CONFIG_TYPES_FUNCTION_LEN
+#define AOS_CONFIG_TYPES_FUNCTION_LEN 32
+#endif
+
+/**
+ * Permissions length.
+ */
+#ifndef AOS_CONFIG_TYPES_PERMISSIONS_LEN
+#define AOS_CONFIG_TYPES_PERMISSIONS_LEN 32
+#endif
+
+/**
+ * Maximum number of functions for functional service.
+ */
+#ifndef AOS_CONFIG_TYPES_FUNCTIONS_MAX_COUNT
+#define AOS_CONFIG_TYPES_FUNCTIONS_MAX_COUNT 32
+#endif
+
+/**
+ * Functional service name length.
+ */
+#ifndef AOS_CONFIG_TYPES_FUNC_SERVICE_LEN
+#define AOS_CONFIG_TYPES_FUNC_SERVICE_LEN 32
+#endif
+
+/**
+ * Maximum number of functional services.
+ */
+#ifndef AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT
+#define AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT 16
 #endif
 
 /**

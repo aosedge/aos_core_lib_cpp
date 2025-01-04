@@ -21,66 +21,17 @@ namespace aos::iam::permhandler {
  */
 
 /**
- * Maximum length of permhandler permission key string.
- */
-constexpr auto cPermissionKeyLen = AOS_CONFIG_PERMHANDLER_PERM_KEY_LEN;
-
-/**
- * Maximum length of permhandler permission value string.
- */
-constexpr auto cPermissionValueLen = AOS_CONFIG_PERMHANDLER_PERM_VALUE_LEN;
-
-/**
- * Maximum number of permhandler service permissions.
- */
-constexpr auto cServicePermissionMaxCount = AOS_CONFIG_PERMHANDLER_SERVICE_PERMS_MAX_COUNT;
-
-/**
- * Maximum length of functional service name.
- */
-constexpr auto cFunctionalServiceNameLen = AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN;
-
-/**
- * Maximum number of permhandler functional services.
- */
-constexpr auto cFuncServiceMaxCount = AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_MAX_COUNT;
-
-/**
  * Maximum length of permhandler secret.
  */
 constexpr auto cSecretLen = AOS_CONFIG_PERMHANDLER_SECRET_LEN;
 
 /**
- * Permission key value.
- */
-struct PermKeyValue {
-    StaticString<cPermissionKeyLen>   mKey;
-    StaticString<cPermissionValueLen> mValue;
-
-    /**
-     * Compares permission key value.
-     *
-     * @param rhs object to compare.
-     * @return bool.
-     */
-    bool operator==(const PermKeyValue& rhs) { return (mKey == rhs.mKey) && (mValue == rhs.mValue); }
-};
-
-/**
- * Functional service permissions.
- */
-struct FunctionalServicePermissions {
-    StaticString<cFunctionalServiceNameLen>               mName;
-    StaticArray<PermKeyValue, cServicePermissionMaxCount> mPermissions;
-};
-
-/**
  * Instance permissions.
  */
 struct InstancePermissions {
-    StaticString<cSecretLen>                                        mSecret;
-    InstanceIdent                                                   mInstanceIdent;
-    StaticArray<FunctionalServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
+    StaticString<cSecretLen>                                      mSecret;
+    InstanceIdent                                                 mInstanceIdent;
+    StaticArray<FunctionServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
 };
 
 /**
@@ -96,7 +47,7 @@ public:
      * @returns RetWithError<StaticString<cSecretLen>>.
      */
     virtual RetWithError<StaticString<cSecretLen>> RegisterInstance(
-        const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions)
+        const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
         = 0;
 
     /**
@@ -117,7 +68,7 @@ public:
      * @returns Error.
      */
     virtual Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
-        Array<PermKeyValue>& servicePermissions)
+        Array<FunctionPermissions>& servicePermissions)
         = 0;
 
     virtual ~PermHandlerItf() = default;
@@ -136,7 +87,7 @@ public:
      * @returns RetWithError<StaticString<cSecretLen>>.
      */
     RetWithError<StaticString<cSecretLen>> RegisterInstance(
-        const InstanceIdent& instanceIdent, const Array<FunctionalServicePermissions>& instancePermissions) override;
+        const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions) override;
 
     /**
      * Unregisters instance deletes service instance with permissions from cache.
@@ -156,11 +107,11 @@ public:
      * @returns Error.
      */
     Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
-        Array<PermKeyValue>& servicePermissions) override;
+        Array<FunctionPermissions>& servicePermissions) override;
 
 private:
     Error                                  AddSecret(const String& secret, const InstanceIdent& instanceIdent,
-                                         const Array<FunctionalServicePermissions>& instancePermissions);
+                                         const Array<FunctionServicePermissions>& instancePermissions);
     RetWithError<InstancePermissions*>     FindBySecret(const String& secret);
     RetWithError<InstancePermissions*>     FindByInstanceIdent(const InstanceIdent& instanceIdent);
     StaticString<cSecretLen>               GenerateSecret();

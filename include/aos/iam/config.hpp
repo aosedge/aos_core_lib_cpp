@@ -65,41 +65,6 @@
 #endif
 
 /**
- * Maximum length of permhandler permission key string.
- */
-#ifndef AOS_CONFIG_PERMHANDLER_PERM_KEY_LEN
-#define AOS_CONFIG_PERMHANDLER_PERM_KEY_LEN 32
-#endif
-
-/**
- * Maximum length of permhandler permission value string.
- */
-#ifndef AOS_CONFIG_PERMHANDLER_PERM_VALUE_LEN
-#define AOS_CONFIG_PERMHANDLER_PERM_VALUE_LEN 32
-#endif
-
-/**
- * Maximum number of permhandler service permissions.
- */
-#ifndef AOS_CONFIG_PERMHANDLER_SERVICE_PERMS_MAX_COUNT
-#define AOS_CONFIG_PERMHANDLER_SERVICE_PERMS_MAX_COUNT 32
-#endif
-
-/**
- * Maximum length of permhandler functional service name.
- */
-#ifndef AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN
-#define AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_NAME_LEN 40
-#endif
-
-/**
- * Maximum number of permhandler functional services.
- */
-#ifndef AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_MAX_COUNT
-#define AOS_CONFIG_PERMHANDLER_FUNC_SERVICE_MAX_COUNT 16
-#endif
-
-/**
  * Maximum length of permhandler secret.
  */
 #ifndef AOS_CONFIG_PERMHANDLER_SECRET_LEN

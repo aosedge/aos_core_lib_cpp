@@ -39,8 +39,8 @@ protected:
 
 TEST_F(PermHandlerTest, RegisterInstanceSucceeds)
 {
-    InstanceIdent                                instanceIdent;
-    StaticArray<FunctionalServicePermissions, 1> perms;
+    InstanceIdent                              instanceIdent;
+    StaticArray<FunctionServicePermissions, 1> perms;
 
     const auto err = mPermHandler.RegisterInstance(instanceIdent, perms);
     EXPECT_TRUE(err.mError.IsNone()) << err.mError.Message();
@@ -49,11 +49,11 @@ TEST_F(PermHandlerTest, RegisterInstanceSucceeds)
 
 TEST_F(PermHandlerTest, RegisterInstanceReturnsSecretFromCache)
 {
-    InstanceIdent                                instanceIdent;
-    StaticArray<FunctionalServicePermissions, 1> perms;
-    Error                                        err;
-    StaticString<cSecretLen>                     secret1;
-    StaticString<cSecretLen>                     secret2;
+    InstanceIdent                              instanceIdent;
+    StaticArray<FunctionServicePermissions, 1> perms;
+    Error                                      err;
+    StaticString<cSecretLen>                   secret1;
+    StaticString<cSecretLen>                   secret2;
 
     Tie(secret1, err) = mPermHandler.RegisterInstance(instanceIdent, perms);
     ASSERT_TRUE(err.IsNone()) << err.Message();
@@ -66,10 +66,10 @@ TEST_F(PermHandlerTest, RegisterInstanceReturnsSecretFromCache)
 
 TEST_F(PermHandlerTest, RegisterInstanceReachedMaxSize)
 {
-    const StaticArray<FunctionalServicePermissions, 1> perms;
-    InstanceIdent                                      instanceIdent {"", "", 0};
-    Error                                              err;
-    StaticString<cSecretLen>                           secret;
+    const StaticArray<FunctionServicePermissions, 1> perms;
+    InstanceIdent                                    instanceIdent {"", "", 0};
+    Error                                            err;
+    StaticString<cSecretLen>                         secret;
 
     for (size_t i = 0; i < cMaxNumInstances; ++i) {
         instanceIdent.mInstance = i;
@@ -88,8 +88,8 @@ TEST_F(PermHandlerTest, RegisterInstanceReachedMaxSize)
 
 TEST_F(PermHandlerTest, GetPermissionsNotFound)
 {
-    InstanceIdent                instanceIdent;
-    StaticArray<PermKeyValue, 1> perms;
+    InstanceIdent                       instanceIdent;
+    StaticArray<FunctionPermissions, 1> perms;
 
     auto err = mPermHandler.GetPermissions("uknownSecretUUID", "unknownServerId", instanceIdent, perms);
     ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << err.Message();
@@ -99,18 +99,18 @@ TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
 {
     const InstanceIdent instanceIdent1 {"serviceID1", "subjectID1", 1};
 
-    FunctionalServicePermissions testServicePermissions;
+    FunctionServicePermissions testServicePermissions;
     testServicePermissions.mName = "testService";
     testServicePermissions.mPermissions.PushBack({"key1", "value1"});
     testServicePermissions.mPermissions.PushBack({"key2", "value2"});
 
-    StaticArray<FunctionalServicePermissions, 2> funcServerPermissions;
+    StaticArray<FunctionServicePermissions, 2> funcServerPermissions;
     funcServerPermissions.PushBack(testServicePermissions);
 
-    InstanceIdent                resInstanceIdent;
-    StaticArray<PermKeyValue, 1> resServicePerms;
-    Error                        err;
-    StaticString<cSecretLen>     secret;
+    InstanceIdent                       resInstanceIdent;
+    StaticArray<FunctionPermissions, 1> resServicePerms;
+    Error                               err;
+    StaticString<cSecretLen>            secret;
 
     Tie(secret, err) = mPermHandler.RegisterInstance(instanceIdent1, funcServerPermissions);
     ASSERT_TRUE(err.IsNone()) << err.Message();
@@ -125,8 +125,8 @@ TEST_F(PermHandlerTest, UnregisterInstance)
     InstanceIdent instanceIdent;
     instanceIdent.mServiceID = "test-service-id";
 
-    StaticArray<FunctionalServicePermissions, 1> perms;
-    StaticString<cSecretLen>                     secret;
+    StaticArray<FunctionServicePermissions, 1> perms;
+    StaticString<cSecretLen>                   secret;
 
     auto err = mPermHandler.UnregisterInstance(instanceIdent);
     EXPECT_FALSE(err.IsNone()) << err.Message();
@@ -148,24 +148,24 @@ TEST_F(PermHandlerTest, TestInstancePermissions)
     const InstanceIdent instanceIdent2 {"serviceID2", "subjectID2", 2};
     InstanceIdent       instance;
 
-    FunctionalServicePermissions visServicePermissions;
+    FunctionServicePermissions visServicePermissions;
     visServicePermissions.mName = "vis";
     visServicePermissions.mPermissions.PushBack({"*", "rw"});
     visServicePermissions.mPermissions.PushBack({"test", "r"});
 
-    FunctionalServicePermissions systemCoreServicePermissions;
+    FunctionServicePermissions systemCoreServicePermissions;
     systemCoreServicePermissions.mName = "systemCore";
     systemCoreServicePermissions.mPermissions.PushBack({"test1.*", "rw"});
     systemCoreServicePermissions.mPermissions.PushBack({"test2", "r"});
 
-    StaticArray<FunctionalServicePermissions, 2> funcServerPermissions;
+    StaticArray<FunctionServicePermissions, 2> funcServerPermissions;
     funcServerPermissions.PushBack(visServicePermissions);
     funcServerPermissions.PushBack(systemCoreServicePermissions);
 
-    StaticString<cSecretLen>     secret1;
-    StaticString<cSecretLen>     secret2;
-    Error                        err;
-    StaticArray<PermKeyValue, 2> permsResult;
+    StaticString<cSecretLen>            secret1;
+    StaticString<cSecretLen>            secret2;
+    Error                               err;
+    StaticArray<FunctionPermissions, 2> permsResult;
 
     Tie(secret1, err) = mPermHandler.RegisterInstance(instanceIdent1, funcServerPermissions);
     ASSERT_TRUE(err.IsNone()) << err.Message();
