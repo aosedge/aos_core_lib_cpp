@@ -44,6 +44,11 @@ constexpr auto cMaxIOMEMsCount = AOS_CONFIG_OCISPEC_MAX_IOMEMS_COUNT;
 constexpr auto cMaxIRQsCount = AOS_CONFIG_OCISPEC_MAX_IRQS_COUNT;
 
 /**
+ * User name len.
+ */
+constexpr auto cUserNameLen = AOS_CONFIG_OCISPEC_USER_NAME_LEN;
+
+/**
  * Contains information about the container's root filesystem on the host.
  */
 struct Root {
@@ -71,8 +76,11 @@ struct Root {
  * User specifies specific user (and group) information for the container process.
  */
 struct User {
-    uint32_t mUID;
-    uint32_t mGID;
+    uint32_t                             mUID;
+    uint32_t                             mGID;
+    Optional<uint32_t>                   mUmask;
+    StaticArray<uint32_t, cMaxNumGroups> mAdditionalGIDs;
+    StaticString<cUserNameLen>           mUsername;
 
     /**
      * Compares user spec.
@@ -80,7 +88,11 @@ struct User {
      * @param user user spec to compare.
      * @return bool.
      */
-    bool operator==(const User& user) const { return mUID == user.mUID && mGID == user.mGID; }
+    bool operator==(const User& user) const
+    {
+        return mUID == user.mUID && mGID == user.mGID && mUmask == user.mUmask
+            && mAdditionalGIDs == user.mAdditionalGIDs && mUsername == user.mUsername;
+    }
 
     /**
      * Compares user spec.
@@ -684,8 +696,8 @@ inline Error CreateExampleRuntimeSpec(RuntimeSpec& spec, bool isCgroup2UnifiedMo
 
     spec.mRoot.EmplaceValue();
 
-    spec.mRoot.GetValue().mPath     = "rootfs";
-    spec.mRoot.GetValue().mReadonly = true;
+    spec.mRoot->mPath     = "rootfs";
+    spec.mRoot->mReadonly = true;
 
     spec.mProcess.EmplaceValue();
 

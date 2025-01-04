@@ -915,6 +915,13 @@
 #endif
 
 /**
+ * User name len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_USER_NAME_LEN
+#define AOS_CONFIG_OCISPEC_USER_NAME_LEN 64
+#endif
+
+/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN
