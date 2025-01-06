@@ -894,13 +894,6 @@
 #endif
 
 /**
- * Max device access len.
- */
-#ifndef AOS_CONFIG_OCISPEC_DEV_ACCESS_LEN
-#define AOS_CONFIG_OCISPEC_DEV_ACCESS_LEN 8
-#endif
-
-/**
  * Max DT devices count.
  */
 #ifndef AOS_CONFIG_OCISPEC_MAX_DT_DEVICES_COUNT

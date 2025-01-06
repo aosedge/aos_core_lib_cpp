@@ -19,11 +19,6 @@ namespace aos::oci {
 constexpr auto cDeviceTypeLen = AOS_CONFIG_OCISPEC_DEV_TYPE_LEN;
 
 /**
- * Max device access len.
- */
-constexpr auto cDeviceAccessLen = AOS_CONFIG_OCISPEC_DEV_ACCESS_LEN;
-
-/**
  * Max DT devices count.
  */
 constexpr auto cMaxDTDevsCount = AOS_CONFIG_OCISPEC_MAX_DT_DEVICES_COUNT;
@@ -210,19 +205,28 @@ struct LinuxDeviceCgroup {
 
     /**
      * Creates LinuxDeviceCgroup.
+     *
+     * @param type device type.
+     * @param access permissions.
+     * @param allow allow or deny.
+     * @param major major number.
+     * @param minor minor number.
      */
-    LinuxDeviceCgroup(const String& type, const String& access, bool allow)
+    LinuxDeviceCgroup(const String& type, const String& access, bool allow, Optional<int64_t> major = {},
+        Optional<int64_t> minor = {})
         : mAllow(allow)
         , mType(type)
+        , mMajor(major)
+        , mMinor(minor)
         , mAccess(access)
     {
     }
 
-    bool                           mAllow;
-    StaticString<cDeviceTypeLen>   mType;
-    Optional<int64_t>              mMajor;
-    Optional<int64_t>              mMinor;
-    StaticString<cDeviceAccessLen> mAccess;
+    bool                          mAllow;
+    StaticString<cDeviceTypeLen>  mType;
+    Optional<int64_t>             mMajor;
+    Optional<int64_t>             mMinor;
+    StaticString<cPermissionsLen> mAccess;
 
     /**
      * Compares LinuxDeviceCgroup spec.
