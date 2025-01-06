@@ -84,6 +84,17 @@ Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec);
  */
 Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec);
 
+/**
+ * Adds device.
+ *
+ * @param device device to add.
+ * @param permissions device permissions.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error AddDevice(
+    const oci::LinuxDevice& device, const StaticString<cPermissionsLen>& permissions, oci::RuntimeSpec& runtimeSpec);
+
 } // namespace aos::sm::launcher
 
 #endif

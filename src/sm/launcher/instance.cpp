@@ -326,6 +326,56 @@ Error Instance::SetResources(const Array<StaticString<cResourceNameLen>>& resour
     return ErrorEnum::eNone;
 }
 
+Error Instance::SetDevices(const Array<oci::ServiceDevice>& devices, oci::RuntimeSpec& runtimeSpec)
+{
+    for (const auto& device : devices) {
+        auto deviceInfo = MakeUnique<DeviceInfo>(&sAllocator);
+
+        if (auto err = mResourceManager.GetDeviceInfo(device.mDevice, *deviceInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        StaticArray<StaticString<cDeviceNameLen>, 2> devicePaths;
+
+        if (auto err = device.mDevice.Split(devicePaths, ':'); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto ociDevices = MakeUnique<StaticArray<oci::LinuxDevice, cMaxNumHostDevices>>(&sAllocator);
+
+        if (auto err = mRuntime.PopulateHostDevices(devicePaths[0], *ociDevices); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (devicePaths.Size() == 2) {
+            for (auto& ociDevice : *ociDevices) {
+                if (auto err = ociDevice.mPath.Replace(devicePaths[0], devicePaths[1], 1); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+        }
+
+        for (const auto& ociDevice : *ociDevices) {
+            if (auto err = AddDevice(ociDevice, device.mPermissions, runtimeSpec); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        for (const auto& group : deviceInfo->mGroups) {
+            auto [gid, err] = mRuntime.GetGIDByName(group);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (err = AddAdditionalGID(gid, runtimeSpec); !err.IsNone()) {
+                return err;
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec)
 {
     if (serviceConfig.mHostname.HasValue()) {
@@ -408,6 +458,10 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
     }
 
     if (auto err = SetResources(serviceConfig.mResources, runtimeSpec); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = SetDevices(serviceConfig.mDevices, runtimeSpec); !err.IsNone()) {
         return err;
     }
 

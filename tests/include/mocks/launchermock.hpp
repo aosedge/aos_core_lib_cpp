@@ -46,6 +46,7 @@ public:
     MOCK_METHOD(Error, PrepareServiceState, (const String& path, uint32_t uid, uint32_t gid), (override));
     MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetAbsPath, (const String& path), (override));
     MOCK_METHOD(RetWithError<uint32_t>, GetGIDByName, (const String& groupName), (override));
+    MOCK_METHOD(Error, PopulateHostDevices, (const String& devicePath, Array<oci::LinuxDevice>& devices), (override));
 };
 
 } // namespace aos::sm::launcher

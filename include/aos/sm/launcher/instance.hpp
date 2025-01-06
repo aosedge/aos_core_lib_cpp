@@ -99,6 +99,15 @@ public:
     virtual RetWithError<uint32_t> GetGIDByName(const String& groupName) = 0;
 
     /**
+     * Populates host devices.
+     *
+     * @param devicePath device path.
+     * @param[out] devices OCI devices.
+     * @return Error.
+     */
+    virtual Error PopulateHostDevices(const String& devicePath, Array<oci::LinuxDevice>& devices) = 0;
+
+    /**
      * Destroys runtime interface.
      */
     virtual ~RuntimeItf() = default;
@@ -268,7 +277,8 @@ private:
               + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
                   sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig)
                       + sizeof(StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>),
-                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount) + sizeof(ResourceInfo)))
+                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount) + sizeof(ResourceInfo),
+                  sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cNumAllocations  = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cRuntimeSpecFile = "config.json";
@@ -297,6 +307,7 @@ private:
     Error  ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
     size_t GetNumCPUCores() const;
     Error  SetResources(const Array<StaticString<cResourceNameLen>>& resources, oci::RuntimeSpec& runtimeSpec);
+    Error  SetDevices(const Array<oci::ServiceDevice>& devices, oci::RuntimeSpec& runtimeSpec);
     Error  ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error  ApplyStateStorage(oci::RuntimeSpec& runtimeSpec);
     Error  CreateLinuxSpec(

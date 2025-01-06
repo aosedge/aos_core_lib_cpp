@@ -173,4 +173,40 @@ Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
+Error AddDevice(
+    const oci::LinuxDevice& device, const StaticString<cPermissionsLen>& permissions, oci::RuntimeSpec& runtimeSpec)
+{
+    Error                   err;
+    oci::LinuxDevice*       existDevice;
+    oci::LinuxDeviceCgroup* existCgroup;
+
+    Tie(existDevice, err) = runtimeSpec.mLinux->mDevices.FindIf(
+        [&path = device.mPath](const oci::LinuxDevice& device) { return device.mPath == path; });
+    if (!err.IsNone()) {
+        if (err = runtimeSpec.mLinux->mDevices.PushBack(device); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    } else {
+        *existDevice = device;
+    }
+
+    Tie(existCgroup, err)
+        = runtimeSpec.mLinux->mResources->mDevices.FindIf([&device](const oci::LinuxDeviceCgroup& cgroupDevice) {
+              return cgroupDevice.mType == device.mType && cgroupDevice.mMajor == device.mMajor
+                  && cgroupDevice.mMinor == device.mMinor;
+          });
+    if (!err.IsNone()) {
+        if (err = runtimeSpec.mLinux->mResources->mDevices.EmplaceBack(
+                device.mType, permissions, true, device.mMajor, device.mMinor);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    } else {
+        existCgroup->mAllow  = true;
+        existCgroup->mAccess = permissions;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::sm::launcher
