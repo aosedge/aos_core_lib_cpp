@@ -379,3 +379,22 @@ TEST(StringTest, ToUpper)
 
     EXPECT_EQ(str, "HELLO WORLD!");
 }
+
+TEST(StringTest, Replace)
+{
+    StaticString<100> str = "Hello World!";
+
+    auto err = str.Replace("World", "Universe");
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(str, "Hello Universe!");
+
+    err = str.Replace("Hello", "Hi");
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(str, "Hi Universe!");
+
+    str.Append(" ").Append("Goodbye Universe!");
+
+    err = str.Replace("Universe", "Aos", 1);
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(str, "Hi Aos! Goodbye Universe!");
+}

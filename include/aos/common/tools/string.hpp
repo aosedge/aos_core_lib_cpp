@@ -282,6 +282,52 @@ public:
     }
 
     /**
+     * Replaces n occurrences of substring with new substring.
+     *
+     * @param oldSubstr old substring.
+     * @param newSubstr new substring.
+     * @param n max number of occurrences to replace.
+     * @return Error.
+     */
+    Error Replace(const String& oldSubstr, const String& newSubstr, size_t n = 0)
+    {
+        for (size_t i = 0; i < n || n == 0; i++) {
+            size_t oldPos = 0;
+            Error  err;
+
+            Tie(oldPos, err) = FindSubstr(oldPos, oldSubstr);
+            if (!err.IsNone()) {
+                if (err.Is(ErrorEnum::eNotFound)) {
+                    return ErrorEnum::eNone;
+                }
+
+                return err;
+            }
+
+            for (size_t j = 0; j < Min(oldSubstr.Size(), newSubstr.Size()); j++) {
+                (*this)[oldPos + j] = newSubstr[j];
+            }
+
+            if (oldSubstr.Size() > newSubstr.Size()) {
+                if (err = Remove(begin() + oldPos + newSubstr.Size(), begin() + oldPos + oldSubstr.Size());
+                    !err.IsNone()) {
+                    return err;
+                }
+            }
+
+            if (oldSubstr.Size() < newSubstr.Size()) {
+                if (err = Insert(
+                        begin() + oldPos + oldSubstr.Size(), newSubstr.begin() + oldSubstr.Size(), newSubstr.end());
+                    !err.IsNone()) {
+                    return err;
+                }
+            }
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Appends string operator.
      *
      * @param str string to append with.
