@@ -50,7 +50,7 @@ public:
      * @return Error.
      */
     virtual Error PrepareServiceRootFS(const String& rootfsPath, const String& mountPointDir,
-        const Array<oci::Mount>& mounts, const Array<StaticString<cFilePathLen>>& layers)
+        const Array<Mount>& mounts, const Array<StaticString<cFilePathLen>>& layers)
         = 0;
 
     /**
@@ -257,7 +257,7 @@ private:
               + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
                   sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig)
                       + sizeof(StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>),
-                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(oci::Mount)))
+                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cNumAllocations  = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cRuntimeSpecFile = "config.json";
@@ -293,7 +293,7 @@ private:
     Error CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
     Error SetupMonitoring();
     Error SetupNetwork();
-    Error PrepareRootFS(const image::ImageParts& imageParts, const Array<oci::Mount>& mounts);
+    Error PrepareRootFS(const image::ImageParts& imageParts, const Array<Mount>& mounts);
 
     StaticString<cFilePathLen> GetFullStatePath(const String& path) const
     {

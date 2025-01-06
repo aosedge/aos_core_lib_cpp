@@ -200,59 +200,6 @@ struct Process {
 };
 
 /**
- * Mount specifies a mount for a container.
- */
-struct Mount {
-    /**
-     * Crates mount.
-     */
-    Mount() = default;
-
-    /**
-     * Creates mount.
-     *
-     * @param source source.
-     * @param destination destination.
-     * @param mType mount type.
-     * @param options mount options separated by comma e.g. "ro,bind".
-     */
-    Mount(const String& source, const String& destination, const String& mType, const String& options = "")
-        : mDestination(destination)
-        , mType(mType)
-        , mSource(source)
-    {
-        auto err = options.Split(mOptions, ',');
-
-        assert(err.IsNone());
-    }
-
-    StaticString<cFilePathLen>                                          mDestination;
-    StaticString<cFSMountTypeLen>                                       mType;
-    StaticString<cFilePathLen>                                          mSource;
-    StaticArray<StaticString<cFSMountOptionLen>, cFSMountMaxNumOptions> mOptions;
-
-    /**
-     * Compares mount spec.
-     *
-     * @param mount mount spec to compare.
-     * @return bool.
-     */
-    bool operator==(const Mount& mount) const
-    {
-        return mDestination == mount.mDestination && mType == mount.mType && mSource == mount.mSource
-            && mOptions == mount.mOptions;
-    }
-
-    /**
-     * Compares mount spec.
-     *
-     * @param mount mount spec to compare.
-     * @return bool.
-     */
-    bool operator!=(const Mount& mount) const { return !operator==(mount); }
-};
-
-/**
  * LinuxDeviceCgroup represents a device rule for the devices specified to the device controller.
  */
 struct LinuxDeviceCgroup {

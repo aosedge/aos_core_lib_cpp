@@ -36,10 +36,10 @@ RetWithError<StaticString<cEnvVarNameLen>> GetEnvVarName(const String& envVar)
  * Public
  **********************************************************************************************************************/
 
-Error AddMount(const oci::Mount& mount, oci::RuntimeSpec& runtimeSpec)
+Error AddMount(const Mount& mount, oci::RuntimeSpec& runtimeSpec)
 {
     auto [existMount, err] = runtimeSpec.mMounts.FindIf(
-        [&destination = mount.mDestination](const oci::Mount& mount) { return mount.mDestination == destination; });
+        [&destination = mount.mDestination](const Mount& mount) { return mount.mDestination == destination; });
     if (!err.IsNone()) {
         if (err = runtimeSpec.mMounts.PushBack(mount); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);

@@ -182,7 +182,7 @@ Error Instance::BindHostDirs(oci::RuntimeSpec& runtimeSpec)
 {
     for (const auto& hostEntry : cBindEtcEntries) {
         auto path  = FS::JoinPath("/etc", hostEntry);
-        auto mount = MakeShared<oci::Mount>(&sAllocator, path, path, "bind", "bind,ro");
+        auto mount = MakeShared<Mount>(&sAllocator, path, path, "bind", "bind,ro");
 
         if (auto err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
             return err;
@@ -345,7 +345,7 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
             return AOS_ERROR_WRAP(err);
         }
 
-        auto mount = MakeShared<oci::Mount>(&sAllocator, "tmpfs", "/tmp", "tmpfs", tmpFSOpts);
+        auto mount = MakeShared<Mount>(&sAllocator, "tmpfs", "/tmp", "tmpfs", tmpFSOpts);
 
         if (auto err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
             return err;
@@ -382,7 +382,7 @@ Error Instance::ApplyStateStorage(oci::RuntimeSpec& runtimeSpec)
             return AOS_ERROR_WRAP(err);
         }
 
-        auto mount = MakeShared<oci::Mount>(&sAllocator, absPath, cInstanceStateFile, "bind", "bind,rw");
+        auto mount = MakeShared<Mount>(&sAllocator, absPath, cInstanceStateFile, "bind", "bind,rw");
 
         if (err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
             return err;
@@ -395,7 +395,7 @@ Error Instance::ApplyStateStorage(oci::RuntimeSpec& runtimeSpec)
             return AOS_ERROR_WRAP(err);
         }
 
-        auto mount = MakeShared<oci::Mount>(&sAllocator, absPath, cInstanceStorageDir, "bind", "bind,rw");
+        auto mount = MakeShared<Mount>(&sAllocator, absPath, cInstanceStorageDir, "bind", "bind,rw");
 
         if (err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
             return err;
@@ -560,7 +560,7 @@ Error Instance::SetupMonitoring()
     return ErrorEnum::eNone;
 }
 
-Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<oci::Mount>& mounts)
+Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<Mount>& mounts)
 {
     LOG_DBG() << "Prepare root FS: instanceID=" << *this;
 

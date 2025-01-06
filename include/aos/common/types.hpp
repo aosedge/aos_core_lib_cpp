@@ -642,31 +642,54 @@ using LayerInfoStaticArray = StaticArray<LayerInfo, cMaxNumLayers>;
 /**
  * File system mount.
  */
-struct FileSystemMount {
-    StaticString<cFilePathLen>                                          mDestination;
-    StaticString<cFSMountTypeLen>                                       mType;
-    StaticString<cFilePathLen>                                          mSource;
-    StaticArray<StaticString<cFSMountOptionLen>, cFSMountMaxNumOptions> mOptions;
+struct Mount {
+    /**
+     * Crates mount.
+     */
+    Mount() = default;
 
     /**
-     * Compares file system mount.
+     * Creates mount.
      *
-     * @param fsMount file system mount to compare.
-     * @return bool.
+     * @param source source.
+     * @param destination destination.
+     * @param mType mount type.
+     * @param options mount options separated by comma e.g. "ro,bind".
      */
-    bool operator==(const FileSystemMount& fsMount) const
+    Mount(const String& source, const String& destination, const String& mType, const String& options = "")
+        : mDestination(destination)
+        , mType(mType)
+        , mSource(source)
     {
-        return mDestination == fsMount.mDestination && mType == fsMount.mType && mSource == fsMount.mSource
-            && mOptions == fsMount.mOptions;
+        auto err = options.Split(mOptions, ',');
+
+        assert(err.IsNone());
     }
 
     /**
      * Compares file system mount.
      *
-     * @param fsMount file system mount to compare.
+     * @param mount file system mount to compare.
      * @return bool.
      */
-    bool operator!=(const FileSystemMount& fsMount) const { return !operator==(fsMount); }
+    bool operator==(const Mount& mount) const
+    {
+        return mDestination == mount.mDestination && mType == mount.mType && mSource == mount.mSource
+            && mOptions == mount.mOptions;
+    }
+
+    /**
+     * Compares file system mount.
+     *
+     * @param mount file system mount to compare.
+     * @return bool.
+     */
+    bool operator!=(const Mount& mount) const { return !operator==(mount); }
+
+    StaticString<cFilePathLen>                                          mDestination;
+    StaticString<cFSMountTypeLen>                                       mType;
+    StaticString<cFilePathLen>                                          mSource;
+    StaticArray<StaticString<cFSMountOptionLen>, cFSMountMaxNumOptions> mOptions;
 };
 
 /**
@@ -729,7 +752,7 @@ struct DeviceInfo {
 struct ResourceInfo {
     StaticString<cResourceNameLen>                                 mName;
     StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups>        mGroups;
-    StaticArray<FileSystemMount, cMaxNumFSMounts>                  mMounts;
+    StaticArray<Mount, cMaxNumFSMounts>                            mMounts;
     StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables> mEnv;
     StaticArray<Host, cMaxNumHosts>                                mHosts;
 

@@ -18,7 +18,7 @@ namespace aos::sm::launcher {
  * @param runtimeSpec runtime spec.
  * @return Error.
  */
-Error AddMount(const oci::Mount& mount, oci::RuntimeSpec& runtimeSpec);
+Error AddMount(const Mount& mount, oci::RuntimeSpec& runtimeSpec);
 
 /**
  * Adds namespace path.

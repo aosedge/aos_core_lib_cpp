@@ -40,7 +40,7 @@ class RuntimeMock : public RuntimeItf {
 public:
     MOCK_METHOD(Error, CreateHostFSWhiteouts, (const String&, const Array<StaticString<cFilePathLen>>&), (override));
     MOCK_METHOD(Error, PrepareServiceRootFS,
-        (const String&, const String&, const Array<oci::Mount>&, const Array<StaticString<cFilePathLen>>&), (override));
+        (const String&, const String&, const Array<Mount>&, const Array<StaticString<cFilePathLen>>&), (override));
     MOCK_METHOD(Error, ReleaseServiceRootFS, (const String& runtimeDir), (override));
     MOCK_METHOD(Error, PrepareServiceStorage, (const String& path, uint32_t uid, uint32_t gid), (override));
     MOCK_METHOD(Error, PrepareServiceState, (const String& path, uint32_t uid, uint32_t gid), (override));
