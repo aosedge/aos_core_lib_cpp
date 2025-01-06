@@ -15,7 +15,7 @@ namespace aos::sm::cni {
 
 class CNIMock : public CNIItf {
 public:
-    MOCK_METHOD(Error, Init, (const String& configDir), (override));
+    MOCK_METHOD(Error, SetConfDir, (const String& configDir), (override));
     MOCK_METHOD(
         (RetWithError<Result>), AddNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt), (override));
     MOCK_METHOD(Error, DeleteNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt), (override));

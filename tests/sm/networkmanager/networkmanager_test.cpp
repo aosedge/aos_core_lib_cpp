@@ -26,7 +26,7 @@ protected:
         mWorkingDir = "/tmp/networkmanager_test";
         std::filesystem::create_directories(mWorkingDir.CStr());
 
-        EXPECT_CALL(mCNI, Init(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mCNI, SetConfDir(_)).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mTrafficMonitor, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
 
         ASSERT_EQ(

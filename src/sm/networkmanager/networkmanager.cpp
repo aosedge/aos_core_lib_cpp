@@ -28,8 +28,8 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
 
     auto cniDir = FS::JoinPath(workingDir, "cni");
 
-    if (auto err = mCNI->Init(cniDir); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto err = mCNI->SetConfDir(cniDir); !err.IsNone()) {
+        return err;
     }
 
     mCNINetworkCacheDir = FS::JoinPath(cniDir, "networks");

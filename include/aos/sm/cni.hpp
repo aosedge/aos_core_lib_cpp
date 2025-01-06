@@ -245,12 +245,12 @@ public:
     virtual ~CNIItf() = default;
 
     /**
-     * Initializes CNI.
+     * Sets CNI configuration directory.
      *
      * @param cniConfigDir Path to CNI configuration directory.
      * @return Error.
      */
-    virtual Error Init(const String& configDir) = 0;
+    virtual Error SetConfDir(const String& configDir) = 0;
 
     /**
      * Executes a sequence of plugins with the ADD command
