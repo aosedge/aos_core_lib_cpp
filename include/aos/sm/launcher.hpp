@@ -22,7 +22,6 @@
 #include "aos/sm/launcher/instance.hpp"
 #include "aos/sm/layermanager.hpp"
 #include "aos/sm/networkmanager.hpp"
-#include "aos/sm/resourcemanager.hpp"
 #include "aos/sm/runner.hpp"
 #include "aos/sm/servicemanager.hpp"
 
@@ -340,18 +339,19 @@ private:
     Error StopInstance(const String& instanceID);
     Error RunLastInstances();
 
-    Config                             mConfig;
-    ConnectionPublisherItf*            mConnectionPublisher {};
-    InstanceStatusReceiverItf*         mStatusReceiver {};
-    layermanager::LayerManagerItf*     mLayerManager {};
-    networkmanager::NetworkManagerItf* mNetworkManager {};
-    iam::permhandler::PermHandlerItf*  mPermHandler {};
-    monitoring::ResourceMonitorItf*    mResourceMonitor {};
-    oci::OCISpecItf*                   mOCIManager {};
-    runner::RunnerItf*                 mRunner {};
-    servicemanager::ServiceManagerItf* mServiceManager {};
-    StorageItf*                        mStorage {};
-    RuntimeItf*                        mRuntime {};
+    Config                               mConfig;
+    ConnectionPublisherItf*              mConnectionPublisher {};
+    InstanceStatusReceiverItf*           mStatusReceiver {};
+    layermanager::LayerManagerItf*       mLayerManager {};
+    networkmanager::NetworkManagerItf*   mNetworkManager {};
+    iam::permhandler::PermHandlerItf*    mPermHandler {};
+    monitoring::ResourceMonitorItf*      mResourceMonitor {};
+    oci::OCISpecItf*                     mOCIManager {};
+    resourcemanager::ResourceManagerItf* mResourceManager {};
+    runner::RunnerItf*                   mRunner {};
+    servicemanager::ServiceManagerItf*   mServiceManager {};
+    StorageItf*                          mStorage {};
+    RuntimeItf*                          mRuntime {};
 
     StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)

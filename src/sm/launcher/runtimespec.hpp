@@ -75,6 +75,15 @@ Error SetPIDLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec);
  */
 Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec);
 
+/**
+ * Adds additional GID.
+ *
+ * @param gid GID to add.
+ * @param runtimeSpec runtime spec.
+ * @return Error.
+ */
+Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec);
+
 } // namespace aos::sm::launcher
 
 #endif

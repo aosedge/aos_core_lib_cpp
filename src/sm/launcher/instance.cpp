@@ -29,14 +29,16 @@ StaticAllocator<Instance::cAllocatorSize, Instance::cNumAllocations> Instance::s
 
 Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-    networkmanager::NetworkManagerItf& networkmanager, iam::permhandler::PermHandlerItf& permHandler,
-    runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
-    oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo)
+    resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkmanager,
+    iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
+    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
+    const NodeInfo& nodeInfo)
     : mConfig(config)
     , mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
     , mServiceManager(serviceManager)
     , mLayerManager(layerManager)
+    , mResourceManager(resourceManager)
     , mNetworkManager(networkmanager)
     , mPermHandler(permHandler)
     , mRunner(runner)
@@ -290,6 +292,40 @@ size_t Instance::GetNumCPUCores() const
     return numCores;
 }
 
+Error Instance::SetResources(const Array<StaticString<cResourceNameLen>>& resources, oci::RuntimeSpec& runtimeSpec)
+{
+    for (const auto& resource : resources) {
+        auto resourceInfo = MakeUnique<ResourceInfo>(&sAllocator);
+
+        if (auto err = mResourceManager.GetResourceInfo(resource, *resourceInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (const auto& group : resourceInfo->mGroups) {
+            auto [gid, err] = mRuntime.GetGIDByName(group);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (err = AddAdditionalGID(gid, runtimeSpec); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        for (const auto& mount : resourceInfo->mMounts) {
+            if (auto err = AddMount(mount, runtimeSpec); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        if (auto err = AddEnvVars(resourceInfo->mEnv, runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec)
 {
     if (serviceConfig.mHostname.HasValue()) {
@@ -369,6 +405,10 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
         if (err = AddEnvVars(Array<StaticString<cEnvVarNameLen>>(&envVar, 1), runtimeSpec); !err.IsNone()) {
             return err;
         }
+    }
+
+    if (auto err = SetResources(serviceConfig.mResources, runtimeSpec); !err.IsNone()) {
+        return err;
     }
 
     return ErrorEnum::eNone;

@@ -35,14 +35,13 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
 {
     LOG_DBG() << "Init launcher";
 
-    (void)resourceManager;
-
     mConfig              = config;
     mConnectionPublisher = &connectionPublisher;
     mLayerManager        = &layerManager;
     mNetworkManager      = &networkManager;
     mOCIManager          = &ociManager;
     mPermHandler         = &permHandler;
+    mResourceManager     = &resourceManager;
     mResourceMonitor     = &resourceMonitor;
     mRunner              = &runner;
     mRuntime             = &runtime;
@@ -506,8 +505,8 @@ Error Launcher::StartInstance(const InstanceData& info)
     }
 
     if (auto err = mCurrentInstances.EmplaceBack(mConfig, info.mInstanceInfo, info.mInstanceID, *mServiceManager,
-            *mLayerManager, *mNetworkManager, *mPermHandler, *mRunner, *mRuntime, *mResourceMonitor, *mOCIManager,
-            mHostWhiteoutsDir, mNodeInfo);
+            *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler, *mRunner, *mRuntime, *mResourceMonitor,
+            *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
         !err.IsNone()) {
         return err;
     }

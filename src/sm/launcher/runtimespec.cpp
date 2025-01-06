@@ -160,4 +160,17 @@ Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
+Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
+{
+    if (runtimeSpec.mProcess->mUser.mAdditionalGIDs.Find(gid).mError.IsNone()) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = runtimeSpec.mProcess->mUser.mAdditionalGIDs.PushBack(gid); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::sm::launcher

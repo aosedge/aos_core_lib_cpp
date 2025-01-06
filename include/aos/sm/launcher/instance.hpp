@@ -16,6 +16,7 @@
 #include "aos/sm/launcher/config.hpp"
 #include "aos/sm/layermanager.hpp"
 #include "aos/sm/networkmanager.hpp"
+#include "aos/sm/resourcemanager.hpp"
 #include "aos/sm/runner.hpp"
 #include "aos/sm/servicemanager.hpp"
 
@@ -90,6 +91,14 @@ public:
     virtual RetWithError<StaticString<cFilePathLen>> GetAbsPath(const String& path) = 0;
 
     /**
+     * Returns GID by group name.
+     *
+     * @param groupName group name.
+     * @return RetWithError<uint32_t>.
+     */
+    virtual RetWithError<uint32_t> GetGIDByName(const String& groupName) = 0;
+
+    /**
      * Destroys runtime interface.
      */
     virtual ~RuntimeItf() = default;
@@ -113,6 +122,7 @@ public:
      * @param instanceID instance ID.
      * @param serviceManager service manager.
      * @param layerManager layer manager.
+     * @param resourceManager resource manager.
      * @param networkManager network manager.
      * @param permHandler permission handler.
      * @param runner runner instance.
@@ -123,9 +133,10 @@ public:
      */
     Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-        networkmanager::NetworkManagerItf& networkManager, iam::permhandler::PermHandlerItf& permHandler,
-        runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
-        oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo);
+        resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
+        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
+        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
+        const NodeInfo& nodeInfo);
 
     /**
      * Starts instance.
@@ -257,7 +268,7 @@ private:
               + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
                   sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig)
                       + sizeof(StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>),
-                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount)))
+                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount) + sizeof(ResourceInfo)))
         * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cNumAllocations  = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
     static constexpr auto cRuntimeSpecFile = "config.json";
@@ -285,6 +296,7 @@ private:
     Error  CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec);
     Error  ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
     size_t GetNumCPUCores() const;
+    Error  SetResources(const Array<StaticString<cResourceNameLen>>& resources, oci::RuntimeSpec& runtimeSpec);
     Error  ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error  ApplyStateStorage(oci::RuntimeSpec& runtimeSpec);
     Error  CreateLinuxSpec(
@@ -307,19 +319,20 @@ private:
 
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
-    const Config&                      mConfig;
-    StaticString<cInstanceIDLen>       mInstanceID;
-    InstanceInfo                       mInstanceInfo;
-    servicemanager::ServiceManagerItf& mServiceManager;
-    layermanager::LayerManagerItf&     mLayerManager;
-    networkmanager::NetworkManagerItf& mNetworkManager;
-    iam::permhandler::PermHandlerItf&  mPermHandler;
-    runner::RunnerItf&                 mRunner;
-    RuntimeItf&                        mRuntime;
-    monitoring::ResourceMonitorItf&    mResourceMonitor;
-    oci::OCISpecItf&                   mOCIManager;
-    const String&                      mHostWhiteoutsDir;
-    const NodeInfo&                    mNodeInfo;
+    const Config&                        mConfig;
+    StaticString<cInstanceIDLen>         mInstanceID;
+    InstanceInfo                         mInstanceInfo;
+    servicemanager::ServiceManagerItf&   mServiceManager;
+    layermanager::LayerManagerItf&       mLayerManager;
+    resourcemanager::ResourceManagerItf& mResourceManager;
+    networkmanager::NetworkManagerItf&   mNetworkManager;
+    iam::permhandler::PermHandlerItf&    mPermHandler;
+    runner::RunnerItf&                   mRunner;
+    RuntimeItf&                          mRuntime;
+    monitoring::ResourceMonitorItf&      mResourceMonitor;
+    oci::OCISpecItf&                     mOCIManager;
+    const String&                        mHostWhiteoutsDir;
+    const NodeInfo&                      mNodeInfo;
 
     StaticString<cFilePathLen>         mRuntimeDir;
     const servicemanager::ServiceData* mService = nullptr;
