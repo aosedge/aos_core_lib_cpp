@@ -93,8 +93,8 @@ struct RequestedResources {
  * Service devices rules.
  */
 struct ServiceDevice {
-    StaticString<cDeviceNameLen> mDevice;
-    StaticString<cDeviceNameLen> mPermissions;
+    StaticString<cDeviceNameLen>  mDevice;
+    StaticString<cPermissionsLen> mPermissions;
 };
 
 /**
