@@ -19,11 +19,11 @@ RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& digest)
     StaticArray<const StaticString<oci::cMaxDigestLen>, 2> digestList;
 
     if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
-        return {"", AOS_ERROR_WRAP(err)};
+        return {{}, AOS_ERROR_WRAP(err)};
     }
 
     if (digestList.Size() != 2) {
-        return {"", AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
     }
 
     return FS::JoinPath(digestList[0], digestList[1]);

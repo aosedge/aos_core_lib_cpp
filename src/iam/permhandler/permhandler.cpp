@@ -34,7 +34,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
 
     err = AddSecret(secret, instanceIdent, instancePermissions);
     if (!err.IsNone()) {
-        return {"", AOS_ERROR_WRAP(err)};
+        return {{}, AOS_ERROR_WRAP(err)};
     }
 
     return {secret};
@@ -124,7 +124,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const I
 {
     const auto result = FindByInstanceIdent(instanceIdent);
     if (!result.mError.IsNone()) {
-        return {"", AOS_ERROR_WRAP(result.mError)};
+        return {{}, AOS_ERROR_WRAP(result.mError)};
     }
 
     return result.mValue->mSecret;

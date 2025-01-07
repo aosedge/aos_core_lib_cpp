@@ -272,12 +272,12 @@ public:
         int  day = 0, month = 0, year = 0, hour = 0, min = 0, sec = 0;
         auto err = GetDate(&day, &month, &year);
         if (!err.IsNone()) {
-            return {"", err};
+            return {{}, err};
         }
 
         err = GetTime(&hour, &min, &sec);
         if (!err.IsNone()) {
-            return {"", err};
+            return {{}, err};
         }
 
         snprintf(result.Get(), result.Size(), "%04d%02d%02d%02d%02d%02d", year, month, day, hour, min, sec);

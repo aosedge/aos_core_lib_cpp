@@ -703,7 +703,8 @@ Error NetworkManager::CreateFirewallPluginConfig(
             return ErrorEnum::eInvalidArgument;
         }
 
-        if (auto err = config.mInputAccess.PushBack({portConfig[0], portConfig.Size() > 1 ? portConfig[1] : "tcp"});
+        if (auto err
+            = config.mInputAccess.PushBack({portConfig[0], portConfig.Size() > 1 ? portConfig[1] : String("tcp")});
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
