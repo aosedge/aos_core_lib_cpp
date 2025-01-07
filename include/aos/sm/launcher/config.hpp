@@ -9,6 +9,7 @@
 #define AOS_LAUNCHER_CONFIG_HPP_
 
 #include "aos/common/types.hpp"
+#include "aos/sm/config.hpp"
 
 namespace aos::sm::launcher {
 /**
