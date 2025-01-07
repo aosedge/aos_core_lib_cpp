@@ -159,7 +159,8 @@ Error Instance::Stop()
         }
     }
 
-    if (auto err = mRuntime.ReleaseServiceRootFS(mRuntimeDir); !err.IsNone() && stopErr.IsNone()) {
+    if (auto err = mRuntime.UmountServiceRootFS(FS::JoinPath(mRuntimeDir, cRootFSDir));
+        !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
@@ -658,6 +659,10 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
 {
     LOG_DBG() << "Prepare root FS: instanceID=" << *this;
 
+    if (auto err = mRuntime.CreateMountPoints(FS::JoinPath(mRuntimeDir, cMountPointsDir), mounts); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto layers = MakeUnique<LayersStaticArray>(&sAllocator);
 
     if (auto err = layers->PushBack(imageParts.mServiceFSPath); !err.IsNone()) {
@@ -680,9 +685,7 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mRuntime.PrepareServiceRootFS(
-            FS::JoinPath(mRuntimeDir, cRootFSDir), FS::JoinPath(mRuntimeDir, cMountPointsDir), mounts, *layers);
-        !err.IsNone()) {
+    if (auto err = mRuntime.MountServiceRootFS(FS::JoinPath(mRuntimeDir, cRootFSDir), *layers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

@@ -42,25 +42,30 @@ public:
     virtual Error CreateHostFSWhiteouts(const String& path, const Array<StaticString<cFilePathLen>>& hostBinds) = 0;
 
     /**
-     * Prepares root FS for Aos service.
+     * Creates mount points.
      *
-     * @param rootfsPath path to service root FS.
      * @param mountPointDir mount point directory.
-     * @param mounts mounts to prepare.
-     * @param layers layers to prepare.
+     * @param mounts mounts to create.
      * @return Error.
      */
-    virtual Error PrepareServiceRootFS(const String& rootfsPath, const String& mountPointDir,
-        const Array<Mount>& mounts, const Array<StaticString<cFilePathLen>>& layers)
-        = 0;
+    virtual Error CreateMountPoints(const String& mountPointDir, const Array<Mount>& mounts) = 0;
 
     /**
-     * Releases Aos service root FS.
+     * Mounts root FS for Aos service.
      *
-     * @param runtimeDir service runtime directory.
+     * @param rootfsPath path to service root FS.
+     * @param layers layers to mount.
      * @return Error.
      */
-    virtual Error ReleaseServiceRootFS(const String& runtimeDir) = 0;
+    virtual Error MountServiceRootFS(const String& rootfsPath, const Array<StaticString<cFilePathLen>>& layers) = 0;
+
+    /**
+     * Umounts Aos service root FS.
+     *
+     * @param rootfsPath path to service root FS.
+     * @return Error.
+     */
+    virtual Error UmountServiceRootFS(const String& rootfsPath) = 0;
 
     /**
      * Prepares Aos service storage directory.
