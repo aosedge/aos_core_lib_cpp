@@ -26,7 +26,7 @@ namespace aos {
 /**
  * Wraps aos:Error with file name and line number information.
  */
-#define AOS_ERROR_WRAP(err) Error(err, nullptr, __FILENAME__, __LINE__)
+#define AOS_ERROR_WRAP(err) aos::Error(err, nullptr, __FILENAME__, __LINE__)
 
 /**
  * Maximum error message length.
