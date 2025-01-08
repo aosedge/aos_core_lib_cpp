@@ -16,7 +16,7 @@ namespace aos::sm::layermanager {
 
 namespace {
 
-LayerData CreateLayerData(const LayerInfo& layer, const oci::ImageManifest& manifest, const String& path)
+LayerData CreateLayerData(const LayerInfo& layer, const size_t size, const String& path)
 {
     LayerData layerData = {};
 
@@ -24,7 +24,7 @@ LayerData CreateLayerData(const LayerInfo& layer, const oci::ImageManifest& mani
     layerData.mLayerDigest = layer.mLayerDigest;
     layerData.mVersion     = layer.mVersion;
     layerData.mPath        = path;
-    layerData.mSize        = manifest.mConfig.mSize;
+    layerData.mSize        = size;
     layerData.mState       = LayerStateEnum::eActive;
     layerData.mTimestamp   = Time::Now();
 
@@ -446,20 +446,14 @@ Error LayerManager::InstallLayer(const LayerInfo& layer)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
-    if (err = mOCIManager->LoadImageManifest(FS::JoinPath(storeLayerPath, cLayerOCIDescriptor), *manifest);
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    const auto layerData = CreateLayerData(layer, *manifest, storeLayerPath);
+    const auto layerData = CreateLayerData(layer, unpackedSpace->Size(), storeLayerPath);
 
     if (err = mStorage->AddLayer(layerData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     LOG_INF() << "Layer successfully installed: id=" << layerData.mLayerID << ", version=" << layerData.mVersion
-              << ", digest=" << layerData.mLayerDigest << ", path=" << layerData.mPath;
+              << ", digest=" << layerData.mLayerDigest;
 
     return ErrorEnum::eNone;
 }
