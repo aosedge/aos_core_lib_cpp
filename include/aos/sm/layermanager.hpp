@@ -8,7 +8,6 @@
 #define AOS_LAYERMANAGER_HPP_
 
 #include "aos/common/downloader/downloader.hpp"
-#include "aos/common/ocispec/ocispec.hpp"
 #include "aos/common/spaceallocator/spaceallocator.hpp"
 #include "aos/common/tools/timer.hpp"
 #include "aos/common/types.hpp"
@@ -184,12 +183,11 @@ public:
      * @param storage layer storage.
      * @param downloader layer downloader.
      * @param imageHanlder image handler.
-     * @param ociManager OCI manager instance.
      * @return Error.
      */
     Error Init(const Config& config, spaceallocator::SpaceAllocatorItf& layerSpaceAllocator,
         spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
-        downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHanlder, oci::OCISpecItf& ociManager);
+        downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHanlder);
 
     /**
      * Starts layer manager.
@@ -248,7 +246,6 @@ private:
     StorageItf*                        mStorage                = nullptr;
     downloader::DownloaderItf*         mDownloader             = nullptr;
     image::ImageHandlerItf*            mImageHandler           = nullptr;
-    oci::OCISpecItf*                   mOCIManager             = nullptr;
     Mutex                              mMutex;
     Timer                              mTimer;
 

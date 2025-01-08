@@ -16,7 +16,6 @@
 
 #include "stubs/imagehandlerstub.hpp"
 #include "stubs/layermanagerstub.hpp"
-#include "stubs/ocispecstub.hpp"
 #include "stubs/spaceallocatorstub.hpp"
 
 using namespace testing;
@@ -95,26 +94,10 @@ protected:
 
         mConfig = config;
 
-        auto err = mManager.Init(mConfig, mLayerSpaceAllocator, mDownloadSpaceAllocator, mStorage, mDownloader,
-            mImageHandler, mOCISpecManager);
+        auto err = mManager.Init(
+            mConfig, mLayerSpaceAllocator, mDownloadSpaceAllocator, mStorage, mDownloader, mImageHandler);
 
         ASSERT_TRUE(err.IsNone()) << err.Message();
-    }
-
-    void StoreImageManifest(const LayerInfo& layer)
-    {
-        oci::ImageManifest content = {};
-
-        content.mConfig.mDigest = layer.mLayerDigest;
-        content.mConfig.mSize   = layer.mSize;
-
-        auto manifestPath = FS::JoinPath(cLayersDir, "sha256", layer.mLayerID, "layer.json");
-
-        LOG_DBG() << "Store image manifest: path=" << manifestPath;
-
-        if (auto err = mOCISpecManager.SaveImageManifest(manifestPath, content); !err.IsNone()) {
-            LOG_ERR() << "Failed to save image manifest: path=" << manifestPath << ", error=" << err;
-        }
     }
 
     LayerInfo CreateAosLayer(const String& layerID, const std::string& uriPrefix)
@@ -126,8 +109,6 @@ protected:
         layer.mURL.Append(uriPrefix.c_str()).Append(layerID);
 
         const auto layerPath = FS::JoinPath(cLayersDir, "sha256", layerID);
-
-        StoreImageManifest(layer);
 
         const StaticString<cFilePathLen> archivePath
             = (uriPrefix == "file://") ? layerID : FS::JoinPath(cDownloadDir, layer.mLayerDigest);
@@ -157,7 +138,6 @@ protected:
     StorageStub                        mStorage;
     downloader::DownloaderMock         mDownloader;
     image::ImageHandlerStub            mImageHandler;
-    oci::OCISpecStub                   mOCISpecManager;
 };
 
 /***********************************************************************************************************************

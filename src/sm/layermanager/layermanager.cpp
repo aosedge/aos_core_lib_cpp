@@ -69,7 +69,7 @@ void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
 
 Error LayerManager::Init(const Config& config, spaceallocator::SpaceAllocatorItf& layerSpaceAllocator,
     spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
-    downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHandler, oci::OCISpecItf& ociManager)
+    downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHandler)
 {
     LOG_DBG() << "Initialize layer manager";
 
@@ -83,7 +83,6 @@ Error LayerManager::Init(const Config& config, spaceallocator::SpaceAllocatorItf
     mStorage                = &storage;
     mDownloader             = &downloader;
     mImageHandler           = &imageHandler;
-    mOCIManager             = &ociManager;
 
     if (auto err = FS::ClearDir(mConfig.mDownloadDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
