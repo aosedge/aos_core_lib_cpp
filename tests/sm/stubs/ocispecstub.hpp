@@ -21,6 +21,42 @@ namespace aos::oci {
 class OCISpecStub : public OCISpecItf {
 public:
     /**
+     * Loads OCI content descriptor.
+     *
+     * @param path file path.
+     * @param descriptor[out]  content descriptor.
+     * @return Error.
+     */
+    Error LoadContentDescriptor(const String& path, ContentDescriptor& descriptor) override
+    {
+        std::lock_guard lock {mMutex};
+
+        if (mContentDescriptors.find(path.CStr()) == mContentDescriptors.end()) {
+            return ErrorEnum::eNotFound;
+        }
+
+        descriptor = mContentDescriptors.at(path.CStr());
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Saves OCI content descriptor.
+     *
+     * @param path file path.
+     * @param descriptor[out] content descriptor.
+     * @return Error.
+     */
+    Error SaveContentDescriptor(const String& path, const ContentDescriptor& descriptor) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mContentDescriptors[path.CStr()] = descriptor;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Loads OCI image manifest.
      *
      * @param path file path.
@@ -165,11 +201,12 @@ public:
     }
 
 private:
-    std::mutex                           mMutex;
-    std::map<std::string, ImageManifest> mImageManifests;
-    std::map<std::string, ImageSpec>     mImageSpecs;
-    std::map<std::string, RuntimeSpec>   mRuntimeSpecs;
-    std::map<std::string, ServiceConfig> mServiceConfigs;
+    std::mutex                               mMutex;
+    std::map<std::string, ContentDescriptor> mContentDescriptors;
+    std::map<std::string, ImageManifest>     mImageManifests;
+    std::map<std::string, ImageSpec>         mImageSpecs;
+    std::map<std::string, RuntimeSpec>       mRuntimeSpecs;
+    std::map<std::string, ServiceConfig>     mServiceConfigs;
 };
 
 } // namespace aos::oci

@@ -20,6 +20,24 @@ namespace aos::oci {
 class OCISpecItf {
 public:
     /**
+     * Loads OCI content descriptor.
+     *
+     * @param path file path.
+     * @param descriptor[out]  content descriptor.
+     * @return Error.
+     */
+    virtual Error LoadContentDescriptor(const String& path, ContentDescriptor& descriptor) = 0;
+
+    /**
+     * Saves OCI content descriptor.
+     *
+     * @param path file path.
+     * @param descriptor[out] content descriptor.
+     * @return Error.
+     */
+    virtual Error SaveContentDescriptor(const String& path, const ContentDescriptor& descriptor) = 0;
+
+    /**
      * Loads OCI image manifest.
      *
      * @param path file path.
