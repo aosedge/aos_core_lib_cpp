@@ -661,8 +661,7 @@ struct Mount {
         , mType(mType)
         , mSource(source)
     {
-        auto err = options.Split(mOptions, ',');
-
+        [[maybe_unused]] auto err = options.Split(mOptions, ',');
         assert(err.IsNone());
     }
 

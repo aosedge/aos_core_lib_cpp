@@ -62,7 +62,8 @@ public:
     ~Thread()
     {
 #if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
-        auto ret = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ | PROT_WRITE);
+        [[maybe_unused]] auto ret
+            = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ | PROT_WRITE);
         assert(ret == 0);
 #endif
     }

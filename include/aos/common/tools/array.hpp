@@ -470,8 +470,7 @@ public:
     explicit StaticArray(size_t size)
     {
         Array<T>::SetBuffer(mBuffer);
-        auto err = Array<T>::Resize(size);
-
+        [[maybe_unused]] auto err = Array<T>::Resize(size);
         assert(err.IsNone());
     }
 

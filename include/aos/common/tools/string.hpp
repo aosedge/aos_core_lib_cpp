@@ -66,9 +66,7 @@ public:
     String& operator=(const String& str)
     {
         Array::operator=(str);
-        if (*end()) {
-            *end() = 0;
-        }
+        *end() = 0;
 
         return *this;
     }

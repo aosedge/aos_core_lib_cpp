@@ -27,7 +27,7 @@ RetWithError<StaticString<cEnvVarNameLen>> GetEnvVarName(const String& envVar)
 
     tmpStr.Trim(" ");
 
-    return {tmpStr, ErrorEnum::eNone};
+    return tmpStr;
 }
 
 } // namespace
