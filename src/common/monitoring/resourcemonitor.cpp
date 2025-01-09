@@ -121,26 +121,31 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 {
     LockGuard lock {mMutex};
 
-    Error err;
+    Error stopErr;
 
     LOG_DBG() << "Stop instance monitoring: instanceID=" << instanceID;
 
     auto instanceData = mInstanceMonitoringData.At(instanceID);
-    if (!instanceData.mError.IsNone()) {
-        err = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance monitoring not found"));
+    if (!instanceData.mError.IsNone() && stopErr.IsNone()) {
+        if (instanceData.mError.Is(ErrorEnum::eNotFound)) {
+            LOG_WRN() << "Instance monitoring not found: instanceID=" << instanceID;
+
+            return ErrorEnum::eNone;
+        }
+
+        stopErr = AOS_ERROR_WRAP(instanceData.mError);
     }
 
-    auto removeError = mInstanceMonitoringData.Remove(instanceID);
-    if (!removeError.IsNone() && err.IsNone()) {
-        err = AOS_ERROR_WRAP(removeError);
+    if (auto err = mInstanceMonitoringData.Remove(instanceID); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
     }
 
-    auto averageError = mAverage.StopInstanceMonitoring(instanceData.mValue.mInstanceIdent);
-    if (!averageError.IsNone() && err.IsNone()) {
-        err = AOS_ERROR_WRAP(averageError);
+    if (auto err = mAverage.StopInstanceMonitoring(instanceData.mValue.mInstanceIdent);
+        !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
     }
 
-    return err;
+    return stopErr;
 }
 
 Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringData)
