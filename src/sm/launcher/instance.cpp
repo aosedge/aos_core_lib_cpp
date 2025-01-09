@@ -547,7 +547,7 @@ Error Instance::CreateLinuxSpec(
     runtimeSpec.mLinux->mCgroupsPath = FS::JoinPath(cCgroupsPath, mInstanceID);
 
     runtimeSpec.mRoot->mPath     = FS::JoinPath(mRuntimeDir, cRootFSDir);
-    runtimeSpec.mRoot->mReadonly = true;
+    runtimeSpec.mRoot->mReadonly = false;
 
     if (auto err = BindHostDirs(runtimeSpec); !err.IsNone()) {
         return err;
