@@ -409,11 +409,14 @@ void Launcher::StopInstances(const Array<InstanceData>& instances, bool forceRes
 
     LOG_DBG() << "Stop instances";
 
-    auto services = MakeUnique<servicemanager::ServiceDataStaticArray>(&mAllocator);
+    UniquePtr<servicemanager::ServiceDataStaticArray> services;
 
-    auto err = mServiceManager->GetAllServices(*services);
-    if (!err.IsNone()) {
-        LOG_ERR() << "Can't get current services: err=" << err;
+    if (!forceRestart) {
+        services = MakeUnique<servicemanager::ServiceDataStaticArray>(&mAllocator);
+
+        if (auto err = mServiceManager->GetAllServices(*services); !err.IsNone()) {
+            LOG_ERR() << "Can't get current services: err=" << err;
+        }
     }
 
     for (const auto& instance : mCurrentInstances) {
@@ -441,13 +444,13 @@ void Launcher::StopInstances(const Array<InstanceData>& instances, bool forceRes
 
         StaticString<cInstanceIDLen> instanceID {instance.InstanceID()};
 
-        err = mLaunchPool.AddTask([this, instanceID = Move(instanceID)](void*) mutable {
-            auto err = StopInstance(instanceID);
-            if (!err.IsNone()) {
-                LOG_ERR() << "Can't stop instance: instanceID=" << instanceID << ", err=" << err;
-            }
-        });
-        if (!err.IsNone()) {
+        if (auto err = mLaunchPool.AddTask([this, instanceID = Move(instanceID)](void*) mutable {
+                auto err = StopInstance(instanceID);
+                if (!err.IsNone()) {
+                    LOG_ERR() << "Can't stop instance: instanceID=" << instanceID << ", err=" << err;
+                }
+            });
+            !err.IsNone()) {
             LOG_ERR() << "Can't stop instance: instance=" << instance << ", err=" << err;
         }
     }
@@ -602,6 +605,8 @@ void Launcher::OnConnect()
 {
     LockGuard lock {mMutex};
 
+    LOG_DBG() << "Cloud connected";
+
     if (!mLaunchInProgress) {
         if (auto err = RunLastInstances(); !err.IsNone()) {
             LOG_ERR() << "Error running last instances: err=" << err;
@@ -615,6 +620,8 @@ void Launcher::OnConnect()
 void Launcher::OnDisconnect()
 {
     LockGuard lock {mMutex};
+
+    LOG_DBG() << "Cloud disconnected";
 
     mConnected = false;
     mCondVar.NotifyOne();
