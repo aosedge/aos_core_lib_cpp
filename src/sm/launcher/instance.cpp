@@ -489,7 +489,7 @@ Error Instance::ApplyStateStorage(oci::RuntimeSpec& runtimeSpec)
     }
 
     if (!mInstanceInfo.mStoragePath.IsEmpty()) {
-        auto [absPath, err] = mRuntime.GetAbsPath(GetFullStatePath(mInstanceInfo.mStatePath));
+        auto [absPath, err] = mRuntime.GetAbsPath(GetFullStoragePath(mInstanceInfo.mStoragePath));
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
