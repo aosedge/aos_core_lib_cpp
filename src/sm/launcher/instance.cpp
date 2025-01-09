@@ -689,6 +689,10 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = layers->PushBack("/"); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mRuntime.MountServiceRootFS(FS::JoinPath(mRuntimeDir, cRootFSDir), *layers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
