@@ -672,6 +672,10 @@ Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
         networkParams->mUploadLimit = *serviceConfig.mQuotas.mUploadLimit;
     }
 
+    if (auto err = mRuntime.PrepareNetworkDir(FS::JoinPath(mRuntimeDir, cMountPointsDir)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService->mProviderID, *networkParams);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

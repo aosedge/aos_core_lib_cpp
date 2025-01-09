@@ -88,6 +88,14 @@ public:
     virtual Error PrepareServiceState(const String& path, uint32_t uid, uint32_t gid) = 0;
 
     /**
+     * Prepares directory for network files.
+     *
+     * @param path network directory path.
+     * @return Error.
+     */
+    virtual Error PrepareNetworkDir(const String& path) = 0;
+
+    /**
      * Returns absolute path of FS item.
      *
      * @param path path to convert.
