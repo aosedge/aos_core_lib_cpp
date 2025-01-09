@@ -54,8 +54,6 @@ void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
 
 ServiceManager::~ServiceManager()
 {
-    LOG_DBG() << "Destroy service manager";
-
     mInstallPool.Shutdown();
 }
 
@@ -63,7 +61,7 @@ Error ServiceManager::Init(const Config& config, oci::OCISpecItf& ociManager, do
     StorageItf& storage, spaceallocator::SpaceAllocatorItf& serviceSpaceAllocator,
     spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, image::ImageHandlerItf& imageHandler)
 {
-    LOG_DBG() << "Initialize service manager";
+    LOG_DBG() << "Init service manager";
 
     mConfig                 = config;
     mOCIManager             = &ociManager;

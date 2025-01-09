@@ -18,7 +18,7 @@ namespace aos::sm::networkmanager {
 Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor,
     NamespaceManagerItf& netns, NetworkInterfaceManagerItf& netIf, const String& workingDir)
 {
-    LOG_DBG() << "Initialize network manager";
+    LOG_DBG() << "Init network manager";
 
     mStorage    = &storage;
     mCNI        = &cni;
@@ -29,7 +29,7 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
     auto cniDir = FS::JoinPath(workingDir, "cni");
 
     if (auto err = mCNI->SetConfDir(cniDir); !err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     mCNINetworkCacheDir = FS::JoinPath(cniDir, "networks");

@@ -71,7 +71,7 @@ Error LayerManager::Init(const Config& config, spaceallocator::SpaceAllocatorItf
     spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
     downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHandler, oci::OCISpecItf& ociManager)
 {
-    LOG_DBG() << "Initialize layer manager";
+    LOG_DBG() << "Init layer manager";
 
     mConfig = config;
 

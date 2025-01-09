@@ -49,7 +49,7 @@ Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const
     , mNodeInfo(nodeInfo)
     , mRuntimeDir(FS::JoinPath(cRuntimeDir, mInstanceID))
 {
-    LOG_INF() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
+    LOG_DBG() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
 }
 
 void Instance::SetService(const servicemanager::ServiceData* service)
@@ -91,17 +91,21 @@ Error Instance::Start()
     }
 
     if (!mInstanceInfo.mStatePath.IsEmpty()) {
-        if (auto err = mRuntime.PrepareServiceState(
-                GetFullStatePath(mInstanceInfo.mStatePath), mInstanceInfo.mUID, mService->mGID);
-            !err.IsNone()) {
+        auto statePath = GetFullStatePath(mInstanceInfo.mStatePath);
+
+        LOG_DBG() << "Prepare state: instance=" << *this << ", path=" << statePath;
+
+        if (auto err = mRuntime.PrepareServiceState(statePath, mInstanceInfo.mUID, mService->mGID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
     if (!mInstanceInfo.mStoragePath.IsEmpty()) {
-        if (auto err = mRuntime.PrepareServiceStorage(
-                GetFullStoragePath(mInstanceInfo.mStoragePath), mInstanceInfo.mUID, mService->mGID);
-            !err.IsNone()) {
+        auto storagePath = GetFullStoragePath(mInstanceInfo.mStoragePath);
+
+        LOG_DBG() << "Prepare storage: instance=" << *this << ", path=" << storagePath;
+
+        if (auto err = mRuntime.PrepareServiceStorage(storagePath, mInstanceInfo.mUID, mService->mGID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }

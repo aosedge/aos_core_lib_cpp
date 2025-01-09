@@ -253,7 +253,7 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
 
 Error MbedTLSCryptoProvider::Init()
 {
-    LOG_INF() << "Initialize mbedTLS crypto provider";
+    LOG_DBG() << "Init mbedTLS crypto provider";
 
     auto ret = psa_crypto_init();
 

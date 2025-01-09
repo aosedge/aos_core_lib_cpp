@@ -349,8 +349,13 @@ void Launcher::SendRunStatus()
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
-        LOG_DBG() << "Instance status: instance=" << instance << ", serviceVersion=" << instance.GetServiceVersion()
-                  << ", runState=" << instance.RunState() << ", err=" << instance.RunError();
+        if (instance.RunError().IsNone()) {
+            LOG_DBG() << "Instance status: instance=" << instance << ", serviceVersion=" << instance.GetServiceVersion()
+                      << ", runState=" << instance.RunState();
+        } else {
+            LOG_ERR() << "Instance status: instance=" << instance << ", serviceVersion=" << instance.GetServiceVersion()
+                      << ", runState=" << instance.RunState() << ", err=" << instance.RunError();
+        }
 
         status->PushBack(
             {instance.Info().mInstanceIdent, instance.GetServiceVersion(), instance.RunState(), instance.RunError()});
