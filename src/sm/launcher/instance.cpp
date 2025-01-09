@@ -74,19 +74,25 @@ Error Instance::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = SetupNetwork(); !err.IsNone()) {
-        return err;
-    }
-
     auto imageParts = MakeUnique<image::ImageParts>(&sAllocator);
 
     if (auto err = mServiceManager.GetImageParts(*mService, *imageParts); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
+    auto serviceConfig = MakeUnique<oci::ServiceConfig>(&sAllocator);
+
+    if (auto err = mOCIManager.LoadServiceConfig(imageParts->mServiceConfigPath, *serviceConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
 
-    if (auto err = CreateRuntimeSpec(*imageParts, *runtimeSpec); !err.IsNone()) {
+    if (auto err = CreateRuntimeSpec(*imageParts, *serviceConfig, *runtimeSpec); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = SetupNetwork(*serviceConfig); !err.IsNone()) {
         return err;
     }
 
@@ -583,27 +589,23 @@ Error Instance::CreateLinuxSpec(
     return ErrorEnum::eNone;
 }
 
-Error Instance::CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec)
+Error Instance::CreateRuntimeSpec(
+    const image::ImageParts& imageParts, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec)
 {
-    auto imageSpec     = MakeUnique<oci::ImageSpec>(&sAllocator);
-    auto serviceConfig = MakeUnique<oci::ServiceConfig>(&sAllocator);
+    auto imageSpec = MakeUnique<oci::ImageSpec>(&sAllocator);
 
     if (auto err = mOCIManager.LoadImageSpec(imageParts.mImageConfigPath, *imageSpec); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mOCIManager.LoadServiceConfig(imageParts.mServiceConfigPath, *serviceConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (serviceConfig->mRunners
+    if (serviceConfig.mRunners
             .FindIf([](const String& runner) { return runner == Runner(RunnerEnum::eXRUN).ToString(); })
             .mError.IsNone()) {
         if (auto err = CreateVMSpec(imageParts.mServiceFSPath, *imageSpec, runtimeSpec); !err.IsNone()) {
             return err;
         }
     } else {
-        if (auto err = CreateLinuxSpec(*imageSpec, *serviceConfig, runtimeSpec); !err.IsNone()) {
+        if (auto err = CreateLinuxSpec(*imageSpec, serviceConfig, runtimeSpec); !err.IsNone()) {
             return err;
         }
     }
@@ -616,7 +618,25 @@ Error Instance::CreateRuntimeSpec(const image::ImageParts& imageParts, oci::Runt
     return ErrorEnum::eNone;
 }
 
-Error Instance::SetupNetwork()
+Error Instance::AddNetworkHostsFromResources(const Array<StaticString<cResourceNameLen>>& resources, Array<Host>& hosts)
+{
+    for (auto const& resource : resources) {
+        auto resourceInfo = MakeUnique<ResourceInfo>(&sAllocator);
+
+        if (auto err = mResourceManager.GetResourceInfo(resource, *resourceInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = hosts.Insert(hosts.end(), resourceInfo->mHosts.begin(), resourceInfo->mHosts.end());
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
 {
     LOG_DBG() << "Setup network: instanceID=" << *this;
 
@@ -627,6 +647,30 @@ Error Instance::SetupNetwork()
     networkParams->mResolvConfFilePath = FS::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "resolv.conf");
     networkParams->mHosts              = mConfig.mHosts;
     networkParams->mNetworkParameters  = mInstanceInfo.mNetworkParameters;
+
+    if (auto err = AddNetworkHostsFromResources(serviceConfig.mResources, networkParams->mHosts); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (serviceConfig.mQuotas.mDownloadSpeed.HasValue()) {
+        networkParams->mIngressKbit = *serviceConfig.mQuotas.mDownloadSpeed;
+    }
+
+    if (serviceConfig.mQuotas.mUploadSpeed.HasValue()) {
+        networkParams->mEgressKbit = *serviceConfig.mQuotas.mUploadSpeed;
+    }
+
+    if (serviceConfig.mQuotas.mDownloadLimit.HasValue()) {
+        networkParams->mDownloadLimit = *serviceConfig.mQuotas.mDownloadLimit;
+    }
+
+    if (serviceConfig.mHostname.HasValue()) {
+        networkParams->mHostname = *serviceConfig.mHostname;
+    }
+
+    if (serviceConfig.mQuotas.mUploadLimit.HasValue()) {
+        networkParams->mUploadLimit = *serviceConfig.mQuotas.mUploadLimit;
+    }
 
     if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService->mProviderID, *networkParams);
         !err.IsNone()) {

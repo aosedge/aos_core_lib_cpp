@@ -318,9 +318,11 @@ private:
     Error  CreateLinuxSpec(
          const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error CreateVMSpec(const String& serviceFSPath, const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec);
-    Error CreateRuntimeSpec(const image::ImageParts& imageParts, oci::RuntimeSpec& runtimeSpec);
+    Error CreateRuntimeSpec(
+        const image::ImageParts& imageParts, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec);
     Error SetupMonitoring();
-    Error SetupNetwork();
+    Error AddNetworkHostsFromResources(const Array<StaticString<cResourceNameLen>>& resources, Array<Host>& hosts);
+    Error SetupNetwork(const oci::ServiceConfig& serviceConfig);
     Error PrepareRootFS(const image::ImageParts& imageParts, const Array<Mount>& mounts);
 
     StaticString<cFilePathLen> GetFullStatePath(const String& path) const
