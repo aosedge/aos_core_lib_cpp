@@ -338,6 +338,7 @@ private:
     Error StartInstance(const InstanceData& info);
     Error StopInstance(const String& instanceID);
     Error RunLastInstances();
+    Error StopCurrentInstances();
 
     Config                               mConfig;
     ConnectionPublisherItf*              mConnectionPublisher {};

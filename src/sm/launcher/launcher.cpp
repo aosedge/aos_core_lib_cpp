@@ -90,10 +90,14 @@ Error Launcher::Start()
 
 Error Launcher::Stop()
 {
+    LOG_DBG() << "Stop launcher";
+
+    if (auto err = StopCurrentInstances(); !err.IsNone()) {
+        LOG_ERR() << "Error stopping current instances: err=" << err;
+    }
+
     {
         LockGuard lock {mMutex};
-
-        LOG_DBG() << "Stop launcher";
 
         mConnectionPublisher->Unsubscribe(*this);
 
@@ -584,6 +588,21 @@ void Launcher::OnDisconnect()
 
     mConnected = false;
     mCondVar.NotifyOne();
+}
+
+Error Launcher::StopCurrentInstances()
+{
+    if (auto err = mLaunchPool.Run(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StopInstances(Array<InstanceData>(), true);
+
+    if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::sm::launcher
