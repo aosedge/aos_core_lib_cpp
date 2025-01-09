@@ -711,11 +711,17 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
 {
     LOG_DBG() << "Prepare root FS: instanceID=" << *this;
 
-    if (auto err = mRuntime.CreateMountPoints(FS::JoinPath(mRuntimeDir, cMountPointsDir), mounts); !err.IsNone()) {
+    auto mountPoints = FS::JoinPath(mRuntimeDir, cMountPointsDir);
+
+    if (auto err = mRuntime.CreateMountPoints(mountPoints, mounts); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto layers = MakeUnique<LayersStaticArray>(&sAllocator);
+
+    if (auto err = layers->PushBack(mountPoints); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (auto err = layers->PushBack(imageParts.mServiceFSPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
