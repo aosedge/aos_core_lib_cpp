@@ -11,7 +11,7 @@
 
 namespace aos::oci {
 
-constexpr auto cVersion = "1.1.0";
+constexpr auto cVersion = "1.2.0";
 
 /**
  * Spec parameter max len.

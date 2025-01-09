@@ -709,10 +709,6 @@ inline Error CreateExampleRuntimeSpec(RuntimeSpec& spec, bool isCgroup2UnifiedMo
     spec.mProcess->mCapabilities->mPermitted.PushBack("CAP_AUDIT_WRITE");
     spec.mProcess->mCapabilities->mPermitted.PushBack("CAP_KILL");
     spec.mProcess->mCapabilities->mPermitted.PushBack("CAP_NET_BIND_SERVICE");
-    spec.mProcess->mCapabilities->mAmbient.Clear();
-    spec.mProcess->mCapabilities->mAmbient.PushBack("CAP_AUDIT_WRITE");
-    spec.mProcess->mCapabilities->mAmbient.PushBack("CAP_KILL");
-    spec.mProcess->mCapabilities->mAmbient.PushBack("CAP_NET_BIND_SERVICE");
     spec.mProcess->mCapabilities->mEffective.Clear();
     spec.mProcess->mCapabilities->mEffective.PushBack("CAP_AUDIT_WRITE");
     spec.mProcess->mCapabilities->mEffective.PushBack("CAP_KILL");
@@ -751,6 +747,7 @@ inline Error CreateExampleRuntimeSpec(RuntimeSpec& spec, bool isCgroup2UnifiedMo
     spec.mLinux->mReadonlyPaths.PushBack("/proc/fs");
     spec.mLinux->mReadonlyPaths.PushBack("/proc/irq");
     spec.mLinux->mReadonlyPaths.PushBack("/proc/sys");
+    spec.mLinux->mReadonlyPaths.PushBack("/proc/sysrq-trigger");
 
     spec.mLinux->mResources.EmplaceValue();
 

@@ -70,7 +70,6 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
 
     EXPECT_EQ(spec->mProcess->mCapabilities->mBounding, caps);
     EXPECT_EQ(spec->mProcess->mCapabilities->mPermitted, caps);
-    EXPECT_EQ(spec->mProcess->mCapabilities->mAmbient, caps);
     EXPECT_EQ(spec->mProcess->mCapabilities->mEffective, caps);
 
     StaticArray<POSIXRlimit, cMaxParamCount> rlimits;
@@ -113,6 +112,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     paths.PushBack("/proc/fs");
     paths.PushBack("/proc/irq");
     paths.PushBack("/proc/sys");
+    paths.PushBack("/proc/sysrq-trigger");
 
     EXPECT_EQ(spec->mLinux->mReadonlyPaths, paths);
 
