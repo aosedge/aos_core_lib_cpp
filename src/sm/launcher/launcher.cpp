@@ -256,6 +256,31 @@ Error Launcher::GetRunningInstances(const Array<InstanceInfo>& desiredInstances,
  * Private
  **********************************************************************************************************************/
 
+Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
+{
+    CacheServices(instances);
+
+    for (const auto& instance : instances) {
+        auto findService = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
+        if (!findService.mError.IsNone()) {
+            LOG_ERR() << "Can't get service: instanceID=" << instance.mInstanceID << ", err=" << findService.mError;
+
+            continue;
+        }
+
+        if (auto err = mCurrentInstances.EmplaceBack(mConfig, instance.mInstanceInfo, instance.mInstanceID,
+                *mServiceManager, *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler, *mRunner,
+                *mRuntime, *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        mCurrentInstances[mCurrentInstances.Size() - 1].SetService(findService.mValue);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Launcher::RunLastInstances()
 {
     LOG_DBG() << "Run last instances";
@@ -273,15 +298,20 @@ Error Launcher::RunLastInstances()
 
     auto instances = SharedPtr<const Array<InstanceData>>(&mAllocator, new (&mAllocator) InstanceDataStaticArray());
 
-    auto err = mStorage->GetAllInstances(const_cast<Array<InstanceData>&>(*instances));
-    if (!err.IsNone()) {
+    if (auto err = mStorage->GetAllInstances(const_cast<Array<InstanceData>&>(*instances)); !err.IsNone()) {
         return err;
     }
 
-    err = mThread.Run([this, instances](void*) mutable {
-        ProcessInstances(*instances);
+    auto err = mThread.Run([this, instances](void*) mutable {
+        if (auto err = FillCurrentInstance(*instances); !err.IsNone()) {
+            LOG_ERR() << "Can't fill current instances: err=" << err;
+        }
+
+        ProcessInstances(*instances, true);
 
         UniqueLock lock {mMutex};
+
+        LOG_DBG() << "Wait for connection to cloud";
 
         mCondVar.Wait(lock, [&] { return mConnected || mClose; });
 

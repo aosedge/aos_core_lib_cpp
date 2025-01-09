@@ -337,6 +337,7 @@ private:
 
     Error StartInstance(const InstanceData& info);
     Error StopInstance(const String& instanceID);
+    Error FillCurrentInstance(const Array<InstanceData>& instances);
     Error RunLastInstances();
     Error StopCurrentInstances();
 
