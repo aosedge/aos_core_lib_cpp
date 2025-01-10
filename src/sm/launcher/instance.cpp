@@ -6,7 +6,6 @@
  */
 
 #include "aos/sm/launcher/instance.hpp"
-#include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/memory.hpp"
 
 #include "log.hpp"

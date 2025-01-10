@@ -261,9 +261,23 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
     CacheServices(instances);
 
     for (const auto& instance : instances) {
-        auto findService = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
-        if (!findService.mError.IsNone()) {
-            LOG_ERR() << "Can't get service: instanceID=" << instance.mInstanceID << ", err=" << findService.mError;
+        Error err;
+        bool  instanceStarted = false;
+
+        Tie(instanceStarted, err) = Instance::IsInstanceStarted(instance.mInstanceID);
+        if (!err.IsNone()) {
+            LOG_WRN() << "Can't check instance started: instanceID=" << instance.mInstanceID << ", err=" << err;
+        }
+
+        if (!instanceStarted) {
+            continue;
+        }
+
+        servicemanager::ServiceData* service;
+
+        Tie(service, err) = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Can't get service: instanceID=" << instance.mInstanceID << ", err=" << err;
 
             continue;
         }
@@ -275,7 +289,7 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
             return AOS_ERROR_WRAP(err);
         }
 
-        mCurrentInstances[mCurrentInstances.Size() - 1].SetService(findService.mValue);
+        mCurrentInstances[mCurrentInstances.Size() - 1].SetService(service);
     }
 
     return ErrorEnum::eNone;

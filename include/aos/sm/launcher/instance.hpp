@@ -11,6 +11,7 @@
 
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/allocator.hpp"
+#include "aos/common/tools/fs.hpp"
 #include "aos/iam/permhandler.hpp"
 #include "aos/sm/config.hpp"
 #include "aos/sm/launcher/config.hpp"
@@ -238,6 +239,17 @@ public:
      * Displays allocator statistics.
      */
     static void ShowAllocatorStats();
+
+    /**
+     * Checks if instance is started.
+     *
+     * @param instanceID instance ID.
+     * @return RetWithError<bool>.
+     */
+    static RetWithError<bool> IsInstanceStarted(const String& instanceID)
+    {
+        return FS::DirExist(FS::JoinPath(cRuntimeDir, instanceID));
+    };
 
     /**
      * Compares instances.
