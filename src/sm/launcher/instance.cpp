@@ -168,9 +168,12 @@ Error Instance::Stop()
         }
     }
 
-    if (auto err = mRuntime.UmountServiceRootFS(FS::JoinPath(mRuntimeDir, cRootFSDir));
-        !err.IsNone() && stopErr.IsNone()) {
-        stopErr = AOS_ERROR_WRAP(err);
+    auto rootfsPath = FS::JoinPath(mRuntimeDir, cRootFSDir);
+
+    if (auto [exist, err] = FS::DirExist(rootfsPath); !err.IsNone() || exist) {
+        if (err = mRuntime.UmountServiceRootFS(rootfsPath); !err.IsNone() && stopErr.IsNone()) {
+            stopErr = AOS_ERROR_WRAP(err);
+        }
     }
 
     if (auto err = FS::RemoveAll(mRuntimeDir); !err.IsNone() && stopErr.IsNone()) {
