@@ -158,8 +158,8 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
               Instance::ShowAllocatorStats();
 
-              LOG_DBG() << "Launcher allocator: size=" << mAllocator.MaxSize()
-                        << ", maxAllocated=" << mAllocator.MaxAllocatedSize();
+              LOG_DBG() << "Launcher allocator: allocated=" << mAllocator.MaxAllocatedSize()
+                        << ", maxSize=" << mAllocator.MaxSize();
 #if AOS_CONFIG_THREAD_STACK_USAGE
               LOG_DBG() << "Stack usage: size=" << mThread.GetStackUsage();
 #endif
@@ -311,7 +311,9 @@ Error Launcher::RunLastInstances()
 
         UniqueLock lock {mMutex};
 
-        LOG_DBG() << "Wait for connection to cloud";
+        if (!mConnected) {
+            LOG_DBG() << "Wait for connection to cloud";
+        }
 
         mCondVar.Wait(lock, [&] { return mConnected || mClose; });
 
@@ -325,8 +327,8 @@ Error Launcher::RunLastInstances()
 
         Instance::ShowAllocatorStats();
 
-        LOG_DBG() << "Launcher allocator: size=" << mAllocator.MaxSize()
-                  << ", maxAllocated=" << mAllocator.MaxAllocatedSize();
+        LOG_DBG() << "Launcher allocator: allocated=" << mAllocator.MaxAllocatedSize()
+                  << ", maxSize=" << mAllocator.MaxSize();
 #if AOS_CONFIG_THREAD_STACK_USAGE
         LOG_DBG() << "Stack usage: size=" << mThread.GetStackUsage();
 #endif

@@ -183,8 +183,8 @@ Error Instance::Stop()
 
 void Instance::ShowAllocatorStats()
 {
-    LOG_DBG() << "Instances allocator: size=" << sAllocator.MaxSize()
-              << ", maxAllocated=" << sAllocator.MaxAllocatedSize();
+    LOG_DBG() << "Instances allocator: allocated=" << sAllocator.MaxAllocatedSize()
+              << ", maxSize=" << sAllocator.MaxSize();
 }
 
 /***********************************************************************************************************************
@@ -537,9 +537,6 @@ Error Instance::CreateVMSpec(
 Error Instance::CreateLinuxSpec(
     const oci::ImageSpec& imageSpec, const oci::ServiceConfig& serviceConfig, oci::RuntimeSpec& runtimeSpec)
 {
-    (void)imageSpec;
-    (void)serviceConfig;
-
     LOG_DBG() << "Create Linux runtime spec: instanceID=" << *this;
 
     if (auto err = oci::CreateExampleRuntimeSpec(runtimeSpec, cGroupV2); !err.IsNone()) {
