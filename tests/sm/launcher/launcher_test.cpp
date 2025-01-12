@@ -212,18 +212,6 @@ TEST_F(LauncherTest, RunInstances)
             feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
     }
 
-    // Reset
-
-    feature = mStatusReceiver.GetFeature();
-
-    launcher->OnConnect();
-
-    // Wait for initial instance status
-
-    EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(test::CompareArrays(
-        feature.get(), Array<InstanceStatus>(testData.back().mStatus.data(), testData.back().mStatus.size())));
-
     EXPECT_TRUE(launcher->Stop().IsNone());
 }
 

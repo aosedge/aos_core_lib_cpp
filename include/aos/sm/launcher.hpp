@@ -365,10 +365,8 @@ private:
     Thread<cThreadTaskSize, cThreadStackSize> mThread;
     ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
         cThreadStackSize>
-                        mLaunchPool;
-    ConditionalVariable mCondVar;
-    bool                mClose     = false;
-    bool                mConnected = false;
+         mLaunchPool;
+    bool mConnected = false;
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
     StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;

@@ -100,10 +100,6 @@ Error Launcher::Stop()
         LockGuard lock {mMutex};
 
         mConnectionPublisher->Unsubscribe(*this);
-
-        mClose = true;
-
-        mCondVar.NotifyOne();
     }
 
     mThread.Join();
@@ -114,21 +110,17 @@ Error Launcher::Stop()
 Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
     const Array<InstanceInfo>& instances, bool forceRestart)
 {
-    UniqueLock lock {mMutex};
+    {
+        LockGuard lock {mMutex};
 
-    if (forceRestart) {
-        LOG_DBG() << "Restart instances";
-    } else {
-        LOG_DBG() << "Run instances";
+        LOG_DBG() << (forceRestart ? "Restart instances" : "Run instances");
+
+        if (mLaunchInProgress) {
+            return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+        }
+
+        mLaunchInProgress = true;
     }
-
-    if (mLaunchInProgress) {
-        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
-    }
-
-    mLaunchInProgress = true;
-
-    lock.Unlock();
 
     // Wait in case previous request is not yet finished
     mThread.Join();
@@ -323,17 +315,7 @@ Error Launcher::RunLastInstances()
 
         ProcessInstances(*instances, true);
 
-        UniqueLock lock {mMutex};
-
-        if (!mConnected) {
-            LOG_DBG() << "Wait for connection to cloud";
-        }
-
-        mCondVar.Wait(lock, [&] { return mConnected || mClose; });
-
-        if (mClose) {
-            return;
-        }
+        LockGuard lock {mMutex};
 
         SendRunStatus();
 
@@ -623,14 +605,7 @@ void Launcher::OnConnect()
 
     LOG_DBG() << "Cloud connected";
 
-    if (!mLaunchInProgress) {
-        if (auto err = RunLastInstances(); !err.IsNone()) {
-            LOG_ERR() << "Error running last instances: err=" << err;
-        }
-    }
-
     mConnected = true;
-    mCondVar.NotifyOne();
 }
 
 void Launcher::OnDisconnect()
@@ -640,7 +615,6 @@ void Launcher::OnDisconnect()
     LOG_DBG() << "Cloud disconnected";
 
     mConnected = false;
-    mCondVar.NotifyOne();
 }
 
 Error Launcher::StopCurrentInstances()
