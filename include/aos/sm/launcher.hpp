@@ -314,15 +314,19 @@ private:
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
     void  ShowResourceUsageStats();
-    void  ProcessInstances(const Array<InstanceData>& instances, bool forceRestart = false);
-    void  ProcessServices(const Array<ServiceInfo>& services);
-    void  ProcessLayers(const Array<LayerInfo>& layers);
-    void  SendRunStatus();
-    void  StopInstances(const Array<InstanceData>& instances, bool forceRestart);
+    Error ProcessLastInstances();
+    Error ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
+    Error ProcessServices(const Array<ServiceInfo>& services);
+    Error ProcessLayers(const Array<LayerInfo>& layers);
+    Error SendRunStatus();
+    void  StopInstances(const Array<InstanceData>& instances);
     void  StartInstances(const Array<InstanceData>& instances);
     void  CacheServices(const Array<InstanceData>& instances);
     void  UpdateInstanceServices();
-    Error GetRunningInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& runningInstances);
+    Error GetStartInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& startInstances) const;
+    Error GetStopInstances(
+        const Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances, bool forceRestart) const;
+    Error GetCurrentInstances(Array<InstanceData>& instance) const;
 
     RetWithError<servicemanager::ServiceData*> GetService(const String& serviceID)
     {
@@ -356,13 +360,13 @@ private:
     StorageItf*                          mStorage {};
     RuntimeItf*                          mRuntime {};
 
-    StaticAllocator<sizeof(InstanceInfoStaticArray) * 2 + sizeof(InstanceDataStaticArray) * 2
+    mutable StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
         + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData)>
         mAllocator;
 
     bool                                      mLaunchInProgress = false;
-    Mutex                                     mMutex;
+    mutable Mutex                             mMutex;
     Thread<cThreadTaskSize, cThreadStackSize> mThread;
     ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
         cThreadStackSize>
