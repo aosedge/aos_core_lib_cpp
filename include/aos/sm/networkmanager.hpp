@@ -410,6 +410,14 @@ public:
      * @return Error.
      */
     virtual Error RemoveInterface(const String& ifname) = 0;
+
+    /**
+     * Brings up interface.
+     *
+     * @param ifname interface name.
+     * @return Error.
+     */
+    virtual Error BringUpInterface(const String& ifname) = 0;
 };
 
 /**

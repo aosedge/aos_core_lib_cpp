@@ -62,6 +62,7 @@ public:
 class NetworkInterfaceManagerMock : public NetworkInterfaceManagerItf {
 public:
     MOCK_METHOD(Error, RemoveInterface, (const String& ifname), (override));
+    MOCK_METHOD(Error, BringUpInterface, (const String& ifname), (override));
 };
 
 } // namespace aos::sm::networkmanager
