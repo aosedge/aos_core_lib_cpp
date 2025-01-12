@@ -867,6 +867,14 @@ void Launcher::OnDisconnect()
 
 Error Launcher::StopCurrentInstances()
 {
+    {
+        UniqueLock lock {mMutex};
+
+        if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     auto stopInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
 
     if (auto err = GetCurrentInstances(*stopInstances); !err.IsNone()) {
