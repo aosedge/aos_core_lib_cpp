@@ -111,10 +111,8 @@ Error LayerManager::Start()
 {
     LOG_DBG() << "Start layer manager";
 
-    const auto interval = mConfig.mRemoveOutdatedPeriod / Time::cMilliseconds;
-
     auto err = mTimer.Create(
-        interval,
+        mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
             if (auto err = RemoveOutdatedLayers(); !err.IsNone()) {
                 LOG_ERR() << "Failed to remove outdated layers: err=" << err;

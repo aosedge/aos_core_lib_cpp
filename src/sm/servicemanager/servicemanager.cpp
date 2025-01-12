@@ -115,10 +115,8 @@ Error ServiceManager::Start()
 {
     LOG_DBG() << "Start service manager";
 
-    const auto interval = mConfig.mRemoveOutdatedPeriod / Time::cMilliseconds;
-
     auto err = mTimer.Create(
-        interval,
+        mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
             auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
 

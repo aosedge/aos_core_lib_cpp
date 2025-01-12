@@ -17,7 +17,7 @@ TEST(TimerTest, CreateAndStop)
     auto       interrupted = 0;
     aos::Timer timer {};
 
-    EXPECT_TRUE(timer.Create(900, [&interrupted](void*) { interrupted = 1; }).IsNone());
+    EXPECT_TRUE(timer.Create(900 * Time::cMilliseconds, [&interrupted](void*) { interrupted = 1; }).IsNone());
 
     sleep(1);
 
@@ -31,7 +31,7 @@ TEST(CommonTest, RaisedOnlyOnce)
     auto       interrupted = 0;
     aos::Timer timer {};
 
-    EXPECT_TRUE(timer.Create(500, [&interrupted](void*) { interrupted++; }).IsNone());
+    EXPECT_TRUE(timer.Create(500 * Time::cMilliseconds, [&interrupted](void*) { interrupted++; }).IsNone());
 
     sleep(2);
 
@@ -45,7 +45,7 @@ TEST(CommonTest, CreateResetStop)
     auto       interrupted = 0;
     aos::Timer timer {};
 
-    EXPECT_TRUE(timer.Create(2000, [&interrupted](void*) { interrupted = 1; }).IsNone());
+    EXPECT_TRUE(timer.Create(2000 * Time::cMilliseconds, [&interrupted](void*) { interrupted = 1; }).IsNone());
 
     sleep(1);
 
@@ -67,7 +67,7 @@ TEST(common, TimerRepeatInterval)
 
     EXPECT_TRUE(timer
                     .Create(
-                        1000, [&interrupted](void*) { interrupted++; }, false)
+                        1000 * Time::cMilliseconds, [&interrupted](void*) { interrupted++; }, false)
                     .IsNone());
 
     sleep(3);

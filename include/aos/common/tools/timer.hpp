@@ -16,6 +16,7 @@
 #include "aos/common/tools/config.hpp"
 #include "aos/common/tools/function.hpp"
 #include "aos/common/tools/thread.hpp"
+#include "aos/common/tools/time.hpp"
 
 namespace aos {
 
@@ -38,12 +39,11 @@ public:
     /**
      * Creates timer.
      *
-     * @param intervalMs Timer interval in milliseconds.
-     *
+     * @param interval timer interval.
      * @return Error code.
      */
     template <typename F>
-    Error Create(unsigned int intervalMs, F functor, bool oneShot = true, void* arg = nullptr)
+    Error Create(Duration interval, F functor, bool oneShot = true, void* arg = nullptr)
     {
         LockGuard lock {mMutex};
 
@@ -61,8 +61,8 @@ public:
             return err;
         }
 
-        mIntervalMs = intervalMs;
-        mOneShot    = oneShot;
+        mInterval = interval;
+        mOneShot  = oneShot;
 
         struct sigevent   sev { };
         struct itimerspec its { };
@@ -71,12 +71,12 @@ public:
         sev.sigev_value.sival_ptr = this;
         sev.sigev_notify_function = TimerFunction;
 
-        its.it_value.tv_sec  = intervalMs / 1000;
-        its.it_value.tv_nsec = (intervalMs % 1000) * 1000000;
+        its.it_value.tv_sec  = interval / Time::cSeconds;
+        its.it_value.tv_nsec = interval % Time::cSeconds;
 
         if (!mOneShot) {
-            its.it_interval.tv_sec  = intervalMs / 1000;
-            its.it_interval.tv_nsec = (intervalMs % 1000) * 1000000;
+            its.it_interval.tv_sec  = interval / Time::cSeconds;
+            its.it_interval.tv_nsec = interval % Time::cSeconds;
         }
 
         auto ret = timer_create(CLOCK_MONOTONIC, &sev, &mTimerID);
@@ -129,7 +129,7 @@ public:
                 return err;
             }
 
-            err = Create(mIntervalMs, functor, mOneShot, arg);
+            err = Create(mInterval, functor, mOneShot, arg);
             if (!err.IsNone()) {
                 return err;
             }
@@ -156,7 +156,7 @@ private:
     }
 
     timer_t                                 mTimerID {};
-    unsigned int                            mIntervalMs {};
+    Duration                                mInterval {};
     bool                                    mOneShot {};
     bool                                    mStop {};
     Mutex                                   mMutex;

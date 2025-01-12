@@ -36,6 +36,7 @@ set(SOURCES
     src/tools/string_test.cpp
     src/tools/thread_test.cpp
     src/tools/time_test.cpp
+    src/tools/timer_test.cpp
     src/tools/uuid_test.cpp
     src/tools/variant_test.cpp
     src/types_test.cpp
