@@ -28,6 +28,10 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
 
     auto cniDir = FS::JoinPath(workingDir, "cni");
 
+    if (auto err = FS::RemoveAll(cniDir); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove cni directory: " << cniDir;
+    }
+
     if (auto err = mCNI->SetConfDir(cniDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
