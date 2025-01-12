@@ -472,6 +472,8 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
         return err;
     }
 
+    mOfflineTTL = serviceConfig.mOfflineTTL;
+
     return ErrorEnum::eNone;
 }
 

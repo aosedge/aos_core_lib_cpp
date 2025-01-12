@@ -236,6 +236,13 @@ public:
     };
 
     /**
+     * Returns instance offline TTL.
+     *
+     * @return Duration.
+     */
+    Duration GetOfflineTTL() const { return mOfflineTTL; };
+
+    /**
      * Returns instances allocator.
      */
     static Allocator& GetAllocator() { return sAllocator; };
@@ -377,6 +384,7 @@ private:
     InstanceRunState                   mRunState;
     Error                              mRunError;
     bool                               mPermissionsRegistered = false;
+    Duration                           mOfflineTTL            = 0;
 };
 
 } // namespace aos::sm::launcher

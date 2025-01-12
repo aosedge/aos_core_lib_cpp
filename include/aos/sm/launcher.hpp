@@ -318,7 +318,9 @@ private:
     Error ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
     Error ProcessServices(const Array<ServiceInfo>& services);
     Error ProcessLayers(const Array<LayerInfo>& layers);
+    Error ProcessStopInstances(const Array<InstanceData>& instances);
     Error SendRunStatus();
+    Error SendOutdatedInstancesStatus(const Array<InstanceData>& instances);
     void  StopInstances(const Array<InstanceData>& instances);
     void  StartInstances(const Array<InstanceData>& instances);
     void  CacheServices(const Array<InstanceData>& instances);
@@ -345,6 +347,8 @@ private:
     Error FillCurrentInstance(const Array<InstanceData>& instances);
     Error RunLastInstances();
     Error StopCurrentInstances();
+    Error GetOutdatedInstances(Array<InstanceData>& instances);
+    Error HandleOfflineTTLs();
 
     Config                               mConfig;
     ConnectionPublisherItf*              mConnectionPublisher {};
@@ -370,13 +374,16 @@ private:
     Thread<cThreadTaskSize, cThreadStackSize> mThread;
     ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
         cThreadStackSize>
-         mLaunchPool;
-    bool mConnected = false;
+                        mLaunchPool;
+    bool                mConnected = false;
+    ConditionalVariable mCondVar;
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
     StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;
     StaticString<cFilePathLen>                                mHostWhiteoutsDir;
     NodeInfo                                                  mNodeInfo;
+    Time                                                      mOnlineTime;
+    Timer                                                     mTimer;
 };
 
 /** @}*/
