@@ -183,12 +183,12 @@ public:
      * @param downloadSpaceAllocator download space allocator.
      * @param storage layer storage.
      * @param downloader layer downloader.
-     * @param imageHanlder image handler.
+     * @param imageHandler image handler.
      * @return Error.
      */
     Error Init(const Config& config, spaceallocator::SpaceAllocatorItf& layerSpaceAllocator,
         spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, StorageItf& storage,
-        downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHanlder);
+        downloader::DownloaderItf& downloader, image::ImageHandlerItf& imageHandler);
 
     /**
      * Starts layer manager.
