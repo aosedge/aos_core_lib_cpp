@@ -197,6 +197,13 @@ public:
     void SetService(const servicemanager::ServiceData* service);
 
     /**
+     * Sets run state.
+     *
+     * @param runState run state.
+     */
+    void SetRunState(InstanceRunState runState) { mRunState = runState; }
+
+    /**
      * Sets run error.
      *
      * @param error run error.

@@ -198,9 +198,54 @@ Error Launcher::OverrideEnvVars(
 
 Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
 {
-    (void)instances;
+    LockGuard lock {mMutex};
 
     LOG_DBG() << "Update run status";
+
+    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+
+    for (const auto& instance : instances) {
+        auto [currentInstance, err] = mCurrentInstances.FindIf(
+            [&instance](const auto& currentInstance) { return currentInstance.InstanceID() == instance.mInstanceID; });
+        if (!err.IsNone()) {
+            LOG_WRN() << "Not running instance status received: instanceID=" << instance.mInstanceID;
+
+            continue;
+        }
+
+        if (currentInstance->RunState() != instance.mState) {
+            currentInstance->SetRunState(instance.mState);
+            currentInstance->SetRunError(instance.mError);
+
+            if (!mLaunchInProgress) {
+                if (currentInstance->RunError().IsNone()) {
+                    LOG_DBG() << "Update instance status: instanceID=" << *currentInstance
+                              << ", serviceVersion=" << currentInstance->GetServiceVersion()
+                              << ", runState=" << currentInstance->RunState();
+                } else {
+                    LOG_ERR() << "Update instance status: instanceID=" << *currentInstance
+                              << ", serviceVersion=" << currentInstance->GetServiceVersion()
+                              << ", runState=" << currentInstance->RunState()
+                              << ", err=" << currentInstance->RunError();
+                }
+
+                if (err
+                    = status->PushBack({currentInstance->Info().mInstanceIdent, currentInstance->GetServiceVersion(),
+                        currentInstance->RunState(), currentInstance->RunError()});
+                    !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+        }
+    }
+
+    if (!status->IsEmpty()) {
+        LOG_DBG() << "Send update status";
+
+        if (auto err = mStatusReceiver->InstancesRunStatus(*status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     return ErrorEnum::eNone;
 }
@@ -415,10 +460,10 @@ Error Launcher::SendRunStatus()
 
     for (const auto& instance : mCurrentInstances) {
         if (instance.RunError().IsNone()) {
-            LOG_DBG() << "Instance status: instanceID=" << instance
+            LOG_DBG() << "Run instance status: instanceID=" << instance
                       << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState();
         } else {
-            LOG_ERR() << "Instance status: instanceID=" << instance
+            LOG_ERR() << "Run instance status: instanceID=" << instance
                       << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState()
                       << ", err=" << instance.RunError();
         }
