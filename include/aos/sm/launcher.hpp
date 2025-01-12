@@ -313,6 +313,7 @@ private:
 
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
+    void  ShowResourceUsageStats();
     void  ProcessInstances(const Array<InstanceData>& instances, bool forceRestart = false);
     void  ProcessServices(const Array<ServiceInfo>& services);
     void  ProcessLayers(const Array<LayerInfo>& layers);

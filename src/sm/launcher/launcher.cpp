@@ -148,13 +148,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
               mLaunchInProgress = false;
 
-              Instance::ShowAllocatorStats();
-
-              LOG_DBG() << "Launcher allocator: allocated=" << mAllocator.MaxAllocatedSize()
-                        << ", maxSize=" << mAllocator.MaxSize();
-#if AOS_CONFIG_THREAD_STACK_USAGE
-              LOG_DBG() << "Stack usage: size=" << mThread.GetStackUsage();
-#endif
+              ShowResourceUsageStats();
           });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -248,6 +242,18 @@ Error Launcher::GetRunningInstances(const Array<InstanceInfo>& desiredInstances,
  * Private
  **********************************************************************************************************************/
 
+void Launcher::ShowResourceUsageStats()
+{
+    LOG_DBG() << "Instances allocator: allocated=" << Instance::GetAllocator().MaxAllocatedSize()
+              << ", maxSize=" << Instance::GetAllocator().MaxSize();
+    LOG_DBG() << "Launcher allocator: allocated=" << mAllocator.MaxAllocatedSize()
+              << ", maxSize=" << mAllocator.MaxSize();
+#if AOS_CONFIG_THREAD_STACK_USAGE
+    LOG_DBG() << "Thread stack usage: size=" << mThread.GetStackUsage();
+    LOG_DBG() << "Launch pool stack usage: size=" << mLaunchPool.GetStackUsage();
+#endif
+}
+
 Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
 {
     CacheServices(instances);
@@ -321,13 +327,7 @@ Error Launcher::RunLastInstances()
 
         mLaunchInProgress = false;
 
-        Instance::ShowAllocatorStats();
-
-        LOG_DBG() << "Launcher allocator: allocated=" << mAllocator.MaxAllocatedSize()
-                  << ", maxSize=" << mAllocator.MaxSize();
-#if AOS_CONFIG_THREAD_STACK_USAGE
-        LOG_DBG() << "Stack usage: size=" << mThread.GetStackUsage();
-#endif
+        ShowResourceUsageStats();
     });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -370,10 +370,6 @@ void Launcher::ProcessInstances(const Array<InstanceData>& instances, const bool
     StartInstances(instances);
 
     mLaunchPool.Shutdown();
-
-#if AOS_CONFIG_THREAD_STACK_USAGE
-    LOG_DBG() << "Launch pool stack usage: size=" << mLaunchPool.GetStackUsage();
-#endif
 }
 
 void Launcher::SendRunStatus()

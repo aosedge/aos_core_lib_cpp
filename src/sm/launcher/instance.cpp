@@ -183,12 +183,6 @@ Error Instance::Stop()
     return stopErr;
 }
 
-void Instance::ShowAllocatorStats()
-{
-    LOG_DBG() << "Instances allocator: allocated=" << sAllocator.MaxAllocatedSize()
-              << ", maxSize=" << sAllocator.MaxSize();
-}
-
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/

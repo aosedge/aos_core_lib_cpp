@@ -236,9 +236,9 @@ public:
     };
 
     /**
-     * Displays allocator statistics.
+     * Returns instances allocator.
      */
-    static void ShowAllocatorStats();
+    static Allocator& GetAllocator() { return sAllocator; };
 
     /**
      * Checks if instance is started.
