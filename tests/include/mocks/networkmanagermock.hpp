@@ -53,10 +53,10 @@ public:
 
 class NamespaceManagerMock : public NamespaceManagerItf {
 public:
-    MOCK_METHOD(Error, CreateNetworkNamespace, (const String& instanceID), (override));
-    MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetNetworkNamespacePath, (const String& instanceID),
-        (const, override));
-    MOCK_METHOD(Error, DeleteNetworkNamespace, (const String& instanceID), (override));
+    MOCK_METHOD(Error, CreateNetworkNamespace, (const String& ns), (override));
+    MOCK_METHOD(
+        RetWithError<StaticString<cFilePathLen>>, GetNetworkNamespacePath, (const String& ns), (const, override));
+    MOCK_METHOD(Error, DeleteNetworkNamespace, (const String& ns), (override));
 };
 
 class NetworkInterfaceManagerMock : public NetworkInterfaceManagerItf {

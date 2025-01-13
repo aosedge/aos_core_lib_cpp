@@ -371,26 +371,26 @@ public:
 
     /**
      * Creates network namespace.
-     * @param instanceID instance ID.
+     * @param ns network namespace name.
      * @return Error.
      */
-    virtual Error CreateNetworkNamespace(const String& instanceID) = 0;
+    virtual Error CreateNetworkNamespace(const String& ns) = 0;
 
     /**
      * Returns network namespace path.
      *
-     * @param instanceID instance ID.
+     * @param ns network namespace name.
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
-    virtual RetWithError<StaticString<cFilePathLen>> GetNetworkNamespacePath(const String& instanceID) const = 0;
+    virtual RetWithError<StaticString<cFilePathLen>> GetNetworkNamespacePath(const String& ns) const = 0;
 
     /**
      * Deletes network namespace.
      *
-     * @param instanceID instance ID.
+     * @param ns network namespace name.
      * @return Error.
      */
-    virtual Error DeleteNetworkNamespace(const String& instanceID) = 0;
+    virtual Error DeleteNetworkNamespace(const String& ns) = 0;
 };
 
 /**
