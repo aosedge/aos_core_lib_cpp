@@ -294,8 +294,10 @@ Error LayerManager::SetLayerState(const LayerData& layer, LayerState state)
     LOG_DBG() << "Set layer state: id=" << layer.mLayerID << ", version=" << layer.mVersion
               << ", digest=" << layer.mLayerDigest << ", state=" << state;
 
-    LayerData updatedLayer = layer;
-    updatedLayer.mState    = state;
+    auto updatedLayer = layer;
+
+    updatedLayer.mState     = state;
+    updatedLayer.mTimestamp = Time::Now();
 
     if (auto err = mStorage->UpdateLayer(updatedLayer); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
