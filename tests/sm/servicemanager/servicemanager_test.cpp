@@ -97,7 +97,8 @@ protected:
 
 TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
 {
-    mConfig.mTTL = aos::Time::cSeconds;
+    mConfig.mTTL                  = aos::Time::cSeconds / 2;
+    mConfig.mRemoveOutdatedPeriod = aos::Time::cSeconds;
 
     const auto        expiredTime    = aos::Time::Now().Add(-mConfig.mTTL);
     const ServiceData expiredService = {
