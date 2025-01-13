@@ -230,8 +230,9 @@ TEST_F(LayerManagerTest, ExpiredLayersAreClearedOnInit)
 
 TEST_F(LayerManagerTest, ValidateOutdateLayersByTimer)
 {
-    auto config = CreateConfig();
-    config.mTTL = Time::cSeconds;
+    auto config                  = CreateConfig();
+    config.mTTL                  = Time::cSeconds / 2;
+    config.mRemoveOutdatedPeriod = Time::cSeconds;
 
     InitTest(config);
 

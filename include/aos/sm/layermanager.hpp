@@ -167,6 +167,7 @@ struct Config {
     StaticString<cFilePathLen> mLayersDir;
     StaticString<cFilePathLen> mDownloadDir;
     Duration                   mTTL;
+    Duration                   mRemoveOutdatedPeriod = 24 * Time::cHours;
 };
 
 /**

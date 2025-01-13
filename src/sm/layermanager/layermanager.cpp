@@ -111,7 +111,7 @@ Error LayerManager::Start()
 {
     LOG_DBG() << "Start layer manager";
 
-    const auto interval = mConfig.mTTL / Time::cMilliseconds;
+    const auto interval = mConfig.mRemoveOutdatedPeriod / Time::cMilliseconds;
 
     auto err = mTimer.Create(
         interval,
