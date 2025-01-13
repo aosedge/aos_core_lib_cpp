@@ -48,6 +48,14 @@ public:
         = 0;
 
     /**
+     * Returns current run status.
+     *
+     * @param instances instances status.
+     * @return Error.
+     */
+    virtual Error GetCurrentRunStatus(Array<InstanceStatus>& instances) const = 0;
+
+    /**
      * Overrides environment variables for specified instances.
      *
      * @param envVarsInfo environment variables info.
@@ -271,6 +279,14 @@ public:
         const Array<InstanceInfo>& instances, bool forceRestart = false) override;
 
     /**
+     * Returns current run status.
+     *
+     * @param instances instances status.
+     * @return Error.
+     */
+    Error GetCurrentRunStatus(Array<InstanceStatus>& instances) const override;
+
+    /**
      * Overrides environment variables for specified instances.
      *
      * @param envVarsInfo environment variables info.
@@ -374,9 +390,9 @@ private:
     Thread<cThreadTaskSize, cThreadStackSize> mThread;
     ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
         cThreadStackSize>
-                        mLaunchPool;
-    bool                mConnected = false;
-    ConditionalVariable mCondVar;
+                                mLaunchPool;
+    bool                        mConnected = false;
+    mutable ConditionalVariable mCondVar;
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
     StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;

@@ -102,8 +102,6 @@ TEST_F(LauncherTest, RunInstances)
 
     test::InitLog();
 
-    auto feature = mStatusReceiver.GetFeature();
-
     LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
 
     ASSERT_TRUE(launcher
@@ -116,10 +114,12 @@ TEST_F(LauncherTest, RunInstances)
 
     launcher->OnConnect();
 
-    // Wait for initial instance status
+    // Get initial instance status
 
-    EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(test::CompareArrays(feature.get(), Array<InstanceStatus>()));
+    auto runStatus = std::make_unique<InstanceStatusStaticArray>();
+
+    EXPECT_TRUE(launcher->GetCurrentRunStatus(*runStatus).IsNone());
+    EXPECT_TRUE(test::CompareArrays(*runStatus, Array<InstanceStatus>()));
 
     // Test different scenarios
 
@@ -181,7 +181,7 @@ TEST_F(LauncherTest, RunInstances)
     for (auto& testItem : testData) {
         LOG_INF() << "Running test case #" << i++;
 
-        feature = mStatusReceiver.GetFeature();
+        auto feature = mStatusReceiver.GetFeature();
 
         auto imageSpec = std::make_unique<oci::ImageSpec>();
 

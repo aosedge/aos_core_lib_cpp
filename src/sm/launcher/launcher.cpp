@@ -185,6 +185,36 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     return ErrorEnum::eNone;
 }
 
+Error Launcher::GetCurrentRunStatus(Array<InstanceStatus>& instances) const
+{
+    UniqueLock lock {mMutex};
+
+    LOG_DBG() << "Get current run status";
+
+    if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& instance : mCurrentInstances) {
+        if (instance.RunError().IsNone()) {
+            LOG_DBG() << "Run instance status: instanceID=" << instance
+                      << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState();
+        } else {
+            LOG_ERR() << "Run instance status: instanceID=" << instance
+                      << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState()
+                      << ", err=" << instance.RunError();
+        }
+
+        if (auto err = instances.PushBack({instance.Info().mInstanceIdent, instance.GetServiceVersion(),
+                instance.RunState(), instance.RunError()});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Launcher::OverrideEnvVars(
     const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo, cloudprotocol::EnvVarsInstanceStatusArray& statuses)
 {
@@ -329,10 +359,6 @@ Error Launcher::RunLastInstances()
             }
 
             LockGuard lock {mMutex};
-
-            if (auto err = SendRunStatus(); !err.IsNone()) {
-                LOG_ERR() << "Can't send run status: err=" << err;
-            }
 
             mLaunchInProgress = false;
             mCondVar.NotifyOne();
