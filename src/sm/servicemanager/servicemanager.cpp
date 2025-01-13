@@ -500,8 +500,10 @@ Error ServiceManager::SetServiceState(const ServiceData& service, ServiceState s
     LOG_DBG() << "Set service state: serviceID=" << service.mServiceID << ", version=" << service.mVersion
               << ", state=" << state;
 
-    auto updatedService   = service;
-    updatedService.mState = state;
+    auto updatedService = service;
+
+    updatedService.mState     = state;
+    updatedService.mTimestamp = Time::Now();
 
     if (auto err = mStorage->UpdateService(updatedService); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
