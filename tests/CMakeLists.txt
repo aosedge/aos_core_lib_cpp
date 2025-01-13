@@ -12,5 +12,6 @@
 add_subdirectory(common)
 add_subdirectory(iam)
 add_subdirectory(include)
+add_subdirectory(mocks)
 add_subdirectory(sm)
 add_subdirectory(utils)
