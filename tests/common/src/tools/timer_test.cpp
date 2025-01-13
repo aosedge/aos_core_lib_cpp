@@ -75,4 +75,6 @@ TEST(common, TimerRepeatInterval)
     EXPECT_TRUE(timer.Stop().IsNone());
 
     EXPECT_EQ(2, interrupted);
+
+    sleep(1);
 }
