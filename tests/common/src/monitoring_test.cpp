@@ -329,6 +329,8 @@ public:
     {
         std::lock_guard lock {mMutex};
 
+        LOG_DBG() << "Send alert: alert=" << alert;
+
         GetAlertVariantVisitor visitor {mSystemQuotaAlerts, mInstanceQuotaAlerts};
 
         alert.ApplyVisitor(visitor);
