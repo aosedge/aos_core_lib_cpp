@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <stdlib.h>
 
+#include "aos/common/tools/log.hpp"
 #include "aos/common/tools/utils.hpp"
 
 namespace aos {
@@ -254,12 +255,42 @@ public:
     bool operator!=(const Variant& other) const { return !(*this == other); }
 
     /**
+     * Outputs variant object to log.
+     *
+     * @param log log to output.
+     * @param variant variant object to log.
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const Variant& variant)
+    {
+        // cppcheck-suppress returnTempReference
+        return variant.ApplyVisitor(LogVisitor {log});
+    }
+
+    /**
      * Destroys object instance.
      */
     ~Variant() { DestroyObject(); }
 
 private:
     static constexpr int cInvalidTypeIndex = -1;
+
+    class LogVisitor : public StaticVisitor<Log&> {
+    public:
+        explicit LogVisitor(Log& log)
+            : mLog(log)
+        {
+        }
+
+        template <typename T>
+        Log& Visit(const T& val) const
+        {
+            return mLog << val;
+        }
+
+    private:
+        Log& mLog;
+    };
 
     struct ObjectDestroyer : StaticVisitor<void> {
         template <typename T>
