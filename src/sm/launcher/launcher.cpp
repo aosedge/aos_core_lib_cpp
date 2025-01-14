@@ -79,8 +79,6 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
 
 Error Launcher::Start()
 {
-    LockGuard lock {mMutex};
-
     LOG_DBG() << "Start launcher";
 
     if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
