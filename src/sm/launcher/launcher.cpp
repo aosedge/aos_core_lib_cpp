@@ -116,14 +116,10 @@ Error Launcher::Stop()
         stopError = err;
     }
 
-    {
-        LockGuard lock {mMutex};
+    mConnectionPublisher->Unsubscribe(*this);
 
-        mConnectionPublisher->Unsubscribe(*this);
-
-        if (auto err = mTimer.Stop(); !err.IsNone() && stopError.IsNone()) {
-            stopError = AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mTimer.Stop(); !err.IsNone() && stopError.IsNone()) {
+        stopError = AOS_ERROR_WRAP(err);
     }
 
     mThread.Join();
@@ -340,13 +336,17 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
 
 Error Launcher::RunLastInstances()
 {
-    LOG_DBG() << "Run last instances";
+    {
+        LockGuard lock {mMutex};
 
-    if (mLaunchInProgress) {
-        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+        LOG_DBG() << "Run last instances";
+
+        if (mLaunchInProgress) {
+            return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+        }
+
+        mLaunchInProgress = true;
     }
-
-    mLaunchInProgress = true;
 
     // Wait in case previous request is not yet finished
     mThread.Join();
