@@ -117,13 +117,11 @@ public:
     /**
      * Returns container first item.
      *
-     * @return RetWithError<T&>.
+     * @return T&.
      */
-    RetWithError<T&> Front()
+    T& Front()
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         return *begin();
     }
@@ -131,13 +129,11 @@ public:
     /**
      * Returns container first const item.
      *
-     * @return RetWithError<const T&>.
+     * @return const T&.
      */
-    RetWithError<const T&> Front() const
+    const T& Front() const
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         return *begin();
     }
@@ -145,13 +141,11 @@ public:
     /**
      * Returns container last item.
      *
-     * @return RetWithError<T&>.
+     * @return T&.
      */
-    RetWithError<T&> Back()
+    T& Back()
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         auto it = end();
 
@@ -161,13 +155,11 @@ public:
     /**
      * Returns container last const item.
      *
-     * @return RetWithError<const T&>.
+     * @return const T&.
      */
-    RetWithError<const T&> Back() const
+    const T& Back() const
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         auto it = end();
 

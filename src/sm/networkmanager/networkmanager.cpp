@@ -680,14 +680,11 @@ Error NetworkManager::CreateBridgePluginConfig(
     config.mIPAM.mRange.mRangeEnd   = network.mNetworkParameters.mIP;
     config.mIPAM.mRange.mSubnet     = network.mNetworkParameters.mSubnet;
 
-    config.mIPAM.mRouters.Resize(1);
-
-    auto ret = config.mIPAM.mRouters.Back();
-    if (!ret.mError.IsNone()) {
-        return AOS_ERROR_WRAP(ret.mError);
+    if (auto err = config.mIPAM.mRouters.Resize(1); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
-    ret.mValue.mDst = "0.0.0.0/0";
+    config.mIPAM.mRouters.Back().mDst = "0.0.0.0/0";
 
     return ErrorEnum::eNone;
 }

@@ -239,7 +239,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
     if (mPendingKeys.Size() == mPendingKeys.MaxSize()) {
         LOG_WRN() << "Max pending keys reached: Remove old: certType=" << mCertType;
 
-        auto oldKey = mPendingKeys.Front().mValue.mKey;
+        auto oldKey = mPendingKeys.Front().mKey;
 
         err = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(oldKey);
         if (!err.IsNone()) {
@@ -715,7 +715,7 @@ Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObje
             return AOS_ERROR_WRAP(err);
         }
 
-        auto& searchObject = dst.Back().mValue;
+        auto& searchObject = dst.Back();
 
         searchObject.mType   = filter.mType;
         searchObject.mHandle = object;

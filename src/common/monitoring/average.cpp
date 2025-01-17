@@ -102,8 +102,8 @@ Error Average::GetData(NodeMonitoringData& data) const
             return AOS_ERROR_WRAP(err);
         }
 
-        if (auto err = GetMonitoringData(
-                data.mServiceInstances.Back().mValue.mMonitoringData, averageMonitoringData.mMonitoringData);
+        if (auto err
+            = GetMonitoringData(data.mServiceInstances.Back().mMonitoringData, averageMonitoringData.mMonitoringData);
             !err.IsNone()) {
             return err;
         }
