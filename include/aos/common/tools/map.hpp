@@ -31,9 +31,9 @@ public:
      * Finds element in map by key.
      *
      * @param key key to find.
-     * @return RetWithError<Iterator>.
+     * @return Iterator.
      */
-    RetWithError<Iterator> Find(const Key& key)
+    Iterator Find(const Key& key)
     {
         for (auto it = begin(); it != end(); ++it) {
             if (it->mFirst == key) {
@@ -41,33 +41,24 @@ public:
             }
         }
 
-        return {end(), ErrorEnum::eNotFound};
+        return end();
     }
 
     /**
-     * Returns a reference to the value with specified key. And an error if a key is absent.
+     * Finds element in map by key.
      *
      * @param key key to find.
-     * @return RetWithError<Value&>.
+     * @return ConstIterator.
      */
-    RetWithError<Value&> At(const Key& key)
+    ConstIterator Find(const Key& key) const
     {
-        auto item = mItems.FindIf([&key](const ValueType& item) { return item.mFirst == key; });
+        for (auto it = begin(); it != end(); ++it) {
+            if (it->mFirst == key) {
+                return it;
+            }
+        }
 
-        return {item.mValue->mSecond, item.mError};
-    }
-
-    /**
-     * Returns reference to the value with specified key. And an error if a key is absent.
-     *
-     * @param key.
-     * @return RetWithError<const Value&>.
-     */
-    RetWithError<const Value&> At(const Key& key) const
-    {
-        auto item = mItems.FindIf([&key](const ValueType& item) { return item.mFirst == key; });
-
-        return {item.mValue->mSecond, item.mError};
+        return end();
     }
 
     /**
@@ -116,10 +107,10 @@ public:
      */
     Error Set(const Key& key, const Value& value)
     {
-        auto cur = At(key);
-        if (cur.mError.IsNone()) {
+        auto cur = Find(key);
+        if (cur != end()) {
             // cppcheck-suppress unreadVariable
-            cur.mValue = value;
+            cur->mSecond = value;
 
             return ErrorEnum::eNone;
         }
@@ -136,11 +127,11 @@ public:
     template <typename... Args>
     Error Emplace(Args&&... args)
     {
-        const auto kv = ValueType(args...);
+        auto kv = ValueType(args...);
 
-        auto cur = At(kv.mFirst);
-        if (!cur.mError.IsNone()) {
-            return mItems.EmplaceBack(kv);
+        auto it = Find(kv.mFirst);
+        if (it == end()) {
+            return mItems.EmplaceBack(Move(kv));
         }
 
         return ErrorEnum::eInvalidArgument;
@@ -156,7 +147,7 @@ public:
     template <typename... Args>
     Error TryEmplace(const Key& key, Args&&... args)
     {
-        if (auto cur = At(key); !cur.mError.IsNone()) {
+        if (auto it = Find(key); it == end()) {
             return mItems.EmplaceBack(key, Value(args...));
         }
 
@@ -182,7 +173,7 @@ public:
      * @param key key to check.
      * @return bool.
      */
-    bool Contains(const Key& key) const { return At(key).mError.IsNone(); }
+    bool Contains(const Key& key) const { return Find(key) != end(); }
 
     /**
      * Removes all elements from the map.
@@ -223,7 +214,7 @@ public:
         }
 
         for (const auto& item : other) {
-            if (!mItems.Find(item).mError.IsNone()) {
+            if (mItems.Find(item) == mItems.end()) {
                 return false;
             }
         }

@@ -249,8 +249,8 @@ Error LayerManager::RemoveDamagedLayerFolders()
         for (auto layerAlgorithmDirIterator = FS::DirIterator(algorithmPath); layerAlgorithmDirIterator.Next();) {
             const auto layerPath = FS::JoinPath(algorithmPath, layerAlgorithmDirIterator->mPath);
 
-            const auto [it, err] = layers->FindIf([&layerPath](const auto& layer) { return layer.mPath == layerPath; });
-            if (!err.IsNone()) {
+            const auto it = layers->FindIf([&layerPath](const auto& layer) { return layer.mPath == layerPath; });
+            if (it == layers->end()) {
                 LOG_WRN() << "Layer missing in storage: path=" << layerPath;
 
                 if (auto removeErr = FS::RemoveAll(layerPath); !removeErr.IsNone()) {
@@ -372,13 +372,13 @@ Error LayerManager::UpdateCachedLayers(const Array<LayerData>& stored, Array<Lay
     LOG_DBG() << "Update cached layers";
 
     for (const auto& storageLayer : stored) {
-        auto [layer, err] = result.FindIf([&storageLayer](const auto& desiredLayer) {
+        auto layer = result.FindIf([&storageLayer](const auto& desiredLayer) {
             return storageLayer.mLayerDigest == desiredLayer.mLayerDigest;
         });
 
-        if (err.IsNone()) {
+        if (layer != result.end()) {
             if (storageLayer.mState == LayerStateEnum::eCached) {
-                if (err = SetLayerState(storageLayer, LayerStateEnum::eActive); !err.IsNone()) {
+                if (auto err = SetLayerState(storageLayer, LayerStateEnum::eActive); !err.IsNone()) {
                     return AOS_ERROR_WRAP(err);
                 }
             }
@@ -389,7 +389,7 @@ Error LayerManager::UpdateCachedLayers(const Array<LayerData>& stored, Array<Lay
         }
 
         if (storageLayer.mState != LayerStateEnum::eCached) {
-            if (err = SetLayerState(storageLayer, LayerStateEnum::eCached); !err.IsNone()) {
+            if (auto err = SetLayerState(storageLayer, LayerStateEnum::eCached); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }

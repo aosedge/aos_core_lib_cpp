@@ -237,7 +237,7 @@ CertModule* CertHandler::FindModule(const String& certType) const
 {
     auto module = mModules.FindIf([certType](CertModule* module) { return module->GetCertType() == certType; });
 
-    return !module.mError.IsNone() ? nullptr : *module.mValue;
+    return module != mModules.end() ? *module : nullptr;
 }
 
 Error CertHandler::UpdateCerts(CertModule& certModule)

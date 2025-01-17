@@ -38,10 +38,10 @@ RetWithError<StaticString<cEnvVarNameLen>> GetEnvVarName(const String& envVar)
 
 Error AddMount(const Mount& mount, oci::RuntimeSpec& runtimeSpec)
 {
-    auto [existMount, err] = runtimeSpec.mMounts.FindIf(
+    auto existMount = runtimeSpec.mMounts.FindIf(
         [&destination = mount.mDestination](const Mount& mount) { return mount.mDestination == destination; });
-    if (!err.IsNone()) {
-        if (err = runtimeSpec.mMounts.PushBack(mount); !err.IsNone()) {
+    if (existMount == runtimeSpec.mMounts.end()) {
+        if (auto err = runtimeSpec.mMounts.PushBack(mount); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -60,10 +60,10 @@ Error AddMount(const Mount& mount, oci::RuntimeSpec& runtimeSpec)
 // cppcheck-suppress constParameter
 Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
 {
-    auto [existNS, err] = runtimeSpec.mLinux->mNamespaces.FindIf(
+    auto existNS = runtimeSpec.mLinux->mNamespaces.FindIf(
         [&nsType = ns.mType](const oci::LinuxNamespace& ns) { return ns.mType == nsType; });
-    if (!err.IsNone()) {
-        if (err = runtimeSpec.mLinux->mNamespaces.PushBack(ns); !err.IsNone()) {
+    if (existNS == runtimeSpec.mLinux->mNamespaces.end()) {
+        if (auto err = runtimeSpec.mLinux->mNamespaces.PushBack(ns); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     } else {
@@ -153,10 +153,10 @@ Error SetPIDLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
 // cppcheck-suppress constParameter
 Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec)
 {
-    auto [existRlimit, err] = runtimeSpec.mProcess->mRlimits.FindIf(
+    auto existRlimit = runtimeSpec.mProcess->mRlimits.FindIf(
         [&type = rlimit.mType](const oci::POSIXRlimit& rlimit) { return rlimit.mType == type; });
-    if (!err.IsNone()) {
-        if (err = runtimeSpec.mProcess->mRlimits.PushBack(rlimit); !err.IsNone()) {
+    if (existRlimit == runtimeSpec.mProcess->mRlimits.end()) {
+        if (auto err = runtimeSpec.mProcess->mRlimits.PushBack(rlimit); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     } else {
@@ -169,7 +169,7 @@ Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec)
 // cppcheck-suppress constParameter
 Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
 {
-    if (runtimeSpec.mProcess->mUser.mAdditionalGIDs.Find(gid).mError.IsNone()) {
+    if (runtimeSpec.mProcess->mUser.mAdditionalGIDs.Find(gid) != runtimeSpec.mProcess->mUser.mAdditionalGIDs.end()) {
         return ErrorEnum::eNone;
     }
 
@@ -183,27 +183,23 @@ Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
 Error AddDevice(const oci::LinuxDevice& device, const StaticString<cPermissionsLen>& permissions,
     oci::RuntimeSpec& runtimeSpec) // cppcheck-suppress constParameter
 {
-    Error                   err;
-    oci::LinuxDevice*       existDevice;
-    oci::LinuxDeviceCgroup* existCgroup;
-
-    Tie(existDevice, err) = runtimeSpec.mLinux->mDevices.FindIf(
+    auto existDevice = runtimeSpec.mLinux->mDevices.FindIf(
         [&path = device.mPath](const oci::LinuxDevice& device) { return device.mPath == path; });
-    if (!err.IsNone()) {
-        if (err = runtimeSpec.mLinux->mDevices.PushBack(device); !err.IsNone()) {
+    if (existDevice == runtimeSpec.mLinux->mDevices.end()) {
+        if (auto err = runtimeSpec.mLinux->mDevices.PushBack(device); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     } else {
         *existDevice = device;
     }
 
-    Tie(existCgroup, err)
+    auto existCgroup
         = runtimeSpec.mLinux->mResources->mDevices.FindIf([&device](const oci::LinuxDeviceCgroup& cgroupDevice) {
               return cgroupDevice.mType == device.mType && cgroupDevice.mMajor == device.mMajor
                   && cgroupDevice.mMinor == device.mMinor;
           });
-    if (!err.IsNone()) {
-        if (err = runtimeSpec.mLinux->mResources->mDevices.EmplaceBack(
+    if (existCgroup == runtimeSpec.mLinux->mResources->mDevices.end()) {
+        if (auto err = runtimeSpec.mLinux->mResources->mDevices.EmplaceBack(
                 device.mType, permissions, true, device.mMajor, device.mMinor);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);

@@ -129,7 +129,7 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
 
     LOG_DBG() << "Start instance monitoring: instanceID=" << instanceID;
 
-    if (mInstanceMonitoringData.At(instanceID).mError.IsNone()) {
+    if (mInstanceMonitoringData.Find(instanceID) != mInstanceMonitoringData.end()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
@@ -162,26 +162,22 @@ Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 {
     LockGuard lock {mMutex};
 
-    Error stopErr;
-
     LOG_DBG() << "Stop instance monitoring: instanceID=" << instanceID;
 
-    auto instanceData = mInstanceMonitoringData.At(instanceID);
-    if (!instanceData.mError.IsNone() && stopErr.IsNone()) {
-        if (instanceData.mError.Is(ErrorEnum::eNotFound)) {
-            LOG_WRN() << "Instance monitoring not found: instanceID=" << instanceID;
+    auto instanceData = mInstanceMonitoringData.Find(instanceID);
+    if (instanceData == mInstanceMonitoringData.end()) {
+        LOG_WRN() << "Instance monitoring not found: instanceID=" << instanceID;
 
-            return ErrorEnum::eNone;
-        }
-
-        stopErr = AOS_ERROR_WRAP(instanceData.mError);
+        return ErrorEnum::eNone;
     }
+
+    Error stopErr;
 
     if (auto err = mInstanceMonitoringData.Remove(instanceID); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mAverage.StopInstanceMonitoring(instanceData.mValue.mInstanceIdent);
+    if (auto err = mAverage.StopInstanceMonitoring(instanceData->mSecond.mInstanceIdent);
         !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
@@ -349,7 +345,7 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
 {
     LOG_DBG() << "Setup instance alerts: instanceID=" << instanceID;
 
-    if (mInstanceAlertProcessors.At(instanceID).mError.IsNone()) {
+    if (mInstanceAlertProcessors.Find(instanceID) != mInstanceAlertProcessors.end()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance alerts processor already started"));
     }
 
@@ -359,7 +355,7 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
 
     const auto& alertRules      = instanceParams.mAlertRules.GetValue();
     const auto& instanceIdent   = instanceParams.mInstanceIdent;
-    auto&       alertProcessors = mInstanceAlertProcessors.At(instanceID).mValue;
+    auto&       alertProcessors = mInstanceAlertProcessors.Find(instanceID)->mSecond;
 
     if (alertRules.mCPU.HasValue()) {
         if (auto err = alertProcessors.EmplaceBack(); !err.IsNone()) {
@@ -474,8 +470,8 @@ void ResourceMonitor::ProcessMonitoring()
 
             instanceMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(instanceMonitoringData.mMonitoringData.mCPU);
 
-            if (auto atResult = mInstanceAlertProcessors.At(instanceID); atResult.mError.IsNone()) {
-                ProcessAlerts(instanceMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, atResult.mValue);
+            if (auto it = mInstanceAlertProcessors.Find(instanceID); it != mInstanceAlertProcessors.end()) {
+                ProcessAlerts(instanceMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, it->mSecond);
             }
 
             mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
@@ -531,11 +527,11 @@ RetWithError<uint64_t> ResourceMonitor::GetCurrentUsage(
             return {0, ErrorEnum::eNotFound};
         }
 
-        auto [it, err] = monitoringData.mPartitions.FindIf(
+        auto it = monitoringData.mPartitions.FindIf(
             [&id](const auto& partition) { return partition.mName == id.mPartitionName.GetValue(); });
 
-        if (!err.IsNone()) {
-            return {0, AOS_ERROR_WRAP(err)};
+        if (it == monitoringData.mPartitions.end()) {
+            return {0, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
         }
 
         return {it->mUsedSize, ErrorEnum::eNone};
@@ -547,11 +543,11 @@ RetWithError<uint64_t> ResourceMonitor::GetCurrentUsage(
 
 RetWithError<uint64_t> ResourceMonitor::GetPartitionTotalSize(const String& name) const
 {
-    auto [it, err] = mNodeMonitoringData.mMonitoringData.mPartitions.FindIf(
+    auto it = mNodeMonitoringData.mMonitoringData.mPartitions.FindIf(
         [&name](const auto& partition) { return partition.mName == name; });
 
-    if (!err.IsNone()) {
-        return {0, err};
+    if (it == mNodeMonitoringData.mMonitoringData.mPartitions.end()) {
+        return {0, ErrorEnum::eNotFound};
     }
 
     return {it->mTotalSize, ErrorEnum::eNone};
