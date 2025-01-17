@@ -61,14 +61,14 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
 
     LOG_DBG() << "Get permission: secret=" << secret << ", funcServerID=" << funcServerID;
 
-    const auto result = FindBySecret(secret);
-    if (!result.mError.IsNone()) {
-        return AOS_ERROR_WRAP(result.mError);
+    const auto instance = FindBySecret(secret);
+    if (instance == mInstancesPerms.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    instanceIdent = result.mValue->mInstanceIdent;
+    instanceIdent = instance->mInstanceIdent;
 
-    for (const auto& it : result.mValue->mFuncServicePerms) {
+    for (const auto& it : instance->mFuncServicePerms) {
         if (it.mName == funcServerID) {
             if (it.mPermissions.Size() > servicePermissions.MaxSize()) {
                 return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
@@ -98,12 +98,12 @@ Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instance
     return ErrorEnum::eNone;
 }
 
-RetWithError<InstancePermissions*> PermHandler::FindBySecret(const String& secret)
+InstancePermissions* PermHandler::FindBySecret(const String& secret)
 {
     return mInstancesPerms.FindIf([&secret](const auto& item) { return secret == item.mSecret; });
 }
 
-RetWithError<InstancePermissions*> PermHandler::FindByInstanceIdent(const InstanceIdent& instanceIdent)
+InstancePermissions* PermHandler::FindByInstanceIdent(const InstanceIdent& instanceIdent)
 {
     return mInstancesPerms.FindIf([&instanceIdent](const auto& elem) { return instanceIdent == elem.mInstanceIdent; });
 }
@@ -115,19 +115,19 @@ StaticString<cSecretLen> PermHandler::GenerateSecret()
     do {
         newSecret = uuid::UUIDToString(uuid::CreateUUID());
 
-    } while (!FindBySecret(newSecret).mError.Is(ErrorEnum::eNotFound));
+    } while (FindBySecret(newSecret) != mInstancesPerms.end());
 
     return newSecret;
 }
 
 RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)
 {
-    const auto result = FindByInstanceIdent(instanceIdent);
-    if (!result.mError.IsNone()) {
-        return {{}, AOS_ERROR_WRAP(result.mError)};
+    const auto instance = FindByInstanceIdent(instanceIdent);
+    if (instance == mInstancesPerms.end()) {
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
     }
 
-    return result.mValue->mSecret;
+    return instance->mSecret;
 }
 
 } // namespace aos::iam::permhandler

@@ -87,12 +87,12 @@ public:
     {
         LockGuard lock {mMutex};
 
-        const auto& [val, err] = mLayers.At(digest);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        auto it = mLayers.Find(digest);
+        if (it == mLayers.end()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
-        layer = val;
+        layer = it->mSecond;
 
         return ErrorEnum::eNone;
     }
@@ -107,12 +107,12 @@ public:
     {
         LockGuard lock {mMutex};
 
-        auto res = mLayers.At(layer.mLayerDigest);
-        if (!res.mError.IsNone()) {
-            return AOS_ERROR_WRAP(res.mError);
+        auto it = mLayers.Find(layer.mLayerDigest);
+        if (it == mLayers.end()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
-        res.mValue = layer;
+        it->mSecond = layer;
 
         return ErrorEnum::eNone;
     }

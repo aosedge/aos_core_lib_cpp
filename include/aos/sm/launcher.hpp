@@ -346,20 +346,20 @@ private:
         const Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances, bool forceRestart) const;
     Error GetCurrentInstances(Array<InstanceData>& instance) const;
 
-    RetWithError<servicemanager::ServiceData*> GetService(const String& serviceID)
+    servicemanager::ServiceData* GetService(const String& serviceID)
     {
         return mCurrentServices.FindIf(
             [&serviceID](const servicemanager::ServiceData& service) { return serviceID == service.mServiceID; });
     }
 
-    RetWithError<Instance*> GetInstance(const String& instanceID)
+    Instance* GetInstance(const String& instanceID)
     {
         return mCurrentInstances.FindIf(
             [&instanceID](const Instance& instance) { return instanceID == instance.InstanceID(); });
     }
 
     Error StartInstance(const InstanceData& info);
-    Error StopInstance(const String& instanceID);
+    Error StopInstance(Instance* instance);
     Error FillCurrentInstance(const Array<InstanceData>& instances);
     Error RunLastInstances();
     Error StopCurrentInstances();

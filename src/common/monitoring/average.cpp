@@ -71,15 +71,15 @@ Error Average::Update(const NodeMonitoringData& data)
     }
 
     for (auto& instance : data.mServiceInstances) {
-        auto averageInstance = mAverageInstancesData.At(instance.mInstanceIdent);
-        if (!averageInstance.mError.IsNone()) {
+        auto averageInstance = mAverageInstancesData.Find(instance.mInstanceIdent);
+        if (averageInstance == mAverageInstancesData.end()) {
             LOG_ERR() << "Instance not found: instanceIdent=" << instance.mInstanceIdent;
 
-            return AOS_ERROR_WRAP(averageInstance.mError);
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
-        if (auto err = UpdateMonitoringData(averageInstance.mValue.mMonitoringData, instance.mMonitoringData,
-                averageInstance.mValue.mIsInitialized);
+        if (auto err = UpdateMonitoringData(averageInstance->mSecond.mMonitoringData, instance.mMonitoringData,
+                averageInstance->mSecond.mIsInitialized);
             err.IsNone()) {
             return err;
         }
@@ -102,8 +102,8 @@ Error Average::GetData(NodeMonitoringData& data) const
             return AOS_ERROR_WRAP(err);
         }
 
-        if (auto err = GetMonitoringData(
-                data.mServiceInstances.Back().mValue.mMonitoringData, averageMonitoringData.mMonitoringData);
+        if (auto err
+            = GetMonitoringData(data.mServiceInstances.Back().mMonitoringData, averageMonitoringData.mMonitoringData);
             !err.IsNone()) {
             return err;
         }
@@ -114,8 +114,8 @@ Error Average::GetData(NodeMonitoringData& data) const
 
 Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringConfig)
 {
-    auto averageInstance = mAverageInstancesData.At(monitoringConfig.mInstanceIdent);
-    if (averageInstance.mError.IsNone()) {
+    auto averageInstance = mAverageInstancesData.Find(monitoringConfig.mInstanceIdent);
+    if (averageInstance != mAverageInstancesData.end()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 

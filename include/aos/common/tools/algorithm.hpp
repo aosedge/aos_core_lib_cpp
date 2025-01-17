@@ -117,13 +117,11 @@ public:
     /**
      * Returns container first item.
      *
-     * @return RetWithError<T&>.
+     * @return T&.
      */
-    RetWithError<T&> Front()
+    T& Front()
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         return *begin();
     }
@@ -131,13 +129,11 @@ public:
     /**
      * Returns container first const item.
      *
-     * @return RetWithError<const T&>.
+     * @return const T&.
      */
-    RetWithError<const T&> Front() const
+    const T& Front() const
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         return *begin();
     }
@@ -145,13 +141,11 @@ public:
     /**
      * Returns container last item.
      *
-     * @return RetWithError<T&>.
+     * @return T&.
      */
-    RetWithError<T&> Back()
+    T& Back()
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         auto it = end();
 
@@ -161,13 +155,11 @@ public:
     /**
      * Returns container last const item.
      *
-     * @return RetWithError<const T&>.
+     * @return const T&.
      */
-    RetWithError<const T&> Back() const
+    const T& Back() const
     {
-        if (IsEmpty()) {
-            return {*end(), ErrorEnum::eNotFound};
-        }
+        assert(!IsEmpty());
 
         auto it = end();
 
@@ -178,9 +170,9 @@ public:
      * Finds const element in container.
      *
      * @param value value to find.
-     * @return RetWithError<CI>.
+     * @return CI.
      */
-    RetWithError<CI> Find(const T& value) const
+    CI Find(const T& value) const
     {
         for (auto it = begin(); it != end(); ++it) {
             if (*it == value) {
@@ -188,16 +180,16 @@ public:
             }
         }
 
-        return {end(), ErrorEnum::eNotFound};
+        return end();
     }
 
     /**
      * Finds element in container.
      *
      * @param value value to find.
-     * @return RetWithError<I>.
+     * @return I.
      */
-    RetWithError<I> Find(const T& value)
+    I Find(const T& value)
     {
         for (auto it = begin(); it != end(); ++it) {
             if (*it == value) {
@@ -205,17 +197,17 @@ public:
             }
         }
 
-        return {end(), ErrorEnum::eNotFound};
+        return end();
     }
 
     /**
      * Finds const element in container that match argument.
      *
      * @param match match function.
-     * @return RetWithError<CI>.
+     * @return CI.
      */
     template <typename P>
-    RetWithError<CI> FindIf(P match) const
+    CI FindIf(P match) const
     {
         for (auto it = begin(); it != end(); ++it) {
             if (match(*it)) {
@@ -223,17 +215,17 @@ public:
             }
         }
 
-        return {end(), ErrorEnum::eNotFound};
+        return end();
     }
 
     /**
      * Finds element in container that match argument.
      *
      * @param match match function.
-     * @return RetWithError<T&>.
+     * @return I.
      */
     template <typename P>
-    RetWithError<I> FindIf(P match)
+    I FindIf(P match)
     {
         for (auto it = begin(); it != end(); it++) {
             if (match(*it)) {
@@ -241,13 +233,13 @@ public:
             }
         }
 
-        return {end(), ErrorEnum::eNotFound};
+        return end();
     }
     /**
      * Removes element from container.
      *
      * @param value value to remove.
-     * @return RetWithError<> pointer to end of container.
+     * @return size_t.
      */
     size_t Remove(const T& value)
     {
@@ -269,7 +261,7 @@ public:
      * Removes element from container that match argument.
      *
      * @param match match function.
-     * @return RetWithError<> pointer to end of container.
+     * @return size_t.
      */
     template <typename P>
     size_t RemoveIf(P match)

@@ -220,7 +220,7 @@ RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache()
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
-    return {&mNodeInfoCache.Back().mValue, ErrorEnum::eNone};
+    return {&mNodeInfoCache.Back(), ErrorEnum::eNone};
 }
 
 void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo)

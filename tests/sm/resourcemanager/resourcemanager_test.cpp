@@ -202,7 +202,7 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsResourceNotFound)
     auto err = mConfig.mNodeConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
+    mConfig.mNodeConfig.mResources.Back().mName = "resource-one";
 
     InitResourceManager();
 
@@ -220,7 +220,7 @@ TEST_F(ResourceManagerTest, GetResourceSucceeds)
     auto err = mConfig.mNodeConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mConfig.mNodeConfig.mResources.Back().mValue.mName = "resource-one";
+    mConfig.mNodeConfig.mResources.Back().mName = "resource-one";
 
     InitResourceManager();
 

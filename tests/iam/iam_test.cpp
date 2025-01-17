@@ -46,8 +46,8 @@ protected:
         ASSERT_TRUE(mPKCS11Modules.EmplaceBack().IsNone());
         ASSERT_TRUE(mCertModules.EmplaceBack().IsNone());
 
-        auto& pkcs11Module = mPKCS11Modules.Back().mValue;
-        auto& certModule   = mCertModules.Back().mValue;
+        auto& pkcs11Module = mPKCS11Modules.Back();
+        auto& certModule   = mCertModules.Back();
 
         ASSERT_TRUE(
             pkcs11Module.Init(name, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), mCryptoProvider).IsNone());

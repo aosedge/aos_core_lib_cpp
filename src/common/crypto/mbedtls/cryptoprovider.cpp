@@ -391,7 +391,7 @@ Error MbedTLSCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::C
             return err;
         }
 
-        auto& cert = resultCerts.Back().mValue;
+        auto& cert = resultCerts.Back();
 
         err = ParseX509Certs(currentCrt, cert);
         if (!err.IsNone()) {
