@@ -36,9 +36,9 @@ TEST(MapTest, FindByKey)
     for (const auto& [key, value] : source) {
         auto item = map.Find(key);
 
-        ASSERT_TRUE(item.mError.IsNone());
-        EXPECT_EQ(item.mValue->mFirst, key);
-        EXPECT_EQ(item.mValue->mSecond, value);
+        ASSERT_NE(item, map.end());
+        EXPECT_EQ(item->mFirst, key);
+        EXPECT_EQ(item->mSecond, value);
     }
 }
 
@@ -60,9 +60,9 @@ TEST(MapTest, Erase)
     ASSERT_EQ(map.Size(), source.size());
 
     auto it = map.Find("0xC");
-    ASSERT_TRUE(it.mError.IsNone());
+    ASSERT_NE(it, map.end());
 
-    ASSERT_NE(map.Erase(it.mValue), map.end());
+    ASSERT_NE(map.Erase(it), map.end());
     ASSERT_EQ(map.Size(), source.size() - 1);
 
     ASSERT_FALSE(map.Contains("0xC"));
@@ -106,12 +106,12 @@ TEST(MapTest, AssignArray)
     EXPECT_TRUE(map.Assign(ConvertToArray(source)).IsNone());
 
     EXPECT_EQ(map.Size(), 6);
-    EXPECT_EQ(map.At("0xA").mValue, 10);
-    EXPECT_EQ(map.At("0xB").mValue, 11);
-    EXPECT_EQ(map.At("0xC").mValue, 12);
-    EXPECT_EQ(map.At("0xD").mValue, 13);
-    EXPECT_EQ(map.At("0xE").mValue, 14);
-    EXPECT_EQ(map.At("0xF").mValue, 15);
+    EXPECT_EQ(map.Find("0xA")->mSecond, 10);
+    EXPECT_EQ(map.Find("0xB")->mSecond, 11);
+    EXPECT_EQ(map.Find("0xC")->mSecond, 12);
+    EXPECT_EQ(map.Find("0xD")->mSecond, 13);
+    EXPECT_EQ(map.Find("0xE")->mSecond, 14);
+    EXPECT_EQ(map.Find("0xF")->mSecond, 15);
 }
 
 TEST(MapTest, AssignArrayWithDuplicates)
@@ -128,9 +128,9 @@ TEST(MapTest, AssignArrayWithDuplicates)
     EXPECT_TRUE(map.Assign(ConvertToArray(source)).IsNone());
 
     EXPECT_EQ(map.Size(), 3);
-    EXPECT_EQ(map.At("0xA").mValue, 10);
-    EXPECT_EQ(map.At("0xB").mValue, 11);
-    EXPECT_EQ(map.At("0xC").mValue, 12);
+    EXPECT_EQ(map.Find("0xA")->mSecond, 10);
+    EXPECT_EQ(map.Find("0xB")->mSecond, 11);
+    EXPECT_EQ(map.Find("0xC")->mSecond, 12);
 }
 
 TEST(MapTest, AssignArrayNoMemory)
@@ -175,14 +175,14 @@ TEST(MapTest, Set)
     // Set new value
     EXPECT_TRUE(map.Set("0xF", 15).IsNone());
 
-    EXPECT_TRUE(map.At("0xF").mError.IsNone());
-    EXPECT_EQ(map.At("0xF").mValue, 15);
+    ASSERT_NE(map.Find("0xF"), map.end());
+    EXPECT_EQ(map.Find("0xF")->mSecond, 15);
 
     // Reset existing
     EXPECT_TRUE(map.Set("0xA", 1).IsNone());
 
-    EXPECT_TRUE(map.At("0xA").mError.IsNone());
-    EXPECT_EQ(map.At("0xA").mValue, 1);
+    ASSERT_NE(map.Find("0xA"), map.end());
+    EXPECT_EQ(map.Find("0xA")->mSecond, 1);
 
     // Set no memory
     EXPECT_FALSE(map.Set("0xD", 13).IsNone());
@@ -202,8 +202,8 @@ TEST(MapTest, Emplace)
     // Emplace new value
     EXPECT_TRUE(map.Emplace("0xF", 15).IsNone());
 
-    EXPECT_TRUE(map.At("0xF").mError.IsNone());
-    EXPECT_EQ(map.At("0xF").mValue, 15);
+    ASSERT_NE(map.Find("0xF"), map.end());
+    EXPECT_EQ(map.Find("0xF")->mSecond, 15);
 
     // Fail emplace with existing value
     EXPECT_FALSE(map.Emplace("0xA", 1).IsNone());
@@ -226,14 +226,14 @@ TEST(MapTest, TryEmplace)
     // Try emplace new value
     EXPECT_TRUE(map.TryEmplace("0xF", 15).IsNone());
 
-    EXPECT_TRUE(map.At("0xF").mError.IsNone());
-    EXPECT_EQ(map.At("0xF").mValue, 15);
+    ASSERT_NE(map.Find("0xF"), map.end());
+    EXPECT_EQ(map.Find("0xF")->mSecond, 15);
 
     // Try emplace existing value
     EXPECT_TRUE(map.TryEmplace("0xA", 1).IsNone());
 
-    EXPECT_TRUE(map.At("0xA").mError.IsNone());
-    EXPECT_EQ(map.At("0xA").mValue, 10);
+    ASSERT_NE(map.Find("0xA"), map.end());
+    EXPECT_EQ(map.Find("0xA")->mSecond, 10);
 
     // Emplace no memory
     EXPECT_FALSE(map.TryEmplace("0xD", 13).IsNone());
@@ -252,7 +252,7 @@ TEST(MapTest, Remove)
 
     // Remove existing key
     EXPECT_TRUE(map.Remove("0xA").IsNone());
-    EXPECT_FALSE(map.At("0xF").mError.IsNone());
+    EXPECT_EQ(map.Find("0xF"), map.end());
 }
 
 TEST(MapTest, Clear)
@@ -276,9 +276,8 @@ TEST(MapTest, Const)
 
     StaticMap<StaticString<16>, TestClass, 4> map;
 
-    auto constCbk
-        = [](const Map<StaticString<16>, TestClass>& map) -> RetWithError<const TestClass&> { return map.At("test"); };
+    auto constCbk = [](const Map<StaticString<16>, TestClass>& map) { return map.Find("test"); };
 
     EXPECT_TRUE(map.Emplace("test", TestClass {}).IsNone());
-    EXPECT_TRUE(constCbk(map).mError.IsNone());
+    EXPECT_NE(constCbk(map), map.end());
 }

@@ -244,10 +244,12 @@ public:
 
     Error GetInstanceMonitoringData(const String& instanceID, InstanceMonitoringData& instanceMonitoringData) override
     {
-        const auto& [data, err] = mInstancesMonitoringData.At(instanceID);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        const auto it = mInstancesMonitoringData.Find(instanceID);
+        if (it == mInstancesMonitoringData.end()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
+
+        const auto& data = it->mSecond;
 
         instanceMonitoringData.mMonitoringData.mCPU      = data.mMonitoringData.mCPU;
         instanceMonitoringData.mMonitoringData.mRAM      = data.mMonitoringData.mRAM;

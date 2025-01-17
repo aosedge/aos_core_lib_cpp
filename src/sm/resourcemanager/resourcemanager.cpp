@@ -110,8 +110,8 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
         return AOS_ERROR_WRAP(err);
     }
 
-    auto [deviceIt, err] = mAllocatedDevices.Find(deviceName);
-    if (!err.IsNone()) {
+    auto deviceIt = mAllocatedDevices.Find(deviceName);
+    if (deviceIt == mAllocatedDevices.end()) {
         StaticArray<StaticString<cInstanceIDLen>, 1> instances;
         instances.PushBack(instanceID);
 
@@ -120,7 +120,7 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
 
     auto& instances = deviceIt->mSecond;
 
-    if (instances.Find(instanceID).mError.IsNone()) {
+    if (instances.Find(instanceID) != instances.end()) {
         LOG_WRN() << "Device is already allocated by instance: device=" << deviceName << ", instance=" << instanceID;
 
         return ErrorEnum::eNone;
@@ -130,7 +130,7 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "no device available"));
     }
 
-    if (err = instances.PushBack(instanceID); !err.IsNone()) {
+    if (auto err = instances.PushBack(instanceID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -143,10 +143,10 @@ Error ResourceManager::ReleaseDevice(const String& deviceName, const String& ins
 
     LOG_DBG() << "Release device: device=" << deviceName << ", instance=" << instanceID;
 
-    auto [it, err] = mAllocatedDevices.Find(deviceName);
+    auto it = mAllocatedDevices.Find(deviceName);
 
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "device not found"));
+    if (it == mAllocatedDevices.end()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "device not found"));
     }
 
     if (auto count = it->mSecond.Remove(instanceID); count < 1) {
@@ -202,13 +202,13 @@ Error ResourceManager::GetDeviceInstances(
 
     LOG_DBG() << "Get device instances: device=" << deviceName;
 
-    auto [it, err] = mAllocatedDevices.Find(deviceName);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    auto it = mAllocatedDevices.Find(deviceName);
+    if (it == mAllocatedDevices.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
     for (const auto& instance : it->mSecond) {
-        if (err = instanceIDs.PushBack(instance); !err.IsNone()) {
+        if (auto err = instanceIDs.PushBack(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }

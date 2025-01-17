@@ -107,9 +107,9 @@ TEST(ListTest, Basic)
 
     // Check emplace
 
-    auto [pos, err] = staticList.Find(10);
+    auto pos = staticList.Find(10);
 
-    EXPECT_TRUE(err.IsNone());
+    EXPECT_NE(pos, staticList.end());
 
     EXPECT_TRUE(staticList.Emplace(pos, 100).IsNone());
 

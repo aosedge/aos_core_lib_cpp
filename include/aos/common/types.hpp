@@ -1118,14 +1118,15 @@ struct NodeInfo {
 
     Error GetRunners(Array<StaticString<cRunnerNameLen>>& runners) const
     {
-        auto [attr, err] = mAttrs.FindIf([](const NodeAttribute& attr) {
+        auto attr = mAttrs.FindIf([](const NodeAttribute& attr) {
             return attr.mName == NodeAttributeName(NodeAttributeEnum::eNodeRunners).ToString();
         });
-        if (!err.IsNone()) {
-            return err;
+
+        if (attr == mAttrs.end()) {
+            return ErrorEnum::eNotFound;
         }
 
-        if (err = attr->mValue.Split(runners, ','); !err.IsNone()) {
+        if (auto err = attr->mValue.Split(runners, ','); !err.IsNone()) {
             return err;
         }
 
