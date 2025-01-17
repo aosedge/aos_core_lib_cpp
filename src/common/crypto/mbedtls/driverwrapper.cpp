@@ -233,7 +233,6 @@ static bool IsKeyInBuiltinList(psa_key_id_t keyID)
 static aos::RetWithError<KeyDescription*> FindFreeSlot()
 {
     auto key = sBuiltinKeys.FindIf([](const KeyDescription& key) { return !key.mAllocated; });
-
     if (key == sBuiltinKeys.end()) {
         return aos::RetWithError<KeyDescription*>(nullptr, aos::ErrorEnum::eNotFound);
     }
@@ -390,7 +389,6 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
     LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
     auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
-
     if (key == sBuiltinKeys.end()) {
         return;
     }

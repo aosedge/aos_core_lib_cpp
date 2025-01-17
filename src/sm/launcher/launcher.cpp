@@ -319,12 +319,7 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
             return AOS_ERROR_WRAP(err);
         }
 
-        auto currentInstance = mCurrentInstances.Back();
-        if (!currentInstance.mError.IsNone()) {
-            return AOS_ERROR_WRAP(currentInstance.mError);
-        }
-
-        currentInstance.mValue.SetService(service);
+        mCurrentInstances.Back().SetService(service);
     }
 
     return ErrorEnum::eNone;
@@ -559,14 +554,14 @@ Error Launcher::GetStartInstances(
             return instance.mInstanceInfo.mInstanceIdent == desiredInstance.mInstanceIdent;
         });
 
-        if (currentInstance != currentInstances->end()) {
+        if (currentInstance != currentInstances->end() && currentInstance) {
             // Update instance if parameters are changed
             if (currentInstance->mInstanceInfo != desiredInstance) {
                 if (auto err = runningInstances.PushBack(*currentInstance); !err.IsNone()) {
                     return AOS_ERROR_WRAP(err);
                 }
 
-                auto& updateInstance = runningInstances.Back().mValue;
+                auto& updateInstance = runningInstances.Back();
 
                 updateInstance.mInstanceInfo = desiredInstance;
 
@@ -586,7 +581,7 @@ Error Launcher::GetStartInstances(
             return AOS_ERROR_WRAP(err);
         }
 
-        if (auto err = mStorage->AddInstance(runningInstances.Back().mValue); !err.IsNone()) {
+        if (auto err = mStorage->AddInstance(runningInstances.Back()); !err.IsNone()) {
             LOG_ERR() << "Can't add instance: instanceID=" << instanceID << ", err=" << err;
         }
     }

@@ -79,7 +79,7 @@ TEST(ArrayTest, Basic)
         auto ret2 = staticArray.Back();
         EXPECT_TRUE(staticArray.PopBack().IsNone());
 
-        EXPECT_EQ(ret1.mValue, ret2.mValue);
+        EXPECT_EQ(ret1, ret2);
     }
 
     // Test const array

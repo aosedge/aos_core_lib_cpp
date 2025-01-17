@@ -227,7 +227,7 @@ public:
     String& RightTrim(const String& chars)
     {
         while (Size() > 0) {
-            if (chars.Find(Back().mValue) != chars.end()) {
+            if (chars.Find(Back()) != chars.end()) {
                 [[maybe_unused]] auto err = PopBack();
                 assert(err.IsNone());
             } else {
