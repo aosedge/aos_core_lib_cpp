@@ -48,22 +48,24 @@ public:
 
         LockGuard lock(mMutex);
 
-        auto [val, err] = mUnpackResults.At(archivePath);
+        auto it = mUnpackResults.Find(archivePath);
 
-        if (!err.IsNone()) {
+        if (it == mUnpackResults.end()) {
             return {{}, ErrorEnum::eNotFound};
         }
 
         assert(mSpaceAllocator);
+
+        Error err;
 
         Tie(space, err) = mSpaceAllocator->AllocateSpace(1);
         if (!err.IsNone()) {
             return {{}, err};
         }
 
-        FS::MakeDirAll(val);
+        FS::MakeDirAll(it->mSecond);
 
-        return {val, ErrorEnum::eNone};
+        return {it->mSecond, ErrorEnum::eNone};
     }
 
     /**
@@ -83,22 +85,24 @@ public:
 
         LockGuard lock(mMutex);
 
-        auto [val, err] = mUnpackResults.At(archivePath);
+        auto it = mUnpackResults.Find(archivePath);
 
-        if (!err.IsNone()) {
+        if (it == mUnpackResults.end()) {
             return {{}, ErrorEnum::eNotFound};
         }
 
         assert(mSpaceAllocator);
+
+        Error err;
 
         Tie(space, err) = mSpaceAllocator->AllocateSpace(1);
         if (!err.IsNone()) {
             return {{}, err};
         }
 
-        FS::MakeDirAll(val);
+        FS::MakeDirAll(it->mSecond);
 
-        return {val, ErrorEnum::eNone};
+        return {it->mSecond, ErrorEnum::eNone};
     }
 
     /**

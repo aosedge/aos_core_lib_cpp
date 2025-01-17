@@ -302,12 +302,9 @@ TEST_F(LayerManagerTest, ProcessDesiredLayers)
         ASSERT_TRUE(err.IsNone()) << err.Message();
 
         for (const auto& expectedLayer : testCase.mInstalledDigests) {
-            EXPECT_TRUE(dbLayers
-                            .FindIf([&expectedLayer](const auto& layer) {
-                                return layer.mLayerDigest == expectedLayer.c_str()
-                                    && layer.mState == LayerStateEnum::eActive;
-                            })
-                            .mError.IsNone())
+            EXPECT_TRUE(dbLayers.FindIf([&expectedLayer](const auto& layer) {
+                return layer.mLayerDigest == expectedLayer.c_str() && layer.mState == LayerStateEnum::eActive;
+            }) != dbLayers.end())
                 << "Layer " << expectedLayer << " is not installed";
         }
     }

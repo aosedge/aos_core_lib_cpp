@@ -31,13 +31,13 @@ static bool CompareArrays(const T1 array1, const T2 array2)
     }
 
     for (const auto& item : array1) {
-        if (!array2.Find(item).mError.IsNone()) {
+        if (array2.Find(item) == array2.end()) {
             return false;
         }
     }
 
     for (const auto& item : array2) {
-        if (!array1.Find(item).mError.IsNone()) {
+        if (array1.Find(item) == array1.end()) {
             return false;
         }
     }

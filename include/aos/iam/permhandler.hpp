@@ -112,8 +112,8 @@ public:
 private:
     Error                                  AddSecret(const String& secret, const InstanceIdent& instanceIdent,
                                          const Array<FunctionServicePermissions>& instancePermissions);
-    RetWithError<InstancePermissions*>     FindBySecret(const String& secret);
-    RetWithError<InstancePermissions*>     FindByInstanceIdent(const InstanceIdent& instanceIdent);
+    InstancePermissions*                   FindBySecret(const String& secret);
+    InstancePermissions*                   FindByInstanceIdent(const InstanceIdent& instanceIdent);
     StaticString<cSecretLen>               GenerateSecret();
     RetWithError<StaticString<cSecretLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
 

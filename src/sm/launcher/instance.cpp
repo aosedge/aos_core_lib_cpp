@@ -593,9 +593,9 @@ Error Instance::CreateRuntimeSpec(
         return AOS_ERROR_WRAP(err);
     }
 
-    if (serviceConfig.mRunners
-            .FindIf([](const String& runner) { return runner == Runner(RunnerEnum::eXRUN).ToString(); })
-            .mError.IsNone()) {
+    if (serviceConfig.mRunners.FindIf(
+            [](const String& runner) { return runner == Runner(RunnerEnum::eXRUN).ToString(); })
+        != serviceConfig.mRunners.end()) {
         if (auto err = CreateVMSpec(imageParts.mServiceFSPath, *imageSpec, runtimeSpec); !err.IsNone()) {
             return err;
         }

@@ -134,20 +134,19 @@ TEST(ArrayTest, Find)
     // Found
 
     auto result = array.Find(4);
-    EXPECT_TRUE(result.mError.IsNone());
-    EXPECT_EQ(*result.mValue, 4);
+    ASSERT_NE(result, array.end());
+    EXPECT_EQ(*result, 4);
 
     // Not found
 
     result = array.Find(13);
-    EXPECT_TRUE(result.mError.Is(ErrorEnum::eNotFound));
-    EXPECT_EQ(result.mValue, array.end());
+    EXPECT_EQ(result, array.end());
 
     // Found matched
 
     result = array.FindIf([](const int& value) { return value == 8 ? true : false; });
-    EXPECT_TRUE(result.mError.IsNone());
-    EXPECT_EQ(*result.mValue, 8);
+    ASSERT_NE(result, array.end());
+    EXPECT_EQ(*result, 8);
 }
 
 TEST(ArrayTest, Erase)

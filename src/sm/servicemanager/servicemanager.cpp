@@ -172,13 +172,13 @@ Error ServiceManager::ProcessDesiredServices(const Array<ServiceInfo>& services)
         }
 
         for (const auto& storageService : *installedServices) {
-            auto [it, err] = desiredServices->FindIf([&storageService](const ServiceInfo& info) {
+            auto it = desiredServices->FindIf([&storageService](const ServiceInfo& info) {
                 return storageService.mServiceID == info.mServiceID && storageService.mVersion == info.mVersion;
             });
 
-            if (!err.IsNone()) {
+            if (it == desiredServices->end()) {
                 if (storageService.mState != ServiceStateEnum::eCached) {
-                    if (err = SetServiceState(storageService, ServiceStateEnum::eCached); !err.IsNone()) {
+                    if (auto err = SetServiceState(storageService, ServiceStateEnum::eCached); !err.IsNone()) {
                         return err;
                     }
                 }
@@ -186,7 +186,7 @@ Error ServiceManager::ProcessDesiredServices(const Array<ServiceInfo>& services)
                 continue;
             }
 
-            if (err = SetServiceState(storageService, ServiceStateEnum::eActive); !err.IsNone()) {
+            if (auto err = SetServiceState(storageService, ServiceStateEnum::eActive); !err.IsNone()) {
                 return err;
             }
 
@@ -350,7 +350,7 @@ Error ServiceManager::RemoveDamagedServiceFolders(const Array<ServiceData>& serv
         const auto fullPath = FS::JoinPath(mConfig.mServicesDir, serviceDirIterator->mPath);
 
         if (services.FindIf([&fullPath](const ServiceData& service) { return service.mImagePath == fullPath; })
-                .mError.IsNone()) {
+            == services.end()) {
             continue;
         }
 

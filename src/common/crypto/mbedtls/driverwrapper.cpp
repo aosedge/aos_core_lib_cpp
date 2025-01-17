@@ -227,19 +227,18 @@ static int ExportECPublicKeyToDER(
 
 static bool IsKeyInBuiltinList(psa_key_id_t keyID)
 {
-    auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
-
-    return ret.mError.IsNone();
+    return sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; }) != sBuiltinKeys.end();
 }
 
 static aos::RetWithError<KeyDescription*> FindFreeSlot()
 {
-    auto ret = sBuiltinKeys.FindIf([](const KeyDescription& key) { return !key.mAllocated; });
-    if (!ret.mError.IsNone()) {
+    auto key = sBuiltinKeys.FindIf([](const KeyDescription& key) { return !key.mAllocated; });
+
+    if (key == sBuiltinKeys.end()) {
         return aos::RetWithError<KeyDescription*>(nullptr, aos::ErrorEnum::eNotFound);
     }
 
-    return aos::RetWithError<KeyDescription*>(ret.mValue, aos::ErrorEnum::eNone);
+    return aos::RetWithError<KeyDescription*>(key, aos::ErrorEnum::eNone);
 }
 
 aos::crypto::HashEnum GetRSASHAAlgorithm(size_t modulusBitlen)
@@ -390,13 +389,13 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
 
     LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
-    auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
 
-    if (!ret.mError.IsNone()) {
+    if (key == sBuiltinKeys.end()) {
         return;
     }
 
-    ret.mValue->mAllocated = false;
+    key->mAllocated = false;
 
     psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
 }
@@ -416,15 +415,15 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
 
     aos::LockGuard lock(sMutex);
 
-    auto ret = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == appKeyID; });
-    if (!ret.mError.IsNone()) {
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == appKeyID; });
+    if (key == sBuiltinKeys.end()) {
         LOG_ERR() << "Built-in key not found: keyID = " << keyID;
 
         return PSA_ERROR_DOES_NOT_EXIST;
     }
 
-    *lifetime   = ret.mValue->mLifetime;
-    *slotNumber = ret.mValue - sBuiltinKeys.begin();
+    *lifetime   = key->mLifetime;
+    *slotNumber = key - sBuiltinKeys.begin();
 
     return PSA_SUCCESS;
 }

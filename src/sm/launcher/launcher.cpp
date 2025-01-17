@@ -229,9 +229,9 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : instances) {
-        auto [currentInstance, err] = mCurrentInstances.FindIf(
+        auto currentInstance = mCurrentInstances.FindIf(
             [&instance](const auto& currentInstance) { return currentInstance.InstanceID() == instance.mInstanceID; });
-        if (!err.IsNone()) {
+        if (currentInstance == mCurrentInstances.end()) {
             LOG_WRN() << "Not running instance status received: instanceID=" << instance.mInstanceID;
 
             continue;
@@ -253,7 +253,7 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
                               << ", err=" << currentInstance->RunError();
                 }
 
-                if (err
+                if (auto err
                     = status->PushBack({currentInstance->Info().mInstanceIdent, currentInstance->GetServiceVersion(),
                         currentInstance->RunState(), currentInstance->RunError()});
                     !err.IsNone()) {
@@ -305,11 +305,9 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
             continue;
         }
 
-        servicemanager::ServiceData* service;
-
-        Tie(service, err) = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
-        if (!err.IsNone()) {
-            LOG_ERR() << "Can't get service: instanceID=" << instance.mInstanceID << ", err=" << err;
+        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
+        if (service == mCurrentServices.end()) {
+            LOG_ERR() << "Service not found: instanceID=" << instance.mInstanceID;
 
             continue;
         }
@@ -516,11 +514,10 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
         StaticString<cVersionLen> serviceVersion;
 
         auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
-        if (service.mError.IsNone()) {
-            LOG_ERR() << "Can't get service: serviceID=" << instance.mInstanceInfo.mInstanceIdent.mServiceID
-                      << ", err=" << service.mError;
+        if (service == mCurrentServices.end()) {
+            LOG_ERR() << "Service not found: serviceID=" << instance.mInstanceInfo.mInstanceIdent.mServiceID;
         } else {
-            serviceVersion = service.mValue->mVersion;
+            serviceVersion = service->mVersion;
         }
 
         auto runState = InstanceRunState(InstanceRunStateEnum::eFailed);
@@ -558,17 +555,14 @@ Error Launcher::GetStartInstances(
     }
 
     for (const auto& desiredInstance : desiredInstances) {
-        Error                       err             = ErrorEnum::eNone;
-        sm::launcher::InstanceData* currentInstance = nullptr;
-
-        Tie(currentInstance, err) = currentInstances->FindIf([&desiredInstance](const InstanceData& instance) {
+        auto currentInstance = currentInstances->FindIf([&desiredInstance](const InstanceData& instance) {
             return instance.mInstanceInfo.mInstanceIdent == desiredInstance.mInstanceIdent;
         });
 
-        if (err.IsNone() && currentInstance) {
+        if (currentInstance != currentInstances->end()) {
             // Update instance if parameters are changed
             if (currentInstance->mInstanceInfo != desiredInstance) {
-                if (err = runningInstances.PushBack(*currentInstance); !err.IsNone()) {
+                if (auto err = runningInstances.PushBack(*currentInstance); !err.IsNone()) {
                     return AOS_ERROR_WRAP(err);
                 }
 
@@ -576,7 +570,7 @@ Error Launcher::GetStartInstances(
 
                 updateInstance.mInstanceInfo = desiredInstance;
 
-                if (err = mStorage->UpdateInstance(updateInstance); !err.IsNone()) {
+                if (auto err = mStorage->UpdateInstance(updateInstance); !err.IsNone()) {
                     LOG_ERR() << "Can't update instance: instanceID=" << updateInstance.mInstanceID << ", err=" << err;
                 }
             }
@@ -588,11 +582,11 @@ Error Launcher::GetStartInstances(
 
         const auto instanceID = uuid::UUIDToString(uuid::CreateUUID());
 
-        if (err = runningInstances.PushBack({desiredInstance, instanceID}); !err.IsNone()) {
+        if (auto err = runningInstances.PushBack({desiredInstance, instanceID}); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        if (err = mStorage->AddInstance(runningInstances.Back().mValue); !err.IsNone()) {
+        if (auto err = mStorage->AddInstance(runningInstances.Back().mValue); !err.IsNone()) {
             LOG_ERR() << "Can't add instance: instanceID=" << instanceID << ", err=" << err;
         }
     }
@@ -626,16 +620,13 @@ Error Launcher::GetStopInstances(
     }
 
     for (const auto& instance : mCurrentInstances) {
-        auto found = startInstances
-                         .FindIf([&instance = instance](const InstanceData& info) {
-                             auto compareInfo = info;
+        auto found = startInstances.FindIf([&instance = instance](const InstanceData& info) {
+            auto compareInfo = info;
 
-                             compareInfo.mInstanceInfo.mPriority = instance.Info().mPriority;
+            compareInfo.mInstanceInfo.mPriority = instance.Info().mPriority;
 
-                             return compareInfo.mInstanceID == instance.InstanceID()
-                                 && compareInfo.mInstanceInfo == instance.Info();
-                         })
-                         .mError.IsNone();
+            return compareInfo.mInstanceID == instance.InstanceID() && compareInfo.mInstanceInfo == instance.Info();
+        }) != startInstances.end();
 
         // Stop instance if: forceRestart or not in instances array or not active state or Aos version changed
         if (!forceRestart && found && instance.RunState() == InstanceRunStateEnum::eActive) {
@@ -643,7 +634,7 @@ Error Launcher::GetStopInstances(
                 return instance.Info().mInstanceIdent.mServiceID == service.mServiceID;
             });
 
-            if (findService.mError.IsNone() && instance.GetServiceVersion() == findService.mValue->mVersion) {
+            if (findService != services->end() && instance.GetServiceVersion() == findService->mVersion) {
                 continue;
             }
         }
@@ -677,7 +668,7 @@ void Launcher::StartInstances(const Array<InstanceData>& instances)
 
         for (const auto& info : instances) {
             // Skip already started instances
-            if (GetInstance(info.mInstanceID).mError.IsNone()) {
+            if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
                 LOG_WRN() << "Instance already started: instanceID=" << info.mInstanceID
                           << ", ident=" << info.mInstanceInfo.mInstanceIdent;
 
@@ -712,7 +703,7 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
 
         for (const auto& info : instances) {
             // Skip already stopped instances
-            if (GetInstance(info.mInstanceID).mError.Is(ErrorEnum::eNotFound)) {
+            if (GetInstance(info.mInstanceID) == mCurrentInstances.end()) {
                 LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
                           << ", ident=" << info.mInstanceInfo.mInstanceIdent;
 
@@ -749,7 +740,7 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
     for (const auto& instance : instances) {
         const auto& serviceID = instance.mInstanceInfo.mInstanceIdent.mServiceID;
 
-        if (GetService(serviceID).mError.IsNone()) {
+        if (GetService(serviceID) != mCurrentServices.end()) {
             continue;
         }
 
@@ -774,16 +765,16 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
 void Launcher::UpdateInstanceServices()
 {
     for (auto& instance : mCurrentInstances) {
-        auto findService = GetService(instance.Info().mInstanceIdent.mServiceID);
-        if (!findService.mError.IsNone()) {
-            LOG_ERR() << "Can't get service for instance " << instance << ": " << findService.mError;
+        auto service = GetService(instance.Info().mInstanceIdent.mServiceID);
+        if (service == mCurrentServices.end()) {
+            LOG_ERR() << "Service not found: instance=" << instance;
 
             instance.SetService(nullptr);
 
             continue;
         }
 
-        instance.SetService(findService.mValue);
+        instance.SetService(service);
     }
 }
 
@@ -794,7 +785,7 @@ Error Launcher::StartInstance(const InstanceData& info)
     {
         LockGuard lock {mMutex};
 
-        if (GetInstance(info.mInstanceID).mError.IsNone()) {
+        if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
             return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
         }
 
@@ -807,15 +798,15 @@ Error Launcher::StartInstance(const InstanceData& info)
 
         instance = &mCurrentInstances[mCurrentInstances.Size() - 1];
 
-        auto findService = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
-        if (!findService.mError.IsNone()) {
+        auto service = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
+        if (service == mCurrentServices.end()) {
             instance->SetService(nullptr);
-            instance->SetRunError(findService.mError);
+            instance->SetRunError(ErrorEnum::eNotFound);
 
-            return findService.mError;
+            return ErrorEnum::eNotFound;
         }
 
-        instance->SetService(findService.mValue);
+        instance->SetService(service);
     }
 
     if (auto err = instance->Start(); !err.IsNone()) {
@@ -838,11 +829,9 @@ Error Launcher::StopInstance(const String& instanceID)
     {
         LockGuard lock {mMutex};
 
-        Error err;
-
-        Tie(instance, err) = GetInstance(instanceID);
-        if (!err.IsNone()) {
-            return err;
+        instance = GetInstance(instanceID);
+        if (instance == mCurrentInstances.end()) {
+            return ErrorEnum::eNotFound;
         }
 
         mCurrentInstances.RemoveIf([&instanceID](const Instance& inst) { return inst.InstanceID() == instanceID; });

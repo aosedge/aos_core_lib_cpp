@@ -215,17 +215,17 @@ Error NetworkManager::GetInstanceIP(const String& instanceID, const String& netw
 
     LOG_DBG() << "Get instance IP: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    auto network = mNetworkData.At(networkID);
-    if (!network.mError.IsNone()) {
-        return AOS_ERROR_WRAP(network.mError);
+    auto network = mNetworkData.Find(networkID);
+    if (network == mNetworkData.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto instance = network.mValue.At(instanceID);
-    if (!instance.mError.IsNone()) {
-        return AOS_ERROR_WRAP(instance.mError);
+    auto instance = network->mSecond.Find(instanceID);
+    if (instance == network->mSecond.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    ip = instance.mValue.IPAddr;
+    ip = instance->mSecond.IPAddr;
 
     return ErrorEnum::eNone;
 }
@@ -264,13 +264,13 @@ Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String
 
     LOG_DBG() << "Check if instance is in network: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    auto network = mNetworkData.At(networkID);
-    if (!network.mError.IsNone()) {
-        return AOS_ERROR_WRAP(network.mError);
+    auto network = mNetworkData.Find(networkID);
+    if (network == mNetworkData.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (auto instance = network.mValue.At(instanceID); !instance.mError.IsNone()) {
-        return AOS_ERROR_WRAP(instance.mError);
+    if (auto instance = network->mSecond.Find(instanceID); instance == network->mSecond.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
     return ErrorEnum::eNone;
@@ -283,14 +283,18 @@ Error NetworkManager::UpdateInstanceNetworkCache(const String& instanceID, const
 
     LOG_DBG() << "Update instance network cache: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    auto instance = mNetworkData.At(networkID).mValue.At(instanceID);
-
-    if (!instance.mError.IsNone()) {
-        return AOS_ERROR_WRAP(instance.mError);
+    auto network = mNetworkData.Find(networkID);
+    if (network == mNetworkData.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    instance.mValue.IPAddr = instanceIP;
-    instance.mValue.mHost  = hosts;
+    auto instance = network->mSecond.Find(instanceID);
+    if (instance == network->mSecond.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    instance->mSecond.IPAddr = instanceIP;
+    instance->mSecond.mHost  = hosts;
 
     return ErrorEnum::eNone;
 }
@@ -301,16 +305,14 @@ Error NetworkManager::AddInstanceToCache(const String& instanceID, const String&
 
     LOG_DBG() << "Add instance to cache: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    auto network = mNetworkData.At(networkID);
-    if (!network.mError.IsNone()) {
-        if (!network.mError.Is(ErrorEnum::eNotFound)) {
-            return AOS_ERROR_WRAP(network.mError);
+    auto network = mNetworkData.Find(networkID);
+    if (network == mNetworkData.end()) {
+        if (auto err = mNetworkData.Set(networkID, InstanceCache()); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
-
-        mNetworkData.Set(networkID, InstanceCache());
     }
 
-    if (auto err = mNetworkData.At(networkID).mValue.Set(instanceID, NetworkData()); !err.IsNone()) {
+    if (auto err = mNetworkData.Find(networkID)->mSecond.Set(instanceID, NetworkData()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -323,16 +325,16 @@ Error NetworkManager::RemoveInstanceFromCache(const String& instanceID, const St
 
     LOG_DBG() << "Remove instance from cache: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    auto network = mNetworkData.At(networkID);
-    if (!network.mError.IsNone()) {
-        return AOS_ERROR_WRAP(network.mError);
+    auto network = mNetworkData.Find(networkID);
+    if (network == mNetworkData.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (auto err = network.mValue.Remove(instanceID); !err.IsNone()) {
+    if (auto err = network->mSecond.Remove(instanceID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (network.mValue.IsEmpty()) {
+    if (network->mSecond.IsEmpty()) {
         if (auto err = ClearNetwork(networkID); !err.IsNone()) {
             return err;
         }
@@ -388,14 +390,14 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
 
     LOG_DBG() << "Prepare hosts: networkID=" << networkID;
 
-    auto retNotworkData = mNetworkData.At(networkID);
-    if (!retNotworkData.mError.IsNone()) {
-        return AOS_ERROR_WRAP(retNotworkData.mError);
+    auto networkData = mNetworkData.Find(networkID);
+    if (networkData == mNetworkData.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto retInstanceData = retNotworkData.mValue.At(instanceID);
-    if (!retInstanceData.mError.IsNone()) {
-        return AOS_ERROR_WRAP(retInstanceData.mError);
+    auto instanceData = networkData->mSecond.Find(instanceID);
+    if (instanceData == networkData->mSecond.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
     for (const auto& host : network.mAliases) {
@@ -429,13 +431,13 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
         }
     }
 
-    return IsHostnameExist(retNotworkData.mValue, hosts);
+    return IsHostnameExist(networkData->mSecond, hosts);
 }
 
 Error NetworkManager::PushHostWithDomain(
     const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const
 {
-    if (auto ret = hosts.Find(host); ret.mError.IsNone()) {
+    if (auto ret = hosts.Find(host); ret != hosts.end()) {
         return ErrorEnum::eAlreadyExist;
     }
 
@@ -443,14 +445,14 @@ Error NetworkManager::PushHostWithDomain(
         return AOS_ERROR_WRAP(err);
     }
 
-    if (host.Find('.').mError.IsNone()) {
+    if (host.Find('.') != host.end()) {
         StaticString<cHostNameLen> withDomain;
 
         if (auto err = withDomain.Format("%s.%s", host.CStr(), networkID.CStr()); !err.IsNone()) {
             return err;
         }
 
-        if (auto ret = hosts.Find(withDomain); ret.mError.IsNone()) {
+        if (hosts.Find(withDomain) != hosts.end()) {
             return ErrorEnum::eAlreadyExist;
         }
 
@@ -465,7 +467,7 @@ Error NetworkManager::IsHostnameExist(
 {
     for (const auto& host : hosts) {
         for (const auto& instance : instanceCache) {
-            if (instance.mSecond.mHost.Find(host).mError.IsNone()) {
+            if (instance.mSecond.mHost.Find(host) != instance.mSecond.mHost.end()) {
                 return ErrorEnum::eAlreadyExist;
             }
         }
