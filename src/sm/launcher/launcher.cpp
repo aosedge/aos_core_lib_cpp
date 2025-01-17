@@ -703,15 +703,16 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
 
         for (const auto& info : instances) {
             // Skip already stopped instances
-            if (GetInstance(info.mInstanceID) == mCurrentInstances.end()) {
+            auto instance = GetInstance(info.mInstanceID);
+            if (instance == mCurrentInstances.end()) {
                 LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
                           << ", ident=" << info.mInstanceInfo.mInstanceIdent;
 
                 continue;
             }
 
-            if (auto err = mLaunchPool.AddTask([this, &info](void*) {
-                    auto err = StopInstance(info.mInstanceID);
+            if (auto err = mLaunchPool.AddTask([this, &info, instance](void*) {
+                    auto err = StopInstance(instance);
                     if (!err.IsNone()) {
                         LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
                                   << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
@@ -726,6 +727,15 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Launch pool wait error: err=" << err;
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& info : instances) {
+            mCurrentInstances.RemoveIf(
+                [&info](const Instance& instance) { return instance.InstanceID() == info.mInstanceID; });
+        }
     }
 }
 
@@ -822,21 +832,8 @@ Error Launcher::StartInstance(const InstanceData& info)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::StopInstance(const String& instanceID)
+Error Launcher::StopInstance(Instance* instance)
 {
-    Instance* instance = nullptr;
-
-    {
-        LockGuard lock {mMutex};
-
-        instance = GetInstance(instanceID);
-        if (instance == mCurrentInstances.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        mCurrentInstances.RemoveIf([&instanceID](const Instance& inst) { return inst.InstanceID() == instanceID; });
-    }
-
     if (auto err = instance->Stop(); !err.IsNone()) {
         return err;
     }
