@@ -257,36 +257,6 @@ public:
         return log;
     }
 
-    /**
-     * Converts time into a string.
-     * Result string has the following format: yyyyMMddhhmmss
-     *
-     * @result RetWithError<StaticString<cTimeStrLen>>.
-     */
-    RetWithError<StaticString<cTimeStrLen>> ToString() const
-    {
-        StaticString<cTimeStrLen> result;
-
-        result.Resize(result.MaxSize());
-
-        int  day = 0, month = 0, year = 0, hour = 0, min = 0, sec = 0;
-        auto err = GetDate(&day, &month, &year);
-        if (!err.IsNone()) {
-            return {{}, err};
-        }
-
-        err = GetTime(&hour, &min, &sec);
-        if (!err.IsNone()) {
-            return {{}, err};
-        }
-
-        snprintf(result.Get(), result.Size(), "%04d%02d%02d%02d%02d%02d", year, month, day, hour, min, sec);
-
-        result.Resize(strlen(result.CStr()));
-
-        return {result, ErrorEnum::eNone};
-    }
-
 private:
     explicit Time(timespec time)
         : mTime(time)

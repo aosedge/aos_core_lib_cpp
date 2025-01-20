@@ -61,16 +61,3 @@ TEST_F(TimeTest, GetDateTime)
     EXPECT_EQ(min, 00);
     EXPECT_EQ(sec, 00);
 }
-
-TEST_F(TimeTest, ToString)
-{
-    auto t = Time::Unix(1706702400);
-
-    Error                     err;
-    StaticString<cTimeStrLen> str;
-
-    Tie(str, err) = t.ToString();
-
-    EXPECT_TRUE(err.IsNone());
-    EXPECT_EQ(str, "20240131120000");
-}

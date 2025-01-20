@@ -17,6 +17,7 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
     src/alertprocessor_test.cpp
     src/crypto_test.cpp
+    src/cryptoprovider_test.cpp
     src/cryptoutils_test.cpp
     src/monitoring_test.cpp
     src/ocispec_test.cpp
