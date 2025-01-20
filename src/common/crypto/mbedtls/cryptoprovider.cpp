@@ -218,12 +218,12 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
 
     StaticString<cTimeStrLen> notBefore, notAfter;
 
-    Tie(notBefore, err) = Time::Now().ToString();
+    Tie(notBefore, err) = asn1::ConvertTimeToASN1Str(Time::Now());
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    Tie(notAfter, err) = Time::Now().Add(Years(1)).ToString();
+    Tie(notAfter, err) = asn1::ConvertTimeToASN1Str(Time::Now().Add(Years(1)));
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -1196,12 +1196,12 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert
     StaticString<cTimeStrLen> notBefore, notAfter;
     Error                     err = ErrorEnum::eNone;
 
-    Tie(notBefore, err) = templ.mNotBefore.ToString();
+    Tie(notBefore, err) = asn1::ConvertTimeToASN1Str(templ.mNotBefore);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    Tie(notAfter, err) = templ.mNotAfter.ToString();
+    Tie(notAfter, err) = asn1::ConvertTimeToASN1Str(templ.mNotAfter);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -467,6 +467,14 @@ struct Extension {
     bool operator!=(const Extension& extension) const { return !operator==(extension); }
 };
 
+/**
+ * Converts input time to ASN1 GeneralizedTime string.
+ *
+ * @param time time.
+ * @return RetWithError<StaticString<cTimeStrLen>>
+ */
+RetWithError<StaticString<cTimeStrLen>> ConvertTimeToASN1Str(const Time& time);
+
 } // namespace asn1
 
 namespace x509 {
