@@ -28,6 +28,49 @@ constexpr auto cDirIteratorMaxSize = AOS_CONFIG_FS_DIR_ITERATOR_MAX_COUNT;
 
 namespace fs {
 /**
+ * File system platform interface.
+ */
+class FSPlatformItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~FSPlatformItf() = default;
+
+    /**
+     * Gets mount point for the given directory.
+     *
+     * @param dir directory path.
+     * @return RetWithError<StaticString<cFilePathLen>>.
+     */
+    virtual RetWithError<StaticString<cFilePathLen>> GetMountPoint(const String& dir) const = 0;
+
+    /**
+     * Gets total size of the file system.
+     *
+     * @param dir directory path.
+     * @return RetWithError<size_t>.
+     */
+    virtual RetWithError<size_t> GetTotalSize(const String& dir) const = 0;
+
+    /**
+     * Gets directory size.
+     *
+     * @param dir directory path.
+     * @return RetWithError<size_t>.
+     */
+    virtual RetWithError<size_t> GetDirSize(const String& dir) const = 0;
+
+    /**
+     * Gets available size.
+     *
+     * @param dir directory path.
+     * @return RetWithError<size_t>.
+     */
+    virtual RetWithError<size_t> GetAvailableSize(const String& dir) const = 0;
+};
+
+/**
  * Directory iterator.
  * The iteration order is unspecified, except that each directory entry is visited only once.
  */
