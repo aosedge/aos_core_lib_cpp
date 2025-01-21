@@ -22,7 +22,7 @@ public:
      *
      * @param size space size.
      */
-    explicit SpaceStub(uint64_t size)
+    explicit SpaceStub(size_t size)
         : mSize(size)
     {
     }
@@ -47,7 +47,7 @@ public:
      * @param size new size.
      * @return Error.
      */
-    Error Resize(uint64_t size) override
+    Error Resize(size_t size) override
     {
         mSize = size;
 
@@ -59,10 +59,10 @@ public:
      *
      * @return uint64_t.
      */
-    uint64_t Size() const override { return mSize; }
+    size_t Size() const override { return mSize; }
 
 private:
-    uint64_t mSize = 0;
+    size_t mSize = 0;
 };
 
 /**
@@ -76,7 +76,7 @@ public:
      * @param size size to allocate.
      * @return RetWithError<UniquePtr<SpaceItf>>.
      */
-    RetWithError<UniquePtr<SpaceItf>> AllocateSpace(uint64_t size) override
+    RetWithError<UniquePtr<SpaceItf>> AllocateSpace(size_t size) override
     {
         return {UniquePtr<SpaceItf>(MakeUnique<SpaceStub>(&mAllocator, size))};
     }
@@ -87,7 +87,7 @@ public:
      * @param size size to free.
      * @return void.
      */
-    void FreeSpace(uint64_t size) override
+    void FreeSpace(size_t size) override
     {
         (void)size;
 
@@ -102,7 +102,7 @@ public:
      * @param timestamp item timestamp.
      * @return Error.
      */
-    Error AddOutdatedItem(const String& id, uint64_t size, const Time& timestamp) override
+    Error AddOutdatedItem(const String& id, size_t size, const Time& timestamp) override
     {
         (void)id;
         (void)size;
@@ -123,6 +123,13 @@ public:
 
         return ErrorEnum::eNone;
     }
+
+    /**
+     * Allocates done.
+     *
+     * @return Error.
+     */
+    Error AllocateDone() override { return ErrorEnum::eNone; }
 
 private:
     StaticAllocator<1024> mAllocator;
