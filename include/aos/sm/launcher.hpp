@@ -320,7 +320,7 @@ public:
      * this value should be increased.
      * It will force to remove all services and their storages before first start.
      */
-    static constexpr uint32_t cOperationVersion = 9;
+    static constexpr uint32_t cOperationVersion = 10;
 
 private:
     static constexpr auto cNumLaunchThreads = AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
