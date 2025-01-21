@@ -520,6 +520,13 @@
 #endif
 
 /**
+ * Max number of outdated items.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_OUTDATED_ITEMS
+#define AOS_CONFIG_TYPES_MAX_OUTDATED_ITEMS 40
+#endif
+
+/**
  * Monitoring poll period.
  */
 #ifndef AOS_CONFIG_MONITORING_POLL_PERIOD_SEC

@@ -366,6 +366,11 @@ static constexpr auto cFuncServiceLen = AOS_CONFIG_TYPES_FUNC_SERVICE_LEN;
 static constexpr auto cFuncServiceMaxCount = AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT;
 
 /**
+ * Max number of outdated items.
+ */
+static constexpr auto cMaxNumOutdatedItems = AOS_CONFIG_TYPES_MAX_OUTDATED_ITEMS;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
