@@ -145,6 +145,12 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
         }
     });
 
+    if (err = mResourceUsageProvider->GetInstanceMonitoringData(
+            instanceID, mInstanceMonitoringData.Find(instanceID)->mSecond);
+        !err.IsNone()) {
+        LOG_WRN() << "Can't get instance monitoring data: instanceID=" << instanceID << ", err=" << err;
+    }
+
     if (monitoringConfig.mAlertRules.HasValue() && mAlertSender) {
         if (auto alertsErr = SetupInstanceAlerts(instanceID, monitoringConfig); !alertsErr.IsNone()) {
             LOG_ERR() << "Can't setup instance alerts: instanceID=" << instanceID << ", err=" << alertsErr;
