@@ -163,14 +163,14 @@ struct POSIXRlimit {
  * Process contains information to start a specific application inside the container.
  */
 struct Process {
-    bool                                                           mTerminal;
-    User                                                           mUser;
-    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>        mArgs;
-    StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables> mEnv;
-    StaticString<cMaxParamLen>                                     mCwd;
-    bool                                                           mNoNewPrivileges;
-    Optional<LinuxCapabilities>                                    mCapabilities;
-    StaticArray<POSIXRlimit, cMaxParamCount>                       mRlimits;
+    bool                                                    mTerminal;
+    User                                                    mUser;
+    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mArgs;
+    EnvVarsArray                                            mEnv;
+    StaticString<cMaxParamLen>                              mCwd;
+    bool                                                    mNoNewPrivileges;
+    Optional<LinuxCapabilities>                             mCapabilities;
+    StaticArray<POSIXRlimit, cMaxParamCount>                mRlimits;
 
     /**
      * Compares process spec.

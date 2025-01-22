@@ -45,6 +45,9 @@ struct EnvVarInfo {
     bool operator!=(const EnvVarInfo& info) const { return !operator==(info); }
 };
 
+/**
+ * Env vars info static array.
+ */
 using EnvVarInfoArray = StaticArray<EnvVarInfo, cMaxNumEnvVariables>;
 
 /**
