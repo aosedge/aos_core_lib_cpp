@@ -706,7 +706,7 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
             }
 
             if (auto err = mLaunchPool.AddTask([this, &info, instance](void*) {
-                    auto err = StopInstance(instance);
+                    auto err = StopInstance(instance->InstanceID());
                     if (!err.IsNone()) {
                         LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
                                   << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
@@ -721,15 +721,6 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Launch pool wait error: err=" << err;
-    }
-
-    {
-        LockGuard lock {mMutex};
-
-        for (const auto& info : instances) {
-            mCurrentInstances.RemoveIf(
-                [&info](const Instance& instance) { return instance.InstanceID() == info.mInstanceID; });
-        }
     }
 }
 
@@ -826,13 +817,30 @@ Error Launcher::StartInstance(const InstanceData& info)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::StopInstance(Instance* instance)
+Error Launcher::StopInstance(const String& instanceID)
 {
+    Instance* instance = nullptr;
+
+    {
+        LockGuard lock {mMutex};
+
+        if (instance = GetInstance(instanceID); instance == mCurrentInstances.end()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+        }
+    }
+
     if (auto err = instance->Stop(); !err.IsNone()) {
         return err;
     }
 
     LOG_INF() << "Instance stopped: instanceID=" << *instance;
+
+    {
+        LockGuard lock {mMutex};
+
+        mCurrentInstances.RemoveIf(
+            [&instanceID](const Instance& instance) { return instance.InstanceID() == instanceID; });
+    }
 
     return ErrorEnum::eNone;
 }
