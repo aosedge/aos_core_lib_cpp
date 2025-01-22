@@ -63,7 +63,7 @@ public:
      * @return Error
      */
     virtual Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
-        cloudprotocol::EnvVarsInstanceStatusArray&                                 statuses)
+        Array<cloudprotocol::EnvVarsInstanceStatus>&                               statuses)
         = 0;
 };
 
@@ -194,7 +194,7 @@ public:
      * @param envVarsInstanceInfos[out] instances's override environment variables array.
      * @return Error.
      */
-    virtual Error GetOverrideEnvVars(cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) const = 0;
+    virtual Error GetOverrideEnvVars(Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) const = 0;
 
     /**
      * Sets instances's override environment variables array.
@@ -202,7 +202,7 @@ public:
      * @param envVarsInstanceInfos instances's override environment variables array.
      * @return Error.
      */
-    virtual Error SetOverrideEnvVars(const cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) = 0;
+    virtual Error SetOverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) = 0;
 
     /**
      * Returns online time.
@@ -311,7 +311,7 @@ public:
      * @return Error
      */
     Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
-        cloudprotocol::EnvVarsInstanceStatusArray&                         statuses) override;
+        Array<cloudprotocol::EnvVarsInstanceStatus>&                       statuses) override;
 
     /**
      * Updates run instances status.

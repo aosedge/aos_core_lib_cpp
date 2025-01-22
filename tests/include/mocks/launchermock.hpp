@@ -22,7 +22,7 @@ public:
         (const Array<ServiceInfo>&, const Array<LayerInfo>&, const Array<InstanceInfo>&, bool), (override));
     MOCK_METHOD(Error, GetCurrentRunStatus, (Array<InstanceStatus>&), (const override));
     MOCK_METHOD(Error, OverrideEnvVars,
-        (const Array<cloudprotocol::EnvVarsInstanceInfo>&, cloudprotocol::EnvVarsInstanceStatusArray&), (override));
+        (const Array<cloudprotocol::EnvVarsInstanceInfo>&, Array<cloudprotocol::EnvVarsInstanceStatus>&), (override));
 };
 
 /**

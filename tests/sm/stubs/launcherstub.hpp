@@ -94,7 +94,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error GetOverrideEnvVars(cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) const override
+    Error GetOverrideEnvVars(Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) const override
     {
         std::lock_guard lock {mMutex};
 
@@ -103,7 +103,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error SetOverrideEnvVars(const cloudprotocol::EnvVarsInstanceInfoArray& envVarsInstanceInfos) override
+    Error SetOverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) override
     {
         std::lock_guard lock {mMutex};
 
