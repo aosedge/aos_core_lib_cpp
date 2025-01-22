@@ -65,12 +65,16 @@ private:
         MonitoringData mMonitoringData;
     };
 
+    static constexpr auto cAllocatorSize = sizeof(AverageData);
+
     Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized);
     Error GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const;
 
     size_t                                                  mWindowCount = 0;
     AverageData                                             mAverageNodeData {};
     StaticMap<InstanceIdent, AverageData, cMaxNumInstances> mAverageInstancesData {};
+
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 } // namespace aos::monitoring

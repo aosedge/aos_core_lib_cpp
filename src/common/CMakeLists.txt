@@ -105,6 +105,7 @@ if(WITH_MBEDTLS)
     target_link_libraries(${TARGET} PUBLIC mbedcrypto mbedx509 mbedtls)
 endif()
 
+target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
 target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # ######################################################################################################################

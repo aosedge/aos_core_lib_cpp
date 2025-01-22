@@ -35,10 +35,10 @@ Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInf
         return AOS_ERROR_WRAP(err);
     }
 
-    mNodeMonitoringData.mNodeID         = nodeInfo->mNodeID;
-    mNodeMonitoringData.mMonitoringData = MonitoringData {0, 0, nodeInfo->mPartitions, 0, 0};
-    mMaxDMIPS                           = nodeInfo->mMaxDMIPS;
-    mMaxMemory                          = nodeInfo->mTotalRAM;
+    mNodeMonitoringData.mNodeID                     = nodeInfo->mNodeID;
+    mNodeMonitoringData.mMonitoringData.mPartitions = nodeInfo->mPartitions;
+    mMaxDMIPS                                       = nodeInfo->mMaxDMIPS;
+    mMaxMemory                                      = nodeInfo->mTotalRAM;
 
     if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -133,7 +133,9 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    auto err = mInstanceMonitoringData.Emplace(instanceID, InstanceMonitoringData {monitoringConfig});
+    auto instanceMonitoringData = MakeUnique<InstanceMonitoringData>(&mAllocator, monitoringConfig);
+
+    auto err = mInstanceMonitoringData.Set(instanceID, *instanceMonitoringData);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -355,7 +357,9 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance alerts processor already started"));
     }
 
-    if (auto err = mInstanceAlertProcessors.Emplace(instanceID, Array<AlertProcessor> {}); !err.IsNone()) {
+    auto instanceAlertProcessor = MakeUnique<AlertProcessorStaticArray>(&mAllocator);
+
+    if (auto err = mInstanceAlertProcessors.Set(instanceID, *instanceAlertProcessor); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

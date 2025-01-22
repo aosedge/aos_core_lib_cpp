@@ -239,15 +239,18 @@ Error LayerManager::RemoveDamagedLayerFolders()
         }
     }
 
-    for (auto layerDirIterator = FS::DirIterator(mConfig.mLayersDir); layerDirIterator.Next();) {
-        if (!layerDirIterator->mIsDir) {
+    auto layerDirIterator = MakeUnique<FS::DirIterator>(&mAllocator, mConfig.mLayersDir);
+
+    while (layerDirIterator->Next()) {
+        if (!(*layerDirIterator)->mIsDir) {
             continue;
         }
 
-        const auto algorithmPath = FS::JoinPath(mConfig.mLayersDir, layerDirIterator->mPath);
+        const auto algorithmPath             = FS::JoinPath(mConfig.mLayersDir, (*layerDirIterator)->mPath);
+        auto       layerAlgorithmDirIterator = MakeUnique<FS::DirIterator>(&mAllocator, algorithmPath);
 
-        for (auto layerAlgorithmDirIterator = FS::DirIterator(algorithmPath); layerAlgorithmDirIterator.Next();) {
-            const auto layerPath = FS::JoinPath(algorithmPath, layerAlgorithmDirIterator->mPath);
+        while (layerAlgorithmDirIterator->Next()) {
+            const auto layerPath = FS::JoinPath(algorithmPath, (*layerAlgorithmDirIterator)->mPath);
 
             const auto it = layers->FindIf([&layerPath](const auto& layer) { return layer.mPath == layerPath; });
             if (it == layers->end()) {

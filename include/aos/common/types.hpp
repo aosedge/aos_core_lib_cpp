@@ -732,7 +732,7 @@ struct Host {
  */
 struct DeviceInfo {
     StaticString<cDeviceNameLen>                                  mName;
-    int                                                           mSharedCount {0};
+    size_t                                                        mSharedCount {0};
     StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups>       mGroups;
     StaticArray<StaticString<cDeviceNameLen>, cMaxNumHostDevices> mHostDevices;
 

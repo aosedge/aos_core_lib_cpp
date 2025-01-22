@@ -27,9 +27,10 @@ set(SOURCES
 # ######################################################################################################################
 
 add_library(${TARGET} STATIC ${SOURCES})
-target_link_libraries(${TARGET} PRIVATE aoscommon)
 
+target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
 target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
+target_link_libraries(${TARGET} PRIVATE aoscommon)
 
 # ######################################################################################################################
 # Install

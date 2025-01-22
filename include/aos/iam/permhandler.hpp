@@ -32,6 +32,21 @@ struct InstancePermissions {
     StaticString<cSecretLen>                                      mSecret;
     InstanceIdent                                                 mInstanceIdent;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
+
+    /**
+     * Creates instance permissions.
+     *
+     * @param secret secret.
+     * @param instanceIdent instance ident.
+     * @param funcServicePerms functional service permissions.
+     */
+    InstancePermissions(const String& secret, const InstanceIdent& instanceIdent,
+        const Array<FunctionServicePermissions>& funcServicePerms)
+        : mSecret(secret)
+        , mInstanceIdent(instanceIdent)
+        , mFuncServicePerms(funcServicePerms)
+    {
+    }
 };
 
 /**

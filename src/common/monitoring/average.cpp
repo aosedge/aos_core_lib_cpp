@@ -63,7 +63,6 @@ Error Average::Init(const PartitionInfoStaticArray& nodeDisks, size_t windowCoun
 
 Error Average::Update(const NodeMonitoringData& data)
 {
-
     if (auto err
         = UpdateMonitoringData(mAverageNodeData.mMonitoringData, data.mMonitoringData, mAverageNodeData.mIsInitialized);
         !err.IsNone()) {
@@ -96,9 +95,8 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     data.mServiceInstances.Clear();
 
-    // cppcheck-suppress unassignedVariable
     for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
-        if (auto err = data.mServiceInstances.EmplaceBack(InstanceMonitoringData {instanceIdent}); !err.IsNone()) {
+        if (auto err = data.mServiceInstances.EmplaceBack(instanceIdent); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -119,17 +117,17 @@ Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringCo
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    AverageData averageData {};
+    auto averageData = MakeUnique<AverageData>(&mAllocator);
 
     for (const auto& partition : monitoringConfig.mPartitions) {
-        if (auto err = averageData.mMonitoringData.mPartitions.PushBack(
+        if (auto err = averageData->mMonitoringData.mPartitions.PushBack(
                 PartitionInfo {partition.mName, {}, partition.mPath, 0, 0});
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    if (auto err = mAverageInstancesData.Set(monitoringConfig.mInstanceIdent, averageData); !err.IsNone()) {
+    if (auto err = mAverageInstancesData.Set(monitoringConfig.mInstanceIdent, *averageData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

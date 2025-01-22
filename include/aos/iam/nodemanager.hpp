@@ -213,6 +213,8 @@ public:
 
 private:
     static constexpr auto cNodeMaxNum = AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM;
+    static constexpr auto cAllocatorSize
+        = sizeof(StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>) + sizeof(NodeInfo);
 
     NodeInfo*       GetNodeFromCache(const String& nodeID);
     const NodeInfo* GetNodeFromCache(const String& nodeID) const;
@@ -227,6 +229,8 @@ private:
     NodeInfoListenerItf*               mNodeInfoListener = nullptr;
     StaticArray<NodeInfo, cNodeMaxNum> mNodeInfoCache;
     mutable Mutex                      mMutex;
+
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 /** @}*/

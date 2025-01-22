@@ -31,6 +31,13 @@ message(STATUS "WITH_DOC                      = ${WITH_DOC}")
 message(STATUS)
 
 # ######################################################################################################################
+# Config
+# ######################################################################################################################
+
+set(AOS_CORE_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(AOS_STACK_USAGE 4096)
+
+# ######################################################################################################################
 # Compiler flags
 # ######################################################################################################################
 
@@ -39,8 +46,6 @@ set(common_flags "-fPIC -Wall -Werror -Wextra -Wpedantic -Wno-format-truncation 
 set(CMAKE_CXX_FLAGS "${common_flags} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_STANDARD 17)
-
-set(AOS_CORE_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(WITH_TEST)
     add_definitions(-include ${AOS_CORE_LIB_DIR}/include/aos/test/aoscoretestconfig.hpp)

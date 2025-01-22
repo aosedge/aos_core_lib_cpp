@@ -98,6 +98,18 @@ public:
     StaticString<cInstanceIDLen> mInstanceID;
 
     /**
+     * Creates instance data.
+     *
+     * @param info instance info.
+     * @param instanceID instance ID.
+     */
+    InstanceData(const InstanceInfo& info, const String& instanceID)
+        : mInstanceInfo(info)
+        , mInstanceID(instanceID)
+    {
+    }
+
+    /**
      * Compares instance data.
      *
      * @param data instance data to compare.
@@ -382,7 +394,7 @@ private:
 
     mutable StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 2
         + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-        + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData)>
+        + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData)>
         mAllocator;
 
     bool                                      mLaunchInProgress = false;

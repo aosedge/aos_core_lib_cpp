@@ -577,7 +577,7 @@ Error Launcher::GetStartInstances(
 
         const auto instanceID = uuid::UUIDToString(uuid::CreateUUID());
 
-        if (auto err = runningInstances.PushBack({desiredInstance, instanceID}); !err.IsNone()) {
+        if (auto err = runningInstances.EmplaceBack(desiredInstance, instanceID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -615,12 +615,12 @@ Error Launcher::GetStopInstances(
     }
 
     for (const auto& instance : mCurrentInstances) {
-        auto found = startInstances.FindIf([&instance = instance](const InstanceData& info) {
-            auto compareInfo = info;
+        auto found = startInstances.FindIf([this, &instance = instance](const InstanceData& info) {
+            auto compareInfo = MakeUnique<InstanceData>(&mAllocator, info);
 
-            compareInfo.mInstanceInfo.mPriority = instance.Info().mPriority;
+            compareInfo->mInstanceInfo.mPriority = instance.Info().mPriority;
 
-            return compareInfo.mInstanceID == instance.InstanceID() && compareInfo.mInstanceInfo == instance.Info();
+            return compareInfo->mInstanceID == instance.InstanceID() && compareInfo->mInstanceInfo == instance.Info();
         }) != startInstances.end();
 
         // Stop instance if: forceRestart or not in instances array or not active state or Aos version changed
@@ -634,8 +634,7 @@ Error Launcher::GetStopInstances(
             }
         }
 
-        if (auto err = stopInstances.EmplaceBack(InstanceData {instance.Info(), instance.InstanceID()});
-            !err.IsNone()) {
+        if (auto err = stopInstances.EmplaceBack(instance.Info(), instance.InstanceID()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -646,7 +645,7 @@ Error Launcher::GetStopInstances(
 Error Launcher::GetCurrentInstances(Array<InstanceData>& instances) const
 {
     for (const auto& instance : mCurrentInstances) {
-        if (auto err = instances.EmplaceBack(InstanceData {instance.Info(), instance.InstanceID()}); !err.IsNone()) {
+        if (auto err = instances.EmplaceBack(instance.Info(), instance.InstanceID()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -899,8 +898,7 @@ Error Launcher::GetOutdatedInstances(Array<InstanceData>& instances)
 
     for (const auto& instance : mCurrentInstances) {
         if (instance.GetOfflineTTL() && now.Add(instance.GetOfflineTTL()) < now) {
-            if (auto err = instances.EmplaceBack(InstanceData {instance.Info(), instance.InstanceID()});
-                !err.IsNone()) {
+            if (auto err = instances.EmplaceBack(instance.Info(), instance.InstanceID()); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }

@@ -376,6 +376,8 @@ public:
 
 private:
     static constexpr auto cMaxNodeConfigChangeSubscribers = 2;
+    static constexpr auto cAllocatorSize = Max(sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig),
+        sizeof(DeviceInfo) + sizeof(StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>));
 
     Error LoadConfig();
     Error WriteConfig(const NodeConfig& config);
@@ -396,7 +398,7 @@ private:
         cMaxNumNodeDevices>
         mAllocatedDevices;
 
-    mutable StaticAllocator<sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig)> mAllocator;
+    mutable StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 } // namespace aos::sm::resourcemanager

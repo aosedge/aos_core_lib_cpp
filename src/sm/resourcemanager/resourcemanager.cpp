@@ -25,6 +25,8 @@ namespace aos::sm::resourcemanager {
 Error ResourceManager::Init(JSONProviderItf& jsonProvider, HostDeviceManagerItf& hostDeviceManager,
     const String& nodeType, const String& configPath)
 {
+    LOG_DBG() << "Init resource manager";
+
     mJsonProvider      = &jsonProvider;
     mHostDeviceManager = &hostDeviceManager;
     mNodeType          = nodeType;
@@ -102,9 +104,9 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
         return AOS_ERROR_WRAP(mConfigError);
     }
 
-    DeviceInfo deviceInfo;
+    auto deviceInfo = MakeUnique<DeviceInfo>(&mAllocator);
 
-    if (auto err = GetConfigDeviceInfo(deviceName, deviceInfo); !err.IsNone()) {
+    if (auto err = GetConfigDeviceInfo(deviceName, *deviceInfo); !err.IsNone()) {
         LOG_ERR() << "Device not found: device=" << deviceName;
 
         return AOS_ERROR_WRAP(err);
@@ -112,10 +114,17 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
 
     auto deviceIt = mAllocatedDevices.Find(deviceName);
     if (deviceIt == mAllocatedDevices.end()) {
-        StaticArray<StaticString<cInstanceIDLen>, 1> instances;
-        instances.PushBack(instanceID);
+        auto instances = MakeUnique<StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>>(&mAllocator);
 
-        return mAllocatedDevices.Set(deviceName, Move(instances));
+        if (auto err = instances->PushBack(instanceID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mAllocatedDevices.Set(deviceName, *instances); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        return ErrorEnum::eNone;
     }
 
     auto& instances = deviceIt->mSecond;
@@ -126,7 +135,7 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
         return ErrorEnum::eNone;
     }
 
-    if (deviceInfo.mSharedCount != 0 && instances.Size() >= static_cast<size_t>(deviceInfo.mSharedCount)) {
+    if (deviceInfo->mSharedCount != 0 && instances.Size() >= deviceInfo->mSharedCount) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "no device available"));
     }
 

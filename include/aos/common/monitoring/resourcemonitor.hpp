@@ -106,6 +106,9 @@ public:
     Error ReceiveNodeConfig(const sm::resourcemanager::NodeConfig& nodeConfig) override;
 
 private:
+    static constexpr auto cAllocatorSize = Max(sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig),
+        sizeof(InstanceMonitoringData) + sizeof(Array<AlertProcessor>));
+
     String                      GetParameterName(const ResourceIdentifier& id) const;
     cloudprotocol::AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
     cloudprotocol::AlertVariant CreateInstanceQuotaAlertTemplate(
@@ -147,7 +150,7 @@ private:
     AlertProcessorStaticArray                                                            mAlertProcessors;
     StaticMap<StaticString<cInstanceIDLen>, AlertProcessorStaticArray, cMaxNumInstances> mInstanceAlertProcessors;
 
-    mutable StaticAllocator<sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig)> mAllocator;
+    mutable StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 } // namespace aos::monitoring

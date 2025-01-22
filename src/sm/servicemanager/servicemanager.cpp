@@ -475,20 +475,28 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         return AOS_ERROR_WRAP(err);
     }
 
-    ServiceData data {service.mServiceID, service.mProviderID, service.mVersion, servicePath, "", Time::Now(),
-        ServiceStateEnum::eActive, serviceSpace->Size(), service.mGID};
+    auto data = MakeUnique<ServiceData>(&mAllocator);
 
-    if (Tie(data.mManifestDigest, err) = GetManifestChecksum(servicePath); !err.IsNone()) {
+    data->mServiceID  = service.mServiceID;
+    data->mProviderID = service.mProviderID;
+    data->mVersion    = service.mVersion;
+    data->mImagePath  = servicePath;
+    data->mTimestamp  = Time::Now();
+    data->mState      = ServiceStateEnum::eActive;
+    data->mSize       = serviceSpace->Size();
+    data->mGID        = service.mGID;
+
+    if (Tie(data->mManifestDigest, err) = GetManifestChecksum(servicePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mStorage->AddService(data);
+    err = mStorage->AddService(*data);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_INF() << "Service successfully installed: serviceID=" << data.mServiceID << ", version=" << data.mVersion
-              << ", path=" << data.mImagePath;
+    LOG_INF() << "Service successfully installed: serviceID=" << data->mServiceID << ", version=" << data->mVersion
+              << ", path=" << data->mImagePath;
 
     return ErrorEnum::eNone;
 }

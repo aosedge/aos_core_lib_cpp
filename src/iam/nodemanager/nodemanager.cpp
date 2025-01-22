@@ -22,22 +22,22 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
 
     mStorage = &storage;
 
-    StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum> nodeIDs;
+    auto nodeIDs = MakeUnique<StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>>(&mAllocator);
 
-    auto err = storage.GetAllNodeIds(nodeIDs);
+    auto err = storage.GetAllNodeIds(*nodeIDs);
     if (!err.IsNone()) {
         return err;
     }
 
-    for (const auto& nodeID : nodeIDs) {
-        NodeInfo nodeInfo;
+    for (const auto& nodeID : *nodeIDs) {
+        auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
 
-        err = storage.GetNodeInfo(nodeID, nodeInfo);
+        err = storage.GetNodeInfo(nodeID, *nodeInfo);
         if (!err.IsNone()) {
             return err;
         }
 
-        err = mNodeInfoCache.PushBack(nodeInfo);
+        err = mNodeInfoCache.PushBack(*nodeInfo);
         if (!err.IsNone()) {
             return err;
         }
@@ -67,8 +67,7 @@ Error NodeManager::SetNodeStatus(const String& nodeID, NodeStatus status)
 
     LOG_DBG() << "Set node status: nodeID=" << nodeID << ", status=" << status;
 
-    NodeInfo nodeInfo {};
-
+    auto nodeInfo   = MakeUnique<NodeInfo>(&mAllocator);
     auto cachedInfo = GetNodeFromCache(nodeID);
 
     if (cachedInfo != nullptr) {
@@ -76,13 +75,13 @@ Error NodeManager::SetNodeStatus(const String& nodeID, NodeStatus status)
             return ErrorEnum::eNone;
         }
 
-        nodeInfo = *cachedInfo;
+        *nodeInfo = *cachedInfo;
     }
 
-    nodeInfo.mNodeID = nodeID;
-    nodeInfo.mStatus = status;
+    nodeInfo->mNodeID = nodeID;
+    nodeInfo->mStatus = status;
 
-    return UpdateNodeInfo(nodeInfo);
+    return UpdateNodeInfo(*nodeInfo);
 }
 
 Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const

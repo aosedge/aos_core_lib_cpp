@@ -55,6 +55,18 @@ struct EnvVarsInstanceInfo {
     EnvVarInfoArray mVariables;
 
     /**
+     * Creates environment variable instance info.
+     *
+     * @param filter instance filter.
+     * @param variables environment variables.
+     */
+    EnvVarsInstanceInfo(const InstanceFilter& filter, const Array<EnvVarInfo>& variables)
+        : mFilter(filter)
+        , mVariables(variables)
+    {
+    }
+
+    /**
      * Compares environment variable instance info.
      *
      * @param info environment variable instance info to compare with.
@@ -108,6 +120,18 @@ using EnvVarStatusArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
 struct EnvVarsInstanceStatus {
     InstanceFilter    mFilter;
     EnvVarStatusArray mStatuses;
+
+    /**
+     * Creates environment variable instance status.
+     *
+     * @param filter instance filter.
+     * @param statuses environment variable statuses.
+     */
+    EnvVarsInstanceStatus(const InstanceFilter& filter, const Array<EnvVarStatus>& statuses)
+        : mFilter(filter)
+        , mStatuses(statuses)
+    {
+    }
 
     /**
      * Compares environment variable instance status.

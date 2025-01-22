@@ -232,6 +232,9 @@ public:
 private:
     static constexpr auto cLayerOCIDescriptor = "layer.json";
     static constexpr auto cNumInstallThreads  = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
+    static constexpr auto cAllocatorSize
+        = Max(cNumInstallThreads * sizeof(oci::ImageManifest) + sizeof(LayerDataStaticArray),
+            sizeof(LayerDataStaticArray) + sizeof(FS::DirIterator) * 2);
 
     Error RemoveDamagedLayerFolders();
     Error SetOutdatedLayers();
@@ -250,7 +253,7 @@ private:
     Mutex                              mMutex;
     Timer                              mTimer;
 
-    StaticAllocator<cNumInstallThreads * sizeof(oci::ImageManifest) + 2 * sizeof(LayerDataStaticArray)> mAllocator;
+    StaticAllocator<cAllocatorSize> mAllocator;
 
     ThreadPool<cNumInstallThreads, cMaxNumLayers> mInstallPool;
 };
