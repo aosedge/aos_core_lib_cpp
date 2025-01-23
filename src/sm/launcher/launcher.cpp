@@ -74,6 +74,10 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
         return AOS_ERROR_WRAP(err);
     }
 
+    if (err = mStorage->GetOverrideEnvVars(mCurrentEnvVars); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -94,6 +98,10 @@ Error Launcher::Start()
             [this](void*) {
                 if (auto err = HandleOfflineTTLs(); !err.IsNone()) {
                     LOG_ERR() << "Error handling offline TTLs: err=" << err;
+                }
+
+                if (auto err = UpdateInstancesEnvVars(); !err.IsNone()) {
+                    LOG_ERR() << "Error updating environment variables: err=" << err;
                 }
             },
             false);
@@ -210,12 +218,21 @@ Error Launcher::GetCurrentRunStatus(Array<InstanceStatus>& instances) const
 }
 
 Error Launcher::OverrideEnvVars(
-    const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo, cloudprotocol::EnvVarsInstanceStatusArray& statuses)
+    const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo, Array<cloudprotocol::EnvVarsInstanceStatus>& statuses)
 {
-    (void)envVarsInfo;
-    (void)statuses;
+    {
+        LockGuard lock {mMutex};
 
-    LOG_DBG() << "Override environment variables";
+        LOG_DBG() << "Override environment variables";
+
+        if (auto err = SetEnvVars(envVarsInfo, statuses); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (auto err = UpdateInstancesEnvVars(); !err.IsNone()) {
+        return err;
+    }
 
     return ErrorEnum::eNone;
 }
@@ -266,7 +283,7 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
     if (!status->IsEmpty()) {
         LOG_DBG() << "Send update status";
 
-        if (auto err = mStatusReceiver->InstancesRunStatus(*status); !err.IsNone()) {
+        if (auto err = mStatusReceiver->InstancesUpdateStatus(*status); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -463,6 +480,23 @@ Error Launcher::ProcessStopInstances(const Array<InstanceData>& instances)
     }
 
     StopInstances(instances);
+
+    if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::ProcessRestartInstances(const Array<InstanceData>& instances)
+{
+    LOG_DBG() << "Process restart instances";
+
+    if (auto err = mLaunchPool.Run(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    RestartInstances(instances);
 
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -724,6 +758,51 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
     }
 }
 
+void Launcher::RestartInstances(const Array<InstanceData>& instances)
+{
+    {
+        LockGuard lock {mMutex};
+
+        LOG_DBG() << "Restart instances";
+
+        for (const auto& info : instances) {
+            // Skip already stopped instances
+            if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
+                if (auto err = mLaunchPool.AddTask([this, &info](void*) {
+                        auto err = StopInstance(info.mInstanceID);
+                        if (!err.IsNone()) {
+                            LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
+                                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                        }
+                    });
+                    !err.IsNone()) {
+                    LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
+                              << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                }
+            } else {
+                LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
+                          << ", ident=" << info.mInstanceInfo.mInstanceIdent;
+            }
+
+            if (auto err = mLaunchPool.AddTask([this, &info](void*) {
+                    auto err = StartInstance(info);
+                    if (!err.IsNone()) {
+                        LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
+                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                    }
+                });
+                !err.IsNone()) {
+                LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
+                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+            }
+        }
+    }
+
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Launch pool wait error: err=" << err;
+    }
+}
+
 void Launcher::CacheServices(const Array<InstanceData>& instances)
 {
     LockGuard lock {mMutex};
@@ -802,6 +881,14 @@ Error Launcher::StartInstance(const InstanceData& info)
         }
 
         instance->SetService(service);
+
+        auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
+
+        if (auto err = GetInstanceEnvVars(info.mInstanceInfo.mInstanceIdent, *envVars); !err.IsNone()) {
+            return err;
+        }
+
+        instance->SetOverrideEnvVars(*envVars);
     }
 
     if (auto err = instance->Start(); !err.IsNone()) {
@@ -956,6 +1043,210 @@ Error Launcher::HandleOfflineTTLs()
 
         if (auto err = SendOutdatedInstancesStatus(*outdatedInstances); !err.IsNone()) {
             LOG_ERR() << "Can't send outdated instances status: err=" << err;
+        }
+
+        mLaunchInProgress = false;
+        mCondVar.NotifyOne();
+
+        ShowResourceUsageStats();
+    });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::SetEnvVars(
+    const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo, Array<cloudprotocol::EnvVarsInstanceStatus>& statuses)
+{
+    auto now = Time::Now();
+
+    for (const auto& envVarInfo : envVarsInfo) {
+        if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto& currentStatus = statuses.Back();
+
+        currentStatus.mFilter = envVarInfo.mFilter;
+
+        for (const auto& envVar : envVarInfo.mVariables) {
+            LOG_DBG() << "Override env var: filter=" << envVarInfo.mFilter << ", name=" << envVar.mName
+                      << ", value=" << envVar.mValue << ", ttl=" << (envVar.mTTL.HasValue() ? *envVar.mTTL : Time());
+
+            if (envVar.mTTL.HasValue() && *envVar.mTTL < now) {
+                Error envVarErr(ErrorEnum::eTimeout, "environment variable expired");
+
+                LOG_ERR() << "Error overriding environment variable: name=" << envVar.mName << ", err=" << envVarErr;
+
+                if (auto err
+                    = currentStatus.mStatuses.EmplaceBack(cloudprotocol::EnvVarStatus {envVar.mName, envVarErr});
+                    !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            } else {
+                if (auto err
+                    = currentStatus.mStatuses.EmplaceBack(cloudprotocol::EnvVarStatus {envVar.mName, ErrorEnum::eNone});
+                    !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+        }
+    }
+
+    if (auto err = mStorage->SetOverrideEnvVars(envVarsInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::RemoveOutdatedEnvVars()
+{
+    auto now     = Time::Now();
+    auto updated = false;
+
+    for (auto& instanceEnvVars : mCurrentEnvVars) {
+        if (instanceEnvVars.mVariables.RemoveIf([&now](const cloudprotocol::EnvVarInfo& envVar) {
+                if (envVar.mTTL.HasValue() && *envVar.mTTL < now) {
+                    LOG_DBG() << "Remove outdated env var: name=" << envVar.mName << ", value=" << envVar.mValue;
+
+                    return true;
+                }
+
+                return false;
+            })) {
+            updated = true;
+        }
+    }
+
+    mCurrentEnvVars.RemoveIf(
+        [](const cloudprotocol::EnvVarsInstanceInfo& instanceEnvVars) { return instanceEnvVars.mVariables.IsEmpty(); });
+
+    if (updated) {
+        if (auto err = mStorage->SetOverrideEnvVars(mCurrentEnvVars); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::GetInstanceEnvVars(
+    const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarNameLen>>& envVars) const
+{
+    for (const auto& currentEnvVar : mCurrentEnvVars) {
+        if (currentEnvVar.mFilter.Match(instanceIdent)) {
+            for (const auto& envVar : currentEnvVar.mVariables) {
+                if (auto err = envVars.PushBack(envVar.mName); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::GetEnvChangedInstances(Array<InstanceData>& instances) const
+{
+    for (auto& instance : mCurrentInstances) {
+        auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
+
+        if (auto err = GetInstanceEnvVars(instance.Info().mInstanceIdent, *envVars); !err.IsNone()) {
+            LOG_ERR() << "Can't get instance env vars: instanceID=" << instance.InstanceID() << ", err=" << err;
+
+            continue;
+        }
+
+        if (*envVars == instance.GetOverrideEnvVars()) {
+            continue;
+        }
+
+        if (auto err = instances.EmplaceBack(instance.Info(), instance.InstanceID()); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instances)
+{
+    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+
+    for (const auto& instanceData : instances) {
+        auto instance = GetInstance(instanceData.mInstanceID);
+        if (instance == mCurrentInstances.end()) {
+            LOG_ERR() << "Can't get instance: instanceID=" << instanceData.mInstanceID
+                      << ", err=" << Error(ErrorEnum::eNotFound);
+
+            continue;
+        }
+
+        if (instance->RunError().IsNone()) {
+            LOG_DBG() << "Run instance status: instanceID=" << *instance
+                      << ", serviceVersion=" << instance->GetServiceVersion() << ", runState=" << instance->RunState();
+        } else {
+            LOG_ERR() << "Run instance status: instanceID=" << *instance
+                      << ", serviceVersion=" << instance->GetServiceVersion() << ", runState=" << instance->RunState()
+                      << ", err=" << instance->RunError();
+        }
+
+        if (auto err = status->PushBack({instance->Info().mInstanceIdent, instance->GetServiceVersion(),
+                instance->RunState(), instance->RunError()});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    LOG_DBG() << "Send update status";
+
+    if (auto err = mStatusReceiver->InstancesUpdateStatus(*status); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::UpdateInstancesEnvVars()
+{
+    auto restartInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
+
+    {
+        UniqueLock lock {mMutex};
+
+        if (auto err = RemoveOutdatedEnvVars(); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = GetEnvChangedInstances(*restartInstances); !err.IsNone()) {
+            return err;
+        }
+
+        if (restartInstances->IsEmpty()) {
+            return ErrorEnum::eNone;
+        }
+
+        if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        mLaunchInProgress = true;
+    }
+
+    mThread.Join();
+
+    auto err = mThread.Run([this, restartInstances](void*) mutable {
+        if (auto err = ProcessRestartInstances(*restartInstances); !err.IsNone()) {
+            LOG_ERR() << "Can't process stop instances: err=" << err;
+        }
+
+        LockGuard lock {mMutex};
+
+        if (auto err = SendEnvChangedInstancesStatus(*restartInstances); !err.IsNone()) {
+            LOG_ERR() << "Can't send env changed instances status: err=" << err;
         }
 
         mLaunchInProgress = false;

@@ -569,6 +569,10 @@ Error Instance::CreateLinuxSpec(
         return err;
     }
 
+    if (auto err = AddEnvVars(mOverrideEnvVars, runtimeSpec); !err.IsNone()) {
+        return err;
+    }
+
     if (auto err = ApplyImageConfig(imageSpec, runtimeSpec); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

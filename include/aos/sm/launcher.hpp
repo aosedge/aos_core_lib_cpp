@@ -346,22 +346,44 @@ private:
 
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
+    static constexpr auto cAllocatorSize
+        = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 2 + sizeof(ServiceInfoStaticArray)
+                + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
+                + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
+            sizeof(EnvVarsArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray));
+
     void  ShowResourceUsageStats();
     Error ProcessLastInstances();
     Error ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
     Error ProcessServices(const Array<ServiceInfo>& services);
     Error ProcessLayers(const Array<LayerInfo>& layers);
     Error ProcessStopInstances(const Array<InstanceData>& instances);
+    Error ProcessRestartInstances(const Array<InstanceData>& instances);
     Error SendRunStatus();
     Error SendOutdatedInstancesStatus(const Array<InstanceData>& instances);
     void  StopInstances(const Array<InstanceData>& instances);
     void  StartInstances(const Array<InstanceData>& instances);
+    void  RestartInstances(const Array<InstanceData>& instances);
     void  CacheServices(const Array<InstanceData>& instances);
     void  UpdateInstanceServices();
     Error GetStartInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& startInstances) const;
     Error GetStopInstances(
         const Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances, bool forceRestart) const;
-    Error GetCurrentInstances(Array<InstanceData>& instance) const;
+    Error GetCurrentInstances(Array<InstanceData>& instances) const;
+    Error StartInstance(const InstanceData& info);
+    Error StopInstance(const String& instanceID);
+    Error FillCurrentInstance(const Array<InstanceData>& instances);
+    Error RunLastInstances();
+    Error StopCurrentInstances();
+    Error GetOutdatedInstances(Array<InstanceData>& instances);
+    Error HandleOfflineTTLs();
+    Error SetEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
+        Array<cloudprotocol::EnvVarsInstanceStatus>&                  statuses);
+    Error GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarNameLen>>& envVars) const;
+    Error RemoveOutdatedEnvVars();
+    Error GetEnvChangedInstances(Array<InstanceData>& instance) const;
+    Error SendEnvChangedInstancesStatus(const Array<InstanceData>& instances);
+    Error UpdateInstancesEnvVars();
 
     servicemanager::ServiceData* GetService(const String& serviceID)
     {
@@ -374,14 +396,6 @@ private:
         return mCurrentInstances.FindIf(
             [&instanceID](const Instance& instance) { return instanceID == instance.InstanceID(); });
     }
-
-    Error StartInstance(const InstanceData& info);
-    Error StopInstance(const String& instanceID);
-    Error FillCurrentInstance(const Array<InstanceData>& instances);
-    Error RunLastInstances();
-    Error StopCurrentInstances();
-    Error GetOutdatedInstances(Array<InstanceData>& instances);
-    Error HandleOfflineTTLs();
 
     Config                               mConfig;
     ConnectionPublisherItf*              mConnectionPublisher {};
@@ -397,15 +411,12 @@ private:
     StorageItf*                          mStorage {};
     RuntimeItf*                          mRuntime {};
 
-    mutable StaticAllocator<sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 2
-        + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-        + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData)>
-        mAllocator;
+    mutable StaticAllocator<cAllocatorSize> mAllocator;
 
     bool                                      mLaunchInProgress = false;
     mutable Mutex                             mMutex;
     Thread<cThreadTaskSize, cThreadStackSize> mThread;
-    ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
+    ThreadPool<cNumLaunchThreads, Max(cMaxNumInstances * 2, cMaxNumServices, cMaxNumLayers), cThreadTaskSize,
         cThreadStackSize>
                                 mLaunchPool;
     bool                        mConnected = false;
@@ -413,6 +424,7 @@ private:
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
     StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;
+    cloudprotocol::EnvVarsInstanceInfoArray                   mCurrentEnvVars;
     StaticString<cFilePathLen>                                mHostWhiteoutsDir;
     NodeInfo                                                  mNodeInfo;
     Time                                                      mOnlineTime;
