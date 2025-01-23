@@ -51,6 +51,19 @@ struct Pair {
         , mSecond(s) {};
 
     /**
+     * Constructor.
+     *
+     * @param @f first value.
+     * @param @args arguments to create a second parameter.
+     */
+    template <typename... Args>
+    Pair(const F& f, Args&&... args)
+        : mFirst(f)
+        , mSecond(args...)
+    {
+    }
+
+    /**
      * Comparison operators.
      */
     bool operator==(const Pair<F, S>& other) const { return mFirst == other.mFirst && mSecond == other.mSecond; }

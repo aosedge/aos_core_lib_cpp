@@ -130,7 +130,7 @@ public:
     {
         auto it = Find(key);
         if (it == end()) {
-            return mItems.EmplaceBack(key, Value(args...));
+            return mItems.EmplaceBack(key, args...);
         }
 
         return ErrorEnum::eAlreadyExist;
@@ -147,7 +147,7 @@ public:
     Error TryEmplace(const Key& key, Args&&... args)
     {
         if (auto it = Find(key); it == end()) {
-            return mItems.EmplaceBack(key, Value(args...));
+            return mItems.EmplaceBack(key, args...);
         }
 
         return ErrorEnum::eNone;
