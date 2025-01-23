@@ -41,6 +41,11 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
     return ErrorEnum::eNone;
 }
 
+NetworkManager::~NetworkManager()
+{
+    mNetworkData.Clear();
+}
+
 Error NetworkManager::Start()
 {
     LOG_DBG() << "Start network manager";
@@ -105,24 +110,24 @@ Error NetworkManager::AddInstanceToNetwork(
         }
     });
 
-    cni::NetworkConfigList                                netConfigList;
-    cni::RuntimeConf                                      rtConfig;
+    auto netConfigList = MakeUnique<cni::NetworkConfigList>(&mAllocator);
+    auto rtConfig      = MakeUnique<cni::RuntimeConf>(&mAllocator);
+
     StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> host;
 
-    if (err = PrepareCNIConfig(instanceID, networkID, network, netConfigList, rtConfig, host); !err.IsNone()) {
+    if (err = PrepareCNIConfig(instanceID, networkID, network, *netConfigList, *rtConfig, host); !err.IsNone()) {
         return err;
     }
 
-    cni::Result result;
+    auto result = MakeUnique<cni::Result>(&mAllocator);
 
-    Tie(result, err) = mCNI->AddNetworkList(netConfigList, rtConfig);
-    if (!err.IsNone()) {
+    if (err = mCNI->AddNetworkList(*netConfigList, *rtConfig, *result); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupCNI = DeferRelease(&instanceID, [this, &netConfigList, &rtConfig, &err](const String* instanceID) {
         if (!err.IsNone()) {
-            if (auto errCleanCNI = mCNI->DeleteNetworkList(netConfigList, rtConfig); !errCleanCNI.IsNone()) {
+            if (auto errCleanCNI = mCNI->DeleteNetworkList(*netConfigList, *rtConfig); !errCleanCNI.IsNone()) {
                 LOG_ERR() << "Failed to delete network list: instanceID=" << *instanceID << ", err=" << errCleanCNI;
             }
         }
@@ -139,7 +144,7 @@ Error NetworkManager::AddInstanceToNetwork(
         return err;
     }
 
-    if (err = CreateResolvConfFile(networkID, network, result.mDNSServers); !err.IsNone()) {
+    if (err = CreateResolvConfFile(networkID, network, result->mDNSServers); !err.IsNone()) {
         return err;
     }
 
@@ -164,28 +169,28 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
         return AOS_ERROR_WRAP(err);
     }
 
-    cni::NetworkConfigList netConfig;
-    cni::RuntimeConf       rtConfig;
+    auto netConfig = MakeUnique<cni::NetworkConfigList>(&mAllocator);
+    auto rtConfig  = MakeUnique<cni::RuntimeConf>(&mAllocator);
 
-    netConfig.mName    = networkID;
-    netConfig.mVersion = cni::cVersion;
+    netConfig->mName    = networkID;
+    netConfig->mVersion = cni::cVersion;
 
-    rtConfig.mContainerID = instanceID;
+    rtConfig->mContainerID = instanceID;
 
     Error err;
 
-    Tie(rtConfig.mNetNS, err) = GetNetnsPath(instanceID);
+    Tie(rtConfig->mNetNS, err) = GetNetnsPath(instanceID);
     if (!err.IsNone()) {
         return err;
     }
 
-    rtConfig.mIfName = cInstanceInterfaceName;
+    rtConfig->mIfName = cInstanceInterfaceName;
 
-    if (err = mCNI->GetNetworkListCachedConfig(netConfig, rtConfig); !err.IsNone()) {
+    if (err = mCNI->GetNetworkListCachedConfig(*netConfig, *rtConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = mCNI->DeleteNetworkList(netConfig, rtConfig); !err.IsNone()) {
+    if (err = mCNI->DeleteNetworkList(*netConfig, *rtConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -307,7 +312,7 @@ Error NetworkManager::AddInstanceToCache(const String& instanceID, const String&
 
     auto network = mNetworkData.Find(networkID);
     if (network == mNetworkData.end()) {
-        if (auto err = mNetworkData.Set(networkID, InstanceCache()); !err.IsNone()) {
+        if (auto err = mNetworkData.Emplace(networkID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -547,13 +552,17 @@ Error NetworkManager::CreateHostsFile(
         return ErrorEnum::eNone;
     }
 
-    StaticArray<Host, cMaxNumHosts * 3> hosts;
+    StaticArray<SharedPtr<Host>, cMaxNumHosts * 3> hosts;
 
-    if (auto err = hosts.PushBack({"127.0.0.1", "localhost"}); !err.IsNone()) {
+    auto localhost = MakeShared<Host>(&mHostAllocator, String("127.0.0.1"), String("localhost"));
+
+    if (auto err = hosts.PushBack(localhost); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = hosts.PushBack({"::1", "localhost ip6-localhost ip6-loopback"}); !err.IsNone()) {
+    auto localhost6 = MakeShared<Host>(&mHostAllocator, String("::1"), String("localhost ip6-localhost ip6-loopback"));
+
+    if (auto err = hosts.PushBack(localhost6); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -563,7 +572,9 @@ Error NetworkManager::CreateHostsFile(
         ownHosts.Append(" ").Append(network.mHostname);
     }
 
-    if (auto err = hosts.PushBack({instanceIP, ownHosts}); !err.IsNone()) {
+    auto instanceHost = MakeShared<Host>(&mHostAllocator, instanceIP, ownHosts);
+
+    if (auto err = hosts.PushBack(instanceHost); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -571,7 +582,7 @@ Error NetworkManager::CreateHostsFile(
 }
 
 Error NetworkManager::WriteHostsFile(
-    const String& filePath, const Array<Host>& hosts, const NetworkParams& network) const
+    const String& filePath, const Array<SharedPtr<Host>>& hosts, const NetworkParams& network) const
 {
     LOG_DBG() << "Write hosts file: filePath=" << filePath;
 
@@ -582,36 +593,57 @@ Error NetworkManager::WriteHostsFile(
 
     auto closeFile = DeferRelease(&fd, [](const int* fd) { close(*fd); });
 
-    auto writeHosts = [&fd](Array<Host> hosts) -> Error {
-        for (const auto& host : hosts) {
-            StaticString<cHostNameLen> line;
-
-            if (auto err = line.Format("%s\t%s\n", host.mIP.CStr(), host.mHostname.CStr()); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            const auto buff = Array<uint8_t>(reinterpret_cast<const uint8_t*>(line.Get()), line.Size());
-
-            size_t pos = 0;
-            while (pos < buff.Size()) {
-                auto chunkSize = write(fd, buff.Get() + pos, buff.Size() - pos);
-                if (chunkSize < 0) {
-                    return Error(errno);
-                }
-
-                pos += chunkSize;
-            }
-        }
-
-        return ErrorEnum::eNone;
-    };
-
-    if (auto err = writeHosts(hosts); !err.IsNone()) {
+    if (auto err = WriteHosts(hosts, fd); !err.IsNone()) {
         return err;
     }
 
-    return writeHosts(network.mHosts);
+    return WriteHosts(network.mHosts, fd);
 }
+
+Error NetworkManager::WriteHost(const Host& host, int fd) const
+{
+    StaticString<cHostNameLen> line;
+
+    if (auto err = line.Format("%s\t%s\n", host.mIP.CStr(), host.mHostname.CStr()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    const auto buff = Array<uint8_t>(reinterpret_cast<const uint8_t*>(line.Get()), line.Size());
+
+    size_t pos = 0;
+    while (pos < buff.Size()) {
+        auto chunkSize = write(fd, buff.Get() + pos, buff.Size() - pos);
+        if (chunkSize < 0) {
+            return Error(errno);
+        }
+
+        pos += chunkSize;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::WriteHosts(Array<SharedPtr<Host>> hosts, int fd) const
+{
+    for (const auto& host : hosts) {
+        if (auto err = WriteHost(*host, fd); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+};
+
+Error NetworkManager::WriteHosts(Array<Host> hosts, int fd) const
+{
+    for (const auto& host : hosts) {
+        if (auto err = WriteHost(host, fd); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+};
 
 Error NetworkManager::PrepareRuntimeConfig(
     const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const

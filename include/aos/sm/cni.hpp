@@ -257,9 +257,10 @@ public:
      *
      * @param net List of network configurations.
      * @param rt Runtime configuration parameters.
-     * @return RetWithError<Result>.
+     * @param[out] result Result of the operation.
+     * @return Error.
      */
-    virtual RetWithError<Result> AddNetworkList(const NetworkConfigList& net, const RuntimeConf& rt) = 0;
+    virtual Error AddNetworkList(const NetworkConfigList& net, const RuntimeConf& rt, Result& result) = 0;
 
     /**
      * Executes a sequence of plugins with the DEL command

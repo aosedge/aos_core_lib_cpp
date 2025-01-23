@@ -695,6 +695,18 @@ struct Mount {
  * Host.
  */
 struct Host {
+    /**
+     * Constructs host.
+     *
+     * @param ip IP.
+     * @param hostname hostname.
+     */
+    Host(const String& ip, const String& hostname)
+        : mIP(ip)
+        , mHostname(hostname)
+    {
+    }
+
     StaticString<cIPLen>       mIP;
     StaticString<cHostNameLen> mHostname;
 

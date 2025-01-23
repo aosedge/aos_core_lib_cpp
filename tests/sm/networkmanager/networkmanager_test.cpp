@@ -5,6 +5,7 @@
  */
 #include <filesystem>
 #include <fstream>
+#include <memory>
 
 #include <gtest/gtest.h>
 
@@ -29,14 +30,17 @@ protected:
         EXPECT_CALL(mCNI, SetConfDir(_)).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mTrafficMonitor, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
 
+        mNetManager = std::make_unique<NetworkManager>();
+
         ASSERT_EQ(
-            mNetManager.Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mWorkingDir), aos::ErrorEnum::eNone);
-        ASSERT_EQ(mNetManager.Start(), aos::ErrorEnum::eNone);
+            mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mWorkingDir), aos::ErrorEnum::eNone);
+        ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
     }
 
     void TearDown() override
     {
-        ASSERT_EQ(mNetManager.Stop(), aos::ErrorEnum::eNone);
+        EXPECT_CALL(mTrafficMonitor, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
+        ASSERT_EQ(mNetManager->Stop(), aos::ErrorEnum::eNone);
 
         std::filesystem::remove_all(mWorkingDir.CStr());
     }
@@ -79,7 +83,7 @@ protected:
     StorageMock                             mStorage;
     StrictMock<CNIMock>                     mCNI;
     TrafficMonitorMock                      mTrafficMonitor;
-    NetworkManager                          mNetManager;
+    std::unique_ptr<NetworkManager>         mNetManager;
     StrictMock<NamespaceManagerMock>        mNetns;
     StrictMock<NetworkInterfaceManagerMock> mNetIf;
     aos::StaticString<aos::cFilePathLen>    mWorkingDir;
@@ -96,8 +100,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -105,11 +109,11 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     aos::StaticString<aos::cIPLen> ip;
 
-    EXPECT_EQ(mNetManager.GetInstanceIP(instanceID, networkID, ip), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID, networkID, ip), aos::ErrorEnum::eNone);
 
     EXPECT_EQ(ip, params.mNetworkParameters.mIP);
 
@@ -156,9 +160,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_ValidateAllPluginConfigs)
     NetworkConfigList capturedNetConfig;
     RuntimeConf       capturedRuntime;
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(DoAll(SaveArg<0>(&capturedNetConfig), SaveArg<1>(&capturedRuntime),
-            Return(aos::RetWithError<Result>(Result(), aos::ErrorEnum::eNone))));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SaveArg<0>(&capturedNetConfig), SaveArg<1>(&capturedRuntime), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -168,7 +171,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_ValidateAllPluginConfigs)
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {
             {"/var/run/netns/test-instance"}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     {
         const auto& bridge = capturedNetConfig.mBridge;
@@ -253,8 +256,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyResolvConfFile)
     cniResult.mDNSServers.PushBack("1.1.1.1");
     cniResult.mDNSServers.PushBack("10.0.0.1");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -262,7 +265,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyResolvConfFile)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     std::string resolvContent = ReadFile(params.mResolvConfFilePath.CStr());
 
@@ -286,8 +289,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_NoConfigFiles)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -295,7 +298,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_NoConfigFiles)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_FALSE(std::filesystem::exists(aos::FS::JoinPath(mWorkingDir, "hosts").CStr()));
     EXPECT_FALSE(std::filesystem::exists(aos::FS::JoinPath(mWorkingDir, "resolv.conf").CStr()));
@@ -313,8 +316,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FileCreationError)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -325,7 +328,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FileCreationError)
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_NE(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    EXPECT_NE(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 }
 
 TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnCNIError)
@@ -334,8 +337,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnCNIError)
     const aos::String networkID  = "test-network";
     auto              params     = CreateTestNetworkParams();
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(Result(), aos::ErrorEnum::eInvalidArgument)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eInvalidArgument));
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -343,7 +345,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnCNIError)
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eInvalidArgument);
+    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eInvalidArgument);
 }
 
 TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnTrafficMonitorError)
@@ -355,8 +357,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnTrafficMonitorError)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor,
         StartInstanceMonitoring(instanceID, params.mNetworkParameters.mIP, params.mDownloadLimit, params.mUploadLimit))
@@ -369,7 +371,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnTrafficMonitorError)
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eRuntime);
+    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eRuntime);
 }
 
 TEST_F(NetworkManagerTest, AddInstanceToNetwork_DuplicateInstance)
@@ -381,17 +383,17 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_DuplicateInstance)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    EXPECT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
-    EXPECT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eAlreadyExist);
+    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eAlreadyExist);
 }
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
@@ -403,10 +405,10 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNotFound);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNotFound);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
@@ -414,7 +416,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
         .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -423,11 +425,11 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
     EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
 
     aos::StaticString<aos::cIPLen> ip;
 
-    EXPECT_EQ(mNetManager.GetInstanceIP(instanceID, networkID, ip), aos::ErrorEnum::eNotFound);
+    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID, networkID, ip), aos::ErrorEnum::eNotFound);
 }
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
@@ -440,9 +442,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .Times(2)
-        .WillRepeatedly(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -453,7 +453,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
         .Times(2)
         .WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID1, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID1, networkID, params), aos::ErrorEnum::eNone);
 
     params.mHosts.Clear();
     params.mAliases.Clear();
@@ -465,7 +465,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
     params.mHostname                = "test-host-3";
     params.mInstanceIdent.mInstance = 1;
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID2, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID2, networkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID1)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -473,11 +473,11 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
     EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID1, networkID), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID1, networkID), aos::ErrorEnum::eNone);
 
     aos::StaticString<aos::cIPLen> ip;
 
-    EXPECT_EQ(mNetManager.GetInstanceIP(instanceID2, networkID, ip), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID2, networkID, ip), aos::ErrorEnum::eNone);
 
     EXPECT_EQ(ip, params.mNetworkParameters.mIP);
 }
@@ -491,9 +491,10 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
         .Times(2)
-        .WillRepeatedly(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+        .WillRepeatedly(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
         .Times(2)
         .WillRepeatedly(Return(aos::ErrorEnum::eNone));
@@ -502,7 +503,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
         .Times(3)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -511,9 +512,9 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
     EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
 
-    EXPECT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 }
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
@@ -525,8 +526,8 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _))
-        .WillOnce(Return(aos::RetWithError<Result>(cniResult, aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -535,14 +536,14 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
         .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager.AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eRuntime));
     EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager.RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eRuntime);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eRuntime);
 }
 
 TEST_F(NetworkManagerTest, GetNetnsPath)
@@ -554,7 +555,7 @@ TEST_F(NetworkManagerTest, GetNetnsPath)
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {
             {"/var/run/netns/test-instance"}, aos::ErrorEnum::eNone}));
 
-    auto [netNSPath, err] = mNetManager.GetNetnsPath(instanceID);
+    auto [netNSPath, err] = mNetManager->GetNetnsPath(instanceID);
 
     EXPECT_EQ(err, aos::ErrorEnum::eNone);
     EXPECT_EQ(netNSPath, aos::String("/var/run/netns/test-instance"));
@@ -569,13 +570,13 @@ TEST_F(NetworkManagerTest, GetInstanceTraffic)
     EXPECT_CALL(mTrafficMonitor, GetInstanceTraffic(instanceID, _, _))
         .WillOnce(DoAll(SetArgReferee<1>(1000), SetArgReferee<2>(2000), Return(aos::ErrorEnum::eNone)));
 
-    EXPECT_EQ(mNetManager.GetInstanceTraffic(instanceID, inputTraffic, outputTraffic), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->GetInstanceTraffic(instanceID, inputTraffic, outputTraffic), aos::ErrorEnum::eNone);
     EXPECT_EQ(inputTraffic, 1000);
     EXPECT_EQ(outputTraffic, 2000);
 
     EXPECT_CALL(mTrafficMonitor, GetInstanceTraffic(instanceID, _, _)).WillOnce(Return(aos::ErrorEnum::eNotFound));
 
-    EXPECT_EQ(mNetManager.GetInstanceTraffic(instanceID, inputTraffic, outputTraffic), aos::ErrorEnum::eNotFound);
+    EXPECT_EQ(mNetManager->GetInstanceTraffic(instanceID, inputTraffic, outputTraffic), aos::ErrorEnum::eNotFound);
 }
 
 TEST_F(NetworkManagerTest, GetSystemTraffic)
@@ -586,11 +587,11 @@ TEST_F(NetworkManagerTest, GetSystemTraffic)
     EXPECT_CALL(mTrafficMonitor, GetSystemData(_, _))
         .WillOnce(DoAll(SetArgReferee<0>(5000), SetArgReferee<1>(7000), Return(aos::ErrorEnum::eNone)));
 
-    EXPECT_EQ(mNetManager.GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eNone);
     EXPECT_EQ(inputTraffic, 5000);
     EXPECT_EQ(outputTraffic, 7000);
 
     EXPECT_CALL(mTrafficMonitor, GetSystemData(_, _)).WillOnce(Return(aos::ErrorEnum::eFailed));
 
-    EXPECT_EQ(mNetManager.GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eFailed);
+    EXPECT_EQ(mNetManager->GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eFailed);
 }

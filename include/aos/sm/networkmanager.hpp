@@ -431,6 +431,11 @@ public:
     NetworkManager() = default;
 
     /**
+     * Destructor.
+     */
+    ~NetworkManager();
+
+    /**
      * Initializes network manager.
      *
      * @param storage storage interface.
@@ -545,6 +550,7 @@ private:
     static constexpr auto     cAdminChainPrefix      = "INSTANCE_";
     static constexpr auto     cInstanceInterfaceName = "eth0";
     static constexpr auto     cBridgePrefix          = "br-";
+    static constexpr auto     cNumAllocations        = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
@@ -572,7 +578,11 @@ private:
     Error PushHostWithDomain(
         const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
     Error CreateHostsFile(const String& networkID, const String& instanceIP, const NetworkParams& network) const;
-    Error WriteHostsFile(const String& filePath, const Array<Host>& hosts, const NetworkParams& network) const;
+    Error WriteHost(const Host& host, int fd) const;
+    Error WriteHosts(Array<SharedPtr<Host>> hosts, int fd) const;
+    Error WriteHosts(Array<Host> hosts, int fd) const;
+    Error WriteHostsFile(
+        const String& filePath, const Array<SharedPtr<Host>>& hosts, const NetworkParams& network) const;
 
     Error CreateResolvConfFile(
         const String& networkID, const NetworkParams& network, const Array<StaticString<cIPLen>>& dns) const;
@@ -587,6 +597,9 @@ private:
     StaticString<cFilePathLen>  mCNINetworkCacheDir;
     NetworkCache                mNetworkData;
     mutable Mutex               mMutex;
+    StaticAllocator<sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result), cNumAllocations>
+                                                            mAllocator;
+    mutable StaticAllocator<sizeof(Host) * 3, cMaxNumHosts> mHostAllocator;
 };
 
 /** @}*/

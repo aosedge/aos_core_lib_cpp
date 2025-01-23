@@ -17,7 +17,7 @@ class CNIMock : public CNIItf {
 public:
     MOCK_METHOD(Error, SetConfDir, (const String& configDir), (override));
     MOCK_METHOD(
-        (RetWithError<Result>), AddNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt), (override));
+        Error, AddNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt, Result& result), (override));
     MOCK_METHOD(Error, DeleteNetworkList, (const NetworkConfigList& net, const RuntimeConf& rt), (override));
     MOCK_METHOD(Error, ValidateNetworkList, (const NetworkConfigList& net), (override));
     MOCK_METHOD(aos::Error, GetNetworkListCachedConfig, (NetworkConfigList & net, RuntimeConf& rt), (override));
