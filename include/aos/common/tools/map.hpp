@@ -119,22 +119,21 @@ public:
     }
 
     /**
-     * Inserts a new value into the map.
+     * Emplaces new key into the map, returns error if it already exists.
      *
-     * @param args list of arguments to construct a new element.
+     * @param key key to emplace.
+     * @param args list of arguments to construct a new value.
      * @return Error.
      */
     template <typename... Args>
-    Error Emplace(Args&&... args)
+    Error Emplace(const Key& key, Args&&... args)
     {
-        auto kv = ValueType(args...);
-
-        auto it = Find(kv.mFirst);
+        auto it = Find(key);
         if (it == end()) {
-            return mItems.EmplaceBack(Move(kv));
+            return mItems.EmplaceBack(key, Value(args...));
         }
 
-        return ErrorEnum::eInvalidArgument;
+        return ErrorEnum::eAlreadyExist;
     }
 
     /**
