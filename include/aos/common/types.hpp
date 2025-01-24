@@ -696,6 +696,11 @@ struct Mount {
  */
 struct Host {
     /**
+     * Default constructor.
+     */
+    Host() = default;
+
+    /**
      * Constructs host.
      *
      * @param ip IP.
