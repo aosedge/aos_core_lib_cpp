@@ -55,6 +55,11 @@ struct EnvVarsInstanceInfo {
     EnvVarInfoArray mVariables;
 
     /**
+     * Default constructor.
+     */
+    EnvVarsInstanceInfo() = default;
+
+    /**
      * Creates environment variable instance info.
      *
      * @param filter instance filter.
@@ -120,6 +125,11 @@ using EnvVarStatusArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
 struct EnvVarsInstanceStatus {
     InstanceFilter    mFilter;
     EnvVarStatusArray mStatuses;
+
+    /**
+     * Default constructor.
+     */
+    EnvVarsInstanceStatus() = default;
 
     /**
      * Creates environment variable instance status.

@@ -98,6 +98,11 @@ public:
     StaticString<cInstanceIDLen> mInstanceID;
 
     /**
+     * Default constructor.
+     */
+    InstanceData() = default;
+
+    /**
      * Creates instance data.
      *
      * @param info instance info.
