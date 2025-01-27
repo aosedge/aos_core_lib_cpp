@@ -233,7 +233,7 @@ private:
     static constexpr auto cLayerOCIDescriptor = "layer.json";
     static constexpr auto cNumInstallThreads  = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
     static constexpr auto cAllocatorSize
-        = Max(cNumInstallThreads * sizeof(oci::ImageManifest) + sizeof(LayerDataStaticArray),
+        = Max(cNumInstallThreads * (sizeof(oci::ImageManifest) + sizeof(LayerData)) + sizeof(LayerDataStaticArray),
             sizeof(LayerDataStaticArray) + sizeof(FS::DirIterator) * 2);
 
     Error RemoveDamagedLayerFolders();

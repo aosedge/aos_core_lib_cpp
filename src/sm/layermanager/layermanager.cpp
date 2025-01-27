@@ -448,14 +448,15 @@ Error LayerManager::InstallLayer(const LayerInfo& layer)
         return AOS_ERROR_WRAP(err);
     }
 
-    const auto layerData = CreateLayerData(layer, unpackedSpace->Size(), storeLayerPath);
+    auto layerData = MakeUnique<LayerData>(&mAllocator);
+    *layerData     = CreateLayerData(layer, unpackedSpace->Size(), storeLayerPath);
 
-    if (err = mStorage->AddLayer(layerData); !err.IsNone()) {
+    if (err = mStorage->AddLayer(*layerData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_INF() << "Layer successfully installed: id=" << layerData.mLayerID << ", version=" << layerData.mVersion
-              << ", digest=" << layerData.mLayerDigest;
+    LOG_INF() << "Layer successfully installed: id=" << layerData->mLayerID << ", version=" << layerData->mVersion
+              << ", digest=" << layerData->mLayerDigest;
 
     return ErrorEnum::eNone;
 }
