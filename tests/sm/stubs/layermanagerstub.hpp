@@ -170,6 +170,19 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Validates layer.
+     *
+     * @param layer layer data.
+     * @return Error.
+     */
+    Error ValidateLayer(const LayerData& layer) override
+    {
+        (void)layer;
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     mutable std::mutex     mMutex;
     std::vector<LayerData> mLayersData;

@@ -155,6 +155,14 @@ public:
     virtual Error ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers) = 0;
 
     /**
+     * Validates layer.
+     *
+     * @param layer layer data.
+     * @return Error.
+     */
+    virtual Error ValidateLayer(const LayerData& layer) = 0;
+
+    /**
      *  Destructor.
      */
     virtual ~LayerManagerItf() = default;
@@ -220,6 +228,14 @@ public:
      * @return Error.
      */
     Error ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers) override;
+
+    /**
+     * Validates layer.
+     *
+     * @param layer layer data.
+     * @return Error.
+     */
+    Error ValidateLayer(const LayerData& layer) override;
 
     /**
      * Removes item.

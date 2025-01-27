@@ -729,6 +729,10 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
             return AOS_ERROR_WRAP(err);
         }
 
+        if (auto err = mLayerManager.ValidateLayer(*layerData); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
         if (auto err = layers->PushBack(layerData->mPath); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
