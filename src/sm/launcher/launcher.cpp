@@ -755,6 +755,11 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
             continue;
         }
 
+        if (auto err = mServiceManager->ValidateService(serviceData); !err.IsNone()) {
+            LOG_ERR() << "Service validation failed: serviceID=" << serviceID << ", err=" << err;
+            continue;
+        }
+
         if (auto err = mCurrentServices.EmplaceBack(serviceData); !err.IsNone()) {
             LOG_ERR() << "Can't cache service: serviceID=" << serviceID << ", err=" << err;
             continue;
