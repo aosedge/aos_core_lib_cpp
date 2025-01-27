@@ -70,7 +70,7 @@ Error NetworkManager::UpdateNetworks(const Array<aos::NetworkParameters>& networ
 }
 
 Error NetworkManager::AddInstanceToNetwork(
-    const String& instanceID, const String& networkID, const NetworkParams& network)
+    const String& instanceID, const String& networkID, const InstanceNetworkParameters& instanceNetworkParameters)
 {
     LOG_DBG() << "Add instance to network: instanceID=" << instanceID << ", networkID=" << networkID;
 
@@ -115,7 +115,8 @@ Error NetworkManager::AddInstanceToNetwork(
 
     StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> host;
 
-    if (err = PrepareCNIConfig(instanceID, networkID, network, *netConfigList, *rtConfig, host); !err.IsNone()) {
+    if (err = PrepareCNIConfig(instanceID, networkID, instanceNetworkParameters, *netConfigList, *rtConfig, host);
+        !err.IsNone()) {
         return err;
     }
 
@@ -133,22 +134,24 @@ Error NetworkManager::AddInstanceToNetwork(
         }
     });
 
-    if (err = mNetMonitor->StartInstanceMonitoring(
-            instanceID, network.mNetworkParameters.mIP, network.mDownloadLimit, network.mUploadLimit);
+    if (err = mNetMonitor->StartInstanceMonitoring(instanceID, instanceNetworkParameters.mNetworkParameters.mIP,
+            instanceNetworkParameters.mDownloadLimit, instanceNetworkParameters.mUploadLimit);
         !err.IsNone()) {
 
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = CreateHostsFile(networkID, network.mNetworkParameters.mIP, network); !err.IsNone()) {
+    if (err = CreateHostsFile(networkID, instanceNetworkParameters.mNetworkParameters.mIP, instanceNetworkParameters);
+        !err.IsNone()) {
         return err;
     }
 
-    if (err = CreateResolvConfFile(networkID, network, result->mDNSServers); !err.IsNone()) {
+    if (err = CreateResolvConfFile(networkID, instanceNetworkParameters, result->mDNSServers); !err.IsNone()) {
         return err;
     }
 
-    if (err = UpdateInstanceNetworkCache(instanceID, networkID, network.mNetworkParameters.mIP, host); !err.IsNone()) {
+    if (err = UpdateInstanceNetworkCache(instanceID, networkID, instanceNetworkParameters.mNetworkParameters.mIP, host);
+        !err.IsNone()) {
         return err;
     }
 
@@ -365,8 +368,9 @@ Error NetworkManager::ClearNetwork(const String& networkID)
     return AOS_ERROR_WRAP(mNetworkData.Remove(networkID));
 }
 
-Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& networkID, const NetworkParams& network,
-    cni::NetworkConfigList& netConfigList, cni::RuntimeConf& rtConfig, Array<StaticString<cHostNameLen>>& hosts) const
+Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& networkID,
+    const InstanceNetworkParameters& network, cni::NetworkConfigList& netConfigList, cni::RuntimeConf& rtConfig,
+    Array<StaticString<cHostNameLen>>& hosts) const
 {
     LOG_DBG() << "Prepare CNI config: instanceID=" << instanceID << ", networkID=" << networkID;
 
@@ -388,8 +392,8 @@ Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& n
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::PrepareHosts(const String& instanceID, const String& networkID, const NetworkParams& network,
-    Array<StaticString<cHostNameLen>>& hosts) const
+Error NetworkManager::PrepareHosts(const String& instanceID, const String& networkID,
+    const InstanceNetworkParameters& network, Array<StaticString<cHostNameLen>>& hosts) const
 {
     LockGuard lock {mMutex};
 
@@ -482,7 +486,7 @@ Error NetworkManager::IsHostnameExist(
 }
 
 Error NetworkManager::CreateResolvConfFile(
-    const String& networkID, const NetworkParams& network, const Array<StaticString<cIPLen>>& dns) const
+    const String& networkID, const InstanceNetworkParameters& network, const Array<StaticString<cIPLen>>& dns) const
 {
     LOG_DBG() << "Create resolv.conf file: networkID=" << networkID;
 
@@ -499,8 +503,8 @@ Error NetworkManager::CreateResolvConfFile(
     return WriteResolvConfFile(network.mResolvConfFilePath, mainServers, network);
 }
 
-Error NetworkManager::WriteResolvConfFile(
-    const String& filePath, const Array<StaticString<cIPLen>>& mainServers, const NetworkParams& network) const
+Error NetworkManager::WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
+    const InstanceNetworkParameters& network) const
 {
     LOG_DBG() << "Write resolv.conf file: filePath=" << filePath;
 
@@ -544,7 +548,7 @@ Error NetworkManager::WriteResolvConfFile(
 }
 
 Error NetworkManager::CreateHostsFile(
-    const String& networkID, const String& instanceIP, const NetworkParams& network) const
+    const String& networkID, const String& instanceIP, const InstanceNetworkParameters& network) const
 {
     LOG_DBG() << "Create hosts file: networkID=" << networkID;
 
@@ -582,7 +586,7 @@ Error NetworkManager::CreateHostsFile(
 }
 
 Error NetworkManager::WriteHostsFile(
-    const String& filePath, const Array<SharedPtr<Host>>& hosts, const NetworkParams& network) const
+    const String& filePath, const Array<SharedPtr<Host>>& hosts, const InstanceNetworkParameters& network) const
 {
     LOG_DBG() << "Write hosts file: filePath=" << filePath;
 
@@ -671,8 +675,8 @@ Error NetworkManager::PrepareRuntimeConfig(
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::PrepareNetworkConfigList(
-    const String& instanceID, const String& networkID, const NetworkParams& network, cni::NetworkConfigList& net) const
+Error NetworkManager::PrepareNetworkConfigList(const String& instanceID, const String& networkID,
+    const InstanceNetworkParameters& network, cni::NetworkConfigList& net) const
 {
     LOG_DBG() << "Prepare network config list: instanceID=" << instanceID << ", networkID=" << networkID;
 
@@ -696,7 +700,7 @@ Error NetworkManager::PrepareNetworkConfigList(
 }
 
 Error NetworkManager::CreateBridgePluginConfig(
-    const String& networkID, const NetworkParams& network, cni::BridgePluginConf& config) const
+    const String& networkID, const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const
 {
     LOG_DBG() << "Create bridge plugin config";
 
@@ -722,7 +726,7 @@ Error NetworkManager::CreateBridgePluginConfig(
 }
 
 Error NetworkManager::CreateFirewallPluginConfig(
-    const String& instanceID, const NetworkParams& network, cni::FirewallPluginConf& config) const
+    const String& instanceID, const InstanceNetworkParameters& network, cni::FirewallPluginConf& config) const
 {
     LOG_DBG() << "Create firewall plugin config";
 
@@ -759,7 +763,8 @@ Error NetworkManager::CreateFirewallPluginConfig(
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::CreateBandwidthPluginConfig(const NetworkParams& network, cni::BandwidthNetConf& config) const
+Error NetworkManager::CreateBandwidthPluginConfig(
+    const InstanceNetworkParameters& network, cni::BandwidthNetConf& config) const
 {
     if (network.mIngressKbit == 0 && network.mEgressKbit == 0) {
         return ErrorEnum::eNone;
@@ -783,7 +788,7 @@ Error NetworkManager::CreateBandwidthPluginConfig(const NetworkParams& network, 
 }
 
 Error NetworkManager::CreateDNSPluginConfig(
-    const String& networkID, const NetworkParams& network, cni::DNSPluginConf& config) const
+    const String& networkID, const InstanceNetworkParameters& network, cni::DNSPluginConf& config) const
 {
     LOG_DBG() << "Create DNS plugin config";
 

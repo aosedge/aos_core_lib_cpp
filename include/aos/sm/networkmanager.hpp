@@ -46,9 +46,9 @@ static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 static constexpr auto cMaxNumHosts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS;
 
 /**
- * Network parameters set for service provider.
+ * Network information.
  */
-struct NetworkParameters {
+struct NetworkInfo {
     StaticString<cHostNameLen> mNetworkID;
     StaticString<cIPLen>       mSubnet;
     StaticString<cIPLen>       mIP;
@@ -56,68 +56,24 @@ struct NetworkParameters {
     StaticString<cHostNameLen> mVlanIfName;
 
     /**
-     * Compares network parameters.
+     * Compares network information.
      *
-     * @param networkParams network parameters to compare.
+     * @param networkInfo network information to compare.
      * @return bool.
      */
-    bool operator==(const NetworkParameters& networkParams) const
+    bool operator==(const NetworkInfo& networkInfo) const
     {
-        return mNetworkID == networkParams.mNetworkID && mSubnet == networkParams.mSubnet && mIP == networkParams.mIP
-            && mVlanID == networkParams.mVlanID && mVlanIfName == networkParams.mVlanIfName;
+        return mNetworkID == networkInfo.mNetworkID && mSubnet == networkInfo.mSubnet && mIP == networkInfo.mIP
+            && mVlanID == networkInfo.mVlanID && mVlanIfName == networkInfo.mVlanIfName;
     }
 
     /**
-     * Compares network parameters.
+     * Compares network information.
      *
-     * @param networkParams network parameters to compare.
+     * @param networkInfo network information to compare.
      * @return bool.
      */
-    bool operator!=(const NetworkParameters& networkParams) const { return !operator==(networkParams); }
-};
-
-/**
- * Network parameters set for instance.
- */
-struct NetworkParams {
-    InstanceIdent                                                   mInstanceIdent;
-    aos::NetworkParameters                                          mNetworkParameters;
-    StaticString<cHostNameLen>                                      mHostname;
-    StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;
-    uint64_t                                                        mIngressKbit;
-    uint64_t                                                        mEgressKbit;
-    StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
-    StaticArray<Host, cMaxNumHosts>                                 mHosts;
-    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>            mDNSSevers;
-    StaticString<cFilePathLen>                                      mHostsFilePath;
-    StaticString<cFilePathLen>                                      mResolvConfFilePath;
-    uint64_t                                                        mUploadLimit;
-    uint64_t                                                        mDownloadLimit;
-
-    /**
-     * Compares network parameters.
-     *
-     * @param networkParams network parameters to compare.
-     * @return bool.
-     */
-    bool operator==(const NetworkParams& networkParams) const
-    {
-        return mInstanceIdent == networkParams.mInstanceIdent && mNetworkParameters == networkParams.mNetworkParameters
-            && mHostname == networkParams.mHostname && mAliases == networkParams.mAliases
-            && mIngressKbit == networkParams.mIngressKbit && mEgressKbit == networkParams.mEgressKbit
-            && mExposedPorts == networkParams.mExposedPorts && mHosts == networkParams.mHosts
-            && mDNSSevers == networkParams.mDNSSevers && mHostsFilePath == networkParams.mHostsFilePath
-            && mResolvConfFilePath == networkParams.mResolvConfFilePath && mUploadLimit == networkParams.mUploadLimit
-            && mDownloadLimit == networkParams.mDownloadLimit;
-    }
-
-    /**
-     * Compares network parameters.
-     *
-     * @param networkParams network parameters to compare.
-     * @return bool.
-     */
-    bool operator!=(const NetworkParams& networkParams) const { return !operator==(networkParams); }
+    bool operator!=(const NetworkInfo& networkInfo) const { return !operator==(networkInfo); }
 };
 
 /**
@@ -136,10 +92,10 @@ public:
     /**
      * Adds network info to storage.
      *
-     * @param info network info.
+     * @param info network information.
      * @return Error.
      */
-    virtual Error AddNetworkInfo(const NetworkParameters& info) = 0;
+    virtual Error AddNetworkInfo(const NetworkInfo& info) = 0;
 
     /**
      * Returns network information.
@@ -147,7 +103,7 @@ public:
      * @param networks[out] network information result.
      * @return Error.
      */
-    virtual Error GetNetworksInfo(Array<NetworkParameters>& networks) const = 0;
+    virtual Error GetNetworksInfo(Array<NetworkInfo>& networks) const = 0;
 
     /**
      * Sets traffic monitor data.
@@ -202,6 +158,55 @@ using TrafficPeriodEnum = TrafficPeriodType::Enum;
 using TrafficPeriod     = EnumStringer<TrafficPeriodType>;
 
 /**
+ * Instance network parameters.
+ */
+struct InstanceNetworkParameters {
+    InstanceIdent                                                   mInstanceIdent;
+    aos::NetworkParameters                                          mNetworkParameters;
+    StaticString<cHostNameLen>                                      mHostname;
+    StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;
+    uint64_t                                                        mIngressKbit;
+    uint64_t                                                        mEgressKbit;
+    StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
+    StaticArray<Host, cMaxNumHosts>                                 mHosts;
+    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>            mDNSSevers;
+    StaticString<cFilePathLen>                                      mHostsFilePath;
+    StaticString<cFilePathLen>                                      mResolvConfFilePath;
+    uint64_t                                                        mUploadLimit;
+    uint64_t                                                        mDownloadLimit;
+
+    /**
+     * Compares network parameters.
+     *
+     * @param instanceNetworkParams instance network parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceNetworkParameters& instanceNetworkParams) const
+    {
+        return mInstanceIdent == instanceNetworkParams.mInstanceIdent
+            && mNetworkParameters == instanceNetworkParams.mNetworkParameters
+            && mHostname == instanceNetworkParams.mHostname && mAliases == instanceNetworkParams.mAliases
+            && mIngressKbit == instanceNetworkParams.mIngressKbit && mEgressKbit == instanceNetworkParams.mEgressKbit
+            && mExposedPorts == instanceNetworkParams.mExposedPorts && mHosts == instanceNetworkParams.mHosts
+            && mDNSSevers == instanceNetworkParams.mDNSSevers && mHostsFilePath == instanceNetworkParams.mHostsFilePath
+            && mResolvConfFilePath == instanceNetworkParams.mResolvConfFilePath
+            && mUploadLimit == instanceNetworkParams.mUploadLimit
+            && mDownloadLimit == instanceNetworkParams.mDownloadLimit;
+    }
+
+    /**
+     * Compares instance network parameters.
+     *
+     * @param instanceNetworkParameters instance network parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceNetworkParameters& instanceNetworkParameters) const
+    {
+        return !operator==(instanceNetworkParameters);
+    }
+};
+
+/**
  * Network manager interface.
  */
 class NetworkManagerItf {
@@ -232,10 +237,11 @@ public:
      *
      * @param instanceID instance id.
      * @param networkID network id.
-     * @param network network parameters.
+     * @param instanceNetworkParameters instance network parameters.
      * @return Error.
      */
-    virtual Error AddInstanceToNetwork(const String& instanceID, const String& networkID, const NetworkParams& network)
+    virtual Error AddInstanceToNetwork(
+        const String& instanceID, const String& networkID, const InstanceNetworkParameters& instanceNetworkParameters)
         = 0;
 
     /**
@@ -484,11 +490,11 @@ public:
      *
      * @param instanceID instance ID.
      * @param networkID network ID.
-     * @param network network parameters.
+     * @param instanceNetworkParameters instance network parameters.
      * @return Error.
      */
-    Error AddInstanceToNetwork(
-        const String& instanceID, const String& networkID, const NetworkParams& network) override;
+    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
+        const InstanceNetworkParameters& instanceNetworkParameters) override;
 
     /**
      * Removes instance from network.
@@ -554,40 +560,41 @@ private:
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
-    Error PrepareCNIConfig(const String& instanceID, const String& networkID, const NetworkParams& network,
+    Error PrepareCNIConfig(const String& instanceID, const String& networkID, const InstanceNetworkParameters& network,
         cni::NetworkConfigList& net, cni::RuntimeConf& rt, Array<StaticString<cHostNameLen>>& hosts) const;
-    Error PrepareNetworkConfigList(const String& instanceID, const String& networkID, const NetworkParams& network,
-        cni::NetworkConfigList& net) const;
+    Error PrepareNetworkConfigList(const String& instanceID, const String& networkID,
+        const InstanceNetworkParameters& network, cni::NetworkConfigList& net) const;
     Error PrepareRuntimeConfig(
         const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const;
 
     Error CreateBridgePluginConfig(
-        const String& networkID, const NetworkParams& network, cni::BridgePluginConf& config) const;
+        const String& networkID, const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const;
     Error CreateFirewallPluginConfig(
-        const String& instanceID, const NetworkParams& network, cni::FirewallPluginConf& config) const;
-    Error CreateBandwidthPluginConfig(const NetworkParams& network, cni::BandwidthNetConf& config) const;
+        const String& instanceID, const InstanceNetworkParameters& network, cni::FirewallPluginConf& config) const;
+    Error CreateBandwidthPluginConfig(const InstanceNetworkParameters& network, cni::BandwidthNetConf& config) const;
     Error CreateDNSPluginConfig(
-        const String& networkID, const NetworkParams& network, cni::DNSPluginConf& config) const;
+        const String& networkID, const InstanceNetworkParameters& network, cni::DNSPluginConf& config) const;
     Error UpdateInstanceNetworkCache(const String& instanceID, const String& networkID, const String& instanceIP,
         const Array<StaticString<cHostNameLen>>& hosts);
     Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
     Error ClearNetwork(const String& networkID);
-    Error PrepareHosts(const String& instanceID, const String& networkID, const NetworkParams& network,
+    Error PrepareHosts(const String& instanceID, const String& networkID, const InstanceNetworkParameters& network,
         Array<StaticString<cHostNameLen>>& hosts) const;
     Error IsHostnameExist(const InstanceCache& instanceCache, const Array<StaticString<cHostNameLen>>& hosts) const;
     Error PushHostWithDomain(
         const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
-    Error CreateHostsFile(const String& networkID, const String& instanceIP, const NetworkParams& network) const;
+    Error CreateHostsFile(
+        const String& networkID, const String& instanceIP, const InstanceNetworkParameters& network) const;
     Error WriteHost(const Host& host, int fd) const;
     Error WriteHosts(Array<SharedPtr<Host>> hosts, int fd) const;
     Error WriteHosts(Array<Host> hosts, int fd) const;
     Error WriteHostsFile(
-        const String& filePath, const Array<SharedPtr<Host>>& hosts, const NetworkParams& network) const;
+        const String& filePath, const Array<SharedPtr<Host>>& hosts, const InstanceNetworkParameters& network) const;
 
-    Error CreateResolvConfFile(
-        const String& networkID, const NetworkParams& network, const Array<StaticString<cIPLen>>& dns) const;
-    Error WriteResolvConfFile(
-        const String& filePath, const Array<StaticString<cIPLen>>& mainServers, const NetworkParams& network) const;
+    Error CreateResolvConfFile(const String& networkID, const InstanceNetworkParameters& network,
+        const Array<StaticString<cIPLen>>& dns) const;
+    Error WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
+        const InstanceNetworkParameters& network) const;
 
     StorageItf*                 mStorage {};
     cni::CNIItf*                mCNI {};

@@ -313,7 +313,7 @@ private:
     static constexpr auto cRuntimeDir = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
     static constexpr auto cAllocatorSize
         = (sizeof(oci::RuntimeSpec) + sizeof(image::ImageParts)
-              + Max(sizeof(networkmanager::NetworkParams), sizeof(monitoring::InstanceMonitorParams),
+              + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
                   sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig)
                       + sizeof(StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>),
                   sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount) + sizeof(ResourceInfo),

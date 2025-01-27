@@ -635,7 +635,7 @@ Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
 {
     LOG_DBG() << "Setup network: instanceID=" << *this;
 
-    auto networkParams = MakeUnique<networkmanager::NetworkParams>(&sAllocator);
+    auto networkParams = MakeUnique<networkmanager::InstanceNetworkParameters>(&sAllocator);
 
     networkParams->mInstanceIdent      = mInstanceInfo.mInstanceIdent;
     networkParams->mHostsFilePath      = FS::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "hosts");

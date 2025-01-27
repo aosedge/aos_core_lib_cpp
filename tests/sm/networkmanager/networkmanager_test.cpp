@@ -45,9 +45,9 @@ protected:
         std::filesystem::remove_all(mWorkingDir.CStr());
     }
 
-    NetworkParams CreateTestNetworkParams()
+    InstanceNetworkParameters CreateTestInstanceNetworkParameters()
     {
-        NetworkParams params;
+        InstanceNetworkParameters params;
         params.mInstanceIdent.mServiceID  = "test-service";
         params.mInstanceIdent.mSubjectID  = "test-subject";
         params.mInstanceIdent.mInstance   = 0;
@@ -93,7 +93,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     params.mHostsFilePath = aos::FS::JoinPath(mWorkingDir, "hosts");
 
@@ -139,7 +139,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_ValidateAllPluginConfigs)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     params.mNetworkParameters.mIP     = "192.168.1.2";
     params.mNetworkParameters.mSubnet = "192.168.1.0/24";
@@ -248,7 +248,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyResolvConfFile)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     params.mResolvConfFilePath = aos::FS::JoinPath(mWorkingDir, "resolv.conf");
 
@@ -281,7 +281,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_NoConfigFiles)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     params.mHostsFilePath      = "";
     params.mResolvConfFilePath = "";
@@ -308,7 +308,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FileCreationError)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     params.mHostsFilePath      = "/nonexistent/directory/hosts";
     params.mResolvConfFilePath = "/nonexistent/directory/resolv.conf";
@@ -335,7 +335,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnCNIError)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eInvalidArgument));
 
@@ -352,7 +352,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnTrafficMonitorError)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
@@ -378,7 +378,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_DuplicateInstance)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
@@ -400,7 +400,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
@@ -437,7 +437,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
     const aos::String instanceID1 = "test-instance-1";
     const aos::String instanceID2 = "test-instance-2";
     const aos::String networkID   = "test-network";
-    auto              params      = CreateTestNetworkParams();
+    auto              params      = CreateTestInstanceNetworkParameters();
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
@@ -486,7 +486,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
@@ -521,7 +521,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
 {
     const aos::String instanceID = "test-instance";
     const aos::String networkID  = "test-network";
-    auto              params     = CreateTestNetworkParams();
+    auto              params     = CreateTestInstanceNetworkParameters();
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
