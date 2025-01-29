@@ -95,6 +95,39 @@ protected:
  * Tests
  **********************************************************************************************************************/
 
+TEST_F(ServiceManagerTest, DamagedServicesAreRemovedOnStart)
+{
+    const std::vector<ServiceData> validServices = {
+        {"service0", "provider0", "1.0.0", FS::JoinPath(cServicesDir, "s0"), "", Time::Now(), ServiceStateEnum::eActive,
+            0, 0},
+        {"service1", "provider1", "1.0.0", FS::JoinPath(cServicesDir, "s1"), "", Time::Now(), ServiceStateEnum::eActive,
+            0, 0},
+    };
+    const ServiceData damagedService = {"service2", "provider2", "1.0.0", FS::JoinPath(cServicesDir, "damaged"), "",
+        Time::Now(), ServiceStateEnum::eActive, 0, 0};
+
+    for (const auto& service : validServices) {
+        FS::MakeDirAll(service.mImagePath);
+        ASSERT_TRUE(mStorage.AddService(service).IsNone());
+    }
+
+    ASSERT_TRUE(mStorage.AddService(damagedService).IsNone());
+
+    ServiceManager serviceManager;
+
+    ASSERT_TRUE(serviceManager
+                    .Init(mConfig, mOCIManager, mDownloader, mStorage, mServiceSpaceAllocator, mDownloadSpaceAllocator,
+                        mImageHandler)
+                    .IsNone());
+
+    auto services = std::make_unique<ServiceDataStaticArray>();
+
+    ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
+
+    EXPECT_EQ(services->Size(), validServices.size());
+    EXPECT_TRUE(test::CompareArrays(*services, Array<ServiceData>(validServices.data(), validServices.size())));
+}
+
 TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
 {
     mConfig.mTTL                  = aos::Time::cSeconds / 2;
@@ -133,12 +166,11 @@ TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
 
     ASSERT_TRUE(serviceManager.Stop().IsNone());
 
-    ServiceDataStaticArray services;
+    auto services = std::make_unique<ServiceDataStaticArray>();
 
-    ASSERT_TRUE(mStorage.GetAllServices(services).IsNone());
+    ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
-    EXPECT_EQ(services.Size(), expected.size());
-    EXPECT_TRUE(test::CompareArrays(services, Array<ServiceData>(expected.data(), expected.size())));
+    EXPECT_TRUE(test::CompareArrays(*services, Array<ServiceData>(expected.data(), expected.size())));
 }
 
 TEST_F(ServiceManagerTest, ProcessDesiredServices)
@@ -257,11 +289,11 @@ TEST_F(ServiceManagerTest, ProcessDesiredServices)
             serviceManager.ProcessDesiredServices(Array<ServiceInfo>(testItem.mInfo.data(), testItem.mInfo.size()))
                 .IsNone());
 
-        ServiceDataStaticArray installedServices;
+        auto services = std::make_unique<ServiceDataStaticArray>();
 
-        EXPECT_TRUE(mStorage.GetAllServices(installedServices).IsNone());
+        EXPECT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
-        EXPECT_THAT(std::vector<ServiceData>(installedServices.begin(), installedServices.end()),
+        EXPECT_THAT(std::vector<ServiceData>(services->begin(), services->end()),
             testing::UnorderedPointwise(testing::Truly([](const auto& tuple) {
                 return CompareServiceData(std::get<0>(tuple), std::get<1>(tuple));
             }),

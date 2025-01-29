@@ -350,7 +350,7 @@ Error ServiceManager::RemoveDamagedServiceFolders(const Array<ServiceData>& serv
         const auto fullPath = FS::JoinPath(mConfig.mServicesDir, serviceDirIterator->mPath);
 
         if (services.FindIf([&fullPath](const ServiceData& service) { return service.mImagePath == fullPath; })
-            == services.end()) {
+            != services.end()) {
             continue;
         }
 
