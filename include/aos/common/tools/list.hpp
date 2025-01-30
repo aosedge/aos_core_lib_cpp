@@ -29,9 +29,9 @@ class ListImpl {
 protected:
     struct Node {
         bool  mAllocated = false;
-        T     mValue;
-        Node* mNext = nullptr;
-        Node* mPrev = nullptr;
+        Node* mNext      = nullptr;
+        Node* mPrev      = nullptr;
+        alignas(T) uint8_t mBuffer[sizeof(T)];
     };
 
     /**
@@ -80,21 +80,21 @@ protected:
          *
          * @return Reference.
          */
-        Reference operator*() const { return mCurrentNode->mValue; }
+        Reference operator*() const { return *reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
 
         /**
          * Dereference operator.
          *
          * @return Pointer.
          */
-        Pointer operator&() const { return &mCurrentNode->mValue; }
+        Pointer operator&() const { return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
 
         /**
          * Dereference operator.
          *
          * @return Pointer.
          */
-        Pointer operator->() const { return &mCurrentNode->mValue; }
+        Pointer operator->() const { return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
 
         /**
          * Prefix increment operator.
@@ -192,7 +192,7 @@ protected:
             return nullptr;
         }
 
-        new (&node->mValue) T(args...);
+        new (&node->mBuffer) T(args...);
 
         return node;
     }
@@ -215,7 +215,7 @@ protected:
         assert(node.mAllocated);
 
         node.mAllocated = false;
-        node.mValue.~T();
+        reinterpret_cast<T*>(node.mBuffer)->~T();
     }
 
     void RemoveNode(Node& node)
