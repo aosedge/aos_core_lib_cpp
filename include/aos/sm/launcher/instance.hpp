@@ -134,11 +134,6 @@ class Instance {
 public:
     /**
      * Creates instance.
-     */
-    Instance() = default;
-
-    /**
-     * Creates instance.
      *
      * @param config launcher configuration.
      * @param instanceInfo instance info.

@@ -870,7 +870,7 @@ Error Launcher::StartInstance(const InstanceData& info)
             return AOS_ERROR_WRAP(err);
         }
 
-        instance = &mCurrentInstances[mCurrentInstances.Size() - 1];
+        instance = &mCurrentInstances.Back();
 
         auto service = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
         if (service == mCurrentServices.end()) {
@@ -906,7 +906,7 @@ Error Launcher::StartInstance(const InstanceData& info)
 
 Error Launcher::StopInstance(const String& instanceID)
 {
-    Instance* instance = nullptr;
+    List<Instance>::Iterator instance;
 
     {
         LockGuard lock {mMutex};

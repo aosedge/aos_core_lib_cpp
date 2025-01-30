@@ -14,7 +14,7 @@
 #include "aos/common/connectionsubsc.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/ocispec/ocispec.hpp"
-#include "aos/common/tools/map.hpp"
+#include "aos/common/tools/list.hpp"
 #include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/types.hpp"
 #include "aos/sm/config.hpp"
@@ -391,7 +391,7 @@ private:
             [&serviceID](const servicemanager::ServiceData& service) { return serviceID == service.mServiceID; });
     }
 
-    Instance* GetInstance(const String& instanceID)
+    List<Instance>::Iterator GetInstance(const String& instanceID)
     {
         return mCurrentInstances.FindIf(
             [&instanceID](const Instance& instance) { return instanceID == instance.InstanceID(); });
@@ -423,7 +423,7 @@ private:
     mutable ConditionalVariable mCondVar;
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
-    StaticArray<Instance, cMaxNumInstances>                   mCurrentInstances;
+    StaticList<Instance, cMaxNumInstances>                    mCurrentInstances;
     cloudprotocol::EnvVarsInstanceInfoArray                   mCurrentEnvVars;
     StaticString<cFilePathLen>                                mHostWhiteoutsDir;
     NodeInfo                                                  mNodeInfo;
