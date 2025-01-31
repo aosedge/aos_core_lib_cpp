@@ -115,10 +115,11 @@ struct InstanceMonitoringData {
     {
     }
 
-    InstanceIdent  mInstanceIdent  = {};
-    MonitoringData mMonitoringData = {};
-    uint32_t       mUID            = 0;
-    uint32_t       mGID            = 0;
+    InstanceIdent    mInstanceIdent  = {};
+    MonitoringData   mMonitoringData = {};
+    uint32_t         mUID            = 0;
+    uint32_t         mGID            = 0;
+    InstanceRunState mRunState       = InstanceRunStateEnum::eFailed;
 
     /**
      * Compares instance monitoring data.
@@ -232,6 +233,15 @@ public:
      * @return Error.
      */
     virtual Error StartInstanceMonitoring(const String& instanceID, const InstanceMonitorParams& monitoringConfig) = 0;
+
+    /**
+     * Updates instance's run state.
+     *
+     * @param instanceID instance ID.
+     * @param runState run state.
+     * @return Error.
+     */
+    virtual Error UpdateInstanceRunState(const String& instanceID, InstanceRunState runState) = 0;
 
     /**
      * Stops instance monitoring.

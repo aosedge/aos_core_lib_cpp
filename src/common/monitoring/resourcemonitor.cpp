@@ -166,6 +166,22 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
     return ErrorEnum::eNone;
 }
 
+Error ResourceMonitor::UpdateInstanceRunState(const String& instanceID, InstanceRunState runState)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Update instance run state: instanceID=" << instanceID << ", runState=" << runState;
+
+    auto instanceData = mInstanceMonitoringData.Find(instanceID);
+    if (instanceData == mInstanceMonitoringData.end()) {
+        return ErrorEnum::eNotFound;
+    }
+
+    instanceData->mSecond.mRunState = runState;
+
+    return ErrorEnum::eNone;
+}
+
 Error ResourceMonitor::StopInstanceMonitoring(const String& instanceID)
 {
     LockGuard lock {mMutex};
@@ -465,7 +481,7 @@ void ResourceMonitor::ProcessMonitoring()
         if (auto err = mResourceUsageProvider->GetNodeMonitoringData(
                 mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
             !err.IsNone()) {
-            LOG_ERR() << "Failed to get node monitoring data: " << err;
+            LOG_ERR() << "Failed to get node monitoring data: err=" << err;
         }
 
         mNodeMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(mNodeMonitoringData.mMonitoringData.mCPU);
@@ -475,7 +491,11 @@ void ResourceMonitor::ProcessMonitoring()
         for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
             if (auto err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData);
                 !err.IsNone()) {
-                LOG_ERR() << "Failed to get instance monitoring data: " << err;
+                if (instanceMonitoringData.mRunState == InstanceRunStateEnum::eActive) {
+                    LOG_ERR() << "Failed to get instance monitoring data: err=" << err;
+                }
+
+                continue;
             }
 
             instanceMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(instanceMonitoringData.mMonitoringData.mCPU);

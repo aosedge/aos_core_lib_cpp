@@ -20,6 +20,7 @@ class ResourceMonitorMock : public ResourceMonitorItf {
 public:
     MOCK_METHOD(Error, StartInstanceMonitoring,
         (const String& instanceID, const InstanceMonitorParams& monitoringConfig), (override));
+    MOCK_METHOD(Error, UpdateInstanceRunState, (const String& instanceID, InstanceRunState runState), (override));
     MOCK_METHOD(Error, StopInstanceMonitoring, (const String& instanceID), (override));
     MOCK_METHOD(Error, GetAverageMonitoringData, (NodeMonitoringData & monitoringData), (override));
 };
