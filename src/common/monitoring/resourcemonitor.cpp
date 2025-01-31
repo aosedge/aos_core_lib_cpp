@@ -149,7 +149,7 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
 
     if (err = mResourceUsageProvider->GetInstanceMonitoringData(
             instanceID, mInstanceMonitoringData.Find(instanceID)->mSecond);
-        !err.IsNone()) {
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         LOG_WRN() << "Can't get instance monitoring data: instanceID=" << instanceID << ", err=" << err;
     }
 
