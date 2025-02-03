@@ -119,6 +119,10 @@ Error Instance::Start()
         return err;
     }
 
+    if (auto err = SetupMonitoring(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto runStatus = mRunner.StartInstance(mInstanceID, mRuntimeDir, {});
 
     mRunState = runStatus.mState;
@@ -127,8 +131,8 @@ Error Instance::Start()
         return AOS_ERROR_WRAP(runStatus.mError);
     }
 
-    if (auto err = SetupMonitoring(); !err.IsNone()) {
-        return err;
+    if (auto err = mResourceMonitor.UpdateInstanceRunState(mInstanceID, mRunState); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
