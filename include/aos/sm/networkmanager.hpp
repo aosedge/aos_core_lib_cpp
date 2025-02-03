@@ -400,6 +400,46 @@ public:
 };
 
 /**
+ * Link attributes.
+ */
+struct LinkAttrs;
+
+/**
+ * Link interface.
+ */
+class LinkItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~LinkItf() = default;
+
+    /**
+     * Gets link attributes.
+     *
+     * @return Link attributes.
+     */
+    virtual const LinkAttrs& GetAttrs() const = 0;
+
+    /**
+     * Gets link type.
+     *
+     * @return Link type.
+     */
+    virtual const char* GetType() const = 0;
+};
+
+/**
+ * Address list.
+ */
+struct IPAddr;
+
+/**
+ * Route info.
+ */
+struct RouteInfo;
+
+/**
  * Network interface manager interface.
  */
 class NetworkInterfaceManagerItf {
@@ -415,15 +455,69 @@ public:
      * @param ifname interface name.
      * @return Error.
      */
-    virtual Error RemoveInterface(const String& ifname) = 0;
+    virtual Error DeleteLink(const String& ifname) = 0;
 
     /**
-     * Brings up interface.
+     * Adds link.
+     *
+     * @param link link.
+     * @return Error.
+     */
+    virtual Error AddLink(const LinkItf* link) = 0;
+
+    /**
+     * Sets up link.
      *
      * @param ifname interface name.
      * @return Error.
      */
-    virtual Error BringUpInterface(const String& ifname) = 0;
+    virtual Error SetupLink(const String& ifname) = 0;
+
+    /**
+     * Gets address list.
+     *
+     * @param ifname interface name.
+     * @param family address family.
+     * @param[out] addr address list.
+     * @return Error.
+     */
+    virtual Error GetAddrList(const String& ifname, int family, Array<IPAddr>& addr) const = 0;
+
+    /**
+     * Adds address.
+     *
+     * @param ifname interface name.
+     * @param addr address.
+     * @return Error.
+     */
+    virtual Error AddAddr(const String& ifname, const IPAddr& addr) = 0;
+
+    /**
+     * Deletes address.
+     *
+     * @param ifname interface name.
+     * @param addr address.
+     * @return Error.
+     */
+    virtual Error DeleteAddr(const String& ifname, const IPAddr& addr) = 0;
+
+    /**
+     * Sets master.
+     *
+     * @param ifname interface name.
+     * @param master master.
+     * @return Error.
+     */
+    virtual Error SetMasterLink(const String& ifname, const String& master) = 0;
+
+    /**
+     * Gets route list.
+     *
+     * @param ifname interface name.
+     * @param[out] routes routes.
+     * @return Error.
+     */
+    virtual Error GetRouteList(const String& ifname, Array<RouteInfo>& routes) const = 0;
 };
 
 /**
