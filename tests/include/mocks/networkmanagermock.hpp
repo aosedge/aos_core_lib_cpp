@@ -62,8 +62,14 @@ public:
 
 class NetworkInterfaceManagerMock : public NetworkInterfaceManagerItf {
 public:
-    MOCK_METHOD(Error, RemoveInterface, (const String& ifname), (override));
-    MOCK_METHOD(Error, BringUpInterface, (const String& ifname), (override));
+    MOCK_METHOD(Error, DeleteLink, (const String& ifname), (override));
+    MOCK_METHOD(Error, SetupLink, (const String& ifname), (override));
+    MOCK_METHOD(Error, AddLink, (const LinkItf* link), (override));
+    MOCK_METHOD(Error, GetAddrList, (const String& ifname, int family, Array<IPAddr>& addr), (const, override));
+    MOCK_METHOD(Error, AddAddr, (const String& ifname, const IPAddr& addr), (override));
+    MOCK_METHOD(Error, DeleteAddr, (const String& ifname, const IPAddr& addr), (override));
+    MOCK_METHOD(Error, SetMasterLink, (const String& ifname, const String& master), (override));
+    MOCK_METHOD(Error, GetRouteList, (const String& ifname, Array<RouteInfo>& routes), (const, override));
 };
 
 } // namespace aos::sm::networkmanager
