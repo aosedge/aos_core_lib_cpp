@@ -357,7 +357,7 @@ Error NetworkManager::ClearNetwork(const String& networkID)
 
     StaticString<cInterfaceLen> ifName;
 
-    if (auto err = mNetIf->RemoveInterface(ifName.Append(cBridgePrefix).Append(networkID)); !err.IsNone()) {
+    if (auto err = mNetIf->DeleteLink(ifName.Append(cBridgePrefix).Append(networkID)); !err.IsNone()) {
         return err;
     }
 
