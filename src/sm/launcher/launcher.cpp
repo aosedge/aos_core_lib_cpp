@@ -1095,6 +1095,12 @@ Error Launcher::SetEnvVars(
         }
     }
 
+    if (mCurrentEnvVars == envVarsInfo) {
+        return ErrorEnum::eNone;
+    }
+
+    mCurrentEnvVars = envVarsInfo;
+
     if (auto err = mStorage->SetOverrideEnvVars(envVarsInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
