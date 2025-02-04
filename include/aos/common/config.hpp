@@ -278,7 +278,14 @@
  * Environment variable name len.
  */
 #ifndef AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN
-#define AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN 256
+#define AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN 64
+#endif
+
+/**
+ * Environment variable name len.
+ */
+#ifndef AOS_CONFIG_TYPES_ENV_VAR_VALUE_LEN
+#define AOS_CONFIG_TYPES_ENV_VAR_VALUE_LEN 256
 #endif
 
 /**

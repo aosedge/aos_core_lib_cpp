@@ -187,6 +187,15 @@ Error Instance::Stop()
     return stopErr;
 }
 
+void Instance::SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars)
+{
+    for (const auto& envVar : envVars) {
+        LOG_DBG() << "Set override env var: instanceID=" << *this << ", envVar=" << envVar;
+    }
+
+    mOverrideEnvVars = envVars;
+};
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
@@ -207,8 +216,8 @@ Error Instance::BindHostDirs(oci::RuntimeSpec& runtimeSpec)
 
 Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
 {
-    auto                         envVars = MakeUnique<EnvVarsArray>(&sAllocator);
-    StaticString<cEnvVarNameLen> envVar;
+    auto                     envVars = MakeUnique<EnvVarsArray>(&sAllocator);
+    StaticString<cEnvVarLen> envVar;
 
     if (auto err = envVar.Format("%s=%s", cEnvAosServiceID, mService->mServiceID.CStr()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -457,13 +466,13 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
 
         mPermissionsRegistered = true;
 
-        StaticString<cEnvVarNameLen> envVar;
+        StaticString<cEnvVarLen> envVar;
 
         if (err = envVar.Format("%s=%s", cEnvAosSecret, secret.CStr()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        if (err = AddEnvVars(Array<StaticString<cEnvVarNameLen>>(&envVar, 1), runtimeSpec); !err.IsNone()) {
+        if (err = AddEnvVars(Array<StaticString<cEnvVarLen>>(&envVar, 1), runtimeSpec); !err.IsNone()) {
             return err;
         }
     }

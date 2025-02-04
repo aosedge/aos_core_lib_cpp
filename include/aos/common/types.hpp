@@ -281,6 +281,18 @@ constexpr auto cMaxNumFSMounts = AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS;
 constexpr auto cEnvVarNameLen = AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN;
 
 /**
+ * Environment variable value len.
+ */
+constexpr auto cEnvVarValueLen = AOS_CONFIG_TYPES_ENV_VAR_VALUE_LEN;
+
+/**
+ * Environment variable len.
+ *
+ * Consists of name and value plus equal sign.
+ */
+constexpr auto cEnvVarLen = cEnvVarNameLen + cEnvVarValueLen + 1;
+
+/**
  * Max number of environment variables.
  */
 constexpr auto cMaxNumEnvVariables = AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES;
@@ -765,7 +777,7 @@ struct DeviceInfo {
 /**
  * Env vars static array.
  */
-using EnvVarsArray = StaticArray<StaticString<cEnvVarNameLen>, cMaxNumEnvVariables>;
+using EnvVarsArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
 
 /**
  * Resource info.

@@ -379,7 +379,7 @@ private:
     Error HandleOfflineTTLs();
     Error SetEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
         Array<cloudprotocol::EnvVarsInstanceStatus>&                  statuses);
-    Error GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarNameLen>>& envVars) const;
+    Error GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const;
     Error RemoveOutdatedEnvVars();
     Error GetEnvChangedInstances(Array<InstanceData>& instance) const;
     Error SendEnvChangedInstancesStatus(const Array<InstanceData>& instances);

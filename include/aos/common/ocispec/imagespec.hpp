@@ -107,10 +107,10 @@ struct ImageManifest {
  * OCI image config.
  */
 struct ImageConfig {
-    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEnv;
-    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mEntryPoint;
-    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mCmd;
-    StaticString<cFilePathLen>                              mWorkingDir;
+    StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables> mEnv;
+    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>    mEntryPoint;
+    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>    mCmd;
+    StaticString<cFilePathLen>                                 mWorkingDir;
 
     /**
      * Compares image config.

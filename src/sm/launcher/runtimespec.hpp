@@ -36,7 +36,7 @@ Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
  * @param runtimeSpec runtime spec.
  * @return Error.
  */
-Error AddEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars, oci::RuntimeSpec& runtimeSpec);
+Error AddEnvVars(const Array<StaticString<cEnvVarLen>>& envVars, oci::RuntimeSpec& runtimeSpec);
 
 /**
  * Sets CPU limit.

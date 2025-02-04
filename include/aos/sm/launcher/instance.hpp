@@ -256,7 +256,7 @@ public:
      *
      * @param envVars
      */
-    void SetOverrideEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars) { mOverrideEnvVars = envVars; };
+    void SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars);
 
     /**
      * Returns instances allocator.

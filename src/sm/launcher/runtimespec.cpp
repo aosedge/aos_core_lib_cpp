@@ -16,10 +16,9 @@ namespace {
 
 RetWithError<StaticString<cEnvVarNameLen>> GetEnvVarName(const String& envVar)
 {
-    StaticString<cEnvVarNameLen> tmpStr = envVar;
+    StaticString<cEnvVarLen> tmpStr = envVar;
 
-    auto result = tmpStr.FindSubstr(0, "=");
-    if (result.mError.IsNone()) {
+    if (auto result = tmpStr.FindSubstr(0, "="); result.mError.IsNone()) {
         if (auto err = tmpStr.Resize(result.mValue); !err.IsNone()) {
             return {0, AOS_ERROR_WRAP(err)};
         }
@@ -27,7 +26,7 @@ RetWithError<StaticString<cEnvVarNameLen>> GetEnvVarName(const String& envVar)
 
     tmpStr.Trim(" ");
 
-    return tmpStr;
+    return StaticString<cEnvVarNameLen>(tmpStr);
 }
 
 } // namespace
@@ -74,7 +73,7 @@ Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
 }
 
 // cppcheck-suppress constParameter
-Error AddEnvVars(const Array<StaticString<cEnvVarNameLen>>& envVars, oci::RuntimeSpec& runtimeSpec)
+Error AddEnvVars(const Array<StaticString<cEnvVarLen>>& envVars, oci::RuntimeSpec& runtimeSpec)
 {
     for (const auto& newEnvVar : envVars) {
         StaticString<cEnvVarNameLen> newEnvVarName;
