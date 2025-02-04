@@ -766,33 +766,29 @@ void Launcher::RestartInstances(const Array<InstanceData>& instances)
         LOG_DBG() << "Restart instances";
 
         for (const auto& info : instances) {
-            // Skip already stopped instances
-            if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
-                if (auto err = mLaunchPool.AddTask([this, &info](void*) {
-                        auto err = StopInstance(info.mInstanceID);
-                        if (!err.IsNone()) {
+            if (auto err = mLaunchPool.AddTask([this, &info](void*) {
+                    if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
+                        if (auto err = StopInstance(info.mInstanceID); !err.IsNone()) {
                             LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
                                       << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
                         }
-                    });
-                    !err.IsNone()) {
-                    LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
-                              << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
-                }
-            } else {
-                LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent;
-            }
+                    } else {
+                        LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
+                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent;
+                    }
 
-            if (auto err = mLaunchPool.AddTask([this, &info](void*) {
-                    auto err = StartInstance(info);
-                    if (!err.IsNone()) {
-                        LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
-                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                    if (GetInstance(info.mInstanceID) == mCurrentInstances.end()) {
+                        if (auto err = StartInstance(info); !err.IsNone()) {
+                            LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
+                                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                        }
+                    } else {
+                        LOG_WRN() << "Instance already started: instanceID=" << info.mInstanceID
+                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent;
                     }
                 });
                 !err.IsNone()) {
-                LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
+                LOG_ERR() << "Can't restart instance: instanceID=" << info.mInstanceID
                           << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
             }
         }
