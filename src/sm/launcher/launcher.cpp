@@ -1144,7 +1144,13 @@ Error Launcher::GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<Sta
     for (const auto& currentEnvVar : mCurrentEnvVars) {
         if (currentEnvVar.mFilter.Match(instanceIdent)) {
             for (const auto& envVar : currentEnvVar.mVariables) {
-                if (auto err = envVars.PushBack(envVar.mName); !err.IsNone()) {
+                StaticString<cEnvVarLen> fullEnvVar;
+
+                if (auto err = fullEnvVar.Format("%s=%s", envVar.mName.CStr(), envVar.mValue.CStr()); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+
+                if (auto err = envVars.PushBack(fullEnvVar); !err.IsNone()) {
                     return AOS_ERROR_WRAP(err);
                 }
             }
