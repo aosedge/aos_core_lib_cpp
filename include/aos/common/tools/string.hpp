@@ -37,8 +37,10 @@ public:
      * @param str C string.
      */
     String(const char* str)
-        : Array(const_cast<char*>(str), str ? strlen(str) : 0)
+        : Array(const_cast<char*>(str), str ? strnlen(str, cStrlenLimit) : 0)
     {
+        assert(Size() != cStrlenLimit);
+
         if (str && *end()) {
             *end() = 0;
         }
@@ -743,6 +745,9 @@ public:
 
         return {Size(), ErrorEnum::eNotFound};
     }
+
+private:
+    static constexpr size_t cStrlenLimit = 8192;
 };
 
 /**
