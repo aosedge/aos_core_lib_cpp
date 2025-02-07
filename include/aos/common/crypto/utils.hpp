@@ -148,6 +148,25 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id);
 Error ParsePKCS11URL(
     const String& url, String& library, String& token, String& label, Array<uint8_t>& id, String& userPin);
 
+/**
+ * Generates random string.
+ *
+ * @param result result string.
+ * @param random random interface.
+ * @return Error.
+ */
+template <size_t size>
+Error GenerateRandomString(String& result, RandomItf& random)
+{
+    StaticArray<uint8_t, size> buffer;
+
+    if (auto err = random.RandBuffer(buffer, size); !err.IsNone()) {
+        return err;
+    }
+
+    return result.ByteArrayToHex(buffer);
+}
+
 } // namespace aos::crypto
 
 #endif

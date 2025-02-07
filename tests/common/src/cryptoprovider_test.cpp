@@ -18,6 +18,7 @@
 #include <mbedtls/x509_crt.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
+#include "aos/common/crypto/utils.hpp"
 #include "aos/test/log.hpp"
 
 /***********************************************************************************************************************
@@ -1044,4 +1045,69 @@ TEST_F(CryptoProviderTest, UnimplementedHashAlgorithm)
 
     ASSERT_TRUE(err.Is(aos::ErrorEnum::eNotSupported));
     ASSERT_EQ(hasherPtr.Get(), nullptr);
+}
+
+TEST_F(CryptoProviderTest, RandInt)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+    ASSERT_EQ(provider.Init(), aos::ErrorEnum::eNone);
+
+    constexpr uint64_t kMaxValue = 100;
+
+    for (int i = 0; i < 100; i++) {
+        auto [value, err] = provider.RandInt(kMaxValue);
+        ASSERT_TRUE(err.IsNone());
+        ASSERT_LT(value, kMaxValue);
+    }
+
+    auto [value1, err1] = provider.RandInt(kMaxValue);
+    auto [value2, err2] = provider.RandInt(kMaxValue);
+
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_TRUE(err2.IsNone());
+    ASSERT_NE(value1, value2);
+}
+
+TEST_F(CryptoProviderTest, RandBuffer)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+    ASSERT_EQ(provider.Init(), aos::ErrorEnum::eNone);
+
+    constexpr size_t                       kBufferSize = 16;
+    aos::StaticArray<uint8_t, kBufferSize> buffer1;
+    aos::StaticArray<uint8_t, kBufferSize> buffer2;
+
+    ASSERT_EQ(provider.RandBuffer(buffer1, kBufferSize), aos::ErrorEnum::eNone);
+    ASSERT_EQ(provider.RandBuffer(buffer2, kBufferSize), aos::ErrorEnum::eNone);
+
+    ASSERT_EQ(buffer1.Size(), kBufferSize);
+    ASSERT_EQ(buffer2.Size(), kBufferSize);
+
+    ASSERT_NE(buffer1, buffer2);
+}
+
+TEST_F(CryptoProviderTest, GenerateRandomString)
+{
+    aos::crypto::MbedTLSCryptoProvider provider;
+    ASSERT_EQ(provider.Init(), aos::ErrorEnum::eNone);
+
+    constexpr size_t             kSize = 4;
+    aos::StaticString<kSize * 2> result1;
+    aos::StaticString<kSize * 2> result2;
+
+    ASSERT_EQ(aos::crypto::GenerateRandomString<kSize>(result1, provider), aos::ErrorEnum::eNone);
+    ASSERT_EQ(aos::crypto::GenerateRandomString<kSize>(result2, provider), aos::ErrorEnum::eNone);
+
+    ASSERT_FALSE(result1.IsEmpty());
+    ASSERT_FALSE(result2.IsEmpty());
+    ASSERT_EQ(result1.Size(), kSize * 2);
+    ASSERT_EQ(result2.Size(), kSize * 2);
+    ASSERT_NE(result1, result2);
+
+    for (const auto& c : result1) {
+        ASSERT_TRUE(isxdigit(c));
+    }
+    for (const auto& c : result2) {
+        ASSERT_TRUE(isxdigit(c));
+    }
 }

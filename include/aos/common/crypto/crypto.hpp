@@ -271,6 +271,31 @@ public:
     virtual ~HasherItf() = default;
 };
 
+class RandomItf {
+public:
+    /**
+     * Generates random integer value in range [0..maxValue].
+     *
+     * @param maxValue maximum value.
+     * @return RetWithError<uint64_t>.
+     */
+    virtual RetWithError<uint64_t> RandInt(uint64_t maxValue) = 0;
+
+    /**
+     * Generates random buffer.
+     *
+     * @param[out] buffer result buffer.
+     * @param size buffer size.
+     * @return Error.
+     */
+    virtual Error RandBuffer(Array<uint8_t>& buffer, size_t size = 0) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~RandomItf() = default;
+};
+
 /**
  * Options being used while signing.
  */

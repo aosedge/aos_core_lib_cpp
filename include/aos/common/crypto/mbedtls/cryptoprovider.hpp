@@ -22,7 +22,7 @@ namespace aos::crypto {
 /**
  * MbedTLSCryptoProvider provider.
  */
-class MbedTLSCryptoProvider : public x509::ProviderItf, public HasherItf {
+class MbedTLSCryptoProvider : public x509::ProviderItf, public HasherItf, public RandomItf {
 public:
     /**
      * Initializes the object.
@@ -180,6 +180,23 @@ public:
      * @return RetWithError<UniquePtr<HashItf>>.
      */
     RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
+
+    /**
+     * Generates random integer value in range [0..maxValue].
+     *
+     * @param maxValue maximum value.
+     * @return RetWithError<uint64_t>.
+     */
+    RetWithError<uint64_t> RandInt(uint64_t maxValue) override;
+
+    /**
+     * Generates random buffer.
+     *
+     * @param[out] buffer result buffer.
+     * @param size buffer size.
+     * @return Error.
+     */
+    Error RandBuffer(Array<uint8_t>& buffer, size_t size) override;
 
 private:
     class MBedTLSHash : public crypto::HashItf, private NonCopyable {

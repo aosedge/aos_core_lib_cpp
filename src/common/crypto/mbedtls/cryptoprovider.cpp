@@ -619,6 +619,58 @@ RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorith
     return {UniquePtr<HashItf>(Move(hasher)), ErrorEnum::eNone};
 }
 
+RetWithError<uint64_t> MbedTLSCryptoProvider::RandInt(uint64_t maxValue)
+{
+    mbedtls_ctr_drbg_context ctrDrbg;
+    mbedtls_entropy_context  entropy;
+
+    mbedtls_ctr_drbg_init(&ctrDrbg);
+    mbedtls_entropy_init(&entropy);
+
+    [[maybe_unused]] auto freeDRBG    = DeferRelease(&ctrDrbg, mbedtls_ctr_drbg_free);
+    [[maybe_unused]] auto freeEntropy = DeferRelease(&entropy, mbedtls_entropy_free);
+
+    if (auto ret = mbedtls_ctr_drbg_seed(&ctrDrbg, mbedtls_entropy_func, &entropy, nullptr, 0); ret != 0) {
+        return {0, AOS_ERROR_WRAP(ret)};
+    }
+
+    uint64_t result;
+
+    if (auto ret = mbedtls_ctr_drbg_random(&ctrDrbg, reinterpret_cast<unsigned char*>(&result), sizeof(result));
+        ret != 0) {
+        return {0, AOS_ERROR_WRAP(ret)};
+    }
+
+    return result % maxValue;
+}
+
+Error MbedTLSCryptoProvider::RandBuffer(Array<uint8_t>& buffer, size_t size)
+{
+    if (size == 0) {
+        size = buffer.MaxSize();
+    }
+
+    mbedtls_ctr_drbg_context ctrDrbg;
+    mbedtls_entropy_context  entropy;
+
+    mbedtls_ctr_drbg_init(&ctrDrbg);
+    mbedtls_entropy_init(&entropy);
+
+    [[maybe_unused]] auto freeDRBG    = DeferRelease(&ctrDrbg, mbedtls_ctr_drbg_free);
+    [[maybe_unused]] auto freeEntropy = DeferRelease(&entropy, mbedtls_entropy_free);
+
+    if (auto ret = mbedtls_ctr_drbg_seed(&ctrDrbg, mbedtls_entropy_func, &entropy, nullptr, 0); ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    buffer.Resize(size);
+    if (auto ret = mbedtls_ctr_drbg_random(&ctrDrbg, buffer.Get(), size); ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
