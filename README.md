@@ -1,5 +1,6 @@
 [![ci](https://github.com/aosedge/aos_core_lib_cpp/actions/workflows/build_test.yaml/badge.svg)](https://github.com/aosedge/aos_core_lib_cpp/actions/workflows/build_test.yaml)
 [![codecov](https://codecov.io/gh/aosedge/aos_core_lib_cpp/graph/badge.svg?token=kg8h7ATd9S)](https://codecov.io/gh/aosedge/aos_core_lib_cpp)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=aosedge_aos_core_lib_cpp&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=aosedge_aos_core_lib_cpp)
 
 # Aos core cpp libraries
 
