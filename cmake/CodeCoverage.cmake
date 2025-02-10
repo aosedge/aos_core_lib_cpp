@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2012 - 2017, Lars Bilke
 # All rights reserved.
 #
@@ -170,11 +169,19 @@ set(COVERAGE_COMPILER_FLAGS
     "-g --coverage"
     CACHE INTERNAL ""
 )
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
     include(CheckCXXCompilerFlag)
-    check_cxx_compiler_flag(-fprofile-abs-path HAVE_fprofile_abs_path)
-    if(HAVE_fprofile_abs_path)
-        set(COVERAGE_COMPILER_FLAGS "${COVERAGE_COMPILER_FLAGS} -fprofile-abs-path")
+    check_cxx_compiler_flag(-fprofile-abs-path HAVE_cxx_fprofile_abs_path)
+    if(HAVE_cxx_fprofile_abs_path)
+        set(COVERAGE_CXX_COMPILER_FLAGS "${COVERAGE_COMPILER_FLAGS} -fprofile-abs-path")
+    endif()
+endif()
+if(CMAKE_C_COMPILER_ID MATCHES "(GNU|Clang)")
+    include(CheckCCompilerFlag)
+    check_c_compiler_flag(-fprofile-abs-path HAVE_c_fprofile_abs_path)
+    if(HAVE_c_fprofile_abs_path)
+        set(COVERAGE_C_COMPILER_FLAGS "${COVERAGE_COMPILER_FLAGS} -fprofile-abs-path")
     endif()
 endif()
 
@@ -212,7 +219,6 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_Fortran_COMPILER_ID STREQUAL "GNU
     link_libraries(gcov)
 endif()
 
-# ~~~
 # Defines a target for running and collection code coverage information
 # Builds dependencies, runs the given executable and outputs reports.
 # NOTE! The executable should always have a ZERO as exit code otherwise
@@ -229,7 +235,6 @@ endif()
 #     NO_DEMANGLE                                 # Don't demangle C++ symbols
 #                                                 #  even if c++filt is found
 # )
-# ~~~
 function(setup_target_for_coverage_lcov)
 
     set(options NO_DEMANGLE SONARQUBE)
@@ -267,7 +272,8 @@ function(setup_target_for_coverage_lcov)
         set(GENHTML_EXTRA_ARGS "--demangle-cpp")
     endif()
 
-    # Setting up commands which will be run to generate coverage data. Cleanup lcov
+    # Setting up commands which will be run to generate coverage data.
+    # Cleanup lcov
     set(LCOV_CLEAN_CMD
         ${LCOV_PATH}
         ${Coverage_LCOV_ARGS}
@@ -432,7 +438,6 @@ function(setup_target_for_coverage_lcov)
 
 endfunction() # setup_target_for_coverage_lcov
 
-# ~~~
 # Defines a target for running and collection code coverage information
 # Builds dependencies, runs the given executable and outputs reports.
 # NOTE! The executable should always have a ZERO as exit code otherwise
@@ -449,7 +454,6 @@ endfunction() # setup_target_for_coverage_lcov
 # )
 # The user can set the variable GCOVR_ADDITIONAL_ARGS to supply additional flags to the
 # GCVOR command.
-# ~~~
 function(setup_target_for_coverage_gcovr_xml)
 
     set(options NONE)
@@ -485,7 +489,8 @@ function(setup_target_for_coverage_gcovr_xml)
         list(APPEND GCOVR_EXCLUDE_ARGS "${EXCLUDE}")
     endforeach()
 
-    # Set up commands which will be run to generate coverage data Run tests
+    # Set up commands which will be run to generate coverage data
+    # Run tests
     set(GCOVR_XML_EXEC_TESTS_CMD ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS})
     # Running gcovr
     set(GCOVR_XML_CMD
@@ -531,7 +536,6 @@ function(setup_target_for_coverage_gcovr_xml)
     )
 endfunction() # setup_target_for_coverage_gcovr_xml
 
-# ~~~
 # Defines a target for running and collection code coverage information
 # Builds dependencies, runs the given executable and outputs reports.
 # NOTE! The executable should always have a ZERO as exit code otherwise
@@ -548,7 +552,6 @@ endfunction() # setup_target_for_coverage_gcovr_xml
 # )
 # The user can set the variable GCOVR_ADDITIONAL_ARGS to supply additional flags to the
 # GCVOR command.
-# ~~~
 function(setup_target_for_coverage_gcovr_html)
 
     set(options NONE)
@@ -584,7 +587,8 @@ function(setup_target_for_coverage_gcovr_html)
         list(APPEND GCOVR_EXCLUDE_ARGS "${EXCLUDE}")
     endforeach()
 
-    # Set up commands which will be run to generate coverage data Run tests
+    # Set up commands which will be run to generate coverage data
+    # Run tests
     set(GCOVR_HTML_EXEC_TESTS_CMD ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS})
     # Create folder
     set(GCOVR_HTML_FOLDER_CMD ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME})
@@ -639,7 +643,6 @@ function(setup_target_for_coverage_gcovr_html)
 
 endfunction() # setup_target_for_coverage_gcovr_html
 
-# ~~~
 # Defines a target for running and collection code coverage information
 # Builds dependencies, runs the given executable and outputs reports.
 # NOTE! The executable should always have a ZERO as exit code otherwise
@@ -657,7 +660,6 @@ endfunction() # setup_target_for_coverage_gcovr_html
 #     SKIP_HTML                                   # Don't create html report
 #     POST_CMD perl -i -pe s!${PROJECT_SOURCE_DIR}/!!g ctest_coverage.json  # E.g. for stripping source dir from file paths
 # )
-# ~~~
 function(setup_target_for_coverage_fastcov)
 
     set(options NO_DEMANGLE SKIP_HTML)
@@ -813,7 +815,10 @@ endfunction() # append_coverage_compiler_flags
 function(append_coverage_compiler_flags_to_target name)
     separate_arguments(_flag_list NATIVE_COMMAND "${COVERAGE_COMPILER_FLAGS}")
     target_compile_options(${name} PRIVATE ${_flag_list})
-    if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU"
+       OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+       OR CMAKE_Fortran_COMPILER_ID STREQUAL "GNU"
+    )
         target_link_libraries(${name} PRIVATE gcov)
     endif()
 endfunction()
