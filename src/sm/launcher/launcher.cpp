@@ -889,7 +889,6 @@ Error Launcher::StartInstance(const InstanceData& info)
 
     if (auto err = instance->Start(); !err.IsNone()) {
         LockGuard lock {mMutex};
-
         instance->SetRunError(err);
 
         return err;
@@ -912,18 +911,19 @@ Error Launcher::StopInstance(const String& instanceID)
         }
     }
 
+    [[maybe_unused]] auto removeInstance = DeferRelease(&instance, [this, it = instance](Instance* instance) {
+        (void)instance;
+
+        LockGuard lock {mMutex};
+
+        mCurrentInstances.Remove(it);
+    });
+
     if (auto err = instance->Stop(); !err.IsNone()) {
         return err;
     }
 
     LOG_INF() << "Instance stopped: instanceID=" << *instance;
-
-    {
-        LockGuard lock {mMutex};
-
-        mCurrentInstances.RemoveIf(
-            [&instanceID](const Instance& instance) { return instance.InstanceID() == instanceID; });
-    }
 
     return ErrorEnum::eNone;
 }
