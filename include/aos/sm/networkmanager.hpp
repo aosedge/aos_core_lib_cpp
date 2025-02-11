@@ -604,9 +604,12 @@ private:
     StaticString<cFilePathLen>  mCNINetworkCacheDir;
     NetworkCache                mNetworkData;
     mutable Mutex               mMutex;
-    StaticAllocator<sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result), cNumAllocations>
-                                                            mAllocator;
-    mutable StaticAllocator<sizeof(Host) * 3, cMaxNumHosts> mHostAllocator;
+    StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))
+            * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES,
+        cNumAllocations>
+        mAllocator;
+    mutable StaticAllocator<(sizeof(Host) * 3) * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES, cNumAllocations>
+        mHostAllocator;
 };
 
 /** @}*/
