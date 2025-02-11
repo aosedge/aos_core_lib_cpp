@@ -25,6 +25,44 @@ namespace aos {
 constexpr auto cFilePathLen = AOS_CONFIG_FS_FILE_PATH_LEN;
 
 /**
+ * File system interface.
+ */
+class HostFSItf {
+public:
+    /**
+     * Gets mount point for the given directory.
+     *
+     * @param dir directory path.
+     * @return RetWithError<StaticString<cFilePathLen>>.
+     */
+    virtual RetWithError<StaticString<cFilePathLen>> GetMountPoint(const String& dir) const = 0;
+
+    /**
+     * Gets total size of the given directory.
+     *
+     * @param dir directory path.
+     * @return RetWithError<int64_t>.
+     */
+    virtual RetWithError<int64_t> GetTotalSize(const String& dir) const = 0;
+
+    /**
+     * Gets directory size.
+     *
+     * @param dir directory path.
+     * @return RetWithError<int64_t>.
+     */
+    virtual RetWithError<int64_t> GetDirSize(const String& dir) const = 0;
+
+    /**
+     * Gets available size.
+     *
+     * @param dir directory path.
+     * @return RetWithError<int64_t>.
+     */
+    virtual RetWithError<int64_t> GetAvailableSize(const String& dir) const = 0;
+};
+
+/**
  * File system instance.
  */
 class FS {

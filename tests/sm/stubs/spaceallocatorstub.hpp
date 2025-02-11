@@ -124,7 +124,16 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Allocates done.
+     *
+     * @return Error.
+     */
+    Error AllocateDone() override { return ErrorEnum::eNone; }
+
 private:
+    void Free(uint64_t size) override { (void)size; }
+
     StaticAllocator<1024> mAllocator;
 };
 
