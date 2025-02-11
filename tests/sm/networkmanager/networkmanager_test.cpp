@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <thread>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -91,47 +93,76 @@ protected:
 
 TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
 {
-    const aos::String instanceID = "test-instance";
-    const aos::String networkID  = "test-network";
-    auto              params     = CreateTestInstanceNetworkParameters();
+    const int                              numInstances = 4;
+    std::vector<std::thread>               threads;
+    std::vector<std::string>               instanceIDs;
+    std::vector<std::string>               networkIDs;
+    std::vector<InstanceNetworkParameters> paramsVec;
 
-    params.mHostsFilePath = aos::FS::JoinPath(mWorkingDir, "hosts");
+    for (int i = 0; i < numInstances; i++) {
+        instanceIDs.push_back(std::string("test-instance-" + std::to_string(i)));
+        networkIDs.push_back(std::string("test-network-" + std::to_string(i)));
+
+        auto        params            = CreateTestInstanceNetworkParameters();
+        std::string ip                = "192.168.1." + std::to_string(i + 2);
+        std::string hostname          = "test-host-" + std::to_string(i);
+        params.mNetworkParameters.mIP = aos::String(ip.c_str());
+        params.mHostname              = aos::String(hostname.c_str());
+        std::string hostsFilePath     = "hosts_" + std::to_string(i);
+        params.mHostsFilePath         = aos::FS::JoinPath(mWorkingDir, hostsFilePath.c_str());
+        paramsVec.push_back(params);
+    }
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
     EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+        .Times(numInstances)
+        .WillRepeatedly(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
 
-    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
+        .Times(numInstances)
+        .WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
-        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+        .Times(numInstances)
+        .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    for (int i = 0; i < numInstances; i++) {
+        threads.emplace_back([this, i, &instanceIDs, &networkIDs, &paramsVec]() {
+            ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceIDs[i].c_str(), networkIDs[i].c_str(), paramsVec[i]),
+                aos::ErrorEnum::eNone);
+        });
+    }
 
-    aos::StaticString<aos::cIPLen> ip;
+    for (auto& thread : threads) {
+        thread.join();
+    }
 
-    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID, networkID, ip), aos::ErrorEnum::eNone);
+    for (int i = 0; i < numInstances; i++) {
+        aos::StaticString<aos::cIPLen> ip;
+        EXPECT_EQ(mNetManager->GetInstanceIP(instanceIDs[i].c_str(), networkIDs[i].c_str(), ip), aos::ErrorEnum::eNone);
+        EXPECT_EQ(ip, paramsVec[i].mNetworkParameters.mIP);
+    }
 
-    EXPECT_EQ(ip, params.mNetworkParameters.mIP);
+    for (int i = 0; i < numInstances; i++) {
+        std::string hostsContent = ReadFile(paramsVec[i].mHostsFilePath.CStr());
 
-    std::string hostsContent = ReadFile(params.mHostsFilePath.CStr());
+        EXPECT_THAT(hostsContent, HasSubstr("127.0.0.1\tlocalhost"));
+        EXPECT_THAT(hostsContent, HasSubstr("::1\tlocalhost ip6-localhost ip6-loopback"));
 
-    EXPECT_THAT(hostsContent, HasSubstr("127.0.0.1\tlocalhost"));
-    EXPECT_THAT(hostsContent, HasSubstr("::1\tlocalhost ip6-localhost ip6-loopback"));
-    EXPECT_THAT(hostsContent, HasSubstr(std::string(params.mNetworkParameters.mIP.CStr()) + "\t" + networkID.CStr()));
-    EXPECT_THAT(hostsContent, HasSubstr("10.0.0.1\thost1.example.com"));
-    EXPECT_THAT(hostsContent, HasSubstr("10.0.0.2\thost2.example.com"));
+        EXPECT_THAT(
+            hostsContent, HasSubstr(std::string(paramsVec[i].mNetworkParameters.mIP.CStr()) + "\t" + networkIDs[i]));
+        EXPECT_THAT(hostsContent, HasSubstr("10.0.0.1\thost1.example.com"));
+        EXPECT_THAT(hostsContent, HasSubstr("10.0.0.2\thost2.example.com"));
 
-    LOG_INF() << "Hosts file content: " << hostsContent.c_str();
-    LOG_INF() << "Host: " << params.mHostname;
-
-    if (!params.mHostname.IsEmpty()) {
-        EXPECT_THAT(hostsContent,
-            HasSubstr(std::string(params.mNetworkParameters.mIP.CStr()) + "\t" + networkID.CStr() + " "
-                + params.mHostname.CStr()));
+        if (!paramsVec[i].mHostname.IsEmpty()) {
+            EXPECT_THAT(hostsContent,
+                HasSubstr(std::string(paramsVec[i].mNetworkParameters.mIP.CStr()) + "\t" + networkIDs[i] + " "
+                    + paramsVec[i].mHostname.CStr()));
+        }
     }
 }
 
