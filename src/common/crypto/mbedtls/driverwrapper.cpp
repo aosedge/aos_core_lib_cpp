@@ -16,7 +16,6 @@
 #include "aos/common/tools/array.hpp"
 #include "aos/common/tools/thread.hpp"
 
-#include "../log.hpp"
 #include "drivers/aos/psa_crypto_driver_aos.h"
 
 /***********************************************************************************************************************
