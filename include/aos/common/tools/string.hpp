@@ -252,6 +252,8 @@ public:
             }
         }
 
+        *end() = 0;
+
         return *this;
     }
 
