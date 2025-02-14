@@ -8,8 +8,10 @@
 set(TARGET aoscommon)
 
 option(WITH_MBEDTLS "build with mbedTLS" ON)
+option(WITH_OPENSSL "build with OpenSSL" OFF)
 
 message(STATUS "WITH_MBEDTLS                  = ${WITH_MBEDTLS}")
+message(STATUS "WITH_OPENSSL                  = ${WITH_OPENSSL}")
 message(STATUS)
 
 # ######################################################################################################################
@@ -86,8 +88,6 @@ endif()
 
 add_library(
     ${TARGET} STATIC
-    crypto/mbedtls/cryptoprovider.cpp
-    crypto/mbedtls/driverwrapper.cpp
     crypto/crypto.cpp
     crypto/cryptoutils.cpp
     monitoring/average.cpp
@@ -100,12 +100,19 @@ add_library(
     tools/time.cpp
     tools/timer.cpp
     tools/uuid.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp
 )
 
-target_sources(${TARGET} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp)
-
 if(WITH_MBEDTLS)
+    target_sources(${TARGET} PUBLIC crypto/mbedtls/cryptoprovider.cpp crypto/mbedtls/driverwrapper.cpp)
     target_link_libraries(${TARGET} PUBLIC mbedcrypto mbedx509 mbedtls)
+endif()
+
+if(WITH_OPENSSL)
+    find_package(OpenSSL REQUIRED)
+
+    target_sources(${TARGET} PUBLIC crypto/openssl/cryptoprovider.cpp crypto/openssl/opensslprovider.cpp)
+    target_link_libraries(${TARGET} PUBLIC OpenSSL::Crypto)
 endif()
 
 target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
