@@ -228,6 +228,9 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
         return AOS_ERROR_WRAP(err);
     }
 
+    notBefore.RightTrim("Z");
+    notAfter.RightTrim("Z");
+
     ret = mbedtls_x509write_crt_set_validity(&clientCert, notBefore.CStr(), notAfter.CStr());
     if (ret != 0) {
         return AOS_ERROR_WRAP(ret);
@@ -1257,6 +1260,9 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    notBefore.RightTrim("Z");
+    notAfter.RightTrim("Z");
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_validity(&cert, notBefore.Get(), notAfter.Get()));
 }
