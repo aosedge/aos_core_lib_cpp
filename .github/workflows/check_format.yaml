@@ -20,7 +20,7 @@ jobs:
         uses: jidicula/clang-format-action@v4.11.0
         with:
           clang-format-version: "15"
-          exclude-regex: src\/common\/crypto\/mbedtls\/drivers\/.*|mbedtls_config\.h|include\/aos\/common\/pkcs11\/cryptoki/.*
+          exclude-regex: src\/common\/crypto\/mbedtls\/drivers\/.*|mbedtls_config\.h|include\/aos\/common\/pkcs11\/cryptoki/.*|seqoid\.hpp
 
       - name: Run cmake-format style check
         run: |
