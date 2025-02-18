@@ -87,7 +87,7 @@ if(WITH_COVERAGE)
         ctest
         LCOV_ARGS
         --ignore-errors
-        mismatch
+        mismatch,negative
     )
 endif()
 
