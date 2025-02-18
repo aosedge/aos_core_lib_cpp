@@ -16,12 +16,9 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/common/monitoring/alertprocessor.cpp
     ${PROJECT_SOURCE_DIR}/src/common/monitoring/resourcemonitor.cpp
     src/alertprocessor_test.cpp
-    src/crypto_test.cpp
-    src/cryptoprovider_test.cpp
-    src/cryptoutils_test.cpp
+    src/crypto/crypto_test.cpp
     src/monitoring_test.cpp
     src/ocispec_test.cpp
-    src/pkcs11_test.cpp
     src/tools/allocator_test.cpp
     src/tools/array_test.cpp
     src/tools/buffer_test.cpp
@@ -45,6 +42,10 @@ set(SOURCES
     src/types_test.cpp
 )
 
+if(WITH_MBEDTLS OR WITH_OPENSSL)
+    set(SOURCES ${SOURCES} src/crypto/cryptoprovider_test.cpp src/crypto/cryptoutils_test.cpp src/pkcs11_test.cpp)
+endif()
+
 # ######################################################################################################################
 # Includes
 # ######################################################################################################################
@@ -62,6 +63,6 @@ add_definitions(-DAOS_CONFIG_MONITORING_POLL_PERIOD_SEC=1 -DAOS_CONFIG_MONITORIN
 # ######################################################################################################################
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} aoscommon aostestutils GTest::gmock_main)
+target_link_libraries(${TARGET} aostestutils GTest::gmock_main)
 
 gtest_discover_tests(${TARGET})

@@ -7,8 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
 #include "aos/common/crypto/utils.hpp"
+
+#include "aos/test/crypto/providers/cryptofactory.hpp"
 #include "aos/test/log.hpp"
 #include "aos/test/softhsmenv.hpp"
 
@@ -28,10 +29,12 @@ protected:
 
         ASSERT_TRUE(fs::WriteStringToFile(mPINSource, mPIN, 0664).IsNone());
 
-        ASSERT_TRUE(mCryptoProvider.Init().IsNone());
+        ASSERT_TRUE(mCryptoFactory.Init().IsNone());
+        mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
+
         ASSERT_TRUE(mSoftHSMEnv.Init(mPIN, mLabel).IsNone());
 
-        ASSERT_TRUE(mCertLoader.Init(mCryptoProvider, mSoftHSMEnv.GetManager()).IsNone());
+        ASSERT_TRUE(mCertLoader.Init(mCryptoFactory.GetCryptoProvider(), mSoftHSMEnv.GetManager()).IsNone());
 
         mLibrary = mSoftHSMEnv.GetLibrary();
         mSlotID  = mSoftHSMEnv.GetSlotID();
@@ -52,15 +55,15 @@ protected:
         crypto::x509::Certificate                  caCert, clientCert;
 
         ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/ca.cer.der", derBlob).IsNone());
-        ASSERT_TRUE(mCryptoProvider.DERToX509Cert(derBlob, caCert).IsNone());
+        ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, caCert).IsNone());
 
         ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/client.cer.der", derBlob).IsNone());
-        ASSERT_TRUE(mCryptoProvider.DERToX509Cert(derBlob, clientCert).IsNone());
+        ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, clientCert).IsNone());
 
         // import certificates
         ASSERT_TRUE(
-            pkcs11::Utils(session, mCryptoProvider, mAllocator).ImportCertificate(caID, mLabel, caCert).IsNone());
-        ASSERT_TRUE(pkcs11::Utils(session, mCryptoProvider, mAllocator)
+            pkcs11::Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(caID, mLabel, caCert).IsNone());
+        ASSERT_TRUE(pkcs11::Utils(session, *mCryptoProvider, mAllocator)
                         .ImportCertificate(clientID, mLabel, clientCert)
                         .IsNone());
     }
@@ -76,7 +79,7 @@ protected:
         pkcs11::PrivateKey key;
 
         Tie(key, err)
-            = pkcs11::Utils(session, mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
+            = pkcs11::Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
         ASSERT_TRUE(err.IsNone());
     }
 
@@ -84,8 +87,9 @@ protected:
     static constexpr auto mPIN       = "admin";
     static constexpr auto mPINSource = "pin.txt";
 
-    crypto::MbedTLSCryptoProvider mCryptoProvider;
-    test::SoftHSMEnv              mSoftHSMEnv;
+    DefaultCryptoFactory mCryptoFactory;
+    x509::ProviderItf*   mCryptoProvider = nullptr;
+    test::SoftHSMEnv     mSoftHSMEnv;
 
     pkcs11::SlotID                    mSlotID = 0;
     SharedPtr<pkcs11::LibraryContext> mLibrary;
@@ -244,17 +248,17 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
 
     // check client certificate
     aos::StaticString<aos::crypto::cCertSubjSize> subject;
-    ASSERT_TRUE(mCryptoProvider.ASN1DecodeDN((*chain)[0].mSubject, subject).IsNone());
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mSubject, subject).IsNone());
     EXPECT_EQ(std::string(subject.CStr()), std::string("CN=Aos Core"));
 
     aos::StaticString<aos::crypto::cCertIssuerSize> issuer;
-    ASSERT_TRUE(mCryptoProvider.ASN1DecodeDN((*chain)[0].mIssuer, issuer).IsNone());
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 
     // check CA certificate
     EXPECT_EQ((*chain)[1].mSubject, (*chain)[1].mIssuer);
 
-    ASSERT_TRUE(mCryptoProvider.ASN1DecodeDN((*chain)[1].mIssuer, issuer).IsNone());
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[1].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 }
 
@@ -325,17 +329,17 @@ TEST_F(CryptoutilsTest, FindCertificatesFromFile)
 
     // check client certificate
     aos::StaticString<aos::crypto::cCertSubjSize> subject;
-    ASSERT_TRUE(mCryptoProvider.ASN1DecodeDN((*chain)[0].mSubject, subject).IsNone());
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mSubject, subject).IsNone());
     EXPECT_EQ(std::string(subject.CStr()), std::string("CN=Aos Core"));
 
     aos::StaticString<aos::crypto::cCertIssuerSize> issuer;
-    ASSERT_TRUE(mCryptoProvider.ASN1DecodeDN((*chain)[0].mIssuer, issuer).IsNone());
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 
     // check CA certificate
     EXPECT_EQ((*chain)[1].mSubject, (*chain)[1].mIssuer);
 
-    ASSERT_TRUE(mCryptoProvider.ASN1DecodeDN((*chain)[1].mIssuer, issuer).IsNone());
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[1].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 }
 

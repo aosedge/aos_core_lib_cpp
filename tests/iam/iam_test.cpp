@@ -7,12 +7,11 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
 #include "aos/iam/certhandler.hpp"
 #include "aos/iam/certmodules/pkcs11/pkcs11.hpp"
+#include "aos/test/crypto/providers/cryptofactory.hpp"
 #include "aos/test/log.hpp"
 #include "aos/test/softhsmenv.hpp"
-#include "mbedtls/pk.h"
 #include "mocks/certhandlermock.hpp"
 #include "stubs/certhandlerstub.hpp"
 
@@ -30,8 +29,10 @@ protected:
     {
         test::InitLog();
 
+        ASSERT_TRUE(mCryptoFactory.Init().IsNone());
+        mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
+
         mCertHandler = MakeShared<CertHandler>(&mAllocator);
-        ASSERT_TRUE(mCryptoProvider.Init().IsNone());
         ASSERT_TRUE(mSOFTHSMEnv.Init("", "certhanler-integr-tests").IsNone());
     }
 
@@ -50,9 +51,9 @@ protected:
         auto& certModule   = mCertModules.Back();
 
         ASSERT_TRUE(
-            pkcs11Module.Init(name, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), mCryptoProvider).IsNone());
+            pkcs11Module.Init(name, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
         ASSERT_TRUE(
-            certModule.Init(name, GetCertModuleConfig(keyType, isSelfSigned), mCryptoProvider, pkcs11Module, mStorage)
+            certModule.Init(name, GetCertModuleConfig(keyType, isSelfSigned), *mCryptoProvider, pkcs11Module, mStorage)
                 .IsNone());
 
         ASSERT_TRUE(mCertHandler->RegisterModule(certModule).IsNone());
@@ -88,9 +89,10 @@ protected:
     }
 
     // Service providers
-    crypto::MbedTLSCryptoProvider mCryptoProvider;
-    test::SoftHSMEnv              mSOFTHSMEnv;
-    StorageStub                   mStorage;
+    crypto::DefaultCryptoFactory mCryptoFactory;
+    crypto::x509::ProviderItf*   mCryptoProvider = nullptr;
+    test::SoftHSMEnv             mSOFTHSMEnv;
+    StorageStub                  mStorage;
 
     // Modules
     static constexpr auto                       cMaxModulesCount = 3;
@@ -111,28 +113,6 @@ template <typename T, typename U>
 void CheckArray(const Array<T>& actual, const std::initializer_list<U>& expected)
 {
     EXPECT_THAT(std::vector<T>(actual.begin(), actual.end()), ElementsAreArray(expected));
-}
-
-void CheckCSRValid(const String& pemCSR)
-{
-    mbedtls_x509_csr csr;
-    mbedtls_x509_csr_init(&csr);
-
-    auto ret = mbedtls_x509_csr_parse(&csr, reinterpret_cast<const uint8_t*>(pemCSR.Get()), pemCSR.Size() + 1);
-    ASSERT_EQ(ret, 0);
-
-    // Unfortunately mbedtls_x509_csr_parse doesn't check the signature.
-    // and it looks like mbedtls doesn't provide API to check CSR signature at all.
-    // Just print CSR info as a final step of verification.
-    StaticString<512> csrInfo;
-
-    csrInfo.Resize(csrInfo.MaxSize());
-
-    ret = mbedtls_x509_csr_info(csrInfo.Get(), csrInfo.Size(), "   ", &csr);
-    ASSERT_TRUE(ret > 0);
-    LOG_INF() << "CSR info: \n" << csrInfo;
-
-    mbedtls_x509_csr_free(&csr);
 }
 
 Error FindCertificates(test::SoftHSMEnv& pkcs11Env, Array<pkcs11::ObjectHandle>& objects)
@@ -275,7 +255,7 @@ TEST_F(IAMTest, CreateKey)
     StaticString<crypto::cCSRPEMLen> csr;
     ASSERT_TRUE(mCertHandler->CreateKey("iam", "Aos Core", cPIN, csr).IsNone());
 
-    CheckCSRValid(csr);
+    ASSERT_TRUE(mCryptoFactory.VerifyCSR(csr.CStr()));
 }
 
 TEST_F(IAMTest, ApplyCertificate)
@@ -297,7 +277,7 @@ TEST_F(IAMTest, ApplyCertificate)
     auto     serial    = Array<uint8_t>(reinterpret_cast<uint8_t*>(&serialNum), sizeof(serialNum));
     StaticString<crypto::cCertPEMLen> clientCertChain;
 
-    ASSERT_TRUE(mCryptoProvider.CreateClientCert(csr, caKey, caCert, serial, clientCertChain).IsNone());
+    ASSERT_TRUE(mCryptoProvider->CreateClientCert(csr, caKey, caCert, serial, clientCertChain).IsNone());
 
     // add CA cert to the chain
     clientCertChain.Append(caCert);
@@ -536,9 +516,9 @@ TEST_F(IAMTest, RemoveInvalidPKCS11Objects)
 
     ASSERT_TRUE(fs::ReadFileToString(CERTIFICATES_DIR "/ca.pem", pemCert).IsNone());
 
-    ASSERT_TRUE(mCryptoProvider.PEMToX509Certs(pemCert, caCert).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pemCert, caCert).IsNone());
 
-    err = pkcs11::Utils(session, mCryptoProvider, mAllocator).ImportCertificate(certId, "iam", caCert[0]);
+    err = pkcs11::Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(certId, "iam", caCert[0]);
     ASSERT_TRUE(err.IsNone());
 
     // generate invalid key pair
@@ -549,7 +529,7 @@ TEST_F(IAMTest, RemoveInvalidPKCS11Objects)
     ASSERT_TRUE(err.IsNone());
 
     Tie(privKey, err)
-        = pkcs11::Utils(session, mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(keyId, "iam", 2048);
+        = pkcs11::Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(keyId, "iam", 2048);
     ASSERT_TRUE(err.IsNone());
 
     // find invalid object handles
@@ -586,10 +566,10 @@ TEST_F(IAMTest, RenewCertificate)
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
 
-    ApplyCertificate(*mCertHandler, mCryptoProvider, "iam", cPIN);
+    ApplyCertificate(*mCertHandler, *mCryptoProvider, "iam", cPIN);
 
     RegisterPKCS11Module("sm");
-    ApplyCertificate(*mCertHandler, mCryptoProvider, "sm", cPIN);
+    ApplyCertificate(*mCertHandler, *mCryptoProvider, "sm", cPIN);
 
     mCertModules.Clear();
     mPKCS11Modules.Clear();
