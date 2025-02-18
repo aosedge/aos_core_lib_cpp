@@ -20,6 +20,14 @@ include(cmake/gencertificates.cmake)
 
 set(SOURCES src/softhsmenv.cpp src/utils.cpp)
 
+if(WITH_MBEDTLS)
+    set(SOURCES ${SOURCES} src/crypto/providers/mbedtlsfactory.cpp)
+endif()
+
+if(WITH_OPENSSL)
+    set(SOURCES ${SOURCES} src/crypto/providers/opensslfactory.cpp)
+endif()
+
 # ######################################################################################################################
 # Set SOFTHSM test environment
 # ######################################################################################################################
@@ -31,6 +39,7 @@ gencertificates(${TARGET} "${CMAKE_CURRENT_BINARY_DIR}/softhsm")
 
 target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
 
+target_link_libraries(${TARGET} aoscommon)
 # ######################################################################################################################
 # Install
 # ######################################################################################################################
