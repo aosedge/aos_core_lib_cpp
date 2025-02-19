@@ -60,11 +60,29 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./build/coverage.total
 
-      - name: Run SonarQube Scan
+      - name: SonarCloud Scan on push
+        if: github.event_name == 'push'
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
+            --define sonar.cfamily.compile-commands="${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
+            --define sonar.coverageReportPaths=build/coverage_sonarqube.xml
+
+      - name: SonarCloud Scan on pull request
+        if: github.event_name == 'pull_request_target'
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        with:
+          projectBaseDir: "."
+          args: >
+            --define sonar.scm.revision=${{ github.event.pull_request.head.sha }}
+            --define sonar.pullrequest.key=${{ github.event.pull_request.number }}
+            --define sonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
+            --define sonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
             --define sonar.cfamily.compile-commands="${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
             --define sonar.coverageReportPaths=build/coverage_sonarqube.xml
