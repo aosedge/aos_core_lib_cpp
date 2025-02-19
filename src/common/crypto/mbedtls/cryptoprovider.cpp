@@ -21,8 +21,7 @@
 #include <psa/crypto.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
-
-#include "../log.hpp"
+#include "aos/common/tools/logger.hpp"
 
 extern "C" {
 // The following functions became private in mbedtls since 3.6.0.

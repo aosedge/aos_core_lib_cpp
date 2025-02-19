@@ -7,13 +7,6 @@
 
 set(TARGET aoscommon)
 
-option(WITH_MBEDTLS "build with mbedTLS" ON)
-option(WITH_OPENSSL "build with OpenSSL" OFF)
-
-message(STATUS "WITH_MBEDTLS                  = ${WITH_MBEDTLS}")
-message(STATUS "WITH_OPENSSL                  = ${WITH_OPENSSL}")
-message(STATUS)
-
 # ######################################################################################################################
 # Versioning
 # ######################################################################################################################
@@ -41,46 +34,13 @@ execute_process(
 # Includes
 # ######################################################################################################################
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # ######################################################################################################################
-# Fetch and setup MbedTLS
+# Add subdirectories
 # ######################################################################################################################
 
-if(WITH_MBEDTLS)
-    include(FetchContent)
-
-    set(FETCHCONTENT_QUIET FALSE)
-
-    FetchContent_Declare(
-        mbedtls
-        GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
-        GIT_TAG v3.6.1
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-        PATCH_COMMAND
-            cp ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers/psa_crypto_driver_wrappers_no_static.c
-            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers_no_static.c && cp
-            ${CMAKE_CURRENT_SOURCE_DIR}/crypto/mbedtls/drivers/psa_crypto_driver_wrappers.h
-            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.h && cp
-            ${AOS_CORE_LIB_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
-            ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include/mbedtls/mbedtls_config.h
-    )
-
-    set(ENABLE_TESTING
-        OFF
-        CACHE BOOL "" FORCE
-    )
-    set(ENABLE_PROGRAMS
-        OFF
-        CACHE BOOL "" FORCE
-    )
-
-    FetchContent_MakeAvailable(mbedtls)
-
-    get_target_property(MBEDTLS_INCLDUES mbedtls INTERFACE_INCLUDE_DIRECTORIES)
-    target_include_directories(mbedtls SYSTEM INTERFACE ${MBEDTLS_INCLDUES})
-endif()
+add_subdirectory(crypto)
 
 # ######################################################################################################################
 # Target
@@ -88,8 +48,6 @@ endif()
 
 add_library(
     ${TARGET} STATIC
-    crypto/crypto.cpp
-    crypto/cryptoutils.cpp
     monitoring/average.cpp
     monitoring/alertprocessor.cpp
     monitoring/resourcemonitor.cpp
@@ -103,20 +61,9 @@ add_library(
     ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp
 )
 
-if(WITH_MBEDTLS)
-    target_sources(${TARGET} PUBLIC crypto/mbedtls/cryptoprovider.cpp crypto/mbedtls/driverwrapper.cpp)
-    target_link_libraries(${TARGET} PUBLIC mbedcrypto mbedx509 mbedtls)
-endif()
-
-if(WITH_OPENSSL)
-    find_package(OpenSSL REQUIRED)
-
-    target_sources(${TARGET} PUBLIC crypto/openssl/cryptoprovider.cpp crypto/openssl/opensslprovider.cpp)
-    target_link_libraries(${TARGET} PUBLIC OpenSSL::Crypto)
-endif()
-
 target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
 target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_link_libraries(${TARGET} PUBLIC aoscrypto)
 
 # ######################################################################################################################
 # Install
