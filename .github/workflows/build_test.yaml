@@ -52,7 +52,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          (cd build && ctest --repeat until-pass:2 --output-on-failure && make coverage)
+          (cd build && make coverage)
 
       - name: Upload codecov report
         uses: codecov/codecov-action@v4
