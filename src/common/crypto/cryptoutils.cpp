@@ -7,8 +7,7 @@
 
 #include "aos/common/crypto/utils.hpp"
 #include "aos/common/tools/fs.hpp"
-
-#include "log.hpp"
+#include "aos/common/tools/logger.hpp"
 
 namespace aos::crypto {
 
