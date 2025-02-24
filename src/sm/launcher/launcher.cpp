@@ -374,6 +374,10 @@ Error Launcher::RunLastInstances()
             ShowResourceUsageStats();
         });
         !err.IsNone()) {
+        LockGuard lock {mMutex};
+
+        mLaunchInProgress = false;
+
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1047,6 +1051,10 @@ Error Launcher::HandleOfflineTTLs()
         ShowResourceUsageStats();
     });
     if (!err.IsNone()) {
+        LockGuard lock {mMutex};
+
+        mLaunchInProgress = false;
+
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1262,6 +1270,10 @@ Error Launcher::UpdateInstancesEnvVars()
         ShowResourceUsageStats();
     });
     if (!err.IsNone()) {
+        LockGuard lock {mMutex};
+
+        mLaunchInProgress = false;
+
         return AOS_ERROR_WRAP(err);
     }
 
