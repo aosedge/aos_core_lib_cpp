@@ -61,7 +61,7 @@ public:
      */
     ~Thread()
     {
-#if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
+#if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0 && AOS_CONFIG_THREAD_STACK_USAGE
         [[maybe_unused]] auto ret
             = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ | PROT_WRITE);
         assert(ret == 0);
@@ -78,9 +78,14 @@ public:
     template <typename T>
     Error Run(T functor, void* arg = nullptr)
     {
-        auto err = mFunction.Capture(functor, arg);
-        if (!err.IsNone()) {
+        if (auto err = mFunction.Capture(functor, arg); !err.IsNone()) {
             return err;
+        }
+
+        pthread_attr_t attr;
+
+        if (auto ret = pthread_attr_init(&attr); ret != 0) {
+            return ret;
         }
 
 #if AOS_CONFIG_THREAD_STACK_USAGE
@@ -89,25 +94,32 @@ public:
 #endif
 
 #if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0
+#if AOS_CONFIG_THREAD_STACK_USAGE
         if (auto ret = mprotect(mStack, AlignedSize(cThreadStackGuardSize, cThreadStackAlign), PROT_READ); ret != 0) {
             return ret;
         }
+#else
+        if (auto ret = pthread_attr_setguardsize(&attr, cThreadStackGuardSize); ret != 0) {
+            return ret;
+        }
+#endif
 #endif
 
-        pthread_attr_t attr;
-
-        auto ret = pthread_attr_init(&attr);
-        if (ret != 0) {
-            return ret;
+        if (cStackSize) {
+#if AOS_CONFIG_THREAD_STACK_USAGE
+            if (auto ret = pthread_attr_setstack(&attr, &mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign)],
+                    AlignedSize(cStackSize, cThreadStackAlign));
+                ret != 0) {
+                return ret;
+            }
+#else
+            if (auto ret = pthread_attr_setstacksize(&attr, cStackSize); ret != 0) {
+                return ret;
+            }
+#endif
         }
 
-        ret = pthread_attr_setstack(&attr, &mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign)],
-            AlignedSize(cStackSize, cThreadStackAlign));
-        if (ret != 0) {
-            return ret;
-        }
-
-        ret = pthread_create(&mPThread, &attr, ThreadFunction, this);
+        auto ret = pthread_create(&mPThread, &attr, ThreadFunction, this);
 
         mJoinable = ret == 0;
 
@@ -148,8 +160,12 @@ public:
 #endif
 
 private:
+#if AOS_CONFIG_THREAD_STACK_USAGE
+    static_assert(cStackSize != 0, "thread stack size should be defined");
+
     alignas(cThreadStackAlign) uint8_t
         mStack[AlignedSize(cThreadStackGuardSize, cThreadStackAlign) + AlignedSize(cStackSize, cThreadStackAlign)];
+#endif
     StaticFunction<cFunctionMaxSize> mFunction;
     pthread_t                        mPThread  = {};
     bool                             mJoinable = false;

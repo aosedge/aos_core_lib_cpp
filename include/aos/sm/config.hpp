@@ -26,7 +26,7 @@
  * Launcher thread stack size.
  */
 #ifndef AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE
-#define AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE 32768
+#define AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE 0
 #endif
 
 /**
