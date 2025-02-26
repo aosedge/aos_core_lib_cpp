@@ -235,6 +235,7 @@ public:
 
         return end();
     }
+
     /**
      * Removes element from container.
      *
@@ -285,20 +286,35 @@ public:
      *
      * @tparam F type of sort function.
      * @param sortFunc sort function.
+     * @param tmpValue tmp value used for temporary storage.
      */
     template <typename F>
-    void Sort(F sortFunc)
+    void Sort(F sortFunc, T& tmpValue)
     {
         for (auto it1 = begin(); it1 != end(); it1++) {
             for (auto it2 = begin(); it2 != end(); it2++) {
                 if (sortFunc(*it1, *it2)) {
-                    auto tmp = *it1;
+                    tmpValue = *it1;
 
                     *it1 = *it2;
-                    *it2 = tmp;
+                    *it2 = tmpValue;
                 }
             }
         }
+    }
+
+    /*
+     * Sorts container items using sort function.
+     *
+     * @tparam F type of sort function.
+     * @param sortFunc sort function.
+     */
+    template <typename F>
+    void Sort(F sortFunc)
+    {
+        T tmpValue {};
+
+        Sort(sortFunc, tmpValue);
     }
 
     /**
@@ -307,6 +323,16 @@ public:
     void Sort()
     {
         Sort([](const T& val1, const T& val2) { return val1 < val2; });
+    }
+
+    /**
+     * Sorts container items using default comparision operator with temporary storage.
+     *
+     * @param tmpValue temporary storage.
+     */
+    void Sort(T& tmpValue)
+    {
+        Sort([](const T& val1, const T& val2) { return val1 < val2; }, tmpValue);
     }
 };
 

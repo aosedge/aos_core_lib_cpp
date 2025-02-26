@@ -328,13 +328,15 @@ TEST(ArrayTest, Sort)
 
     auto array = Array<int>(intValues, ArraySize(intValues));
 
-    array.Sort();
+    int tmpValue;
+
+    array.Sort(tmpValue);
 
     for (size_t i = 0; i < ArraySize(intValues); i++) {
         EXPECT_EQ(array[i], i);
     }
 
-    array.Sort([](int a, int b) { return a > b; });
+    array.Sort([](int a, int b) { return a > b; }, tmpValue);
 
     for (size_t i = 0; i < ArraySize(intValues); i++) {
         EXPECT_EQ(array[i], ArraySize(intValues) - i - 1);
