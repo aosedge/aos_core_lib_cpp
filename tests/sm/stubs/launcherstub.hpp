@@ -128,6 +128,21 @@ public:
         return ErrorEnum::eNone;
     }
 
+    Error GetInstance(const String& instanceID, InstanceData& instance) const
+    {
+        std::lock_guard lock {mMutex};
+
+        auto it = std::find_if(mInstances.begin(), mInstances.end(),
+            [&instanceID](const auto& instance) { return instance.mInstanceID == instanceID; });
+        if (it == mInstances.end()) {
+            return ErrorEnum::eNotFound;
+        }
+
+        instance = *it;
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     std::vector<InstanceData> mInstances;
     mutable std::mutex        mMutex;

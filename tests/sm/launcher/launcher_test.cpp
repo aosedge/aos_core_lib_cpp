@@ -37,6 +37,22 @@ using namespace aos::sm::runner;
 using namespace aos::sm::servicemanager;
 using namespace testing;
 
+/***********************************************************************************************************************
+ * std namespace
+ **********************************************************************************************************************/
+
+namespace std {
+template <>
+struct hash<aos::InstanceIdent> {
+    std::size_t operator()(const aos::InstanceIdent& instanceIdent) const
+    {
+        // Use std::string's hash function directly
+        return std::hash<std::string> {}(std::string(instanceIdent.mServiceID.CStr()) + "-"
+            + instanceIdent.mSubjectID.CStr() + "-" + std::to_string(instanceIdent.mInstance));
+    }
+};
+} // namespace std
+
 namespace aos::sm::launcher {
 
 namespace {
@@ -52,10 +68,11 @@ constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
  **********************************************************************************************************************/
 
 struct TestData {
-    std::vector<InstanceInfo>   mInstances;
-    std::vector<ServiceInfo>    mServices;
-    std::vector<LayerInfo>      mLayers;
-    std::vector<InstanceStatus> mStatus;
+    std::vector<InstanceInfo>                mInstances;
+    std::vector<ServiceInfo>                 mServices;
+    std::vector<LayerInfo>                   mLayers;
+    std::vector<InstanceStatus>              mStatus;
+    std::unordered_map<InstanceIdent, Error> mErrors;
 };
 
 /***********************************************************************************************************************
@@ -64,30 +81,94 @@ struct TestData {
 
 class LauncherTest : public Test {
 protected:
-    void SetUp() override
+    static void SetUpTestSuite()
     {
         test::InitLog();
+
+        LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
+    }
+
+    void SetUp() override
+    {
+        LOG_INF() << "Set up";
+
+        mLayerManager   = std::make_unique<LayerManagerStub>();
+        mServiceManager = std::make_unique<ServiceManagerStub>();
+        mOCIManager     = std::make_unique<OCISpecStub>();
+        mStatusReceiver = std::make_unique<StatusReceiverStub>();
+        mStorage        = std::make_unique<StorageStub>();
+
+        mLauncher = std::make_unique<Launcher>();
+
+        EXPECT_CALL(mNetworkManager, GetNetnsPath).WillRepeatedly(Invoke([](const String& instanceID) {
+            return RetWithError<StaticString<cFilePathLen>>(FS::JoinPath("/var/run/netns", instanceID));
+        }));
 
         EXPECT_CALL(mRunner, StartInstance)
             .WillRepeatedly(Return(RunStatus {"", InstanceRunStateEnum::eActive, ErrorEnum::eNone}));
 
-        EXPECT_CALL(mNetworkManager, GetNetnsPath)
-            .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>("/var/run/netns")));
+        ASSERT_TRUE(mLauncher
+                        ->Init(Config {}, mNodeInfoProvider, *mServiceManager, *mLayerManager, mResourceManager,
+                            mNetworkManager, mPermHandler, mRunner, mRuntime, mResourceMonitor, *mOCIManager,
+                            *mStatusReceiver, mConnectionPublisher, *mStorage)
+                        .IsNone());
+
+        ASSERT_TRUE(mLauncher->Start().IsNone());
+
+        auto runStatus = std::make_unique<InstanceStatusStaticArray>();
+
+        ASSERT_TRUE(mLauncher->GetCurrentRunStatus(*runStatus).IsNone());
+        EXPECT_TRUE(test::CompareArrays(*runStatus, Array<InstanceStatus>()));
     }
 
-    ConnectionPublisherMock mConnectionPublisher;
-    LayerManagerStub        mLayerManager;
-    NetworkManagerMock      mNetworkManager;
-    NodeInfoProviderMock    mNodeInfoProvider;
-    OCISpecStub             mOCIManager;
-    PermHandlerMock         mPermHandler;
-    ResourceManagerMock     mResourceManager;
-    ResourceMonitorMock     mResourceMonitor;
-    RunnerMock              mRunner;
-    RuntimeMock             mRuntime;
-    ServiceManagerStub      mServiceManager;
-    StatusReceiverStub      mStatusReceiver;
-    StorageStub             mStorage;
+    void TearDown() override
+    {
+        LOG_INF() << "Tear down";
+
+        ASSERT_TRUE(mLauncher->Stop().IsNone());
+
+        mLauncher.reset();
+    }
+
+    Error InstallService(const ServiceInfo& service)
+    {
+        auto imageSpec = std::make_unique<oci::ImageSpec>();
+
+        imageSpec->mOS = "linux";
+
+        auto serviceConfig = std::make_unique<ServiceConfig>();
+
+        serviceConfig->mRunners.PushBack("runc");
+
+        if (auto err
+            = mOCIManager->SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mOCIManager->SaveServiceConfig(
+                FS::JoinPath("/aos/services", service.mServiceID, "service.json"), *serviceConfig);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    std::unique_ptr<Launcher>           mLauncher;
+    NiceMock<ConnectionPublisherMock>   mConnectionPublisher;
+    std::unique_ptr<LayerManagerStub>   mLayerManager;
+    NiceMock<NetworkManagerMock>        mNetworkManager;
+    NiceMock<NodeInfoProviderMock>      mNodeInfoProvider;
+    std::unique_ptr<OCISpecStub>        mOCIManager;
+    NiceMock<PermHandlerMock>           mPermHandler;
+    NiceMock<ResourceManagerMock>       mResourceManager;
+    NiceMock<ResourceMonitorMock>       mResourceMonitor;
+    NiceMock<RunnerMock>                mRunner;
+    NiceMock<RuntimeMock>               mRuntime;
+    std::unique_ptr<ServiceManagerStub> mServiceManager;
+    std::unique_ptr<StatusReceiverStub> mStatusReceiver;
+    std::unique_ptr<StorageStub>        mStorage;
 };
 
 } // namespace
@@ -98,80 +179,112 @@ protected:
 
 TEST_F(LauncherTest, RunInstances)
 {
-    auto launcher = std::make_unique<Launcher>();
-
-    test::InitLog();
-
-    LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
-
-    ASSERT_TRUE(launcher
-                    ->Init(Config {}, mNodeInfoProvider, mServiceManager, mLayerManager, mResourceManager,
-                        mNetworkManager, mPermHandler, mRunner, mRuntime, mResourceMonitor, mOCIManager,
-                        mStatusReceiver, mConnectionPublisher, mStorage)
-                    .IsNone());
-
-    ASSERT_TRUE(launcher->Start().IsNone());
-
-    launcher->OnConnect();
-
-    // Get initial instance status
-
-    auto runStatus = std::make_unique<InstanceStatusStaticArray>();
-
-    EXPECT_TRUE(launcher->GetCurrentRunStatus(*runStatus).IsNone());
-    EXPECT_TRUE(test::CompareArrays(*runStatus, Array<InstanceStatus>()));
-
-    // Test different scenarios
-
-    struct TestData {
-        std::vector<InstanceInfo>   mInstances;
-        std::vector<ServiceInfo>    mServices;
-        std::vector<LayerInfo>      mLayers;
-        std::vector<InstanceStatus> mStatus;
-    };
-
     std::vector<TestData> testData = {
-        // Run instances first time
+        // start from scratch
         {
             std::vector<InstanceInfo> {
-                {{"service1", "subject1", 0}, 0, 0, "", "", {}},
-                {{"service1", "subject1", 1}, 0, 0, "", "", {}},
-                {{"service1", "subject1", 2}, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
-                {"service1", "provider1", "1.0.0", 0, "", {}, 0},
+                {"service0", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service1", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service2", "provider0", "1.0.0", 0, "", {}, 0},
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service1", "subject1", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 1}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 2}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service0", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service2", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
             },
-        },
-        // Empty instances
-        {
-            {},
-            {},
-            {},
             {},
         },
-        // Another instances round
+        // start the same instances
         {
             std::vector<InstanceInfo> {
-                {{"service1", "subject1", 4}, 0, 0, "", "", {}},
-                {{"service1", "subject1", 5}, 0, 0, "", "", {}},
-                {{"service1", "subject1", 6}, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
-                {"service1", "provider1", "2.0.0", 0, "", {}, 0},
+                {"service0", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service1", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service2", "provider0", "1.0.0", 0, "", {}, 0},
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service1", "subject1", 4}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 5}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
-                {{"service1", "subject1", 6}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service0", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service1", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service2", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+            },
+            {},
+        },
+        // stop and start some instances
+        {
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service2", "subject0", 1}, 0, 0, "", "", {}},
+                {{"service3", "subject0", 2}, 0, 0, "", "", {}},
+            },
+            std::vector<ServiceInfo> {
+                {"service0", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service2", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service3", "provider0", "1.0.0", 0, "", {}, 0},
+            },
+            {},
+            std::vector<InstanceStatus> {
+                {{"service0", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service2", "subject0", 1}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service3", "subject0", 2}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+            },
+            {},
+        },
+        // new service version
+        {
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service2", "subject0", 1}, 0, 0, "", "", {}},
+                {{"service3", "subject0", 2}, 0, 0, "", "", {}},
+            },
+            std::vector<ServiceInfo> {
+                {"service0", "provider0", "2.0.0", 0, "", {}, 0},
+                {"service2", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service3", "provider0", "1.0.0", 0, "", {}, 0},
+            },
+            {},
+            std::vector<InstanceStatus> {
+                {{"service0", "subject0", 0}, "2.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service2", "subject0", 1}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+                {{"service3", "subject0", 2}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+            },
+            {},
+        },
+        // run error
+        {
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, 0, 0, "", "", {}},
+            },
+            std::vector<ServiceInfo> {
+                {"service0", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service1", "provider0", "1.0.0", 0, "", {}, 0},
+                {"service2", "provider0", "1.0.0", 0, "", {}, 0},
+            },
+            {},
+            std::vector<InstanceStatus> {
+                {{"service0", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eFailed, ErrorEnum::eNotFound},
+                {{"service1", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eFailed, ErrorEnum::eNotFound},
+                {{"service2", "subject0", 0}, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone},
+            },
+            {
+                {InstanceIdent {"service0", "subject0", 0}, ErrorEnum::eNotFound},
+                {InstanceIdent {"service1", "subject0", 0}, ErrorEnum::eNotFound},
             },
         },
+        // stop all instances
+        {},
     };
 
     // Run instances
@@ -181,27 +294,30 @@ TEST_F(LauncherTest, RunInstances)
     for (auto& testItem : testData) {
         LOG_INF() << "Running test case #" << i++;
 
-        auto feature = mStatusReceiver.GetFeature();
-
-        auto imageSpec = std::make_unique<oci::ImageSpec>();
-
-        imageSpec->mOS = "linux";
-
-        auto serviceConfig = std::make_unique<ServiceConfig>();
-
-        serviceConfig->mRunners.PushBack("runc");
-
         for (const auto& service : testItem.mServices) {
-            ASSERT_TRUE(
-                mOCIManager.SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec)
-                    .IsNone());
-            ASSERT_TRUE(mOCIManager
-                            .SaveServiceConfig(
-                                FS::JoinPath("/aos/services", service.mServiceID, "service.json"), *serviceConfig)
-                            .IsNone());
+            ASSERT_TRUE(InstallService(service).IsNone());
         }
 
-        EXPECT_TRUE(launcher
+        auto feature = mStatusReceiver->GetFeature();
+
+        EXPECT_CALL(mRunner, StartInstance)
+            .WillRepeatedly(Invoke([this, &testItem](const String& instanceID, const String&, const RunParameters&) {
+                InstanceData instanceData;
+
+                if (auto err = mStorage->GetInstance(instanceID, instanceData); !err.IsNone()) {
+                    return RunStatus {"", InstanceRunStateEnum::eFailed, AOS_ERROR_WRAP(err)};
+                }
+
+                auto runError = testItem.mErrors[instanceData.mInstanceInfo.mInstanceIdent];
+
+                if (runError != ErrorEnum::eNone) {
+                    return RunStatus {"", InstanceRunStateEnum::eFailed, runError};
+                }
+
+                return RunStatus {"", InstanceRunStateEnum::eActive, ErrorEnum::eNone};
+            }));
+
+        EXPECT_TRUE(mLauncher
                         ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
                             Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
                             Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
@@ -212,7 +328,7 @@ TEST_F(LauncherTest, RunInstances)
             feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
     }
 
-    EXPECT_TRUE(launcher->Stop().IsNone());
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
 }
 
 } // namespace aos::sm::launcher

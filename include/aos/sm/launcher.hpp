@@ -347,7 +347,7 @@ private:
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
     static constexpr auto cAllocatorSize
-        = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 2 + sizeof(ServiceInfoStaticArray)
+        = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
                 + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
                 + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
             sizeof(EnvVarsArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray));
@@ -365,9 +365,10 @@ private:
     void  StartInstances(const Array<InstanceData>& instances);
     void  RestartInstances(const Array<InstanceData>& instances);
     void  CacheServices(const Array<InstanceData>& instances);
-    Error GetStartInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& startInstances) const;
-    Error GetStopInstances(
-        const Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances, bool forceRestart) const;
+    Error GetDesiredInstancesData(
+        const Array<InstanceInfo>& desiredInstancesInfo, Array<InstanceData>& desiredInstancesData) const;
+    Error CalculateInstances(const Array<InstanceData>& desiredInstancesData, bool forceRestart,
+        Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances);
     Error GetCurrentInstances(Array<InstanceData>& instances) const;
     Error StartInstance(const InstanceData& info);
     Error StopInstance(const String& instanceID);
