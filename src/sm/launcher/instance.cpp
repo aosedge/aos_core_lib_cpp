@@ -26,15 +26,16 @@ StaticAllocator<Instance::cAllocatorSize, Instance::cNumAllocations> Instance::s
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
-    servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-    resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkmanager,
-    iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
-    monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
-    const NodeInfo& nodeInfo)
-    : mConfig(config)
-    , mInstanceID(instanceID)
+Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
+    const servicemanager::ServiceData& service, const Config& config, servicemanager::ServiceManagerItf& serviceManager,
+    layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
+    networkmanager::NetworkManagerItf& networkmanager, iam::permhandler::PermHandlerItf& permHandler,
+    runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
+    oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo)
+    : mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
+    , mService(service)
+    , mConfig(config)
     , mServiceManager(serviceManager)
     , mLayerManager(layerManager)
     , mResourceManager(resourceManager)
@@ -48,26 +49,13 @@ Instance::Instance(const Config& config, const InstanceInfo& instanceInfo, const
     , mNodeInfo(nodeInfo)
     , mRuntimeDir(FS::JoinPath(cRuntimeDir, mInstanceID))
 {
-    LOG_DBG() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this;
-}
-
-void Instance::SetService(const servicemanager::ServiceData* service)
-{
-    mService = service;
-
-    if (mService) {
-        LOG_DBG() << "Set service for instance: serviceID=" << service->mServiceID << ", version=" << mService->mVersion
-                  << ", instanceID=" << *this;
-    }
+    LOG_DBG() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this
+              << ", serviceID=" << mService.mServiceID << ", version=" << mService.mVersion;
 }
 
 Error Instance::Start()
 {
     LOG_INF() << "Start instance: instanceID=" << *this << ", runtimeDir=" << mRuntimeDir;
-
-    if (!mService) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "service not found"));
-    }
 
     if (auto err = FS::ClearDir(mRuntimeDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -75,7 +63,7 @@ Error Instance::Start()
 
     auto imageParts = MakeUnique<image::ImageParts>(&sAllocator);
 
-    if (auto err = mServiceManager.GetImageParts(*mService, *imageParts); !err.IsNone()) {
+    if (auto err = mServiceManager.GetImageParts(mService, *imageParts); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -100,7 +88,7 @@ Error Instance::Start()
 
         LOG_DBG() << "Prepare state: instance=" << *this << ", path=" << statePath;
 
-        if (auto err = mRuntime.PrepareServiceState(statePath, mInstanceInfo.mUID, mService->mGID); !err.IsNone()) {
+        if (auto err = mRuntime.PrepareServiceState(statePath, mInstanceInfo.mUID, mService.mGID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -110,7 +98,7 @@ Error Instance::Start()
 
         LOG_DBG() << "Prepare storage: instance=" << *this << ", path=" << storagePath;
 
-        if (auto err = mRuntime.PrepareServiceStorage(storagePath, mInstanceInfo.mUID, mService->mGID); !err.IsNone()) {
+        if (auto err = mRuntime.PrepareServiceStorage(storagePath, mInstanceInfo.mUID, mService.mGID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -144,10 +132,6 @@ Error Instance::Stop()
 
     LOG_INF() << "Stop instance: instanceID=" << *this;
 
-    if (!mService && stopErr.IsNone()) {
-        stopErr = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "service not found"));
-    }
-
     if (auto err = mRunner.StopInstance(mInstanceID); !err.IsNone() && stopErr.IsNone()) {
         stopErr = err;
     }
@@ -165,11 +149,9 @@ Error Instance::Stop()
         mPermissionsRegistered = false;
     }
 
-    if (mService) {
-        if (auto err = mNetworkManager.RemoveInstanceFromNetwork(mInstanceID, mService->mProviderID);
-            !err.IsNone() && stopErr.IsNone()) {
-            stopErr = err;
-        }
+    if (auto err = mNetworkManager.RemoveInstanceFromNetwork(mInstanceID, mService.mProviderID);
+        !err.IsNone() && stopErr.IsNone()) {
+        stopErr = err;
     }
 
     auto rootfsPath = FS::JoinPath(mRuntimeDir, cRootFSDir);
@@ -219,7 +201,7 @@ Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
     auto                     envVars = MakeUnique<EnvVarsArray>(&sAllocator);
     StaticString<cEnvVarLen> envVar;
 
-    if (auto err = envVar.Format("%s=%s", cEnvAosServiceID, mService->mServiceID.CStr()); !err.IsNone()) {
+    if (auto err = envVar.Format("%s=%s", cEnvAosServiceID, mService.mServiceID.CStr()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -556,7 +538,7 @@ Error Instance::CreateLinuxSpec(
 
     runtimeSpec.mProcess->mTerminal  = false;
     runtimeSpec.mProcess->mUser.mUID = mInstanceInfo.mUID;
-    runtimeSpec.mProcess->mUser.mGID = mService->mGID;
+    runtimeSpec.mProcess->mUser.mGID = mService.mGID;
 
     runtimeSpec.mLinux->mCgroupsPath = FS::JoinPath(cCgroupsPath, mInstanceID);
 
@@ -688,7 +670,7 @@ Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService->mProviderID, *networkParams);
+    if (auto err = mNetworkManager.AddInstanceToNetwork(mInstanceID, mService.mProviderID, *networkParams);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

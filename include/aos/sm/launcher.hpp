@@ -365,7 +365,6 @@ private:
     void  StartInstances(const Array<InstanceData>& instances);
     void  RestartInstances(const Array<InstanceData>& instances);
     void  CacheServices(const Array<InstanceData>& instances);
-    void  UpdateInstanceServices();
     Error GetStartInstances(const Array<InstanceInfo>& desiredInstances, Array<InstanceData>& startInstances) const;
     Error GetStopInstances(
         const Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances, bool forceRestart) const;

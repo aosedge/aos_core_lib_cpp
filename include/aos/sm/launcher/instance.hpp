@@ -135,9 +135,10 @@ public:
     /**
      * Creates instance.
      *
-     * @param config launcher configuration.
      * @param instanceInfo instance info.
      * @param instanceID instance ID.
+     * @param service service data.
+     * @param config launcher configuration.
      * @param serviceManager service manager.
      * @param layerManager layer manager.
      * @param resourceManager resource manager.
@@ -149,12 +150,12 @@ public:
      * @param hostWhiteoutsDir host whiteouts directory.
      * @param nodeInfo node info.
      */
-    Instance(const Config& config, const InstanceInfo& instanceInfo, const String& instanceID,
-        servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-        resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
-        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
-        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
-        const NodeInfo& nodeInfo);
+    Instance(const InstanceInfo& instanceInfo, const String& instanceID, const servicemanager::ServiceData& service,
+        const Config& config, servicemanager::ServiceManagerItf& serviceManager,
+        layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
+        networkmanager::NetworkManagerItf& networkManager, iam::permhandler::PermHandlerItf& permHandler,
+        runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
+        oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo);
 
     /**
      * Starts instance.
@@ -183,13 +184,6 @@ public:
      * @return instance info.
      */
     const InstanceInfo& Info() const { return mInstanceInfo; };
-
-    /**
-     * Sets corresponding service.
-     *
-     * @param service service data.
-     */
-    void SetService(const servicemanager::ServiceData* service);
 
     /**
      * Sets run state.
@@ -228,14 +222,7 @@ public:
      *
      * @return StaticString<cVersionLen> version.
      */
-    StaticString<cVersionLen> GetServiceVersion() const
-    {
-        if (mService) {
-            return mService->mVersion;
-        }
-
-        return "";
-    };
+    StaticString<cVersionLen> GetServiceVersion() const { return mService.mVersion; };
 
     /**
      * Returns instance offline TTL.
@@ -379,9 +366,10 @@ private:
 
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
-    const Config&                        mConfig;
     StaticString<cInstanceIDLen>         mInstanceID;
     InstanceInfo                         mInstanceInfo;
+    servicemanager::ServiceData          mService;
+    const Config&                        mConfig;
     servicemanager::ServiceManagerItf&   mServiceManager;
     layermanager::LayerManagerItf&       mLayerManager;
     resourcemanager::ResourceManagerItf& mResourceManager;
@@ -394,13 +382,12 @@ private:
     const String&                        mHostWhiteoutsDir;
     const NodeInfo&                      mNodeInfo;
 
-    StaticString<cFilePathLen>         mRuntimeDir;
-    const servicemanager::ServiceData* mService = nullptr;
-    InstanceRunState                   mRunState;
-    Error                              mRunError;
-    bool                               mPermissionsRegistered = false;
-    Duration                           mOfflineTTL            = 0;
-    EnvVarsArray                       mOverrideEnvVars;
+    StaticString<cFilePathLen> mRuntimeDir;
+    InstanceRunState           mRunState;
+    Error                      mRunError;
+    bool                       mPermissionsRegistered = false;
+    Duration                   mOfflineTTL            = 0;
+    EnvVarsArray               mOverrideEnvVars;
 };
 
 } // namespace aos::sm::launcher

@@ -329,14 +329,12 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
             continue;
         }
 
-        if (err = mCurrentInstances.EmplaceBack(mConfig, instance.mInstanceInfo, instance.mInstanceID, *mServiceManager,
-                *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler, *mRunner, *mRuntime,
-                *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
+        if (err = mCurrentInstances.EmplaceBack(instance.mInstanceInfo, instance.mInstanceID, *service, mConfig,
+                *mServiceManager, *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler, *mRunner,
+                *mRuntime, *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
-
-        mCurrentInstances.Back().SetService(service);
     }
 
     return ErrorEnum::eNone;
@@ -827,25 +825,7 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
         }
     }
 
-    UpdateInstanceServices();
-
     LOG_DBG() << "Services cached: count=" << mCurrentServices.Size();
-}
-
-void Launcher::UpdateInstanceServices()
-{
-    for (auto& instance : mCurrentInstances) {
-        auto service = GetService(instance.Info().mInstanceIdent.mServiceID);
-        if (service == mCurrentServices.end()) {
-            LOG_ERR() << "Service not found: instance=" << instance;
-
-            instance.SetService(nullptr);
-
-            continue;
-        }
-
-        instance.SetService(service);
-    }
 }
 
 Error Launcher::StartInstance(const InstanceData& info)
@@ -859,24 +839,31 @@ Error Launcher::StartInstance(const InstanceData& info)
             return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
         }
 
-        if (auto err = mCurrentInstances.EmplaceBack(mConfig, info.mInstanceInfo, info.mInstanceID, *mServiceManager,
-                *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler, *mRunner, *mRuntime,
-                *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
+        auto service = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
+        if (service == mCurrentServices.end()) {
+            if (auto err
+                = mCurrentInstances.EmplaceBack(info.mInstanceInfo, info.mInstanceID, servicemanager::ServiceData {},
+                    mConfig, *mServiceManager, *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler,
+                    *mRunner, *mRuntime, *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
+                !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            auto err = Error(ErrorEnum::eNotFound, "service not found");
+
+            mCurrentInstances.Back().SetRunError(err);
+
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mCurrentInstances.EmplaceBack(info.mInstanceInfo, info.mInstanceID, *service, mConfig,
+                *mServiceManager, *mLayerManager, *mResourceManager, *mNetworkManager, *mPermHandler, *mRunner,
+                *mRuntime, *mResourceMonitor, *mOCIManager, mHostWhiteoutsDir, mNodeInfo);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
         instance = &mCurrentInstances.Back();
-
-        auto service = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
-        if (service == mCurrentServices.end()) {
-            instance->SetService(nullptr);
-            instance->SetRunError(ErrorEnum::eNotFound);
-
-            return ErrorEnum::eNotFound;
-        }
-
-        instance->SetService(service);
 
         auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
 
@@ -891,7 +878,7 @@ Error Launcher::StartInstance(const InstanceData& info)
         LockGuard lock {mMutex};
         instance->SetRunError(err);
 
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     LOG_INF() << "Instance started: instanceID=" << *instance;
