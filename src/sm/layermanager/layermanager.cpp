@@ -108,7 +108,7 @@ Error LayerManager::Start()
 {
     LOG_DBG() << "Start layer manager";
 
-    auto err = mTimer.Create(
+    auto err = mTimer.Start(
         mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
             if (auto err = RemoveOutdatedLayers(); !err.IsNone()) {

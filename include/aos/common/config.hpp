@@ -1019,4 +1019,11 @@
 #define AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN 256
 #endif
 
+/**
+ * Maximum supported number of timers.
+ */
+#ifndef AOS_CONFIG_TIMERS_MAX_COUNT
+#define AOS_CONFIG_TIMERS_MAX_COUNT 32
+#endif
+
 #endif

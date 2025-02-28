@@ -98,6 +98,7 @@ add_library(
     tools/fs.cpp
     tools/semver.cpp
     tools/time.cpp
+    tools/timer.cpp
     tools/uuid.cpp
 )
 

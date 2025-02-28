@@ -93,7 +93,7 @@ Error Launcher::Start()
         LOG_ERR() << "Error running last instances: err=" << err;
     }
 
-    if (auto err = mTimer.Create(
+    if (auto err = mTimer.Start(
             mConfig.mRemoveOutdatedPeriod,
             [this](void*) {
                 if (auto err = HandleOfflineTTLs(); !err.IsNone()) {

@@ -5,51 +5,95 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include "aos/common/tools/timer.hpp"
 
 using namespace aos;
+using namespace testing;
 
-TEST(TimerTest, CreateAndStop)
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+std::function<void(void*)> WrapCallback(MockFunction<void(void*)>& cb)
 {
+    return [&cb](void* arg) { cb.Call(arg); };
+}
 
-    auto       interrupted = 0;
-    aos::Timer timer {};
+MATCHER_P(ApproxEqualTime, expected, "")
+{
+    Duration tolerance = 1 * Time::cMilliseconds;
+    Duration diff;
+    if (arg > expected) {
+        diff = arg.UnixNano() - expected.UnixNano();
+    } else {
+        diff = expected.UnixNano() - arg.UnixNano();
+    }
 
-    EXPECT_TRUE(timer.Create(Time::cMilliseconds * 900, [&interrupted](void*) { interrupted = 1; }).IsNone());
+    return std::abs(diff.Nanoseconds()) < tolerance.Nanoseconds();
+}
 
+} // namespace
+
+/***********************************************************************************************************************
+ * Tests
+ **********************************************************************************************************************/
+
+TEST(TimerTest, RunOneShot)
+{
+    Timer                     timer {};
+    MockFunction<void(void*)> cb;
+    Time                      invokeTime {};
+
+    auto       now      = Time::Now();
+    const auto cTimeout = 900 * Time::cMilliseconds;
+
+    EXPECT_CALL(cb, Call(_)).WillOnce(InvokeWithoutArgs([&invokeTime]() { invokeTime = Time::Now(); }));
+
+    EXPECT_TRUE(timer.Start(cTimeout, WrapCallback(cb), true).IsNone());
+    sleep(1);
+
+    EXPECT_THAT(invokeTime, ApproxEqualTime(Time(now).Add(cTimeout)));
+
+    EXPECT_TRUE(timer.Stop().IsNone());
+}
+
+TEST(TimerTest, RunMultiShot)
+{
+    const auto cTimeout = 300 * Time::cMilliseconds;
+
+    Timer                     timer {};
+    MockFunction<void(void*)> cb;
+
+    std::vector<Time>       invokeTimes = {};
+    const std::vector<Time> expInvTimes
+        = {Time::Now().Add(cTimeout), Time::Now().Add(cTimeout * 2), Time::Now().Add(cTimeout * 3)};
+
+    EXPECT_CALL(cb, Call(_)).Times(3).WillRepeatedly(InvokeWithoutArgs([&invokeTimes]() {
+        invokeTimes.push_back(Time::Now());
+    }));
+
+    EXPECT_TRUE(timer.Start(cTimeout, WrapCallback(cb), false).IsNone());
     sleep(1);
 
     EXPECT_TRUE(timer.Stop().IsNone());
 
-    EXPECT_EQ(1, interrupted);
+    EXPECT_THAT(invokeTimes,
+        ElementsAre(ApproxEqualTime(expInvTimes[0]), ApproxEqualTime(expInvTimes[1]), ApproxEqualTime(expInvTimes[2])));
 }
 
-TEST(CommonTest, RaisedOnlyOnce)
+TEST(TimerTest, CreateResetStop)
 {
     auto       interrupted = 0;
     aos::Timer timer {};
 
-    EXPECT_TRUE(timer.Create(Time::cMilliseconds * 500, [&interrupted](void*) { interrupted++; }).IsNone());
-
-    sleep(2);
-
-    EXPECT_TRUE(timer.Stop().IsNone());
-
-    EXPECT_EQ(1, interrupted);
-}
-
-TEST(CommonTest, CreateResetStop)
-{
-    auto       interrupted = 0;
-    aos::Timer timer {};
-
-    EXPECT_TRUE(timer.Create(Time::cMilliseconds * 2000, [&interrupted](void*) { interrupted = 1; }).IsNone());
+    EXPECT_TRUE(timer.Start(2000 * Time::cMilliseconds, [&interrupted](void*) { interrupted = 1; }).IsNone());
 
     sleep(1);
 
-    EXPECT_TRUE(timer.Reset([&interrupted](void*) { interrupted = 1; }).IsNone());
+    EXPECT_TRUE(timer.Restart().IsNone());
 
     sleep(1);
 
@@ -58,23 +102,4 @@ TEST(CommonTest, CreateResetStop)
     sleep(2);
 
     EXPECT_EQ(0, interrupted);
-}
-
-TEST(common, TimerRepeatInterval)
-{
-    auto       interrupted = 0;
-    aos::Timer timer {};
-
-    EXPECT_TRUE(timer
-                    .Create(
-                        Time::cMilliseconds * 1000, [&interrupted](void*) { interrupted++; }, false)
-                    .IsNone());
-
-    sleep(3);
-
-    EXPECT_TRUE(timer.Stop().IsNone());
-
-    EXPECT_EQ(2, interrupted);
-
-    sleep(1);
 }

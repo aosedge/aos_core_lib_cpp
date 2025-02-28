@@ -115,7 +115,7 @@ Error ServiceManager::Start()
 {
     LOG_DBG() << "Start service manager";
 
-    auto err = mTimer.Create(
+    auto err = mTimer.Start(
         mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
             auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
