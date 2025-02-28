@@ -96,6 +96,7 @@ add_library(
     pkcs11/pkcs11.cpp
     pkcs11/privatekey.cpp
     tools/semver.cpp
+    tools/timer.cpp
     tools/uuid.cpp
 )
 

@@ -8,11 +8,6 @@
 #ifndef AOS_TIMER_HPP_
 #define AOS_TIMER_HPP_
 
-#include <pthread.h>
-#include <signal.h>
-#include <string.h>
-#include <time.h>
-
 #include "aos/common/tools/config.hpp"
 #include "aos/common/tools/function.hpp"
 #include "aos/common/tools/thread.hpp"
@@ -40,56 +35,30 @@ public:
      * Creates timer.
      *
      * @param interval timer interval.
+     * @param callback callback.
+     * @param oneShot specifies whether timer should be called exactly once.
+     * @param arg callback argument.
      * @return Error code.
      */
     template <typename F>
-    Error Create(Duration interval, F functor, bool oneShot = true, void* arg = nullptr)
+    Error Create(Duration interval, F callback, bool oneShot = true, void* arg = nullptr)
     {
-        LockGuard lock {mMutex};
-
-        if (mTimerID != 0) {
-            auto err = Stop();
-            if (!err.IsNone()) {
-                return err;
-            }
+        if (interval <= cTimerResolution) {
+            return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
-        mStop = false;
+        Stop();
 
-        auto err = mFunction.Capture(functor, arg);
-        if (!err.IsNone()) {
-            return err;
+        LockGuard lock {mMutex};
+
+        if (auto err = mFunction.Capture(callback, arg); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
         mInterval = interval;
         mOneShot  = oneShot;
 
-        struct sigevent   sev { };
-        struct itimerspec its { };
-
-        sev.sigev_notify          = cTimerSigevNotify;
-        sev.sigev_value.sival_ptr = this;
-        sev.sigev_notify_function = TimerFunction;
-
-        its.it_value.tv_sec  = interval / Time::cSeconds;
-        its.it_value.tv_nsec = interval % Time::cSeconds;
-
-        if (!mOneShot) {
-            its.it_interval.tv_sec  = interval / Time::cSeconds;
-            its.it_interval.tv_nsec = interval % Time::cSeconds;
-        }
-
-        auto ret = timer_create(CLOCK_MONOTONIC, &sev, &mTimerID);
-        if (ret < 0) {
-            return errno;
-        }
-
-        ret = timer_settime(mTimerID, 0, &its, nullptr);
-        if (ret < 0) {
-            return errno;
-        }
-
-        return ErrorEnum::eNone;
+        return RegisterTimer(this);
     }
 
     /**
@@ -97,23 +66,7 @@ public:
      *
      * @return Error code.
      */
-    Error Stop()
-    {
-        LockGuard lock {mMutex};
-
-        mStop = true;
-
-        if (mTimerID != 0) {
-            auto ret = timer_delete(mTimerID);
-            if (ret < 0) {
-                return errno;
-            }
-
-            mTimerID = 0;
-        }
-
-        return ErrorEnum::eNone;
-    }
+    Error Stop() { return UnregisterTimer(this); }
 
     /**
      * Resets timer.
@@ -123,44 +76,41 @@ public:
     template <typename F>
     Error Reset(F functor, void* arg = nullptr)
     {
-        if (mTimerID != 0) {
-            auto err = Stop();
-            if (!err.IsNone()) {
-                return err;
-            }
-
-            err = Create(mInterval, functor, mOneShot, arg);
-            if (!err.IsNone()) {
-                return err;
-            }
+        if (auto err = Create(mInterval, functor, mOneShot, arg); !err.IsNone()) {
+            return err;
         }
 
         return ErrorEnum::eNone;
     }
 
 private:
-    static constexpr int cTimerSigevNotify = AOS_CONFIG_TIMER_SIGEV_NOTIFY;
-
-    static void TimerFunction(union sigval arg)
-    {
-        auto timer = static_cast<Timer*>(arg.sival_ptr);
-
-        {
-            LockGuard lock(timer->mMutex);
-            if (timer->mStop) {
-                return;
-            }
-        }
-
-        timer->mFunction();
-    }
-
-    timer_t                                 mTimerID {};
     Duration                                mInterval {};
     bool                                    mOneShot {};
-    bool                                    mStop {};
-    Mutex                                   mMutex;
     StaticFunction<cDefaultFunctionMaxSize> mFunction;
+    Time                                    mWakeupTime;
+    Mutex                                   mMutex;
+
+    // Set two threads for callbacks: in case if any executes for a long time, another will hedge.
+    static constexpr auto     cInvocationThreadsCount = 2;
+    static constexpr auto     cMaxTimersCount         = AOS_CONFIG_TIMERS_MAX_COUNT;
+    static constexpr Duration cTimerResolution        = Time::cMicroseconds * 500;
+
+    static Error RegisterTimer(Timer* timer);
+    static Error UnregisterTimer(Timer* timer);
+
+    static Error StartThreads();
+    static Error StopThreads();
+
+    static void ProcessTimers(void* arg);
+    static void UpdateWakeupTime(const Time& now, Timer* timer);
+    static void InvokeTimerCallback(Timer* timer);
+
+    static StaticArray<Timer*, cMaxTimersCount> mRegisteredTimers;
+    static Mutex                                mCommonMutex;
+    static ConditionalVariable                  mCommonCondVar;
+
+    static Thread<cDefaultFunctionMaxSize, cDefaultThreadStackSize> mManagementThread;
+    static ThreadPool<cInvocationThreadsCount>                      mInvocationThreads;
 };
 
 } // namespace aos
