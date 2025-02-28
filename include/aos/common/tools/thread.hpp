@@ -503,6 +503,11 @@ public:
             return err;
         }
 
+        err = mQueue.Back().mValue.Capture(functor, arg);
+        if (!err.IsNone()) {
+            return err;
+        }
+
         mPendingTaskCount++;
 
         err = mTaskCondVar.NotifyOne();
@@ -510,7 +515,27 @@ public:
             return err;
         }
 
-        err = mQueue.Back().mValue.Capture(functor, arg);
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Adds task to task queue.
+     *
+     * @param functor task functor.
+     * @return Error.
+     */
+    Error AddTask(const StaticFunction<cMaxTaskSize>& functor)
+    {
+        LockGuard lock {mMutex};
+
+        auto err = mQueue.Push(functor);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        mPendingTaskCount++;
+
+        err = mTaskCondVar.NotifyOne();
         if (!err.IsNone()) {
             return err;
         }
