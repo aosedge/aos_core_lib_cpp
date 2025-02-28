@@ -319,7 +319,7 @@ public:
                 return err;
             }
 
-            for (size_t j = 0; j < Min(oldSubstr.Size(), newSubstr.Size()); j++) {
+            for (size_t j = 0; j < aos::Min(oldSubstr.Size(), newSubstr.Size()); j++) {
                 (*this)[oldPos + j] = newSubstr[j];
             }
 

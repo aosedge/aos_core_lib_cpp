@@ -210,6 +210,20 @@ TEST(ArrayTest, Find)
     EXPECT_EQ(*result, 8);
 }
 
+TEST(ArrayTest, Min)
+{
+    int  intValues[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+    auto array       = Array<int>(intValues, ArraySize(intValues));
+
+    auto min1 = array.Min();
+    ASSERT_NE(min1, array.end());
+    EXPECT_EQ(*min1, 0);
+
+    const auto empty = Array<int>(nullptr, 0U);
+    auto       min2  = empty.Min();
+    EXPECT_EQ(min2, empty.end());
+}
+
 TEST(ArrayTest, Erase)
 {
     int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
