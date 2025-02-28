@@ -469,6 +469,14 @@ public:
     }
 
     /**
+     * Checks whether a current time is more than a specified one.
+     *
+     * @param obj time object to compare with.
+     * @result bool.
+     */
+    bool operator>(const Time& obj) const { return obj < *this; }
+
+    /**
      * Checks whether a current time and a specified object represent the same time instant.
      *
      * @param obj time object to compare with.

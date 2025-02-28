@@ -84,7 +84,7 @@ TEST_F(TimeTest, Add4Years)
     EXPECT_EQ(now.UnixNano() + Years(-4).Nanoseconds(), fourYearsBefore.UnixNano());
 }
 
-TEST_F(TimeTest, Compare)
+TEST_F(TimeTest, Less)
 {
     auto now = Time::Now();
 
@@ -96,6 +96,20 @@ TEST_F(TimeTest, Compare)
 
     EXPECT_FALSE(now.Add(oneNanosec) < now);
     EXPECT_FALSE(now < now);
+}
+
+TEST_F(TimeTest, More)
+{
+    auto now = Time::Now();
+
+    const Duration year       = Years(1);
+    const Duration oneNanosec = 1;
+
+    EXPECT_TRUE(now.Add(year) > now);
+    EXPECT_TRUE(now.Add(oneNanosec) > now);
+
+    EXPECT_FALSE(now > now.Add(oneNanosec));
+    EXPECT_FALSE(now > now);
 }
 
 TEST_F(TimeTest, GetDateTime)
