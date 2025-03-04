@@ -467,7 +467,7 @@
  * Max CNI interface name length.
  */
 #ifndef AOS_CONFIG_TYPES_INTERFACE_NAME_LEN
-#define AOS_CONFIG_TYPES_INTERFACE_NAME_LEN 64
+#define AOS_CONFIG_TYPES_INTERFACE_NAME_LEN 16
 #endif
 
 /**
