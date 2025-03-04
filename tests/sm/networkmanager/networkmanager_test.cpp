@@ -100,8 +100,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
     std::vector<InstanceNetworkParameters> paramsVec;
 
     for (int i = 0; i < numInstances; i++) {
-        instanceIDs.push_back(std::string("test-instance-" + std::to_string(i)));
-        networkIDs.push_back(std::string("test-network-" + std::to_string(i)));
+        instanceIDs.push_back(std::string("instance-" + std::to_string(i)));
+        networkIDs.push_back(std::string("network-" + std::to_string(i)));
 
         auto        params            = CreateTestInstanceNetworkParameters();
         std::string ip                = "192.168.1." + std::to_string(i + 2);
