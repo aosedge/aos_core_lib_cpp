@@ -60,16 +60,23 @@ public:
     MOCK_METHOD(Error, DeleteNetworkNamespace, (const String& ns), (override));
 };
 
-class NetworkInterfaceManagerMock : public NetworkInterfaceManagerItf {
+class InterfaceManagerMock : public InterfaceManagerItf {
 public:
     MOCK_METHOD(Error, DeleteLink, (const String& ifname), (override));
     MOCK_METHOD(Error, SetupLink, (const String& ifname), (override));
-    MOCK_METHOD(Error, AddLink, (const LinkItf* link), (override));
-    MOCK_METHOD(Error, GetAddrList, (const String& ifname, int family, Array<IPAddr>& addr), (const, override));
-    MOCK_METHOD(Error, AddAddr, (const String& ifname, const IPAddr& addr), (override));
-    MOCK_METHOD(Error, DeleteAddr, (const String& ifname, const IPAddr& addr), (override));
     MOCK_METHOD(Error, SetMasterLink, (const String& ifname, const String& master), (override));
-    MOCK_METHOD(Error, GetRouteList, (const String& ifname, Array<RouteInfo>& routes), (const, override));
+};
+
+class InterfaceFactoryMock : public InterfaceFactoryItf {
+public:
+    MOCK_METHOD(Error, CreateBridge, (const String& name, const String& ip, const String& subnet), (override));
+    MOCK_METHOD(Error, CreateVlan, (const String& name, uint64_t vlanId), (override));
+};
+
+class RandomMock : public crypto::RandomItf {
+public:
+    MOCK_METHOD(RetWithError<uint64_t>, RandInt, (uint64_t maxValue), (override));
+    MOCK_METHOD(Error, RandBuffer, (Array<uint8_t> & buffer, size_t size), (override));
 };
 
 } // namespace aos::sm::networkmanager

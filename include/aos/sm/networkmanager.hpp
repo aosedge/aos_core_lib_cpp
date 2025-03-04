@@ -7,6 +7,7 @@
 #ifndef AOS_NETWORKMANAGER_HPP_
 #define AOS_NETWORKMANAGER_HPP_
 
+#include "aos/common/crypto/crypto.hpp"
 #include "aos/common/tools/fs.hpp"
 #include "aos/common/tools/map.hpp"
 #include "aos/common/tools/memory.hpp"
@@ -50,11 +51,35 @@ static constexpr auto cMaxNumHosts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS;
  * Network information.
  */
 struct NetworkInfo {
-    StaticString<cHostNameLen> mNetworkID;
-    StaticString<cIPLen>       mSubnet;
-    StaticString<cIPLen>       mIP;
-    uint64_t                   mVlanID;
-    StaticString<cHostNameLen> mVlanIfName;
+    StaticString<cHostNameLen>  mNetworkID;
+    StaticString<cIPLen>        mSubnet;
+    StaticString<cIPLen>        mIP;
+    uint64_t                    mVlanID;
+    StaticString<cInterfaceLen> mVlanIfName;
+
+    /**
+     * Default constructor.
+     */
+    NetworkInfo() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param networkID network ID.
+     * @param subnet subnet.
+     * @param ip IP address.
+     * @param vlanID VLAN ID.
+     * @param vlanIfName VLAN interface name.
+     */
+    NetworkInfo(
+        const String& networkID, const String& subnet, const String& ip, uint64_t vlanID, const String& vlanIfName = {})
+        : mNetworkID(networkID)
+        , mSubnet(subnet)
+        , mIP(ip)
+        , mVlanID(vlanID)
+        , mVlanIfName(vlanIfName)
+    {
+    }
 
     /**
      * Compares network information.
@@ -443,12 +468,12 @@ struct RouteInfo;
 /**
  * Network interface manager interface.
  */
-class NetworkInterfaceManagerItf {
+class InterfaceManagerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~NetworkInterfaceManagerItf() = default;
+    virtual ~InterfaceManagerItf() = default;
 
     /**
      * Removes interface.
@@ -459,14 +484,6 @@ public:
     virtual Error DeleteLink(const String& ifname) = 0;
 
     /**
-     * Adds link.
-     *
-     * @param link link.
-     * @return Error.
-     */
-    virtual Error AddLink(const LinkItf* link) = 0;
-
-    /**
      * Sets up link.
      *
      * @param ifname interface name.
@@ -475,50 +492,43 @@ public:
     virtual Error SetupLink(const String& ifname) = 0;
 
     /**
-     * Gets address list.
-     *
-     * @param ifname interface name.
-     * @param family address family.
-     * @param[out] addr address list.
-     * @return Error.
-     */
-    virtual Error GetAddrList(const String& ifname, int family, Array<IPAddr>& addr) const = 0;
-
-    /**
-     * Adds address.
-     *
-     * @param ifname interface name.
-     * @param addr address.
-     * @return Error.
-     */
-    virtual Error AddAddr(const String& ifname, const IPAddr& addr) = 0;
-
-    /**
-     * Deletes address.
-     *
-     * @param ifname interface name.
-     * @param addr address.
-     * @return Error.
-     */
-    virtual Error DeleteAddr(const String& ifname, const IPAddr& addr) = 0;
-
-    /**
      * Sets master.
      *
      * @param ifname interface name.
-     * @param master master.
+     * @param master master interface name.
      * @return Error.
      */
     virtual Error SetMasterLink(const String& ifname, const String& master) = 0;
+};
 
+/**
+ * Network interface factory interface.
+ */
+class InterfaceFactoryItf {
+public:
     /**
-     * Gets route list.
+     * Creates bridge interface.
      *
-     * @param ifname interface name.
-     * @param[out] routes routes.
+     * @param name bridge name.
+     * @param ip IP address.
+     * @param subnet subnet.
      * @return Error.
      */
-    virtual Error GetRouteList(const String& ifname, Array<RouteInfo>& routes) const = 0;
+    virtual Error CreateBridge(const String& name, const String& ip, const String& subnet) = 0;
+
+    /**
+     * Creates vlan interface.
+     *
+     * @param name vlan name.
+     * @param vlanID vlan ID.
+     * @return Error.
+     */
+    virtual Error CreateVlan(const String& name, uint64_t vlanID) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~InterfaceFactoryItf() = default;
 };
 
 /**
@@ -548,7 +558,8 @@ public:
      * @return Error.
      */
     Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
-        NetworkInterfaceManagerItf& netIf, const String& workingDir);
+        InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
+        const String& workingDir);
 
     /**
      * Starts network manager.
@@ -639,19 +650,21 @@ public:
 
 private:
     struct NetworkData {
-        StaticString<cIPLen>                                  IPAddr;
+        StaticString<cIPLen>                                  mIPAddr;
         StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> mHost;
     };
 
     using InstanceCache = StaticMap<StaticString<cInstanceIDLen>, NetworkData, cMaxNumInstances>;
     using NetworkCache  = StaticMap<StaticString<cProviderIDLen>, InstanceCache, cMaxNumServiceProviders>;
 
-    static constexpr uint64_t cBurstLen              = 12800;
-    static constexpr auto     cMaxExposedPort        = 2;
-    static constexpr auto     cAdminChainPrefix      = "INSTANCE_";
-    static constexpr auto     cInstanceInterfaceName = "eth0";
-    static constexpr auto     cBridgePrefix          = "br-";
-    static constexpr auto     cNumAllocations        = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
+    static constexpr uint64_t cBurstLen                  = 12800;
+    static constexpr auto     cMaxExposedPort            = 2;
+    static constexpr auto     cCountRetriesVlanIfNameGen = 10;
+    static constexpr auto     cAdminChainPrefix          = "INSTANCE_";
+    static constexpr auto     cInstanceInterfaceName     = "eth0";
+    static constexpr auto     cBridgePrefix              = "br-";
+    static constexpr auto     cVlanIfPrefix              = "vlan-";
+    static constexpr auto     cNumAllocations            = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
@@ -691,14 +704,24 @@ private:
     Error WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
         const InstanceNetworkParameters& network) const;
 
-    StorageItf*                 mStorage {};
-    cni::CNIItf*                mCNI {};
-    TrafficMonitorItf*          mNetMonitor {};
-    NamespaceManagerItf*        mNetns {};
-    NetworkInterfaceManagerItf* mNetIf {};
-    StaticString<cFilePathLen>  mCNINetworkCacheDir;
-    NetworkCache                mNetworkData;
-    mutable Mutex               mMutex;
+    Error RemoveNetworks(const Array<aos::NetworkParameters>& networks);
+    Error RemoveNetwork(const String& networkID);
+    Error CreateNetwork(const NetworkInfo& network);
+    Error GenerateVlanIfName(String& vlanIfName);
+
+    StorageItf*                                                                   mStorage {};
+    cni::CNIItf*                                                                  mCNI {};
+    TrafficMonitorItf*                                                            mNetMonitor {};
+    NamespaceManagerItf*                                                          mNetns {};
+    InterfaceManagerItf*                                                          mNetIf {};
+    crypto::RandomItf*                                                            mRandom {};
+    InterfaceFactoryItf*                                                          mNetIfFactory {};
+    StaticString<cFilePathLen>                                                    mCNINetworkCacheDir;
+    NetworkCache                                                                  mNetworkData;
+    StaticMap<StaticString<cProviderIDLen>, NetworkInfo, cMaxNumServiceProviders> mNetworkProviders;
+    StaticAllocator<sizeof(NetworkInfo)>                                          mNetworkInfoAllocator;
+    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumServiceProviders>)>    mNetworkInfosAllocator;
+    mutable Mutex                                                                 mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))
             * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES,
         cNumAllocations>

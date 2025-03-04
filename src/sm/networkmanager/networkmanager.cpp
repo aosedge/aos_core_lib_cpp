@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "aos/common/crypto/utils.hpp"
 #include "aos/common/tools/memory.hpp"
 #include "aos/sm/networkmanager.hpp"
 
@@ -19,15 +20,18 @@ namespace aos::sm::networkmanager {
  **********************************************************************************************************************/
 
 Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor,
-    NamespaceManagerItf& netns, NetworkInterfaceManagerItf& netIf, const String& workingDir)
+    NamespaceManagerItf& netns, InterfaceManagerItf& netIf, crypto::RandomItf& random,
+    InterfaceFactoryItf& netIfFactory, const String& workingDir)
 {
     LOG_DBG() << "Init network manager";
 
-    mStorage    = &storage;
-    mCNI        = &cni;
-    mNetMonitor = &netMonitor;
-    mNetns      = &netns;
-    mNetIf      = &netIf;
+    mStorage      = &storage;
+    mCNI          = &cni;
+    mNetMonitor   = &netMonitor;
+    mNetns        = &netns;
+    mNetIf        = &netIf;
+    mRandom       = &random;
+    mNetIfFactory = &netIfFactory;
 
     auto cniDir = fs::JoinPath(workingDir, "cni");
 
@@ -40,6 +44,20 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
     }
 
     mCNINetworkCacheDir = fs::JoinPath(cniDir, "networks");
+
+    auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumServiceProviders>>(&mNetworkInfosAllocator);
+
+    if (auto err = mStorage->GetNetworksInfo(*networkInfos); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& networkInfo : *networkInfos) {
+        if (auto err = CreateNetwork(networkInfo); !err.IsNone()) {
+            return err;
+        }
+
+        mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -67,7 +85,45 @@ Error NetworkManager::UpdateNetworks(const Array<aos::NetworkParameters>& networ
 {
     LOG_DBG() << "Update networks";
 
-    (void)networks;
+    if (auto err = RemoveNetworks(networks); !err.IsNone()) {
+        return err;
+    }
+
+    LockGuard lock {mMutex};
+
+    auto networkInfo = MakeUnique<NetworkInfo>(&mNetworkInfoAllocator);
+
+    for (const auto& network : networks) {
+        if (auto it = mNetworkProviders.Find(network.mNetworkID); it != mNetworkProviders.end()) {
+            if (it->mSecond.mIP == network.mIP) {
+                continue;
+            }
+        }
+
+        StaticString<cInterfaceLen> vlanIfName;
+
+        if (auto err = GenerateVlanIfName(vlanIfName); !err.IsNone()) {
+            return err;
+        }
+
+        networkInfo->mNetworkID  = network.mNetworkID;
+        networkInfo->mSubnet     = network.mSubnet;
+        networkInfo->mIP         = network.mIP;
+        networkInfo->mVlanID     = network.mVlanID;
+        networkInfo->mVlanIfName = vlanIfName;
+
+        if (auto err = CreateNetwork(*networkInfo); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mStorage->AddNetworkInfo(*networkInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mNetworkProviders.Set(network.mNetworkID, *networkInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     return ErrorEnum::eNone;
 }
@@ -236,7 +292,7 @@ Error NetworkManager::GetInstanceIP(const String& instanceID, const String& netw
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    ip = instance->mSecond.IPAddr;
+    ip = instance->mSecond.mIPAddr;
 
     return ErrorEnum::eNone;
 }
@@ -304,8 +360,8 @@ Error NetworkManager::UpdateInstanceNetworkCache(const String& instanceID, const
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    instance->mSecond.IPAddr = instanceIP;
-    instance->mSecond.mHost  = hosts;
+    instance->mSecond.mIPAddr = instanceIP;
+    instance->mSecond.mHost   = hosts;
 
     return ErrorEnum::eNone;
 }
@@ -346,8 +402,14 @@ Error NetworkManager::RemoveInstanceFromCache(const String& instanceID, const St
     }
 
     if (network->mSecond.IsEmpty()) {
-        if (auto err = ClearNetwork(networkID); !err.IsNone()) {
-            return err;
+        if (auto providerIt = mNetworkProviders.Find(networkID); providerIt == mNetworkProviders.end()) {
+            if (auto err = ClearNetwork(networkID); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        if (auto err = mNetworkData.Remove(networkID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
     }
 
@@ -364,11 +426,18 @@ Error NetworkManager::ClearNetwork(const String& networkID)
         return err;
     }
 
+    if (auto itProvider = mNetworkProviders.Find(networkID);
+        itProvider != mNetworkProviders.end() && !itProvider->mSecond.mVlanIfName.IsEmpty()) {
+        if (auto err = mNetIf->DeleteLink(itProvider->mSecond.mVlanIfName); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     if (auto err = fs::RemoveAll(fs::JoinPath(mCNINetworkCacheDir, networkID)); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    return AOS_ERROR_WRAP(mNetworkData.Remove(networkID));
+    return ErrorEnum::eNone;
 }
 
 Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& networkID,
@@ -808,6 +877,122 @@ Error NetworkManager::CreateDNSPluginConfig(
     config.mCapabilities.mAliases = true;
 
     return ErrorEnum::eNone;
+}
+
+Error NetworkManager::RemoveNetworks(const Array<aos::NetworkParameters>& networks)
+{
+    Error err;
+
+    UniqueLock lock {mMutex};
+
+    for (auto it = mNetworkProviders.begin(); it != mNetworkProviders.end();) {
+        auto itNetwork = networks.FindIf([&](const auto& network) { return it->mFirst == network.mNetworkID; });
+        if (itNetwork == networks.end()) {
+            lock.Unlock();
+
+            if (auto errRemoveNetwork = RemoveNetwork(it->mFirst);
+                !errRemoveNetwork.IsNone() && !errRemoveNetwork.Is(ErrorEnum::eNotFound) && err.IsNone()) {
+                err = errRemoveNetwork;
+            }
+
+            lock.Lock();
+
+            if (auto errClearNetwork = ClearNetwork(it->mFirst); !errClearNetwork.IsNone() && err.IsNone()) {
+                err = errClearNetwork;
+            }
+
+            it = mNetworkProviders.Erase(it);
+
+            if (auto errRemoveStorage = mStorage->RemoveNetworkInfo(it->mFirst);
+                !errRemoveStorage.IsNone() && err.IsNone()) {
+                err = errRemoveStorage;
+            }
+        } else {
+            ++it;
+        }
+    }
+
+    return err;
+}
+
+Error NetworkManager::RemoveNetwork(const String& networkID)
+{
+    NetworkCache::Iterator provider;
+
+    {
+        LOG_DBG() << "Remove network: networkID=" << networkID;
+
+        UniqueLock lock {mMutex};
+
+        provider = mNetworkData.Find(networkID);
+        if (provider == mNetworkData.end()) {
+            return ErrorEnum::eNotFound;
+        }
+    }
+
+    Error err;
+
+    for (const auto& instance : provider->mSecond) {
+        if (auto errRemoveInstance = RemoveInstanceFromNetwork(instance.mFirst, networkID);
+            !errRemoveInstance.IsNone() && err.IsNone()) {
+            err = errRemoveInstance;
+        }
+    }
+
+    return err;
+}
+
+Error NetworkManager::CreateNetwork(const NetworkInfo& network)
+{
+    LOG_DBG() << "Create network: networkID=" << network.mNetworkID << ", subnet=" << network.mSubnet
+              << ", ip=" << network.mIP << ", vlanID=" << network.mVlanID << ", vlanIfName=" << network.mVlanIfName;
+
+    StaticString<cInterfaceLen> bridgeName;
+
+    if (auto err = mNetIfFactory->CreateBridge(
+            bridgeName.Append(cBridgePrefix).Append(network.mNetworkID), network.mIP, network.mSubnet);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mNetIfFactory->CreateVlan(network.mVlanIfName, network.mVlanID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mNetIf->SetMasterLink(network.mVlanIfName, bridgeName); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LOG_DBG() << "Network created: networkID=" << network.mNetworkID << ", subnet=" << network.mSubnet
+              << ", ip=" << network.mIP << ", vlanID=" << network.mVlanID << ", vlanIfName=" << network.mVlanIfName;
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::GenerateVlanIfName(String& vlanIfName)
+{
+    vlanIfName.Append(cVlanIfPrefix);
+
+    String randomString
+        = String(vlanIfName.Get() + strlen(cVlanIfPrefix), vlanIfName.MaxSize() - strlen(cVlanIfPrefix));
+
+    for (auto i = 0; i < cCountRetriesVlanIfNameGen; ++i) {
+        if (auto err = crypto::GenerateRandomString<4>(randomString, *mRandom); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        vlanIfName.Resize(vlanIfName.Size() + randomString.Size());
+
+        auto it
+            = mNetworkProviders.FindIf([&](const auto& network) { return network.mSecond.mVlanIfName == vlanIfName; });
+        if (it == mNetworkProviders.end()) {
+            return ErrorEnum::eNone;
+        }
+
+        vlanIfName.Resize(vlanIfName.Size() - randomString.Size());
+    }
+
+    return ErrorEnum::eNotFound;
 }
 
 } // namespace aos::sm::networkmanager
