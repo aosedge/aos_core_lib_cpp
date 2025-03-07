@@ -977,7 +977,15 @@ Error Launcher::StopCurrentInstances()
         if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        mLaunchInProgress = true;
     }
+
+    auto finishLaunch = DeferRelease(&mLaunchInProgress, [this](bool*) {
+        LockGuard lock {mMutex};
+
+        mLaunchInProgress = false;
+    });
 
     auto stopInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
 
@@ -1009,7 +1017,9 @@ Error Launcher::GetOutdatedInstances(Array<InstanceData>& instances)
 
 Error Launcher::HandleOfflineTTLs()
 {
-    auto outdatedInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
+    SharedPtr<InstanceDataStaticArray> outdatedInstances;
+
+    LOG_DBG() << "Handle offline TTLs";
 
     {
         UniqueLock lock {mMutex};
@@ -1025,6 +1035,8 @@ Error Launcher::HandleOfflineTTLs()
         }
 
         mCondVar.Wait(lock, [this] { return !mLaunchInProgress; });
+
+        outdatedInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
 
         if (auto err = GetOutdatedInstances(*outdatedInstances); !err.IsNone()) {
             LOG_ERR() << "Can't get outdated instances: err=" << err;
@@ -1119,6 +1131,8 @@ Error Launcher::SetEnvVars(
 
 Error Launcher::RemoveOutdatedEnvVars()
 {
+    LOG_DBG() << "Remove outdated env vars";
+
     auto now     = Time::Now();
     auto updated = false;
 
@@ -1232,7 +1246,7 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
 
 Error Launcher::UpdateInstancesEnvVars()
 {
-    auto restartInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
+    SharedPtr<InstanceDataStaticArray> restartInstances;
 
     {
         UniqueLock lock {mMutex};
@@ -1241,16 +1255,18 @@ Error Launcher::UpdateInstancesEnvVars()
             return err;
         }
 
+        if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        restartInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
+
         if (auto err = GetEnvChangedInstances(*restartInstances); !err.IsNone()) {
             return err;
         }
 
         if (restartInstances->IsEmpty()) {
             return ErrorEnum::eNone;
-        }
-
-        if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
         }
 
         mLaunchInProgress = true;
