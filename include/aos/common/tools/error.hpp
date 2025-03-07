@@ -99,11 +99,27 @@ public:
             mLineNumber = err.mLineNumber;
         }
 
+        if (msg && err.mMessage[0] != '\0') {
+            CopyMessage(msg);
+
+            // Using strncpy instead of snprintf to avoid the warning:
+            // 'snprintf' output may be truncated before the last format character
+            size_t msgLen = strlen(mMessage);
+            if (msgLen < sizeof(mMessage) - 2) {
+                mMessage[msgLen] = ' ';
+                strncpy(mMessage + msgLen + 1, err.mMessage, sizeof(mMessage) - msgLen - 2);
+                mMessage[sizeof(mMessage) - 1] = '\0';
+            }
+
+            return;
+        }
+
         if (msg) {
             CopyMessage(msg);
-        } else {
-            CopyMessage(err.mMessage);
+            return;
         }
+
+        CopyMessage(err.mMessage);
     }
 
     /**
