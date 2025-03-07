@@ -385,6 +385,7 @@ private:
     Error GetEnvChangedInstances(Array<InstanceData>& instance) const;
     Error SendEnvChangedInstancesStatus(const Array<InstanceData>& instances);
     Error UpdateInstancesEnvVars();
+    void  FinishLaunch();
 
     servicemanager::ServiceData* GetService(const String& serviceID)
     {

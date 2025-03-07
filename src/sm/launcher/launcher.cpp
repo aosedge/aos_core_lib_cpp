@@ -169,18 +169,15 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
                   LOG_ERR() << "Can't process instances: err=" << err;
               }
 
-              LockGuard lock {mMutex};
-
               if (auto err = SendRunStatus(); !err.IsNone()) {
                   LOG_ERR() << "Can't send run status: err=" << err;
               }
 
-              mLaunchInProgress = false;
-              mCondVar.NotifyOne();
-
-              ShowResourceUsageStats();
+              FinishLaunch();
           });
     if (!err.IsNone()) {
+        FinishLaunch();
+
         return AOS_ERROR_WRAP(err);
     }
 
@@ -364,17 +361,10 @@ Error Launcher::RunLastInstances()
                 LOG_ERR() << "Can't process last instances: err=" << err;
             }
 
-            LockGuard lock {mMutex};
-
-            mLaunchInProgress = false;
-            mCondVar.NotifyOne();
-
-            ShowResourceUsageStats();
+            FinishLaunch();
         });
         !err.IsNone()) {
-        LockGuard lock {mMutex};
-
-        mLaunchInProgress = false;
+        FinishLaunch();
 
         return AOS_ERROR_WRAP(err);
     }
@@ -546,6 +536,8 @@ Error Launcher::SendRunStatus()
 
 Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances)
 {
+    LockGuard lock {mMutex};
+
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : instances) {
@@ -981,11 +973,7 @@ Error Launcher::StopCurrentInstances()
         mLaunchInProgress = true;
     }
 
-    auto finishLaunch = DeferRelease(&mLaunchInProgress, [this](bool*) {
-        LockGuard lock {mMutex};
-
-        mLaunchInProgress = false;
-    });
+    auto finishLaunch = DeferRelease(&mLaunchInProgress, [this](bool*) { FinishLaunch(); });
 
     auto stopInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
 
@@ -1034,7 +1022,9 @@ Error Launcher::HandleOfflineTTLs()
             return ErrorEnum::eNone;
         }
 
-        mCondVar.Wait(lock, [this] { return !mLaunchInProgress; });
+        if (auto err = mCondVar.Wait(lock, [this] { return !mLaunchInProgress; }); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
         outdatedInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
 
@@ -1056,21 +1046,14 @@ Error Launcher::HandleOfflineTTLs()
             LOG_ERR() << "Can't process stop instances: err=" << err;
         }
 
-        LockGuard lock {mMutex};
-
         if (auto err = SendOutdatedInstancesStatus(*outdatedInstances); !err.IsNone()) {
             LOG_ERR() << "Can't send outdated instances status: err=" << err;
         }
 
-        mLaunchInProgress = false;
-        mCondVar.NotifyOne();
-
-        ShowResourceUsageStats();
+        FinishLaunch();
     });
     if (!err.IsNone()) {
-        LockGuard lock {mMutex};
-
-        mLaunchInProgress = false;
+        FinishLaunch();
 
         return AOS_ERROR_WRAP(err);
     }
@@ -1208,6 +1191,8 @@ Error Launcher::GetEnvChangedInstances(Array<InstanceData>& instances) const
 
 Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instances)
 {
+    LockGuard lock {mMutex};
+
     auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instanceData : instances) {
@@ -1279,26 +1264,29 @@ Error Launcher::UpdateInstancesEnvVars()
             LOG_ERR() << "Can't process stop instances: err=" << err;
         }
 
-        LockGuard lock {mMutex};
-
         if (auto err = SendEnvChangedInstancesStatus(*restartInstances); !err.IsNone()) {
             LOG_ERR() << "Can't send env changed instances status: err=" << err;
         }
 
-        mLaunchInProgress = false;
-        mCondVar.NotifyOne();
-
-        ShowResourceUsageStats();
+        FinishLaunch();
     });
     if (!err.IsNone()) {
-        LockGuard lock {mMutex};
-
-        mLaunchInProgress = false;
+        FinishLaunch();
 
         return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
+}
+
+void Launcher::FinishLaunch()
+{
+    LockGuard lock {mMutex};
+
+    mLaunchInProgress = false;
+    mCondVar.NotifyAll();
+
+    ShowResourceUsageStats();
 }
 
 } // namespace aos::sm::launcher
