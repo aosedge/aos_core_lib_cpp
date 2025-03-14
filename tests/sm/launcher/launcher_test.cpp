@@ -331,4 +331,46 @@ TEST_F(LauncherTest, RunInstances)
     EXPECT_TRUE(mLauncher->Stop().IsNone());
 }
 
+TEST_F(LauncherTest, RunMaxInstances)
+{
+    TestData testItem;
+
+    for (size_t i = 0; i < cMaxNumInstances; i++) {
+        auto          serviceID = "service" + std::to_string(i % cMaxNumServices);
+        InstanceIdent ident     = {serviceID.c_str(), "subject0", i / cMaxNumServices};
+
+        testItem.mInstances.push_back({ident, 0, 0, "", "", {}});
+        testItem.mStatus.push_back({ident, "1.0.0", InstanceRunStateEnum::eActive, ErrorEnum::eNone});
+    }
+
+    for (size_t i = 0; i < static_cast<size_t>(std::min(cMaxNumServices, cMaxNumInstances)); i++) {
+        auto serviceID = "service" + std::to_string(i);
+
+        testItem.mServices.push_back({serviceID.c_str(), "provider0", "1.0.0", 0, "", {}, 0});
+    }
+
+    for (const auto& service : testItem.mServices) {
+        ASSERT_TRUE(InstallService(service).IsNone());
+    }
+
+    auto feature = mStatusReceiver->GetFeature();
+
+    EXPECT_CALL(mRunner, StartInstance)
+        .WillRepeatedly(Invoke([this, &testItem](const String& instanceID, const String&, const RunParameters&) {
+            return RunStatus {instanceID, InstanceRunStateEnum::eActive, ErrorEnum::eNone};
+        }));
+
+    EXPECT_TRUE(mLauncher
+                    ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
+                        Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
+                        Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
+                    .IsNone());
+
+    EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
+    EXPECT_TRUE(
+        test::CompareArrays(feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
+
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
+}
+
 } // namespace aos::sm::launcher

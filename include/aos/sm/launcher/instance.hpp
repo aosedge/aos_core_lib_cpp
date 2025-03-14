@@ -306,15 +306,14 @@ public:
 private:
     using LayersStaticArray = StaticArray<StaticString<cFilePathLen>, cMaxNumLayers + 1>;
 
-    static constexpr auto cRuntimeDir = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
-    static constexpr auto cAllocatorSize
-        = (sizeof(oci::RuntimeSpec) + sizeof(image::ImageParts)
-              + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
-                  sizeof(oci::ImageSpec) + sizeof(oci::ServiceConfig) + sizeof(EnvVarsArray),
-                  sizeof(LayersStaticArray) + sizeof(layermanager::LayerData), sizeof(Mount) + sizeof(ResourceInfo),
-                  sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>)))
-        * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
-    static constexpr auto cNumAllocations  = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
+    static constexpr auto cRuntimeDir    = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
+    static constexpr auto cAllocatorSize = sizeof(image::ImageParts) + sizeof(oci::ServiceConfig)
+        + sizeof(oci::RuntimeSpec)
+        + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
+            sizeof(oci::ImageSpec) + sizeof(EnvVarsArray), sizeof(LayersStaticArray) + sizeof(layermanager::LayerData),
+            sizeof(Mount) + sizeof(ResourceInfo),
+            sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>));
+    static constexpr auto cNumAllocations  = 8;
     static constexpr auto cRuntimeSpecFile = "config.json";
     static constexpr auto cMountPointsDir  = "mounts";
     static constexpr auto cRootFSDir       = "rootfs";
@@ -364,6 +363,7 @@ private:
         return FS::JoinPath(mConfig.mStorageDir, path);
     }
 
+    static Mutex                                            sMutex;
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
     StaticString<cInstanceIDLen>         mInstanceID;

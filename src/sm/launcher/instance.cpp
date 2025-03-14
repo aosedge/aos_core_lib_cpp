@@ -21,6 +21,7 @@ static const char* const cBindEtcEntries[] = {"nsswitch.conf", "ssl"};
 }
 
 StaticAllocator<Instance::cAllocatorSize, Instance::cNumAllocations> Instance::sAllocator {};
+Mutex                                                                Instance::sMutex {};
 
 /***********************************************************************************************************************
  * Public
@@ -55,63 +56,72 @@ Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
 
 Error Instance::Start()
 {
-    LOG_INF() << "Start instance: instanceID=" << *this << ", runtimeDir=" << mRuntimeDir;
+    RunParameters runParams;
 
-    if (auto err = FS::ClearDir(mRuntimeDir); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    {
+        LockGuard lock {sMutex};
 
-    auto imageParts = MakeUnique<image::ImageParts>(&sAllocator);
+        LOG_INF() << "Start instance: instanceID=" << *this << ", runtimeDir=" << mRuntimeDir;
 
-    if (auto err = mServiceManager.GetImageParts(mService, *imageParts); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto serviceConfig = MakeUnique<oci::ServiceConfig>(&sAllocator);
-
-    if (auto err = mOCIManager.LoadServiceConfig(imageParts->mServiceConfigPath, *serviceConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
-
-    if (auto err = CreateRuntimeSpec(*imageParts, *serviceConfig, *runtimeSpec); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = SetupNetwork(*serviceConfig); !err.IsNone()) {
-        return err;
-    }
-
-    if (!mInstanceInfo.mStatePath.IsEmpty()) {
-        auto statePath = GetFullStatePath(mInstanceInfo.mStatePath);
-
-        LOG_DBG() << "Prepare state: instance=" << *this << ", path=" << statePath;
-
-        if (auto err = mRuntime.PrepareServiceState(statePath, mInstanceInfo.mUID, mService.mGID); !err.IsNone()) {
+        if (auto err = FS::ClearDir(mRuntimeDir); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
-    }
 
-    if (!mInstanceInfo.mStoragePath.IsEmpty()) {
-        auto storagePath = GetFullStoragePath(mInstanceInfo.mStoragePath);
+        auto imageParts = MakeUnique<image::ImageParts>(&sAllocator);
 
-        LOG_DBG() << "Prepare storage: instance=" << *this << ", path=" << storagePath;
-
-        if (auto err = mRuntime.PrepareServiceStorage(storagePath, mInstanceInfo.mUID, mService.mGID); !err.IsNone()) {
+        if (auto err = mServiceManager.GetImageParts(mService, *imageParts); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        auto serviceConfig = MakeUnique<oci::ServiceConfig>(&sAllocator);
+
+        if (auto err = mOCIManager.LoadServiceConfig(imageParts->mServiceConfigPath, *serviceConfig); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto runtimeSpec = MakeUnique<oci::RuntimeSpec>(&sAllocator);
+
+        if (auto err = CreateRuntimeSpec(*imageParts, *serviceConfig, *runtimeSpec); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = SetupNetwork(*serviceConfig); !err.IsNone()) {
+            return err;
+        }
+
+        if (!mInstanceInfo.mStatePath.IsEmpty()) {
+            auto statePath = GetFullStatePath(mInstanceInfo.mStatePath);
+
+            LOG_DBG() << "Prepare state: instance=" << *this << ", path=" << statePath;
+
+            if (auto err = mRuntime.PrepareServiceState(statePath, mInstanceInfo.mUID, mService.mGID); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
+        if (!mInstanceInfo.mStoragePath.IsEmpty()) {
+            auto storagePath = GetFullStoragePath(mInstanceInfo.mStoragePath);
+
+            LOG_DBG() << "Prepare storage: instance=" << *this << ", path=" << storagePath;
+
+            if (auto err = mRuntime.PrepareServiceStorage(storagePath, mInstanceInfo.mUID, mService.mGID);
+                !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
+        if (auto err = PrepareRootFS(*imageParts, runtimeSpec->mMounts); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = SetupMonitoring(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        runParams = serviceConfig->mRunParameters;
     }
 
-    if (auto err = PrepareRootFS(*imageParts, runtimeSpec->mMounts); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = SetupMonitoring(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto runStatus = mRunner.StartInstance(mInstanceID, mRuntimeDir, serviceConfig->mRunParameters);
+    auto runStatus = mRunner.StartInstance(mInstanceID, mRuntimeDir, runParams);
 
     mRunState = runStatus.mState;
 
