@@ -463,6 +463,36 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
     return ErrorEnum::eNone;
 }
 
+void ResourceMonitor::NormalizeMonitoringData()
+{
+    double   totalInstancesDMIPS    = 0.0;
+    size_t   totalInstancesRAM      = 0;
+    uint64_t totalInstancesDownload = 0;
+    uint64_t totalInstancesUpload   = 0;
+
+    auto& nodeMonitoringData = mNodeMonitoringData.mMonitoringData;
+
+    for (const auto& instanceMonitoring : mNodeMonitoringData.mServiceInstances) {
+        totalInstancesDMIPS += instanceMonitoring.mMonitoringData.mCPU;
+        totalInstancesRAM += instanceMonitoring.mMonitoringData.mRAM;
+        totalInstancesDownload += instanceMonitoring.mMonitoringData.mDownload;
+        totalInstancesUpload += instanceMonitoring.mMonitoringData.mUpload;
+
+        for (const auto& partition : instanceMonitoring.mMonitoringData.mPartitions) {
+            if (auto it = nodeMonitoringData.mPartitions.FindIf(
+                    [&partition](const PartitionInfo& p) { return p.mName == partition.mName; });
+                it != nodeMonitoringData.mPartitions.end()) {
+                it->mUsedSize = Max(it->mUsedSize, partition.mUsedSize);
+            }
+        }
+    }
+
+    nodeMonitoringData.mCPU      = Max(nodeMonitoringData.mCPU, totalInstancesDMIPS);
+    nodeMonitoringData.mRAM      = Max(nodeMonitoringData.mRAM, totalInstancesRAM);
+    nodeMonitoringData.mDownload = Max(nodeMonitoringData.mDownload, totalInstancesDownload);
+    nodeMonitoringData.mUpload   = Max(nodeMonitoringData.mUpload, totalInstancesUpload);
+}
+
 void ResourceMonitor::ProcessMonitoring()
 {
     while (true) {
@@ -514,6 +544,8 @@ void ResourceMonitor::ProcessMonitoring()
         if (!mSendMonitoring) {
             continue;
         }
+
+        NormalizeMonitoringData();
 
         if (auto err = mMonitorSender->SendMonitoringData(mNodeMonitoringData); !err.IsNone()) {
             LOG_ERR() << "Failed to send monitoring data: " << err;
