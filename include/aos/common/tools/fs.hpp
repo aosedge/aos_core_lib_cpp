@@ -595,6 +595,49 @@ public:
         return WriteFile(fileName, buff, perm);
     }
 
+    /**
+     * Calculates size of the file or directory.
+     *
+     * @param path file or directory path.
+     * @param dirIterators storage to store subdirectories iterators.
+     * @return RetWithError<size_t>.
+     */
+    static RetWithError<size_t> CalculateSize(const String& path, Array<DirIterator>& dirIterators)
+    {
+        size_t size = 0;
+
+        if (auto err = dirIterators.EmplaceBack(path); !err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+
+        while (!dirIterators.IsEmpty()) {
+            auto& dirIt = dirIterators.Back();
+
+            while (dirIt.Next()) {
+                const auto fullPath = FS::JoinPath(dirIt.GetRootPath(), dirIt->mPath);
+
+                if (dirIt->mIsDir) {
+                    if (auto err = dirIterators.EmplaceBack(fullPath); !err.IsNone()) {
+                        return {0, AOS_ERROR_WRAP(err)};
+                    }
+
+                    continue;
+                }
+
+                struct stat st;
+                if (auto ret = stat(fullPath.CStr(), &st); ret != 0) {
+                    return {0, AOS_ERROR_WRAP(Error(ret))};
+                }
+
+                size += st.st_size;
+            }
+
+            dirIterators.Erase(&dirIt);
+        }
+
+        return {size};
+    }
+
 private:
     static String& AppendPathEntry(String& path, const String& item)
     {
