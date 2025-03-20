@@ -99,6 +99,13 @@ public:
         }
 
         /**
+         * Returns root path.
+         *
+         * @return const String&.
+         */
+        const String& GetRootPath() const { return mRoot; }
+
+        /**
          * Returns current entry reference.
          *
          * @return const Dir&.

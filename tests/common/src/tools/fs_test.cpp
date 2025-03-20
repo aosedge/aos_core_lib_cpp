@@ -325,6 +325,8 @@ TEST_F(FSTest, DirIterator)
     std::vector<std::string> entries;
 
     for (auto iterator = FS::DirIterator(walkDirRoot.c_str()); iterator.Next();) {
+        EXPECT_STREQ(walkDirRoot.c_str(), iterator.GetRootPath().CStr());
+
         if (iterator->mIsDir) {
             entries.push_back(iterator->mPath.CStr());
         }
