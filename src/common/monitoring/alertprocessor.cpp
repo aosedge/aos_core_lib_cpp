@@ -106,18 +106,10 @@ Error AlertProcessor::Init(ResourceIdentifier id, const AlertRulePoints& rule, a
 Error AlertProcessor::CheckAlertDetection(const uint64_t currentValue, const Time& currentTime)
 {
     if (!mAlertCondition) {
-        if (auto err = HandleMaxThreshold(currentValue, currentTime); !err.IsNone()) {
-            return err;
-        }
-
-        return ErrorEnum::eNone;
+        return HandleMaxThreshold(currentValue, currentTime);
+    } else {
+        return HandleMinThreshold(currentValue, currentTime);
     }
-
-    if (auto err = HandleMinThreshold(currentValue, currentTime); !err.IsNone()) {
-        return err;
-    }
-
-    return ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************
@@ -160,10 +152,35 @@ Error AlertProcessor::HandleMaxThreshold(uint64_t currentValue, const Time& curr
 
 Error AlertProcessor::HandleMinThreshold(uint64_t currentValue, const Time& currentTime)
 {
-    Error err = ErrorEnum::eNone;
+    if (currentValue >= mMinThreshold) {
+        mMinThresholdTime = Time();
 
-    if (currentValue <= mMinThreshold && !mMinThresholdTime.IsZero()
-        && currentTime.Sub(mMinThresholdTime) >= mMinTimeout) {
+        if (currentTime.Sub(mMaxThresholdTime) >= mMinTimeout) {
+            const cloudprotocol::AlertStatus status = cloudprotocol::AlertStatusEnum::eContinue;
+
+            mMaxThresholdTime = currentTime;
+
+            LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", status=" << status
+                      << ", time=" << currentTime;
+
+            if (auto err = SendAlert(currentValue, currentTime, status); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    if (mMinThresholdTime.IsZero()) {
+        LOG_INF() << "Min threshold crossed: id=" << mID << ", value=" << currentValue
+                  << ", minThreshold=" << mMinThreshold << ", time=" << currentTime;
+
+        mMinThresholdTime = currentTime;
+
+        return ErrorEnum::eNone;
+    }
+
+    if (currentTime.Sub(mMinThresholdTime) >= mMinTimeout) {
         const cloudprotocol::AlertStatus status = cloudprotocol::AlertStatusEnum::eFall;
 
         LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", status=" << status
@@ -173,36 +190,12 @@ Error AlertProcessor::HandleMinThreshold(uint64_t currentValue, const Time& curr
         mMinThresholdTime = currentTime;
         mMaxThresholdTime = Time();
 
-        if (auto sendErr = SendAlert(currentValue, currentTime, status); err.IsNone() && !sendErr.IsNone()) {
-            err = AOS_ERROR_WRAP(sendErr);
+        if (auto err = SendAlert(currentValue, currentTime, status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
     }
 
-    if (currentTime.Sub(mMaxThresholdTime) >= mMinTimeout && mAlertCondition) {
-        const cloudprotocol::AlertStatus status = cloudprotocol::AlertStatusEnum::eContinue;
-
-        mMaxThresholdTime = currentTime;
-
-        LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", status=" << status
-                  << ", time=" << currentTime;
-
-        if (auto sendErr = SendAlert(currentValue, currentTime, status); err.IsNone() && !sendErr.IsNone()) {
-            err = AOS_ERROR_WRAP(sendErr);
-        }
-    }
-
-    if (currentValue <= mMinThreshold && mMinThresholdTime.IsZero()) {
-        LOG_INF() << "Min threshold crossed: id=" << mID << ", value=" << currentValue
-                  << ", minThreshold=" << mMinThreshold << ", time=" << currentTime;
-
-        mMinThresholdTime = currentTime;
-    }
-
-    if (currentValue > mMaxThreshold && !mMinThresholdTime.IsZero()) {
-        mMinThresholdTime = Time();
-    }
-
-    return err;
+    return ErrorEnum::eNone;
 }
 
 Error AlertProcessor::SendAlert(uint64_t currentValue, const Time& currentTime, cloudprotocol::AlertStatus status)
