@@ -788,6 +788,10 @@ Error NetworkManager::CreateBridgePluginConfig(
     config.mIPAM.mRange.mRangeEnd   = network.mNetworkParameters.mIP;
     config.mIPAM.mRange.mSubnet     = network.mNetworkParameters.mSubnet;
 
+    if (auto it = mNetworkProviders.Find(networkID); it != mNetworkProviders.end()) {
+        config.mIPAM.mRange.mGateway = it->mSecond.mIP;
+    }
+
     if (auto err = config.mIPAM.mRouters.Resize(1); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
