@@ -74,6 +74,7 @@ struct Range {
     StaticString<cSubnetLen> mSubnet;
     StaticString<cIPLen>     mRangeStart;
     StaticString<cIPLen>     mRangeEnd;
+    StaticString<cIPLen>     mGateway;
 };
 
 /**
