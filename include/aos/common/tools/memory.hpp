@@ -73,6 +73,21 @@ private:
 };
 
 /**
+ * Deleter function for shared pointer.
+ */
+template <typename T>
+inline void SmartPtrDeleter(void* ptr, Allocator* allocator)
+{
+    if (ptr) {
+        static_cast<T*>(ptr)->~T();
+
+        if (allocator) {
+            operator delete(ptr, allocator);
+        }
+    }
+}
+
+/**
  * Smart pointer instance.
  *
  * @tparam T holding object type.
@@ -81,16 +96,22 @@ template <typename T>
 class SmartPtr {
 public:
     /**
+     * Deleter.
+     */
+    using Deleter = void (*)(void*, Allocator*);
+
+    /**
      * Creates smart pointer.
      *
      * @param allocator allocator.
      * @param object object to make smart pointer.
      */
-    SmartPtr(Allocator* allocator = nullptr, T* object = nullptr)
+    SmartPtr(Allocator* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
         : mAllocator(allocator)
         , mObject(object)
+        , mDeleter(deleter)
     {
-        assert(!(object && !allocator));
+        assert(!(object && !allocator && !deleter));
     }
 
     /**
@@ -99,16 +120,15 @@ public:
      * @param allocator new allocator.
      * @param object new object.
      */
-    void Reset(Allocator* allocator = nullptr, T* object = nullptr)
+    void Reset(Allocator* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
     {
-        if (mAllocator && mObject) {
-            mObject->~T();
-            operator delete(const_cast<RemoveConstType<T>*>(mObject), mAllocator);
+        if (mAllocator && mObject && mDeleter) {
+            mDeleter(const_cast<RemoveConstType<T>*>(mObject), mAllocator);
         }
 
         assert(!(object && !allocator));
 
-        Release(allocator, object);
+        Release(allocator, object, deleter);
     }
 
     /**
@@ -118,12 +138,13 @@ public:
      * @param object new object.
      * @return T* pointer to holding object.
      */
-    T* Release(Allocator* allocator = nullptr, T* object = nullptr)
+    T* Release(Allocator* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
     {
         auto curObject = mObject;
 
         mObject    = object;
         mAllocator = allocator;
+        mDeleter   = deleter;
 
         return curObject;
     }
@@ -141,6 +162,13 @@ public:
      * @return Allocator* holding allocator.
      */
     Allocator* GetAllocator() const { return mAllocator; }
+
+    /**
+     * Returns holding deleter.
+     *
+     * @return Deleter.
+     */
+    Deleter GetDeleter() const { return mDeleter; }
 
     /**
      * Checks if pointer holds object.
@@ -175,6 +203,7 @@ public:
 private:
     Allocator* mAllocator {};
     T*         mObject {};
+    Deleter    mDeleter {};
 };
 
 /**
@@ -357,10 +386,15 @@ template <typename T>
 class SharedPtr : public SmartPtr<T> {
 public:
     /**
+     * Deleter.
+     */
+    using typename SmartPtr<T>::Deleter;
+
+    /**
      * Creates shared pointer.
      */
-    SharedPtr(Allocator* allocator = nullptr, T* object = nullptr)
-        : SmartPtr<T>(allocator, object)
+    SharedPtr(Allocator* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
+        : SmartPtr<T>(allocator, object, deleter)
     {
         if (allocator && object) {
             mAllocation = allocator->FindAllocation(object).mValue;
@@ -374,7 +408,7 @@ public:
      * @param ptr pointer to create from.
      */
     SharedPtr(const SharedPtr& ptr)
-        : SmartPtr<T>(ptr.GetAllocator(), ptr.Get())
+        : SmartPtr<T>(ptr.GetAllocator(), ptr.Get(), ptr.GetDeleter())
         , mAllocation(ptr.mAllocation)
     {
         if (SmartPtr<T>::GetAllocator()) {
@@ -389,7 +423,7 @@ public:
      */
     SharedPtr& operator=(const SharedPtr& ptr)
     {
-        SmartPtr<T>::Release(ptr.GetAllocator(), ptr.Get());
+        SmartPtr<T>::Release(ptr.GetAllocator(), ptr.Get(), ptr.GetDeleter());
         mAllocation = ptr.mAllocation;
 
         if (SmartPtr<T>::GetAllocator()) {
@@ -407,7 +441,7 @@ public:
     template <typename P>
     // cppcheck-suppress noExplicitConstructor
     SharedPtr(const SharedPtr<P>& ptr)
-        : SmartPtr<T>(ptr.GetAllocator(), ptr.Get())
+        : SmartPtr<T>(ptr.GetAllocator(), ptr.Get(), ptr.GetDeleter())
         , mAllocation(ptr.mAllocation)
     {
         if (SmartPtr<T>::GetAllocator()) {
@@ -423,7 +457,7 @@ public:
     template <typename P>
     SharedPtr& operator=(const SharedPtr<P>& ptr)
     {
-        SmartPtr<T>::Release(ptr.GetAllocator(), ptr.Get());
+        SmartPtr<T>::Release(ptr.GetAllocator(), ptr.Get(), ptr.GetDeleter());
         mAllocation = ptr.mAllocation;
 
         if (SmartPtr<T>::GetAllocator()) {
@@ -439,13 +473,13 @@ public:
      * @param allocator new allocator.
      * @param object new object.
      */
-    void Reset(Allocator* allocator = nullptr, T* object = nullptr)
+    void Reset(Allocator* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
     {
         if (SmartPtr<T>::GetAllocator() && SmartPtr<T>::GetAllocator()->GiveAllocation(mAllocation) == 0) {
-            SmartPtr<T>::Reset(allocator, object);
+            SmartPtr<T>::Reset(allocator, object, deleter);
         }
 
-        SmartPtr<T>::Release(allocator, object);
+        SmartPtr<T>::Release(allocator, object, deleter);
         mAllocation = {};
 
         if (allocator && object) {
@@ -512,7 +546,7 @@ inline SharedPtr<T> MakeShared(Allocator* allocator, Args&&... args)
 {
     assert(allocator);
 
-    return SharedPtr<T>(allocator, new (allocator) T(args...));
+    return SharedPtr<T>(allocator, new (allocator) T(args...), SmartPtrDeleter<T>);
 }
 
 } // namespace aos
