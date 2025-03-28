@@ -13,6 +13,14 @@
 namespace aos {
 
 /**
+ * Default less than comparator, utilizing "<" operator.
+ */
+template <typename T>
+struct LessThanComparator {
+    bool operator()(const T& val1, const T& val2) const { return val1 < val2; }
+};
+
+/**
  * Algorithm interface.
  * @tparam T value type.
  * @tparam I iterator type.
@@ -237,6 +245,43 @@ public:
     }
 
     /**
+     * Finds minimal element using provided comparator.
+     *
+     * @param cmp less comparator.
+     * @return CI.
+     */
+    template <typename Cmp = LessThanComparator<T>>
+    CI Min(Cmp cmp = Cmp()) const
+    {
+        if (IsEmpty()) {
+            return end();
+        }
+
+        auto min = begin();
+        for (auto it = begin() + 1; it != end(); ++it) {
+            if (cmp(*it, *min)) {
+                min = it;
+            }
+        }
+
+        return min;
+    }
+
+    /**
+     * Finds minimal element using provided comparator.
+     *
+     * @param cmp less comparator.
+     * @return CI.
+     */
+    template <typename Cmp = LessThanComparator<T>>
+    I Min(Cmp cmp = Cmp())
+    {
+        auto res = static_cast<const AlgorithmItf&>(*this).Min(cmp);
+
+        return const_cast<I>(res);
+    }
+
+    /**
      * Removes element from container.
      *
      * @param value value to remove.
@@ -288,7 +333,7 @@ public:
      * @param sortFunc sort function.
      * @param tmpValue tmp value used for temporary storage.
      */
-    template <typename F>
+    template <typename F = LessThanComparator<T>>
     void Sort(F sortFunc, T& tmpValue)
     {
         for (auto it1 = begin(); it1 != end(); it1++) {
@@ -309,8 +354,8 @@ public:
      * @tparam F type of sort function.
      * @param sortFunc sort function.
      */
-    template <typename F>
-    void Sort(F sortFunc)
+    template <typename F = LessThanComparator<T>>
+    void Sort(F sortFunc = F())
     {
         T tmpValue {};
 
@@ -318,22 +363,11 @@ public:
     }
 
     /**
-     * Sorts container items using default comparision operator.
-     */
-    void Sort()
-    {
-        Sort([](const T& val1, const T& val2) { return val1 < val2; });
-    }
-
-    /**
      * Sorts container items using default comparision operator with temporary storage.
      *
      * @param tmpValue temporary storage.
      */
-    void Sort(T& tmpValue)
-    {
-        Sort([](const T& val1, const T& val2) { return val1 < val2; }, tmpValue);
-    }
+    void Sort(T& tmpValue) { Sort(LessThanComparator<T>(), tmpValue); }
 };
 
 } // namespace aos
