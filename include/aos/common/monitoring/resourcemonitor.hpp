@@ -129,6 +129,7 @@ private:
 
     Error SetupSystemAlerts(const NodeConfig& nodeConfig);
     Error SetupInstanceAlerts(const String& instanceID, const InstanceMonitorParams& instanceParams);
+    void  NormalizeMonitoringData();
     void  ProcessMonitoring();
     void  ProcessAlerts(const MonitoringData& monitoringData, const Time& time, Array<AlertProcessor>& alertProcessors);
     RetWithError<uint64_t> GetCurrentUsage(const ResourceIdentifier& id, const MonitoringData& monitoringData) const;
