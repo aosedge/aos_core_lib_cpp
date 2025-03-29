@@ -325,6 +325,8 @@ TEST_F(FSTest, DirIterator)
     std::vector<std::string> entries;
 
     for (auto iterator = FS::DirIterator(walkDirRoot.c_str()); iterator.Next();) {
+        EXPECT_STREQ(walkDirRoot.c_str(), iterator.GetRootPath().CStr());
+
         if (iterator->mIsDir) {
             entries.push_back(iterator->mPath.CStr());
         }
@@ -338,4 +340,35 @@ TEST_F(FSTest, DirIterator)
 
     auto iterator = FS::DirIterator((walkDirRoot / "not-existing-dir").c_str());
     EXPECT_FALSE(iterator.Next());
+}
+
+TEST_F(FSTest, CalculateSize)
+{
+    const auto walkDirRoot     = cBaseTestDir / "calculate-dir-test";
+    const auto multipleSubDirs = walkDirRoot / "sd1" / "sd2" / "sd3";
+
+    ASSERT_TRUE(FS::MakeDirAll(multipleSubDirs.c_str()).IsNone());
+    CreateFile((multipleSubDirs / "fff.txt").c_str(), std::string(2048, 'a').c_str(), 0444);
+
+    const std::vector folders = {
+        walkDirRoot / "d1",
+        walkDirRoot / "d2",
+        walkDirRoot / "d3",
+    };
+
+    for (const auto& folder : folders) {
+        ASSERT_TRUE(FS::MakeDirAll(folder.c_str()).IsNone());
+
+        CreateFile((folder / "f.txt").c_str(), std::string(1024, 'a').c_str(), 0444);
+    }
+
+    auto subDirs = std::make_unique<StaticArray<FS::DirIterator, 8>>();
+
+    EXPECT_EQ(FS::CalculateSize(walkDirRoot.c_str(), *subDirs), RetWithError<size_t>(3 * 1024 + 2048));
+
+    EXPECT_EQ(FS::CalculateSize("does-not-exists", *subDirs), RetWithError<size_t>(0));
+
+    auto noMemSubDirs = std::make_unique<StaticArray<FS::DirIterator, 1>>();
+
+    EXPECT_EQ(FS::CalculateSize(walkDirRoot.c_str(), *noMemSubDirs), RetWithError<size_t>(0, ErrorEnum::eNoMemory));
 }

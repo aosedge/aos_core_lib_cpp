@@ -15,6 +15,7 @@
 
 #include "aos/common/tools/config.hpp"
 #include "aos/common/tools/memory.hpp"
+#include "aos/common/tools/noncopyable.hpp"
 #include "aos/common/tools/string.hpp"
 
 namespace aos {
@@ -33,7 +34,7 @@ public:
      * Directory iterator.
      * The iteration order is unspecified, except that each directory entry is visited only once.
      */
-    class DirIterator {
+    class DirIterator : public NonCopyable {
     public:
         /**
          * Directory entry.
@@ -52,6 +53,38 @@ public:
             : mDir(opendir(path.CStr()))
             , mRoot(path)
         {
+        }
+
+        /**
+         * Move constructor.
+         *
+         * @param other iterator to move from.
+         */
+        DirIterator(DirIterator&& other)
+            : mDir(other.mDir)
+            , mEntry(other.mEntry)
+            , mRoot(other.mRoot)
+        {
+            other.mDir = nullptr;
+        }
+
+        /**
+         * Move assignment.
+         *
+         * @param other iterator to move from.
+         * @return DirIterator&.
+         */
+        DirIterator& operator=(DirIterator&& other)
+        {
+            if (this != &other) {
+                mDir   = other.mDir;
+                mEntry = other.mEntry;
+                mRoot  = other.mRoot;
+
+                other.mDir = nullptr;
+            }
+
+            return *this;
         }
 
         /**
@@ -97,6 +130,13 @@ public:
 
             return false;
         }
+
+        /**
+         * Returns root path.
+         *
+         * @return const String&.
+         */
+        const String& GetRootPath() const { return mRoot; }
 
         /**
          * Returns current entry reference.
@@ -553,6 +593,49 @@ public:
         const auto buff = Array<uint8_t>(reinterpret_cast<const uint8_t*>(text.Get()), text.Size());
 
         return WriteFile(fileName, buff, perm);
+    }
+
+    /**
+     * Calculates size of the file or directory.
+     *
+     * @param path file or directory path.
+     * @param dirIterators storage to store subdirectories iterators.
+     * @return RetWithError<size_t>.
+     */
+    static RetWithError<size_t> CalculateSize(const String& path, Array<DirIterator>& dirIterators)
+    {
+        size_t size = 0;
+
+        if (auto err = dirIterators.EmplaceBack(path); !err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+
+        while (!dirIterators.IsEmpty()) {
+            auto& dirIt = dirIterators.Back();
+
+            while (dirIt.Next()) {
+                const auto fullPath = FS::JoinPath(dirIt.GetRootPath(), dirIt->mPath);
+
+                if (dirIt->mIsDir) {
+                    if (auto err = dirIterators.EmplaceBack(fullPath); !err.IsNone()) {
+                        return {0, AOS_ERROR_WRAP(err)};
+                    }
+
+                    continue;
+                }
+
+                struct stat st;
+                if (auto ret = stat(fullPath.CStr(), &st); ret != 0) {
+                    return {0, AOS_ERROR_WRAP(Error(ret))};
+                }
+
+                size += st.st_size;
+            }
+
+            dirIterators.Erase(&dirIt);
+        }
+
+        return {size};
     }
 
 private:

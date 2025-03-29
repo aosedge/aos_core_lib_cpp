@@ -322,6 +322,24 @@ TEST(ArrayTest, Struct)
     EXPECT_EQ(array[0].arr2, Array<uint32_t>(test1, ArraySize(test1)));
 }
 
+TEST(ArrayTest, PushAndEraseNonCopyable)
+{
+    StaticArray<std::unique_ptr<int>, 3> array;
+
+    array.PushBack(std::make_unique<int>(0));
+    array.PushBack(std::make_unique<int>(1));
+    array.PushBack(std::make_unique<int>(2));
+
+    ASSERT_EQ(array.Size(), 3);
+
+    array.Erase(array.begin() + 1);
+
+    ASSERT_EQ(array.Size(), 2);
+
+    EXPECT_EQ(*array[0], 0);
+    EXPECT_EQ(*array[1], 2);
+}
+
 TEST(ArrayTest, Sort)
 {
     int intValues[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
