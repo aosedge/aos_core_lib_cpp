@@ -53,7 +53,17 @@ public:
 
         LockGuard lock {mMutex};
 
-        if (auto err = mFunction.Capture(callback, arg); !err.IsNone()) {
+        const auto wrappedCallback = [this, callback](void* arg) {
+            callback(arg);
+
+            LockGuard lock {mMutex};
+
+            if (mOneShot) {
+                Stop();
+            }
+        };
+
+        if (auto err = mFunction.Capture(wrappedCallback, arg); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
