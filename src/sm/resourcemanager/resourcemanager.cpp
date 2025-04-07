@@ -341,7 +341,8 @@ Error ResourceManager::LoadConfig()
 
     err = mJsonProvider->NodeConfigFromJSON(*configJSON, *mConfig);
     if (!err.IsNone()) {
-        mConfigError = err;
+        mConfig->mVersion = "0.0.0";
+        mConfigError      = err;
 
         return AOS_ERROR_WRAP(err);
     }
