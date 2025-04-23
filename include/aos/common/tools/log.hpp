@@ -12,7 +12,7 @@
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/noncopyable.hpp"
-
+#include "aos/common/tools/utils.hpp"
 /**
  * Helper macro to display debug log.
  */
@@ -85,6 +85,65 @@ public:
     static size_t constexpr cMaxLineLen = AOS_CONFIG_LOG_LINE_LEN;
 
     /**
+     * Max log fields length.
+     */
+    static size_t constexpr cMaxFieldsLen = AOS_CONFIG_LOG_FIELDS_LEN;
+
+    /**
+     * Max log value length.
+     */
+    static size_t constexpr cMaxValueLen = AOS_CONFIG_LOG_VALUE_LEN;
+
+    /**
+     * Max log key length.
+     */
+    static size_t constexpr cMaxKeyLen = AOS_CONFIG_LOG_KEY_LEN;
+
+    /**
+     * Field entry structure for field-based logging
+     */
+    struct FieldEntry {
+        StaticString<cMaxKeyLen>   mKey;
+        StaticString<cMaxValueLen> mValue;
+
+        /**
+         * Default constructor
+         */
+        FieldEntry() = default;
+
+        /**
+         * Constructor.
+         *
+         * @param key key.
+         * @param value value.
+         */
+        template <typename T>
+        FieldEntry(const String& key, const T& value)
+            : mKey(key)
+        {
+            if constexpr (IsConvertible_v<T, String>) {
+                mValue = value;
+            } else {
+                mValue.Convert(value);
+            }
+        }
+
+        // cppcheck-suppress noExplicitConstructor
+        /**
+         * Constructor.
+         *
+         * @param err error.
+         */
+        FieldEntry(const Error& err)
+            : mKey("err")
+        {
+            [[maybe_unused]] auto errConvert = mValue.Convert(err);
+
+            assert(errConvert.IsNone());
+        }
+    };
+
+    /**
      * Constructs a new Log object.
      *
      * @param module log module type.
@@ -92,14 +151,21 @@ public:
      */
     Log(const String& module, LogLevel level)
         : mModule(module)
-        , mLevel(level)
-        , mCurrentLen(0) {};
+        , mLevel(level) {};
 
     /**
      * Destroys the Log object and calls log callback.
      */
     ~Log()
     {
+        if (!mFieldsLine.IsEmpty()) {
+            if (!mLogLine.IsEmpty()) {
+                mLogLine += ": ";
+            }
+
+            mLogLine += mFieldsLine;
+        }
+
         auto callback = GetCallback();
 
         if (callback != nullptr) {
@@ -113,6 +179,35 @@ public:
      * @param callback
      */
     static void SetCallback(LogCallback callback) { GetCallback() = callback; }
+
+    /**
+     * Returns FieldEntry (key-value pair).
+     *
+     * @param field FieldEntry.
+     * @return FieldEntry
+     */
+    static FieldEntry Field(const FieldEntry& field) { return field; }
+
+    /**
+     * Returns FieldEntry (key-value pair).
+     *
+     * @param key key.
+     * @param value value.
+     * @return FieldEntry
+     */
+    template <typename T>
+    static FieldEntry Field(const String& key, const T& value)
+    {
+        return FieldEntry(key, value);
+    }
+
+    /**
+     * Returns FieldEntry (key-value pair).
+     *
+     * @param err error.
+     * @return FieldEntry
+     */
+    static FieldEntry Field(const Error& err) { return FieldEntry(err); }
 
     /**
      * Logs string.
@@ -137,6 +232,25 @@ public:
 
         return *this;
     };
+
+    /**
+     * Logs FieldEntry.
+     *
+     * @param field FieldEntry.
+     * @return Log&
+     */
+    Log& operator<<(const FieldEntry& field)
+    {
+        if (!mFieldsLine.IsEmpty()) {
+            mFieldsLine += ", ";
+        }
+
+        mFieldsLine += field.mKey;
+        mFieldsLine += "=";
+        mFieldsLine += field.mValue;
+
+        return *this;
+    }
 
     /**
      * Logs object that implements Stringer interface.
@@ -188,10 +302,10 @@ private:
         }
     }
 
-    StaticString<cMaxLineLen> mLogLine;
-    String                    mModule;
-    LogLevel                  mLevel;
-    size_t                    mCurrentLen;
+    StaticString<cMaxLineLen>   mLogLine;
+    StaticString<cMaxFieldsLen> mFieldsLine;
+    String                      mModule;
+    LogLevel                    mLevel;
 };
 
 /**

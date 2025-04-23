@@ -139,4 +139,25 @@ TEST(LogTest, Basic)
     err = Error(ErrorEnum::eFailed, "", "file.cpp", 123);
     LOG_ERR() << "This is error: " << err;
     EXPECT_TRUE(testLog.CheckLog("default", LogLevelEnum::eError, "This is error: failed (file.cpp:123)"));
+
+    // Test with key-value pairs
+
+    String url      = "http://test.com";
+    String path     = "/hello/world";
+    auto   fileSize = 20;
+
+    LOG_DBG() << "Download completed" << Log::Field({"url", url}) << Log::Field("path", path)
+              << Log::Field("size", fileSize);
+    EXPECT_TRUE(testLog.CheckLog(
+        "default", LogLevelEnum::eDebug, "Download completed: url=http://test.com, path=/hello/world, size=20"));
+
+    LOG_DBG() << "Downloaded" << Log::Field("path", path) << " size" << Log::Field("size", fileSize);
+    EXPECT_TRUE(testLog.CheckLog("default", LogLevelEnum::eDebug, "Downloaded size: path=/hello/world, size=20"));
+
+    LOG_ERR() << "Download failed" << Log::Field(err);
+    EXPECT_TRUE(testLog.CheckLog("default", LogLevelEnum::eError, "Download failed: err=failed (file.cpp:123)"));
+
+    LOG_ERR() << "Download failed" << Log::Field("path", path) << Log::Field(err);
+    EXPECT_TRUE(testLog.CheckLog(
+        "default", LogLevelEnum::eError, "Download failed: path=/hello/world, err=failed (file.cpp:123)"));
 }

@@ -35,6 +35,30 @@
 #endif
 
 /**
+ * Max log fields len.
+ *
+ */
+#ifndef AOS_CONFIG_LOG_FIELDS_LEN
+#define AOS_CONFIG_LOG_FIELDS_LEN 256
+#endif
+
+/**
+ * Max log value len.
+ *
+ */
+#ifndef AOS_CONFIG_LOG_VALUE_LEN
+#define AOS_CONFIG_LOG_VALUE_LEN 128
+#endif
+
+/**
+ * Max log key len.
+ *
+ */
+#ifndef AOS_CONFIG_LOG_KEY_LEN
+#define AOS_CONFIG_LOG_KEY_LEN 16
+#endif
+
+/**
  * Configures function max size.
  */
 #ifndef AOS_CONFIG_FUNCTION_MAX_SIZE

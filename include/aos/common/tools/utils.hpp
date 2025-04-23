@@ -260,6 +260,72 @@ public:
     static const bool value = sizeof(Test(static_cast<D*>(0))) == sizeof(Yes);
 };
 
+/**
+ * Integral constant template.
+ *
+ * @tparam T type.
+ * @tparam v value.
+ */
+template <typename T, T v>
+struct IntegralConstant {
+    static constexpr T value = v;
+    using ValueType          = T;
+    using Type               = IntegralConstant;
+    constexpr operator ValueType() const noexcept { return value; }
+};
+
+/**
+ * True type template.
+ */
+using TrueType = IntegralConstant<bool, true>;
+
+/**
+ * False type template.
+ */
+using FalseType = IntegralConstant<bool, false>;
+
+/**
+ * Declval template.
+ *
+ * @tparam T type.
+ */
+template <typename T>
+T&& declval() noexcept; // no definition needed
+
+/**
+ * Make void template.
+ *
+ * @tparam ...T types.
+ */
+template <typename...>
+struct make_void {
+    using type = void;
+};
+
+/**
+ * Primary template: false unless conversion is possible.
+ * @tparam From source type
+ * @tparam To   target type
+ */
+template <typename From, typename To, typename = void>
+struct IsConvertible : FalseType { };
+
+/**
+ * Specialization: true if static_cast<To>(declval<From>()) is valid.
+ * @tparam From source type
+ * @tparam To   target type
+ */
+template <typename From, typename To>
+struct IsConvertible<From, To, typename make_void<decltype(static_cast<To>(declval<From>()))>::type> : TrueType { };
+
+/**
+ * constexpr bool alias for is_convertible<From,To>::value.
+ * @tparam From source type
+ * @tparam To   target type
+ */
+template <typename From, typename To>
+constexpr bool IsConvertible_v = IsConvertible<From, To>::value;
+
 } // namespace aos
 
 #endif
