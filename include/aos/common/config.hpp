@@ -166,7 +166,7 @@
  * File system mount option len.
  */
 #ifndef AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN
-#define AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN 16
+#define AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN 64
 #endif
 
 /**
