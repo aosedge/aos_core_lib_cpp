@@ -40,10 +40,6 @@ Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInf
     mMaxDMIPS                                       = nodeInfo->mMaxDMIPS;
     mMaxMemory                                      = nodeInfo->mTotalRAM;
 
-    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     assert(mConfig.mPollPeriod > 0);
 
     if (auto err = mAverage.Init(
@@ -58,6 +54,10 @@ Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInf
 Error ResourceMonitor::Start()
 {
     LOG_DBG() << "Start monitoring";
+
+    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto nodeConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
