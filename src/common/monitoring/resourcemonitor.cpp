@@ -62,7 +62,7 @@ Error ResourceMonitor::Start()
     auto nodeConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
     if (auto err = mResourceManager->GetNodeConfig(nodeConfig->mNodeConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        LOG_ERR() << "Get node config failed, err=" << AOS_ERROR_WRAP(err);
     }
 
     if (auto err = SetupSystemAlerts(nodeConfig->mNodeConfig); !err.IsNone()) {
