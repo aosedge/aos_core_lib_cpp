@@ -456,11 +456,12 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     auto alertSender           = std::make_unique<AlertSenderStub>();
     auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
-    auto monitor = std::make_unique<ResourceMonitor>();
+    auto   monitor = std::make_unique<ResourceMonitor>();
+    Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};
 
     EXPECT_TRUE(monitor
-                    ->Init(Config {Time::cMilliseconds, Time::cMilliseconds}, *nodeInfoProvider, *resourceManager,
-                        *resourceUsageProvider, *sender, *alertSender, *connectionPublisher)
+                    ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
+                        *connectionPublisher)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
@@ -528,11 +529,12 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     auto alertSender           = std::make_unique<AlertSenderStub>();
     auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
-    auto monitor = std::make_unique<ResourceMonitor>();
+    auto   monitor = std::make_unique<ResourceMonitor>();
+    Config config {};
 
     EXPECT_TRUE(monitor
-                    ->Init(Config {}, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender,
-                        *alertSender, *connectionPublisher)
+                    ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
+                        *connectionPublisher)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
@@ -805,11 +807,12 @@ TEST_F(MonitoringTest, GetNodeMonitoringDataOnInstanceSpikes)
     auto alertSender           = std::make_unique<AlertSenderStub>();
     auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
 
-    auto monitor = std::make_unique<ResourceMonitor>();
+    auto   monitor = std::make_unique<ResourceMonitor>();
+    Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};
 
     EXPECT_TRUE(monitor
-                    ->Init(Config {Time::cMilliseconds, Time::cMilliseconds}, *nodeInfoProvider, *resourceManager,
-                        *resourceUsageProvider, *sender, *alertSender, *connectionPublisher)
+                    ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
+                        *connectionPublisher)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
