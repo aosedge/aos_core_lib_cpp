@@ -69,7 +69,7 @@ target_link_libraries(${TARGET} PUBLIC aoscrypto)
 # Install
 # ######################################################################################################################
 
-install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
+install(TARGETS ${TARGET} aoscrypto ARCHIVE DESTINATION lib)
 
 install(
     DIRECTORY ${AOS_CORE_LIB_DIR}/include/aos/common
