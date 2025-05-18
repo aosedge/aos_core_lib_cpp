@@ -151,8 +151,8 @@ TEST(LogTest, Basic)
     EXPECT_TRUE(testLog.CheckLog(
         "default", LogLevelEnum::eDebug, "Download completed: url=http://test.com, path=/hello/world, size=20"));
 
-    LOG_DBG() << "Downloaded" << Log::Field("path", path) << " size" << Log::Field("size", fileSize);
-    EXPECT_TRUE(testLog.CheckLog("default", LogLevelEnum::eDebug, "Downloaded size: path=/hello/world, size=20"));
+    LOG_DBG() << "Downloaded" << Log::Field("path", path) << Log::Field("size", fileSize);
+    EXPECT_TRUE(testLog.CheckLog("default", LogLevelEnum::eDebug, "Downloaded: path=/hello/world, size=20"));
 
     LOG_ERR() << "Download failed" << Log::Field(err);
     EXPECT_TRUE(testLog.CheckLog("default", LogLevelEnum::eError, "Download failed: err=failed (file.cpp:123)"));

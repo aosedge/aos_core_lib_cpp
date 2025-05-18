@@ -85,11 +85,6 @@ public:
     static size_t constexpr cMaxLineLen = AOS_CONFIG_LOG_LINE_LEN;
 
     /**
-     * Max log fields length.
-     */
-    static size_t constexpr cMaxFieldsLen = AOS_CONFIG_LOG_FIELDS_LEN;
-
-    /**
      * Max log value length.
      */
     static size_t constexpr cMaxValueLen = AOS_CONFIG_LOG_VALUE_LEN;
@@ -158,14 +153,6 @@ public:
      */
     ~Log()
     {
-        if (!mFieldsLine.IsEmpty()) {
-            if (!mLogLine.IsEmpty()) {
-                mLogLine += ": ";
-            }
-
-            mLogLine += mFieldsLine;
-        }
-
         auto callback = GetCallback();
 
         if (callback != nullptr) {
@@ -241,13 +228,16 @@ public:
      */
     Log& operator<<(const FieldEntry& field)
     {
-        if (!mFieldsLine.IsEmpty()) {
-            mFieldsLine += ", ";
+        if (mFieldsCount > 0) {
+            mLogLine += ", ";
+        } else {
+            mLogLine += ": ";
         }
 
-        mFieldsLine += field.mKey;
-        mFieldsLine += "=";
-        mFieldsLine += field.mValue;
+        mLogLine += field.mKey;
+        mLogLine += "=";
+        mLogLine += field.mValue;
+        mFieldsCount++;
 
         return *this;
     }
@@ -302,10 +292,10 @@ private:
         }
     }
 
-    StaticString<cMaxLineLen>   mLogLine;
-    StaticString<cMaxFieldsLen> mFieldsLine;
-    String                      mModule;
-    LogLevel                    mLevel;
+    StaticString<cMaxLineLen> mLogLine;
+    int                       mFieldsCount = 0;
+    String                    mModule;
+    LogLevel                  mLevel;
 };
 
 /**

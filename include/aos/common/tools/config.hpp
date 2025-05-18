@@ -35,14 +35,6 @@
 #endif
 
 /**
- * Max log fields len.
- *
- */
-#ifndef AOS_CONFIG_LOG_FIELDS_LEN
-#define AOS_CONFIG_LOG_FIELDS_LEN 256
-#endif
-
-/**
  * Max log value len.
  *
  */
