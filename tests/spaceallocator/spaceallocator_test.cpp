@@ -20,9 +20,11 @@ namespace aos::spaceallocator {
 
 class SpaceallocatorTest : public Test {
 protected:
+    void TearDown() { fs::RemoveAll(mPath); }
+
     StrictMock<FSPlatformMock>       mPlatformFS;
     StrictMock<ItemRemoverMock>      mRemover;
-    const String                     mPath       = "/test/path";
+    const String                     mPath       = "path";
     const size_t                     mLimit      = 0;
     static constexpr auto            cKilobyte   = 1024;
     const size_t                     mTotalSize  = 1 * cKilobyte * cKilobyte;
@@ -43,7 +45,7 @@ TEST_F(SpaceallocatorTest, AllocateSuccess)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mLimit, mRemover, mPlatformFS).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -90,9 +92,9 @@ TEST_F(SpaceallocatorTest, MultipleAllocators)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(allocator1.Init(mPath, 0, mRemover, mPlatformFS).IsNone());
-    ASSERT_TRUE(allocator2.Init(mPath, 0, mRemover, mPlatformFS).IsNone());
-    ASSERT_TRUE(allocator3.Init(mPath, 0, mRemover, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator1.Init(mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator2.Init(mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator3.Init(mPath, mPlatformFS).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -161,7 +163,7 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, 100, mRemover, mPlatformFS).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 100, &mRemover).IsNone());
 
     std::vector<std::string> removedFiles;
     EXPECT_CALL(mRemover, RemoveItem(testing::_)).WillRepeatedly(testing::Invoke([&removedFiles](const String& id) {
@@ -253,7 +255,7 @@ TEST_F(SpaceallocatorTest, PartLimit)
     SpaceAllocator<2> mSpaceAllocator;
 
     // Initialize allocator with 50% limit
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, 50, mRemover, mPlatformFS).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 50).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
         .WillOnce(Return(RetWithError<size_t>(totalExistSize, ErrorEnum::eNone)));
