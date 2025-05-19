@@ -448,35 +448,37 @@ public:
      * Initializes space allocator.
      *
      * @param path path to allocate space.
+     * @param platformFS platform file system.
      * @param limit limit in percents.
      * @param remover item remover.
-     * @param platformFS platform file system.
      * @return Error.
      */
-    Error Init(const String& path, size_t limit, ItemRemoverItf& remover, fs::FSPlatformItf& platformFS)
+    Error Init(const String& path, fs::FSPlatformItf& platformFS, size_t limit = 0, ItemRemoverItf* remover = nullptr)
     {
         LockGuard lock {mPartitionsMutex};
 
-        mRemover    = &remover;
+        mRemover    = remover;
         mPlatformFS = &platformFS;
         mPath       = path;
 
-        auto [mountPoint, errMountPoint] = mPlatformFS->GetMountPoint(path);
-        if (!errMountPoint.IsNone()) {
-            return errMountPoint;
+        if (auto err = fs::MakeDirAll(path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
-        Error err;
+        auto [mountPoint, errMountPoint] = mPlatformFS->GetMountPoint(path);
+        if (!errMountPoint.IsNone()) {
+            return AOS_ERROR_WRAP(errMountPoint);
+        }
 
         auto partitionIt = mPartitions.Find(mountPoint);
         if (partitionIt == mPartitions.end()) {
-            if (err = mPartitions.TryEmplace(mountPoint, Partition()); !err.IsNone()) {
-                return err;
+            if (auto err = mPartitions.TryEmplace(mountPoint); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
             }
 
             partitionIt = mPartitions.end() - 1;
 
-            if (err = NewPartition(mountPoint, partitionIt->mSecond); !err.IsNone()) {
+            if (auto err = NewPartition(mountPoint, partitionIt->mSecond); !err.IsNone()) {
                 return err;
             }
         }
@@ -485,7 +487,7 @@ public:
         mPartition->mAllocatorCount++;
 
         if (limit != 0) {
-            if (err = mPartition->AddLimit(limit); !err.IsNone()) {
+            if (auto err = mPartition->AddLimit(limit); !err.IsNone()) {
                 return err;
             }
 
