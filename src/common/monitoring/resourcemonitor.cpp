@@ -65,6 +65,10 @@ Error ResourceMonitor::Start()
         LOG_ERR() << "Get node config failed, err=" << AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mResourceManager->SubscribeCurrentNodeConfigChange(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = SetupSystemAlerts(nodeConfig->mNodeConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -84,6 +88,10 @@ Error ResourceMonitor::Stop()
 
     mTimer.Stop();
     mConnectionPublisher->Unsubscribe(*this);
+
+    if (auto err = mResourceManager->UnsubscribeCurrentNodeConfigChange(*this); !err.IsNone()) {
+        LOG_ERR() << "Unsubscription on node config change failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
