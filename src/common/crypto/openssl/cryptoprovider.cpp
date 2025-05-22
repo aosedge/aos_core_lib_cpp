@@ -1487,33 +1487,6 @@ Error OpenSSLCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
     return ErrorEnum::eNone;
 }
 
-RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name)
-{
-    constexpr auto cUUIDVersion = 5;
-
-    StaticArray<uint8_t, cSHA1InputDataSize> buffer = space;
-
-    auto err = buffer.Insert(buffer.end(), name.begin(), name.end());
-    if (!err.IsNone()) {
-        return {{}, AOS_ERROR_WRAP(err)};
-    }
-
-    StaticArray<uint8_t, cSHA1DigestSize> sha1;
-
-    sha1.Resize(sha1.MaxSize());
-
-    SHA1(buffer.Get(), buffer.Size(), sha1.Get());
-
-    // copy lowest 16 bytes
-    uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDSize);
-
-    // The version of the UUID will be the lower 4 bits of cUUIDVersion
-    result[6] = (result[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
-    result[8] = (result[8] & 0x3f) | 0x80; // RFC 4122 variant
-
-    return result;
-}
-
 RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(Hash algorithm)
 {
     if (algorithm == HashEnum::eNone) {
@@ -1554,6 +1527,50 @@ Error OpenSSLCryptoProvider::RandBuffer(Array<uint8_t>& buffer, size_t size)
     }
 
     return ErrorEnum::eNone;
+}
+
+RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv4()
+{
+    constexpr auto cUUIDVersion = 4;
+
+    uuid::UUID uuid;
+
+    if (auto err = RandBuffer(uuid, uuid.MaxSize()); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    // The version of the UUID will be the lower 4 bits of cUUIDVersion
+    uuid[6] = (uuid[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    uuid[8] = (uuid[8] & 0x3f) | 0x80; // RFC 4122 variant
+
+    return uuid;
+}
+
+RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name)
+{
+    constexpr auto cUUIDVersion = 5;
+
+    StaticArray<uint8_t, cSHA1InputDataSize> buffer = space;
+
+    auto err = buffer.Insert(buffer.end(), name.begin(), name.end());
+    if (!err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    StaticArray<uint8_t, cSHA1DigestSize> sha1;
+
+    sha1.Resize(sha1.MaxSize());
+
+    SHA1(buffer.Get(), buffer.Size(), sha1.Get());
+
+    // copy lowest 16 bytes
+    uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDSize);
+
+    // The version of the UUID will be the lower 4 bits of cUUIDVersion
+    result[6] = (result[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    result[8] = (result[8] & 0x3f) | 0x80; // RFC 4122 variant
+
+    return result;
 }
 
 /***********************************************************************************************************************

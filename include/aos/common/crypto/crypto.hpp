@@ -296,6 +296,33 @@ public:
     virtual ~RandomItf() = default;
 };
 
+/***
+ * UUID generator interface.
+ */
+class UUIDItf {
+public:
+    /**
+     * Creates UUID v4.
+     *
+     * @return RetWithError<uuid::UUID>.
+     */
+    virtual RetWithError<uuid::UUID> CreateUUIDv4() = 0;
+
+    /**
+     * Creates UUID version 5 based on a given namespace identifier and name.
+     *
+     * @param space namespace identifier.
+     * @param name name.
+     * @result RetWithError<uuid::UUID>.
+     */
+    virtual RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~UUIDItf() = default;
+};
+
 /**
  * Options being used while signing.
  */
@@ -701,15 +728,6 @@ public:
     virtual Error ASN1DecodeOID(const Array<uint8_t>& inOID, Array<uint8_t>& dst) = 0;
 
     /**
-     * Creates UUID version 5 based on a given namespace identifier and name.
-     *
-     * @param space namespace identifier.
-     * @param name name.
-     * @result RetWithError<uuid::UUID>.
-     */
-    virtual RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name) = 0;
-
-    /**
      * Destroys object instance.
      */
     virtual ~ProviderItf() = default;
@@ -721,6 +739,18 @@ public:
 using CertificateChain = StaticArray<Certificate, cCertChainSize>;
 
 } // namespace x509
+
+/**
+ * Crypto provider interface.
+ */
+class CryptoProviderItf : public x509::ProviderItf, public HasherItf, public RandomItf, public UUIDItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~CryptoProviderItf() = default;
+};
+
 } // namespace aos::crypto
 
 #endif
