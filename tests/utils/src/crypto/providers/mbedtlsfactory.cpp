@@ -369,7 +369,7 @@ std::string MBedTLSCryptoFactory::GetName()
     return "MBedTLS";
 }
 
-x509::ProviderItf& MBedTLSCryptoFactory::GetCryptoProvider()
+CryptoProviderItf& MBedTLSCryptoFactory::GetCryptoProvider()
 {
     return mProvider;
 }
