@@ -90,7 +90,7 @@ protected:
 
     // Service providers
     crypto::DefaultCryptoFactory mCryptoFactory;
-    crypto::x509::ProviderItf*   mCryptoProvider = nullptr;
+    crypto::CryptoProviderItf*   mCryptoProvider = nullptr;
     test::SoftHSMEnv             mSOFTHSMEnv;
     StorageStub                  mStorage;
 

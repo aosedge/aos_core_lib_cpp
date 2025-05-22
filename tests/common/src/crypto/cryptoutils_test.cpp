@@ -88,7 +88,7 @@ protected:
     static constexpr auto mPINSource = "pin.txt";
 
     DefaultCryptoFactory mCryptoFactory;
-    x509::ProviderItf*   mCryptoProvider = nullptr;
+    CryptoProviderItf*   mCryptoProvider = nullptr;
     test::SoftHSMEnv     mSoftHSMEnv;
 
     pkcs11::SlotID                    mSlotID = 0;

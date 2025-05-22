@@ -405,7 +405,7 @@ std::string OpenSSLCryptoFactory::GetName()
     return "OpenSSL";
 }
 
-x509::ProviderItf& OpenSSLCryptoFactory::GetCryptoProvider()
+CryptoProviderItf& OpenSSLCryptoFactory::GetCryptoProvider()
 {
     return mProvider;
 }

@@ -21,11 +21,11 @@ namespace aos::iam::certhandler {
  **********************************************************************************************************************/
 
 Error PKCS11Module::Init(const String& certType, const PKCS11ModuleConfig& config, pkcs11::PKCS11Manager& pkcs11,
-    crypto::x509::ProviderItf& x509Provider)
+    crypto::CryptoProviderItf& cryptoProvider)
 {
-    mCertType     = certType;
-    mConfig       = config;
-    mX509Provider = &x509Provider;
+    mCertType       = certType;
+    mConfig         = config;
+    mCryptoProvider = &cryptoProvider;
 
     mPKCS11 = pkcs11.OpenLibrary(mConfig.mLibrary);
     if (!mPKCS11) {
@@ -209,7 +209,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
 
     switch (keyType.GetValue()) {
     case crypto::KeyTypeEnum::eRSA:
-        Tie(pendingKey.mKey, err) = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator)
+        Tie(pendingKey.mKey, err) = pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator)
                                         .GenerateRSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cRSAKeyLength);
         if (!err.IsNone()) {
             return {nullptr, AOS_ERROR_WRAP(err)};
@@ -217,7 +217,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
         break;
 
     case crypto::KeyTypeEnum::eECDSA:
-        Tie(pendingKey.mKey, err) = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator)
+        Tie(pendingKey.mKey, err) = pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator)
                                         .GenerateECDSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cECSDACurveID);
         if (!err.IsNone()) {
             return {nullptr, AOS_ERROR_WRAP(err)};
@@ -232,7 +232,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
 
     err = TokenMemInfo();
     if (!err.IsNone()) {
-        pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(pendingKey.mKey);
+        pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator).DeletePrivateKey(pendingKey.mKey);
         return {nullptr, err};
     }
 
@@ -241,7 +241,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
 
         auto oldKey = mPendingKeys.Front().mKey;
 
-        err = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(oldKey);
+        err = pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator).DeletePrivateKey(oldKey);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't delete pending key: err=" << err;
         }
@@ -322,7 +322,7 @@ Error PKCS11Module::RemoveCert(const String& certURL, const String& password)
         return err;
     }
 
-    return pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).DeleteCertificate(id, label);
+    return pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator).DeleteCertificate(id, label);
 }
 
 Error PKCS11Module::RemoveKey(const String& keyURL, const String& password)
@@ -345,12 +345,12 @@ Error PKCS11Module::RemoveKey(const String& keyURL, const String& password)
         return err;
     }
 
-    const auto privKey = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).FindPrivateKey(id, label);
+    const auto privKey = pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator).FindPrivateKey(id, label);
     if (!privKey.mError.IsNone()) {
         return AOS_ERROR_WRAP(privKey.mError);
     }
 
-    err = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator).DeletePrivateKey(privKey.mValue);
+    err = pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator).DeletePrivateKey(privKey.mValue);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -588,7 +588,7 @@ Error PKCS11Module::GenTeeUserPIN(const String& loginType, const String& idType,
         return AOS_ERROR_WRAP(err);
     }
 
-    Tie(userSHA1, err) = mX509Provider->CreateUUIDv5(teeSpace, userID.AsByteArray());
+    Tie(userSHA1, err) = mCryptoProvider->CreateUUIDv5(teeSpace, userID.AsByteArray());
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -767,7 +767,7 @@ bool PKCS11Module::CheckCertificate(const crypto::x509::Certificate& cert, const
 Error PKCS11Module::CreateCertificateChain(const SharedPtr<pkcs11::SessionContext>& session, const Array<uint8_t>& id,
     const String& label, const Array<crypto::x509::Certificate>& chain)
 {
-    auto utils = pkcs11::Utils(session, *mX509Provider, mLocalCacheAllocator);
+    auto utils = pkcs11::Utils(session, *mCryptoProvider, mLocalCacheAllocator);
 
     LOG_DBG() << "Import certificate with id: " << aos::uuid::UUIDToString(id);
     auto err = utils.ImportCertificate(id, label, chain[0]);
@@ -942,7 +942,7 @@ Error PKCS11Module::GetX509Cert(
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mX509Provider->DERToX509Cert(values[0], cert);
+    err = mCryptoProvider->DERToX509Cert(values[0], cert);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
