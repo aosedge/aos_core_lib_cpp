@@ -190,13 +190,13 @@ struct Partition;
  * Outdated item.
  */
 struct OutdatedItem {
-    StaticString<Max(cProviderIDLen, cServiceIDLen, cSubjectIDLen, cLayerIDLen, cSystemIDLen, cInstanceIDLen)> mID;
-    size_t                                                                                                     mSize;
-    SpaceAllocatorItf*                      mAllocator {};
-    StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
-    Partition*                              mPartition {};
-    ItemRemoverItf*                         mRemover {};
-    Time                                    mTimestamp;
+    StaticString<Max(cLayerDigestLen, cServiceIDLen + cVersionLen + 1)> mID;
+    size_t                                                              mSize;
+    SpaceAllocatorItf*                                                  mAllocator {};
+    StaticFunction<cDefaultFunctionMaxSize>                             mFreeCallback;
+    Partition*                                                          mPartition {};
+    ItemRemoverItf*                                                     mRemover {};
+    Time                                                                mTimestamp;
 };
 
 /**
