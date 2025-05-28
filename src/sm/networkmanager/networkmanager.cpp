@@ -223,6 +223,12 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
 {
     LOG_DBG() << "Remove instance from network: instanceID=" << instanceID << ", networkID=" << networkID;
 
+    if (!mNetworkProviders.Contains(networkID) && !mNetworkData.Contains(networkID)) {
+        LOG_WRN() << "Network not found" << Log::Field("networkID", networkID);
+
+        return ErrorEnum::eNone;
+    }
+
     if (auto err = IsInstanceInNetwork(instanceID, networkID); !err.IsNone()) {
         return err;
     }
