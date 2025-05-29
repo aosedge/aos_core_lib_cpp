@@ -199,7 +199,6 @@ public:
      */
     void SetRunError(const Error& error)
     {
-        mRunState = InstanceRunStateEnum::eFailed;
         mRunError = error;
     }
 

@@ -865,6 +865,7 @@ Error Launcher::StartInstance(const InstanceData& info)
 
             auto err = Error(ErrorEnum::eNotFound, "service not found");
 
+            mCurrentInstances.Back().SetRunState(InstanceRunStateEnum::eFailed);
             mCurrentInstances.Back().SetRunError(err);
 
             return AOS_ERROR_WRAP(err);
@@ -890,6 +891,8 @@ Error Launcher::StartInstance(const InstanceData& info)
 
     if (auto err = instance->Start(); !err.IsNone()) {
         LockGuard lock {mMutex};
+
+        instance->SetRunState(InstanceRunStateEnum::eFailed);
         instance->SetRunError(err);
 
         return AOS_ERROR_WRAP(err);
