@@ -85,21 +85,12 @@ public:
     static size_t constexpr cMaxLineLen = AOS_CONFIG_LOG_LINE_LEN;
 
     /**
-     * Max log value length.
-     */
-    static size_t constexpr cMaxValueLen = AOS_CONFIG_LOG_VALUE_LEN;
-
-    /**
-     * Max log key length.
-     */
-    static size_t constexpr cMaxKeyLen = AOS_CONFIG_LOG_KEY_LEN;
-
-    /**
      * Field entry structure for field-based logging
      */
+    template <typename Val>
     struct FieldEntry {
-        StaticString<cMaxKeyLen>   mKey;
-        StaticString<cMaxValueLen> mValue;
+        const String& mKey;
+        const Val&    mValue;
 
         /**
          * Default constructor
@@ -115,26 +106,8 @@ public:
         template <typename T>
         FieldEntry(const String& key, const T& value)
             : mKey(key)
+            , mValue(value)
         {
-            if constexpr (IsConvertible_v<T, String>) {
-                mValue = value;
-            } else {
-                mValue.Convert(value);
-            }
-        }
-
-        // cppcheck-suppress noExplicitConstructor
-        /**
-         * Constructor.
-         *
-         * @param err error.
-         */
-        FieldEntry(const Error& err)
-            : mKey("err")
-        {
-            [[maybe_unused]] auto errConvert = mValue.Convert(err);
-
-            assert(errConvert.IsNone());
         }
     };
 
@@ -170,31 +143,23 @@ public:
     /**
      * Returns FieldEntry (key-value pair).
      *
-     * @param field FieldEntry.
-     * @return FieldEntry
-     */
-    static FieldEntry Field(const FieldEntry& field) { return field; }
-
-    /**
-     * Returns FieldEntry (key-value pair).
-     *
      * @param key key.
      * @param value value.
-     * @return FieldEntry
+     * @return FieldEntry<T>
      */
     template <typename T>
-    static FieldEntry Field(const String& key, const T& value)
+    static FieldEntry<T> Field(const String& key, const T& value)
     {
-        return FieldEntry(key, value);
+        return FieldEntry<T>(key, value);
     }
 
     /**
      * Returns FieldEntry (key-value pair).
      *
      * @param err error.
-     * @return FieldEntry
+     * @return FieldEntry<Error>
      */
-    static FieldEntry Field(const Error& err) { return FieldEntry(err); }
+    static FieldEntry<Error> Field(const Error& err) { return Field("err", err); }
 
     /**
      * Logs string.
@@ -223,20 +188,15 @@ public:
     /**
      * Logs FieldEntry.
      *
+     * @tparam T type
      * @param field FieldEntry.
      * @return Log&
      */
-    Log& operator<<(const FieldEntry& field)
+    template <typename T>
+    Log& operator<<(const FieldEntry<T>& field)
     {
-        if (mFieldsCount > 0) {
-            mLogLine += ", ";
-        } else {
-            mLogLine += ": ";
-        }
+        *this << (mFieldsCount > 0 ? ", " : ": ") << field.mKey << "=" << field.mValue;
 
-        mLogLine += field.mKey;
-        mLogLine += "=";
-        mLogLine += field.mValue;
         mFieldsCount++;
 
         return *this;
