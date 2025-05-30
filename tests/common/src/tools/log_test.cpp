@@ -146,7 +146,7 @@ TEST(LogTest, Basic)
     String path     = "/hello/world";
     auto   fileSize = 20;
 
-    LOG_DBG() << "Download completed" << Log::Field({"url", url}) << Log::Field("path", path)
+    LOG_DBG() << "Download completed" << Log::Field("url", url) << Log::Field("path", path)
               << Log::Field("size", fileSize);
     EXPECT_TRUE(testLog.CheckLog(
         "default", LogLevelEnum::eDebug, "Download completed: url=http://test.com, path=/hello/world, size=20"));
