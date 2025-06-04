@@ -197,10 +197,7 @@ public:
      *
      * @param error run error.
      */
-    void SetRunError(const Error& error)
-    {
-        mRunError = error;
-    }
+    void SetRunError(const Error& error) { mRunError = error; }
 
     /**
      * Returns instance run state.
