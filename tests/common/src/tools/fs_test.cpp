@@ -442,3 +442,36 @@ TEST_F(FSTest, CalculateSize)
 
     EXPECT_EQ(fs::CalculateSize("does-not-exists"), RetWithError<size_t>(0));
 }
+
+TEST_F(FSTest, CalculateNoMemory)
+{
+    constexpr auto cFilesInDir   = 5;
+    constexpr auto cFileSize     = 1024U;
+    constexpr auto cDirs1stLevel = 2 * cDirIteratorMaxSize;
+    constexpr auto cDirs2ndLevel = 5;
+    constexpr auto cExpectedSize = cFilesInDir * cFileSize * cDirs1stLevel;
+
+    const auto walkDirRoot = cBaseTestDir / "calculate-dir-test-no-memory";
+
+    auto cwd = walkDirRoot;
+    for (size_t i = 0; i < cDirs1stLevel; ++i) {
+        auto lvl1dir = cwd;
+        lvl1dir /= "lvl1_sdir" + std::to_string(i);
+
+        ASSERT_TRUE(fs::MakeDirAll(lvl1dir.c_str()).IsNone());
+
+        auto lvl2dir = lvl1dir;
+        for (size_t j = 0; j < cDirs2ndLevel; ++j) {
+            lvl2dir /= "lvl2_sdir_" + std::to_string(j);
+
+            ASSERT_TRUE(fs::MakeDirAll(lvl2dir.c_str()).IsNone());
+        }
+
+        for (size_t k = 0; k < cFilesInDir; ++k) {
+            auto filePath = lvl2dir / ("file_" + std::to_string(k) + ".txt");
+            CreateFile(filePath.c_str(), std::string(cFileSize, 'a').c_str(), 0444);
+        }
+    }
+
+    EXPECT_EQ(fs::CalculateSize(walkDirRoot.c_str()), RetWithError<size_t>(cExpectedSize));
+}

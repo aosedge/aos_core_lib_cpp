@@ -478,7 +478,8 @@ RetWithError<size_t> CalculateSize(const String& path)
     }
 
     while (!dirIterators->IsEmpty()) {
-        auto& dirIt = dirIterators->Back();
+        bool  stepIntoSubdir = false;
+        auto& dirIt          = dirIterators->Back();
 
         while (dirIt.Next()) {
             const auto fullPath = JoinPath(dirIt.GetRootPath(), dirIt->mPath);
@@ -488,7 +489,9 @@ RetWithError<size_t> CalculateSize(const String& path)
                     return {0, AOS_ERROR_WRAP(err)};
                 }
 
-                continue;
+                stepIntoSubdir = true;
+
+                break;
             }
 
             struct stat st;
@@ -497,6 +500,10 @@ RetWithError<size_t> CalculateSize(const String& path)
             }
 
             size += st.st_size;
+        }
+
+        if (stepIntoSubdir) {
+            continue;
         }
 
         dirIterators->Erase(&dirIt);
