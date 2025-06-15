@@ -18,6 +18,9 @@ public:
     MOCK_METHOD(Error, RemoveNetworkInfo, (const String& networkID), (override));
     MOCK_METHOD(Error, AddNetworkInfo, (const NetworkInfo& info), (override));
     MOCK_METHOD(Error, GetNetworksInfo, (Array<NetworkInfo> & networks), (const, override));
+    MOCK_METHOD(Error, AddInstanceNetworkInfo, (const InstanceNetworkInfo& info), (override));
+    MOCK_METHOD(Error, RemoveInstanceNetworkInfo, (const String& instanceID), (override));
+    MOCK_METHOD(Error, GetInstanceNetworksInfo, (Array<InstanceNetworkInfo> & networks), (const, override));
     MOCK_METHOD(Error, SetTrafficMonitorData, (const String& chain, const Time& time, uint64_t value), (override));
     MOCK_METHOD(Error, GetTrafficMonitorData, (const String& chain, Time& time, uint64_t& value), (const, override));
     MOCK_METHOD(Error, RemoveTrafficMonitorData, (const String& chain), (override));

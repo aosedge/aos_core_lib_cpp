@@ -103,6 +103,31 @@ struct NetworkInfo {
 };
 
 /**
+ * Instance network information.
+ */
+struct InstanceNetworkInfo {
+    StaticString<cInstanceIDLen> mInstanceID;
+    StaticString<cProviderIDLen> mNetworkID;
+
+    /**
+     * Default constructor.
+     */
+    InstanceNetworkInfo() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     */
+    InstanceNetworkInfo(const String& instanceID, const String& networkID)
+        : mInstanceID(instanceID)
+        , mNetworkID(networkID)
+    {
+    }
+};
+
+/**
  * Network manager storage interface.
  */
 class StorageItf {
@@ -130,6 +155,30 @@ public:
      * @return Error.
      */
     virtual Error GetNetworksInfo(Array<NetworkInfo>& networks) const = 0;
+
+    /**
+     * Adds instance network info to storage.
+     *
+     * @param info instance network information.
+     * @return Error.
+     */
+    virtual Error AddInstanceNetworkInfo(const InstanceNetworkInfo& info) = 0;
+
+    /**
+     * Removes instance network info from storage.
+     *
+     * @param instanceID instance ID.
+     * @return Error.
+     */
+    virtual Error RemoveInstanceNetworkInfo(const String& instanceID) = 0;
+
+    /**
+     * Returns instance network info.
+     *
+     * @param[out] networks instance network information.
+     * @return Error.
+     */
+    virtual Error GetInstanceNetworksInfo(Array<InstanceNetworkInfo>& networks) const = 0;
 
     /**
      * Sets traffic monitor data.
@@ -708,6 +757,7 @@ private:
     Error RemoveNetwork(const String& networkID);
     Error CreateNetwork(const NetworkInfo& network);
     Error GenerateVlanIfName(String& vlanIfName);
+    Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
 
     StorageItf*                                                                   mStorage {};
     cni::CNIItf*                                                                  mCNI {};
@@ -721,7 +771,9 @@ private:
     StaticMap<StaticString<cProviderIDLen>, NetworkInfo, cMaxNumServiceProviders> mNetworkProviders;
     StaticAllocator<sizeof(NetworkInfo)>                                          mNetworkInfoAllocator;
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumServiceProviders>)>    mNetworkInfosAllocator;
-    mutable Mutex                                                                 mMutex;
+    StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)>   mInstanceNetworkInfosAllocator;
+
+    mutable Mutex mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))
             * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES,
         cNumAllocations>
