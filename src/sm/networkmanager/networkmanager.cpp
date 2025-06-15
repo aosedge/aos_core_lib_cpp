@@ -33,17 +33,43 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
     mRandom       = &random;
     mNetIfFactory = &netIfFactory;
 
-    auto cniDir = fs::JoinPath(workingDir, "cni");
+    auto cniDir      = fs::JoinPath(workingDir, "cni");
+    auto cniCacheDir = fs::JoinPath(cniDir, "results");
+
+    mCNINetworkCacheDir = fs::JoinPath(cniDir, "networks");
+
+    if (auto err = mCNI->SetConfDir(cniCacheDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto instanceNetworkInfos
+        = MakeUnique<StaticArray<InstanceNetworkInfo, cMaxNumInstances>>(&mInstanceNetworkInfosAllocator);
+
+    if (auto err = mStorage->GetInstanceNetworksInfo(*instanceNetworkInfos); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& instanceNetworkInfo : *instanceNetworkInfos) {
+        if (auto err = DeleteInstanceNetworkConfig(instanceNetworkInfo.mInstanceID, instanceNetworkInfo.mNetworkID);
+            !err.IsNone()) {
+            LOG_WRN() << "Failed to delete instance network config"
+                      << Log::Field("instanceID", instanceNetworkInfo.mInstanceID)
+                      << Log::Field("networkID", instanceNetworkInfo.mNetworkID) << Log::Field(err);
+        }
+
+        if (auto err = mStorage->RemoveInstanceNetworkInfo(instanceNetworkInfo.mInstanceID); !err.IsNone()) {
+            LOG_WRN() << "Failed to remove instance network info"
+                      << Log::Field("instanceID", instanceNetworkInfo.mInstanceID) << Log::Field(err);
+        }
+    }
 
     if (auto err = fs::RemoveAll(cniDir); !err.IsNone()) {
         LOG_ERR() << "Failed to remove cni directory: " << cniDir;
     }
 
-    if (auto err = mCNI->SetConfDir(cniDir); !err.IsNone()) {
+    if (auto err = fs::MakeDirAll(cniCacheDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-
-    mCNINetworkCacheDir = fs::JoinPath(cniDir, "networks");
 
     auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumServiceProviders>>(&mNetworkInfosAllocator);
 
@@ -214,6 +240,10 @@ Error NetworkManager::AddInstanceToNetwork(
         return err;
     }
 
+    if (err = mStorage->AddInstanceNetworkInfo(InstanceNetworkInfo {instanceID, networkID}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     LOG_DBG() << "Instance added to network: instanceID=" << instanceID << ", networkID=" << networkID;
 
     return ErrorEnum::eNone;
@@ -223,20 +253,54 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
 {
     LOG_DBG() << "Remove instance from network: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    if (!mNetworkProviders.Contains(networkID) && !mNetworkData.Contains(networkID)) {
-        LOG_WRN() << "Network not found" << Log::Field("networkID", networkID);
+    if (auto err = IsInstanceInNetwork(instanceID, networkID); !err.IsNone()) {
+        LOG_WRN() << "Instance not found in network";
 
         return ErrorEnum::eNone;
     }
 
-    if (auto err = IsInstanceInNetwork(instanceID, networkID); !err.IsNone()) {
+    Error err;
+
+    if (auto errStopInstanceMonitoring = mNetMonitor->StopInstanceMonitoring(instanceID);
+        !errStopInstanceMonitoring.IsNone()) {
+        if (err.IsNone()) {
+            err = errStopInstanceMonitoring;
+        }
+    }
+
+    if (auto errDeleteInstanceNetworkConfig = DeleteInstanceNetworkConfig(instanceID, networkID);
+        !errDeleteInstanceNetworkConfig.IsNone()) {
+        if (err.IsNone()) {
+            err = errDeleteInstanceNetworkConfig;
+        }
+    }
+
+    if (auto errRemoveInstanceFromCache = RemoveInstanceFromCache(instanceID, networkID);
+        !errRemoveInstanceFromCache.IsNone()) {
+        if (err.IsNone()) {
+            err = errRemoveInstanceFromCache;
+        }
+    }
+
+    if (auto errRemoveInstanceFromStorage = mStorage->RemoveInstanceNetworkInfo(instanceID);
+        !errRemoveInstanceFromStorage.IsNone()) {
+        if (err.IsNone()) {
+            err = errRemoveInstanceFromStorage;
+        }
+    }
+
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (auto err = mNetMonitor->StopInstanceMonitoring(instanceID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    LOG_DBG() << "Instance removed from network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
+{
     auto netConfig = MakeUnique<cni::NetworkConfigList>(&mAllocator);
     auto rtConfig  = MakeUnique<cni::RuntimeConf>(&mAllocator);
 
@@ -265,12 +329,6 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
     if (err = mNetns->DeleteNetworkNamespace(instanceID); !err.IsNone()) {
         return err;
     }
-
-    if (err = RemoveInstanceFromCache(instanceID, networkID); !err.IsNone()) {
-        return err;
-    }
-
-    LOG_DBG() << "Instance removed from network: instanceID=" << instanceID << ", networkID=" << networkID;
 
     return ErrorEnum::eNone;
 }
@@ -341,6 +399,8 @@ Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String
     if (network == mNetworkData.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
+
+    LOG_DBG() << "Network data: " << network->mSecond.Size();
 
     if (auto instance = network->mSecond.Find(instanceID); instance == network->mSecond.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
@@ -912,6 +972,8 @@ Error NetworkManager::RemoveNetworks(const Array<aos::NetworkParameters>& networ
             }
 
             it = mNetworkProviders.Erase(it);
+
+            LOG_DBG() << "Remove network from storage: networkID=" << it->mFirst;
 
             if (auto errRemoveStorage = mStorage->RemoveNetworkInfo(it->mFirst);
                 !errRemoveStorage.IsNone() && err.IsNone()) {
