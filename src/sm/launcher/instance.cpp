@@ -343,26 +343,36 @@ Error Instance::SetDevices(const Array<oci::ServiceDevice>& devices, oci::Runtim
     for (const auto& device : devices) {
         auto deviceInfo = MakeUnique<DeviceInfo>(&sAllocator);
 
+        LOG_DBG() << "Set device" << Log::Field("instanceID", mInstanceID) << Log::Field("device", device.mDevice);
+
         if (auto err = mResourceManager.GetDeviceInfo(device.mDevice, *deviceInfo); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        StaticArray<StaticString<cDeviceNameLen>, 2> devicePaths;
-
-        if (auto err = device.mDevice.Split(devicePaths, ':'); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
         auto ociDevices = MakeUnique<StaticArray<oci::LinuxDevice, cMaxNumHostDevices>>(&sAllocator);
 
-        if (auto err = mRuntime.PopulateHostDevices(devicePaths[0], *ociDevices); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        for (const auto& hostDevice : deviceInfo->mHostDevices) {
+            StaticArray<StaticString<cDeviceNameLen>, 2> devicePaths;
 
-        if (devicePaths.Size() == 2) {
-            for (auto& ociDevice : *ociDevices) {
-                if (auto err = ociDevice.mPath.Replace(devicePaths[0], devicePaths[1], 1); !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
+            if (auto err = hostDevice.Split(devicePaths, ':'); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            LOG_DBG() << "Populate host device" << Log::Field("instanceID", mInstanceID)
+                      << Log::Field("hostDevice", devicePaths[0]);
+
+            if (auto err = mRuntime.PopulateHostDevices(devicePaths[0], *ociDevices); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (devicePaths.Size() == 2) {
+                LOG_DBG() << "Map host device" << Log::Field("instanceID", mInstanceID)
+                          << Log::Field("hostDevice", devicePaths[0]) << Log::Field("containerDevice", devicePaths[1]);
+
+                for (auto& ociDevice : *ociDevices) {
+                    if (auto err = ociDevice.mPath.Replace(devicePaths[0], devicePaths[1], 1); !err.IsNone()) {
+                        return AOS_ERROR_WRAP(err);
+                    }
                 }
             }
         }
