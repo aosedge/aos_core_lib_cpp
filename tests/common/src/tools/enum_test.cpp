@@ -37,6 +37,7 @@ TEST(EnumTest, EnumStringer)
     EXPECT_TRUE(e1 == TestEnum::eTestType1);
 
     e1 = TestEnum::eTestType2;
+    // cppcheck-suppress knownConditionTrueFalse
     EXPECT_TRUE(e1 == TestEnum::eTestType2);
 
     // Check comparisons

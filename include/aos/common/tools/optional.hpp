@@ -23,6 +23,7 @@ namespace aos {
 template <class T>
 class Optional {
 public:
+    // cppcheck-suppress uninitMemberVar
     /**
      * Default constructor.
      */

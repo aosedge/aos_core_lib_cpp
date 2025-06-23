@@ -152,7 +152,8 @@ static Error ParsePrivateKey(const String& pemCAKey, mbedtls_pk_context& privKey
 
     const char* pers = "test";
 
-    int ret = mbedtls_ctr_drbg_seed(&ctrDrbg, mbedtls_entropy_func, &entropy, (const uint8_t*)pers, strlen(pers));
+    int ret = mbedtls_ctr_drbg_seed(
+        &ctrDrbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const uint8_t*>(pers), strlen(pers));
     if (ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
@@ -971,10 +972,12 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
                 return AOS_ERROR_WRAP(err);
             }
 
+            // cppcheck-suppress badBitmaskCheck
             if (*p != (MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0)) {
                 return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
             }
 
+            // cppcheck-suppress badBitmaskCheck
             err = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0);
             if (err != 0) {
                 return AOS_ERROR_WRAP(err);

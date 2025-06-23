@@ -38,6 +38,7 @@ public:
      */
     Function(const Function& function) = default;
 
+    // cppcheck-suppress operatorEqVarError
     /**
      * Assigns function to another function.
      *
@@ -205,6 +206,7 @@ public:
         Function::operator=(function);
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Assigns function to static function.
      *

@@ -93,11 +93,6 @@ public:
         const Val& mValue;
 
         /**
-         * Default constructor
-         */
-        FieldEntry() = default;
-
-        /**
          * Constructor.
          *
          * @param key key.
@@ -239,7 +234,7 @@ public:
 private:
     static LogCallback& GetCallback()
     {
-        static LogCallback sLogCallback;
+        static LogCallback sLogCallback = nullptr;
 
         return sLogCallback;
     }

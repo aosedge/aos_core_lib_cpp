@@ -59,6 +59,12 @@ jobs:
         run: |
           (cd build && make coverage)
 
+      - name: Static analysis
+        run: |
+          cppcheck --enable=all --inline-suppr --std=c++17 --error-exitcode=1 \
+          --suppressions-list=./suppressions.txt --project=build/compile_commands.json --file-filter='src/*' \
+          --file-filter='tests/*' --file-filter='include/*'
+
       - name: Upload codecov report
         uses: codecov/codecov-action@v4
         with:

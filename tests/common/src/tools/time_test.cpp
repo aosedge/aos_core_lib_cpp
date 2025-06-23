@@ -23,7 +23,7 @@ TEST_F(TimeTest, DurationToISO8601String)
     struct TestCase {
         Duration    duration;
         const char* expected;
-    } testCases[] = {
+    } const testCases[] = {
         {Time::cDay * -6, "-P6D"},
         {-6 * Time::cDay, "-P6D"},
         {Time::cWeek, "P1W"},

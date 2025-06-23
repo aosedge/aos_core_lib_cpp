@@ -54,7 +54,7 @@ struct NetworkInfo {
     StaticString<cHostNameLen>  mNetworkID;
     StaticString<cIPLen>        mSubnet;
     StaticString<cIPLen>        mIP;
-    uint64_t                    mVlanID;
+    uint64_t                    mVlanID = 0;
     StaticString<cInterfaceLen> mVlanIfName;
 
     /**
@@ -240,15 +240,15 @@ struct InstanceNetworkParameters {
     aos::NetworkParameters                                          mNetworkParameters;
     StaticString<cHostNameLen>                                      mHostname;
     StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;
-    uint64_t                                                        mIngressKbit;
-    uint64_t                                                        mEgressKbit;
+    uint64_t                                                        mIngressKbit = 0;
+    uint64_t                                                        mEgressKbit  = 0;
     StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
     StaticArray<Host, cMaxNumHosts>                                 mHosts;
     StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>            mDNSSevers;
     StaticString<cFilePathLen>                                      mHostsFilePath;
     StaticString<cFilePathLen>                                      mResolvConfFilePath;
-    uint64_t                                                        mUploadLimit;
-    uint64_t                                                        mDownloadLimit;
+    uint64_t                                                        mUploadLimit   = 0;
+    uint64_t                                                        mDownloadLimit = 0;
 
     /**
      * Compares network parameters.
@@ -743,8 +743,8 @@ private:
     Error CreateHostsFile(
         const String& networkID, const String& instanceIP, const InstanceNetworkParameters& network) const;
     Error WriteHost(const Host& host, int fd) const;
-    Error WriteHosts(Array<SharedPtr<Host>> hosts, int fd) const;
-    Error WriteHosts(Array<Host> hosts, int fd) const;
+    Error WriteHosts(const Array<SharedPtr<Host>>& hosts, int fd) const;
+    Error WriteHosts(const Array<Host>& hosts, int fd) const;
     Error WriteHostsFile(
         const String& filePath, const Array<SharedPtr<Host>>& hosts, const InstanceNetworkParameters& network) const;
 

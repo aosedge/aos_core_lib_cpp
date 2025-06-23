@@ -15,7 +15,7 @@ namespace aos::monitoring {
  * Public
  **********************************************************************************************************************/
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     sm::resourcemanager::ResourceManagerItf& resourceManager, ResourceUsageProviderItf& resourceUsageProvider,
     SenderItf& monitorSender, alerts::SenderItf& alertSender, ConnectionPublisherItf& connectionPublisher)
@@ -144,6 +144,7 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
         return AOS_ERROR_WRAP(err);
     }
 
+    // cppcheck-suppress constParameterPointer
     auto cleanUp = DeferRelease(&err, [this, &instanceID](Error* err) {
         if (!err->IsNone()) {
             mInstanceMonitoringData.Remove(instanceID);
@@ -245,7 +246,7 @@ cloudprotocol::AlertVariant ResourceMonitor::CreateSystemQuotaAlertTemplate(
     const ResourceIdentifier& resourceIdentifier) const
 {
     cloudprotocol::AlertVariant     alertItem;
-    cloudprotocol::SystemQuotaAlert quotaAlert = {};
+    cloudprotocol::SystemQuotaAlert quotaAlert {};
 
     quotaAlert.mNodeID    = mNodeMonitoringData.mNodeID;
     quotaAlert.mParameter = GetParameterName(resourceIdentifier);
@@ -259,7 +260,7 @@ cloudprotocol::AlertVariant ResourceMonitor::CreateInstanceQuotaAlertTemplate(
     const InstanceIdent& instanceIdent, const ResourceIdentifier& resourceIdentifier) const
 {
     cloudprotocol::AlertVariant       alertItem;
-    cloudprotocol::InstanceQuotaAlert quotaAlert = {};
+    cloudprotocol::InstanceQuotaAlert quotaAlert {};
 
     quotaAlert.mInstanceIdent = instanceIdent;
     quotaAlert.mParameter     = GetParameterName(resourceIdentifier);

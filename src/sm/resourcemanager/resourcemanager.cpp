@@ -293,7 +293,7 @@ Error ResourceManager::SubscribeCurrentNodeConfigChange(NodeConfigReceiverItf& r
 
     LOG_DBG() << "Subscribe to current node config change";
 
-    for (auto& subscriber : mSubscribers) {
+    for (const auto& subscriber : mSubscribers) {
         if (subscriber == &receiver) {
             return ErrorEnum::eAlreadyExist;
         }
@@ -418,7 +418,7 @@ Error ResourceManager::ValidateDevices(const Array<DeviceInfo>& devices) const
 
 Error ResourceManager::GetConfigDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const
 {
-    for (auto& device : mConfig->mNodeConfig.mDevices) {
+    for (const auto& device : mConfig->mNodeConfig.mDevices) {
         if (device.mName == deviceName) {
             deviceInfo = device;
 

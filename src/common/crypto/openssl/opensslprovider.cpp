@@ -551,7 +551,7 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
         return 0;
     }
 
-    auto privKey = aosCtx->mAosKey->mPrivKey;
+    const auto* privKey = aosCtx->mAosKey->mPrivKey;
 
     // when result buffer is null, return maximum signature size.
     if (!sig) {
@@ -657,28 +657,30 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int operationID, int* noCache
 
     *noCache = 0;
 
-    static const OSSL_DISPATCH cSignFunctions[] = {{OSSL_FUNC_SIGNATURE_NEWCTX, (void (*)(void))SignNewCtx},
-        {OSSL_FUNC_SIGNATURE_FREECTX, (void (*)(void))SignFreeCtx},
+    static const OSSL_DISPATCH cSignFunctions[]
+        = {{OSSL_FUNC_SIGNATURE_NEWCTX, reinterpret_cast<void (*)(void)>(SignNewCtx)},
+            {OSSL_FUNC_SIGNATURE_FREECTX, reinterpret_cast<void (*)(void)>(SignFreeCtx)},
 
-        {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT, (void (*)(void))DgstSignInit},
-        {OSSL_FUNC_SIGNATURE_DIGEST_SIGN, (void (*)(void))DgstSign},
+            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT, reinterpret_cast<void (*)(void)>(DgstSignInit)},
+            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN, reinterpret_cast<void (*)(void)>(DgstSign)},
 
-        {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, (void (*)(void))SignatureGetCtxParams},
-        {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS, (void (*)(void))SignatureGettableCtxParams},
+            {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGetCtxParams)},
+            {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGettableCtxParams)},
 
-        OSSL_DISPATCH_END};
+            OSSL_DISPATCH_END};
 
     static const OSSL_ALGORITHM cSignAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cSignFunctions, "AOS Signature"}, OSSL_ALGORITHM_END};
 
     static const OSSL_DISPATCH cKeyMgmFunctions[]
-        = {{OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))KeyMgmtNew}, {OSSL_FUNC_KEYMGMT_FREE, (void (*)(void))KeyMgmtFree},
+        = {{OSSL_FUNC_KEYMGMT_NEW, reinterpret_cast<void (*)(void)>(KeyMgmtNew)},
+            {OSSL_FUNC_KEYMGMT_FREE, reinterpret_cast<void (*)(void)>(KeyMgmtFree)},
 
-            {OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))KeyMgmtHas},
-            {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, (void (*)(void))KeyMgmtQuery},
+            {OSSL_FUNC_KEYMGMT_HAS, reinterpret_cast<void (*)(void)>(KeyMgmtHas)},
+            {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, reinterpret_cast<void (*)(void)>(KeyMgmtQuery)},
 
-            {OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))KeyMgmtImport},
-            {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))KeyMgmtImportTypes},
+            {OSSL_FUNC_KEYMGMT_IMPORT, reinterpret_cast<void (*)(void)>(KeyMgmtImport)},
+            {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, reinterpret_cast<void (*)(void)>(KeyMgmtImportTypes)},
 
             OSSL_DISPATCH_END};
 
@@ -712,8 +714,9 @@ int ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const 
 
     *provctx = OSSL_LIB_CTX_new();
 
-    static const OSSL_DISPATCH provfns[] = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, (void (*)(void))ProviderQuery},
-        {OSSL_FUNC_PROVIDER_TEARDOWN, (void (*)(void))OSSL_LIB_CTX_free}, OSSL_DISPATCH_END};
+    static const OSSL_DISPATCH provfns[]
+        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, reinterpret_cast<void (*)(void)>(ProviderQuery)},
+            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)}, OSSL_DISPATCH_END};
 
     *out = provfns;
 

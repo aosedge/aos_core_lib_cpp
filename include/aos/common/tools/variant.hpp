@@ -94,6 +94,7 @@ private:
 template <typename... VarArgs>
 class Variant {
 public:
+    // cppcheck-suppress uninitMemberVar
     /**
      * Constructs object instance.
      */

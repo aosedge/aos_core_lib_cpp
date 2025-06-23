@@ -200,7 +200,7 @@ Error BuildAttributes(const Array<AttributeType>& types, Array<Array<uint8_t>>& 
     return ErrorEnum::eNone;
 }
 
-Error GetAttributesValues(Array<CK_ATTRIBUTE>& src, Array<Array<uint8_t>>& values)
+Error GetAttributesValues(const Array<CK_ATTRIBUTE>& src, Array<Array<uint8_t>>& values)
 {
     if (values.MaxSize() < src.Size()) {
         return ErrorEnum::eNoMemory;
@@ -933,7 +933,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
     LockGuard lock {mMutex};
 
-    for (auto& lib : mLibraries) {
+    for (const auto& lib : mLibraries) {
         if (lib.mFirst == library) {
             return lib.mSecond;
         }
