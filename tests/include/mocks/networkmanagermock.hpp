@@ -18,6 +18,9 @@ public:
     MOCK_METHOD(Error, RemoveNetworkInfo, (const String& networkID), (override));
     MOCK_METHOD(Error, AddNetworkInfo, (const NetworkInfo& info), (override));
     MOCK_METHOD(Error, GetNetworksInfo, (Array<NetworkInfo> & networks), (const, override));
+    MOCK_METHOD(Error, AddInstanceNetworkInfo, (const InstanceNetworkInfo& info), (override));
+    MOCK_METHOD(Error, RemoveInstanceNetworkInfo, (const String& instanceID), (override));
+    MOCK_METHOD(Error, GetInstanceNetworksInfo, (Array<InstanceNetworkInfo> & networks), (const, override));
     MOCK_METHOD(Error, SetTrafficMonitorData, (const String& chain, const Time& time, uint64_t value), (override));
     MOCK_METHOD(Error, GetTrafficMonitorData, (const String& chain, Time& time, uint64_t& value), (const, override));
     MOCK_METHOD(Error, RemoveTrafficMonitorData, (const String& chain), (override));
@@ -60,10 +63,23 @@ public:
     MOCK_METHOD(Error, DeleteNetworkNamespace, (const String& ns), (override));
 };
 
-class NetworkInterfaceManagerMock : public NetworkInterfaceManagerItf {
+class InterfaceManagerMock : public InterfaceManagerItf {
 public:
-    MOCK_METHOD(Error, RemoveInterface, (const String& ifname), (override));
-    MOCK_METHOD(Error, BringUpInterface, (const String& ifname), (override));
+    MOCK_METHOD(Error, DeleteLink, (const String& ifname), (override));
+    MOCK_METHOD(Error, SetupLink, (const String& ifname), (override));
+    MOCK_METHOD(Error, SetMasterLink, (const String& ifname, const String& master), (override));
+};
+
+class InterfaceFactoryMock : public InterfaceFactoryItf {
+public:
+    MOCK_METHOD(Error, CreateBridge, (const String& name, const String& ip, const String& subnet), (override));
+    MOCK_METHOD(Error, CreateVlan, (const String& name, uint64_t vlanId), (override));
+};
+
+class RandomMock : public crypto::RandomItf {
+public:
+    MOCK_METHOD(RetWithError<uint64_t>, RandInt, (uint64_t maxValue), (override));
+    MOCK_METHOD(Error, RandBuffer, (Array<uint8_t> & buffer, size_t size), (override));
 };
 
 } // namespace aos::sm::networkmanager

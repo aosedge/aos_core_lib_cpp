@@ -167,7 +167,7 @@ public:
         std::transform(
             desiredLayers.begin(), desiredLayers.end(), std::back_inserter(mLayersData), [](const LayerInfo& layer) {
                 return LayerData {layer.mLayerDigest, layer.mLayerDigest, layer.mLayerID, layer.mVersion,
-                    FS::JoinPath("/aos/layers", layer.mLayerDigest), "", Time::Now(), LayerStateEnum::eActive, 0};
+                    fs::JoinPath("/aos/layers", layer.mLayerDigest), "", Time::Now(), LayerStateEnum::eActive, 0};
             });
 
         return ErrorEnum::eNone;

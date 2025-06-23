@@ -21,8 +21,7 @@
 #include <psa/crypto.h>
 
 #include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
-
-#include "../log.hpp"
+#include "aos/common/tools/logger.hpp"
 
 extern "C" {
 // The following functions became private in mbedtls since 3.6.0.
@@ -227,6 +226,10 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    // MbedTLS does not support UTC time format
+    notBefore.RightTrim("Z");
+    notAfter.RightTrim("Z");
 
     ret = mbedtls_x509write_crt_set_validity(&clientCert, notBefore.CStr(), notAfter.CStr());
     if (ret != 0) {
@@ -1257,6 +1260,10 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    // MbedTLS does not support UTC time format
+    notBefore.RightTrim("Z");
+    notAfter.RightTrim("Z");
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_validity(&cert, notBefore.Get(), notAfter.Get()));
 }

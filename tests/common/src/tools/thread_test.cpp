@@ -154,7 +154,7 @@ TEST(ThreadTest, CondVarTimeout)
                         UniqueLock lock(mutex);
                         EXPECT_TRUE(lock.GetError().IsNone());
 
-                        EXPECT_TRUE(condVar.Wait(lock, 1 * Time::cSeconds).IsNone());
+                        EXPECT_TRUE(condVar.Wait(lock, Time::cSeconds).IsNone());
                     })
                     .IsNone());
     usleep(500000);
@@ -168,7 +168,7 @@ TEST(ThreadTest, CondVarTimeout)
                         UniqueLock lock(mutex);
                         EXPECT_TRUE(lock.GetError().IsNone());
 
-                        EXPECT_EQ(condVar.Wait(lock, 100 * Time::cMilliseconds), aos::ErrorEnum::eTimeout);
+                        EXPECT_EQ(condVar.Wait(lock, Time::cMilliseconds * 100), aos::ErrorEnum::eTimeout);
                     })
                     .IsNone());
 
@@ -181,7 +181,7 @@ TEST(ThreadTest, CondVarTimeout)
                         UniqueLock lock(mutex);
                         EXPECT_TRUE(lock.GetError().IsNone());
 
-                        EXPECT_TRUE(condVar.Wait(lock, 1 * Time::cSeconds, [&] { return ready; }).IsNone());
+                        EXPECT_TRUE(condVar.Wait(lock, Time::cSeconds, [&] { return ready; }).IsNone());
                         ready = false;
                     })
                     .IsNone());
@@ -202,7 +202,7 @@ TEST(ThreadTest, CondVarTimeout)
                         UniqueLock lock(mutex);
                         EXPECT_TRUE(lock.GetError().IsNone());
 
-                        EXPECT_EQ(condVar.Wait(lock, 100 * Time::cMilliseconds, [&] { return ready; }),
+                        EXPECT_EQ(condVar.Wait(lock, Time::cMilliseconds * 100, [&] { return ready; }),
                             aos::ErrorEnum::eTimeout);
                     })
                     .IsNone());

@@ -13,7 +13,7 @@ Error SoftHSMEnv::Init(
     const String& pin, const String& label, const char* confFile, const char* tokensDir, const char* libPath)
 {
     // Clear softhsm directory
-    FS::ClearDir(tokensDir);
+    fs::ClearDir(tokensDir);
     setenv("SOFTHSM2_CONF", confFile, true);
 
     mLibrary = mManager.OpenLibrary(libPath);

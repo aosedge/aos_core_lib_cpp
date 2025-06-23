@@ -210,6 +210,20 @@ TEST(ArrayTest, Find)
     EXPECT_EQ(*result, 8);
 }
 
+TEST(ArrayTest, Min)
+{
+    int  intValues[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+    auto array       = Array<int>(intValues, ArraySize(intValues));
+
+    auto min1 = array.Min();
+    ASSERT_NE(min1, array.end());
+    EXPECT_EQ(*min1, 0);
+
+    const auto empty = Array<int>(nullptr, 0U);
+    auto       min2  = empty.Min();
+    EXPECT_EQ(min2, empty.end());
+}
+
 TEST(ArrayTest, Erase)
 {
     int inputArray[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -320,6 +334,24 @@ TEST(ArrayTest, Struct)
 
     EXPECT_EQ(array[0].arr1, Array<uint32_t>(test1, ArraySize(test1)));
     EXPECT_EQ(array[0].arr2, Array<uint32_t>(test1, ArraySize(test1)));
+}
+
+TEST(ArrayTest, PushAndEraseNonCopyable)
+{
+    StaticArray<std::unique_ptr<int>, 3> array;
+
+    array.PushBack(std::make_unique<int>(0));
+    array.PushBack(std::make_unique<int>(1));
+    array.PushBack(std::make_unique<int>(2));
+
+    ASSERT_EQ(array.Size(), 3);
+
+    array.Erase(array.begin() + 1);
+
+    ASSERT_EQ(array.Size(), 2);
+
+    EXPECT_EQ(*array[0], 0);
+    EXPECT_EQ(*array[1], 2);
 }
 
 TEST(ArrayTest, Sort)

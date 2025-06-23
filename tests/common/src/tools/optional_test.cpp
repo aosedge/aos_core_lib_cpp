@@ -35,6 +35,19 @@ TEST(OptionalTest, SetValue)
     ASSERT_EQ(src.GetValue(), 42);
 }
 
+TEST(OptionalTest, SetValueDouble)
+{
+    Optional<double> src;
+
+    ASSERT_FALSE(src.HasValue());
+
+    src.SetValue(42.123);
+
+    ASSERT_TRUE(src.HasValue());
+
+    ASSERT_EQ(src.GetValue(), 42.123);
+}
+
 TEST(OptionalTest, CallsDestructor)
 {
     using testing::MockFunction;

@@ -18,14 +18,268 @@
 namespace aos {
 
 /**
- * Base type for a time duration in nanoseconds. Can also be negative to set a point back in time.
- */
-using Duration = int64_t;
-
-/**
  * Size of a time in string representation.
  */
 const auto cTimeStrLen = AOS_CONFIG_TIME_STR_LEN;
+
+/**
+ * Base type for a time duration in nanoseconds. Can also be negative to set a point back in time.
+ */
+class Duration {
+public:
+    /**
+     * Default constructor.
+     */
+    constexpr Duration() = default;
+
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Constructs object instance.
+     *
+     * @param duration duration in nanoseconds.
+     */
+    constexpr Duration(int64_t duration)
+        : mDuration(duration)
+    {
+    }
+
+    /**
+     * Returns duration in nanoseconds.
+     *
+     * @result int64_t.
+     */
+    int64_t Nanoseconds() const { return mDuration; }
+
+    /**
+     * Returns duration in microseconds.
+     *
+     * @result int64_t.
+     */
+    int64_t Microseconds() const { return Nanoseconds() / 1000; }
+
+    /**
+     * Returns duration in milliseconds.
+     *
+     * @result int64_t.
+     */
+    int64_t Milliseconds() const { return Microseconds() / 1000; }
+
+    /**
+     * Returns duration in seconds.
+     *
+     * @result float.
+     */
+    float Seconds() const { return static_cast<float>(Nanoseconds()) / 1000000000.f; }
+
+    /**
+     * Returns duration in minutes.
+     *
+     * @result float.
+     */
+    float Minutes() const { return Seconds() / 60.f; }
+
+    /**
+     * Returns duration in hours.
+     *
+     * @result float.
+     */
+    float Hours() const { return Minutes() / 60.f; }
+
+    /**
+     * Adds duration to the current object.
+     *
+     * @param duration duration.
+     * @result Duration&.
+     */
+    constexpr Duration& operator+=(const Duration& duration)
+    {
+        mDuration += duration.mDuration;
+
+        return *this;
+    }
+
+    /**
+     * Subtracts duration from the current object.
+     *
+     * @param duration duration.
+     * @result Duration&.
+     */
+    constexpr Duration& operator-=(const Duration& duration)
+    {
+        mDuration -= duration.mDuration;
+
+        return *this;
+    }
+
+    /**
+     * Multiplies duration.
+     *
+     * @param multiplier multiplier.
+     * @result Duration&.
+     */
+    constexpr Duration& operator*=(int64_t multiplier)
+    {
+        mDuration *= multiplier;
+
+        return *this;
+    }
+
+    /**
+     * Multiplies duration.
+     *
+     * @param multiplier multiplier.
+     * @param duration duration.
+     * @result Duration.
+     */
+    friend constexpr Duration operator*(int64_t multiplier, Duration duration) { return duration * multiplier; }
+
+    /**
+     * Divides duration.
+     *
+     * @param divider divider.
+     * @result Duration&.
+     */
+    constexpr Duration& operator/=(int64_t divider)
+    {
+        assert(divider != 0);
+
+        mDuration /= divider;
+
+        return *this;
+    }
+
+    /**
+     * Divides duration.
+     *
+     * @param divider divider.
+     * @param duration duration.
+     * @result Duration.
+     */
+    friend constexpr Duration operator/(int64_t divider, Duration duration)
+    {
+        assert(divider != 0);
+
+        return duration / divider;
+    }
+
+    /**
+     * Changes sign of the duration.
+     *
+     * @result Duration.
+     */
+    constexpr Duration operator-() const { return -mDuration; }
+
+    /**
+     * Adds duration and returns result as a new object.
+     *
+     * @param duration duration.
+     * @result Duration.
+     */
+    constexpr Duration operator+(const Duration& duration) const { return mDuration + duration.mDuration; }
+
+    /**
+     * Subtracts duration and returns result as a new object.
+     *
+     * @param duration duration.
+     * @result Duration.
+     */
+    constexpr Duration operator-(const Duration& duration) const { return mDuration - duration.mDuration; }
+
+    /**
+     * Multiplies duration and returns result as a new object.
+     *
+     * @param multiplier multiplier.
+     * @result Duration.
+     */
+    constexpr Duration operator*(int64_t multiplier) const { return mDuration * multiplier; }
+
+    /**
+     * Divides duration and returns result as a new object.
+     *
+     * @param divider divider.
+     * @result Duration.
+     */
+    constexpr Duration operator/(const int64_t divider) const
+    {
+        assert(divider != 0);
+
+        return mDuration / divider;
+    }
+
+    /**
+     * Returns true if duration is not zero.
+     *
+     * @return bool.
+     */
+    explicit operator bool() const { return mDuration != 0; }
+
+    /**
+     * Compares two durations.
+     *
+     * @param obj duration to compare with.
+     * @result bool.
+     */
+    bool operator==(const Duration& obj) const { return mDuration == obj.mDuration; }
+
+    /**
+     * Compares two durations.
+     *
+     * @param obj duration to compare with.
+     * @result bool.
+     */
+    bool operator!=(const Duration& obj) const { return !operator==(obj); }
+
+    /**
+     * Compares two durations.
+     *
+     * @param obj duration to compare with.
+     * @result bool.
+     */
+    bool operator<(const Duration& obj) const { return mDuration < obj.mDuration; }
+
+    /**
+     * Compares two durations.
+     *
+     * @param obj duration to compare with.
+     * @result bool.
+     */
+    bool operator<=(const Duration& obj) const { return mDuration <= obj.mDuration; }
+
+    /**
+     * Compares two durations.
+     *
+     * @param obj duration to compare with.
+     * @result bool.
+     */
+    bool operator>(const Duration& obj) const { return mDuration > obj.mDuration; }
+
+    /**
+     * Compares two durations.
+     *
+     * @param obj duration to compare with.
+     * @result bool.
+     */
+    bool operator>=(const Duration& obj) const { return mDuration >= obj.mDuration; }
+
+    /**
+     * Returns ISO 8601 duration string representation.
+     *
+     * @return StaticString<cTimeStrLen>
+     */
+    StaticString<cTimeStrLen> ToISO8601String() const;
+
+    /**
+     * Logs duration.
+     *
+     * @param log log object.
+     * @param duration duration.
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const Duration& duration) { return log << duration.ToISO8601String(); }
+
+private:
+    int64_t mDuration = 0;
+};
 
 /**
  * An object specifying a time instant.
@@ -41,7 +295,10 @@ public:
     static constexpr Duration cSeconds      = 1000 * cMilliseconds;
     static constexpr Duration cMinutes      = 60 * cSeconds;
     static constexpr Duration cHours        = 60 * cMinutes;
+    static constexpr Duration cDay          = 24 * cHours;
+    static constexpr Duration cWeek         = 7 * cDay;
     static constexpr Duration cYear         = 31556925974740 * cMicroseconds;
+    static constexpr Duration cMonth        = cYear / 12;
 
     /**
      * Constructs object instance
@@ -85,6 +342,14 @@ public:
     }
 
     /**
+     * Returns UTC time from string representation.
+     *
+     * @param utcTimeStr UTC time string.
+     * @return RetWithError<Time>.
+     */
+    static RetWithError<Time> UTC(const String& utcTimeStr);
+
+    /**
      * Checks whether Time object is default initialized.
      *
      * @result bool.
@@ -101,14 +366,14 @@ public:
     {
         auto time = mTime;
 
-        int64_t nsec = time.tv_nsec + duration;
+        int64_t nsec = time.tv_nsec + duration.Nanoseconds();
 
-        time.tv_sec += nsec / cSeconds;
-        time.tv_nsec = nsec % cSeconds;
+        time.tv_sec += nsec / cSeconds.Nanoseconds();
+        time.tv_nsec = nsec % cSeconds.Nanoseconds();
 
         // sign of the remainder implementation defined => correct if negative
         if (time.tv_nsec < 0) {
-            time.tv_nsec += cSeconds;
+            time.tv_nsec += cSeconds.Nanoseconds();
             time.tv_sec--;
         }
 
@@ -136,7 +401,7 @@ public:
      */
     uint64_t UnixNano() const
     {
-        uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * cSeconds;
+        uint64_t nsec = mTime.tv_nsec + mTime.tv_sec * cSeconds.Nanoseconds();
 
         return nsec;
     }
@@ -200,6 +465,13 @@ public:
     }
 
     /**
+     * @brief Returns UTC string representation.
+     *
+     * @return StaticString<cTimeStrLen>
+     */
+    RetWithError<StaticString<cTimeStrLen>> ToUTCString() const;
+
+    /**
      * Checks whether a current time is less than a specified one.
      *
      * @param obj time object to compare with.
@@ -210,6 +482,14 @@ public:
         return mTime.tv_sec < obj.mTime.tv_sec
             || (mTime.tv_sec == obj.mTime.tv_sec && mTime.tv_nsec < obj.mTime.tv_nsec);
     }
+
+    /**
+     * Checks whether a current time is more than a specified one.
+     *
+     * @param obj time object to compare with.
+     * @result bool.
+     */
+    bool operator>(const Time& obj) const { return obj < *this; }
 
     /**
      * Checks whether a current time and a specified object represent the same time instant.
@@ -239,22 +519,12 @@ public:
      */
     friend Log& operator<<(Log& log, const Time& obj)
     {
-        tm                        buf;
-        StaticString<cTimeStrLen> utcTimeStr;
+        auto [utcTimeStr, err] = obj.ToUTCString();
+        if (!err.IsNone()) {
+            return log << err;
+        }
 
-        auto time = gmtime_r(&obj.mTime.tv_sec, &buf);
-        assert(time != nullptr);
-
-        utcTimeStr.Resize(utcTimeStr.MaxSize());
-
-        size_t size = strftime(utcTimeStr.Get(), utcTimeStr.Size(), "%FT%TZ", time);
-        assert(size != 0);
-
-        utcTimeStr.Resize(size - 1);
-
-        log << utcTimeStr;
-
-        return log;
+        return log << utcTimeStr;
     }
 
 private:

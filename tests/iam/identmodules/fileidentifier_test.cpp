@@ -34,16 +34,16 @@ protected:
 
     void SetUp() override
     {
-        FS::WriteStringToFile(cSystemIdPath, cSystemIdContent, 0600);
-        FS::WriteStringToFile(cUnitModelPath, cUnitModelContent, 0600);
-        FS::WriteStringToFile(cSubjectsPath, cSubjectsContent, 0600);
+        fs::WriteStringToFile(cSystemIdPath, cSystemIdContent, 0600);
+        fs::WriteStringToFile(cUnitModelPath, cUnitModelContent, 0600);
+        fs::WriteStringToFile(cSubjectsPath, cSubjectsContent, 0600);
     }
 
     void TearDown() override
     {
-        FS::Remove(cSystemIdPath);
-        FS::Remove(cUnitModelPath);
-        FS::Remove(cSubjectsPath);
+        fs::Remove(cSystemIdPath);
+        fs::Remove(cUnitModelPath);
+        fs::Remove(cSubjectsPath);
     }
 
     SubjectsObserverMock mSubjectsObserver;
@@ -65,7 +65,7 @@ const Config FileIdentifierTest::cDefaultConfig
 TEST_F(FileIdentifierTest, ReadSystemIDFails)
 {
     EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
-    FS::Remove(cDefaultConfig.systemIDPath);
+    fs::Remove(cDefaultConfig.systemIDPath);
 
     const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
     ASSERT_EQ(err.Value(), Error::Enum::eRuntime) << err.Message();
@@ -75,7 +75,7 @@ TEST_F(FileIdentifierTest, ReadSystemIDFails)
 TEST_F(FileIdentifierTest, ReadUnitModelFails)
 {
     EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
-    FS::Remove(cDefaultConfig.unitModelPath);
+    fs::Remove(cDefaultConfig.unitModelPath);
 
     const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
     ASSERT_EQ(err.Value(), Error::Enum::eRuntime) << err.Message();
@@ -85,7 +85,7 @@ TEST_F(FileIdentifierTest, ReadUnitModelFails)
 TEST_F(FileIdentifierTest, ReadSubjectsFails)
 {
     EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
-    FS::Remove(cDefaultConfig.subjectsPath);
+    fs::Remove(cDefaultConfig.subjectsPath);
 
     const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
     ASSERT_EQ(err.Value(), Error::Enum::eNone) << err.Message();
@@ -101,7 +101,7 @@ TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
         subjects.Append("subject\n");
     }
 
-    FS::WriteStringToFile(cDefaultConfig.subjectsPath, subjects, 0600);
+    fs::WriteStringToFile(cDefaultConfig.subjectsPath, subjects, 0600);
 
     const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
     ASSERT_TRUE(err.IsNone()) << err.Message();

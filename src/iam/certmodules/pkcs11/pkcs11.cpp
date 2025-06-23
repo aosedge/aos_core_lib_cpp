@@ -107,7 +107,7 @@ Error PKCS11Module::SetOwner(const String& password)
                 return err;
             }
 
-            err = FS::WriteStringToFile(mConfig.mUserPINPath, userPIN, 0600);
+            err = fs::WriteStringToFile(mConfig.mUserPINPath, userPIN, 0600);
             if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
@@ -608,7 +608,7 @@ Error PKCS11Module::GetUserPin(String& pin) const
         return ErrorEnum::eNone;
     }
 
-    auto err = FS::ReadFileToString(mConfig.mUserPINPath, pin);
+    auto err = fs::ReadFileToString(mConfig.mUserPINPath, pin);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -67,14 +67,14 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
 
 Error FileIdentifier::ReadSystemId()
 {
-    const auto err = FS::ReadFileToString(mConfig.systemIDPath, mSystemId);
+    const auto err = fs::ReadFileToString(mConfig.systemIDPath, mSystemId);
 
     return AOS_ERROR_WRAP(err);
 }
 
 Error FileIdentifier::ReadUnitModel()
 {
-    const auto err = FS::ReadFileToString(mConfig.unitModelPath, mUnitModel);
+    const auto err = fs::ReadFileToString(mConfig.unitModelPath, mUnitModel);
 
     return AOS_ERROR_WRAP(err);
 }
@@ -83,7 +83,7 @@ Error FileIdentifier::ReadSubjects()
 {
     StaticString<cMaxSubjectIDSize * cSubjectIDLen> buffer;
 
-    auto err = FS::ReadFileToString(mConfig.subjectsPath, buffer);
+    auto err = fs::ReadFileToString(mConfig.subjectsPath, buffer);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -26,7 +26,7 @@ RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& digest)
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
     }
 
-    return FS::JoinPath(digestList[0], digestList[1]);
+    return fs::JoinPath(digestList[0], digestList[1]);
 }
 
 } // namespace

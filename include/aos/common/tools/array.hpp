@@ -276,6 +276,25 @@ public:
     }
 
     /**
+     * Pushes item at the end of array.
+     *
+     * @param item item to push.
+     * @return Error.
+     */
+    Error PushBack(T&& item)
+    {
+        if (mSize == mMaxSize) {
+            return ErrorEnum::eNoMemory;
+        }
+
+        new (const_cast<RemoveConstType<T>*>(end())) T(Move(item));
+
+        mSize++;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Creates item at the end of array.
      *
      * @param args args of item constructor.
@@ -417,8 +436,8 @@ public:
 
         auto curFirst = first;
 
-        for (auto it = last; it != curEnd; ++it, ++curFirst) {
-            new (const_cast<RemoveConstType<T>*>(curFirst)) T(*it);
+        for (T* it = const_cast<RemoveConstType<T>*>(last); it != curEnd; ++it, ++curFirst) {
+            new (const_cast<RemoveConstType<T>*>(curFirst)) T(Move(*it));
             it->~T();
         }
 

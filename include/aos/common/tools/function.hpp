@@ -86,7 +86,7 @@ public:
     template <typename T>
     Error Capture(T functor, void* arg = nullptr)
     {
-        if (!mBuffer || sizeof(T) > mMaxSize) {
+        if (!mBuffer || sizeof(Capturer<T>) > mMaxSize) {
             return ErrorEnum::eNoMemory;
         }
 

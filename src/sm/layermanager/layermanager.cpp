@@ -42,7 +42,7 @@ void AcceptAllocatedSpace(spaceallocator::SpaceItf* space)
 void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
 {
     if (!path.IsEmpty()) {
-        FS::RemoveAll(path);
+        fs::RemoveAll(path);
     }
 
     if (!space) {
@@ -81,11 +81,11 @@ Error LayerManager::Init(const Config& config, spaceallocator::SpaceAllocatorItf
     mDownloader             = &downloader;
     mImageHandler           = &imageHandler;
 
-    if (auto err = FS::ClearDir(mConfig.mDownloadDir); !err.IsNone()) {
+    if (auto err = fs::ClearDir(mConfig.mDownloadDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = FS::MakeDirAll(mConfig.mLayersDir); !err.IsNone()) {
+    if (auto err = fs::MakeDirAll(mConfig.mLayersDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -108,7 +108,7 @@ Error LayerManager::Start()
 {
     LOG_DBG() << "Start layer manager";
 
-    auto err = mTimer.Create(
+    auto err = mTimer.Start(
         mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
             if (auto err = RemoveOutdatedLayers(); !err.IsNone()) {
@@ -294,7 +294,7 @@ Error LayerManager::RemoveDamagedLayerFolders()
     }
 
     for (const auto& layer : *layers) {
-        if (auto [exists, err] = FS::DirExist(layer.mPath); !err.IsNone() || !exists) {
+        if (auto [exists, err] = fs::DirExist(layer.mPath); !err.IsNone() || !exists) {
             LOG_WRN() << "Layer folder does not exist: path=" << layer.mPath;
 
             if (auto removeErr = RemoveLayerFromSystem(layer); !removeErr.IsNone()) {
@@ -303,24 +303,24 @@ Error LayerManager::RemoveDamagedLayerFolders()
         }
     }
 
-    auto layerDirIterator = MakeUnique<FS::DirIterator>(&mAllocator, mConfig.mLayersDir);
+    auto layerDirIterator = MakeUnique<fs::DirIterator>(&mAllocator, mConfig.mLayersDir);
 
     while (layerDirIterator->Next()) {
         if (!(*layerDirIterator)->mIsDir) {
             continue;
         }
 
-        const auto algorithmPath             = FS::JoinPath(mConfig.mLayersDir, (*layerDirIterator)->mPath);
-        auto       layerAlgorithmDirIterator = MakeUnique<FS::DirIterator>(&mAllocator, algorithmPath);
+        const auto algorithmPath             = fs::JoinPath(mConfig.mLayersDir, (*layerDirIterator)->mPath);
+        auto       layerAlgorithmDirIterator = MakeUnique<fs::DirIterator>(&mAllocator, algorithmPath);
 
         while (layerAlgorithmDirIterator->Next()) {
-            const auto layerPath = FS::JoinPath(algorithmPath, (*layerAlgorithmDirIterator)->mPath);
+            const auto layerPath = fs::JoinPath(algorithmPath, (*layerAlgorithmDirIterator)->mPath);
 
             const auto it = layers->FindIf([&layerPath](const auto& layer) { return layer.mPath == layerPath; });
             if (it == layers->end()) {
                 LOG_WRN() << "Layer missing in storage: path=" << layerPath;
 
-                if (auto removeErr = FS::RemoveAll(layerPath); !removeErr.IsNone()) {
+                if (auto removeErr = fs::RemoveAll(layerPath); !removeErr.IsNone()) {
                     return AOS_ERROR_WRAP(removeErr);
                 }
             }
@@ -421,7 +421,7 @@ Error LayerManager::RemoveLayerFromSystem(const LayerData& layer)
     LOG_DBG() << "Remove layer: id=" << layer.mLayerID << ", version=" << layer.mVersion
               << ", digest=" << layer.mLayerDigest << ", path=" << layer.mPath;
 
-    if (auto err = FS::RemoveAll(layer.mPath); !err.IsNone()) {
+    if (auto err = fs::RemoveAll(layer.mPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -517,7 +517,7 @@ Error LayerManager::InstallLayer(const LayerInfo& layer)
         return AOS_ERROR_WRAP(err);
     }
 
-    archivePath = FS::JoinPath(mConfig.mDownloadDir, layer.mLayerDigest);
+    archivePath = fs::JoinPath(mConfig.mDownloadDir, layer.mLayerDigest);
 
     if (err = mDownloader->Download(layer.mURL, archivePath, downloader::DownloadContentEnum::eLayer); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

@@ -12,7 +12,7 @@
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/noncopyable.hpp"
-
+#include "aos/common/tools/utils.hpp"
 /**
  * Helper macro to display debug log.
  */
@@ -85,6 +85,33 @@ public:
     static size_t constexpr cMaxLineLen = AOS_CONFIG_LOG_LINE_LEN;
 
     /**
+     * Field entry structure for field-based logging
+     */
+    template <typename Val>
+    struct FieldEntry {
+        String     mKey;
+        const Val& mValue;
+
+        /**
+         * Default constructor
+         */
+        FieldEntry() = default;
+
+        /**
+         * Constructor.
+         *
+         * @param key key.
+         * @param value value.
+         */
+        template <typename T>
+        FieldEntry(const String& key, const T& value)
+            : mKey(key)
+            , mValue(value)
+        {
+        }
+    };
+
+    /**
      * Constructs a new Log object.
      *
      * @param module log module type.
@@ -92,8 +119,7 @@ public:
      */
     Log(const String& module, LogLevel level)
         : mModule(module)
-        , mLevel(level)
-        , mCurrentLen(0) {};
+        , mLevel(level) {};
 
     /**
      * Destroys the Log object and calls log callback.
@@ -113,6 +139,27 @@ public:
      * @param callback
      */
     static void SetCallback(LogCallback callback) { GetCallback() = callback; }
+
+    /**
+     * Returns FieldEntry (key-value pair).
+     *
+     * @param key key.
+     * @param value value.
+     * @return FieldEntry<T>
+     */
+    template <typename T>
+    static FieldEntry<T> Field(const String& key, const T& value)
+    {
+        return FieldEntry<T>(key, value);
+    }
+
+    /**
+     * Returns FieldEntry (key-value pair).
+     *
+     * @param err error.
+     * @return FieldEntry<Error>
+     */
+    static FieldEntry<Error> Field(const Error& err) { return Field("err", err); }
 
     /**
      * Logs string.
@@ -137,6 +184,23 @@ public:
 
         return *this;
     };
+
+    /**
+     * Logs FieldEntry.
+     *
+     * @tparam T type
+     * @param field FieldEntry.
+     * @return Log&
+     */
+    template <typename T>
+    Log& operator<<(const FieldEntry<T>& field)
+    {
+        *this << (mFieldsCount > 0 ? ", " : ": ") << field.mKey << "=" << field.mValue;
+
+        mFieldsCount++;
+
+        return *this;
+    }
 
     /**
      * Logs object that implements Stringer interface.
@@ -189,9 +253,9 @@ private:
     }
 
     StaticString<cMaxLineLen> mLogLine;
+    int                       mFieldsCount = 0;
     String                    mModule;
     LogLevel                  mLevel;
-    size_t                    mCurrentLen;
 };
 
 /**

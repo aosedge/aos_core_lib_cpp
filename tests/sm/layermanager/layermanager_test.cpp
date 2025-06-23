@@ -29,8 +29,8 @@ namespace {
  **********************************************************************************************************************/
 
 constexpr auto cTestRootDir = "layermanager_test";
-const auto     cLayersDir   = FS::JoinPath(cTestRootDir, "layers");
-const auto     cDownloadDir = FS::JoinPath(cTestRootDir, "download");
+const auto     cLayersDir   = fs::JoinPath(cTestRootDir, "layers");
+const auto     cDownloadDir = fs::JoinPath(cTestRootDir, "download");
 constexpr auto cTTL         = Time::cSeconds * 30;
 
 /***********************************************************************************************************************
@@ -50,9 +50,9 @@ Config CreateConfig(const String& layersDir = cLayersDir, const String& download
 
 StaticString<cFilePathLen> CreateExtractedLayerPath(const String& digest, const String& algorithm = "sha256")
 {
-    auto path = FS::JoinPath(cLayersDir, algorithm, digest);
+    auto path = fs::JoinPath(cLayersDir, algorithm, digest);
 
-    FS::MakeDirAll(path);
+    fs::MakeDirAll(path);
 
     return path;
 }
@@ -83,8 +83,8 @@ protected:
     {
         test::InitLog();
 
-        FS::ClearDir(FS::JoinPath(cLayersDir, "sha256"));
-        FS::ClearDir(cDownloadDir);
+        fs::ClearDir(fs::JoinPath(cLayersDir, "sha256"));
+        fs::ClearDir(cDownloadDir);
     }
 
     void InitTest(const Config& config = CreateConfig())
@@ -108,10 +108,10 @@ protected:
         layer.mLayerDigest.Append("sha256:").Append(layerID);
         layer.mURL.Append(uriPrefix.c_str()).Append(layerID);
 
-        const auto layerPath = FS::JoinPath(cLayersDir, "sha256", layerID);
+        const auto layerPath = fs::JoinPath(cLayersDir, "sha256", layerID);
 
         const StaticString<cFilePathLen> archivePath
-            = (uriPrefix == "file://") ? layerID : FS::JoinPath(cDownloadDir, layer.mLayerDigest);
+            = (uriPrefix == "file://") ? layerID : fs::JoinPath(cDownloadDir, layer.mLayerDigest);
 
         EXPECT_TRUE(mImageHandler.SetCalculateDigestResult(layerPath, layer.mLayerDigest).IsNone());
         EXPECT_TRUE(mImageHandler.SetInstallResult(archivePath, layerPath).IsNone());
@@ -153,13 +153,13 @@ TEST_F(LayerManagerTest, UnknownLayersAreClearedOnInit)
     Error err;
     bool  exists;
 
-    Tie(exists, err) = FS::DirExist(unknownLayer.mPath);
+    Tie(exists, err) = fs::DirExist(unknownLayer.mPath);
     ASSERT_TRUE(err.IsNone()) << err.Message();
     ASSERT_TRUE(exists);
 
     InitTest();
 
-    Tie(exists, err) = FS::DirExist(unknownLayer.mPath);
+    Tie(exists, err) = fs::DirExist(unknownLayer.mPath);
     ASSERT_TRUE(err.IsNone()) << err.Message();
     ASSERT_FALSE(exists);
 }
@@ -202,7 +202,7 @@ TEST_F(LayerManagerTest, ExpiredLayersAreClearedOnInit)
     auto config = CreateConfig();
     config.mTTL = Time::cSeconds;
 
-    const auto expiredTTL = Time::Now().Add(-config.mTTL * 2);
+    const auto expiredTTL = Time::Now().Add(-config.mTTL.Nanoseconds() * 2);
 
     auto cachedAndExpiredLayer  = CreateLayerData("layer1", 1024, LayerStateEnum::eCached, expiredTTL);
     cachedAndExpiredLayer.mPath = CreateExtractedLayerPath("layer1");
@@ -232,12 +232,12 @@ TEST_F(LayerManagerTest, ExpiredLayersAreClearedOnInit)
 TEST_F(LayerManagerTest, ValidateOutdateLayersByTimer)
 {
     auto config                  = CreateConfig();
-    config.mTTL                  = Time::cSeconds / 2;
+    config.mTTL                  = Time::cSeconds.Nanoseconds() / 2;
     config.mRemoveOutdatedPeriod = Time::cSeconds;
 
     InitTest(config);
 
-    const auto                   expiredTTL     = Time::Now().Add(-config.mTTL * 2);
+    const auto                   expiredTTL     = Time::Now().Add(-config.mTTL.Nanoseconds() * 2);
     const std::vector<LayerData> expectedLayers = {
         CreateLayerData("layer2", 1024, LayerStateEnum::eCached, Time::Now().Add(config.mTTL * 10)),
         CreateLayerData("layer3", 1024, LayerStateEnum::eActive, expiredTTL),
@@ -340,7 +340,7 @@ TEST_F(LayerManagerTest, ProcessDesiredLayersOnInvalidLayer)
     }
 
     // Change hash of an installed layer
-    mImageHandler.SetCalculateDigestResult(FS::JoinPath(cLayersDir, "sha256", "layer2"), "hash-mismatch");
+    mImageHandler.SetCalculateDigestResult(fs::JoinPath(cLayersDir, "sha256", "layer2"), "hash-mismatch");
 
     layerStatuses->Clear();
 

@@ -166,7 +166,7 @@
  * File system mount option len.
  */
 #ifndef AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN
-#define AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN 16
+#define AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN 64
 #endif
 
 /**
@@ -467,7 +467,7 @@
  * Max CNI interface name length.
  */
 #ifndef AOS_CONFIG_TYPES_INTERFACE_NAME_LEN
-#define AOS_CONFIG_TYPES_INTERFACE_NAME_LEN 64
+#define AOS_CONFIG_TYPES_INTERFACE_NAME_LEN 16
 #endif
 
 /**
@@ -517,6 +517,13 @@
  */
 #ifndef AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT
 #define AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT 16
+#endif
+
+/**
+ * Max number of outdated items.
+ */
+#ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
+#define AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS 64
 #endif
 
 /**
@@ -1017,6 +1024,13 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN 256
+#endif
+
+/**
+ * Maximum supported number of timers.
+ */
+#ifndef AOS_CONFIG_TIMERS_MAX_COUNT
+#define AOS_CONFIG_TIMERS_MAX_COUNT 32
 #endif
 
 #endif

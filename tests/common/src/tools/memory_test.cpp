@@ -207,3 +207,38 @@ TEST(MemoryTest, DeferReleaseNoOpForNull)
         auto defer = DeferRelease(static_cast<int*>(nullptr), deleter.AsStdFunction());
     }
 }
+
+TEST(MemoryTest, SharedPtrDerivedValueClass)
+{
+    using namespace testing;
+
+    MockFunction<void()> callback;
+
+    class BaseClass { };
+
+    class Child : public BaseClass {
+    public:
+        Child(MockFunction<void()>* func)
+            : mFunc(func)
+        {
+        }
+
+        ~Child() { mFunc->Call(); }
+
+    private:
+        MockFunction<void()>* mFunc;
+    };
+
+    StaticAllocator<256> allocator;
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+
+    // Check NewClass destructor is called
+    EXPECT_CALL(callback, Call()).Times(1);
+
+    {
+        SharedPtr<BaseClass> basePtr = MakeShared<Child>(&allocator, &callback);
+        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
+    }
+
+    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+}

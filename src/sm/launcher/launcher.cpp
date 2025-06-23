@@ -64,7 +64,7 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
         }
     }
 
-    mHostWhiteoutsDir = FS::JoinPath(mConfig.mWorkDir, cHostFSWhiteoutsDir);
+    mHostWhiteoutsDir = fs::JoinPath(mConfig.mWorkDir, cHostFSWhiteoutsDir);
 
     if (err = mRuntime->CreateHostFSWhiteouts(mHostWhiteoutsDir, mConfig.mHostBinds); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -93,7 +93,7 @@ Error Launcher::Start()
         LOG_ERR() << "Error running last instances: err=" << err;
     }
 
-    if (auto err = mTimer.Create(
+    if (auto err = mTimer.Start(
             mConfig.mRemoveOutdatedPeriod,
             [this](void*) {
                 if (auto err = HandleOfflineTTLs(); !err.IsNone()) {
@@ -865,6 +865,7 @@ Error Launcher::StartInstance(const InstanceData& info)
 
             auto err = Error(ErrorEnum::eNotFound, "service not found");
 
+            mCurrentInstances.Back().SetRunState(InstanceRunStateEnum::eFailed);
             mCurrentInstances.Back().SetRunError(err);
 
             return AOS_ERROR_WRAP(err);
@@ -890,6 +891,8 @@ Error Launcher::StartInstance(const InstanceData& info)
 
     if (auto err = instance->Start(); !err.IsNone()) {
         LockGuard lock {mMutex};
+
+        instance->SetRunState(InstanceRunStateEnum::eFailed);
         instance->SetRunError(err);
 
         return AOS_ERROR_WRAP(err);
@@ -993,7 +996,7 @@ Error Launcher::GetOutdatedInstances(Array<InstanceData>& instances)
     auto now = Time::Now();
 
     for (const auto& instance : mCurrentInstances) {
-        if (instance.GetOfflineTTL() && now.Add(instance.GetOfflineTTL()) < now) {
+        if (instance.GetOfflineTTL() && now.Add(instance.GetOfflineTTL().Nanoseconds()) < now) {
             if (auto err = instances.EmplaceBack(instance.Info(), instance.InstanceID()); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }

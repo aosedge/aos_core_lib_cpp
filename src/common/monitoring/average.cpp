@@ -79,7 +79,7 @@ Error Average::Update(const NodeMonitoringData& data)
 
         if (auto err = UpdateMonitoringData(averageInstance->mSecond.mMonitoringData, instance.mMonitoringData,
                 averageInstance->mSecond.mIsInitialized);
-            err.IsNone()) {
+            !err.IsNone()) {
             return err;
         }
     }

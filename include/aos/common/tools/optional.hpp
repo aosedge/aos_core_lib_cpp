@@ -11,6 +11,8 @@
 #include <assert.h>
 #include <cstdint>
 
+#include "aos/common/tools/log.hpp"
+
 namespace aos {
 
 /**
@@ -72,6 +74,7 @@ public:
     T& GetValue()
     {
         assert(HasValue());
+        // cppcheck-suppress invalidPointerCast
         return *reinterpret_cast<T*>(mBuffer);
     }
 
@@ -83,6 +86,7 @@ public:
     const T& GetValue() const
     {
         assert(HasValue());
+        // cppcheck-suppress invalidPointerCast
         return *reinterpret_cast<const T*>(mBuffer);
     }
 
@@ -95,6 +99,7 @@ public:
     void SetValue(const T& value)
     {
         if (HasValue()) {
+            // cppcheck-suppress invalidPointerCast
             *reinterpret_cast<T*>(mBuffer) = value;
         } else {
             ::new (static_cast<void*>(mBuffer)) T(value);
@@ -183,6 +188,23 @@ public:
      * @return T&.
      */
     const T& operator*() const { return GetValue(); }
+
+    /**
+     * Outputs optional object to log.
+     *
+     * @param log log to output.
+     * @param obj optional object.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const Optional& obj)
+    {
+        if (!obj.HasValue()) {
+            return log << "none";
+        }
+
+        return log << *obj;
+    }
 
     /**
      * Destroys optional instance.

@@ -107,6 +107,13 @@
 #endif
 
 /**
+ * Directory iterator max count.
+ */
+#ifndef AOS_CONFIG_FS_DIR_ITERATOR_MAX_COUNT
+#define AOS_CONFIG_FS_DIR_ITERATOR_MAX_COUNT 32
+#endif
+
+/**
  * Size of a time in string representation.
  */
 #ifndef AOS_CONFIG_TIME_STR_LEN

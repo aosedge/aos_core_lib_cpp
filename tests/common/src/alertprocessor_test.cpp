@@ -107,9 +107,9 @@ TEST_F(AlertProcessorTest, CheckRulePointAlertDetection)
         {91, 2 * rulePoints.mMinTimeout, {}},
         {95, 2 * rulePoints.mMinTimeout, {}},
         {96, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eRaise}},
-        {80, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eContinue}},
+        {90, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eContinue}},
+        {80, 2 * rulePoints.mMinTimeout, {}},
         {80, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eFall}},
-        {70, 2 * rulePoints.mMinTimeout, {}},
     };
 
     for (const auto& testCase : testCases) {
@@ -164,9 +164,9 @@ TEST_F(AlertProcessorTest, CheckRulePercentAlertDetection)
         {91 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
         {95 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
         {96 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eRaise}},
-        {80 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eContinue}},
-        {80 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eFall}},
-        {70 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
+        {90 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eContinue}},
+        {80 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
+        {70 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eFall}},
     };
 
     for (const auto& testCase : testCases) {

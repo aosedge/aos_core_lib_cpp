@@ -42,6 +42,20 @@ public:
 class IdentHandlerItf {
 public:
     /**
+     * Starts ident handler.
+     *
+     * @returns Error.
+     */
+    virtual Error Start() { return ErrorEnum::eNone; }
+
+    /**
+     * Stops ident handler.
+     *
+     * @returns Error.
+     */
+    virtual Error Stop() { return ErrorEnum::eNone; }
+
+    /**
      * Returns System ID.
      *
      * @returns RetWithError<StaticString>.

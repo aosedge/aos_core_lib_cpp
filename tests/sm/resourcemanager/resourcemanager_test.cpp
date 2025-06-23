@@ -79,7 +79,7 @@ protected:
     {
         test::InitLog();
 
-        auto err = FS::WriteStringToFile(cConfigFilePath, cConfigFileContent, S_IRUSR | S_IWUSR);
+        auto err = fs::WriteStringToFile(cConfigFilePath, cConfigFileContent, S_IRUSR | S_IWUSR);
         EXPECT_TRUE(err.IsNone()) << "SetUp failed to write string to file: " << err.Message();
 
         mConfig.mVersion = cConfigVersion;
@@ -127,7 +127,7 @@ TEST_F(ResourceManagerTest, InitSucceeds)
 
 TEST_F(ResourceManagerTest, NodeConfigFileMissingIsNotAnError)
 {
-    FS::Remove(cConfigFilePath);
+    fs::Remove(cConfigFilePath);
 
     EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).Times(0);
 

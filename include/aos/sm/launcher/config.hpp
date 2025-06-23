@@ -26,7 +26,7 @@ struct Config {
     StaticString<cFilePathLen>                                mStateDir;
     StaticArray<StaticString<cFilePathLen>, cMaxNumHostBinds> mHostBinds;
     StaticArray<Host, cMaxNumHosts>                           mHosts;
-    Duration                                                  mRemoveOutdatedPeriod = 1 * Time::cHours;
+    Duration                                                  mRemoveOutdatedPeriod = Time::cHours;
 };
 
 } // namespace aos::sm::launcher

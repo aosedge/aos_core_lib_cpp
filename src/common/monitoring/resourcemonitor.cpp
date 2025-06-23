@@ -40,13 +40,11 @@ Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInf
     mMaxDMIPS                                       = nodeInfo->mMaxDMIPS;
     mMaxMemory                                      = nodeInfo->mTotalRAM;
 
-    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     assert(mConfig.mPollPeriod > 0);
 
-    if (auto err = mAverage.Init(nodeInfo->mPartitions, mConfig.mAverageWindow / mConfig.mPollPeriod); !err.IsNone()) {
+    if (auto err = mAverage.Init(
+            nodeInfo->mPartitions, mConfig.mAverageWindow.Nanoseconds() / mConfig.mPollPeriod.Nanoseconds());
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -57,9 +55,17 @@ Error ResourceMonitor::Start()
 {
     LOG_DBG() << "Start monitoring";
 
+    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto nodeConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
     if (auto err = mResourceManager->GetNodeConfig(nodeConfig->mNodeConfig); !err.IsNone()) {
+        LOG_ERR() << "Get node config failed, err=" << AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mResourceManager->SubscribeCurrentNodeConfigChange(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -67,7 +73,9 @@ Error ResourceMonitor::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mThread.Run([this](void*) { ProcessMonitoring(); }); !err.IsNone()) {
+    if (auto err = mTimer.Start(
+            mConfig.mPollPeriod, [this](void*) { ProcessMonitoring(); }, false);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -78,16 +86,12 @@ Error ResourceMonitor::Stop()
 {
     LOG_DBG() << "Stop monitoring";
 
+    mTimer.Stop();
     mConnectionPublisher->Unsubscribe(*this);
 
-    {
-        LockGuard lock {mMutex};
-
-        mFinishMonitoring = true;
-        mCondVar.NotifyOne();
+    if (auto err = mResourceManager->UnsubscribeCurrentNodeConfigChange(*this); !err.IsNone()) {
+        LOG_ERR() << "Unsubscription on node config change failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
-
-    mThread.Join();
 
     return ErrorEnum::eNone;
 }
@@ -463,61 +467,85 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
     return ErrorEnum::eNone;
 }
 
+void ResourceMonitor::NormalizeMonitoringData()
+{
+    double   totalInstancesDMIPS    = 0.0;
+    size_t   totalInstancesRAM      = 0;
+    uint64_t totalInstancesDownload = 0;
+    uint64_t totalInstancesUpload   = 0;
+
+    auto& nodeMonitoringData = mNodeMonitoringData.mMonitoringData;
+
+    for (const auto& instanceMonitoring : mNodeMonitoringData.mServiceInstances) {
+        totalInstancesDMIPS += instanceMonitoring.mMonitoringData.mCPU;
+        totalInstancesRAM += instanceMonitoring.mMonitoringData.mRAM;
+        totalInstancesDownload += instanceMonitoring.mMonitoringData.mDownload;
+        totalInstancesUpload += instanceMonitoring.mMonitoringData.mUpload;
+
+        for (const auto& partition : instanceMonitoring.mMonitoringData.mPartitions) {
+            if (auto it = nodeMonitoringData.mPartitions.FindIf(
+                    [&partition](const PartitionInfo& p) { return p.mName == partition.mName; });
+                it != nodeMonitoringData.mPartitions.end()) {
+                it->mUsedSize = Max(it->mUsedSize, partition.mUsedSize);
+            }
+        }
+    }
+
+    nodeMonitoringData.mCPU      = Max(nodeMonitoringData.mCPU, totalInstancesDMIPS);
+    nodeMonitoringData.mRAM      = Max(nodeMonitoringData.mRAM, totalInstancesRAM);
+    nodeMonitoringData.mDownload = Max(nodeMonitoringData.mDownload, totalInstancesDownload);
+    nodeMonitoringData.mUpload   = Max(nodeMonitoringData.mUpload, totalInstancesUpload);
+}
+
 void ResourceMonitor::ProcessMonitoring()
 {
-    while (true) {
-        UniqueLock lock {mMutex};
+    UniqueLock lock {mMutex};
 
-        mCondVar.Wait(lock, mConfig.mPollPeriod, [this] { return mFinishMonitoring; });
+    mNodeMonitoringData.mTimestamp = Time::Now();
 
-        if (mFinishMonitoring) {
-            break;
-        }
+    mNodeMonitoringData.mServiceInstances.Clear();
 
-        mNodeMonitoringData.mTimestamp = Time::Now();
-
-        if (auto err = mResourceUsageProvider->GetNodeMonitoringData(
-                mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
+    for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
+        if (auto err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData);
             !err.IsNone()) {
-            LOG_ERR() << "Failed to get node monitoring data: err=" << err;
-        }
-
-        mNodeMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(mNodeMonitoringData.mMonitoringData.mCPU);
-
-        mNodeMonitoringData.mServiceInstances.Clear();
-
-        for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
-            if (auto err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData);
-                !err.IsNone()) {
-                if (instanceMonitoringData.mRunState == InstanceRunStateEnum::eActive) {
-                    LOG_ERR() << "Failed to get instance monitoring data: err=" << err;
-                }
-
-                continue;
+            if (instanceMonitoringData.mRunState == InstanceRunStateEnum::eActive) {
+                LOG_ERR() << "Failed to get instance monitoring data: err=" << err;
             }
 
-            instanceMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(instanceMonitoringData.mMonitoringData.mCPU);
-
-            if (auto it = mInstanceAlertProcessors.Find(instanceID); it != mInstanceAlertProcessors.end()) {
-                ProcessAlerts(instanceMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, it->mSecond);
-            }
-
-            mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
-        }
-
-        if (auto err = mAverage.Update(mNodeMonitoringData); !err.IsNone()) {
-            LOG_ERR() << "Failed to update average monitoring data: err=" << err;
-        }
-
-        ProcessAlerts(mNodeMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, mAlertProcessors);
-
-        if (!mSendMonitoring) {
             continue;
         }
 
-        if (auto err = mMonitorSender->SendMonitoringData(mNodeMonitoringData); !err.IsNone()) {
-            LOG_ERR() << "Failed to send monitoring data: " << err;
+        instanceMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(instanceMonitoringData.mMonitoringData.mCPU);
+
+        if (auto it = mInstanceAlertProcessors.Find(instanceID); it != mInstanceAlertProcessors.end()) {
+            ProcessAlerts(instanceMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, it->mSecond);
         }
+
+        mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
+    }
+
+    if (auto err = mResourceUsageProvider->GetNodeMonitoringData(
+            mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
+        !err.IsNone()) {
+        LOG_ERR() << "Failed to get node monitoring data: err=" << err;
+    }
+
+    mNodeMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(mNodeMonitoringData.mMonitoringData.mCPU);
+
+    if (auto err = mAverage.Update(mNodeMonitoringData); !err.IsNone()) {
+        LOG_ERR() << "Failed to update average monitoring data: err=" << err;
+    }
+
+    ProcessAlerts(mNodeMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, mAlertProcessors);
+
+    if (!mSendMonitoring) {
+        return;
+    }
+
+    NormalizeMonitoringData();
+
+    if (auto err = mMonitorSender->SendMonitoringData(mNodeMonitoringData); !err.IsNone()) {
+        LOG_ERR() << "Failed to send monitoring data: " << err;
     }
 }
 

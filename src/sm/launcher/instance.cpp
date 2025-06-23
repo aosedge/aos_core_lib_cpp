@@ -48,7 +48,7 @@ Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
     , mOCIManager(ociManager)
     , mHostWhiteoutsDir(hostWhiteoutsDir)
     , mNodeInfo(nodeInfo)
-    , mRuntimeDir(FS::JoinPath(cRuntimeDir, mInstanceID))
+    , mRuntimeDir(fs::JoinPath(cRuntimeDir, mInstanceID))
 {
     LOG_DBG() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this
               << ", serviceID=" << mService.mServiceID << ", version=" << mService.mVersion;
@@ -63,7 +63,7 @@ Error Instance::Start()
 
         LOG_INF() << "Start instance: instanceID=" << *this << ", runtimeDir=" << mRuntimeDir;
 
-        if (auto err = FS::ClearDir(mRuntimeDir); !err.IsNone()) {
+        if (auto err = fs::ClearDir(mRuntimeDir); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -164,15 +164,15 @@ Error Instance::Stop()
         stopErr = err;
     }
 
-    auto rootfsPath = FS::JoinPath(mRuntimeDir, cRootFSDir);
+    auto rootfsPath = fs::JoinPath(mRuntimeDir, cRootFSDir);
 
-    if (auto [exist, err] = FS::DirExist(rootfsPath); !err.IsNone() || exist) {
+    if (auto [exist, err] = fs::DirExist(rootfsPath); !err.IsNone() || exist) {
         if (err = mRuntime.UmountServiceRootFS(rootfsPath); !err.IsNone() && stopErr.IsNone()) {
             stopErr = AOS_ERROR_WRAP(err);
         }
     }
 
-    if (auto err = FS::RemoveAll(mRuntimeDir); !err.IsNone() && stopErr.IsNone()) {
+    if (auto err = fs::RemoveAll(mRuntimeDir); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
@@ -195,7 +195,7 @@ void Instance::SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars
 Error Instance::BindHostDirs(oci::RuntimeSpec& runtimeSpec)
 {
     for (const auto& hostEntry : cBindEtcEntries) {
-        auto path  = FS::JoinPath("/etc", hostEntry);
+        auto path  = fs::JoinPath("/etc", hostEntry);
         auto mount = MakeShared<Mount>(&sAllocator, path, path, "bind", "bind,ro");
 
         if (auto err = AddMount(*mount, runtimeSpec); !err.IsNone()) {
@@ -343,26 +343,36 @@ Error Instance::SetDevices(const Array<oci::ServiceDevice>& devices, oci::Runtim
     for (const auto& device : devices) {
         auto deviceInfo = MakeUnique<DeviceInfo>(&sAllocator);
 
+        LOG_DBG() << "Set device" << Log::Field("instanceID", mInstanceID) << Log::Field("device", device.mDevice);
+
         if (auto err = mResourceManager.GetDeviceInfo(device.mDevice, *deviceInfo); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        StaticArray<StaticString<cDeviceNameLen>, 2> devicePaths;
-
-        if (auto err = device.mDevice.Split(devicePaths, ':'); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
         auto ociDevices = MakeUnique<StaticArray<oci::LinuxDevice, cMaxNumHostDevices>>(&sAllocator);
 
-        if (auto err = mRuntime.PopulateHostDevices(devicePaths[0], *ociDevices); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        for (const auto& hostDevice : deviceInfo->mHostDevices) {
+            StaticArray<StaticString<cDeviceNameLen>, 2> devicePaths;
 
-        if (devicePaths.Size() == 2) {
-            for (auto& ociDevice : *ociDevices) {
-                if (auto err = ociDevice.mPath.Replace(devicePaths[0], devicePaths[1], 1); !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
+            if (auto err = hostDevice.Split(devicePaths, ':'); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            LOG_DBG() << "Populate host device" << Log::Field("instanceID", mInstanceID)
+                      << Log::Field("hostDevice", devicePaths[0]);
+
+            if (auto err = mRuntime.PopulateHostDevices(devicePaths[0], *ociDevices); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (devicePaths.Size() == 2) {
+                LOG_DBG() << "Map host device" << Log::Field("instanceID", mInstanceID)
+                          << Log::Field("hostDevice", devicePaths[0]) << Log::Field("containerDevice", devicePaths[1]);
+
+                for (auto& ociDevice : *ociDevices) {
+                    if (auto err = ociDevice.mPath.Replace(devicePaths[0], devicePaths[1], 1); !err.IsNone()) {
+                        return AOS_ERROR_WRAP(err);
+                    }
                 }
             }
         }
@@ -529,7 +539,7 @@ Error Instance::CreateVMSpec(
     // For xen this value should be aligned to 1024Kb
     runtimeSpec.mVM->mHWConfig.mMemKB = 8192;
 
-    runtimeSpec.mVM->mKernel.mPath       = FS::JoinPath(serviceFSPath, imageSpec.mConfig.mEntryPoint[0]);
+    runtimeSpec.mVM->mKernel.mPath       = fs::JoinPath(serviceFSPath, imageSpec.mConfig.mEntryPoint[0]);
     runtimeSpec.mVM->mKernel.mParameters = imageSpec.mConfig.mCmd;
 
     LOG_DBG() << "VM path: path=" << runtimeSpec.mVM->mKernel.mPath;
@@ -550,9 +560,9 @@ Error Instance::CreateLinuxSpec(
     runtimeSpec.mProcess->mUser.mUID = mInstanceInfo.mUID;
     runtimeSpec.mProcess->mUser.mGID = mService.mGID;
 
-    runtimeSpec.mLinux->mCgroupsPath = FS::JoinPath(cCgroupsPath, mInstanceID);
+    runtimeSpec.mLinux->mCgroupsPath = fs::JoinPath(cCgroupsPath, mInstanceID);
 
-    runtimeSpec.mRoot->mPath     = FS::JoinPath(mRuntimeDir, cRootFSDir);
+    runtimeSpec.mRoot->mPath     = fs::JoinPath(mRuntimeDir, cRootFSDir);
     runtimeSpec.mRoot->mReadonly = false;
 
     if (auto err = BindHostDirs(runtimeSpec); !err.IsNone()) {
@@ -614,7 +624,7 @@ Error Instance::CreateRuntimeSpec(
         }
     }
 
-    if (auto err = mOCIManager.SaveRuntimeSpec(FS::JoinPath(mRuntimeDir, cRuntimeSpecFile), runtimeSpec);
+    if (auto err = mOCIManager.SaveRuntimeSpec(fs::JoinPath(mRuntimeDir, cRuntimeSpecFile), runtimeSpec);
         !err.IsNone()) {
         return err;
     }
@@ -647,8 +657,8 @@ Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
     auto networkParams = MakeUnique<networkmanager::InstanceNetworkParameters>(&sAllocator);
 
     networkParams->mInstanceIdent      = mInstanceInfo.mInstanceIdent;
-    networkParams->mHostsFilePath      = FS::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "hosts");
-    networkParams->mResolvConfFilePath = FS::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "resolv.conf");
+    networkParams->mHostsFilePath      = fs::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "hosts");
+    networkParams->mResolvConfFilePath = fs::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "resolv.conf");
     networkParams->mHosts              = mConfig.mHosts;
     networkParams->mNetworkParameters  = mInstanceInfo.mNetworkParameters;
 
@@ -676,7 +686,7 @@ Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
         networkParams->mUploadLimit = *serviceConfig.mQuotas.mUploadLimit;
     }
 
-    if (auto err = mRuntime.PrepareNetworkDir(FS::JoinPath(mRuntimeDir, cMountPointsDir)); !err.IsNone()) {
+    if (auto err = mRuntime.PrepareNetworkDir(fs::JoinPath(mRuntimeDir, cMountPointsDir)); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -715,7 +725,7 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
 {
     LOG_DBG() << "Prepare root FS: instanceID=" << *this;
 
-    auto mountPoints = FS::JoinPath(mRuntimeDir, cMountPointsDir);
+    auto mountPoints = fs::JoinPath(mRuntimeDir, cMountPointsDir);
 
     if (auto err = mRuntime.CreateMountPoints(mountPoints, mounts); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -751,7 +761,7 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mRuntime.MountServiceRootFS(FS::JoinPath(mRuntimeDir, cRootFSDir), *layers); !err.IsNone()) {
+    if (auto err = mRuntime.MountServiceRootFS(fs::JoinPath(mRuntimeDir, cRootFSDir), *layers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

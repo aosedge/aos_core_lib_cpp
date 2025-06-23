@@ -326,7 +326,7 @@ Error ResourceManager::LoadConfig()
     mConfig.Reset();
     mConfig = MakeUnique<NodeConfig>(&mAllocator);
 
-    auto err = FS::ReadFileToString(mConfigPath, *configJSON);
+    auto err = fs::ReadFileToString(mConfigPath, *configJSON);
     if (!err.IsNone()) {
         if (err == ENOENT) {
             mConfig->mVersion = "0.0.0";
@@ -341,7 +341,8 @@ Error ResourceManager::LoadConfig()
 
     err = mJsonProvider->NodeConfigFromJSON(*configJSON, *mConfig);
     if (!err.IsNone()) {
-        mConfigError = err;
+        mConfig->mVersion = "0.0.0";
+        mConfigError      = err;
 
         return AOS_ERROR_WRAP(err);
     }
@@ -366,7 +367,7 @@ Error ResourceManager::WriteConfig(const NodeConfig& config)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = FS::WriteStringToFile(mConfigPath, *configJSON, S_IRUSR | S_IWUSR); !err.IsNone()) {
+    if (auto err = fs::WriteStringToFile(mConfigPath, *configJSON, S_IRUSR | S_IWUSR); !err.IsNone()) {
         LOG_ERR() << "Failed to write config: err=" << err;
 
         return AOS_ERROR_WRAP(err);

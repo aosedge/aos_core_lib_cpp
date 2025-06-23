@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -34,8 +35,15 @@ protected:
 
         mNetManager = std::make_unique<NetworkManager>();
 
+        EXPECT_CALL(mStorage, GetNetworksInfo(_))
+            .WillOnce(DoAll(SetArgReferee<0>(mNetworkInfos), Return(aos::ErrorEnum::eNone)));
+
+        EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
+            .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
+
         ASSERT_EQ(
-            mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mWorkingDir), aos::ErrorEnum::eNone);
+            mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir),
+            aos::ErrorEnum::eNone);
         ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
     }
 
@@ -82,13 +90,17 @@ protected:
         return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     }
 
-    StorageMock                             mStorage;
-    StrictMock<CNIMock>                     mCNI;
-    TrafficMonitorMock                      mTrafficMonitor;
-    std::unique_ptr<NetworkManager>         mNetManager;
-    StrictMock<NamespaceManagerMock>        mNetns;
-    StrictMock<NetworkInterfaceManagerMock> mNetIf;
-    aos::StaticString<aos::cFilePathLen>    mWorkingDir;
+    StrictMock<StorageMock>                                                               mStorage;
+    StrictMock<CNIMock>                                                                   mCNI;
+    TrafficMonitorMock                                                                    mTrafficMonitor;
+    std::unique_ptr<NetworkManager>                                                       mNetManager;
+    StrictMock<NamespaceManagerMock>                                                      mNetns;
+    StrictMock<InterfaceManagerMock>                                                      mNetIf;
+    StrictMock<InterfaceFactoryMock>                                                      mNetIfFactory;
+    StrictMock<RandomMock>                                                                mRandom;
+    aos::StaticString<aos::cFilePathLen>                                                  mWorkingDir;
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumServiceProviders>  mNetworkInfos;
+    aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances> mInstanceNetworkInfos;
 };
 
 TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
@@ -100,8 +112,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
     std::vector<InstanceNetworkParameters> paramsVec;
 
     for (int i = 0; i < numInstances; i++) {
-        instanceIDs.push_back(std::string("test-instance-" + std::to_string(i)));
-        networkIDs.push_back(std::string("test-network-" + std::to_string(i)));
+        instanceIDs.push_back(std::string("instance-" + std::to_string(i)));
+        networkIDs.push_back(std::string("network-" + std::to_string(i)));
 
         auto        params            = CreateTestInstanceNetworkParameters();
         std::string ip                = "192.168.1." + std::to_string(i + 2);
@@ -109,7 +121,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
         params.mNetworkParameters.mIP = aos::String(ip.c_str());
         params.mHostname              = aos::String(hostname.c_str());
         std::string hostsFilePath     = "hosts_" + std::to_string(i);
-        params.mHostsFilePath         = aos::FS::JoinPath(mWorkingDir, hostsFilePath.c_str());
+        params.mHostsFilePath         = aos::fs::JoinPath(mWorkingDir, hostsFilePath.c_str());
         paramsVec.push_back(params);
     }
 
@@ -129,6 +141,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyHostsFile)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .Times(numInstances)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
     for (int i = 0; i < numInstances; i++) {
         threads.emplace_back([this, i, &instanceIDs, &networkIDs, &paramsVec]() {
@@ -201,6 +215,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_ValidateAllPluginConfigs)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {
             {"/var/run/netns/test-instance"}, aos::ErrorEnum::eNone}));
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
@@ -281,7 +297,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyResolvConfFile)
     const aos::String networkID  = "test-network";
     auto              params     = CreateTestInstanceNetworkParameters();
 
-    params.mResolvConfFilePath = aos::FS::JoinPath(mWorkingDir, "resolv.conf");
+    params.mResolvConfFilePath = aos::fs::JoinPath(mWorkingDir, "resolv.conf");
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("1.1.1.1");
@@ -295,6 +311,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyResolvConfFile)
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
@@ -329,10 +347,12 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_NoConfigFiles)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
     ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
-    EXPECT_FALSE(std::filesystem::exists(aos::FS::JoinPath(mWorkingDir, "hosts").CStr()));
-    EXPECT_FALSE(std::filesystem::exists(aos::FS::JoinPath(mWorkingDir, "resolv.conf").CStr()));
+    EXPECT_FALSE(std::filesystem::exists(aos::fs::JoinPath(mWorkingDir, "hosts").CStr()));
+    EXPECT_FALSE(std::filesystem::exists(aos::fs::JoinPath(mWorkingDir, "resolv.conf").CStr()));
 }
 
 TEST_F(NetworkManagerTest, AddInstanceToNetwork_FileCreationError)
@@ -357,7 +377,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FileCreationError)
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, DeleteLink(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_NE(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 }
@@ -374,7 +394,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnCNIError)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, DeleteLink(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eInvalidArgument);
 }
@@ -400,7 +420,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_FailOnTrafficMonitorError)
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, DeleteLink(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eRuntime);
 }
@@ -422,6 +442,8 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_DuplicateInstance)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
     EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eAlreadyExist);
@@ -429,14 +451,36 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_DuplicateInstance)
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
 {
-    const aos::String instanceID = "test-instance";
-    const aos::String networkID  = "test-network";
-    auto              params     = CreateTestInstanceNetworkParameters();
+    const aos::String                           instanceID = "test-instance";
+    auto                                        params     = CreateTestInstanceNetworkParameters();
+    aos::StaticArray<aos::NetworkParameters, 1> networks;
+    aos::NetworkParameters                      network;
+    network.mNetworkID = "test-network";
+    network.mIP        = "192.168.1.1";
+    network.mSubnet    = "192.168.1.0/24";
+    network.mVlanID    = 100ULL;
+    networks.PushBack(network);
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
 
-    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNotFound);
+    EXPECT_CALL(mRandom, RandBuffer(_, 4)).WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+        buffer.Resize(4);
+        uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+        for (size_t i = 0; i < sizeof(data); i++) {
+            buffer[i] = data[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network.mIP, network.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
+
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
         .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
@@ -446,32 +490,55 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, network.mNetworkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
 
     aos::StaticString<aos::cIPLen> ip;
 
-    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID, networkID, ip), aos::ErrorEnum::eNotFound);
+    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID, network.mNetworkID, ip), aos::ErrorEnum::eNotFound);
 }
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
 {
-    const aos::String instanceID1 = "test-instance-1";
-    const aos::String instanceID2 = "test-instance-2";
-    const aos::String networkID   = "test-network";
-    auto              params      = CreateTestInstanceNetworkParameters();
+    const aos::String                           instanceID1 = "test-instance-1";
+    const aos::String                           instanceID2 = "test-instance-2";
+    auto                                        params      = CreateTestInstanceNetworkParameters();
+    aos::StaticArray<aos::NetworkParameters, 1> networks;
+    aos::NetworkParameters                      network;
+    network.mNetworkID = "test-network";
+    network.mIP        = "192.168.1.1";
+    network.mSubnet    = "192.168.1.0/24";
+    network.mVlanID    = 100ULL;
+    networks.PushBack(network);
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
+
+    EXPECT_CALL(mRandom, RandBuffer(_, 4)).WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+        buffer.Resize(4);
+        uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+        for (size_t i = 0; i < sizeof(data); i++) {
+            buffer[i] = data[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network.mIP, network.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
@@ -484,7 +551,9 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
         .Times(2)
         .WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
-    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID1, networkID, params), aos::ErrorEnum::eNone);
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID1, network.mNetworkID, params), aos::ErrorEnum::eNone);
 
     params.mHosts.Clear();
     params.mAliases.Clear();
@@ -496,31 +565,54 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_MultipleInstances)
     params.mHostname                = "test-host-3";
     params.mInstanceIdent.mInstance = 1;
 
-    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID2, networkID, params), aos::ErrorEnum::eNone);
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID2, network.mNetworkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID1)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID1, networkID), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID1, network.mNetworkID), aos::ErrorEnum::eNone);
 
     aos::StaticString<aos::cIPLen> ip;
 
-    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID2, networkID, ip), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->GetInstanceIP(instanceID2, network.mNetworkID, ip), aos::ErrorEnum::eNone);
 
     EXPECT_EQ(ip, params.mNetworkParameters.mIP);
 }
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
 {
-    const aos::String instanceID = "test-instance";
-    const aos::String networkID  = "test-network";
-    auto              params     = CreateTestInstanceNetworkParameters();
+    const aos::String                           instanceID = "test-instance";
+    auto                                        params     = CreateTestInstanceNetworkParameters();
+    aos::StaticArray<aos::NetworkParameters, 1> networks;
+    aos::NetworkParameters                      network;
+    network.mNetworkID = "test-network";
+    network.mIP        = "192.168.1.1";
+    network.mSubnet    = "192.168.1.0/24";
+    network.mVlanID    = 100ULL;
+    networks.PushBack(network);
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
+
+    EXPECT_CALL(mRandom, RandBuffer(_, 4)).WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+        buffer.Resize(4);
+        uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+        for (size_t i = 0; i < sizeof(data); i++) {
+            buffer[i] = data[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network.mIP, network.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
         .Times(2)
@@ -534,28 +626,53 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_AddRemovedInstance)
         .Times(3)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
-    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, network.mNetworkID, params), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, RemoveInterface(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
 
-    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+    EXPECT_EQ(mNetManager->AddInstanceToNetwork(instanceID, network.mNetworkID, params), aos::ErrorEnum::eNone);
 }
 
 TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
 {
-    const aos::String instanceID = "test-instance";
-    const aos::String networkID  = "test-network";
-    auto              params     = CreateTestInstanceNetworkParameters();
+    const aos::String                           instanceID = "test-instance";
+    const aos::String                           networkID  = "test-network";
+    auto                                        params     = CreateTestInstanceNetworkParameters();
+    aos::StaticArray<aos::NetworkParameters, 1> networks;
+    aos::NetworkParameters                      network;
+    network.mNetworkID = "test-network";
+    network.mIP        = "192.168.1.1";
+    network.mSubnet    = "192.168.1.0/24";
+    network.mVlanID    = 100ULL;
+    networks.PushBack(network);
 
     Result cniResult;
     cniResult.mDNSServers.PushBack("8.8.8.8");
+
+    EXPECT_CALL(mRandom, RandBuffer(_, 4)).WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+        buffer.Resize(4);
+        uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+        for (size_t i = 0; i < sizeof(data); i++) {
+            buffer[i] = data[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network.mIP, network.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
         .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
@@ -566,6 +683,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
 
@@ -573,6 +691,7 @@ TEST_F(NetworkManagerTest, RemoveInstanceFromNetwork_FailOnCNIError)
 
     EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eRuntime));
     EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, networkID), aos::ErrorEnum::eRuntime);
 }
@@ -625,4 +744,164 @@ TEST_F(NetworkManagerTest, GetSystemTraffic)
     EXPECT_CALL(mTrafficMonitor, GetSystemData(_, _)).WillOnce(Return(aos::ErrorEnum::eFailed));
 
     EXPECT_EQ(mNetManager->GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eFailed);
+}
+
+TEST_F(NetworkManagerTest, UpdateNetworks)
+{
+    aos::StaticArray<aos::NetworkParameters, 2> networks;
+
+    aos::NetworkParameters network1;
+    network1.mNetworkID = "network1";
+    network1.mIP        = "192.168.1.1";
+    network1.mSubnet    = "192.168.1.0/24";
+    network1.mVlanID    = 100ULL;
+    networks.PushBack(network1);
+
+    aos::NetworkParameters network2;
+    network2.mNetworkID = "network2";
+    network2.mIP        = "192.168.2.1";
+    network2.mSubnet    = "192.168.2.0/24";
+    network2.mVlanID    = 200ULL;
+    networks.PushBack(network2);
+
+    EXPECT_CALL(mRandom, RandBuffer(_, 4))
+        .Times(2)
+        .WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+            buffer.Resize(4);
+            uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+            for (size_t i = 0; i < sizeof(data); i++) {
+                buffer[i] = data[i];
+            }
+            return aos::ErrorEnum::eNone;
+        }))
+        .WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+            buffer.Resize(4);
+            uint8_t data[] = {0xEF, 0x56, 0x78, 0x90};
+            for (size_t i = 0; i < sizeof(data); i++) {
+                buffer[i] = data[i];
+            }
+            return aos::ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network1.mIP, network1.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network1.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network2.mIP, network2.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network2.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
+
+    aos::StaticArray<aos::NetworkParameters, 1> updatedNetworks;
+    updatedNetworks.PushBack(network1);
+
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveNetworkInfo(network2.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(updatedNetworks), aos::ErrorEnum::eNone);
+
+    aos::StaticArray<aos::NetworkParameters, 1> emptyNetworks;
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveNetworkInfo(network1.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(emptyNetworks), aos::ErrorEnum::eNone);
+}
+
+TEST_F(NetworkManagerTest, UpdateNetworksRemoveExisting)
+{
+    NetworkInfo existingNetwork;
+    existingNetwork.mNetworkID  = "network1";
+    existingNetwork.mIP         = "192.168.1.1";
+    existingNetwork.mSubnet     = "192.168.1.0/24";
+    existingNetwork.mVlanID     = 100ULL;
+    existingNetwork.mVlanIfName = "vlan-1234abcd";
+    mNetworkInfos.PushBack(existingNetwork);
+
+    EXPECT_CALL(mCNI, SetConfDir(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, GetNetworksInfo(_))
+        .WillOnce(DoAll(SetArgReferee<0>(mNetworkInfos), Return(aos::ErrorEnum::eNone)));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, existingNetwork.mIP, existingNetwork.mSubnet))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(existingNetwork.mVlanIfName, existingNetwork.mVlanID))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(existingNetwork.mVlanIfName, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
+        .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
+
+    mNetManager = std::make_unique<NetworkManager>();
+    ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir),
+        aos::ErrorEnum::eNone);
+
+    aos::StaticArray<aos::NetworkParameters, 1> emptyNetworks;
+
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveNetworkInfo(existingNetwork.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(emptyNetworks), aos::ErrorEnum::eNone);
+}
+
+TEST_F(NetworkManagerTest, UpdateNetworksRemoveNetworkWithInstance)
+{
+    aos::StaticArray<aos::NetworkParameters, 1> networks;
+    aos::NetworkParameters                      network;
+    network.mNetworkID = "test-network";
+    network.mIP        = "192.168.1.1";
+    network.mSubnet    = "192.168.1.0/24";
+    network.mVlanID    = 100ULL;
+    networks.PushBack(network);
+
+    EXPECT_CALL(mRandom, RandBuffer(_, 4)).WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+        buffer.Resize(4);
+        uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+        for (size_t i = 0; i < sizeof(data); i++) {
+            buffer[i] = data[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(_, network.mIP, network.mSubnet)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
+
+    const aos::String instanceID = "test-instance";
+    auto              params     = CreateTestInstanceNetworkParameters();
+
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(instanceID))
+        .Times(2)
+        .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>>(
+            {"/var/run/netns/test-instance", aos::ErrorEnum::eNone})));
+
+    aos::sm::cni::Result cniResult;
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_EQ(mNetManager->RemoveInstanceFromNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->AddInstanceToNetwork(instanceID, network.mNetworkID, params), aos::ErrorEnum::eNone);
+
+    aos::StaticArray<aos::NetworkParameters, 1> emptyNetworks;
+
+    // Expect instance removal
+    EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCNI, DeleteNetworkList(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, DeleteNetworkNamespace(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    // Expect network removal
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveNetworkInfo(network.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(emptyNetworks), aos::ErrorEnum::eNone);
 }

@@ -12,6 +12,7 @@
 #include "aos/common/monitoring/average.hpp"
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/memory.hpp"
+#include "aos/common/tools/timer.hpp"
 #include "aos/sm/resourcemanager.hpp"
 
 namespace aos::monitoring {
@@ -129,6 +130,7 @@ private:
 
     Error SetupSystemAlerts(const NodeConfig& nodeConfig);
     Error SetupInstanceAlerts(const String& instanceID, const InstanceMonitorParams& instanceParams);
+    void  NormalizeMonitoringData();
     void  ProcessMonitoring();
     void  ProcessAlerts(const MonitoringData& monitoringData, const Time& time, Array<AlertProcessor>& alertProcessors);
     RetWithError<uint64_t> GetCurrentUsage(const ResourceIdentifier& id, const MonitoringData& monitoringData) const;
@@ -146,12 +148,10 @@ private:
     NodeMonitoringData                                                                mNodeMonitoringData {};
     StaticMap<StaticString<cInstanceIDLen>, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
 
-    bool mFinishMonitoring {};
     bool mSendMonitoring {};
 
-    Mutex               mMutex;
-    ConditionalVariable mCondVar;
-    Thread<>            mThread = {};
+    Mutex mMutex;
+    Timer mTimer = {};
 
     uint64_t mMaxDMIPS {};
     uint64_t mMaxMemory {};

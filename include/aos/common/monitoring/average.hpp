@@ -10,6 +10,7 @@
 
 #include "aos/common/monitoring/monitoring.hpp"
 #include "aos/common/tools/map.hpp"
+#include "aos/common/tools/memory.hpp"
 
 namespace aos::monitoring {
 

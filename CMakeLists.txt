@@ -58,14 +58,7 @@ endif()
 set(CMAKE_MODULE_PATH ${AOS_CORE_LIB_DIR}/cmake)
 
 if(WITH_TEST)
-    include(FetchContent)
-
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.13.0
-    )
-    FetchContent_MakeAvailable(googletest)
+    find_package(GTest REQUIRED)
 
     include(GoogleTest)
 

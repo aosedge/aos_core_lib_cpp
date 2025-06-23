@@ -170,7 +170,7 @@ public:
         std::transform(
             services.begin(), services.end(), std::back_inserter(mServicesData), [](const ServiceInfo& service) {
                 return ServiceData {service.mServiceID, service.mProviderID, service.mVersion,
-                    FS::JoinPath("/aos/services/", service.mServiceID), "", Time::Now(), ServiceStateEnum::eActive, 0,
+                    fs::JoinPath("/aos/services/", service.mServiceID), "", Time::Now(), ServiceStateEnum::eActive, 0,
                     0};
             });
 
@@ -225,8 +225,8 @@ public:
      */
     Error GetImageParts(const ServiceData& service, image::ImageParts& imageParts) override
     {
-        imageParts.mImageConfigPath   = FS::JoinPath(service.mImagePath, "image.json");
-        imageParts.mServiceConfigPath = FS::JoinPath(service.mImagePath, "service.json");
+        imageParts.mImageConfigPath   = fs::JoinPath(service.mImagePath, "image.json");
+        imageParts.mServiceConfigPath = fs::JoinPath(service.mImagePath, "service.json");
         imageParts.mServiceFSPath     = service.mImagePath;
 
         return ErrorEnum::eNone;

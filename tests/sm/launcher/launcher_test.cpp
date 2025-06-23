@@ -101,7 +101,7 @@ protected:
         mLauncher = std::make_unique<Launcher>();
 
         EXPECT_CALL(mNetworkManager, GetNetnsPath).WillRepeatedly(Invoke([](const String& instanceID) {
-            return RetWithError<StaticString<cFilePathLen>>(FS::JoinPath("/var/run/netns", instanceID));
+            return RetWithError<StaticString<cFilePathLen>>(fs::JoinPath("/var/run/netns", instanceID));
         }));
 
         EXPECT_CALL(mRunner, StartInstance)
@@ -141,13 +141,13 @@ protected:
         serviceConfig->mRunners.PushBack("runc");
 
         if (auto err
-            = mOCIManager->SaveImageSpec(FS::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
+            = mOCIManager->SaveImageSpec(fs::JoinPath("/aos/services", service.mServiceID, "image.json"), *imageSpec);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
         if (auto err = mOCIManager->SaveServiceConfig(
-                FS::JoinPath("/aos/services", service.mServiceID, "service.json"), *serviceConfig);
+                fs::JoinPath("/aos/services", service.mServiceID, "service.json"), *serviceConfig);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

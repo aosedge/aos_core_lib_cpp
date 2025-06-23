@@ -20,8 +20,11 @@ set(SOURCES
     permhandler/permhandler_test.cpp
     provisionmanager/provisionmanager_test.cpp
     stubs/certhandlerstub.cpp
-    iam_test.cpp
 )
+
+if(WITH_MBEDTLS OR WITH_OPENSSL)
+    set(SOURCES ${SOURCES} iam_test.cpp)
+endif()
 
 # ######################################################################################################################
 # Target

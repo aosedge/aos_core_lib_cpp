@@ -34,7 +34,7 @@ void AcceptAllocatedSpace(spaceallocator::SpaceItf* space)
 void ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space)
 {
     if (!path.IsEmpty()) {
-        FS::RemoveAll(path);
+        fs::RemoveAll(path);
     }
 
     if (!space) {
@@ -71,11 +71,11 @@ Error ServiceManager::Init(const Config& config, oci::OCISpecItf& ociManager, do
     mDownloadSpaceAllocator = &downloadSpaceAllocator;
     mImageHandler           = &imageHandler;
 
-    if (auto err = FS::MakeDirAll(mConfig.mServicesDir); !err.IsNone()) {
+    if (auto err = fs::MakeDirAll(mConfig.mServicesDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = FS::ClearDir(mConfig.mDownloadDir); !err.IsNone()) {
+    if (auto err = fs::ClearDir(mConfig.mDownloadDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -115,7 +115,7 @@ Error ServiceManager::Start()
 {
     LOG_DBG() << "Start service manager";
 
-    auto err = mTimer.Create(
+    auto err = mTimer.Start(
         mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
             auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
@@ -232,7 +232,7 @@ Error ServiceManager::GetImageParts(const ServiceData& service, image::ImagePart
 
     auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
 
-    if (auto err = mOCIManager->LoadImageManifest(FS::JoinPath(service.mImagePath, cImageManifestFile), *manifest);
+    if (auto err = mOCIManager->LoadImageManifest(fs::JoinPath(service.mImagePath, cImageManifestFile), *manifest);
         !err.IsNone()) {
         return err;
     }
@@ -241,9 +241,9 @@ Error ServiceManager::GetImageParts(const ServiceData& service, image::ImagePart
         return err;
     }
 
-    imageParts.mImageConfigPath   = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mImageConfigPath);
-    imageParts.mServiceConfigPath = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceConfigPath);
-    imageParts.mServiceFSPath     = FS::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceFSPath);
+    imageParts.mImageConfigPath   = fs::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mImageConfigPath);
+    imageParts.mServiceConfigPath = fs::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceConfigPath);
+    imageParts.mServiceFSPath     = fs::JoinPath(service.mImagePath, cImageBlobsFolder, imageParts.mServiceFSPath);
 
     return ErrorEnum::eNone;
 }
@@ -478,7 +478,7 @@ Error ServiceManager::RemoveDamagedServiceFolders(const Array<ServiceData>& serv
     LOG_DBG() << "Remove damaged service folders";
 
     for (const auto& service : services) {
-        if (auto [exists, err] = FS::DirExist(service.mImagePath); err.IsNone() && exists) {
+        if (auto [exists, err] = fs::DirExist(service.mImagePath); err.IsNone() && exists) {
             continue;
         }
 
@@ -489,8 +489,8 @@ Error ServiceManager::RemoveDamagedServiceFolders(const Array<ServiceData>& serv
         }
     }
 
-    for (auto serviceDirIterator = FS::DirIterator(mConfig.mServicesDir); serviceDirIterator.Next();) {
-        const auto fullPath = FS::JoinPath(mConfig.mServicesDir, serviceDirIterator->mPath);
+    for (auto serviceDirIterator = fs::DirIterator(mConfig.mServicesDir); serviceDirIterator.Next();) {
+        const auto fullPath = fs::JoinPath(mConfig.mServicesDir, serviceDirIterator->mPath);
 
         if (services.FindIf([&fullPath](const ServiceData& service) { return service.mImagePath == fullPath; })
             != services.end()) {
@@ -499,7 +499,7 @@ Error ServiceManager::RemoveDamagedServiceFolders(const Array<ServiceData>& serv
 
         LOG_WRN() << "Service missing in storage: imagePath=" << fullPath;
 
-        if (auto err = FS::RemoveAll(fullPath); !err.IsNone()) {
+        if (auto err = fs::RemoveAll(fullPath); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -546,7 +546,7 @@ Error ServiceManager::RemoveServiceFromSystem(const ServiceData& service)
     LOG_DBG() << "Remove service: serviceID=" << service.mServiceID << ", version=" << service.mVersion
               << ", path=" << service.mImagePath;
 
-    if (auto err = FS::RemoveAll(service.mImagePath); !err.IsNone()) {
+    if (auto err = fs::RemoveAll(service.mImagePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -593,7 +593,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         return AOS_ERROR_WRAP(err);
     }
 
-    archivePath = FS::JoinPath(mConfig.mDownloadDir, service.mServiceID);
+    archivePath = fs::JoinPath(mConfig.mDownloadDir, service.mServiceID);
 
     if (err = mDownloader->Download(service.mURL, archivePath, downloader::DownloadContentEnum::eService);
         !err.IsNone()) {
@@ -677,7 +677,7 @@ RetWithError<StaticString<ServiceManager::cAllocatorItemLen>> ServiceManager::Fo
 
 RetWithError<StaticString<oci::cMaxDigestLen>> ServiceManager::GetManifestChecksum(const String& servicePath)
 {
-    return mImageHandler->CalculateDigest(FS::JoinPath(servicePath, cImageManifestFile));
+    return mImageHandler->CalculateDigest(fs::JoinPath(servicePath, cImageManifestFile));
 }
 
 } // namespace aos::sm::servicemanager
