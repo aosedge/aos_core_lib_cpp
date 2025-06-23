@@ -222,7 +222,7 @@ struct LinuxDeviceCgroup {
     {
     }
 
-    bool                          mAllow;
+    bool                          mAllow = false;
     StaticString<cDeviceTypeLen>  mType;
     Optional<int64_t>             mMajor;
     Optional<int64_t>             mMinor;

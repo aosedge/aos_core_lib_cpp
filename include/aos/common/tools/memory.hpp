@@ -23,7 +23,7 @@ public:
      *
      * @param allocator input allocator.
      */
-    DefaultDeleter(Allocator* allocator = nullptr)
+    explicit DefaultDeleter(Allocator* allocator = nullptr)
         : mAllocator(allocator)
     {
     }
@@ -100,6 +100,7 @@ public:
      */
     using Deleter = void (*)(void*, Allocator*);
 
+    // cppcheck-suppress noExplicitConstructor
     /**
      * Creates smart pointer.
      *
@@ -227,6 +228,7 @@ public:
     {
     }
 
+    // cppcheck-suppress noExplicitConstructor
     /**
      * Default constructor.
      *
@@ -268,7 +270,8 @@ public:
      * @param ptr unique pointer to move from.
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
-    explicit UniquePtr(UniquePtr<P, D>&& ptr)
+    // cppcheck-suppress noExplicitConstructor
+    UniquePtr(UniquePtr<P, D>&& ptr)
     {
         *this = Move(ptr);
     }
@@ -390,6 +393,7 @@ public:
      */
     using typename SmartPtr<T>::Deleter;
 
+    // cppcheck-suppress noExplicitConstructor
     /**
      * Creates shared pointer.
      */
@@ -467,6 +471,7 @@ public:
         return *this;
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Resets shared pointer.
      *

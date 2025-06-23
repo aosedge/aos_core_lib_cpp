@@ -328,8 +328,6 @@ RetWithError<int> ComparePrereleaseParts(String& version1, String& version2)
             !result.mError.IsNone() || result.mValue != 0) {
             return result;
         }
-
-        continue;
     }
 
     if (identifiers1.Size() < identifiers2.Size()) {

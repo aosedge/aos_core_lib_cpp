@@ -320,7 +320,7 @@ public:
      *
      * @return Mutex&.
      */
-    Mutex& GetMutex() const { return mMutex; }
+    Mutex& GetMutex() { return mMutex; }
 
 private:
     Mutex& mMutex;

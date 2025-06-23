@@ -24,6 +24,7 @@ using namespace testing;
 
 class CertModuleTest : public Test {
 protected:
+    // cppcheck-suppress unusedStructMember
     static constexpr auto cCertType   = "test-cert-type";
     static constexpr auto cCertIssuer = "test-cert-issuer";
 
@@ -39,10 +40,13 @@ protected:
 
     CertInfo mCertInfo;
 
-    ModuleConfig               mModuleConfig;
+    // cppcheck-suppress unusedStructMember
+    ModuleConfig mModuleConfig;
+    // cppcheck-suppress unusedStructMember
     crypto::x509::ProviderMock mX509Provider;
-    HSMMock                    mHSM;
-    StorageStub                mStorage;
+    // cppcheck-suppress unusedStructMember
+    HSMMock     mHSM;
+    StorageStub mStorage;
 };
 
 /***********************************************************************************************************************

@@ -52,7 +52,7 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
 
     LOG_DBG() << "Set node info: nodeID=" << info.mNodeID << ", status=" << info.mStatus;
 
-    auto cachedInfo = GetNodeFromCache(info.mNodeID);
+    const auto* cachedInfo = GetNodeFromCache(info.mNodeID);
 
     if (cachedInfo != nullptr && *cachedInfo == info) {
         return ErrorEnum::eNone;
@@ -67,8 +67,8 @@ Error NodeManager::SetNodeStatus(const String& nodeID, NodeStatus status)
 
     LOG_DBG() << "Set node status: nodeID=" << nodeID << ", status=" << status;
 
-    auto nodeInfo   = MakeUnique<NodeInfo>(&mAllocator);
-    auto cachedInfo = GetNodeFromCache(nodeID);
+    auto        nodeInfo   = MakeUnique<NodeInfo>(&mAllocator);
+    const auto* cachedInfo = GetNodeFromCache(nodeID);
 
     if (cachedInfo != nullptr) {
         if (cachedInfo->mStatus == status) {

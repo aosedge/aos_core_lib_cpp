@@ -40,6 +40,7 @@ public:
      */
     Buffer(const Buffer& buffer) = default;
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Copies one buffer to another.
      *
@@ -133,6 +134,7 @@ public:
         Buffer::operator=(buffer);
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Copies one buffer to another.
      *

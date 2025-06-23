@@ -868,7 +868,7 @@ Error PKCS11Module::GetValidInfo(const pkcs11::SessionContext& session, Array<Se
     for (auto privKey = privKeys.begin(); privKey != privKeys.end();) {
         LOG_DBG() << "Private key found: ID=" << uuid::UUIDToString(privKey->mID);
 
-        auto pubKey = FindObjectByID(pubKeys, privKey->mID);
+        const auto* pubKey = FindObjectByID(pubKeys, privKey->mID);
         if (pubKey == pubKeys.end()) {
             privKey++;
             continue;

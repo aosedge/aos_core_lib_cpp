@@ -108,6 +108,7 @@ public:
         }
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Sets new string size.
      *
@@ -126,6 +127,7 @@ public:
         return ErrorEnum::eNone;
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Clears string.
      */
@@ -163,6 +165,7 @@ public:
         return *this;
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Inserts items from range.
      *
@@ -818,6 +821,7 @@ public:
         String::operator=(str);
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Assigns string from another  string.
      *

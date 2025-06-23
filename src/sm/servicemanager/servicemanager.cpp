@@ -575,6 +575,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         ReleaseAllocatedSpace(archivePath, downloadSpace.Get());
     });
 
+    // cppcheck-suppress constParameterPointer
     auto releaseServiceSpace = DeferRelease(&err, [&](Error* err) {
         if (!err->IsNone()) {
             ReleaseAllocatedSpace(servicePath, serviceSpace.Get());

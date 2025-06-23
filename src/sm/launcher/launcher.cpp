@@ -27,6 +27,7 @@ const char* const cDefaultHostFSBinds[] = {"bin", "sbin", "lib", "lib64", "usr"}
  **********************************************************************************************************************/
 
 // cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
     resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
@@ -1044,6 +1045,7 @@ Error Launcher::HandleOfflineTTLs()
 
     mThread.Join();
 
+    // cppcheck-suppress cstyleCast
     auto err = mThread.Run([this, outdatedInstances](void*) mutable {
         if (auto err = ProcessStopInstances(*outdatedInstances); !err.IsNone()) {
             LOG_ERR() << "Can't process stop instances: err=" << err;
@@ -1262,6 +1264,7 @@ Error Launcher::UpdateInstancesEnvVars()
 
     mThread.Join();
 
+    // cppcheck-suppress cstyleCast
     auto err = mThread.Run([this, restartInstances](void*) mutable {
         if (auto err = ProcessRestartInstances(*restartInstances); !err.IsNone()) {
             LOG_ERR() << "Can't process stop instances: err=" << err;

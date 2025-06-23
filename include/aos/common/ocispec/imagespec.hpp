@@ -50,7 +50,7 @@ struct ContentDescriptor {
 
     StaticString<cMaxMediaTypeLen> mMediaType;
     StaticString<cMaxDigestLen>    mDigest;
-    uint64_t                       mSize;
+    uint64_t                       mSize = 0;
 
     /**
      * Compares content descriptor.

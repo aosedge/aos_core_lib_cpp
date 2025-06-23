@@ -653,7 +653,7 @@ Error NetworkManager::WriteResolvConfFile(const String& filePath, const Array<St
 
     auto closeFile = DeferRelease(&fd, [](const int* fd) { close(*fd); });
 
-    auto writeNameServers = [&fd](Array<StaticString<cIPLen>> servers) -> Error {
+    auto writeNameServers = [&fd](const Array<StaticString<cIPLen>>& servers) -> Error {
         for (const auto& server : servers) {
             StaticString<cResolvConfLineLen> line;
 
@@ -765,7 +765,7 @@ Error NetworkManager::WriteHost(const Host& host, int fd) const
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::WriteHosts(Array<SharedPtr<Host>> hosts, int fd) const
+Error NetworkManager::WriteHosts(const Array<SharedPtr<Host>>& hosts, int fd) const
 {
     for (const auto& host : hosts) {
         if (auto err = WriteHost(*host, fd); !err.IsNone()) {
@@ -776,7 +776,7 @@ Error NetworkManager::WriteHosts(Array<SharedPtr<Host>> hosts, int fd) const
     return ErrorEnum::eNone;
 };
 
-Error NetworkManager::WriteHosts(Array<Host> hosts, int fd) const
+Error NetworkManager::WriteHosts(const Array<Host>& hosts, int fd) const
 {
     for (const auto& host : hosts) {
         if (auto err = WriteHost(host, fd); !err.IsNone()) {

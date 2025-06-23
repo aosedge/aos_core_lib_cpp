@@ -128,7 +128,7 @@ public:
     template <typename... Args>
     Error Emplace(const Key& key, Args&&... args)
     {
-        auto it = Find(key);
+        ConstIterator it = Find(key);
         if (it == end()) {
             return mItems.EmplaceBack(key, args...);
         }
@@ -146,7 +146,7 @@ public:
     template <typename... Args>
     Error TryEmplace(const Key& key, Args&&... args)
     {
-        if (auto it = Find(key); it == end()) {
+        if (ConstIterator it = Find(key); it == end()) {
             return mItems.EmplaceBack(key, args...);
         }
 
@@ -193,6 +193,7 @@ public:
      */
     size_t MaxSize() const override { return mItems.MaxSize(); }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Returns true if the map is empty.
      *
