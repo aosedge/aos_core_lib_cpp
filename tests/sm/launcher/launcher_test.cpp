@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 
+#include "aos/common/crypto/cryptoprovider.hpp"
 #include "aos/sm/launcher.hpp"
 
 #include "aos/test/log.hpp"
@@ -97,8 +98,11 @@ protected:
         mOCIManager     = std::make_unique<OCISpecStub>();
         mStatusReceiver = std::make_unique<StatusReceiverStub>();
         mStorage        = std::make_unique<StorageStub>();
+        mCryptoProvider = std::make_unique<crypto::DefaultCryptoProvider>();
 
         mLauncher = std::make_unique<Launcher>();
+
+        ASSERT_TRUE(mCryptoProvider->Init().IsNone()) << "crypto provider initialization failed";
 
         EXPECT_CALL(mNetworkManager, GetNetnsPath).WillRepeatedly(Invoke([](const String& instanceID) {
             return RetWithError<StaticString<cFilePathLen>>(fs::JoinPath("/var/run/netns", instanceID));
@@ -110,7 +114,7 @@ protected:
         ASSERT_TRUE(mLauncher
                         ->Init(Config {}, mNodeInfoProvider, *mServiceManager, *mLayerManager, mResourceManager,
                             mNetworkManager, mPermHandler, mRunner, mRuntime, mResourceMonitor, *mOCIManager,
-                            *mStatusReceiver, mConnectionPublisher, *mStorage)
+                            *mStatusReceiver, mConnectionPublisher, *mStorage, *mCryptoProvider)
                         .IsNone());
 
         ASSERT_TRUE(mLauncher->Start().IsNone());
@@ -155,20 +159,21 @@ protected:
         return ErrorEnum::eNone;
     }
 
-    std::unique_ptr<Launcher>           mLauncher;
-    NiceMock<ConnectionPublisherMock>   mConnectionPublisher;
-    std::unique_ptr<LayerManagerStub>   mLayerManager;
-    NiceMock<NetworkManagerMock>        mNetworkManager;
-    NiceMock<NodeInfoProviderMock>      mNodeInfoProvider;
-    std::unique_ptr<OCISpecStub>        mOCIManager;
-    NiceMock<PermHandlerMock>           mPermHandler;
-    NiceMock<ResourceManagerMock>       mResourceManager;
-    NiceMock<ResourceMonitorMock>       mResourceMonitor;
-    NiceMock<RunnerMock>                mRunner;
-    NiceMock<RuntimeMock>               mRuntime;
-    std::unique_ptr<ServiceManagerStub> mServiceManager;
-    std::unique_ptr<StatusReceiverStub> mStatusReceiver;
-    std::unique_ptr<StorageStub>        mStorage;
+    std::unique_ptr<Launcher>                      mLauncher;
+    NiceMock<ConnectionPublisherMock>              mConnectionPublisher;
+    std::unique_ptr<LayerManagerStub>              mLayerManager;
+    NiceMock<NetworkManagerMock>                   mNetworkManager;
+    NiceMock<NodeInfoProviderMock>                 mNodeInfoProvider;
+    std::unique_ptr<OCISpecStub>                   mOCIManager;
+    NiceMock<PermHandlerMock>                      mPermHandler;
+    NiceMock<ResourceManagerMock>                  mResourceManager;
+    NiceMock<ResourceMonitorMock>                  mResourceMonitor;
+    NiceMock<RunnerMock>                           mRunner;
+    NiceMock<RuntimeMock>                          mRuntime;
+    std::unique_ptr<ServiceManagerStub>            mServiceManager;
+    std::unique_ptr<StatusReceiverStub>            mStatusReceiver;
+    std::unique_ptr<StorageStub>                   mStorage;
+    std::unique_ptr<crypto::DefaultCryptoProvider> mCryptoProvider;
 };
 
 } // namespace

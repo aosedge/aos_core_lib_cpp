@@ -260,6 +260,7 @@ public:
      * @param statusReceiver status receiver instance.
      * @param connectionPublisher connection publisher instance.
      * @param storage storage instance.
+     * @param uuidProvider UUID provider instance.
      * @return Error.
      */
     Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
@@ -267,7 +268,8 @@ public:
         resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
         iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
         monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
-        InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage);
+        InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage,
+        crypto::UUIDItf& uuidProvider);
 
     /**
      * Starts launcher.
@@ -412,6 +414,7 @@ private:
     servicemanager::ServiceManagerItf*   mServiceManager {};
     StorageItf*                          mStorage {};
     RuntimeItf*                          mRuntime {};
+    crypto::UUIDItf*                     mUUIDProvider {};
 
     mutable StaticAllocator<cAllocatorSize> mAllocator;
 

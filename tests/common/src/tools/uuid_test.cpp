@@ -14,23 +14,6 @@
 
 namespace aos::uuid {
 
-TEST(UUIDTest, CreateUUID)
-{
-    static constexpr auto cTestUUIDsCount = 1000;
-
-    std::vector<UUID> uuids;
-
-    for (int i = 0; i < cTestUUIDsCount; i++) {
-        auto tmp = CreateUUID();
-
-        ASSERT_EQ(tmp.Size(), tmp.MaxSize());
-
-        ASSERT_EQ(std::find(uuids.begin(), uuids.end(), tmp), uuids.end());
-
-        uuids.push_back(tmp);
-    }
-}
-
 TEST(UUIDTest, UUIDToString)
 {
     uint8_t uuidBlob[uuid::cUUIDSize]
