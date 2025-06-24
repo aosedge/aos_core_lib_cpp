@@ -15,6 +15,15 @@ namespace aos::iam::permhandler {
  * Public
  **********************************************************************************************************************/
 
+Error PermHandler::Init(crypto::UUIDItf& uuidProvider)
+{
+    LOG_DBG() << "Init permission handler";
+
+    mUUIDProvider = &uuidProvider;
+
+    return ErrorEnum::eNone;
+}
+
 RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
     const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
 {
@@ -30,7 +39,10 @@ RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
         return {secret};
     }
 
-    secret = GenerateSecret();
+    Tie(secret, err) = GenerateSecret();
+    if (!err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     err = AddSecret(secret, instanceIdent, instancePermissions);
     if (!err.IsNone()) {
@@ -108,16 +120,23 @@ InstancePermissions* PermHandler::FindByInstanceIdent(const InstanceIdent& insta
     return mInstancesPerms.FindIf([&instanceIdent](const auto& elem) { return instanceIdent == elem.mInstanceIdent; });
 }
 
-StaticString<cSecretLen> PermHandler::GenerateSecret()
+RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()
 {
-    StaticString<cSecretLen> newSecret;
+    StaticString<cSecretLen> secret;
+    uuid::UUID               uuid;
+    Error                    err;
 
     do {
-        newSecret = uuid::UUIDToString(uuid::CreateUUID());
+        Tie(uuid, err) = mUUIDProvider->CreateUUIDv4();
+        if (!err.IsNone()) {
+            return {secret, err};
+        }
 
-    } while (FindBySecret(newSecret) != mInstancesPerms.end());
+        secret.Assign(uuid::UUIDToString(uuid));
 
-    return newSecret;
+    } while (FindBySecret(secret) != mInstancesPerms.end());
+
+    return {secret};
 }
 
 RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)

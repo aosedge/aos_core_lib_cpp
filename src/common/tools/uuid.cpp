@@ -12,25 +12,13 @@
 
 namespace aos::uuid {
 
+namespace {
+
 // UUID template assumed to have even number of digits between separators.
-static const String cTemplate  = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
-static const String cEmptyUUID = "00000000-0000-0000-0000-000000000000";
+const String cTemplate  = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+const String cEmptyUUID = "00000000-0000-0000-0000-000000000000";
 
-UUID CreateUUID()
-{
-    UUID result;
-
-    while (result.Size() < result.MaxSize()) {
-        unsigned value = rand();
-        auto     chunk = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-
-        auto chunkSize = Min(result.MaxSize() - result.Size(), chunk.Size());
-
-        result.Insert(result.end(), chunk.begin(), chunk.begin() + chunkSize);
-    }
-
-    return result;
-}
+} // namespace
 
 StaticString<cUUIDLen> UUIDToString(const UUID& src)
 {
