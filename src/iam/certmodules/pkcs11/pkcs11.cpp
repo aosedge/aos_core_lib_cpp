@@ -198,7 +198,10 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
     PKCS11Module::PendingKey pendingKey;
     Error                    err = ErrorEnum::eNone;
 
-    pendingKey.mUUID = uuid::CreateUUID();
+    Tie(pendingKey.mUUID, err) = mCryptoProvider->CreateUUIDv4();
+    if (!err.IsNone()) {
+        return {nullptr, AOS_ERROR_WRAP(err)};
+    }
 
     SharedPtr<pkcs11::SessionContext> session;
 
@@ -787,7 +790,12 @@ Error PKCS11Module::CreateCertificateChain(const SharedPtr<pkcs11::SessionContex
             continue;
         }
 
-        auto uuid = uuid::CreateUUID();
+        uuid::UUID uuid;
+
+        Tie(uuid, err) = mCryptoProvider->CreateUUIDv4();
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
         LOG_DBG() << "Import root certificate with id: " << aos::uuid::UUIDToString(uuid);
 

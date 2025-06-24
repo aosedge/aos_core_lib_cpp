@@ -9,14 +9,16 @@
 
 #include <gtest/gtest.h>
 
+#include "aos/common/crypto/cryptoprovider.hpp"
 #include "aos/common/tools/buffer.hpp"
 #include "aos/iam/permhandler.hpp"
 #include "aos/test/log.hpp"
+
 #include "mocks/identhandlermock.hpp"
 
-using namespace aos;
-using namespace aos::iam::permhandler;
 using namespace testing;
+
+namespace aos::iam::permhandler {
 
 /***********************************************************************************************************************
  * Suite
@@ -24,9 +26,16 @@ using namespace testing;
 
 class PermHandlerTest : public Test {
 protected:
-    void SetUp() override { test::InitLog(); }
+    void SetUp() override
+    {
+        test::InitLog();
 
-    PermHandler mPermHandler;
+        ASSERT_TRUE(mCryptoProvider.Init().IsNone()) << "Failed to initialize crypto provider";
+        ASSERT_TRUE(mPermHandler.Init(mCryptoProvider).IsNone()) << "Failed to initialize PermHandler";
+    }
+
+    crypto::DefaultCryptoProvider mCryptoProvider;
+    PermHandler                   mPermHandler;
 };
 
 /***********************************************************************************************************************
@@ -204,3 +213,5 @@ TEST_F(PermHandlerTest, TestInstancePermissions)
     err = mPermHandler.UnregisterInstance(instanceIdent1);
     ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << err.Message();
 }
+
+} // namespace aos::iam::permhandler

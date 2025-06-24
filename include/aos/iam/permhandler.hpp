@@ -95,6 +95,14 @@ public:
 class PermHandler : public PermHandlerItf {
 public:
     /**
+     * Initializes permission handler.
+     *
+     * @param uuidProvider UUID provider.
+     * @returns Error.
+     */
+    Error Init(crypto::UUIDItf& uuidProvider);
+
+    /**
      * Adds new service instance and its permissions into cache.
      *
      * @param instanceIdent instance identification.
@@ -129,11 +137,12 @@ private:
                                          const Array<FunctionServicePermissions>& instancePermissions);
     InstancePermissions*                   FindBySecret(const String& secret);
     InstancePermissions*                   FindByInstanceIdent(const InstanceIdent& instanceIdent);
-    StaticString<cSecretLen>               GenerateSecret();
+    RetWithError<StaticString<cSecretLen>> GenerateSecret();
     RetWithError<StaticString<cSecretLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
 
     Mutex                                              mMutex;
     StaticArray<InstancePermissions, cMaxNumInstances> mInstancesPerms;
+    crypto::UUIDItf*                                   mUUIDProvider = {};
 };
 
 /** @}*/
