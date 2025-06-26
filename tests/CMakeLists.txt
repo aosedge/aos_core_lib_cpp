@@ -9,6 +9,7 @@
 # Add subfolders
 # ######################################################################################################################
 
+add_subdirectory(cm)
 add_subdirectory(common)
 add_subdirectory(iam)
 add_subdirectory(include)
