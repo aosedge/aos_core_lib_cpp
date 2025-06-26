@@ -17,7 +17,7 @@ namespace aos::crypto {
 /**
  * OpenSSLCryptoProvider provider.
  */
-class OpenSSLCryptoProvider : public x509::ProviderItf, public HasherItf, public RandomItf {
+class OpenSSLCryptoProvider : public CryptoProviderItf {
 public:
     /**
      * Destructor.
@@ -165,15 +165,6 @@ public:
     Error ASN1DecodeOID(const Array<uint8_t>& inOID, Array<uint8_t>& dst) override;
 
     /**
-     * Creates UUID version 5 based on a given namespace identifier and name.
-     *
-     * @param space namespace identifier.
-     * @param name name.
-     * @result RetWithError<uuid::UUID>.
-     */
-    RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name) override;
-
-    /**
      * Creates hash instance.
      *
      * @param algorithm hash algorithm.
@@ -197,6 +188,22 @@ public:
      * @return Error.
      */
     Error RandBuffer(Array<uint8_t>& buffer, size_t size = 0) override;
+
+    /**
+     * Creates UUID v4.
+     *
+     * @return RetWithError<uuid::UUID>.
+     */
+    RetWithError<uuid::UUID> CreateUUIDv4() override;
+
+    /**
+     * Creates UUID version 5 based on a given namespace identifier and name.
+     *
+     * @param space namespace identifier.
+     * @param name name.
+     * @result RetWithError<uuid::UUID>.
+     */
+    RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name) override;
 
 private:
     class OpenSSLHash : public crypto::HashItf, private NonCopyable {

@@ -45,7 +45,7 @@ protected:
     static constexpr auto mPIN   = "admin";
 
     crypto::DefaultCryptoFactory mCryptoFactory;
-    crypto::x509::ProviderItf*   mCryptoProvider = nullptr;
+    crypto::CryptoProviderItf*   mCryptoProvider = nullptr;
     crypto::HasherItf*           mHashProvider   = nullptr;
     test::SoftHSMEnv             mSoftHSMEnv;
 

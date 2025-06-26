@@ -44,7 +44,7 @@ public:
      *
      * @return x509::ProviderItf&.
      */
-    virtual x509::ProviderItf& GetCryptoProvider() = 0;
+    virtual CryptoProviderItf& GetCryptoProvider() = 0;
 
     /**
      * Returns hash provider.

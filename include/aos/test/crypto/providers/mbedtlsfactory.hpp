@@ -40,9 +40,9 @@ public:
     /**
      * Returns crypto provider.
      *
-     * @return x509::ProviderItf&.
+     * @return CryptoProviderItf&.
      */
-    x509::ProviderItf& GetCryptoProvider() override;
+    CryptoProviderItf& GetCryptoProvider() override;
 
     /**
      * Returns hash provider.

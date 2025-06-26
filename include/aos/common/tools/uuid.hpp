@@ -29,13 +29,6 @@ constexpr auto cUUIDLen = AOS_CONFIG_TOOLS_UUID_LEN;
 using UUID = StaticArray<uint8_t, cUUIDSize>;
 
 /**
- * Creates unique UUID.
- *
- * @return UUID.
- */
-UUID CreateUUID();
-
-/**
  * Converts UUID to string.
  *
  * @param uuid uuid.
