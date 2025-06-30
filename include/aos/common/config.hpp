@@ -1027,6 +1027,13 @@
 #endif
 
 /**
+ * State len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_STATE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_STATE_LEN 64 * 1024
+#endif
+
+/**
  * Maximum supported number of timers.
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
