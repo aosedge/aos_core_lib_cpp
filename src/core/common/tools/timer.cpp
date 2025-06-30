@@ -96,8 +96,20 @@ Error Timer::StopThreads()
 
 void Timer::InvokeTimerCallback(Timer* timer)
 {
+    // cppcheck-suppress variableScope
+    static int           sErrorCount     = 0;
+    static constexpr int cErrorThreshold = 10;
+
     if (auto err = mInvocationThreads.AddTask(timer->mFunction); !err.IsNone()) {
-        LOG_ERR() << "Invoke timer callback failure: err=" << AOS_ERROR_WRAP(err);
+        if (sErrorCount % cErrorThreshold == 0) {
+            LOG_ERR() << "Invoke timer callback failure: err=" << AOS_ERROR_WRAP(err);
+
+            sErrorCount = 0;
+        }
+
+        sErrorCount++;
+    } else {
+        sErrorCount = 0;
     }
 }
 
