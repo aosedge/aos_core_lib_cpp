@@ -7,6 +7,7 @@
 #ifndef AOS_CLOUDPROTOCOL_HPP_
 #define AOS_CLOUDPROTOCOL_HPP_
 
+#include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/optional.hpp"
 #include "aos/common/types.hpp"
 
@@ -73,6 +74,34 @@ struct InstanceFilter {
                    << "}";
     }
 };
+
+/**
+ * Message type.
+ */
+class MessageTypeType {
+public:
+    enum class Enum {
+        eStateAcceptance,
+        eUpdateState,
+        eNewState,
+        eStateRequest,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "stateAcceptance",
+            "updateState",
+            "newState",
+            "stateRequest",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using MessageTypeEnum = MessageTypeType::Enum;
+using MessageType     = EnumStringer<MessageTypeType>;
 
 } // namespace aos::cloudprotocol
 
