@@ -203,6 +203,7 @@ public:
         eSHA256,
         eSHA384,
         eSHA512,
+        eSHA3_224,
         eSHA3_256,
         eNone,
     };
@@ -215,6 +216,7 @@ public:
             "SHA256",
             "SHA384",
             "SHA512",
+            "SHA3-224",
             "SHA3-256",
             "NONE",
         };
