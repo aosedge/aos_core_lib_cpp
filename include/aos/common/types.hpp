@@ -387,6 +387,17 @@ struct InstanceIdent {
      * @param instance ident to compare.
      * @return bool.
      */
+    bool operator<(const InstanceIdent& instance) const
+    {
+        return mServiceID <= instance.mServiceID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
+    }
+
+    /**
+     * Compares instance ident.
+     *
+     * @param instance ident to compare.
+     * @return bool.
+     */
     bool operator==(const InstanceIdent& instance) const
     {
         return mServiceID == instance.mServiceID && mSubjectID == instance.mSubjectID
