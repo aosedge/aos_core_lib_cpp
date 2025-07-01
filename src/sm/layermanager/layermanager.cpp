@@ -519,7 +519,8 @@ Error LayerManager::InstallLayer(const LayerInfo& layer)
 
     archivePath = fs::JoinPath(mConfig.mDownloadDir, layer.mLayerDigest);
 
-    if (err = mDownloader->Download(layer.mURL, archivePath, downloader::DownloadContentEnum::eLayer); !err.IsNone()) {
+    if (err = mDownloader->Download(layer.mURL, archivePath, cloudprotocol::DownloadTargetEnum::eLayer);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

@@ -8,29 +8,12 @@
 #ifndef AOS_DOWNLOADER_HPP_
 #define AOS_DOWNLOADER_HPP_
 
+#include "aos/common/cloudprotocol/alerts.hpp"
 #include "aos/common/tools/enum.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/string.hpp"
 
 namespace aos::downloader {
-
-/**
- * Download content type.
- */
-class DownloadContentType {
-public:
-    enum class Enum { eService, eLayer };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sContentTypeStrings[] = {"service", "layer"};
-
-        return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
-    };
-};
-
-using DownloadContentEnum = DownloadContentType::Enum;
-using DownloadContent     = EnumStringer<DownloadContentType>;
 
 /**
  * Downloader interface.
@@ -42,10 +25,14 @@ public:
      *
      * @param url URL.
      * @param path path to file.
-     * @param contentType content type.
+     * @param targetType target type.
+     * @param targetID target ID.
+     * @param version version.
      * @return Error.
      */
-    virtual Error Download(const String& url, const String& path, DownloadContent contentType) = 0;
+    virtual Error Download(const String& url, const String& path, cloudprotocol::DownloadTarget targetType,
+        const String& targetID = "", const String& version = "")
+        = 0;
 
     /**
      * Destroys the Downloader Itf object.
