@@ -578,6 +578,8 @@ RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorith
 
     if (algorithm.GetValue() == HashEnum::eSHA256) {
         alg = PSA_ALG_SHA_256;
+    } else if (algorithm.GetValue() == HashEnum::eSHA3_224) {
+        alg = PSA_ALG_SHA3_224;
     } else if (algorithm.GetValue() == HashEnum::eSHA3_256) {
         alg = PSA_ALG_SHA3_256;
     } else {
