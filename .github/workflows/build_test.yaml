@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: read-all
     container:
-      image: ghcr.io/aosedge/aos-core-build-base:latest
+      image: ghcr.io/aosedge/aos-core-build:latest
       options: "--entrypoint /usr/bin/bash"
       credentials:
         username: ${{ github.actor }}
