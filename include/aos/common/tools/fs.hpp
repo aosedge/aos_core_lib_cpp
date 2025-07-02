@@ -68,6 +68,16 @@ public:
      * @return RetWithError<size_t>.
      */
     virtual RetWithError<size_t> GetAvailableSize(const String& dir) const = 0;
+
+    /**
+     * Sets user quota for the given path.
+     *
+     * @param path path to set quota for.
+     * @param quota quota size in bytes.
+     * @param uid user ID.
+     * @return Error.
+     */
+    virtual Error SetUserQuota(const String& path, size_t quota, size_t uid) const = 0;
 };
 
 /**
