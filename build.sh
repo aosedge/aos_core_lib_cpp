@@ -16,15 +16,16 @@ print_usage() {
     echo "Usage: ./build.sh <command> [options]"
     echo
     echo "Commands:"
+    echo "  build                      builds target"
+    echo "  test                       runs tests only"
+    echo "  coverage                   runs tests with coverage"
+    echo "  lint                       runs static analysis (cppcheck)"
+    echo "  doc                        generates documentation"
     echo
-    echo "  build                      build target"
-    echo "  test                       run tests only"
-    echo "  coverage                   run tests with coverage"
-    echo "  lint                       run static analysis (cppcheck)"
     echo "Options:"
-    echo "  --clean                    clean build artifacts"
-    echo "  --aos-service <services>   specify services (e.g., sm,mp,iam)"
-    echo "  --ci                       use build-wrapper for CI analysis (SonarQube)"
+    echo "  --clean                    cleans build artifacts"
+    echo "  --aos-service <services>   specifies services (e.g., sm,mp,iam)"
+    echo "  --ci                       uses build-wrapper for CI analysis (SonarQube)"
     echo
 }
 
@@ -51,16 +52,17 @@ clean_build() {
 
 conan_setup() {
     print_next_step "Setting up conan default profile"
+
     conan profile detect --force
 
     print_next_step "Generate conan toolchain"
+
     conan install ./conan/ --output-folder build --settings=build_type=Debug --build=missing
 }
 
 build_project() {
-    local ci_flag="$1"
-
     print_next_step "Run cmake configure"
+
     cmake -S . -B build \
         -DCMAKE_TOOLCHAIN_FILE=./conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=Debug \
@@ -72,11 +74,13 @@ build_project() {
         -DWITH_MBEDTLS=ON \
         -DWITH_OPENSSL=ON
 
-    if [ "$ci_flag" == "true" ]; then
+    if [ "$ARG_CI_FLAG" == "true" ]; then
         print_next_step "Run build-wrapper and build (CI mode)"
-        build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build build/ --config Debug --parallel
+
+        build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build ./build/ --config Debug --parallel
     else
         print_next_step "Run build"
+
         cmake --build ./build/ --config Debug --parallel
     fi
 
@@ -85,18 +89,15 @@ build_project() {
 }
 
 parse_arguments() {
-    local clean_flag=false
-    local ci_flag=false
-
     while [[ $# -gt 0 ]]; do
         case $1 in
         --clean)
-            clean_flag=true
+            ARG_CLEAN_FLAG=true
             shift
             ;;
 
         --ci)
-            ci_flag=true
+            ARG_CI_FLAG=true
             shift
             ;;
 
@@ -105,26 +106,22 @@ parse_arguments() {
             ;;
         esac
     done
-
-    echo "$clean_flag:$ci_flag"
 }
 
 build_target() {
-    local clean_flag="$1"
-    local ci_flag="$2"
-
-    if [ "$clean_flag" == "true" ]; then
+    if [ "$ARG_CLEAN_FLAG" == "true" ]; then
         clean_build
 
         return
     fi
 
     conan_setup
-    build_project "$ci_flag"
+    build_project
 }
 
 run_tests() {
     print_next_step "Run tests"
+
     cd ./build
     make test
     echo
@@ -133,6 +130,7 @@ run_tests() {
 
 run_coverage() {
     print_next_step "Run tests with coverage"
+
     cd ./build
     make coverage
     echo
@@ -150,6 +148,18 @@ run_lint() {
     echo "Static analysis completed!"
 }
 
+build_doc() {
+    print_next_step "Build documentation"
+
+    cd ./build
+
+    cmake -DWITH_DOC=ON ../
+    make doc
+
+    echo
+    echo "Documentation generated!"
+}
+
 #=======================================================================================================================
 
 if [ $# -lt 1 ]; then
@@ -159,12 +169,14 @@ fi
 command="$1"
 shift
 
+ARG_CLEAN_FLAG=false
+ARG_AOS_SERVICES=""
+ARG_CI_FLAG=false
+
 case "$command" in
 build)
-    args_result=$(parse_arguments "$@")
-    clean_flag=$(echo "$args_result" | cut -d: -f1)
-    ci_flag=$(echo "$args_result" | cut -d: -f2)
-    build_target "$clean_flag" "$ci_flag"
+    parse_arguments "$@"
+    build_target
     ;;
 
 test)
@@ -177,6 +189,10 @@ coverage)
 
 lint)
     run_lint
+    ;;
+
+doc)
+    build_doc
     ;;
 
 *)
