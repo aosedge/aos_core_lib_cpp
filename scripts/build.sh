@@ -3,8 +3,7 @@
 set +x
 set -euo pipefail
 
-print_next_step()
-{
+print_next_step() {
     echo
     echo "====================================="
     echo "  $1"
@@ -12,8 +11,7 @@ print_next_step()
     echo
 }
 
-print_usage()
-{
+print_usage() {
     echo
     echo "Usage: ./build.sh <command> [options]"
     echo
@@ -30,8 +28,7 @@ print_usage()
     echo
 }
 
-error_with_usage()
-{
+error_with_usage() {
     echo >&2 "ERROR: $1"
     echo
 
@@ -40,8 +37,7 @@ error_with_usage()
     exit 1
 }
 
-clean_build()
-{
+clean_build() {
     print_next_step "Clean artifacts"
 
     rm -rf ./build/
@@ -53,8 +49,7 @@ clean_build()
     conan remove 'pkcs11provider*' -c
 }
 
-conan_setup()
-{
+conan_setup() {
     print_next_step "Setting up conan default profile"
     conan profile detect --force
 
@@ -62,8 +57,7 @@ conan_setup()
     conan install ./conan/ --output-folder build --settings=build_type=Debug --build=missing
 }
 
-build_project()
-{
+build_project() {
     local ci_flag="$1"
 
     print_next_step "Run cmake configure"
@@ -90,34 +84,32 @@ build_project()
     echo "Build succeeded!"
 }
 
-parse_arguments()
-{
+parse_arguments() {
     local clean_flag=false
     local ci_flag=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --clean)
-                clean_flag=true
-                shift
-                ;;
+        --clean)
+            clean_flag=true
+            shift
+            ;;
 
-            --ci)
-                ci_flag=true
-                shift
-                ;;
+        --ci)
+            ci_flag=true
+            shift
+            ;;
 
-            *)
-                error_with_usage "Unknown option: $1"
-                ;;
+        *)
+            error_with_usage "Unknown option: $1"
+            ;;
         esac
     done
 
     echo "$clean_flag:$ci_flag"
 }
 
-build_target()
-{
+build_target() {
     local clean_flag="$1"
     local ci_flag="$2"
 
@@ -131,8 +123,7 @@ build_target()
     build_project "$ci_flag"
 }
 
-run_tests()
-{
+run_tests() {
     print_next_step "Run tests"
     cd ./build
     make test
@@ -140,8 +131,7 @@ run_tests()
     echo "Tests completed!"
 }
 
-run_coverage()
-{
+run_coverage() {
     print_next_step "Run tests with coverage"
     cd ./build
     make coverage
@@ -149,8 +139,7 @@ run_coverage()
     echo "Coverage completed!"
 }
 
-run_lint()
-{
+run_lint() {
     print_next_step "Run static analysis (cppcheck)"
 
     cppcheck --enable=all --inline-suppr --std=c++17 --error-exitcode=1 \
@@ -171,26 +160,26 @@ command="$1"
 shift
 
 case "$command" in
-    build)
-        args_result=$(parse_arguments "$@")
-        clean_flag=$(echo "$args_result" | cut -d: -f1)
-        ci_flag=$(echo "$args_result" | cut -d: -f2)
-        build_target "$clean_flag" "$ci_flag"
-        ;;
+build)
+    args_result=$(parse_arguments "$@")
+    clean_flag=$(echo "$args_result" | cut -d: -f1)
+    ci_flag=$(echo "$args_result" | cut -d: -f2)
+    build_target "$clean_flag" "$ci_flag"
+    ;;
 
-    test)
-        run_tests
-        ;;
+test)
+    run_tests
+    ;;
 
-    coverage)
-        run_coverage
-        ;;
+coverage)
+    run_coverage
+    ;;
 
-    lint)
-        run_lint
-        ;;
+lint)
+    run_lint
+    ;;
 
-    *)
-        error_with_usage "Unknown command: $command"
-        ;;
+*)
+    error_with_usage "Unknown command: $command"
+    ;;
 esac
