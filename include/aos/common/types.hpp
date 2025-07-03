@@ -1529,6 +1529,31 @@ public:
 using ServiceStateEnum = ServiceStateType::Enum;
 using ServiceState     = EnumStringer<ServiceStateType>;
 
+/**
+ * Instance state type.
+ */
+class InstanceStateType {
+public:
+    enum class Enum {
+        eActive,
+        eCached,
+        ePending,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStateStrings[] = {
+            "active",
+            "cached",
+        };
+
+        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+    };
+};
+
+using InstanceStateEnum = InstanceStateType::Enum;
+using InstanceState     = EnumStringer<InstanceStateType>;
+
 } // namespace aos
 
 #endif
