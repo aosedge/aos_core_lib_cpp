@@ -21,30 +21,6 @@ namespace aos::sm::layermanager {
  */
 
 /**
- * Layer state type.
- */
-class LayerStateType {
-public:
-    enum class Enum {
-        eActive,
-        eCached,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStateStrings[] = {
-            "active",
-            "cached",
-        };
-
-        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
-    };
-};
-
-using LayerStateEnum = LayerStateType::Enum;
-using LayerState     = EnumStringer<LayerStateType>;
-
-/**
  * Layer data.
  */
 struct LayerData {

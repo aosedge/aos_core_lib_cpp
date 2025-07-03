@@ -374,6 +374,16 @@ static constexpr auto cFuncServiceLen = AOS_CONFIG_TYPES_FUNC_SERVICE_LEN;
 static constexpr auto cFuncServiceMaxCount = AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT;
 
 /**
+ * Max number of exposed ports.
+ */
+static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_MAX_NUM_EXPOSED_PORTS;
+
+/**
+ * Max exposed port len.
+ */
+static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
@@ -1463,6 +1473,56 @@ struct FunctionServicePermissions {
     StaticString<cFuncServiceLen>                        mName;
     StaticArray<FunctionPermissions, cFunctionsMaxCount> mPermissions;
 };
+
+/**
+ * Layer state type.
+ */
+class LayerStateType {
+public:
+    enum class Enum {
+        eActive,
+        eCached,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStateStrings[] = {
+            "active",
+            "cached",
+        };
+
+        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+    };
+};
+
+using LayerStateEnum = LayerStateType::Enum;
+using LayerState     = EnumStringer<LayerStateType>;
+
+/**
+ * Service state type.
+ */
+class ServiceStateType {
+public:
+    enum class Enum {
+        eActive,
+        eCached,
+        ePending,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStateStrings[] = {
+            "active",
+            "cached",
+            "pending",
+        };
+
+        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+    };
+};
+
+using ServiceStateEnum = ServiceStateType::Enum;
+using ServiceState     = EnumStringer<ServiceStateType>;
 
 } // namespace aos
 

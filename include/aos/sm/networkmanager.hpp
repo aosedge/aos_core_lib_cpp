@@ -28,19 +28,9 @@ namespace aos::sm::networkmanager {
 static constexpr auto cMaxNumAliases = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES;
 
 /**
- * Max number of network manager exposed ports.
- */
-static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS;
-
-/**
  * Max number of hosts.
  */
 static constexpr auto cResolvConfLineLen = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
-
-/**
- * Max exposed port len.
- */
-static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
  * Max number of hosts.
