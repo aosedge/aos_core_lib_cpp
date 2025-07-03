@@ -27,32 +27,6 @@ namespace aos::sm::servicemanager {
  */
 
 /**
- * Service state type.
- */
-class ServiceStateType {
-public:
-    enum class Enum {
-        eActive,
-        eCached,
-        ePending,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStateStrings[] = {
-            "active",
-            "cached",
-            "pending",
-        };
-
-        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
-    };
-};
-
-using ServiceStateEnum = ServiceStateType::Enum;
-using ServiceState     = EnumStringer<ServiceStateType>;
-
-/**
  * Service manager service data.
  */
 struct ServiceData {
