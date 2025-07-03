@@ -72,13 +72,6 @@
 #endif
 
 /**
- * Max number of network manager exposed ports.
- */
-#ifndef AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS
-#define AOS_CONFIG_NETWORKMANAGER_MAX_NUM_EXPOSED_PORTS 8
-#endif
-
-/**
  * Max resolv.conf line length.
  */
 #ifndef AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN

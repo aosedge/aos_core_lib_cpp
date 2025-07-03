@@ -1033,4 +1033,10 @@
 #define AOS_CONFIG_TIMERS_MAX_COUNT 32
 #endif
 
+/**
+ * Max number of exposed ports.
+ */
+#ifndef AOS_CONFIG_MAX_NUM_EXPOSED_PORTS
+#define AOS_CONFIG_MAX_NUM_EXPOSED_PORTS 8
+#endif
 #endif
