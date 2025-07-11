@@ -17,6 +17,25 @@ namespace aos::cm::communication {
  */
 
 /**
+ * Message handler interface to handle received message.
+ */
+class MessageHandlerItf {
+public:
+    /**
+     * Handles received message.
+     *
+     * @param message received message.
+     * @return Error.
+     */
+    virtual Error HandleMessage(const cloudprotocol::MessageVariant& message) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~MessageHandlerItf() = default;
+};
+
+/**
  * Communication interface.
  */
 class CommunicationItf {
