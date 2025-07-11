@@ -63,6 +63,25 @@ struct BaseState {
 
     InstanceIdent mInstanceIdent;
     MessageType   mMessageType;
+
+    /**
+     * Compares base state.
+     *
+     * @param state base state to compare with.
+     * @return bool.
+     */
+    bool operator==(const BaseState& state) const
+    {
+        return mInstanceIdent == state.mInstanceIdent && mMessageType == state.mMessageType;
+    }
+
+    /**
+     * Compares base state.
+     *
+     * @param state base state to compare with.
+     * @return bool.
+     */
+    bool operator!=(const BaseState& state) const { return !operator==(state); }
 };
 
 /**
@@ -82,6 +101,26 @@ struct StateAcceptance : public BaseState {
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StateResult                           mResult;
     StaticString<cStateReason>            mReason;
+
+    /**
+     * Compares state acceptance.
+     *
+     * @param acceptance state acceptance to compare with.
+     * @return bool.
+     */
+    bool operator==(const StateAcceptance& acceptance) const
+    {
+        return BaseState::operator==(acceptance) && mChecksum == acceptance.mChecksum && mResult == acceptance.mResult
+            && mReason == acceptance.mReason;
+    }
+
+    /**
+     * Compares state acceptance.
+     *
+     * @param acceptance state acceptance to compare with.
+     * @return bool.
+     */
+    bool operator!=(const StateAcceptance& acceptance) const { return !operator==(acceptance); }
 };
 
 /**
@@ -100,6 +139,25 @@ struct UpdateState : public BaseState {
 
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StaticString<cStateLen>               mState;
+
+    /**
+     * Compares update state.
+     *
+     * @param state update state to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateState& state) const
+    {
+        return BaseState::operator==(state) && mChecksum == state.mChecksum && mState == state.mState;
+    }
+
+    /**
+     * Compares update state.
+     *
+     * @param state update state to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateState& state) const { return !operator==(state); }
 };
 
 /**
@@ -118,6 +176,17 @@ struct NewState : public BaseState {
 
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StaticString<cStateLen>               mState;
+
+    /**
+     * Compares new state.
+     *
+     * @param state new state to compare with.
+     * @return bool.
+     */
+    bool operator==(const NewState& state) const
+    {
+        return BaseState::operator==(state) && mChecksum == state.mChecksum && mState == state.mState;
+    }
 };
 
 /**
@@ -135,6 +204,25 @@ struct StateRequest : public BaseState {
     }
 
     bool mDefault {};
+
+    /**
+     * Compares state request.
+     *
+     * @param request state request to compare with.
+     * @return bool.
+     */
+    bool operator==(const StateRequest& request) const
+    {
+        return BaseState::operator==(request) && mDefault == request.mDefault;
+    }
+
+    /**
+     * Compares state request.
+     *
+     * @param request state request to compare with.
+     * @return bool.
+     */
+    bool operator!=(const StateRequest& request) const { return !operator==(request); }
 };
 
 } // namespace aos::cloudprotocol
