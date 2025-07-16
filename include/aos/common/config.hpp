@@ -1027,6 +1027,34 @@
 #endif
 
 /**
+ * Annotation len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_ANNOTATION_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_ANNOTATION_LEN 16 * 1024
+#endif
+
+/**
+ * Component ID len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_ID_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_ID_LEN 64
+#endif
+
+/**
+ * Component type len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_TYPE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_TYPE_LEN 64
+#endif
+
+/**
+ * Unit config status count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT 2
+#endif
+
+/**
  * Maximum supported number of timers.
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
