@@ -188,6 +188,23 @@ void Instance::SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars
     mOverrideEnvVars = envVars;
 };
 
+Error Instance::ToInstanceStatus(InstanceStatus& instanceStatus) const
+{
+    instanceStatus.mInstanceIdent = mInstanceInfo.mInstanceIdent;
+    instanceStatus.mStatus        = mRunState;
+    instanceStatus.mError         = mRunError;
+
+    if (auto err = instanceStatus.mServiceVersion.Assign(mService.mVersion); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = instanceStatus.mNodeID.Assign(mNodeInfo.mNodeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/

@@ -564,10 +564,12 @@ using InstanceRunState     = EnumStringer<InstanceRunStateType>;
  * Instance status.
  */
 struct InstanceStatus {
-    InstanceIdent             mInstanceIdent;
-    StaticString<cVersionLen> mServiceVersion;
-    InstanceRunState          mRunState;
-    Error                     mError;
+    InstanceIdent                   mInstanceIdent;
+    StaticString<cVersionLen>       mServiceVersion;
+    StaticString<2 * cSHA3_224Size> mStateChecksum;
+    InstanceRunState                mStatus;
+    StaticString<cNodeIDLen>        mNodeID;
+    Error                           mError;
 
     /**
      * Compares instance status.
@@ -578,7 +580,8 @@ struct InstanceStatus {
     bool operator==(const InstanceStatus& instance) const
     {
         return mInstanceIdent == instance.mInstanceIdent && mServiceVersion == instance.mServiceVersion
-            && mRunState == instance.mRunState && mError == instance.mError;
+            && mStateChecksum == instance.mStateChecksum && mStatus == instance.mStatus && mNodeID == instance.mNodeID
+            && mError == instance.mError;
     }
 
     /**
