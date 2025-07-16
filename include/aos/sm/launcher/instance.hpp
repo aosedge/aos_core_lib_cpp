@@ -258,6 +258,14 @@ public:
     };
 
     /**
+     * Converts instance object to instance status.
+     *
+     * @param instanceStatus[out] instance status.
+     * @return Error.
+     */
+    Error ToInstanceStatus(InstanceStatus& instanceStatus) const;
+
+    /**
      * Compares instances.
      *
      * @param instance instance to compare.
