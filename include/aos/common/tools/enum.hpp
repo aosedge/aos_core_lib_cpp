@@ -25,7 +25,7 @@ public:
      *
      * @param value curent enum value.
      */
-    EnumStringer()
+    constexpr EnumStringer()
         : mValue(static_cast<EnumType>(0)) {};
 
     // cppcheck-suppress noExplicitConstructor
@@ -35,7 +35,7 @@ public:
      *
      * @param value curent enum value.
      */
-    EnumStringer(EnumType value)
+    constexpr EnumStringer(EnumType value)
         : mValue(value) {};
 
     /**
