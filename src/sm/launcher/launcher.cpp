@@ -207,9 +207,11 @@ Error Launcher::GetCurrentRunStatus(Array<InstanceStatus>& instances) const
                       << ", err=" << instance.RunError();
         }
 
-        if (auto err = instances.PushBack({instance.Info().mInstanceIdent, instance.GetServiceVersion(),
-                instance.RunState(), instance.RunError()});
-            !err.IsNone()) {
+        if (auto err = instances.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = instance.ToInstanceStatus(instances.Back()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -270,10 +272,11 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
                               << ", err=" << currentInstance->RunError();
                 }
 
-                if (auto err
-                    = status->PushBack({currentInstance->Info().mInstanceIdent, currentInstance->GetServiceVersion(),
-                        currentInstance->RunState(), currentInstance->RunError()});
-                    !err.IsNone()) {
+                if (auto err = status->EmplaceBack(); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+
+                if (auto err = currentInstance->ToInstanceStatus(status->Back()); !err.IsNone()) {
                     return AOS_ERROR_WRAP(err);
                 }
             }
@@ -521,9 +524,11 @@ Error Launcher::SendRunStatus()
                       << ", err=" << instance.RunError();
         }
 
-        if (auto err = status->PushBack({instance.Info().mInstanceIdent, instance.GetServiceVersion(),
-                instance.RunState(), instance.RunError()});
-            !err.IsNone()) {
+        if (auto err = status->EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = instance.ToInstanceStatus(status->Back()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -559,10 +564,14 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
         LOG_ERR() << "Instance status: instanceID=" << instance.mInstanceID << ", serviceVersion=" << serviceVersion
                   << ", runState=" << runState << ", err=" << runErr;
 
-        if (auto err = status->PushBack({instance.mInstanceInfo.mInstanceIdent, serviceVersion, runState, runErr});
-            !err.IsNone()) {
+        if (auto err = status->EmplaceBack(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        status->Back().mInstanceIdent  = instance.mInstanceInfo.mInstanceIdent;
+        status->Back().mServiceVersion = serviceVersion;
+        status->Back().mStatus         = runState;
+        status->Back().mError          = runErr;
     }
 
     LOG_DBG() << "Send update status";
@@ -1227,9 +1236,11 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
                       << ", err=" << instance->RunError();
         }
 
-        if (auto err = status->PushBack({instance->Info().mInstanceIdent, instance->GetServiceVersion(),
-                instance->RunState(), instance->RunError()});
-            !err.IsNone()) {
+        if (auto err = status->EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = instance->ToInstanceStatus(status->Back()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
