@@ -1055,6 +1055,13 @@
 #endif
 
 /**
+ * Monitoring items count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT 16
+#endif
+
+/**
  * Maximum supported number of timers.
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
