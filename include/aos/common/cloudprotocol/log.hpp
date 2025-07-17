@@ -56,10 +56,32 @@ using LogTypeEnum = LogTypeType::Enum;
 using LogType     = EnumStringer<LogTypeType>;
 
 /**
+ * Log upload type type.
+ */
+class LogUploadTypeType {
+public:
+    enum class Enum {
+        eHTTPS,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "https",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using LogUploadTypeEnum = LogUploadTypeType::Enum;
+using LogUploadType     = EnumStringer<LogUploadTypeType>;
+
+/**
  * Log upload options.
  */
 struct LogUploadOptions {
-    LogType                       mType;
+    LogUploadType                 mType;
     StaticString<cURLLen>         mURL;
     StaticString<cBearerTokenLen> mBearerToken;
     Optional<Time>                mBearerTokenTTL;
@@ -92,7 +114,6 @@ struct LogFilter {
     Optional<Time>                                      mFrom;
     Optional<Time>                                      mTill;
     StaticArray<StaticString<cNodeIDLen>, cMaxNumNodes> mNodeIDs;
-    Optional<LogUploadOptions>                          mUploadOptions;
     InstanceFilter                                      mInstanceFilter;
 
     /**
@@ -104,7 +125,7 @@ struct LogFilter {
     bool operator==(const LogFilter& filter) const
     {
         return mFrom == filter.mFrom && mTill == filter.mTill && mNodeIDs == filter.mNodeIDs
-            && mUploadOptions == filter.mUploadOptions && mInstanceFilter == filter.mInstanceFilter;
+            && mInstanceFilter == filter.mInstanceFilter;
     }
 
     /**
@@ -120,9 +141,10 @@ struct LogFilter {
  * Log status.
  */
 struct RequestLog {
-    StaticString<cLogIDLen> mLogID;
-    LogType                 mLogType;
-    LogFilter               mFilter;
+    StaticString<cLogIDLen>    mLogID;
+    LogType                    mLogType;
+    LogFilter                  mFilter;
+    Optional<LogUploadOptions> mUploadOptions;
 
     /**
      * Compares log request.
@@ -132,7 +154,8 @@ struct RequestLog {
      */
     bool operator==(const RequestLog& request) const
     {
-        return mLogID == request.mLogID && mLogType == request.mLogType && mFilter == request.mFilter;
+        return mLogID == request.mLogID && mLogType == request.mLogType && mFilter == request.mFilter
+            && mUploadOptions == request.mUploadOptions;
     }
 
     /**
