@@ -117,34 +117,9 @@ struct LogFilter {
 };
 
 /**
- * Log message type type.
- */
-class LogMessageTypeType {
-public:
-    enum class Enum {
-        eRequestLog,
-        ePushLog,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sLogMessageTypeStrings[] = {
-            "requestLog",
-            "pushLog",
-        };
-
-        return Array<const char* const>(sLogMessageTypeStrings, ArraySize(sLogMessageTypeStrings));
-    };
-};
-
-using LogMessageTypeEnum = LogMessageTypeType::Enum;
-using LogMessageType     = EnumStringer<LogMessageTypeType>;
-
-/**
  * Log status.
  */
 struct RequestLog {
-    LogMessageType          mMessageType;
     StaticString<cLogIDLen> mLogID;
     LogType                 mLogType;
     LogFilter               mFilter;
@@ -157,8 +132,7 @@ struct RequestLog {
      */
     bool operator==(const RequestLog& request) const
     {
-        return mMessageType == request.mMessageType && mLogID == request.mLogID && mLogType == request.mLogType
-            && mFilter == request.mFilter;
+        return mLogID == request.mLogID && mLogType == request.mLogType && mFilter == request.mFilter;
     }
 
     /**
@@ -202,7 +176,6 @@ using LogStatus     = EnumStringer<LogStatusType>;
  * Push log.
  */
 struct PushLog {
-    LogMessageType               mMessageType;
     StaticString<cNodeIDLen>     mNodeID;
     StaticString<cLogIDLen>      mLogID;
     uint64_t                     mPartsCount;
@@ -219,9 +192,8 @@ struct PushLog {
      */
     bool operator==(const PushLog& log) const
     {
-        return mMessageType == log.mMessageType && mNodeID == log.mNodeID && mLogID == log.mLogID
-            && mPartsCount == log.mPartsCount && mPart == log.mPart && mContent == log.mContent
-            && mStatus == log.mStatus && mErrorInfo == log.mErrorInfo;
+        return mNodeID == log.mNodeID && mLogID == log.mLogID && mPartsCount == log.mPartsCount && mPart == log.mPart
+            && mContent == log.mContent && mStatus == log.mStatus && mErrorInfo == log.mErrorInfo;
     }
 
     /**
