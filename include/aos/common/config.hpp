@@ -992,6 +992,13 @@
 #endif
 
 /**
+ * Alert items count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_ITEMS_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_ALERT_ITEMS_COUNT 16
+#endif
+
+/**
  * Environment variable name value.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ENV_VAR_VALUE_LEN
