@@ -409,7 +409,10 @@ struct InstanceIdent {
      */
     bool operator<(const InstanceIdent& instance) const
     {
-        return mServiceID <= instance.mServiceID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
+        return (mServiceID < instance.mServiceID)
+            || (mServiceID == instance.mServiceID
+                && (mSubjectID < instance.mSubjectID
+                    || (mSubjectID == instance.mSubjectID && mInstance < instance.mInstance)));
     }
 
     /**
