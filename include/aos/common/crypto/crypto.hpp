@@ -130,6 +130,11 @@ constexpr auto cECDSAPointDERSize = AOS_CONFIG_CRYPTO_ECDSA_POINT_DER_SIZE;
 constexpr auto cCertChainSize = AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE;
 
 /**
+ * Number of certificate chains to be stored in crypto::CertLoader.
+ */
+constexpr auto cCertChainsCount = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT;
+
+/**
  * Maximum size of SHA2 digest.
  */
 constexpr auto cSHA2DigestSize = AOS_CONFIG_CRYPTO_SHA2_DIGEST_SIZE;
