@@ -95,6 +95,7 @@ include_directories(include)
 # Targets
 # ######################################################################################################################
 
+add_subdirectory(src/cm)
 add_subdirectory(src/common)
 add_subdirectory(src/sm)
 add_subdirectory(src/iam)
