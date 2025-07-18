@@ -1586,6 +1586,17 @@ public:
 using InstanceStateEnum = InstanceStateType::Enum;
 using InstanceState     = EnumStringer<InstanceStateType>;
 
+/**
+ * Run service data.
+ */
+struct RunServiceRequest {
+    StaticString<cServiceIDLen>                                 mServiceID;
+    StaticString<cSubjectIDLen>                                 mSubjectID;
+    uint64_t                                                    mPriority     = 0;
+    uint64_t                                                    mNumInstances = 0;
+    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
+};
+
 } // namespace aos
 
 #endif
