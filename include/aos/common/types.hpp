@@ -786,10 +786,10 @@ struct ServiceInfo {
     StaticString<cServiceIDLen>       mServiceID;
     StaticString<cProviderIDLen>      mProviderID;
     StaticString<cVersionLen>         mVersion;
-    uint32_t                          mGID;
+    uint32_t                          mGID = 0;
     StaticString<cURLLen>             mURL;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize;
+    size_t                            mSize = 0;
 
     /**
      * Compares service info.
@@ -828,7 +828,7 @@ struct LayerInfo {
     StaticString<cVersionLen>         mVersion;
     StaticString<cURLLen>             mURL;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize;
+    size_t                            mSize = 0;
 
     /**
      * Compares layer info.

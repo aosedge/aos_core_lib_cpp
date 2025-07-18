@@ -21,11 +21,11 @@ namespace aos::monitoring {
  * Monitoring data.
  */
 struct MonitoringData {
-    double                   mCPU;
-    size_t                   mRAM;
+    double                   mCPU = .0;
+    size_t                   mRAM = 0;
     PartitionInfoStaticArray mPartitions;
-    uint64_t                 mDownload;
-    uint64_t                 mUpload;
+    uint64_t                 mDownload = 0;
+    uint64_t                 mUpload   = 0;
 
     /**
      * Compares monitoring data.
