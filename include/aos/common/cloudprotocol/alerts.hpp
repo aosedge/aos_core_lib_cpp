@@ -39,6 +39,11 @@ constexpr auto cAlertParameterLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_PARAMETER_LEN
 constexpr auto cAlertResourceErrorsSize = AOS_CONFIG_CLOUDPROTOCOL_ALERT_RESOURCE_ERRORS_SIZE;
 
 /**
+ * Alert items count.
+ */
+constexpr auto cAlertItemsCount = AOS_CONFIG_CLOUDPROTOCOL_ALERT_ITEMS_COUNT;
+
+/**
  * Alert tag.
  */
 class AlertTagType {
@@ -644,6 +649,31 @@ struct ServiceInstanceAlert : AlertItem {
 
 using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
     DeviceAllocateAlert, ResourceValidateAlert, ServiceInstanceAlert>;
+
+using AlertVariantStaticArray = StaticArray<AlertVariant, cAlertItemsCount>;
+
+/**
+ * Alerts message structure.
+ */
+struct Alerts {
+    AlertVariantStaticArray mItems;
+
+    /**
+     * Compares alerts.
+     *
+     * @param alerts alerts to compare with.
+     * @return bool.
+     */
+    bool operator==(const Alerts& alerts) const { return mItems == alerts.mItems; }
+
+    /**
+     * Compares alerts.
+     *
+     * @param alerts alerts to compare with.
+     * @return bool.
+     */
+    bool operator!=(const Alerts& alerts) const { return !operator==(alerts); }
+};
 
 } // namespace aos::cloudprotocol
 
