@@ -71,11 +71,4 @@
 #define AOS_CONFIG_PERMHANDLER_SECRET_LEN 42
 #endif
 
-/**
- * Maximum number of nodes handled by node manager.
- */
-#ifndef AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM
-#define AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM 4
-#endif
-
 #endif

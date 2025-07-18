@@ -1047,4 +1047,11 @@
 #define AOS_CONFIG_MAX_NUM_EXPOSED_PORTS 8
 #endif
 
+/**
+ * Maximum number of nodes in unit.
+ */
+#ifndef AOS_CONFIG_NODE_MAX_NUM
+#define AOS_CONFIG_NODE_MAX_NUM 4
+#endif
+
 #endif

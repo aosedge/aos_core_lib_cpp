@@ -389,6 +389,11 @@ static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_MAX_NUM_EXPOSED_PORTS;
 static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
+ * Max number of nodes in unit.
+ */
+static constexpr auto cNodeMaxNum = AOS_CONFIG_NODE_MAX_NUM;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {

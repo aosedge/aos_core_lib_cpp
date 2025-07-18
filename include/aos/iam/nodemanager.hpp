@@ -213,7 +213,6 @@ public:
     Error SubscribeNodeInfoChange(NodeInfoListenerItf& listener) override;
 
 private:
-    static constexpr auto cNodeMaxNum = AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM;
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>) + sizeof(NodeInfo);
 
