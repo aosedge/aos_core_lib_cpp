@@ -705,6 +705,13 @@
 #endif
 
 /**
+ * Maximum len of a certificate chain string representation.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN
+#define AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN 4 * 1024
+#endif
+
+/**
  * Max expected number of certificates in a chain stored in PEM file.
  */
 #ifndef AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE
@@ -1066,6 +1073,20 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT
 #define AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT 16
+#endif
+
+/**
+ * Certificate secret size.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_SECRET_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_SECRET_SIZE 64
+#endif
+
+/**
+ * Certificate installation description size.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_INSTALLATION_DESCRIPTION_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_INSTALLATION_DESCRIPTION_SIZE 1024
 #endif
 
 /**
