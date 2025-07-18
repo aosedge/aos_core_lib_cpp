@@ -7,7 +7,7 @@
 #ifndef AOS_CM_COMMUNICATION_HPP_
 #define AOS_CM_COMMUNICATION_HPP_
 
-#include "aos/common/cloudprotocol/state.hpp"
+#include "aos/common/cloudprotocol/cloudmessage.hpp"
 #include "aos/common/types.hpp"
 
 namespace aos::cm::communication {
@@ -22,20 +22,12 @@ namespace aos::cm::communication {
 class CommunicationItf {
 public:
     /**
-     * Sends instances new state.
+     * Sends cloud message.
      *
-     * @param newState new state to send.
+     * @param body cloud message body to send.
      * @return Error.
      */
-    virtual Error SendInstanceNewState(const cloudprotocol::NewState& newState) = 0;
-
-    /**
-     * Sends instances update state.
-     *
-     * @param updateState update state to send.
-     * @return Error.
-     */
-    virtual Error SendInstanceStateRequest(const cloudprotocol::StateRequest& stateRequest) = 0;
+    virtual Error SendMessage(const cloudprotocol::MessageVariant& body) = 0;
 
     /**
      * Destructor.

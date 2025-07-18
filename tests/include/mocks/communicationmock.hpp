@@ -18,8 +18,7 @@ namespace aos::cm::communication {
  */
 class CommunicationMock : public CommunicationItf {
 public:
-    MOCK_METHOD(Error, SendInstanceNewState, (const cloudprotocol::NewState& newState), (override));
-    MOCK_METHOD(Error, SendInstanceStateRequest, (const cloudprotocol::StateRequest& stateRequest), (override));
+    MOCK_METHOD(Error, SendMessage, (const cloudprotocol::MessageVariant& body), (override));
 };
 
 } // namespace aos::cm::communication
