@@ -76,7 +76,7 @@ private:
     using PEMCertChainBlob = StaticString<crypto::cCertPEMLen * crypto::cCertChainSize>;
 
     static constexpr auto cCertAllocatorSize
-        = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT * crypto::cCertChainSize * sizeof(crypto::x509::Certificate)
+        = crypto::cCertChainsCount * crypto::cCertChainSize * sizeof(crypto::x509::Certificate)
         + sizeof(PEMCertChainBlob);
     static constexpr auto cKeyAllocatorSize
         = AOS_CONFIG_CRYPTO_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cPrivKeyPEMLen);
