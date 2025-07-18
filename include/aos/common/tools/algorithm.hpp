@@ -245,6 +245,26 @@ public:
     }
 
     /**
+     * Checks whether item exists in the container.
+     *
+     * @param value value to check for existence.
+     * @return bool.
+     */
+    bool Exist(const T& value) const { return Find(value) != end(); }
+
+    /**
+     * Checks whether item exists in the container.
+     *
+     * @param match match function.
+     * @return bool.
+     */
+    template <typename P>
+    bool ExistIf(const P& match) const
+    {
+        return FindIf(match) != end();
+    }
+
+    /**
      * Finds minimal element using provided comparator.
      *
      * @param cmp less comparator.
