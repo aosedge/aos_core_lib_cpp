@@ -81,19 +81,55 @@ struct InstanceFilter {
 class MessageTypeType {
 public:
     enum class Enum {
-        eStateAcceptance,
-        eUpdateState,
+        eAlerts,
+        eDeprovisioningRequest,
+        eDeprovisioningResponse,
+        eDesiredStatus,
+        eFinishProvisioningRequest,
+        eFinishProvisioningResponse,
+        eInstallUnitCertificatesConfirmation,
+        eIssuedUnitCertificates,
+        eIssueUnitCertificates,
+        eMonitoringData,
         eNewState,
+        eOverrideEnvVars,
+        eOverrideEnvVarsStatus,
+        ePushLog,
+        eRenewCertificatesNotification,
+        eRequestLog,
+        eStartProvisioningRequest,
+        eStartProvisioningResponse,
+        eStateAcceptance,
         eStateRequest,
+        eUnitStatus,
+        eUpdateState,
     };
 
     static const Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
-            "stateAcceptance",
-            "updateState",
+            "alerts",
+            "deprovisioningRequest",
+            "deprovisioningResponse",
+            "desiredStatus",
+            "finishProvisioningRequest",
+            "finishProvisioningResponse",
+            "installUnitCertificatesConfirmation",
+            "issuedUnitCertificates",
+            "issueUnitCertificates",
+            "monitoringData",
             "newState",
+            "overrideEnvVars",
+            "overrideEnvVarsStatus",
+            "pushLog",
+            "renewCertificatesNotification",
+            "requestLog",
+            "startProvisioningRequest",
+            "startProvisioningResponse",
+            "stateAcceptance",
             "stateRequest",
+            "unitStatus",
+            "updateState",
         };
 
         return Array<const char* const>(sStrings, ArraySize(sStrings));
