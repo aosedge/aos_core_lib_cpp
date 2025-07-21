@@ -1090,6 +1090,21 @@
 #endif
 
 /**
+ * Service discovery supported protocols count.
+ */
+
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT 1
+#endif
+
+/**
+ * Service discovery URLs count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT 8
+#endif
+
+/**
  * Maximum supported number of timers.
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
