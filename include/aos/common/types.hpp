@@ -389,6 +389,11 @@ static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_MAX_NUM_EXPOSED_PORTS;
 static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
+ * Bearer token len.
+ */
+constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
