@@ -25,11 +25,6 @@ constexpr auto cLogIDLen = AOS_CONFIG_CLOUDPROTOCOL_LOG_ID_LEN;
 constexpr auto cLogContentLen = AOS_CONFIG_CLOUDPROTOCOL_LOG_CONTENT_LEN;
 
 /**
- * Bearer token len.
- */
-constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
-
-/**
  * Log type type.
  */
 class LogTypeType {
