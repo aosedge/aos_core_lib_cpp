@@ -163,6 +163,52 @@ struct EnvVarsInstanceStatus {
 
 using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
 
+/**
+ * Environment variable override request.
+ */
+struct OverrideEnvVarsRequest {
+    EnvVarsInstanceInfoArray mItems;
+
+    /**
+     * Compares environment variable override request.
+     *
+     * @param request environment variable override request to compare with.
+     * @return bool.
+     */
+    bool operator==(const OverrideEnvVarsRequest& request) const { return mItems == request.mItems; }
+
+    /**
+     * Compares environment variable override request.
+     *
+     * @param request environment variable override request to compare with.
+     * @return bool.
+     */
+    bool operator!=(const OverrideEnvVarsRequest& request) const { return !operator==(request); }
+};
+
+/**
+ * Environment variable override statuses.
+ */
+struct OverrideEnvVarsStatuses {
+    EnvVarsInstanceStatusArray mStatuses;
+
+    /**
+     * Compares environment variable override statuses.
+     *
+     * @param statuses environment variable override statuses to compare with.
+     * @return bool.
+     */
+    bool operator==(const OverrideEnvVarsStatuses& statuses) const { return mStatuses == statuses.mStatuses; }
+
+    /**
+     * Compares environment variable override statuses.
+     *
+     * @param statuses environment variable override statuses to compare with.
+     * @return bool.
+     */
+    bool operator!=(const OverrideEnvVarsStatuses& statuses) const { return !operator==(statuses); }
+};
+
 } // namespace aos::cloudprotocol
 
 #endif
