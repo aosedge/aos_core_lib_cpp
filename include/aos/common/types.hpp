@@ -610,6 +610,7 @@ public:
         eRemoving,
         eRemoved,
         eError,
+        eFailed,
     };
 
     static const Array<const char* const> GetStrings()
@@ -624,6 +625,7 @@ public:
             "removing",
             "removed",
             "error",
+            "failed",
         };
 
         return Array<const char* const>(sStrings, ArraySize(sStrings));
