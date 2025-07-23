@@ -23,7 +23,7 @@ static constexpr auto cMaxNumConnections = AOS_CONFIG_NETWORKMANAGER_CONNECTIONS
 /**
  * Max length of connection name.
  */
-static constexpr auto cConnectionNameLen = AOS_CONFIG_NETWORKMANAGER_CONNECTION_NAME_LEN;
+static constexpr auto cConnectionNameLen = cServiceIDLen + cExposedPortLen;
 
 /**
  * Represents network configuration parameters for a service instance.
