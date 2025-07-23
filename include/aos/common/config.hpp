@@ -1041,13 +1041,6 @@
 #endif
 
 /**
- * Max length of connection name.
- */
-#ifndef AOS_CONFIG_NETWORKMANAGER_CONNECTION_NAME_LEN
-#define AOS_CONFIG_NETWORKMANAGER_CONNECTION_NAME_LEN 16
-#endif
-
-/**
  * Max number of exposed ports.
  */
 #ifndef AOS_CONFIG_MAX_NUM_EXPOSED_PORTS
