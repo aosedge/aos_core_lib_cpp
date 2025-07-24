@@ -28,7 +28,7 @@ struct InstanceStatus : public aos::InstanceStatus {
     /**
      * Service state checksum.
      */
-    StaticString<cSHA3_224Size> mStateChecksum;
+    StaticString<2 * cSHA3_224Size> mStateChecksum;
 
     /**
      * Compares instance status.
