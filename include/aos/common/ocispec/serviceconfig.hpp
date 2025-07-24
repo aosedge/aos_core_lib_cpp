@@ -20,6 +20,16 @@ namespace aos::oci {
 constexpr auto cBalancingPolicyLen = AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN;
 
 /**
+ * Max number of allowed connections.
+ */
+static constexpr auto cMaxNumConnections = AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT;
+
+/**
+ * Max length of connection name.
+ */
+static constexpr auto cConnectionNameLen = AOS_CONFIG_NETWORKMANAGER_CONNECTION_NAME_LEN;
+
+/**
  * Service quotas.
  */
 struct ServiceQuotas {
@@ -95,6 +105,25 @@ struct RequestedResources {
 struct ServiceDevice {
     StaticString<cDeviceNameLen>  mDevice;
     StaticString<cPermissionsLen> mPermissions;
+
+    /**
+     * Compares devices.
+     *
+     * @param device service device.
+     * @return bool.
+     */
+    bool operator==(const ServiceDevice& device) const
+    {
+        return mDevice == device.mDevice && mPermissions == device.mPermissions;
+    }
+
+    /**
+     * Compares devices.
+     *
+     * @param device service device.
+     * @return bool.
+     */
+    bool operator!=(const ServiceDevice& device) const { return !operator==(device); }
 };
 
 /**
@@ -112,6 +141,7 @@ struct ServiceConfig {
     Duration                                                                       mOfflineTTL;
     ServiceQuotas                                                                  mQuotas;
     Optional<RequestedResources>                                                   mRequestedResources;
+    StaticArray<StaticString<cConnectionNameLen>, cMaxNumConnections>              mAllowedConnections;
     StaticArray<ServiceDevice, cMaxNumNodeDevices>                                 mDevices;
     StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
@@ -130,6 +160,8 @@ struct ServiceConfig {
             && mBalancingPolicy == config.mBalancingPolicy && mRunners == config.mRunners
             && mRunParameters == config.mRunParameters && mSysctl == config.mSysctl && mOfflineTTL == config.mOfflineTTL
             && mQuotas == config.mQuotas && mRequestedResources == config.mRequestedResources
+            && mAllowedConnections == config.mAllowedConnections && mDevices == config.mDevices
+            && mResources == config.mResources && mPermissions == config.mPermissions
             && mAlertRules == config.mAlertRules;
     }
 

@@ -113,6 +113,20 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Clear identifier in pool.
+     *
+     * @return Error.
+     */
+    Error Clear()
+    {
+        LockGuard lock {mMutex};
+
+        mLockedIds.Clear();
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     Mutex                                 mMutex;
     StaticArray<size_t, cMaxNumLockedIDs> mLockedIds;

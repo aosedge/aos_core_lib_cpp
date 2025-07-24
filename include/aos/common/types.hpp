@@ -389,6 +389,11 @@ static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_MAX_NUM_EXPOSED_PORTS;
 static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
+ * Max number of nodes in unit.
+ */
+static constexpr auto cNodeMaxNum = AOS_CONFIG_NODE_MAX_NUM;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
@@ -404,7 +409,10 @@ struct InstanceIdent {
      */
     bool operator<(const InstanceIdent& instance) const
     {
-        return mServiceID <= instance.mServiceID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
+        return (mServiceID < instance.mServiceID)
+            || (mServiceID == instance.mServiceID
+                && (mSubjectID < instance.mSubjectID
+                    || (mSubjectID == instance.mSubjectID && mInstance < instance.mInstance)));
     }
 
     /**
@@ -781,10 +789,10 @@ struct ServiceInfo {
     StaticString<cServiceIDLen>       mServiceID;
     StaticString<cProviderIDLen>      mProviderID;
     StaticString<cVersionLen>         mVersion;
-    uint32_t                          mGID;
+    uint32_t                          mGID = 0;
     StaticString<cURLLen>             mURL;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize;
+    size_t                            mSize = 0;
 
     /**
      * Compares service info.
@@ -823,7 +831,7 @@ struct LayerInfo {
     StaticString<cVersionLen>         mVersion;
     StaticString<cURLLen>             mURL;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize;
+    size_t                            mSize = 0;
 
     /**
      * Compares layer info.
@@ -1469,6 +1477,14 @@ struct FunctionPermissions {
     {
         return (mFunction == rhs.mFunction) && (mPermissions == rhs.mPermissions);
     }
+
+    /**
+     * Compares permission key value.
+     *
+     * @param rhs object to compare.
+     * @return bool.
+     */
+    bool operator!=(const FunctionPermissions& rhs) { return !(*this == rhs); }
 };
 
 /**
@@ -1477,6 +1493,25 @@ struct FunctionPermissions {
 struct FunctionServicePermissions {
     StaticString<cFuncServiceLen>                        mName;
     StaticArray<FunctionPermissions, cFunctionsMaxCount> mPermissions;
+
+    /**
+     * Compares function service permissions.
+     *
+     * @param rhs object to compare.
+     * @return bool.
+     */
+    bool operator==(const FunctionServicePermissions& rhs)
+    {
+        return (mName == rhs.mName) && (mPermissions == rhs.mPermissions);
+    }
+
+    /**
+     * Compares function service permissions.
+     *
+     * @param rhs object to compare.
+     * @return bool.
+     */
+    bool operator!=(const FunctionServicePermissions& rhs) { return !(*this == rhs); }
 };
 
 /**
@@ -1553,6 +1588,17 @@ public:
 
 using InstanceStateEnum = InstanceStateType::Enum;
 using InstanceState     = EnumStringer<InstanceStateType>;
+
+/**
+ * Run service data.
+ */
+struct RunServiceRequest {
+    StaticString<cServiceIDLen>                                 mServiceID;
+    StaticString<cSubjectIDLen>                                 mSubjectID;
+    uint64_t                                                    mPriority     = 0;
+    uint64_t                                                    mNumInstances = 0;
+    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
+};
 
 } // namespace aos
 
