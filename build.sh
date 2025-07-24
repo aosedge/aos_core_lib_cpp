@@ -26,6 +26,7 @@ print_usage() {
     echo "  --clean                    cleans build artifacts"
     echo "  --aos-service <services>   specifies services (e.g., sm,mp,iam)"
     echo "  --ci                       uses build-wrapper for CI analysis (SonarQube)"
+    echo "  --parallel <N>             specifies number of parallel jobs for build (default: all available cores)"
     echo
 }
 
@@ -77,11 +78,11 @@ build_project() {
     if [ "$ARG_CI_FLAG" == "true" ]; then
         print_next_step "Run build-wrapper and build (CI mode)"
 
-        build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build ./build/ --config Debug --parallel
+        build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build ./build/ --config Debug --parallel ${ARG_PARALLEL_JOBS}
     else
         print_next_step "Run build"
 
-        cmake --build ./build/ --config Debug --parallel
+        cmake --build ./build/ --config Debug --parallel ${ARG_PARALLEL_JOBS}
     fi
 
     echo
@@ -99,6 +100,11 @@ parse_arguments() {
         --ci)
             ARG_CI_FLAG=true
             shift
+            ;;
+
+        --parallel)
+            ARG_PARALLEL_JOBS="$2"
+            shift 2
             ;;
 
         *)
@@ -172,6 +178,7 @@ shift
 ARG_CLEAN_FLAG=false
 ARG_AOS_SERVICES=""
 ARG_CI_FLAG=false
+ARG_PARALLEL_JOBS=$(nproc)
 
 case "$command" in
 build)
