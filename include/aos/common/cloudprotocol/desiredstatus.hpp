@@ -76,6 +76,29 @@ struct UnitConfig {
     bool operator!=(const UnitConfig& other) const { return !operator==(other); }
 };
 
+/**
+ * Desired status.
+ */
+struct DesiredStatus {
+    Optional<UnitConfig> mUnitConfig;
+
+    /**
+     * Compares desired status.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const DesiredStatus& other) const { return mUnitConfig == other.mUnitConfig; }
+
+    /**
+     * Compares desired status.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const DesiredStatus& other) const { return !operator==(other); }
+};
+
 } // namespace aos::cloudprotocol
 
 #endif
