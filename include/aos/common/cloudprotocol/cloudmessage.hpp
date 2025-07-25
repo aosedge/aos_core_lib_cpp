@@ -10,6 +10,7 @@
 #include "aos/common/cloudprotocol/alerts.hpp"
 #include "aos/common/cloudprotocol/certificates.hpp"
 #include "aos/common/cloudprotocol/cloudprotocol.hpp"
+#include "aos/common/cloudprotocol/desiredstatus.hpp"
 #include "aos/common/cloudprotocol/envvars.hpp"
 #include "aos/common/cloudprotocol/log.hpp"
 #include "aos/common/cloudprotocol/monitoring.hpp"
@@ -28,10 +29,11 @@ static constexpr auto cProtocolVersion = 7;
 /**
  * Cloud message variant type.
  */
-using MessageVariant = Variant<Alerts, Monitoring, UnitStatus, DeltaUnitStatus, NewState, StateRequest, StateAcceptance,
-    UpdateState, RequestLog, PushLog, OverrideEnvVarsRequest, OverrideEnvVarsStatuses, RenewCertsNotification,
-    IssuedUnitCerts, IssueUnitCerts, InstallUnitCertsConfirmation, StartProvisioningRequest, StartProvisioningResponse,
-    FinishProvisioningRequest, FinishProvisioningResponse, DeprovisioningRequest, DeprovisioningResponse>;
+using MessageVariant = Variant<Alerts, Monitoring, UnitStatus, DeltaUnitStatus, DesiredStatus, NewState, StateRequest,
+    StateAcceptance, UpdateState, RequestLog, PushLog, OverrideEnvVarsRequest, OverrideEnvVarsStatuses,
+    RenewCertsNotification, IssuedUnitCerts, IssueUnitCerts, InstallUnitCertsConfirmation, StartProvisioningRequest,
+    StartProvisioningResponse, FinishProvisioningRequest, FinishProvisioningResponse, DeprovisioningRequest,
+    DeprovisioningResponse>;
 
 /**
  * Cloud message header.
