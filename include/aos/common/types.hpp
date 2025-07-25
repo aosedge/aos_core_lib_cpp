@@ -1162,39 +1162,6 @@ struct ResourceRatios {
 };
 
 /**
- * Node config.
- */
-struct NodeConfig {
-    StaticString<cNodeTypeLen>                                  mNodeType;
-    StaticArray<DeviceInfo, cMaxNumNodeDevices>                 mDevices;
-    StaticArray<ResourceInfo, cMaxNumNodeResources>             mResources;
-    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
-    uint32_t                                                    mPriority {0};
-    Optional<AlertRules>                                        mAlertRules;
-    Optional<ResourceRatios>                                    mResourceRatios;
-
-    /**
-     * Compares node configs.
-     *
-     * @param nodeConfig node config to compare.
-     * @return bool.
-     */
-    bool operator==(const NodeConfig& nodeConfig) const
-    {
-        return mNodeType == nodeConfig.mNodeType && mDevices == nodeConfig.mDevices
-            && mResources == nodeConfig.mResources && mLabels == nodeConfig.mLabels && mPriority == nodeConfig.mPriority
-            && mAlertRules == nodeConfig.mAlertRules && mResourceRatios == nodeConfig.mResourceRatios;
-    }
-
-    /**
-     * Compares node configs.
-     *
-     * @param nodeConfig node config to compare.
-     * @return bool.
-     */
-    bool operator!=(const NodeConfig& nodeConfig) const { return !operator==(nodeConfig); }
-};
-/**
  * Partition info.
  */
 struct PartitionInfo {

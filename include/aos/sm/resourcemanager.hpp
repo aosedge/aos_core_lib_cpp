@@ -8,6 +8,7 @@
 #ifndef AOS_RESOURCEMANAGER_HPP_
 #define AOS_RESOURCEMANAGER_HPP_
 
+#include "aos/common/cloudprotocol/desiredstatus.hpp"
 #include "aos/common/tools/error.hpp"
 #include "aos/common/tools/map.hpp"
 #include "aos/common/tools/memory.hpp"
@@ -28,7 +29,7 @@ static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_RESOURCEMANAGER_NODE_CONFI
  * Node Config.
  */
 struct NodeConfig {
-    aos::NodeConfig           mNodeConfig;
+    cloudprotocol::NodeConfig mNodeConfig;
     StaticString<cVersionLen> mVersion;
 
     /**
@@ -149,7 +150,7 @@ public:
      * @param nodeConfig[out] param to store node config.
      * @return Error.
      */
-    virtual Error GetNodeConfig(aos::NodeConfig& nodeConfig) const = 0;
+    virtual Error GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const = 0;
 
     /**
      * Gets device info by name.
@@ -278,7 +279,7 @@ public:
      * @param nodeConfig[out] param to store node config.
      * @return Error.
      */
-    Error GetNodeConfig(aos::NodeConfig& nodeConfig) const override;
+    Error GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const override;
 
     /**
      * Gets device info by name.

@@ -122,7 +122,7 @@ public:
 
     RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const override { return mConfig.mVersion; }
 
-    Error GetNodeConfig(aos::NodeConfig& nodeConfig) const override
+    Error GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const override
     {
         nodeConfig = mConfig.mNodeConfig;
 
