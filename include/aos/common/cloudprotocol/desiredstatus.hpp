@@ -48,6 +48,34 @@ struct NodeConfig {
     bool operator!=(const NodeConfig& nodeConfig) const { return !operator==(nodeConfig); }
 };
 
+/**
+ * Unit config.
+ */
+struct UnitConfig {
+    StaticString<cVersionLen>             mVersion;
+    StaticString<cVersionLen>             mFormatVersion;
+    StaticArray<NodeConfig, cMaxNumNodes> mNodes;
+
+    /**
+     * Compares unit config.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const UnitConfig& other) const
+    {
+        return mVersion == other.mVersion && mFormatVersion == other.mFormatVersion && mNodes == other.mNodes;
+    }
+
+    /**
+     * Compares unit config.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UnitConfig& other) const { return !operator==(other); }
+};
+
 } // namespace aos::cloudprotocol
 
 #endif
