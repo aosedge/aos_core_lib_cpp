@@ -50,7 +50,7 @@ RetWithError<StaticString<cVersionLen>> ResourceManager::GetNodeConfigVersion() 
     return {mConfig->mVersion, mConfigError};
 }
 
-Error ResourceManager::GetNodeConfig(aos::NodeConfig& nodeConfig) const
+Error ResourceManager::GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const
 {
     LockGuard lock {mMutex};
 
