@@ -275,7 +275,7 @@ double ResourceMonitor::CPUToDMIPs(double cpuPersentage) const
     return cpuPersentage * static_cast<double>(mMaxDMIPS) / 100.0;
 }
 
-Error ResourceMonitor::SetupSystemAlerts(const NodeConfig& nodeConfig)
+Error ResourceMonitor::SetupSystemAlerts(const cloudprotocol::NodeConfig& nodeConfig)
 {
     LOG_DBG() << "Setup system alerts";
 

@@ -128,7 +128,7 @@ private:
     Error SetupAlerts(
         const ResourceIdentifier identifierTemplate, const AlertRules& rules, Array<AlertProcessor>& alertProcessors);
 
-    Error SetupSystemAlerts(const NodeConfig& nodeConfig);
+    Error SetupSystemAlerts(const cloudprotocol::NodeConfig& nodeConfig);
     Error SetupInstanceAlerts(const String& instanceID, const InstanceMonitorParams& instanceParams);
     void  NormalizeMonitoringData();
     void  ProcessMonitoring();

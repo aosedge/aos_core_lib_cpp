@@ -114,7 +114,7 @@ TEST_F(ResourceManagerTest, InitSucceeds)
 {
     InitResourceManager();
 
-    aos::NodeConfig nodeConfig;
+    cloudprotocol::NodeConfig nodeConfig;
 
     ASSERT_TRUE(mResourceManager.GetNodeConfig(nodeConfig).IsNone());
     EXPECT_EQ(nodeConfig, mConfig.mNodeConfig);
@@ -145,7 +145,7 @@ TEST_F(ResourceManagerTest, InitSucceedsWhenNodeConfigParseFails)
 
     InitResourceManager(expectedError);
 
-    aos::NodeConfig nodeConfig;
+    cloudprotocol::NodeConfig nodeConfig;
 
     ASSERT_TRUE(mResourceManager.GetNodeConfig(nodeConfig).Is(expectedError));
 }
