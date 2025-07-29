@@ -12,12 +12,12 @@
 #include <cstdint>
 #include <pthread.h>
 
-#include "aos/common/tools/config.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/function.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/queue.hpp"
-#include "aos/common/tools/time.hpp"
+#include "config.hpp"
+#include "error.hpp"
+#include "function.hpp"
+#include "noncopyable.hpp"
+#include "queue.hpp"
+#include "time.hpp"
 
 #if AOS_CONFIG_THREAD_STACK_GUARD_SIZE != 0 && AOS_CONFIG_THREAD_STACK_USAGE
 #include <sys/mman.h>

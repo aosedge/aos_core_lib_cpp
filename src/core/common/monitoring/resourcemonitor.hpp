@@ -8,12 +8,13 @@
 #ifndef AOS_RESOURCEMONITOR_HPP_
 #define AOS_RESOURCEMONITOR_HPP_
 
-#include "aos/common/monitoring/alertprocessor.hpp"
-#include "aos/common/monitoring/average.hpp"
-#include "aos/common/monitoring/monitoring.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/timer.hpp"
-#include "aos/sm/resourcemanager.hpp"
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/timer.hpp>
+#include <core/sm/resourcemanager/resourcemanager.hpp>
+
+#include "alertprocessor.hpp"
+#include "average.hpp"
+#include "monitoring.hpp"
 
 namespace aos::monitoring {
 

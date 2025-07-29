@@ -20,8 +20,9 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-#include "aos/common/crypto/openssl/cryptoprovider.hpp"
-#include "aos/common/tools/logger.hpp"
+#include <core/common/tools/logger.hpp>
+
+#include "cryptoprovider.hpp"
 #include "seqoid.hpp"
 
 namespace aos::crypto {

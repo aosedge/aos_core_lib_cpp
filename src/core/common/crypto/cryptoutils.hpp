@@ -8,10 +8,11 @@
 #ifndef AOS_CRYPTOUTILS_HPP_
 #define AOS_CRYPTOUTILS_HPP_
 
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/pkcs11/pkcs11.hpp"
-#include "aos/common/pkcs11/privatekey.hpp"
-#include "aos/common/tools/uuid.hpp"
+#include <core/common/pkcs11/pkcs11.hpp>
+#include <core/common/pkcs11/privatekey.hpp>
+#include <core/common/tools/uuid.hpp>
+
+#include "crypto.hpp"
 
 namespace aos::crypto {
 

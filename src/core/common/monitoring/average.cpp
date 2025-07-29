@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/monitoring/average.hpp"
+#include <core/common/tools/logger.hpp>
 
-#include "log.hpp"
+#include "average.hpp"
 
 namespace aos::monitoring {
 

@@ -8,9 +8,10 @@
 #ifndef AOS_AVERAGE_HPP_
 #define AOS_AVERAGE_HPP_
 
-#include "aos/common/monitoring/monitoring.hpp"
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/memory.hpp"
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
+
+#include "monitoring.hpp"
 
 namespace aos::monitoring {
 

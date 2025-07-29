@@ -7,7 +7,7 @@
 #ifndef AOS_SEMVER_HPP_
 #define AOS_SEMVER_HPP_
 
-#include "aos/common/tools/string.hpp"
+#include "string.hpp"
 
 namespace aos::semver {
 

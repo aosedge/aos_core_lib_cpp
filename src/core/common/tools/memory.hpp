@@ -8,7 +8,7 @@
 #ifndef AOS_MEMORY_HPP_
 #define AOS_MEMORY_HPP_
 
-#include "aos/common/tools/allocator.hpp"
+#include "allocator.hpp"
 
 namespace aos {
 

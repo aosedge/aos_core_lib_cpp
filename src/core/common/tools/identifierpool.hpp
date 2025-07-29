@@ -7,9 +7,10 @@
 #ifndef AOS_IDENTIFIER_POOL_HPP_
 #define AOS_IDENTIFIER_POOL_HPP_
 
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/types/types.hpp>
+
+#include "noncopyable.hpp"
+#include "thread.hpp"
 
 namespace aos {
 

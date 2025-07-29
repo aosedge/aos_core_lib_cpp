@@ -12,10 +12,10 @@
 #include <dlfcn.h>
 #endif
 
-#include "aos/common/pkcs11/pkcs11.hpp"
-#include "aos/common/pkcs11/privatekey.hpp"
+#include <core/common/tools/logger.hpp>
 
-#include "log.hpp"
+#include "pkcs11.hpp"
+#include "privatekey.hpp"
 
 namespace aos::pkcs11 {
 

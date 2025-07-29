@@ -8,7 +8,7 @@
 #include <zephyr/sys/timeutil.h>
 #endif
 
-#include "aos/common/tools/time.hpp"
+#include "time.hpp"
 
 namespace aos {
 

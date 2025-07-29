@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/crypto/utils.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/logger.hpp"
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/logger.hpp>
+
+#include "cryptoutils.hpp"
 
 namespace aos::crypto {
 

@@ -10,13 +10,13 @@
 
 #include <cstdint>
 
-#include "aos/common/config.hpp"
-#include "aos/common/tools/enum.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/log.hpp"
-#include "aos/common/tools/optional.hpp"
-#include "aos/common/tools/time.hpp"
+#include <core/common/config.hpp>
+#include <core/common/tools/enum.hpp>
+#include <core/common/tools/error.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/log.hpp>
+#include <core/common/tools/optional.hpp>
+#include <core/common/tools/time.hpp>
 
 namespace aos {
 

@@ -8,10 +8,10 @@
 #ifndef AOS_TIMER_HPP_
 #define AOS_TIMER_HPP_
 
-#include "aos/common/tools/config.hpp"
-#include "aos/common/tools/function.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/tools/time.hpp"
+#include "config.hpp"
+#include "function.hpp"
+#include "thread.hpp"
+#include "time.hpp"
 
 namespace aos {
 

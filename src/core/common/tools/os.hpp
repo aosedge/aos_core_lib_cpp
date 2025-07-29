@@ -10,7 +10,7 @@
 
 #include <stdlib.h>
 
-#include "aos/common/tools/string.hpp"
+#include "string.hpp"
 
 namespace aos::os {
 

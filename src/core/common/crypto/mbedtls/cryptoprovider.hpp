@@ -14,8 +14,8 @@
 #include <mbedtls/x509_csr.h>
 #include <psa/crypto_types.h>
 
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/crypto/mbedtls/driverwrapper.hpp"
+#include "../crypto.hpp"
+#include "driverwrapper.hpp"
 
 namespace aos::crypto {
 

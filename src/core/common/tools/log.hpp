@@ -8,11 +8,11 @@
 #ifndef AOS_LOG_HPP_
 #define AOS_LOG_HPP_
 
-#include "aos/common/tools/config.hpp"
-#include "aos/common/tools/enum.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/utils.hpp"
+#include "config.hpp"
+#include "enum.hpp"
+#include "error.hpp"
+#include "noncopyable.hpp"
+#include "utils.hpp"
 /**
  * Helper macro to display debug log.
  */

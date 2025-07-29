@@ -10,9 +10,9 @@
 
 #include <dirent.h>
 
-#include "aos/common/tools/config.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/string.hpp"
+#include "config.hpp"
+#include "noncopyable.hpp"
+#include "string.hpp"
 
 namespace aos {
 

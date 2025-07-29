@@ -7,9 +7,10 @@
 #ifndef AOS_RUNTIMESPEC_HPP_
 #define AOS_RUNTIMESPEC_HPP_
 
-#include "aos/common/ocispec/common.hpp"
-#include "aos/common/tools/map.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/map.hpp>
+#include <core/common/types/types.hpp>
+
+#include "common.hpp"
 
 namespace aos::oci {
 

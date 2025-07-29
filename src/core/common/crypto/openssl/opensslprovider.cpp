@@ -12,10 +12,10 @@
 #include <openssl/provider.h>
 #include <openssl/x509.h>
 
-#include <aos/common/tools/error.hpp>
-#include <aos/common/tools/logger.hpp>
+#include <core/common/tools/error.hpp>
+#include <core/common/tools/logger.hpp>
 
-#include "aos/common/crypto/openssl/opensslprovider.hpp"
+#include "opensslprovider.hpp"
 
 namespace aos::crypto::openssl {
 

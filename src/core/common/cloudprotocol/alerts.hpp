@@ -7,9 +7,9 @@
 #ifndef AOS_CLOUDPROTOCOL_ALERTS_HPP_
 #define AOS_CLOUDPROTOCOL_ALERTS_HPP_
 
-#include "aos/common/tools/log.hpp"
-#include "aos/common/tools/variant.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/log.hpp>
+#include <core/common/tools/variant.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cloudprotocol {
 

@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string.h>
 
-#include "aos/common/tools/utils.hpp"
+#include "utils.hpp"
 
 namespace aos {
 
