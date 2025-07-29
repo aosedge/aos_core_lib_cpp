@@ -7,10 +7,11 @@
 #ifndef AOS_CLOUDPROTOCOL_STATE_HPP_
 #define AOS_CLOUDPROTOCOL_STATE_HPP_
 
-#include "aos/common/cloudprotocol/cloudprotocol.hpp"
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/tools/optional.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/tools/optional.hpp>
+#include <core/common/types/types.hpp>
+
+#include "cloudprotocol.hpp"
 
 namespace aos::cloudprotocol {
 

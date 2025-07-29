@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "aos/common/tools/uuid.hpp"
+#include "uuid.hpp"
 
 namespace aos::uuid {
 

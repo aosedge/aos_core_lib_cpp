@@ -12,8 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "aos/common/config.hpp"
-#include "aos/common/tools/utils.hpp"
+#include <core/common/config.hpp>
+
+#include "utils.hpp"
 
 namespace aos {
 

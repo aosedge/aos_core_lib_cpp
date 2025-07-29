@@ -8,7 +8,7 @@
 #ifndef AOS_PKCS11_PRIVATEKEY_HPP_
 #define AOS_PKCS11_PRIVATEKEY_HPP_
 
-#include "aos/common/pkcs11/pkcs11.hpp"
+#include "pkcs11.hpp"
 
 namespace aos::pkcs11 {
 

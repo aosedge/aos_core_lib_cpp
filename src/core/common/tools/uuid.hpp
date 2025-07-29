@@ -8,8 +8,9 @@
 #ifndef AOS_UUID_HPP_
 #define AOS_UUID_HPP_
 
-#include "aos/common/config.hpp"
-#include "aos/common/tools/string.hpp"
+#include <core/common/config.hpp>
+
+#include "string.hpp"
 
 namespace aos::uuid {
 

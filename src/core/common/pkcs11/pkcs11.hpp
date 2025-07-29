@@ -8,12 +8,13 @@
 #ifndef AOS_PKCS11_HPP_
 #define AOS_PKCS11_HPP_
 
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/pkcs11/cryptoki/pkcs11.h"
-#include "aos/common/tools/log.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/utils.hpp"
-#include "aos/common/tools/uuid.hpp"
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/tools/log.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/utils.hpp>
+#include <core/common/tools/uuid.hpp>
+
+#include "cryptoki/pkcs11.h"
 
 namespace aos::pkcs11 {
 

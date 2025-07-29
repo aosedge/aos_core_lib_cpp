@@ -11,9 +11,9 @@
 #include <assert.h>
 #include <cstdint>
 
-#include "aos/common/tools/buffer.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/noncopyable.hpp"
+#include "buffer.hpp"
+#include "error.hpp"
+#include "noncopyable.hpp"
 
 namespace aos {
 

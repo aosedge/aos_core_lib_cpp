@@ -7,8 +7,9 @@
 #ifndef AOS_CLOUDPROTOCOL_PROVISIONING_HPP_
 #define AOS_CLOUDPROTOCOL_PROVISIONING_HPP_
 
-#include "aos/common/cloudprotocol/certificates.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/types/types.hpp>
+
+#include "certificates.hpp"
 
 namespace aos::cloudprotocol {
 

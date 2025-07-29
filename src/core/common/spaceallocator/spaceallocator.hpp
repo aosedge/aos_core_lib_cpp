@@ -7,12 +7,12 @@
 #ifndef AOS_SPACEALLOCATOR_HPP_
 #define AOS_SPACEALLOCATOR_HPP_
 
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/function.hpp"
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/time.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/function.hpp>
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/time.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::spaceallocator {
 /**

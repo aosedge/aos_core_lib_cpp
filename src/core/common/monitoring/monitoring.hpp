@@ -8,12 +8,13 @@
 #ifndef AOS_MONITORING_HPP_
 #define AOS_MONITORING_HPP_
 
-#include "aos/common/connectionsubsc.hpp"
-#include "aos/common/monitoring/alertprocessor.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/types.hpp"
-#include "aos/iam/nodeinfoprovider.hpp"
+#include <core/common/connectionprovider/connectionprovider.hpp>
+#include <core/common/tools/error.hpp>
+#include <core/common/tools/thread.hpp>
+#include <core/common/types/types.hpp>
+#include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
+
+#include "alertprocessor.hpp"
 
 namespace aos::monitoring {
 

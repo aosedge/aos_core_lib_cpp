@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "aos/common/tools/array.hpp"
+#include "array.hpp"
 
 namespace aos {
 

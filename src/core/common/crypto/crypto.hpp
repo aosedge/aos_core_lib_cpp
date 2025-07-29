@@ -8,14 +8,14 @@
 #ifndef AOS_CRYPTO_HPP_
 #define AOS_CRYPTO_HPP_
 
-#include "aos/common/tools/array.hpp"
-#include "aos/common/tools/enum.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/string.hpp"
-#include "aos/common/tools/time.hpp"
-#include "aos/common/tools/uuid.hpp"
-#include "aos/common/tools/variant.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/array.hpp>
+#include <core/common/tools/enum.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/string.hpp>
+#include <core/common/tools/time.hpp>
+#include <core/common/tools/uuid.hpp>
+#include <core/common/tools/variant.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::crypto {
 

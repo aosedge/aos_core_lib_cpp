@@ -8,7 +8,7 @@
 #ifndef AOS_ALGORITHM_HPP_
 #define AOS_ALGORITHM_HPP_
 
-#include "aos/common/tools/error.hpp"
+#include "error.hpp"
 
 namespace aos {
 

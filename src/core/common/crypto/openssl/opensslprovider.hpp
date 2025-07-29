@@ -7,8 +7,9 @@
 #ifndef AOS_OPENSSL_PROVIDER_HPP_
 #define AOS_OPENSSL_PROVIDER_HPP_
 
-#include <aos/common/config.hpp>
-#include <aos/common/crypto/crypto.hpp>
+#include <core/common/config.hpp>
+
+#include "../crypto.hpp"
 
 /**
  * Returns OpenSSL error.

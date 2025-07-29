@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/pkcs11/privatekey.hpp"
+#include <core/common/tools/logger.hpp>
 
-#include "log.hpp"
+#include "privatekey.hpp"
 
 namespace aos::pkcs11 {
 

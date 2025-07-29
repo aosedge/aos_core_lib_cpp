@@ -12,12 +12,12 @@
 #include <mbedtls/pk.h>
 #include <mbedtls/rsa.h>
 
-#include "aos/common/crypto/mbedtls/driverwrapper.hpp"
-#include "aos/common/tools/array.hpp"
-#include "aos/common/tools/thread.hpp"
+#include <core/common/tools/array.hpp>
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/thread.hpp>
 
-#include "aos/common/tools/logger.hpp"
 #include "drivers/aos/psa_crypto_driver_aos.h"
+#include "driverwrapper.hpp"
 
 /***********************************************************************************************************************
  * Structs

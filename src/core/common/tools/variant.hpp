@@ -12,8 +12,8 @@
 #include <cstdint>
 #include <stdlib.h>
 
-#include "aos/common/tools/log.hpp"
-#include "aos/common/tools/utils.hpp"
+#include "log.hpp"
+#include "utils.hpp"
 
 namespace aos {
 
