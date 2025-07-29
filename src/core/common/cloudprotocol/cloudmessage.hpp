@@ -7,17 +7,18 @@
 #ifndef AOS_CLOUDPROTOCOL_CLOUDMESSAGE_HPP_
 #define AOS_CLOUDPROTOCOL_CLOUDMESSAGE_HPP_
 
-#include "aos/common/cloudprotocol/alerts.hpp"
-#include "aos/common/cloudprotocol/certificates.hpp"
-#include "aos/common/cloudprotocol/cloudprotocol.hpp"
-#include "aos/common/cloudprotocol/desiredstatus.hpp"
-#include "aos/common/cloudprotocol/envvars.hpp"
-#include "aos/common/cloudprotocol/log.hpp"
-#include "aos/common/cloudprotocol/monitoring.hpp"
-#include "aos/common/cloudprotocol/provisioning.hpp"
-#include "aos/common/cloudprotocol/state.hpp"
-#include "aos/common/cloudprotocol/unitstatus.hpp"
-#include "aos/common/tools/variant.hpp"
+#include <core/common/tools/variant.hpp>
+
+#include "alerts.hpp"
+#include "certificates.hpp"
+#include "cloudprotocol.hpp"
+#include "desiredstatus.hpp"
+#include "envvars.hpp"
+#include "log.hpp"
+#include "monitoring.hpp"
+#include "provisioning.hpp"
+#include "state.hpp"
+#include "unitstatus.hpp"
 
 namespace aos::cloudprotocol {
 

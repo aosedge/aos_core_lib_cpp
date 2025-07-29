@@ -11,7 +11,7 @@
 #include <assert.h>
 #include <cstdint>
 
-#include "aos/common/tools/log.hpp"
+#include "log.hpp"
 
 namespace aos {
 

@@ -7,7 +7,7 @@
 #ifndef AOS_OCICOMMON_HPP_
 #define AOS_OCICOMMON_HPP_
 
-#include "aos/common/config.hpp"
+#include <core/common/config.hpp>
 
 namespace aos::oci {
 

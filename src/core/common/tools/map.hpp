@@ -8,8 +8,8 @@
 #ifndef AOS_MAP_HPP_
 #define AOS_MAP_HPP_
 
-#include "aos/common/tools/array.hpp"
-#include "aos/common/tools/utils.hpp"
+#include "array.hpp"
+#include "utils.hpp"
 
 namespace aos {
 

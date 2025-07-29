@@ -11,10 +11,10 @@
 #include <assert.h>
 #include <cstdint>
 
-#include "aos/common/tools/buffer.hpp"
-#include "aos/common/tools/list.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/thread.hpp"
+#include "buffer.hpp"
+#include "list.hpp"
+#include "noncopyable.hpp"
+#include "thread.hpp"
 
 namespace aos {
 

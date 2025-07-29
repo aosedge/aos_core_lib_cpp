@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/tools/timer.hpp"
-#include "aos/common/tools/logger.hpp"
+#include "timer.hpp"
+#include "logger.hpp"
 
 namespace aos {
 

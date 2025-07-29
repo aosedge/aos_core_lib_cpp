@@ -7,9 +7,9 @@
 #ifndef AOS_CLOUDPROTOCOL_HPP_
 #define AOS_CLOUDPROTOCOL_HPP_
 
-#include "aos/common/tools/enum.hpp"
-#include "aos/common/tools/optional.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/enum.hpp>
+#include <core/common/tools/optional.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cloudprotocol {
 

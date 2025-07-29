@@ -10,10 +10,11 @@
 
 #include <time.h>
 
-#include "aos/common/config.hpp"
-#include "aos/common/tools/array.hpp"
-#include "aos/common/tools/log.hpp"
-#include "aos/common/tools/string.hpp"
+#include <core/common/config.hpp>
+
+#include "array.hpp"
+#include "log.hpp"
+#include "string.hpp"
 
 namespace aos {
 

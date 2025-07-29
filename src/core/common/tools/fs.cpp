@@ -8,8 +8,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/memory.hpp"
+#include "fs.hpp"
+#include "memory.hpp"
 
 namespace aos::fs {
 

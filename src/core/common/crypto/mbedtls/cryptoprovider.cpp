@@ -20,8 +20,9 @@
 #include <mbedtls/x509.h>
 #include <psa/crypto.h>
 
-#include "aos/common/crypto/mbedtls/cryptoprovider.hpp"
-#include "aos/common/tools/logger.hpp"
+#include <core/common/tools/logger.hpp>
+
+#include "cryptoprovider.hpp"
 
 extern "C" {
 // The following functions became private in mbedtls since 3.6.0.

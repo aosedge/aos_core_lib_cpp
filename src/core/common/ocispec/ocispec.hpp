@@ -8,9 +8,9 @@
 #ifndef AOS_OCISPEC_HPP_
 #define AOS_OCISPEC_HPP_
 
-#include "aos/common/ocispec/imagespec.hpp"
-#include "aos/common/ocispec/runtimespec.hpp"
-#include "aos/common/ocispec/serviceconfig.hpp"
+#include "imagespec.hpp"
+#include "runtimespec.hpp"
+#include "serviceconfig.hpp"
 
 namespace aos::oci {
 

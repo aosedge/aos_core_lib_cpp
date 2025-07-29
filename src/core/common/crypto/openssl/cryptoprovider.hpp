@@ -7,9 +7,9 @@
 #ifndef OPENSSL_CRYPTOPROVIDER_HPP_
 #define OPENSSL_CRYPTOPROVIDER_HPP_
 
-#include <aos/common/config.hpp>
-#include <aos/common/crypto/crypto.hpp>
+#include <core/common/config.hpp>
 
+#include "../crypto.hpp"
 #include "opensslprovider.hpp"
 
 namespace aos::crypto {

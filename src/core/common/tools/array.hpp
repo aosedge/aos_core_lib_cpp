@@ -10,9 +10,9 @@
 
 #include <assert.h>
 
-#include "aos/common/tools/algorithm.hpp"
-#include "aos/common/tools/buffer.hpp"
-#include "aos/common/tools/new.hpp"
+#include "algorithm.hpp"
+#include "buffer.hpp"
+#include "new.hpp"
 
 namespace aos {
 
