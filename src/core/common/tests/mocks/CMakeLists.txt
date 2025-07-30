@@ -8,40 +8,40 @@
 # Target name
 # ######################################################################################################################
 
-set(TARGET_NAME pkcs11)
-
-# ######################################################################################################################
-# Sources
-# ######################################################################################################################
-
-set(SOURCES pkcs11.cpp privatekey.cpp)
+set(TARGET_NAME mocks)
 
 # ######################################################################################################################
 # Headers
 # ######################################################################################################################
 
-set(HEADERS cryptoki/pkcs11.h pkcs11.hpp privatekey.hpp)
+set(HEADERS
+    alertsmock.hpp
+    certhandlermock.hpp
+    certloadermock.hpp
+    certprovidermock.hpp
+    cnimock.hpp
+    communicationmock.hpp
+    connectionprovidermock.hpp
+    cryptomock.hpp
+    downloadermock.hpp
+    fsmock.hpp
+    identhandlermock.hpp
+    launchermock.hpp
+    logprovidermock.hpp
+    monitoringmock.hpp
+    networkmanagermock.hpp
+    nodeinfoprovidermock.hpp
+    nodemanagermock.hpp
+    ocispecmock.hpp
+    permhandlermock.hpp
+    provisionmanagermock.hpp
+    resourcemanagermock.hpp
+    runnermock.hpp
+    spaceallocatormock.hpp
+)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(
-    TARGET_NAME
-    ${TARGET_NAME}
-    LOG_MODULE
-    STACK_USAGE
-    ${AOS_STACK_USAGE}
-    SOURCES
-    ${SOURCES}
-    HEADERS
-    ${HEADERS}
-)
-
-# ######################################################################################################################
-# Tests
-# ######################################################################################################################
-
-if(WITH_TEST)
-    add_subdirectory(tests)
-endif()
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})
