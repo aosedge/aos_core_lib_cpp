@@ -8,7 +8,7 @@
 #ifndef AOS_SOFTHSMENV_H_
 #define AOS_SOFTHSMENV_H_
 
-#include "aos/common/pkcs11/pkcs11.hpp"
+#include <core/common/pkcs11/pkcs11.hpp>
 
 namespace aos::test {
 

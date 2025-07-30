@@ -4,75 +4,73 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef CRYPTO_FACTORY_ITF_HPP_
-#define CRYPTO_FACTORY_ITF_HPP_
+#ifndef MBEDTLS_FACTORY_HPP_
+#define MBEDTLS_FACTORY_HPP_
 
-#include <memory>
-#include <string>
+#include <core/common/crypto/mbedtls/cryptoprovider.hpp>
 
-#include <aos/common/config.hpp>
-#include <aos/common/crypto/crypto.hpp>
+#include "cryptofactoryitf.hpp"
 
 namespace aos::crypto {
 
 /**
- * Crypto factory interface.
+ * Mbed TLS crypto factory.
  */
-class CryptoFactoryItf {
+class MBedTLSCryptoFactory : public CryptoFactoryItf {
 public:
     /**
-     * Destructor.
+     * Constructor.
      */
-    virtual ~CryptoFactoryItf() = default;
+    MBedTLSCryptoFactory();
 
     /**
      * Initializes crypto factory.
      *
      * @return Error.
      */
-    virtual Error Init() = 0;
+    Error Init() override;
 
     /**
      * Returns crypto factory name.
      *
      * @return std::string.
      */
-    virtual std::string GetName() = 0;
+    std::string GetName() override;
 
     /**
      * Returns crypto provider.
      *
-     * @return x509::ProviderItf&.
+     * @return CryptoProviderItf&.
      */
-    virtual CryptoProviderItf& GetCryptoProvider() = 0;
+    CryptoProviderItf& GetCryptoProvider() override;
 
     /**
      * Returns hash provider.
      *
      * @return HasherItf&.
      */
-    virtual HasherItf& GetHashProvider() = 0;
+    HasherItf& GetHashProvider() override;
 
     /**
      * Returns random provider.
      *
      * @return RandomItf&.
      */
-    virtual RandomItf& GetRandomProvider() = 0;
+    RandomItf& GetRandomProvider() override;
 
     /**
      * Generates RSA private key.
      *
      * @return RetWithError<std::shared_ptr<PrivateKeyItf>>.
      */
-    virtual RetWithError<std::shared_ptr<PrivateKeyItf>> GenerateRSAPrivKey() = 0;
+    RetWithError<std::shared_ptr<PrivateKeyItf>> GenerateRSAPrivKey() override;
 
     /**
      * Generates ECDSA private key.
      *
      * @return RetWithError<std::shared_ptr<PrivateKeyItf>>.
      */
-    virtual RetWithError<std::shared_ptr<PrivateKeyItf>> GenerateECDSAPrivKey() = 0;
+    RetWithError<std::shared_ptr<PrivateKeyItf>> GenerateECDSAPrivKey() override;
 
     /**
      * Converts PEM certificate to DER format.
@@ -80,7 +78,7 @@ public:
      * @param pem PEM certificate.
      * @return RetWithError<std::vector<uint8_t>>.
      */
-    virtual RetWithError<std::vector<uint8_t>> PemCertToDer(const char* pem) = 0;
+    RetWithError<std::vector<uint8_t>> PemCertToDer(const char* pem) override;
 
     /**
      * Verifies PEM certificate.
@@ -88,7 +86,7 @@ public:
      * @param pemCert PEM certificate.
      * @return bool.
      */
-    virtual bool VerifyCertificate(const std::string& pemCert) = 0;
+    bool VerifyCertificate(const std::string& pemCert) override;
 
     /**
      * Verifies PEM CSR.
@@ -96,7 +94,7 @@ public:
      * @param pemCSR PEM CSR.
      * @return bool.
      */
-    virtual bool VerifyCSR(const std::string& pemCSR) = 0;
+    bool VerifyCSR(const std::string& pemCSR) override;
 
     /**
      * Verifies RSA signature.
@@ -106,9 +104,8 @@ public:
      * @param digest digest.
      * @return bool.
      */
-    virtual bool VerifySignature(
-        const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
-        = 0;
+    bool VerifySignature(
+        const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest) override;
 
     /**
      * Verifies ECDSA signature.
@@ -118,9 +115,8 @@ public:
      * @param digest digest.
      * @return bool.
      */
-    virtual bool VerifySignature(
-        const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
-        = 0;
+    bool VerifySignature(
+        const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest) override;
 
     /**
      * Encrypts message using RSA public key.
@@ -130,7 +126,10 @@ public:
      * @param cipher encrypted message.
      * @return Error.
      */
-    virtual Error Encrypt(const crypto::RSAPublicKey& pubKey, const Array<uint8_t>& msg, Array<uint8_t>& cipher) = 0;
+    Error Encrypt(const crypto::RSAPublicKey& pubKey, const Array<uint8_t>& msg, Array<uint8_t>& cipher) override;
+
+private:
+    MbedTLSCryptoProvider mProvider;
 };
 
 } // namespace aos::crypto
