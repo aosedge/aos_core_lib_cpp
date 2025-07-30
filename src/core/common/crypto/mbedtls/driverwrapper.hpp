@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef DRIVERWRAPPER_HPP_
-#define DRIVERWRAPPER_HPP_
+#ifndef AOS_CORE_COMMON_CRYPTO_MBEDTLS_DRIVERWRAPPER_HPP_
+#define AOS_CORE_COMMON_CRYPTO_MBEDTLS_DRIVERWRAPPER_HPP_
 
 #include <psa/crypto.h>
 

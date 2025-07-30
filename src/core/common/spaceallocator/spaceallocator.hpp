@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SPACEALLOCATOR_HPP_
-#define AOS_SPACEALLOCATOR_HPP_
+#ifndef AOS_CORE_COMMON_SPACEALLOCATOR_SPACEALLOCATOR_HPP_
+#define AOS_CORE_COMMON_SPACEALLOCATOR_SPACEALLOCATOR_HPP_
 
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/function.hpp>

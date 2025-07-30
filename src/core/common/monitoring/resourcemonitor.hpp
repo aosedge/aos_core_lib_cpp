@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_RESOURCEMONITOR_HPP_
-#define AOS_RESOURCEMONITOR_HPP_
+#ifndef AOS_CORE_COMMON_MONITORING_RESOURCEMONITOR_HPP_
+#define AOS_CORE_COMMON_MONITORING_RESOURCEMONITOR_HPP_
 
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/timer.hpp>

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_UUID_HPP_
-#define AOS_UUID_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_UUID_HPP_
+#define AOS_CORE_COMMON_TOOLS_UUID_HPP_
 
 #include <core/common/config.hpp>
 

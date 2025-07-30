@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_RUNTIMESPEC_HPP_
-#define AOS_RUNTIMESPEC_HPP_
+#ifndef AOS_CORE_COMMON_OCISPEC_RUNTIMESPEC_HPP_
+#define AOS_CORE_COMMON_OCISPEC_RUNTIMESPEC_HPP_
 
 #include <core/common/tools/map.hpp>
 #include <core/common/types/types.hpp>

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_LOGPROVIDER_CONFIG_HPP_
-#define AOS_LOGPROVIDER_CONFIG_HPP_
+#ifndef AOS_CORE_COMMON_LOGPROVIDER_CONFIG_HPP_
+#define AOS_CORE_COMMON_LOGPROVIDER_CONFIG_HPP_
 
 #include <cstdint>
 

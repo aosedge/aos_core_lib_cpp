@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_ALGORITHM_HPP_
-#define AOS_ALGORITHM_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_ALGORITHM_HPP_
+#define AOS_CORE_COMMON_TOOLS_ALGORITHM_HPP_
 
 #include "error.hpp"
 

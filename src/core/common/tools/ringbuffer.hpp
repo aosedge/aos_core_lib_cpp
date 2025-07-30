@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_RINGBUFFER_HPP_
-#define AOS_RINGBUFFER_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_RINGBUFFER_HPP_
+#define AOS_CORE_COMMON_TOOLS_RINGBUFFER_HPP_
 
 #include <assert.h>
 #include <cstdint>

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_ENUM_HPP_
-#define AOS_ENUM_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_ENUM_HPP_
+#define AOS_CORE_COMMON_TOOLS_ENUM_HPP_
 
 #include "string.hpp"
 

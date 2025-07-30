@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_OCISPEC_HPP_
-#define AOS_OCISPEC_HPP_
+#ifndef AOS_CORE_COMMON_OCISPEC_OCISPEC_HPP_
+#define AOS_CORE_COMMON_OCISPEC_OCISPEC_HPP_
 
 #include "imagespec.hpp"
 #include "runtimespec.hpp"

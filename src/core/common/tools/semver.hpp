@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SEMVER_HPP_
-#define AOS_SEMVER_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_SEMVER_HPP_
+#define AOS_CORE_COMMON_TOOLS_SEMVER_HPP_
 
 #include "string.hpp"
 

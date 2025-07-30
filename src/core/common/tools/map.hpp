@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_MAP_HPP_
-#define AOS_MAP_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_MAP_HPP_
+#define AOS_CORE_COMMON_TOOLS_MAP_HPP_
 
 #include "array.hpp"
 #include "utils.hpp"

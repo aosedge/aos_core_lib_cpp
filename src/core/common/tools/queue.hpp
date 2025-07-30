@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_QUEUE_HPP_
-#define AOS_QUEUE_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_QUEUE_HPP_
+#define AOS_CORE_COMMON_TOOLS_QUEUE_HPP_
 
 #include <assert.h>
 

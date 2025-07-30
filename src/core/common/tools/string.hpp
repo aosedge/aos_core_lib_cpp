@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_STRING_HPP_
-#define AOS_STRING_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_STRING_HPP_
+#define AOS_CORE_COMMON_TOOLS_STRING_HPP_
 
 #define __STDC_FORMAT_MACROS
 

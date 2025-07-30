@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_LOG_HPP_
-#define AOS_LOG_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_LOG_HPP_
+#define AOS_CORE_COMMON_TOOLS_LOG_HPP_
 
 #include "config.hpp"
 #include "enum.hpp"
