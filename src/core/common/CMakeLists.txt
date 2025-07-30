@@ -30,6 +30,11 @@ set(INSTALL_HEADERS
 
 set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_monitoring aos_core_common_pkcs11 aos_core_common_tools)
 
+if(WITH_TEST)
+    list(APPEND INSTALL_HEADERS aos_core_common_tests_mocks)
+    list(APPEND INSTALL_LIBRARIES aos_core_common_tests_crypto aos_core_common_tests_utils)
+endif()
+
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
@@ -60,6 +65,10 @@ add_subdirectory(spaceallocator)
 add_subdirectory(tools)
 add_subdirectory(types)
 add_subdirectory(version)
+
+if(WITH_TEST)
+    add_subdirectory(tests)
+endif()
 
 # ######################################################################################################################
 # Install
