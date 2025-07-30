@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_ALERTPROCESSOR_HPP_
-#define AOS_ALERTPROCESSOR_HPP_
+#ifndef AOS_CORE_COMMON_MONITORING_ALERTPROCESSOR_HPP_
+#define AOS_CORE_COMMON_MONITORING_ALERTPROCESSOR_HPP_
 
 #include <core/common/alerts/alerts.hpp>
 #include <core/common/cloudprotocol/alerts.hpp>

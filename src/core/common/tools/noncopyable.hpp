@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_NONCOPIABLE_HPP_
-#define AOS_NONCOPIABLE_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_NONCOPYABLE_HPP_
+#define AOS_CORE_COMMON_TOOLS_NONCOPYABLE_HPP_
 
 namespace aos {
 

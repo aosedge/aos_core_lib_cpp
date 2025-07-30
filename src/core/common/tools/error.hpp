@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_ERROR_HPP_
-#define AOS_ERROR_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_ERROR_HPP_
+#define AOS_CORE_COMMON_TOOLS_ERROR_HPP_
 
 #include <errno.h>
 #include <stdio.h>

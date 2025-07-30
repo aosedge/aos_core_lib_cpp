@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef CRYPTOPROVIDER_HPP_
-#define CRYPTOPROVIDER_HPP_
+#ifndef AOS_CORE_COMMON_CRYPTO_MBEDTLS_CRYPTOPROVIDER_HPP_
+#define AOS_CORE_COMMON_CRYPTO_MBEDTLS_CRYPTOPROVIDER_HPP_
 
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>

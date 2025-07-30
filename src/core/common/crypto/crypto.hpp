@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CRYPTO_HPP_
-#define AOS_CRYPTO_HPP_
+#ifndef AOS_CORE_COMMON_CRYPTO_CRYPTO_HPP_
+#define AOS_CORE_COMMON_CRYPTO_CRYPTO_HPP_
 
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/enum.hpp>
