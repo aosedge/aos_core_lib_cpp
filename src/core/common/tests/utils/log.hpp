@@ -11,7 +11,7 @@
 #include <iostream>
 #include <mutex>
 
-#include "aos/common/tools/logger.hpp"
+#include <core/common/tools/logger.hpp>
 
 namespace aos::test {
 
