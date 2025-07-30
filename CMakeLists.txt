@@ -7,9 +7,6 @@
 
 cmake_minimum_required(VERSION 3.19)
 
-# Check compiler using static library instead of applicion
-set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-
 project("aos_core_lib_cpp")
 
 # ######################################################################################################################
@@ -34,7 +31,8 @@ message(STATUS)
 # Config
 # ######################################################################################################################
 
-set(AOS_CORE_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+# Check compiler using static library instead of application
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 set(AOS_STACK_USAGE 4096)
 
 # ######################################################################################################################
@@ -48,14 +46,15 @@ set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_STANDARD 17)
 
 if(WITH_TEST)
-    add_definitions(-include ${AOS_CORE_LIB_DIR}/include/aos/test/aoscoretestconfig.hpp)
+    add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/include/aos/test/aoscoretestconfig.hpp)
 endif()
 
 # ######################################################################################################################
 # Dependencies
 # ######################################################################################################################
 
-set(CMAKE_MODULE_PATH ${AOS_CORE_LIB_DIR}/cmake)
+set(VERSION_CMAKE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 if(WITH_TEST)
     find_package(GTest REQUIRED)
@@ -85,28 +84,6 @@ if(WITH_COVERAGE)
     )
 endif()
 
-# ######################################################################################################################
-# Includes
-# ######################################################################################################################
-
-include_directories(include)
-
-# ######################################################################################################################
-# Targets
-# ######################################################################################################################
-
-add_subdirectory(src/common)
-add_subdirectory(src/sm)
-add_subdirectory(src/iam)
-
-if(WITH_TEST)
-    add_subdirectory(tests)
-endif()
-
-# ######################################################################################################################
-# Doc
-# ######################################################################################################################
-
 if(WITH_DOC)
     find_package(Doxygen)
 
@@ -120,3 +97,9 @@ if(WITH_DOC)
         VERBATIM
     )
 endif()
+
+# ######################################################################################################################
+# Subdirectories
+# ######################################################################################################################
+
+add_subdirectory(src)
