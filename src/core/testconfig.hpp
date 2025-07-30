@@ -28,4 +28,14 @@
  */
 #define AOS_CONFIG_TYPES_MAX_NUM_LAYERS 8
 
+/**
+ * Monitoring poll period.
+ */
+#define AOS_CONFIG_MONITORING_POLL_PERIOD_SEC 1
+
+/**
+ * Monitoring average window.
+ */
+#define AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC 3
+
 #endif // AOSCORETESTCONFIG_HPP
