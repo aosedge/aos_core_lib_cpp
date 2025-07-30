@@ -9,8 +9,6 @@
 # Creates softhsm test environment
 #
 
-set(AOSCORE_UTILS_LIB_DIR ${CMAKE_CURRENT_LIST_DIR})
-
 function(createsofthsmtestenv TARGET SOFTHSM_BASE_DIR)
     find_library(
         SOFTHSM2_LIB
@@ -24,7 +22,7 @@ function(createsofthsmtestenv TARGET SOFTHSM_BASE_DIR)
 
     file(MAKE_DIRECTORY ${SOFTHSM_BASE_DIR}/tokens/)
 
-    configure_file(${AOSCORE_UTILS_LIB_DIR}/softhsm2.conf ${SOFTHSM_BASE_DIR}/softhsm2.conf COPYONLY)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/softhsm2.conf ${SOFTHSM_BASE_DIR}/softhsm2.conf COPYONLY)
     file(APPEND ${SOFTHSM_BASE_DIR}/softhsm2.conf "directories.tokendir = ${SOFTHSM_BASE_DIR}/tokens/\n")
 
     target_compile_definitions(${TARGET} PUBLIC SOFTHSM_BASE_DIR="${SOFTHSM_BASE_DIR}" SOFTHSM2_LIB="${SOFTHSM2_LIB}")
