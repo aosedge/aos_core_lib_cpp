@@ -9,8 +9,8 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/string.hpp"
-#include "aos/common/tools/variant.hpp"
+#include <core/common/tools/string.hpp>
+#include <core/common/tools/variant.hpp>
 
 using namespace testing;
 using namespace aos;

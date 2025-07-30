@@ -7,9 +7,9 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/ocispec/ocispec.hpp"
-#include "aos/test/log.hpp"
-#include "aos/test/utils.hpp"
+#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
 
 namespace aos::oci {
 

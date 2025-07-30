@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/queue.hpp"
+#include <core/common/tools/queue.hpp>
 
 using namespace aos;
 

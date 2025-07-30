@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/spaceallocator/spaceallocator.hpp"
+#include <core/common/spaceallocator/spaceallocator.hpp>
 
 namespace aos::spaceallocator {
 

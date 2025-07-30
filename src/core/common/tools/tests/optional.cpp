@@ -7,7 +7,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/optional.hpp"
+#include <core/common/tools/optional.hpp>
 
 using namespace aos;
 

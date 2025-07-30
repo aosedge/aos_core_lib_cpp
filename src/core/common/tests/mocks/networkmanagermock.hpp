@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/sm/networkmanager.hpp"
+#include <core/sm/networkmanager/networkmanager.hpp>
 
 namespace aos::sm::networkmanager {
 

@@ -7,7 +7,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/memory.hpp"
+#include <core/common/tools/memory.hpp>
 
 using namespace aos;
 

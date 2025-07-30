@@ -9,10 +9,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "aos/common/monitoring/alertprocessor.hpp"
-#include "aos/test/log.hpp"
-
-#include "mocks/alertsmock.hpp"
+#include <core/common/monitoring/alertprocessor.hpp>
+#include <core/common/tests/mocks/alertsmock.hpp>
+#include <core/common/tests/utils/log.hpp>
 
 namespace aos::monitoring {
 

@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/semver.hpp"
+#include <core/common/tools/semver.hpp>
 
 namespace aos::semver {
 

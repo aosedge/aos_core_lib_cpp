@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/ocispec/ocispec.hpp"
+#include <core/common/ocispec/ocispec.hpp>
 
 namespace aos::oci {
 

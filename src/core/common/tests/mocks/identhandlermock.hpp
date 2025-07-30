@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/iam/identhandler.hpp"
+#include <core/iam/identhandler/identhandler.hpp>
 
 namespace aos::iam::identhandler {
 

@@ -7,11 +7,10 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/crypto/utils.hpp"
-
-#include "aos/test/crypto/providers/cryptofactory.hpp"
-#include "aos/test/log.hpp"
-#include "aos/test/softhsmenv.hpp"
+#include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/tests/crypto/providers/cryptofactory.hpp>
+#include <core/common/tests/crypto/softhsmenv.hpp>
+#include <core/common/tests/utils/log.hpp>
 
 namespace aos::crypto {
 

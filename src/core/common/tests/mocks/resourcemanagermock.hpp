@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/sm/resourcemanager.hpp"
+#include <core/sm/resourcemanager/resourcemanager.hpp>
 
 namespace aos::sm::resourcemanager {
 

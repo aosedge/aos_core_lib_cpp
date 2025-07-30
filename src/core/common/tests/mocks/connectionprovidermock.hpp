@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/connectionsubsc.hpp"
+#include <core/common/connectionprovider/connectionprovider.hpp>
 
 namespace aos {
 

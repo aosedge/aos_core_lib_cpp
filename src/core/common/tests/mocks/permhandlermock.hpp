@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/iam/permhandler.hpp"
+#include <core/iam/permhandler/permhandler.hpp>
 
 namespace aos::iam::permhandler {
 
