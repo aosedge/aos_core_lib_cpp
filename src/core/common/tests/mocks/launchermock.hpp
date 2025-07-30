@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/sm/launcher.hpp"
+#include <core/sm/launcher/launcher.hpp>
 
 namespace aos::sm::launcher {
 

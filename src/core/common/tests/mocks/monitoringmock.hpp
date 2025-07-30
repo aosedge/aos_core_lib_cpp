@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/monitoring/monitoring.hpp"
+#include <core/common/monitoring/monitoring.hpp>
 
 namespace aos::monitoring {
 

@@ -16,7 +16,7 @@
 #include <mbedtls/pk.h>
 #include <mbedtls/x509_crt.h>
 
-#include "aos/test/crypto/providers/mbedtlsfactory.hpp"
+#include "mbedtlsfactory.hpp"
 
 namespace aos::crypto {
 

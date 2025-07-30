@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include <aos/iam/certprovider.hpp>
+#include <core/iam/certprovider/certprovider.hpp>
 
 namespace aos::iam::certprovider {
 

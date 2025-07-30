@@ -6,8 +6,8 @@
 
 #include <gtest/gtest.h>
 
-#include <aos/common/tools/identifierpool.hpp>
-#include <aos/test/log.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/identifierpool.hpp>
 
 using namespace testing;
 

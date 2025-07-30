@@ -8,14 +8,13 @@
 #include <fstream>
 #include <gmock/gmock.h>
 
-#include "aos/common/pkcs11/privatekey.hpp"
-#include "aos/common/tools/allocator.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/uuid.hpp"
-#include "aos/test/log.hpp"
-#include "aos/test/softhsmenv.hpp"
-
-#include "aos/test/crypto/providers/cryptofactory.hpp"
+#include <core/common/pkcs11/privatekey.hpp>
+#include <core/common/tests/crypto/providers/cryptofactory.hpp>
+#include <core/common/tests/crypto/softhsmenv.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/uuid.hpp>
 
 using namespace testing;
 

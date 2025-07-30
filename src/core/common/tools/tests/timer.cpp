@@ -7,7 +7,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/timer.hpp"
+#include <core/common/tools/timer.hpp>
 
 using namespace aos;
 using namespace testing;

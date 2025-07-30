@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include <aos/common/downloader/downloader.hpp>
+#include <core/common/downloader/downloader.hpp>
 
 namespace aos::downloader {
 

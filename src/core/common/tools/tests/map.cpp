@@ -7,8 +7,8 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/string.hpp"
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/string.hpp>
 
 using namespace aos;
 

@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include <aos/iam/certhandler.hpp>
+#include <core/iam/certhandler/certhandler.hpp>
 
 namespace aos::iam::certhandler {
 /**

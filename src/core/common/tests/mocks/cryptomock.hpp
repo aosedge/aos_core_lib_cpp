@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/crypto/crypto.hpp"
+#include <core/common/crypto/crypto.hpp>
 
 namespace aos::crypto {
 
