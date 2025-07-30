@@ -45,10 +45,6 @@ set(CMAKE_CXX_FLAGS "${common_flags} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${common_flags} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_STANDARD 17)
 
-if(WITH_TEST)
-    add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/include/aos/test/aoscoretestconfig.hpp)
-endif()
-
 # ######################################################################################################################
 # Dependencies
 # ######################################################################################################################
