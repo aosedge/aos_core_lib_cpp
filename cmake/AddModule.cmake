@@ -2,23 +2,25 @@
 # Internal helper function that creates a target with common configuration.
 #
 # _add_target(
-#     TARGET_NAME <name>     - name of test;
-#     TARGET_TYPE <type>     - type of target, can be STATIC, EXECUTABLE or TEST;
-#     LOG_MODULE             - if set, defines the LOG_MODULE for the target (optional);
-#     STACK_USAGE <value>    - stack usage for the target (optional);
-#     DEFINES <list>         - list of preprocessor definitions (optional);
-#     COMPILE_OPTIONS <list> - list of compiler options (optional);
-#     INCLUDES <list>        - list of include directories (optional);
-#     SOURCES <list>         - list of source files;
-#     LINK_OPTIONS <list>    - list of link options (optional);
-#     LIBRARIES <list>       - list of libraries to link against (optional).
-#     PROPERTIES <list>      - list of target properties (optional).
+#     TARGET_NAME <name>       - name of test;
+#     TARGET_TYPE <type>       - type of target, can be STATIC, EXECUTABLE or TEST;
+#     LOG_MODULE               - if set, defines the LOG_MODULE for the target (optional);
+#     STACK_USAGE <value>      - stack usage for the target (optional);
+#     DEFINES <list>           - list of preprocessor definitions (optional);
+#     COMPILE_OPTIONS <list>   - list of compiler options (optional);
+#     INCLUDES <list>          - list of include directories (optional);
+#     SOURCES <list>           - list of source files;
+#     HEADERS <list>           - list of header files (optional);
+#     LINK_OPTIONS <list>      - list of link options (optional);
+#     LIBRARIES <list>         - list of libraries to link against (optional).
+#     PROPERTIES <list>        - list of target properties (optional).
 # )
 #
 # The following public variables are used:
 #   - TARGET_PREFIX    - prefix for the target name, default is "aos";
 #   - TARGET_NAMESPACE - namespace for the target alias, default is "aos";
-#   - TARGET_INCLUDES  - common includes that will be added to public target scope.
+#   - TARGET_INCLUDES  - common includes that will be added to public target scope;
+#   - HEADERS_BASE_DIRS - base directories for header files, default is the project source directory.
 #
 # This function set TARGET variable and make it available in the parent scope.
 # ######################################################################################################################
@@ -27,6 +29,7 @@ function(_add_target)
     set(one_value_args TARGET_NAME STACK_USAGE TARGET_TYPE)
     set(multi_value_args
         SOURCES
+        HEADERS
         DEFINES
         COMPILE_OPTIONS
         INCLUDES
@@ -106,6 +109,16 @@ function(_add_target)
         message(FATAL_ERROR "Unsupported TARGET_TYPE: ${ARG_TARGET_TYPE}")
     endif()
 
+    # set headers
+
+    if(ARG_HEADERS)
+        if(NOT HEADERS_BASE_DIRS)
+            set(HEADERS_BASE_DIRS ${CMAKE_SOURCE_DIR})
+        endif()
+
+        target_sources(${TARGET} PUBLIC FILE_SET HEADERS BASE_DIRS ${HEADERS_BASE_DIRS} FILES ${ARG_HEADERS})
+    endif()
+
     # set stack usage
 
     if(ARG_STACK_USAGE)
@@ -163,13 +176,13 @@ function(add_module)
 endfunction()
 
 # ######################################################################################################################
-# This function creates test binary target.
+# This function creates executable binary target.
 #
-# It calls _add_target with TARGET_TYPE set to TEST.
+# It calls _add_target with TARGET_TYPE set to EXECUTABLE.
 # See parameters description in _add_target function.
 # ######################################################################################################################
-function(add_test)
-    _add_target(TARGET_TYPE TEST ${ARGN})
+function(add_exec)
+    _add_target(TARGET_TYPE EXECUTABLE ${ARGN})
 
     set(TARGET
         ${TARGET}
@@ -178,13 +191,13 @@ function(add_test)
 endfunction()
 
 # ######################################################################################################################
-# This function creates executable binary target.
+# This function creates test binary target.
 #
-# It calls _add_target with TARGET_TYPE set to EXECUTABLE.
+# It calls _add_target with TARGET_TYPE set to TEST.
 # See parameters description in _add_target function.
 # ######################################################################################################################
-function(add_exec)
-    _add_target(TARGET_TYPE EXECUTABLE ${ARGN})
+function(add_test)
+    _add_target(TARGET_TYPE TEST ${ARGN})
 
     set(TARGET
         ${TARGET}
