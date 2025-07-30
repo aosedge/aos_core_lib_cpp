@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_OCICOMMON_HPP_
-#define AOS_OCICOMMON_HPP_
+#ifndef AOS_CORE_COMMON_OCISPEC_COMMON_HPP_
+#define AOS_CORE_COMMON_OCISPEC_COMMON_HPP_
 
 #include <core/common/config.hpp>
 

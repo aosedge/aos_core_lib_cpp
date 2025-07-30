@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_NEW_HPP_
-#define AOS_NEW_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_NEW_HPP_
+#define AOS_CORE_COMMON_TOOLS_NEW_HPP_
 
 #include <new>
 #include <stddef.h>

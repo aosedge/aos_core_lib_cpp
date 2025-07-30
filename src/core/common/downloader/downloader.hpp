@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_DOWNLOADER_HPP_
-#define AOS_DOWNLOADER_HPP_
+#ifndef AOS_CORE_COMMON_DOWNLOADER_DOWNLOADER_HPP_
+#define AOS_CORE_COMMON_DOWNLOADER_DOWNLOADER_HPP_
 
 #include <core/common/cloudprotocol/alerts.hpp>
 #include <core/common/tools/enum.hpp>

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CLOUDPROTOCOL_ALERTS_HPP_
-#define AOS_CLOUDPROTOCOL_ALERTS_HPP_
+#ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_ALERTS_HPP_
+#define AOS_CORE_COMMON_CLOUDPROTOCOL_ALERTS_HPP_
 
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/variant.hpp>

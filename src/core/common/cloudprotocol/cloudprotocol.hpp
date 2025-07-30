@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CLOUDPROTOCOL_HPP_
-#define AOS_CLOUDPROTOCOL_HPP_
+#ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_CLOUDPROTOCOL_HPP_
+#define AOS_CORE_COMMON_CLOUDPROTOCOL_CLOUDPROTOCOL_HPP_
 
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/optional.hpp>

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_MONITORING_HPP_
-#define AOS_MONITORING_HPP_
+#ifndef AOS_CORE_COMMON_MONITORING_MONITORING_HPP_
+#define AOS_CORE_COMMON_MONITORING_MONITORING_HPP_
 
 #include <core/common/connectionprovider/connectionprovider.hpp>
 #include <core/common/tools/error.hpp>

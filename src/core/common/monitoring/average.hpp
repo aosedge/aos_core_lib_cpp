@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_AVERAGE_HPP_
-#define AOS_AVERAGE_HPP_
+#ifndef AOS_CORE_COMMON_MONITORING_AVERAGE_HPP_
+#define AOS_CORE_COMMON_MONITORING_AVERAGE_HPP_
 
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>

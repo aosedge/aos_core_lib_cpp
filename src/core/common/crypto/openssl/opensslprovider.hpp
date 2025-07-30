@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_OPENSSL_PROVIDER_HPP_
-#define AOS_OPENSSL_PROVIDER_HPP_
+#ifndef AOS_CORE_COMMON_CRYPTO_OPENSSL_OPENSSLROVIDER_HPP_
+#define AOS_CORE_COMMON_CRYPTO_OPENSSL_OPENSSLROVIDER_HPP_
 
 #include <core/common/config.hpp>
 

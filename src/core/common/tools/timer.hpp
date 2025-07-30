@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_TIMER_HPP_
-#define AOS_TIMER_HPP_
+#ifndef AOS_CORE_COMMON_TOOLS_TIMER_HPP_
+#define AOS_CORE_COMMON_TOOLS_TIMER_HPP_
 
 #include "config.hpp"
 #include "function.hpp"

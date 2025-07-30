@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_PKCS11_HPP_
-#define AOS_PKCS11_HPP_
+#ifndef AOS_CORE_COMMON_PKCS11_PKCS11_HPP_
+#define AOS_CORE_COMMON_PKCS11_PKCS11_HPP_
 
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/log.hpp>

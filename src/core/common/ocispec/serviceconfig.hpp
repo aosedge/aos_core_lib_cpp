@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SERVICECONFIG_HPP_
-#define AOS_SERVICECONFIG_HPP_
+#ifndef AOS_CORE_COMMON_OCISPEC_SERVICECONFIG_HPP_
+#define AOS_CORE_COMMON_OCISPEC_SERVICECONFIG_HPP_
 
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/optional.hpp>
