@@ -7,9 +7,9 @@
 #ifndef OPENSSL_FACTORY_HPP_
 #define OPENSSL_FACTORY_HPP_
 
-#include "cryptofactoryitf.hpp"
+#include <core/common/crypto/openssl/cryptoprovider.hpp>
 
-#include <aos/common/crypto/openssl/cryptoprovider.hpp>
+#include "cryptofactoryitf.hpp"
 
 namespace aos::crypto {
 
