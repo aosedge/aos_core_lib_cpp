@@ -4,7 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aoscrypto)
+# ######################################################################################################################
+# Target name
+# ######################################################################################################################
+
+set(TARGET_NAME crypto)
+
+# ######################################################################################################################
+# Options
+# ######################################################################################################################
 
 option(WITH_MBEDTLS "build with MbedTLS" ON)
 option(WITH_OPENSSL "build with OpenSSL" OFF)
@@ -14,13 +22,7 @@ message(STATUS "WITH_OPENSSL                  = ${WITH_OPENSSL}")
 message(STATUS)
 
 # ######################################################################################################################
-# Includes
-# ######################################################################################################################
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/drivers)
-
-# ######################################################################################################################
-# Fetch and setup MbedTLS
+# Dependencies
 # ######################################################################################################################
 
 if(WITH_MBEDTLS)
@@ -28,18 +30,21 @@ if(WITH_MBEDTLS)
 
     set(FETCHCONTENT_QUIET FALSE)
 
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/drivers)
+
     FetchContent_Declare(
         mbedtls
         GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
         GIT_TAG v3.6.1
         GIT_PROGRESS TRUE
         GIT_SHALLOW TRUE
+        EXCLUDE_FROM_ALL
         PATCH_COMMAND
             cp ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/drivers/psa_crypto_driver_wrappers_no_static.c
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers_no_static.c && cp
             ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/drivers/psa_crypto_driver_wrappers.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/library/psa_crypto_driver_wrappers.h && cp
-            ${AOS_CORE_LIB_DIR}/include/aos/common/crypto/mbedtls/mbedtls_config.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/mbedtls_config.h
             ${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include/mbedtls/mbedtls_config.h
     )
 
@@ -58,28 +63,90 @@ if(WITH_MBEDTLS)
     target_include_directories(mbedtls SYSTEM INTERFACE ${MBEDTLS_INCLDUES})
 endif()
 
+if(WITH_OPENSSL)
+    find_package(OpenSSL REQUIRED)
+endif()
+
+# ######################################################################################################################
+# Sources
+# ######################################################################################################################
+
+set(SOURCES crypto.cpp cryptoutils.cpp)
+
+if(WITH_MBEDTLS)
+    list(APPEND SOURCES mbedtls/cryptoprovider.cpp mbedtls/driverwrapper.cpp)
+endif()
+
+if(WITH_OPENSSL)
+    list(APPEND SOURCES openssl/cryptoprovider.cpp openssl/opensslprovider.cpp)
+endif()
+
+# ######################################################################################################################
+# Headers
+# ######################################################################################################################
+
+set(HEADERS crypto.hpp cryptoprovider.hpp cryptoutils.hpp)
+
+if(WITH_MBEDTLS)
+    list(APPEND HEADERS mbedtls/cryptoprovider.hpp mbedtls/driverwrapper.hpp)
+endif()
+
+if(WITH_OPENSSL)
+    list(APPEND HEADERS openssl/cryptoprovider.hpp openssl/opensslprovider.hpp)
+endif()
+
+# ######################################################################################################################
+# Defines
+# ######################################################################################################################
+
+if(WITH_MBEDTLS)
+    list(APPEND DEFINES WITH_MBEDTLS)
+endif()
+
+if(WITH_OPENSSL)
+    list(APPEND DEFINES WITH_OPENSSL)
+endif()
+
+# ######################################################################################################################
+# Compile options
+# ######################################################################################################################
+
+if(WITH_OPENSSL)
+    set(COMPILE_OPTIONS -Wno-unused-function)
+endif()
+
+# ######################################################################################################################
+# Libraries
+# ######################################################################################################################
+
+set(LIBRARIES)
+
+if(WITH_MBEDTLS)
+    list(APPEND LIBRARIES mbedcrypto mbedx509 mbedtls)
+endif()
+
+if(WITH_OPENSSL)
+    list(APPEND LIBRARIES OpenSSL::Crypto)
+endif()
+
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_library(${TARGET} STATIC crypto.cpp cryptoutils.cpp)
-
-if(WITH_MBEDTLS)
-    target_sources(${TARGET} PRIVATE mbedtls/cryptoprovider.cpp mbedtls/driverwrapper.cpp)
-    target_link_libraries(${TARGET} PUBLIC mbedcrypto mbedx509 mbedtls)
-    target_compile_definitions(${TARGET} PUBLIC WITH_MBEDTLS)
-endif()
-
-if(WITH_OPENSSL)
-    find_package(OpenSSL REQUIRED)
-
-    target_sources(${TARGET} PRIVATE openssl/cryptoprovider.cpp openssl/opensslprovider.cpp)
-    target_link_libraries(${TARGET} PUBLIC OpenSSL::Crypto)
-    # Suppress unused-function warning for SEQ_OID macro
-    target_compile_options(${TARGET} PRIVATE -Wno-unused-function)
-    target_compile_definitions(${TARGET} PUBLIC WITH_OPENSSL)
-endif()
-
-target_compile_definitions(${TARGET} PRIVATE LOG_MODULE="crypto")
-target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
-target_include_directories(${TARGET} PRIVATE ${AOS_CORE_LIB_DIR}/include)
+add_module(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    STACK_USAGE
+    ${AOS_STACK_USAGE}
+    SOURCES
+    ${SOURCES}
+    HEADERS
+    ${HEADERS}
+    DEFINES
+    ${DEFINES}
+    COMPILE_OPTIONS
+    ${COMPILE_OPTIONS}
+    LIBRARIES
+    ${LIBRARIES}
+)

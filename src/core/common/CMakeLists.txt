@@ -5,78 +5,70 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aoscommon)
+set(TARGET_NAME common)
 
 # ######################################################################################################################
-# Versioning
+# Headers
 # ######################################################################################################################
 
-set(CMAKE_MODULE_PATH ${AOS_CORE_LIB_DIR}/cmake)
+set(HEADERS config.hpp)
 
-find_package(Git)
+# ######################################################################################################################
+# Install targets
+# ######################################################################################################################
 
-if(NOT GIT_FOUND)
-    set(GIT_EXECUTABLE git)
-endif()
-
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common)
-
-execute_process(
-    OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp
-    COMMAND
-        ${CMAKE_COMMAND} -D GIT_EXECUTABLE=${GIT_EXECUTABLE} -D
-        INPUT_FILE=${AOS_CORE_LIB_DIR}/src/common/version.hpp.in -D
-        OUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp -D GIT_SOURCE_DIR=${AOS_CORE_LIB_DIR} -P
-        ${CMAKE_MODULE_PATH}/GenerateVersion.cmake
+set(INSTALL_HEADERS
+    aos_core_common_alerts
+    aos_core_common_cloudprotocol
+    aos_core_common_connectionprovider
+    aos_core_common_logprovider
+    aos_core_common_ocispec
+    aos_core_common_spaceallocator
+    aos_core_common_types
+    aos_core_common_version
 )
 
-# ######################################################################################################################
-# Includes
-# ######################################################################################################################
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
-# ######################################################################################################################
-# Add subdirectories
-# ######################################################################################################################
-
-add_subdirectory(crypto)
+set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_monitoring aos_core_common_pkcs11 aos_core_common_tools)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_library(
-    ${TARGET} STATIC
-    monitoring/average.cpp
-    monitoring/alertprocessor.cpp
-    monitoring/resourcemonitor.cpp
-    pkcs11/pkcs11.cpp
-    pkcs11/privatekey.cpp
-    tools/fs.cpp
-    tools/semver.cpp
-    tools/time.cpp
-    tools/timer.cpp
-    tools/uuid.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp
-)
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS} OBJECTS ${INSTALL_LIBRARIES})
 
-target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
-target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/include)
-target_link_libraries(${TARGET} PUBLIC aoscrypto)
+# ######################################################################################################################
+# Target properties
+# ######################################################################################################################
+
+set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::common)
+set(TARGET_PREFIX ${TARGET_PREFIX}_common)
+
+# ######################################################################################################################
+# Subdirectories
+# ######################################################################################################################
+
+add_subdirectory(alerts)
+add_subdirectory(cloudprotocol)
+add_subdirectory(connectionprovider)
+add_subdirectory(crypto)
+add_subdirectory(downloader)
+add_subdirectory(logprovider)
+add_subdirectory(monitoring)
+add_subdirectory(ocispec)
+add_subdirectory(pkcs11)
+add_subdirectory(spaceallocator)
+add_subdirectory(tools)
+add_subdirectory(types)
+add_subdirectory(version)
 
 # ######################################################################################################################
 # Install
 # ######################################################################################################################
 
-install(TARGETS ${TARGET} aoscrypto ARCHIVE DESTINATION lib)
+install(TARGETS ${TARGET} ARCHIVE FILE_SET HEADERS DESTINATION include/aos)
 
 install(
-    DIRECTORY ${AOS_CORE_LIB_DIR}/include/aos/common
+    TARGETS ${INSTALL_HEADERS} ${INSTALL_LIBRARIES} FILE_SET HEADERS
     DESTINATION include/aos
-    FILES_MATCHING
-    PATTERN "*.hpp"
-    PATTERN "*.h"
+    ARCHIVE EXCLUDE_FROM_ALL
 )
-
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/aos/common/version.hpp DESTINATION include/aos/common)
