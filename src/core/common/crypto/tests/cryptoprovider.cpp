@@ -6,17 +6,16 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/crypto/utils.hpp"
-#include "aos/test/crypto/providers/cryptofactory.hpp"
-
-#include "aos/test/log.hpp"
+#include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/tests/crypto/providers/cryptofactory.hpp>
+#include <core/common/tests/utils/log.hpp>
 
 #if defined(WITH_MBEDTLS)
-#include "aos/test/crypto/providers/mbedtlsfactory.hpp"
+#include <core/common/tests/crypto/providers/mbedtlsfactory.hpp>
 #endif
 
 #if defined(WITH_OPENSSL)
-#include "aos/test/crypto/providers/opensslfactory.hpp"
+#include <core/common/tests/crypto/providers/opensslfactory.hpp>
 #endif
 
 using namespace testing;

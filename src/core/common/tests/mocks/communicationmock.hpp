@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/cm/communication/communication.hpp"
+#include <core/cm/communication/communication.hpp>
 
 namespace aos::cm::communication {
 

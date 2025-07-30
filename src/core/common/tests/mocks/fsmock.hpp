@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/fs.hpp"
+#include <core/common/tools/fs.hpp>
 
 namespace aos {
 class FSPlatformMock : public fs::FSPlatformItf {

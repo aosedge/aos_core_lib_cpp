@@ -12,10 +12,9 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/memory.hpp"
-
-#include "aos/test/log.hpp"
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/memory.hpp>
 
 using namespace testing;
 

@@ -7,8 +7,8 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/common/tools/time.hpp"
-#include "aos/test/log.hpp"
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/time.hpp>
 
 using namespace testing;
 using namespace aos;

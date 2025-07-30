@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/buffer.hpp"
+#include <core/common/tools/buffer.hpp>
 
 using namespace aos;
 

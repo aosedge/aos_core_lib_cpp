@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/types.hpp"
+#include <core/common/types/types.hpp>
 
 using namespace aos;
 

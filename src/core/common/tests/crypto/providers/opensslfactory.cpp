@@ -15,8 +15,7 @@
 #include <openssl/param_build.h>
 #include <openssl/pem.h>
 
-#include "aos/test/crypto/providers/opensslfactory.hpp"
-#include "aos/test/log.hpp"
+#include "opensslfactory.hpp"
 
 namespace aos::crypto {
 

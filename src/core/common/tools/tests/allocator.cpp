@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/allocator.hpp"
+#include <core/common/tools/allocator.hpp>
 
 using namespace aos;
 

@@ -10,8 +10,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "aos/common/monitoring/resourcemonitor.hpp"
-#include "aos/test/log.hpp"
+#include <core/common/monitoring/resourcemonitor.hpp>
+#include <core/common/tests/utils/log.hpp>
 
 namespace aos::monitoring {
 
