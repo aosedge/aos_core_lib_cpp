@@ -1,0 +1,69 @@
+#
+# Copyright (C) 2025 EPAM Systems, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+# ######################################################################################################################
+# Target name
+# ######################################################################################################################
+
+set(TARGET_NAME tools)
+
+# ######################################################################################################################
+# Sources
+# ######################################################################################################################
+
+set(SOURCES fs.cpp semver.cpp time.cpp timer.cpp uuid.cpp)
+
+# ######################################################################################################################
+# Headers
+# ######################################################################################################################
+
+set(HEADERS
+    algorithm.hpp
+    allocator.hpp
+    array.hpp
+    buffer.hpp
+    config.hpp
+    enum.hpp
+    error.hpp
+    fs.hpp
+    function.hpp
+    identifierpool.hpp
+    list.hpp
+    log.hpp
+    logger.hpp
+    map.hpp
+    memory.hpp
+    new.hpp
+    noncopyable.hpp
+    optional.hpp
+    os.hpp
+    queue.hpp
+    ringbuffer.hpp
+    semver.hpp
+    string.hpp
+    thread.hpp
+    time.hpp
+    timer.hpp
+    utils.hpp
+    uuid.hpp
+    variant.hpp
+)
+
+# ######################################################################################################################
+# Target
+# ######################################################################################################################
+
+add_module(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    STACK_USAGE
+    ${AOS_STACK_USAGE}
+    SOURCES
+    ${SOURCES}
+    HEADERS
+    ${HEADERS}
+)

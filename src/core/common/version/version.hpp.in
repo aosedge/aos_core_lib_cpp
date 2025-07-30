@@ -8,6 +8,6 @@
 #ifndef AOS_VERSION_HPP_
 #define AOS_VERSION_HPP_
 
-#define AOS_CORE_VERSION "${GIT_VERSION}"
+#define AOS_CORE_LIB_VERSION "${GIT_VERSION}"
 
 #endif
