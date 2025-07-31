@@ -8,7 +8,7 @@
 #ifndef AOS_CERTHANDLER_STUB_HPP_
 #define AOS_CERTHANDLER_STUB_HPP_
 
-#include "aos/iam/certmodules/certmodule.hpp"
+#include <core/iam/certmodules/certmodule.hpp>
 
 namespace aos::iam::certhandler {
 

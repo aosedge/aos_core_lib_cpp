@@ -7,7 +7,8 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/iam/nodemanager.hpp"
+#include <core/iam/nodemanager/nodemanager.hpp>
+
 #include "storagemock.hpp"
 
 using namespace aos;

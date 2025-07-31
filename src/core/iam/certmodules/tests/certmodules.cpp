@@ -7,12 +7,11 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/iam/certmodules/certmodule.hpp"
-
-#include "aos/test/log.hpp"
-#include "mocks/certhandlermock.hpp"
-#include "mocks/cryptomock.hpp"
-#include "stubs/certhandlerstub.hpp"
+#include <core/common/tests/mocks/certhandlermock.hpp>
+#include <core/common/tests/mocks/cryptomock.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/iam/certmodules/certmodule.hpp>
+#include <core/iam/tests/stubs/certhandlerstub.hpp>
 
 using namespace aos;
 using namespace aos::iam::certhandler;
