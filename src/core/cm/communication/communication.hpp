@@ -7,8 +7,8 @@
 #ifndef AOS_CM_COMMUNICATION_HPP_
 #define AOS_CM_COMMUNICATION_HPP_
 
-#include "aos/common/cloudprotocol/cloudmessage.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/cloudprotocol/cloudmessage.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cm::communication {
 

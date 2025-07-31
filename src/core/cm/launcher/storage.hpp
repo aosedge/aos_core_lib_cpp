@@ -7,7 +7,7 @@
 #ifndef AOS_CM_LAUNCHER_STORAGE_HPP_
 #define AOS_CM_LAUNCHER_STORAGE_HPP_
 
-#include <aos/common/types.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cm::launcher {
 

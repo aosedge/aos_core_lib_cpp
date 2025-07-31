@@ -7,8 +7,8 @@
 #ifndef AOS_CM_LAUNCHER_NODEMANAGER_HPP_
 #define AOS_CM_LAUNCHER_NODEMANAGER_HPP_
 
-#include <aos/common/monitoring/monitoring.hpp>
-#include <aos/common/types.hpp>
+#include <core/common/monitoring/monitoring.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cm::launcher {
 
