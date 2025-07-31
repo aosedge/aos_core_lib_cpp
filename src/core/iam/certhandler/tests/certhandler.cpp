@@ -11,7 +11,7 @@
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/iam/certhandler/certhandler.hpp>
-#include <core/iam/certmodules/pkcs11/pkcs11.hpp>
+#include <core/iam/certhandler/certmodules/pkcs11/pkcs11.hpp>
 #include <core/iam/tests/mocks/certhandlermock.hpp>
 #include <core/iam/tests/stubs/certhandlerstub.hpp>
 

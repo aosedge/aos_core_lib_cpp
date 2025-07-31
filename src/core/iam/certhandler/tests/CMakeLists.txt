@@ -10,7 +10,7 @@ set(TARGET_NAME certhandler_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES certhandler.cpp)
+set(SOURCES certhandler.cpp certmodules.cpp certprovider.cpp)
 
 # ######################################################################################################################
 # Defines
@@ -28,8 +28,8 @@ endif()
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::iam::certhandler aos::core::iam::certmodules aos::core::common::tests::crypto
-              aos::core::iam::tests::stubs GTest::gmock_main
+set(LIBRARIES aos::core::iam::certhandler aos::core::common::tests::crypto aos::core::iam::tests::stubs
+              GTest::gmock_main
 )
 
 # ######################################################################################################################

@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CERTPROVIDER_CERTPROVIDER_HPP_
-#define AOS_CORE_CERTPROVIDER_CERTPROVIDER_HPP_
+#ifndef AOS_CORE_IAM_CERTHANDLER_CERTPROVIDER_HPP_
+#define AOS_CORE_IAM_CERTHANDLER_CERTPROVIDER_HPP_
 
 #include <core/common/tools/error.hpp>
-#include <core/iam/certhandler/certhandler.hpp>
 
-namespace aos::iam::certprovider {
+#include "certhandler.hpp"
+
+namespace aos::iam::certhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
@@ -105,6 +106,6 @@ private:
 
 /** @} */ // end of iam group
 
-} // namespace aos::iam::certprovider
+} // namespace aos::iam::certhandler
 
 #endif /* AOS_PROVISIONMANAGER_HPP_ */

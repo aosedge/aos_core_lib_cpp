@@ -7,12 +7,12 @@
 
 #include <gmock/gmock.h>
 
-#include <core/iam/certprovider/certprovider.hpp>
+#include <core/iam/certhandler/certprovider.hpp>
 #include <core/iam/tests/mocks/certhandlermock.hpp>
 
 using namespace testing;
 using namespace aos::iam;
-using namespace aos::iam::certprovider;
+using namespace aos::iam::certhandler;
 
 /***********************************************************************************************************************
  * Suite

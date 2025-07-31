@@ -9,7 +9,7 @@
 
 #include <core/common/tests/mocks/cryptomock.hpp>
 #include <core/common/tests/utils/log.hpp>
-#include <core/iam/certmodules/certmodule.hpp>
+#include <core/iam/certhandler/certmodule.hpp>
 #include <core/iam/tests/mocks/certhandlermock.hpp>
 #include <core/iam/tests/stubs/certhandlerstub.hpp>
 
