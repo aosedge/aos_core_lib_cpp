@@ -12,7 +12,7 @@
 
 namespace aos::cm::imagemanager {
 
-/** @addtogroup CM ImageProvider
+/** @addtogroup cm Communication Manager
  *  @{
  */
 

@@ -54,6 +54,8 @@ public:
     virtual ~CommunicationItf() = default;
 };
 
+/** @}*/
+
 } // namespace aos::cm::communication
 
 #endif

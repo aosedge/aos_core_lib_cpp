@@ -177,6 +177,8 @@ public:
     virtual ~StorageStateItf() = default;
 };
 
+/** @}*/
+
 } // namespace aos::cm::storagestate
 
 #endif
