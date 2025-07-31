@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CRYPTO_MOCK_HPP_
-#define AOS_CRYPTO_MOCK_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_MOCKS_CRYPTOMOCK_HPP_
+#define AOS_CORE_COMMON_TESTS_MOCKS_CRYPTOMOCK_HPP_
 
 #include <gmock/gmock.h>
 
