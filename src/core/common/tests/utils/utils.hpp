@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_TEST_UTILS_HPP_
-#define AOS_TEST_UTILS_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_UTILS_UTILS_HPP_
+#define AOS_CORE_COMMON_TESTS_UTILS_UTILS_HPP_
 
 #include <string>
 

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef NODEMANAGER_MOCK_HPP_
-#define NODEMANAGER_MOCK_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_MOCKS_NODEMANAGERMOCK_HPP_
+#define AOS_CORE_COMMON_TESTS_MOCKS_NODEMANAGERMOCK_HPP_
 
 #include <gmock/gmock.h>
 
