@@ -5,24 +5,35 @@
 #
 
 # ######################################################################################################################
-# Config
+# Target name
 # ######################################################################################################################
 
-if(WITH_TEST)
-    add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/testconfig.hpp)
-endif()
+set(TARGET_NAME launcher)
 
 # ######################################################################################################################
-# Target properties
+# Sources
 # ######################################################################################################################
 
-set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::core)
-set(TARGET_PREFIX ${TARGET_PREFIX}_core)
+set(SOURCES instance.cpp launcher.cpp runtimespec.cpp)
 
 # ######################################################################################################################
-# Subdirectories
+# Headers
 # ######################################################################################################################
 
-add_subdirectory(common)
-add_subdirectory(iam)
-add_subdirectory(sm)
+set(HEADERS config.hpp instance.hpp launcher.hpp runtimespec.hpp)
+
+# ######################################################################################################################
+# Target
+# ######################################################################################################################
+
+add_module(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    STACK_USAGE
+    ${AOS_STACK_USAGE}
+    SOURCES
+    ${SOURCES}
+    HEADERS
+    ${HEADERS}
+)
