@@ -5,42 +5,58 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aossm)
+set(TARGET_NAME sm)
 
 # ######################################################################################################################
-# Sources
+# Headers
 # ######################################################################################################################
 
-set(SOURCES
-    image/imageparts.cpp
-    launcher/launcher.cpp
-    launcher/instance.cpp
-    launcher/runtimespec.cpp
-    layermanager/layermanager.cpp
-    resourcemanager/resourcemanager.cpp
-    servicemanager/servicemanager.cpp
-    networkmanager/networkmanager.cpp
+set(HEADERS config.hpp)
+
+# ######################################################################################################################
+# Install targets
+# ######################################################################################################################
+
+set(INSTALL_HEADERS aos_core_sm_logprovider aos_core_sm_runner)
+
+set(INSTALL_LIBRARIES aos_core_sm_image aos_core_sm_launcher aos_core_sm_layermanager aos_core_sm_resourcemanager
+                      aos_core_sm_servicemanager
 )
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_library(${TARGET} STATIC ${SOURCES})
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS} OBJECTS ${INSTALL_LIBRARIES})
 
-target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
-target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
-target_link_libraries(${TARGET} PRIVATE aoscommon)
+# ######################################################################################################################
+# Target properties
+# ######################################################################################################################
+
+set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::sm)
+set(TARGET_PREFIX ${TARGET_PREFIX}_sm)
+
+# ######################################################################################################################
+# Subdirectories
+# ######################################################################################################################
+
+add_subdirectory(image)
+add_subdirectory(launcher)
+add_subdirectory(layermanager)
+add_subdirectory(logprovider)
+add_subdirectory(networkmanager)
+add_subdirectory(resourcemanager)
+add_subdirectory(runner)
+add_subdirectory(servicemanager)
 
 # ######################################################################################################################
 # Install
 # ######################################################################################################################
 
-install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
+install(TARGETS ${TARGET} ARCHIVE FILE_SET HEADERS DESTINATION include/aos)
 
 install(
-    DIRECTORY ${AOS_CORE_LIB_DIR}/include/aos/sm
+    TARGETS ${INSTALL_HEADERS} ${INSTALL_LIBRARIES} FILE_SET HEADERS
     DESTINATION include/aos
-    FILES_MATCHING
-    PATTERN "*.hpp"
+    ARCHIVE EXCLUDE_FROM_ALL
 )
