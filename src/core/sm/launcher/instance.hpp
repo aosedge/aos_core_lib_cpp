@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_INSTANCE_HPP_
-#define AOS_INSTANCE_HPP_
+#ifndef AOS_CORE_SM_LAUNCHER_INSTANCE_HPP_
+#define AOS_CORE_SM_LAUNCHER_INSTANCE_HPP_
 
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tools/allocator.hpp>

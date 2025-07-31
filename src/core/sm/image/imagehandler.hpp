@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_IMAGEHANDLER_HPP_
-#define AOS_IMAGEHANDLER_HPP_
+#ifndef AOS_CORE_SM_IMAGE_IMAGEHANDLER_HPP_
+#define AOS_CORE_SM_IMAGE_IMAGEHANDLER_HPP_
 
 #include <core/common/ocispec/ocispec.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>

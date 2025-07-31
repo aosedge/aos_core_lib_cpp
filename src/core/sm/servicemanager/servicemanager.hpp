@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SERVICEMANAGER_HPP_
-#define AOS_SERVICEMANAGER_HPP_
+#ifndef AOS_CORE_SM_SERVICEMANAGER_SERVICEMANAGER_HPP_
+#define AOS_CORE_SM_SERVICEMANAGER_SERVICEMANAGER_HPP_
 
 #include <core/common/downloader/downloader.hpp>
 #include <core/common/ocispec/ocispec.hpp>

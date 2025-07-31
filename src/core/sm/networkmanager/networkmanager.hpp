@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_NETWORKMANAGER_HPP_
-#define AOS_NETWORKMANAGER_HPP_
+#ifndef AOS_CORE_SM_NETWORKMANAGER_NETWORKMANAGER_HPP_
+#define AOS_CORE_SM_NETWORKMANAGER_NETWORKMANAGER_HPP_
 
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/fs.hpp>
