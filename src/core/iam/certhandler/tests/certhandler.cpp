@@ -7,13 +7,13 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/iam/certhandler.hpp"
-#include "aos/iam/certmodules/pkcs11/pkcs11.hpp"
-#include "aos/test/crypto/providers/cryptofactory.hpp"
-#include "aos/test/log.hpp"
-#include "aos/test/softhsmenv.hpp"
-#include "mocks/certhandlermock.hpp"
-#include "stubs/certhandlerstub.hpp"
+#include <core/common/tests/crypto/providers/cryptofactory.hpp>
+#include <core/common/tests/crypto/softhsmenv.hpp>
+#include <core/common/tests/mocks/certhandlermock.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/iam/certhandler/certhandler.hpp>
+#include <core/iam/certmodules/pkcs11/pkcs11.hpp>
+#include <core/iam/tests/stubs/certhandlerstub.hpp>
 
 namespace aos::iam::certhandler {
 
@@ -23,7 +23,7 @@ using namespace testing;
  * Suite
  **********************************************************************************************************************/
 
-class IAMTest : public Test {
+class CerthandlerTest : public Test {
 protected:
     void SetUp() override
     {
@@ -191,7 +191,7 @@ void ApplyCertificate(
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(IAMTest, GetCertTypes)
+TEST_F(CerthandlerTest, GetCertTypes)
 {
     RegisterPKCS11Module("iam");
     RegisterPKCS11Module("sm");
@@ -203,7 +203,7 @@ TEST_F(IAMTest, GetCertTypes)
     CheckArray(certTypes, {"iam", "sm"});
 }
 
-TEST_F(IAMTest, GetModuleConfig)
+TEST_F(CerthandlerTest, GetModuleConfig)
 {
     RegisterPKCS11Module("iam");
     RegisterPKCS11Module("sm", crypto::KeyTypeEnum::eRSA, true);
@@ -240,14 +240,14 @@ TEST_F(IAMTest, GetModuleConfig)
     EXPECT_TRUE(config.mValue.mIsSelfSigned);
 }
 
-TEST_F(IAMTest, SetOwner)
+TEST_F(CerthandlerTest, SetOwner)
 {
     RegisterPKCS11Module("iam");
 
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
 }
 
-TEST_F(IAMTest, CreateKey)
+TEST_F(CerthandlerTest, CreateKey)
 {
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
@@ -258,7 +258,7 @@ TEST_F(IAMTest, CreateKey)
     ASSERT_TRUE(mCryptoFactory.VerifyCSR(csr.CStr()));
 }
 
-TEST_F(IAMTest, ApplyCertificate)
+TEST_F(CerthandlerTest, ApplyCertificate)
 {
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
@@ -297,7 +297,7 @@ TEST_F(IAMTest, ApplyCertificate)
     ASSERT_EQ(certificates[0], certInfo);
 }
 
-TEST_F(IAMTest, CreateSelfSignedCert)
+TEST_F(CerthandlerTest, CreateSelfSignedCert)
 {
     RegisterPKCS11Module("iam");
 
@@ -310,7 +310,7 @@ TEST_F(IAMTest, CreateSelfSignedCert)
     ASSERT_EQ(certificates.Size(), 1);
 }
 
-TEST_F(IAMTest, GetCertificate)
+TEST_F(CerthandlerTest, GetCertificate)
 {
     RegisterPKCS11Module("iam");
 
@@ -329,7 +329,7 @@ TEST_F(IAMTest, GetCertificate)
     ASSERT_EQ(certInfo, storageCerts[0]);
 }
 
-TEST_F(IAMTest, GetCertificateEmptySerial)
+TEST_F(CerthandlerTest, GetCertificateEmptySerial)
 {
     RegisterPKCS11Module("iam");
 
@@ -356,7 +356,7 @@ TEST_F(IAMTest, GetCertificateEmptySerial)
     ASSERT_EQ(certInfo, storageCerts[1]);
 }
 
-TEST_F(IAMTest, SubscribeCertChanged)
+TEST_F(CerthandlerTest, SubscribeCertChanged)
 {
     RegisterPKCS11Module("iam");
 
@@ -377,7 +377,7 @@ TEST_F(IAMTest, SubscribeCertChanged)
     ASSERT_TRUE(mCertHandler->UnsubscribeCertChanged(certReceiver).IsNone());
 }
 
-TEST_F(IAMTest, Clear)
+TEST_F(CerthandlerTest, Clear)
 {
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
@@ -408,7 +408,7 @@ TEST_F(IAMTest, Clear)
     ASSERT_TRUE(FindCertificates(mSOFTHSMEnv, handles).Is(ErrorEnum::eNotFound));
 }
 
-TEST_F(IAMTest, TrimCertificates)
+TEST_F(CerthandlerTest, TrimCertificates)
 {
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
@@ -446,7 +446,7 @@ TEST_F(IAMTest, TrimCertificates)
     EXPECT_EQ(handles.Size(), maxCertificates);
 }
 
-TEST_F(IAMTest, ValidateCertificates)
+TEST_F(CerthandlerTest, ValidateCertificates)
 {
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
@@ -489,7 +489,7 @@ TEST_F(IAMTest, ValidateCertificates)
     ASSERT_EQ(storageCerts[1], removedCert);
 }
 
-TEST_F(IAMTest, RemoveInvalidPKCS11Objects)
+TEST_F(CerthandlerTest, RemoveInvalidPKCS11Objects)
 {
     // init certhandler & certhandler will init PKCS11 storage
     RegisterPKCS11Module("iam");
@@ -561,7 +561,7 @@ TEST_F(IAMTest, RemoveInvalidPKCS11Objects)
         std::vector<pkcs11::ObjectHandle>(handles.begin(), handles.end()), Not(Contains(AnyOfArray(badObjects))));
 }
 
-TEST_F(IAMTest, RenewCertificate)
+TEST_F(CerthandlerTest, RenewCertificate)
 {
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());

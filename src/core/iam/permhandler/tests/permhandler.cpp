@@ -9,12 +9,11 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/crypto/cryptoprovider.hpp"
-#include "aos/common/tools/buffer.hpp"
-#include "aos/iam/permhandler.hpp"
-#include "aos/test/log.hpp"
-
-#include "mocks/identhandlermock.hpp"
+#include <core/common/crypto/cryptoprovider.hpp>
+#include <core/common/tests/mocks/identhandlermock.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/buffer.hpp>
+#include <core/iam/permhandler/permhandler.hpp>
 
 using namespace testing;
 
