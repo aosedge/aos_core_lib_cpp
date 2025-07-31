@@ -8,11 +8,11 @@
 #ifndef AOS_PERMHANDLER_HPP_
 #define AOS_PERMHANDLER_HPP_
 
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/tools/utils.hpp"
-#include "aos/common/types.hpp"
-#include "aos/iam/certmodules/certmodule.hpp"
-#include "aos/iam/config.hpp"
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/tools/thread.hpp>
+#include <core/common/tools/utils.hpp>
+#include <core/common/types/types.hpp>
+#include <core/iam/config.hpp>
 
 namespace aos::iam::permhandler {
 

@@ -8,8 +8,8 @@
 #ifndef AOS_IDENTHANDLER_HPP_
 #define AOS_IDENTHANDLER_HPP_
 
-#include "aos/common/types.hpp"
-#include "aos/iam/config.hpp"
+#include <core/common/types/types.hpp>
+#include <core/iam/config.hpp>
 
 namespace aos::iam::identhandler {
 

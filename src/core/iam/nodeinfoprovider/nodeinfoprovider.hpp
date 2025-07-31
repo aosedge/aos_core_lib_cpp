@@ -8,8 +8,8 @@
 #ifndef AOS_NODEINFOPROVIDER_HPP_
 #define AOS_NODEINFOPROVIDER_HPP_
 
-#include "aos/common/tools/error.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/error.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::iam::nodeinfoprovider {
 

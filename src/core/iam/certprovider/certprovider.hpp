@@ -7,8 +7,8 @@
 #ifndef AOS_CERTPROVIDER_HPP_
 #define AOS_CERTPROVIDER_HPP_
 
-#include "aos/common/tools/error.hpp"
-#include "aos/iam/certhandler.hpp"
+#include <core/common/tools/error.hpp>
+#include <core/iam/certhandler/certhandler.hpp>
 
 namespace aos::iam::certprovider {
 

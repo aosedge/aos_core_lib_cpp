@@ -8,8 +8,8 @@
 #ifndef AOS_PROVISIONMANAGER_HPP_
 #define AOS_PROVISIONMANAGER_HPP_
 
-#include "aos/common/tools/error.hpp"
-#include "aos/iam/certhandler.hpp"
+#include <core/common/tools/error.hpp>
+#include <core/iam/certhandler/certhandler.hpp>
 
 namespace aos::iam::provisionmanager {
 

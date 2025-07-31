@@ -8,14 +8,13 @@
 #ifndef AOS_CERTMODULE_HPP_
 #define AOS_CERTMODULE_HPP_
 
-#include "aos/common/tools/allocator.hpp"
-#include "aos/common/tools/enum.hpp"
-#include "aos/common/tools/string.hpp"
-#include "aos/common/tools/utils.hpp"
+#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/enum.hpp>
+#include <core/common/tools/string.hpp>
+#include <core/common/tools/time.hpp>
+#include <core/common/tools/utils.hpp>
 
-#include "aos/common/tools/time.hpp"
-
-#include "aos/iam/certmodules/hsm.hpp"
+#include <core/iam/certmodules/hsm.hpp>
 
 namespace aos::iam::certhandler {
 

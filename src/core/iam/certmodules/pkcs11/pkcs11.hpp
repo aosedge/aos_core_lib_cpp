@@ -8,12 +8,13 @@
 #ifndef AOS_IAM_MODULES_PKCS11_HPP_
 #define AOS_IAM_MODULES_PKCS11_HPP_
 
-#include "aos/common/pkcs11/pkcs11.hpp"
-#include "aos/common/pkcs11/privatekey.hpp"
-#include "aos/common/tools/optional.hpp"
-#include "aos/common/tools/uuid.hpp"
-#include "aos/iam/certmodules/hsm.hpp"
-#include "aos/iam/config.hpp"
+#include <core/common/pkcs11/pkcs11.hpp>
+#include <core/common/pkcs11/privatekey.hpp>
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/optional.hpp>
+#include <core/common/tools/uuid.hpp>
+#include <core/iam/certmodules/hsm.hpp>
+#include <core/iam/config.hpp>
 
 namespace aos::iam::certhandler {
 

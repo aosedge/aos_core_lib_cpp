@@ -5,14 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/common/crypto/utils.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/os.hpp"
-#include "aos/common/tools/uuid.hpp"
+#include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/os.hpp>
+#include <core/common/tools/uuid.hpp>
 
-#include "aos/iam/certmodules/pkcs11/pkcs11.hpp"
-
-#include "../../certhandler/log.hpp"
+#include "pkcs11.hpp"
 
 namespace aos::iam::certhandler {
 
