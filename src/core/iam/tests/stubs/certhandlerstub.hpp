@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CERTHANDLER_STUB_HPP_
-#define AOS_CERTHANDLER_STUB_HPP_
+#ifndef AOS_CORE_IAM_TESTS_STUBS_CERTHANDLERSTUB_HPP_
+#define AOS_CORE_IAM_TESTS_STUBS_CERTHANDLERSTUB_HPP_
 
 #include <core/iam/certmodules/certmodule.hpp>
 
