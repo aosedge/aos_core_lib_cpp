@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef MBEDTLS_FACTORY_HPP_
-#define MBEDTLS_FACTORY_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_CRYPTO_PROVIDERS_MBEDTLSFACTORY_HPP_
+#define AOS_CORE_COMMON_TESTS_CRYPTO_PROVIDERS_MBEDTLSFACTORY_HPP_
 
 #include <core/common/crypto/mbedtls/cryptoprovider.hpp>
 

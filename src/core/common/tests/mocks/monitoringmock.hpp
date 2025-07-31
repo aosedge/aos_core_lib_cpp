@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_MONITORING_MOCK_HPP_
-#define AOS_MONITORING_MOCK_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_MOCKS_MONITORINGMOCK_HPP_
+#define AOS_CORE_COMMON_TESTS_MOCKS_MONITORINGMOCK_HPP_
 
 #include <gmock/gmock.h>
 

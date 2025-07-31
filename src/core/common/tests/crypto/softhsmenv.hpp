@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SOFTHSMENV_H_
-#define AOS_SOFTHSMENV_H_
+#ifndef AOS_CORE_COMMON_TESTS_CRYPTO_SOFTHSMENV_HPP_
+#define AOS_CORE_COMMON_TESTS_CRYPTO_SOFTHSMENV_HPP_
 
 #include <core/common/pkcs11/pkcs11.hpp>
 

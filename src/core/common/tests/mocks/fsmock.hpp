@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_FILESYSTEM_MOCK_HPP_
-#define AOS_FILESYSTEM_MOCK_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_MOCKS_FSMOCK_HPP_
+#define AOS_CORE_COMMON_TESTS_MOCKS_FSMOCK_HPP_
 
 #include <gmock/gmock.h>
 
