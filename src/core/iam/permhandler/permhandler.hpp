@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_PERMHANDLER_HPP_
-#define AOS_PERMHANDLER_HPP_
+#ifndef AOS_CORE_IAM_PERMHANDLER_PERMHANDLER_HPP_
+#define AOS_CORE_IAM_PERMHANDLER_PERMHANDLER_HPP_
 
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/thread.hpp>

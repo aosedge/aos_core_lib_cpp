@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CERTPROVIDER_HPP_
-#define AOS_CERTPROVIDER_HPP_
+#ifndef AOS_CORE_CERTPROVIDER_CERTPROVIDER_HPP_
+#define AOS_CORE_CERTPROVIDER_CERTPROVIDER_HPP_
 
 #include <core/common/tools/error.hpp>
 #include <core/iam/certhandler/certhandler.hpp>

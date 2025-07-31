@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CERTMODULE_HPP_
-#define AOS_CERTMODULE_HPP_
+#ifndef AOS_CORE_IAM_CERTMODULES_CERTMODULE_HPP_
+#define AOS_CORE_IAM_CERTMODULES_CERTMODULE_HPP_
 
 #include <core/common/tools/allocator.hpp>
 #include <core/common/tools/enum.hpp>
