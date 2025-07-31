@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <mutex>
 
-#include "aos/sm/servicemanager.hpp"
+#include <core/sm/servicemanager/servicemanager.hpp>
 
 namespace aos::sm::servicemanager {
 

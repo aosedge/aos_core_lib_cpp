@@ -6,17 +6,14 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/fs.hpp"
-#include "aos/sm/layermanager.hpp"
-
-#include "aos/test/log.hpp"
-#include "aos/test/utils.hpp"
-
-#include "mocks/downloadermock.hpp"
-
-#include "stubs/imagehandlerstub.hpp"
-#include "stubs/layermanagerstub.hpp"
-#include "stubs/spaceallocatorstub.hpp"
+#include <core/common/tests/mocks/downloadermock.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/sm/layermanager/layermanager.hpp>
+#include <core/sm/tests/stubs/imagehandlerstub.hpp>
+#include <core/sm/tests/stubs/layermanagerstub.hpp>
+#include <core/sm/tests/stubs/spaceallocatorstub.hpp>
 
 using namespace testing;
 
