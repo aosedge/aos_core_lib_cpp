@@ -12,7 +12,7 @@
 
 namespace aos::cm::launcher {
 
-/** @addtogroup CM NodeManager
+/** @addtogroup cm Communication Manager
  *  @{
  */
 

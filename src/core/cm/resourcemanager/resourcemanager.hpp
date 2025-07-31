@@ -11,7 +11,7 @@
 
 namespace aos::cm::resourcemanager {
 
-/** @addtogroup CM ResourceManager
+/** @addtogroup cm Communication Manager
  *  @{
  */
 

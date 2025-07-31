@@ -11,7 +11,7 @@
 
 namespace aos::cm::nodeinfoprovider {
 
-/** @addtogroup CM NodeInfoProvider
+/** @addtogroup cm Communication Manager
  *  @{
  */
 

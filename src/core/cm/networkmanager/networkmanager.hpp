@@ -11,7 +11,7 @@
 
 namespace aos::cm::networkmanager {
 
-/** @addtogroup CM NetworkManager
+/** @addtogroup cm Communication Manager
  *  @{
  */
 
