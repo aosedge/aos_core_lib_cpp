@@ -7,8 +7,8 @@
 #ifndef AOS_IMAGEPARTS_HPP_
 #define AOS_IMAGEPARTS_HPP_
 
-#include "aos/common/ocispec/ocispec.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::sm::image {
 

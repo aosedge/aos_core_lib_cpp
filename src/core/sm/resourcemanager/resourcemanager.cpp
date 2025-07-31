@@ -8,9 +8,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "aos/common/tools/fs.hpp"
-#include "aos/sm/resourcemanager.hpp"
-#include "log.hpp"
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/logger.hpp>
+
+#include "resourcemanager.hpp"
 
 namespace aos::sm::resourcemanager {
 

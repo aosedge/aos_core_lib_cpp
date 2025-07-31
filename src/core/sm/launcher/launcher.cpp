@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/sm/launcher.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/uuid.hpp"
-#include "log.hpp"
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/uuid.hpp>
+
+#include "launcher.hpp"
 
 namespace aos::sm::launcher {
 

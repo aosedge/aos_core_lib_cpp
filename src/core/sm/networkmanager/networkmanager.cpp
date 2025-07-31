@@ -7,11 +7,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "aos/common/crypto/utils.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/sm/networkmanager.hpp"
+#include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/memory.hpp>
 
-#include "log.hpp"
+#include "networkmanager.hpp"
 
 namespace aos::sm::networkmanager {
 

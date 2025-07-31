@@ -7,14 +7,15 @@
 #ifndef AOS_NETWORKMANAGER_HPP_
 #define AOS_NETWORKMANAGER_HPP_
 
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/types.hpp"
-#include "aos/sm/cni.hpp"
-#include "aos/sm/config.hpp"
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/thread.hpp>
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
+
+#include "cni.hpp"
 
 namespace aos::sm::networkmanager {
 

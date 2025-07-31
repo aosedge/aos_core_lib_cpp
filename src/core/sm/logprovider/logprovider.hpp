@@ -7,7 +7,7 @@
 #ifndef AOS_LOGPROVIDER_HPP_
 #define AOS_LOGPROVIDER_HPP_
 
-#include "aos/common/cloudprotocol/log.hpp"
+#include <core/common/cloudprotocol/log.hpp>
 
 namespace aos::sm::logprovider {
 

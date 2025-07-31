@@ -8,9 +8,9 @@
 #ifndef AOS_RUNNER_HPP_
 #define AOS_RUNNER_HPP_
 
-#include "aos/common/tools/array.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/tools/array.hpp>
+#include <core/common/tools/noncopyable.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::sm::runner {
 /**
