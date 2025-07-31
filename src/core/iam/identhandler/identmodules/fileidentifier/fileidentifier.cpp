@@ -8,7 +8,8 @@
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
-#include <core/iam/identmodules/fileidentifier.hpp>
+
+#include "fileidentifier.hpp"
 
 namespace aos::iam::identhandler {
 
