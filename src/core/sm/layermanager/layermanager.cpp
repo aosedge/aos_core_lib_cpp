@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/sm/layermanager.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/common/tools/semver.hpp"
-#include "log.hpp"
+#include <core/common/tools/fs.hpp>
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/semver.hpp>
+
+#include "layermanager.hpp"
 
 namespace aos::sm::layermanager {
 

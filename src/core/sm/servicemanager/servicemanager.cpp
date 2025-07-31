@@ -5,12 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/sm/servicemanager.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/semver.hpp"
-#include "aos/common/tools/uuid.hpp"
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/semver.hpp>
+#include <core/common/tools/uuid.hpp>
 
-#include "log.hpp"
+#include "servicemanager.hpp"
 
 namespace aos::sm::servicemanager {
 

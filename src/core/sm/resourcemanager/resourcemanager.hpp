@@ -8,15 +8,15 @@
 #ifndef AOS_RESOURCEMANAGER_HPP_
 #define AOS_RESOURCEMANAGER_HPP_
 
-#include "aos/common/cloudprotocol/desiredstatus.hpp"
-#include "aos/common/tools/error.hpp"
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/string.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/types.hpp"
-#include "aos/sm/config.hpp"
+#include <core/common/cloudprotocol/desiredstatus.hpp>
+#include <core/common/tools/error.hpp>
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/noncopyable.hpp>
+#include <core/common/tools/string.hpp>
+#include <core/common/tools/thread.hpp>
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
 
 namespace aos::sm::resourcemanager {
 

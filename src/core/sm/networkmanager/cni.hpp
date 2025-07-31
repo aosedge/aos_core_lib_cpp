@@ -7,10 +7,10 @@
 #ifndef AOS_SM_CNI_HPP_
 #define AOS_SM_CNI_HPP_
 
-#include "aos/common/tools/string.hpp"
-#include "aos/common/tools/uuid.hpp"
-#include "aos/common/types.hpp"
-#include "aos/sm/config.hpp"
+#include <core/common/tools/string.hpp>
+#include <core/common/tools/uuid.hpp>
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
 
 namespace aos::sm::cni {
 
