@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/iam/provisionmanager.hpp"
-#include "log.hpp"
+#include <core/common/tools/logger.hpp>
+
+#include "provisionmanager.hpp"
 
 namespace aos::iam::provisionmanager {
 

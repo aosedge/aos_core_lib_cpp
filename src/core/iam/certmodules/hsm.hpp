@@ -8,10 +8,10 @@
 #ifndef AOS_IAM_MODULES_HSM_HPP_
 #define AOS_IAM_MODULES_HSM_HPP_
 
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/tools/array.hpp"
-#include "aos/common/tools/memory.hpp"
-#include "aos/iam/config.hpp"
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/tools/array.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/iam/config.hpp>
 
 namespace aos::iam::certhandler {
 

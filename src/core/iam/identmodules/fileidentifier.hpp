@@ -8,9 +8,9 @@
 #ifndef AOS_FILEIDENTIFIER_HPP_
 #define AOS_FILEIDENTIFIER_HPP_
 
-#include "aos/common/types.hpp"
-#include "aos/iam/config.hpp"
-#include "aos/iam/identhandler.hpp"
+#include <core/common/types/types.hpp>
+#include <core/iam/config.hpp>
+#include <core/iam/identhandler/identhandler.hpp>
 
 namespace aos::iam::identhandler {
 

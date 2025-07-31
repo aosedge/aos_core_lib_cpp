@@ -8,10 +8,9 @@
 #ifndef AOS_CERTHANDLER_HPP_
 #define AOS_CERTHANDLER_HPP_
 
-#include "aos/common/tools/thread.hpp"
-
-#include "aos/iam/certmodules/certmodule.hpp"
-#include "aos/iam/config.hpp"
+#include <core/common/tools/thread.hpp>
+#include <core/iam/certmodules/certmodule.hpp>
+#include <core/iam/config.hpp>
 
 namespace aos::iam::certhandler {
 
