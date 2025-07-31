@@ -30,6 +30,10 @@ set(INSTALL_LIBRARIES
     aos_core_iam_provisionmanager
 )
 
+if(WITH_TEST)
+    list(APPEND INSTALL_LIBRARIES aos_core_iam_tests_stubs)
+endif()
+
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
@@ -56,6 +60,10 @@ add_subdirectory(nodeinfoprovider)
 add_subdirectory(nodemanager)
 add_subdirectory(permhandler)
 add_subdirectory(provisionmanager)
+
+if(WITH_TEST)
+    add_subdirectory(tests)
+endif()
 
 # ######################################################################################################################
 # Install
