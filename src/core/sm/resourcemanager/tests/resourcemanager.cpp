@@ -9,12 +9,11 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/tools/fs.hpp"
-#include "aos/sm/resourcemanager.hpp"
-
-#include "aos/test/log.hpp"
-#include "aos/test/utils.hpp"
-#include "mocks/resourcemanagermock.hpp"
+#include <core/common/tests/mocks/resourcemanagermock.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/sm/resourcemanager/resourcemanager.hpp>
 
 using namespace ::testing;
 

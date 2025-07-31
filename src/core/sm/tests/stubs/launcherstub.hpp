@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <future>
 
-#include "aos/sm/launcher.hpp"
+#include <core/sm/launcher/launcher.hpp>
 
 namespace aos::sm::launcher {
 

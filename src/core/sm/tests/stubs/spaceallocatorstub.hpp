@@ -7,8 +7,8 @@
 #ifndef AOS_SPACEALLOCATOR_STUB_HPP_
 #define AOS_SPACEALLOCATOR_STUB_HPP_
 
-#include "aos/common/spaceallocator/spaceallocator.hpp"
-#include "aos/common/tools/memory.hpp"
+#include <core/common/spaceallocator/spaceallocator.hpp>
+#include <core/common/tools/memory.hpp>
 
 namespace aos::spaceallocator {
 

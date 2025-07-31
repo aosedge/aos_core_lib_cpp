@@ -12,10 +12,9 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/test/log.hpp"
-
-#include "mocks/cnimock.hpp"
-#include "mocks/networkmanagermock.hpp"
+#include <core/common/tests/mocks/cnimock.hpp>
+#include <core/common/tests/mocks/networkmanagermock.hpp>
+#include <core/common/tests/utils/log.hpp>
 
 using namespace aos::sm::networkmanager;
 using namespace aos::sm::cni;

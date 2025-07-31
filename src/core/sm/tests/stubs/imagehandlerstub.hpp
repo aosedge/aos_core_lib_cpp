@@ -7,9 +7,9 @@
 #ifndef AOS_IMAGEHANDLER_STUB_HPP_
 #define AOS_IMAGEHANDLER_STUB_HPP_
 
-#include "aos/common/tools/map.hpp"
-#include "aos/common/tools/utils.hpp"
-#include "aos/sm/image/imagehandler.hpp"
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/utils.hpp>
+#include <core/sm/image/imagehandler.hpp>
 
 namespace aos::sm::image {
 
