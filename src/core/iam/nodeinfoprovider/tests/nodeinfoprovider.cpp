@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include <aos/iam/nodeinfoprovider.hpp>
+#include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
 
 using namespace testing;
 using namespace aos::iam::nodeinfoprovider;
