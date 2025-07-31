@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CM_LAUNCHER_NODEMANAGER_HPP_
-#define AOS_CM_LAUNCHER_NODEMANAGER_HPP_
+#ifndef AOS_CORE_CM_LAUNCHER_NODEMANAGER_HPP_
+#define AOS_CORE_CM_LAUNCHER_NODEMANAGER_HPP_
 
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/types/types.hpp>
