@@ -4,30 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET_NAME certmodules_test)
-
 # ######################################################################################################################
-# Sources
+# Target properties
 # ######################################################################################################################
 
-set(SOURCES certmodules.cpp)
+set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::certmodules)
+set(TARGET_PREFIX ${TARGET_PREFIX}_certmodules)
 
 # ######################################################################################################################
-# Libraries
+# Cert modules
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::iam::certmodules aos::core::iam::tests::stubs GTest::gmock_main)
-
-# ######################################################################################################################
-# Target
-# ######################################################################################################################
-
-add_test(
-    TARGET_NAME
-    ${TARGET_NAME}
-    LOG_MODULE
-    SOURCES
-    ${SOURCES}
-    LIBRARIES
-    ${LIBRARIES}
-)
+add_subdirectory(pkcs11)

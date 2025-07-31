@@ -21,8 +21,7 @@ set(INSTALL_HEADERS aos_core_iam_identhandler)
 
 set(INSTALL_LIBRARIES
     aos_core_iam_certhandler
-    aos_core_iam_certmodules
-    aos_core_iam_certprovider
+    aos_core_iam_certmodules_pkcs11
     aos_core_iam_identmodules
     aos_core_iam_nodeinfoprovider
     aos_core_iam_nodemanager
@@ -53,8 +52,6 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_iam)
 # ######################################################################################################################
 
 add_subdirectory(certhandler)
-add_subdirectory(certmodules)
-add_subdirectory(certprovider)
 add_subdirectory(identhandler)
 add_subdirectory(identmodules)
 add_subdirectory(nodeinfoprovider)
