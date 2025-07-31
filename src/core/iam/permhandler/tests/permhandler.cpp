@@ -10,10 +10,10 @@
 #include <gtest/gtest.h>
 
 #include <core/common/crypto/cryptoprovider.hpp>
-#include <core/common/tests/mocks/identhandlermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/buffer.hpp>
 #include <core/iam/permhandler/permhandler.hpp>
+#include <core/iam/tests/mocks/identhandlermock.hpp>
 
 using namespace testing;
 

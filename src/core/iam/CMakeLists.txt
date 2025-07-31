@@ -31,6 +31,7 @@ set(INSTALL_LIBRARIES
 )
 
 if(WITH_TEST)
+    list(APPEND INSTALL_HEADERS aos_core_iam_tests_mocks)
     list(APPEND INSTALL_LIBRARIES aos_core_iam_tests_stubs)
 endif()
 

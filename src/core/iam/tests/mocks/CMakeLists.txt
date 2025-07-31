@@ -15,15 +15,14 @@ set(TARGET_NAME mocks)
 # ######################################################################################################################
 
 set(HEADERS
-    alertsmock.hpp
-    connectionprovidermock.hpp
-    cryptomock.hpp
-    downloadermock.hpp
-    fsmock.hpp
-    logprovidermock.hpp
-    monitoringmock.hpp
-    ocispecmock.hpp
-    spaceallocatormock.hpp
+    certhandlermock.hpp
+    certloadermock.hpp
+    certprovidermock.hpp
+    identhandlermock.hpp
+    nodeinfoprovidermock.hpp
+    nodemanagermock.hpp
+    permhandlermock.hpp
+    provisionmanagermock.hpp
 )
 
 # ######################################################################################################################

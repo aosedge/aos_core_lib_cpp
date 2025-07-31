@@ -7,9 +7,9 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/tests/mocks/certhandlermock.hpp>
-#include <core/common/tests/mocks/provisionmanagermock.hpp>
 #include <core/iam/provisionmanager/provisionmanager.hpp>
+#include <core/iam/tests/mocks/certhandlermock.hpp>
+#include <core/iam/tests/mocks/provisionmanagermock.hpp>
 
 using namespace testing;
 using namespace aos::iam;
