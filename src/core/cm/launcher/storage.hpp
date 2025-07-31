@@ -9,7 +9,7 @@
 
 #include <aos/common/types.hpp>
 
-namespace aos::cm::storage {
+namespace aos::cm::launcher {
 
 /** @addtogroup CM Storage
  *  @{
@@ -104,6 +104,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::cm::storage
+} // namespace aos::cm::launcher
 
 #endif
