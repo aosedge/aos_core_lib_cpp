@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SM_CONFIG_HPP_
-#define AOS_SM_CONFIG_HPP_
+#ifndef AOS_CORE_SM_CONFIG_HPP_
+#define AOS_CORE_SM_CONFIG_HPP_
 
 /**
  * Number of parallel instance launches.

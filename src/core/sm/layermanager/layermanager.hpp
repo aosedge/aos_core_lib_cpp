@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_LAYERMANAGER_HPP_
-#define AOS_LAYERMANAGER_HPP_
+#ifndef AOS_CORE_SM_LAYERMANAGER_LAYERMANAGER_HPP_
+#define AOS_CORE_SM_LAYERMANAGER_LAYERMANAGER_HPP_
 
 #include <core/common/downloader/downloader.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>

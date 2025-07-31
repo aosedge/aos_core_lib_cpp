@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SM_CNI_HPP_
-#define AOS_SM_CNI_HPP_
+#ifndef AOS_CORE_SM_CNI_HPP_
+#define AOS_CORE_SM_CNI_HPP_
 
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/uuid.hpp>

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_RUNNER_HPP_
-#define AOS_RUNNER_HPP_
+#ifndef AOS_CORE_SM_RUNNER_RUNNER_HPP_
+#define AOS_CORE_SM_RUNNER_RUNNER_HPP_
 
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/noncopyable.hpp>
