@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_NODEINFOPROVIDER_HPP_
-#define AOS_NODEINFOPROVIDER_HPP_
+#ifndef AOS_CORE_IAM_NODEINFOPROVIDER_NODEINFOPROVIDER_HPP_
+#define AOS_CORE_IAM_NODEINFOPROVIDER_NODEINFOPROVIDER_HPP_
 
 #include <core/common/tools/error.hpp>
 #include <core/common/types/types.hpp>

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_IAM_MODULES_PKCS11_HPP_
-#define AOS_IAM_MODULES_PKCS11_HPP_
+#ifndef AOS_CORE_IAM_CERTMODULES_PKCS11_PKCS11_HPP_
+#define AOS_CORE_IAM_CERTMODULES_PKCS11_PKCS11_HPP_
 
 #include <core/common/pkcs11/pkcs11.hpp>
 #include <core/common/pkcs11/privatekey.hpp>
