@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_RESOURCEMANAGER_HPP_
-#define AOS_RESOURCEMANAGER_HPP_
+#ifndef AOS_CORE_SM_RESOURCEMANAGER_RESOURCEMANAGER_HPP_
+#define AOS_CORE_SM_RESOURCEMANAGER_RESOURCEMANAGER_HPP_
 
 #include <core/common/cloudprotocol/desiredstatus.hpp>
 #include <core/common/tools/error.hpp>

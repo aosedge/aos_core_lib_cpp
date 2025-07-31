@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_LOGPROVIDER_HPP_
-#define AOS_LOGPROVIDER_HPP_
+#ifndef AOS_CORE_SM_LOGPROVIDER_LOGPROVIDER_HPP_
+#define AOS_CORE_SM_LOGPROVIDER_LOGPROVIDER_HPP_
 
 #include <core/common/cloudprotocol/log.hpp>
 

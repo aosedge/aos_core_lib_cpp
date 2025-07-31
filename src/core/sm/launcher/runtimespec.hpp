@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_LAUNCHER_RUNTIMESPEC_HPP_
-#define AOS_LAUNCHER_RUNTIMESPEC_HPP_
+#ifndef AOS_CORE_SM_LAUNCHER_RUNTIMESPEC_HPP_
+#define AOS_CORE_SM_LAUNCHER_RUNTIMESPEC_HPP_
 
 #include <core/common/ocispec/ocispec.hpp>
 

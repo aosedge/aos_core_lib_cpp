@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_IMAGEPARTS_HPP_
-#define AOS_IMAGEPARTS_HPP_
+#ifndef AOS_CORE_SM_IMAGE_IMAGEPARTS_HPP_
+#define AOS_CORE_SM_IMAGE_IMAGEPARTS_HPP_
 
 #include <core/common/ocispec/ocispec.hpp>
 #include <core/common/types/types.hpp>
