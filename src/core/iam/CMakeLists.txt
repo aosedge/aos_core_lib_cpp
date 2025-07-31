@@ -5,42 +5,66 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET aosiam)
+set(TARGET_NAME iam)
 
 # ######################################################################################################################
-# Sources
+# Headers
 # ######################################################################################################################
 
-set(SOURCES
-    certhandler/certhandler.cpp
-    certmodules/certmodule.cpp
-    certmodules/pkcs11/pkcs11.cpp
-    certprovider/certprovider.cpp
-    identmodules/fileidentifier.cpp
-    nodeinfoprovider/nodeinfoprovider.cpp
-    nodemanager/nodemanager.cpp
-    permhandler/permhandler.cpp
-    provisionmanager/provisionmanager.cpp
+set(HEADERS config.hpp)
+
+# ######################################################################################################################
+# Install targets
+# ######################################################################################################################
+
+set(INSTALL_HEADERS aos_core_iam_identhandler)
+
+set(INSTALL_LIBRARIES
+    aos_core_iam_certhandler
+    aos_core_iam_certmodules
+    aos_core_iam_certprovider
+    aos_core_iam_identmodules
+    aos_core_iam_nodeinfoprovider
+    aos_core_iam_nodemanager
+    aos_core_iam_permhandler
+    aos_core_iam_provisionmanager
 )
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_library(${TARGET} STATIC ${SOURCES})
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS} OBJECTS ${INSTALL_LIBRARIES})
 
-target_compile_options(${TARGET} PRIVATE -Wstack-usage=${AOS_STACK_USAGE})
-target_include_directories(${TARGET} PUBLIC ${AOS_CORE_LIB_DIR}/include)
+# ######################################################################################################################
+# Target properties
+# ######################################################################################################################
+
+set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::iam)
+set(TARGET_PREFIX ${TARGET_PREFIX}_iam)
+
+# ######################################################################################################################
+# Subdirectories
+# ######################################################################################################################
+
+add_subdirectory(certhandler)
+add_subdirectory(certmodules)
+add_subdirectory(certprovider)
+add_subdirectory(identhandler)
+add_subdirectory(identmodules)
+add_subdirectory(nodeinfoprovider)
+add_subdirectory(nodemanager)
+add_subdirectory(permhandler)
+add_subdirectory(provisionmanager)
 
 # ######################################################################################################################
 # Install
 # ######################################################################################################################
 
-install(TARGETS ${TARGET} ARCHIVE DESTINATION lib)
+install(TARGETS ${TARGET} ARCHIVE FILE_SET HEADERS DESTINATION include/aos)
 
 install(
-    DIRECTORY ${AOS_CORE_LIB_DIR}/include/aos/iam
+    TARGETS ${INSTALL_HEADERS} ${INSTALL_LIBRARIES} FILE_SET HEADERS
     DESTINATION include/aos
-    FILES_MATCHING
-    PATTERN "*.hpp"
+    ARCHIVE EXCLUDE_FROM_ALL
 )
