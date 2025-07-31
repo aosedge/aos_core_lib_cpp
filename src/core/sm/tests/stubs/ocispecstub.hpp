@@ -11,7 +11,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "aos/common/ocispec/ocispec.hpp"
+#include <core/common/ocispec/ocispec.hpp>
 
 namespace aos::oci {
 

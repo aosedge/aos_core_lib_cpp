@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <mutex>
 
-#include "aos/sm/layermanager.hpp"
+#include <core/sm/layermanager/layermanager.hpp>
 
 namespace aos::sm::layermanager {
 

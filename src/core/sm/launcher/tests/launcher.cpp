@@ -7,25 +7,22 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/crypto/cryptoprovider.hpp"
-#include "aos/sm/launcher.hpp"
-
-#include "aos/test/log.hpp"
-#include "aos/test/utils.hpp"
-
-#include "mocks/connectionsubscmock.hpp"
-#include "mocks/launchermock.hpp"
-#include "mocks/monitoringmock.hpp"
-#include "mocks/networkmanagermock.hpp"
-#include "mocks/nodeinfoprovidermock.hpp"
-#include "mocks/permhandlermock.hpp"
-#include "mocks/resourcemanagermock.hpp"
-#include "mocks/runnermock.hpp"
-
-#include "stubs/launcherstub.hpp"
-#include "stubs/layermanagerstub.hpp"
-#include "stubs/ocispecstub.hpp"
-#include "stubs/servicemanagerstub.hpp"
+#include <core/common/crypto/cryptoprovider.hpp>
+#include <core/common/tests/mocks/connectionprovidermock.hpp>
+#include <core/common/tests/mocks/launchermock.hpp>
+#include <core/common/tests/mocks/monitoringmock.hpp>
+#include <core/common/tests/mocks/networkmanagermock.hpp>
+#include <core/common/tests/mocks/nodeinfoprovidermock.hpp>
+#include <core/common/tests/mocks/permhandlermock.hpp>
+#include <core/common/tests/mocks/resourcemanagermock.hpp>
+#include <core/common/tests/mocks/runnermock.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
+#include <core/sm/launcher/launcher.hpp>
+#include <core/sm/tests/stubs/launcherstub.hpp>
+#include <core/sm/tests/stubs/layermanagerstub.hpp>
+#include <core/sm/tests/stubs/ocispecstub.hpp>
+#include <core/sm/tests/stubs/servicemanagerstub.hpp>
 
 using namespace aos::monitoring;
 using namespace aos::oci;

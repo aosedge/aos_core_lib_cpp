@@ -7,9 +7,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "aos/sm/image/imageparts.hpp"
-
-#include "aos/test/log.hpp"
+#include <core/common/tests/utils/log.hpp>
+#include <core/sm/image/imageparts.hpp>
 
 namespace aos::sm::image {
 
