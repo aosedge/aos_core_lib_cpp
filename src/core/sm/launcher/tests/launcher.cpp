@@ -9,16 +9,16 @@
 
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/mocks/connectionprovidermock.hpp>
-#include <core/common/tests/mocks/launchermock.hpp>
 #include <core/common/tests/mocks/monitoringmock.hpp>
-#include <core/common/tests/mocks/networkmanagermock.hpp>
-#include <core/common/tests/mocks/nodeinfoprovidermock.hpp>
-#include <core/common/tests/mocks/permhandlermock.hpp>
-#include <core/common/tests/mocks/resourcemanagermock.hpp>
-#include <core/common/tests/mocks/runnermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/iam/tests/mocks/nodeinfoprovidermock.hpp>
+#include <core/iam/tests/mocks/permhandlermock.hpp>
 #include <core/sm/launcher/launcher.hpp>
+#include <core/sm/tests/mocks/launchermock.hpp>
+#include <core/sm/tests/mocks/networkmanagermock.hpp>
+#include <core/sm/tests/mocks/resourcemanagermock.hpp>
+#include <core/sm/tests/mocks/runnermock.hpp>
 #include <core/sm/tests/stubs/launcherstub.hpp>
 #include <core/sm/tests/stubs/layermanagerstub.hpp>
 #include <core/sm/tests/stubs/ocispecstub.hpp>

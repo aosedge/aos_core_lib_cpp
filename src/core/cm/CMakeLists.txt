@@ -28,6 +28,10 @@ set(INSTALL_HEADERS
 
 set(INSTALL_LIBRARIES)
 
+if(WITH_TEST)
+    list(APPEND INSTALL_HEADERS aos_core_cm_tests_mocks)
+endif()
+
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
@@ -52,6 +56,10 @@ add_subdirectory(networkmanager)
 add_subdirectory(nodeinfoprovider)
 add_subdirectory(resourcemanager)
 add_subdirectory(storagestate)
+
+if(WITH_TEST)
+    add_subdirectory(tests)
+endif()
 
 # ######################################################################################################################
 # Install
