@@ -10,7 +10,7 @@
 #include <aos/common/ocispec/serviceconfig.hpp>
 #include <aos/common/types.hpp>
 
-namespace aos::cm::imageprovider {
+namespace aos::cm::imagemanager {
 
 /** @addtogroup CM ImageProvider
  *  @{
@@ -146,6 +146,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::cm::imageprovider
+} // namespace aos::cm::imagemanager
 
 #endif
