@@ -9,9 +9,9 @@
 
 #include <gmock/gmock.h>
 
-#include <core/iam/certprovider/certprovider.hpp>
+#include <core/iam/certhandler/certprovider.hpp>
 
-namespace aos::iam::certprovider {
+namespace aos::iam::certhandler {
 
 /**
  * Mocks certificate provider.
@@ -28,6 +28,6 @@ public:
     MOCK_METHOD(Error, UnsubscribeCertChanged, (certhandler::CertReceiverItf & certReceiver), (override));
 };
 
-} // namespace aos::iam::certprovider
+} // namespace aos::iam::certhandler
 
 #endif

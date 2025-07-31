@@ -8,12 +8,12 @@
 #ifndef AOS_CORE_IAM_TESTS_STUBS_CERTHANDLERSTUB_HPP_
 #define AOS_CORE_IAM_TESTS_STUBS_CERTHANDLERSTUB_HPP_
 
-#include <core/iam/certmodules/certmodule.hpp>
+#include <core/iam/certhandler/certmodule.hpp>
 
 namespace aos::iam::certhandler {
 
 /**
- * Stoage stub.
+ * Storage stub.
  */
 class StorageStub : public StorageItf {
 public:

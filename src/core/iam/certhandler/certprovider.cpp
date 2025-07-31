@@ -9,7 +9,7 @@
 
 #include "certprovider.hpp"
 
-namespace aos::iam::certprovider {
+namespace aos::iam::certhandler {
 
 /***********************************************************************************************************************
  * Public
@@ -46,4 +46,4 @@ Error CertProvider::UnsubscribeCertChanged(certhandler::CertReceiverItf& certRec
     return AOS_ERROR_WRAP(mCertHandler->UnsubscribeCertChanged(certReceiver));
 }
 
-} // namespace aos::iam::certprovider
+} // namespace aos::iam::certhandler
