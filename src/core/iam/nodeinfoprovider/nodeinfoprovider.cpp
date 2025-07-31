@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/iam/nodeinfoprovider.hpp"
+#include "nodeinfoprovider.hpp"
 
 static bool CaseInsensitiveEqual(const aos::String& lhs, const aos::String& rhs)
 {

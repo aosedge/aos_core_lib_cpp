@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "aos/iam/certhandler.hpp"
-#include "log.hpp"
+#include <core/common/tools/logger.hpp>
+
+#include "certhandler.hpp"
 
 namespace aos::iam::certhandler {
 
