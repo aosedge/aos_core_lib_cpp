@@ -10,6 +10,7 @@
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/mocks/connectionprovidermock.hpp>
 #include <core/common/tests/mocks/monitoringmock.hpp>
+#include <core/common/tests/stubs/ocispecstub.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/iam/tests/mocks/nodeinfoprovidermock.hpp>
@@ -21,7 +22,6 @@
 #include <core/sm/tests/mocks/runnermock.hpp>
 #include <core/sm/tests/stubs/launcherstub.hpp>
 #include <core/sm/tests/stubs/layermanagerstub.hpp>
-#include <core/sm/tests/stubs/ocispecstub.hpp>
 #include <core/sm/tests/stubs/servicemanagerstub.hpp>
 
 using namespace aos::monitoring;

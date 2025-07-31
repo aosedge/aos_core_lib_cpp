@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_SM_TESTS_STUBS_OCISPECSTUB_HPP_
-#define AOS_CORE_SM_TESTS_STUBS_OCISPECSTUB_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_STUBS_OCISPECSTUB_HPP_
+#define AOS_CORE_COMMON_TESTS_STUBS_OCISPECSTUB_HPP_
 
 #include <mutex>
 #include <string>

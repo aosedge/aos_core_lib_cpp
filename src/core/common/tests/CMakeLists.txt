@@ -17,4 +17,5 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_tests)
 
 add_subdirectory(crypto)
 add_subdirectory(mocks)
+add_subdirectory(stubs)
 add_subdirectory(utils)

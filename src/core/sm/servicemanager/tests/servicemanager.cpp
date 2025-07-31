@@ -12,12 +12,12 @@
 
 #include <core/common/tests/mocks/downloadermock.hpp>
 #include <core/common/tests/mocks/ocispecmock.hpp>
+#include <core/common/tests/stubs/spaceallocatorstub.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/sm/servicemanager/servicemanager.hpp>
 #include <core/sm/tests/stubs/imagehandlerstub.hpp>
 #include <core/sm/tests/stubs/servicemanagerstub.hpp>
-#include <core/sm/tests/stubs/spaceallocatorstub.hpp>
 
 using namespace testing;
 
