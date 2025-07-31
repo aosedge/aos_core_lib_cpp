@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOSCORETESTCONFIG_HPP
-#define AOSCORETESTCONFIG_HPP
+#ifndef AOS_CORE_TESTCONFIG_HPP_
+#define AOS_CORE_TESTCONFIG_HPP_
 
 /**
  * URL length.
@@ -38,4 +38,9 @@
  */
 #define AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC 3
 
-#endif // AOSCORETESTCONFIG_HPP
+/**
+ * Aos runtime dir.
+ */
+#define AOS_CONFIG_LAUNCHER_RUNTIME_DIR "/tmp/aos/runtime"
+
+#endif // AOS_CORE_TESTCONFIG_HPP_
