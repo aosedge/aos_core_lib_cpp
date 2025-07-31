@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_IMAGEHANDLER_STUB_HPP_
-#define AOS_IMAGEHANDLER_STUB_HPP_
+#ifndef AOS_CORE_SM_TESTS_STUBS_IMAGEHANDLERSTUB_HPP_
+#define AOS_CORE_SM_TESTS_STUBS_IMAGEHANDLERSTUB_HPP_
 
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/utils.hpp>

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_SERVICEMANAGER_STUB_HPP_
-#define AOS_SERVICEMANAGER_STUB_HPP_
+#ifndef AOS_CORE_SM_TESTS_STUBS_SERVICEMANAGERSTUB_HPP_
+#define AOS_CORE_SM_TESTS_STUBS_SERVICEMANAGERSTUB_HPP_
 
 #include <algorithm>
 #include <mutex>
