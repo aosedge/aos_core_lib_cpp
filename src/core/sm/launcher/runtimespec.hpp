@@ -7,7 +7,7 @@
 #ifndef AOS_LAUNCHER_RUNTIMESPEC_HPP_
 #define AOS_LAUNCHER_RUNTIMESPEC_HPP_
 
-#include "aos/common/ocispec/ocispec.hpp"
+#include <core/common/ocispec/ocispec.hpp>
 
 namespace aos::sm::launcher {
 

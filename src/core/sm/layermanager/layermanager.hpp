@@ -7,12 +7,12 @@
 #ifndef AOS_LAYERMANAGER_HPP_
 #define AOS_LAYERMANAGER_HPP_
 
-#include "aos/common/downloader/downloader.hpp"
-#include "aos/common/spaceallocator/spaceallocator.hpp"
-#include "aos/common/tools/timer.hpp"
-#include "aos/common/types.hpp"
-#include "aos/sm/config.hpp"
-#include "aos/sm/image/imagehandler.hpp"
+#include <core/common/downloader/downloader.hpp>
+#include <core/common/spaceallocator/spaceallocator.hpp>
+#include <core/common/tools/timer.hpp>
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
+#include <core/sm/image/imagehandler.hpp>
 
 namespace aos::sm::layermanager {
 

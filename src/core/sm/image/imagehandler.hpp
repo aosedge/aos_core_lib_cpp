@@ -7,10 +7,10 @@
 #ifndef AOS_IMAGEHANDLER_HPP_
 #define AOS_IMAGEHANDLER_HPP_
 
-#include "aos/common/ocispec/ocispec.hpp"
-#include "aos/common/spaceallocator/spaceallocator.hpp"
-#include "aos/common/tools/string.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/spaceallocator/spaceallocator.hpp>
+#include <core/common/tools/string.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::sm::image {
 

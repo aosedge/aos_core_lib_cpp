@@ -8,8 +8,8 @@
 #ifndef AOS_LAUNCHER_CONFIG_HPP_
 #define AOS_LAUNCHER_CONFIG_HPP_
 
-#include "aos/common/types.hpp"
-#include "aos/sm/config.hpp"
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
 
 namespace aos::sm::launcher {
 /**

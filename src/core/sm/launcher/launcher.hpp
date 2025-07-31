@@ -10,20 +10,21 @@
 
 #include <assert.h>
 
-#include "aos/common/cloudprotocol/envvars.hpp"
-#include "aos/common/connectionsubsc.hpp"
-#include "aos/common/monitoring/monitoring.hpp"
-#include "aos/common/ocispec/ocispec.hpp"
-#include "aos/common/tools/list.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/types.hpp"
-#include "aos/sm/config.hpp"
-#include "aos/sm/launcher/config.hpp"
-#include "aos/sm/launcher/instance.hpp"
-#include "aos/sm/layermanager.hpp"
-#include "aos/sm/networkmanager.hpp"
-#include "aos/sm/runner.hpp"
-#include "aos/sm/servicemanager.hpp"
+#include <core/common/cloudprotocol/envvars.hpp>
+#include <core/common/connectionprovider/connectionprovider.hpp>
+#include <core/common/monitoring/monitoring.hpp>
+#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/tools/list.hpp>
+#include <core/common/tools/noncopyable.hpp>
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
+#include <core/sm/layermanager/layermanager.hpp>
+#include <core/sm/networkmanager/networkmanager.hpp>
+#include <core/sm/runner/runner.hpp>
+#include <core/sm/servicemanager/servicemanager.hpp>
+
+#include "config.hpp"
+#include "instance.hpp"
 
 namespace aos::sm::launcher {
 

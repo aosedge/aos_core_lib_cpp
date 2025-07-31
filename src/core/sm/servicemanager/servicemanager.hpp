@@ -8,17 +8,17 @@
 #ifndef AOS_SERVICEMANAGER_HPP_
 #define AOS_SERVICEMANAGER_HPP_
 
-#include "aos/common/downloader/downloader.hpp"
-#include "aos/common/ocispec/ocispec.hpp"
-#include "aos/common/spaceallocator/spaceallocator.hpp"
-#include "aos/common/tools/allocator.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/tools/timer.hpp"
-#include "aos/common/types.hpp"
-#include "aos/sm/config.hpp"
-#include "aos/sm/image/imagehandler.hpp"
-#include "aos/sm/image/imageparts.hpp"
+#include <core/common/downloader/downloader.hpp>
+#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/spaceallocator/spaceallocator.hpp>
+#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/noncopyable.hpp>
+#include <core/common/tools/thread.hpp>
+#include <core/common/tools/timer.hpp>
+#include <core/common/types/types.hpp>
+#include <core/sm/config.hpp>
+#include <core/sm/image/imagehandler.hpp>
+#include <core/sm/image/imageparts.hpp>
 
 namespace aos::sm::servicemanager {
 

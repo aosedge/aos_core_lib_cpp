@@ -9,17 +9,18 @@
 #ifndef AOS_INSTANCE_HPP_
 #define AOS_INSTANCE_HPP_
 
-#include "aos/common/monitoring/monitoring.hpp"
-#include "aos/common/tools/allocator.hpp"
-#include "aos/common/tools/fs.hpp"
-#include "aos/iam/permhandler.hpp"
-#include "aos/sm/config.hpp"
-#include "aos/sm/launcher/config.hpp"
-#include "aos/sm/layermanager.hpp"
-#include "aos/sm/networkmanager.hpp"
-#include "aos/sm/resourcemanager.hpp"
-#include "aos/sm/runner.hpp"
-#include "aos/sm/servicemanager.hpp"
+#include <core/common/monitoring/monitoring.hpp>
+#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/iam/permhandler/permhandler.hpp>
+#include <core/sm/config.hpp>
+#include <core/sm/layermanager/layermanager.hpp>
+#include <core/sm/networkmanager/networkmanager.hpp>
+#include <core/sm/resourcemanager/resourcemanager.hpp>
+#include <core/sm/runner/runner.hpp>
+#include <core/sm/servicemanager/servicemanager.hpp>
+
+#include "config.hpp"
 
 namespace aos::sm::launcher {
 
