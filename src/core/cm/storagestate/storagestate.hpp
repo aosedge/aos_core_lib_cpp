@@ -7,11 +7,11 @@
 #ifndef AOS_STORAGESTATE_HPP_
 #define AOS_STORAGESTATE_HPP_
 
-#include "aos/common/cloudprotocol/state.hpp"
-#include "aos/common/crypto/crypto.hpp"
-#include "aos/common/tools/noncopyable.hpp"
-#include "aos/common/tools/thread.hpp"
-#include "aos/common/types.hpp"
+#include <core/common/cloudprotocol/state.hpp>
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/tools/noncopyable.hpp>
+#include <core/common/tools/thread.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cm::storagestate {
 

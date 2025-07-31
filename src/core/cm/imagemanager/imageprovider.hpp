@@ -7,8 +7,8 @@
 #ifndef AOS_CM_IMAGEPROVIDER_HPP_
 #define AOS_CM_IMAGEPROVIDER_HPP_
 
-#include <aos/common/ocispec/serviceconfig.hpp>
-#include <aos/common/types.hpp>
+#include <core/common/ocispec/serviceconfig.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cm::imagemanager {
 
