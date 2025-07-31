@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tools/buffer.hpp>
-#include <core/iam/identmodules/fileidentifier.hpp>
+#include <core/iam/identhandler/identmodules/fileidentifier/fileidentifier.hpp>
 #include <core/iam/tests/mocks/identhandlermock.hpp>
 
 using namespace aos;

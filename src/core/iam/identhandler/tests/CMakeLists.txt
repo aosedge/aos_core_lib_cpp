@@ -16,7 +16,7 @@ set(SOURCES fileidentifier.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::iam::identmodules GTest::gmock_main)
+set(LIBRARIES aos::core::iam::identmodules::fileidentifier GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
