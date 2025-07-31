@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_NODEINFO_STORAGE_MOCK_HPP_
-#define AOS_NODEINFO_STORAGE_MOCK_HPP_
+#ifndef AOS_CORE_IAM_NODEMANAGER_TESTS_STORAGEMOCK_HPP_
+#define AOS_CORE_IAM_NODEMANAGER_TESTS_STORAGEMOCK_HPP_
 
 #include <gmock/gmock.h>
 
