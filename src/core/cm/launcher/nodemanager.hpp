@@ -10,7 +10,7 @@
 #include <aos/common/monitoring/monitoring.hpp>
 #include <aos/common/types.hpp>
 
-namespace aos::cm::nodemanager {
+namespace aos::cm::launcher {
 
 /** @addtogroup CM NodeManager
  *  @{
@@ -169,6 +169,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::cm::nodemanager
+} // namespace aos::cm::launcher
 
 #endif
