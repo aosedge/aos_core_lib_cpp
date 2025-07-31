@@ -31,7 +31,7 @@ set(INSTALL_HEADERS
 set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_monitoring aos_core_common_pkcs11 aos_core_common_tools)
 
 if(WITH_TEST)
-    list(APPEND INSTALL_HEADERS aos_core_common_tests_mocks)
+    list(APPEND INSTALL_HEADERS aos_core_common_tests_mocks aos_core_common_tests_stubs)
     list(APPEND INSTALL_LIBRARIES aos_core_common_tests_crypto aos_core_common_tests_utils)
 endif()
 
