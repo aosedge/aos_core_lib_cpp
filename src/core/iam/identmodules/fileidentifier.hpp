@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_FILEIDENTIFIER_HPP_
-#define AOS_FILEIDENTIFIER_HPP_
+#ifndef AOS_CORE_IAM_IDENTMODULES_FILEIDENTIFIER_HPP_
+#define AOS_CORE_IAM_IDENTMODULES_FILEIDENTIFIER_HPP_
 
 #include <core/common/types/types.hpp>
 #include <core/iam/config.hpp>
