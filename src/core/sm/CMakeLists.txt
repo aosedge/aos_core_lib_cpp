@@ -23,6 +23,10 @@ set(INSTALL_LIBRARIES aos_core_sm_image aos_core_sm_launcher aos_core_sm_layerma
                       aos_core_sm_servicemanager
 )
 
+if(WITH_TEST)
+    list(APPEND INSTALL_HEADERS aos_core_sm_tests_stubs)
+endif()
+
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
@@ -48,6 +52,10 @@ add_subdirectory(networkmanager)
 add_subdirectory(resourcemanager)
 add_subdirectory(runner)
 add_subdirectory(servicemanager)
+
+if(WITH_TEST)
+    add_subdirectory(tests)
+endif()
 
 # ######################################################################################################################
 # Install
