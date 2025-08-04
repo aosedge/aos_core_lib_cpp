@@ -181,7 +181,7 @@ public:
     }
 
 protected:
-    void SetBuffer(Buffer& buffer)
+    void SetBuffer(const Buffer& buffer)
     {
         mBegin = static_cast<uint8_t*>(buffer.Get());
         mEnd   = mBegin + buffer.Size();
