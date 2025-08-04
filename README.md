@@ -143,7 +143,7 @@ All above commands for build, test, coverage etc. can be used inside the docker 
 
 The following tools are used for code formatting and analyzing:
 
-| Tool | Description | Configuration | Link
+| Tool | Description | Configuration | Link |
 | --- | --- | --- | --- |
 | `clang-format` | used for source code formatting | .clang-format | <https://clang.llvm.org/docs/ClangFormat.html> |
 | `cmake-format` | used for formatting cmake files | .cmake-format | <https://github.com/cheshirekow/cmake_format> |
