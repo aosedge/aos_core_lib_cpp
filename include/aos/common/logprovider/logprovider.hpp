@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_LOGPROVIDER_HPP_
-#define AOS_LOGPROVIDER_HPP_
+#ifndef AOS_LOGPROVIDER_LOGPROVIDER_HPP_
+#define AOS_LOGPROVIDER_LOGPROVIDER_HPP_
 
 #include "aos/common/cloudprotocol/log.hpp"
 
-namespace aos::sm::logprovider {
+namespace aos::logprovider {
 
-/** @addtogroup sm Service Manager
+/** @addtogroup common Common
  *  @{
  */
 
@@ -87,6 +87,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::sm::logprovider
+} // namespace aos::logprovider
 
 #endif
