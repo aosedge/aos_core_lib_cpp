@@ -28,7 +28,7 @@ class PKCS11Test : public Test {
 protected:
     void SetUp() override
     {
-        aos::test::InitLog();
+        tests::utils::InitLog();
 
         ASSERT_TRUE(mCryptoFactory.Init().IsNone());
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();

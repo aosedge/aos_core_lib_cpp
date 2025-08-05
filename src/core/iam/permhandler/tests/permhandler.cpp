@@ -27,7 +27,7 @@ class PermHandlerTest : public Test {
 protected:
     void SetUp() override
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         ASSERT_TRUE(mCryptoProvider.Init().IsNone()) << "Failed to initialize crypto provider";
         ASSERT_TRUE(mPermHandler.Init(mCryptoProvider).IsNone()) << "Failed to initialize PermHandler";

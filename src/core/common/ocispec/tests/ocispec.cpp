@@ -21,7 +21,7 @@ using namespace testing;
 
 class OCISpecTest : public Test {
 protected:
-    void SetUp() override { test::InitLog(); }
+    void SetUp() override { tests::utils::InitLog(); }
 };
 
 /***********************************************************************************************************************
@@ -35,7 +35,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     LOG_DBG() << "Runtime spec: size=" << sizeof(RuntimeSpec) << " bytes";
 
     auto err = CreateExampleRuntimeSpec(*spec);
-    EXPECT_TRUE(err.IsNone()) << "Error creating example runtime spec: err=" << test::ErrorToStr(err);
+    EXPECT_TRUE(err.IsNone()) << "Error creating example runtime spec: err=" << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(spec->mOCIVersion, cVersion);
 

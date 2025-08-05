@@ -24,7 +24,7 @@ class NetworkManagerTest : public Test {
 protected:
     void SetUp() override
     {
-        aos::test::InitLog();
+        aos::tests::utils::InitLog();
 
         mWorkingDir = "/tmp/networkmanager_test";
         std::filesystem::create_directories(mWorkingDir.CStr());
