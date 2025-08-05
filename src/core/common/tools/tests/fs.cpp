@@ -50,7 +50,7 @@ private:
         fs::RemoveAll(cBaseTestDir.c_str());
         fs::MakeDirAll(cBaseTestDir.c_str());
 
-        aos::test::InitLog();
+        tests::utils::InitLog();
     }
 };
 

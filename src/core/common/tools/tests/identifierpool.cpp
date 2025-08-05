@@ -55,7 +55,7 @@ class IdentifierPoolTest : public Test {
 protected:
     void SetUp() override
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         mIdentifierPool = std::make_unique<IDPool>();
     }

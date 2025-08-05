@@ -24,7 +24,7 @@ class CryptoutilsTest : public Test {
 protected:
     void SetUp() override
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         ASSERT_TRUE(fs::WriteStringToFile(mPINSource, mPIN, 0664).IsNone());
 

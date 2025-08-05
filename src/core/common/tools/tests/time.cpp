@@ -15,7 +15,7 @@ using namespace aos;
 
 class TimeTest : public Test {
 private:
-    void SetUp() override { test::InitLog(); }
+    void SetUp() override { tests::utils::InitLog(); }
 };
 
 TEST_F(TimeTest, DurationToISO8601String)

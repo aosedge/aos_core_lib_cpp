@@ -12,7 +12,7 @@
 
 #include <core/common/tools/string.hpp>
 
-namespace aos::test {
+namespace aos::tests::utils {
 
 /**
  * Compares two Aos arrays.
@@ -53,6 +53,6 @@ static bool CompareArrays(const T1 array1, const T2 array2)
  */
 std::string ErrorToStr(const Error& error);
 
-} // namespace aos::test
+} // namespace aos::tests::utils
 
 #endif

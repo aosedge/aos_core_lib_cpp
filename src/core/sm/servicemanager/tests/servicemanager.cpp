@@ -72,7 +72,7 @@ class ServiceManagerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         fs::ClearDir(cTestRootDir);
 
@@ -124,7 +124,7 @@ TEST_F(ServiceManagerTest, DamagedServicesAreRemovedOnStart)
     ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
     EXPECT_EQ(services->Size(), validServices.size());
-    EXPECT_TRUE(test::CompareArrays(*services, Array<ServiceData>(validServices.data(), validServices.size())));
+    EXPECT_TRUE(tests::utils::CompareArrays(*services, Array<ServiceData>(validServices.data(), validServices.size())));
 }
 
 TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
@@ -169,7 +169,7 @@ TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
 
     ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
-    EXPECT_TRUE(test::CompareArrays(*services, Array<ServiceData>(expected.data(), expected.size())));
+    EXPECT_TRUE(tests::utils::CompareArrays(*services, Array<ServiceData>(expected.data(), expected.size())));
 }
 
 TEST_F(ServiceManagerTest, ProcessDesiredServices)

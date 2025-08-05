@@ -18,7 +18,7 @@ namespace aos::sm::image {
 
 class ImageTest : public ::testing::Test {
 protected:
-    void SetUp() override { test::InitLog(); }
+    void SetUp() override { tests::utils::InitLog(); }
 };
 
 /***********************************************************************************************************************
