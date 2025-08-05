@@ -13,18 +13,6 @@ set(TARGET_NAME certhandler_test)
 set(SOURCES certhandler.cpp certmodules.cpp certprovider.cpp)
 
 # ######################################################################################################################
-# Defines
-# ######################################################################################################################
-
-if(WITH_MBEDTLS)
-    list(APPEND DEFINES WITH_MBEDTLS)
-endif()
-
-if(WITH_OPENSSL)
-    list(APPEND DEFINES WITH_OPENSSL)
-endif()
-
-# ######################################################################################################################
 # Libraries
 # ######################################################################################################################
 
@@ -42,8 +30,6 @@ add_test(
     LOG_MODULE
     SOURCES
     ${SOURCES}
-    DEFINES
-    ${DEFINES}
     LIBRARIES
     ${LIBRARIES}
 )

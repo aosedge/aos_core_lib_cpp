@@ -32,8 +32,6 @@ add_test(
     LOG_MODULE
     SOURCES
     ${SOURCES}
-    DEFINES
-    ${DEFINES}
     LIBRARIES
     ${LIBRARIES}
 )
