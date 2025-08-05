@@ -9,7 +9,8 @@
 #     DEFINES <list>           - list of preprocessor definitions (optional);
 #     COMPILE_OPTIONS <list>   - list of compiler options (optional);
 #     INCLUDES <list>          - list of include directories (optional);
-#     SOURCES <list>           - list of source files;
+#     SOURCES <list>           - list of source files (optional);
+#     OBJECTS <list>           - list of object files (optional);
 #     HEADERS <list>           - list of header files (optional);
 #     LINK_OPTIONS <list>      - list of link options (optional);
 #     LIBRARIES <list>         - list of libraries to link against (optional).
@@ -29,6 +30,7 @@ function(_add_target)
     set(one_value_args TARGET_NAME STACK_USAGE TARGET_TYPE)
     set(multi_value_args
         SOURCES
+        OBJECTS
         HEADERS
         DEFINES
         COMPILE_OPTIONS
@@ -73,9 +75,14 @@ function(_add_target)
 
     set(TARGET_SCOPE "PUBLIC")
 
+    if(ARG_OBJECTS)
+        list(TRANSFORM ARG_OBJECTS PREPEND "$<TARGET_OBJECTS:")
+        list(TRANSFORM ARG_OBJECTS APPEND ">")
+    endif()
+
     if("${ARG_TARGET_TYPE}" STREQUAL "STATIC")
-        if(ARG_SOURCES)
-            add_library(${TARGET} STATIC ${ARG_SOURCES})
+        if(ARG_SOURCES OR ARG_OBJECTS)
+            add_library(${TARGET} STATIC ${ARG_SOURCES} ${ARG_OBJECTS})
         else()
             set(TARGET_SCOPE "INTERFACE")
 
@@ -88,14 +95,14 @@ function(_add_target)
             set_target_properties(${TARGET} PROPERTIES ${PROPERTIES})
         endif()
     elseif("${ARG_TARGET_TYPE}" STREQUAL "EXECUTABLE")
-        add_executable(${TARGET} ${ARG_SOURCES})
+        add_executable(${TARGET} ${ARG_SOURCES} ${ARG_OBJECTS})
         add_executable("${TARGET_NAMESPACE}::${ARG_TARGET_NAME}" ALIAS ${TARGET})
 
         if(ARG_PROPERTIES)
             set_target_properties(${TARGET} PROPERTIES ${PROPERTIES})
         endif()
     elseif("${ARG_TARGET_TYPE}" STREQUAL "TEST")
-        add_executable(${TARGET} ${ARG_SOURCES})
+        add_executable(${TARGET} ${ARG_SOURCES} ${ARG_OBJECTS})
         add_executable("${TARGET_NAMESPACE}::${ARG_TARGET_NAME}" ALIAS ${TARGET})
 
         set(DISCOVER_TEST_PARAMS ${TARGET})
