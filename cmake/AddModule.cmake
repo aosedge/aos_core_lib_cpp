@@ -147,7 +147,7 @@ function(_add_target)
     # add defines
 
     if(ARG_DEFINES)
-        target_compile_definitions(${TARGET} PRIVATE ${ARG_DEFINES})
+        target_compile_definitions(${TARGET} PUBLIC ${ARG_DEFINES})
     endif()
 
     # add includes
