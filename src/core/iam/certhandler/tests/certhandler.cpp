@@ -27,7 +27,7 @@ class CerthandlerTest : public Test {
 protected:
     void SetUp() override
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         ASSERT_TRUE(mCryptoFactory.Init().IsNone());
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();

@@ -81,7 +81,7 @@ class LauncherTest : public Test {
 protected:
     static void SetUpTestSuite()
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
     }
@@ -119,7 +119,7 @@ protected:
         auto runStatus = std::make_unique<InstanceStatusStaticArray>();
 
         ASSERT_TRUE(mLauncher->GetCurrentRunStatus(*runStatus).IsNone());
-        EXPECT_TRUE(test::CompareArrays(*runStatus, Array<InstanceStatus>()));
+        EXPECT_TRUE(tests::utils::CompareArrays(*runStatus, Array<InstanceStatus>()));
     }
 
     void TearDown() override
@@ -326,7 +326,7 @@ TEST_F(LauncherTest, RunInstances)
                         .IsNone());
 
         EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-        EXPECT_TRUE(test::CompareArrays(
+        EXPECT_TRUE(tests::utils::CompareArrays(
             feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
     }
 
@@ -369,8 +369,8 @@ TEST_F(LauncherTest, RunMaxInstances)
                     .IsNone());
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
-    EXPECT_TRUE(
-        test::CompareArrays(feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
+    EXPECT_TRUE(tests::utils::CompareArrays(
+        feature.get(), Array<InstanceStatus>(testItem.mStatus.data(), testItem.mStatus.size())));
 
     EXPECT_TRUE(mLauncher->Stop().IsNone());
 }

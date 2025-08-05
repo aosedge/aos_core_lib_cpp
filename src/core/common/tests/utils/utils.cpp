@@ -8,7 +8,7 @@
 
 #include <core/common/tools/string.hpp>
 
-namespace aos::test {
+namespace aos::tests::utils {
 
 std::string ErrorToStr(const Error& error)
 {
@@ -22,4 +22,4 @@ std::string ErrorToStr(const Error& error)
     return result;
 }
 
-} // namespace aos::test
+} // namespace aos::tests::utils

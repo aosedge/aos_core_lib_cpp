@@ -30,7 +30,7 @@ class CryptoProviderTest : public TestWithParam<std::shared_ptr<CryptoFactoryItf
 public:
     void SetUp() override
     {
-        test::InitLog();
+        tests::utils::InitLog();
 
         mFactory = GetParam();
 
