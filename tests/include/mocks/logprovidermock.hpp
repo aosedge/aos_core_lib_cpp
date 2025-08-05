@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include "aos/sm/logprovider.hpp"
+#include "aos/common/logprovider/logprovider.hpp"
 
 namespace aos::sm::logprovider {
 
