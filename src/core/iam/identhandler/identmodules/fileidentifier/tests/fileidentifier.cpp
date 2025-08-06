@@ -57,9 +57,9 @@ protected:
             f << cSubjects;
         }
 
-        mConfig.unitModelPath = cUnitModelPath;
-        mConfig.systemIDPath  = cSystemIDPath;
-        mConfig.subjectsPath  = cSubjectsPath;
+        mConfig.mUnitModelPath = cUnitModelPath;
+        mConfig.mSystemIDPath  = cSystemIDPath;
+        mConfig.mSubjectsPath  = cSubjectsPath;
     }
 
     aos::identhandler::SubjectsObserverMock mSubjectsObserverMock;
