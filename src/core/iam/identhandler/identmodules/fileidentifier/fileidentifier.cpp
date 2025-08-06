@@ -6,12 +6,13 @@
  */
 
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/log.hpp>
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
 
 #include "fileidentifier.hpp"
 
-namespace aos::iam::identhandler {
+namespace aos::iam::identhandler::fileidentifier {
 
 /***********************************************************************************************************************
  * Public
@@ -35,7 +36,9 @@ Error FileIdentifier::Init(const Config& config, aos::identhandler::SubjectsObse
 
     err = ReadSubjects();
     if (!err.IsNone()) {
-        LOG_WRN() << "Can't read subjects: err=" << err << ". Empty subjects will be used";
+        LOG_WRN() << "Can't read subjects, empty subjects will be used" << Log::Field(err);
+
+        mSubjects.Clear();
     }
 
     return ErrorEnum::eNone;
@@ -57,9 +60,7 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    subjects = mSubjects;
-
-    return ErrorEnum::eNone;
+    return subjects.Assign(mSubjects);
 }
 
 /***********************************************************************************************************************
@@ -101,4 +102,4 @@ Error FileIdentifier::ReadSubjects()
     return ErrorEnum::eNone;
 }
 
-} // namespace aos::iam::identhandler
+} // namespace aos::iam::identhandler::fileidentifier

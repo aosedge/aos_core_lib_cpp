@@ -12,7 +12,7 @@
 #include <core/common/types/types.hpp>
 #include <core/iam/config.hpp>
 
-namespace aos::iam::identhandler {
+namespace aos::iam::identhandler::fileidentifier {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
@@ -93,6 +93,6 @@ private:
 
 /** @}*/
 
-} // namespace aos::iam::identhandler
+} // namespace aos::iam::identhandler::fileidentifier
 
 #endif

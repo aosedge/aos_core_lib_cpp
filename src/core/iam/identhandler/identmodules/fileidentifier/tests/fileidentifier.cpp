@@ -1,159 +1,193 @@
 /*
- * Copyright (C) 2024 Renesas Electronics Corporation.
- * Copyright (C) 2024 EPAM Systems, Inc.
+ * Copyright (C) 2025 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <gtest/gtest.h>
+#include <fstream>
+
+#include <gmock/gmock.h>
 
 #include <core/common/tests/mocks/identhandlermock.hpp>
-#include <core/common/tools/buffer.hpp>
+#include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
+
 #include <core/iam/identhandler/identmodules/fileidentifier/fileidentifier.hpp>
 
-using namespace aos;
-using namespace aos::iam::identhandler;
 using namespace testing;
+
+namespace aos::iam::identhandler::fileidentifier {
+
+namespace {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+constexpr auto cSystemIDPath  = "systemID";
+constexpr auto cUnitModelPath = "unitModel";
+constexpr auto cSubjectsPath  = "subjects";
+constexpr auto cSystemID      = "systemID";
+constexpr auto cUnitModel     = "unitModel";
+constexpr auto cSubjects      = R"(subject1
+subject2
+subject3)";
+
+} // namespace
 
 /***********************************************************************************************************************
  * Suite
  **********************************************************************************************************************/
 
-class FileIdentifierTest : public Test {
+class FileIdentifierTest : public testing::Test {
 protected:
-    static constexpr auto cSystemIdPath  = "systemd-id.txt";
-    static constexpr auto cUnitModelPath = "unit-model.txt";
-    static constexpr auto cSubjectsPath  = "subjects.txt";
-
-    static constexpr auto cSystemIdContent  = "test-system-id";
-    static constexpr auto cUnitModelContent = "test-unit-model";
-    static constexpr auto cSubjectsContent  = "test-subject-1\ntest-subject-2";
-
-    static const Config cDefaultConfig;
-
     void SetUp() override
     {
-        fs::WriteStringToFile(cSystemIdPath, cSystemIdContent, 0600);
-        fs::WriteStringToFile(cUnitModelPath, cUnitModelContent, 0600);
-        fs::WriteStringToFile(cSubjectsPath, cSubjectsContent, 0600);
+        aos::tests::utils::InitLog();
+
+        if (std::ofstream f(cSystemIDPath); f) {
+            f << cSystemID;
+        }
+
+        if (std::ofstream f(cUnitModelPath); f) {
+            f << cUnitModel;
+        }
+
+        if (std::ofstream f(cSubjectsPath); f) {
+            f << cSubjects;
+        }
+
+        mConfig.unitModelPath = cUnitModelPath;
+        mConfig.systemIDPath  = cSystemIDPath;
+        mConfig.subjectsPath  = cSubjectsPath;
     }
 
-    void TearDown() override
-    {
-        fs::Remove(cSystemIdPath);
-        fs::Remove(cUnitModelPath);
-        fs::Remove(cSubjectsPath);
-    }
-
-    // cppcheck-suppress unusedStructMember
-    aos::identhandler::SubjectsObserverMock mSubjectsObserver;
-
-    FileIdentifier mFileIdentifier;
+    aos::identhandler::SubjectsObserverMock mSubjectsObserverMock;
+    Config                                  mConfig;
 };
-
-/***********************************************************************************************************************
- * Consts
- **********************************************************************************************************************/
-
-const Config FileIdentifierTest::cDefaultConfig
-    = {FileIdentifierTest::cSystemIdPath, FileIdentifierTest::cUnitModelPath, FileIdentifierTest::cSubjectsPath};
 
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(FileIdentifierTest, ReadSystemIDFails)
+TEST_F(FileIdentifierTest, InitFailsOnEmptyConfig)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
-    fs::Remove(cDefaultConfig.systemIDPath);
+    FileIdentifier identifier;
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_EQ(err.Value(), Error::Enum::eRuntime) << err.Message();
+    const auto err = identifier.Init(Config {}, mSubjectsObserverMock);
     ASSERT_FALSE(err.IsNone()) << err.Message();
 }
 
-TEST_F(FileIdentifierTest, ReadUnitModelFails)
+TEST_F(FileIdentifierTest, InitFailsOnSystemIDFileMissing)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
-    fs::Remove(cDefaultConfig.unitModelPath);
+    FileIdentifier identifier;
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_EQ(err.Value(), Error::Enum::eRuntime) << err.Message();
-    ASSERT_FALSE(err.IsNone()) << err.Message();
+    fs::Remove(cSystemIDPath);
+
+    auto err = identifier.Init(mConfig, mSubjectsObserverMock);
+    ASSERT_EQ(err.Value(), ErrorEnum::eRuntime) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(FileIdentifierTest, ReadSubjectsFails)
+TEST_F(FileIdentifierTest, InitFailsOnUnitModelFileMissing)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
-    fs::Remove(cDefaultConfig.subjectsPath);
+    FileIdentifier identifier;
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_EQ(err.Value(), Error::Enum::eNone) << err.Message();
-    ASSERT_TRUE(err.IsNone()) << err.Message();
+    fs::Remove(cUnitModelPath);
+
+    auto err = identifier.Init(mConfig, mSubjectsObserverMock);
+    ASSERT_EQ(err.Value(), ErrorEnum::eRuntime) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
+TEST_F(FileIdentifierTest, InitSucceedsOnSubjectsFileMissing)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
+    FileIdentifier identifier;
 
-    StaticString<cSubjectIDLen * cMaxSubjectIDSize> subjects;
-    for (size_t i {0}; i < cMaxSubjectIDSize + 1; ++i) {
-        subjects.Append("subject\n");
+    fs::Remove(cSubjectsPath);
+
+    auto err = identifier.Init(mConfig, mSubjectsObserverMock);
+    ASSERT_EQ(err.Value(), ErrorEnum::eNone) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(FileIdentifierTest, EmptySubjectsOnSubjectsCountExceedsAppLimit)
+{
+    FileIdentifier identifier;
+
+    if (std::ofstream f(cSubjectsPath); f) {
+        for (size_t i = 0; i < cMaxSubjectIDSize + 1; ++i) {
+            f << "subject" << i << std::endl;
+        }
     }
 
-    fs::WriteStringToFile(cDefaultConfig.subjectsPath, subjects, 0600);
+    auto err = identifier.Init(mConfig, mSubjectsObserverMock);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_TRUE(err.IsNone()) << err.Message();
+    StaticArray<StaticString<cSubjectIDLen>, cMaxSubjectIDSize> subjects;
+
+    err = identifier.GetSubjects(subjects);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(subjects.IsEmpty()) << "Expected empty subjects array, but got size: " << subjects.Size();
+}
+
+TEST_F(FileIdentifierTest, EmptySubjectsOnSubjectLenExceedsAppLimit)
+{
+    FileIdentifier identifier;
+
+    if (std::ofstream f(cSubjectsPath); f) {
+        f << "subject" << std::string(cSubjectIDLen, 'a') << std::endl;
+    }
+
+    auto err = identifier.Init(mConfig, mSubjectsObserverMock);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    StaticArray<StaticString<cSubjectIDLen>, cMaxSubjectIDSize> subjects;
+
+    err = identifier.GetSubjects(subjects);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(subjects.IsEmpty()) << "Expected empty subjects array, but got size: " << subjects.Size();
 }
 
 TEST_F(FileIdentifierTest, GetSystemID)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    FileIdentifier identifier;
+
+    const auto err = identifier.Init(mConfig, mSubjectsObserverMock);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
-    const auto systemIdResult = mFileIdentifier.GetSystemID();
-    ASSERT_TRUE(systemIdResult.mError.IsNone()) << systemIdResult.mError.Message();
-
-    ASSERT_EQ(systemIdResult.mValue, String(cSystemIdContent));
+    const auto [systemID, systemIDErr] = identifier.GetSystemID();
+    ASSERT_TRUE(systemIDErr.IsNone()) << tests::utils::ErrorToStr(systemIDErr);
+    ASSERT_STREQ(systemID.CStr(), cSystemID);
 }
 
 TEST_F(FileIdentifierTest, GetUnitModel)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    FileIdentifier identifier;
+
+    const auto err = identifier.Init(mConfig, mSubjectsObserverMock);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
-    const auto unitModelResult = mFileIdentifier.GetUnitModel();
-    ASSERT_TRUE(unitModelResult.mError.IsNone()) << unitModelResult.mError.Message();
-
-    ASSERT_EQ(unitModelResult.mValue, String(cUnitModelContent));
+    const auto [unitModel, unitModelErr] = identifier.GetUnitModel();
+    ASSERT_TRUE(unitModelErr.IsNone()) << tests::utils::ErrorToStr(unitModelErr);
+    ASSERT_STREQ(unitModel.CStr(), cUnitModel);
 }
 
 TEST_F(FileIdentifierTest, GetSubjects)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    FileIdentifier identifier;
+
+    const auto err = identifier.Init(mConfig, mSubjectsObserverMock);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
-    StaticArray<StaticString<cSubjectIDLen>, 2> subjects;
-    const auto                                  subjectsResult = mFileIdentifier.GetSubjects(subjects);
-    ASSERT_TRUE(subjectsResult.IsNone()) << subjectsResult.Message();
+    StaticArray<StaticString<cSubjectIDLen>, cMaxSubjectIDSize> subjects;
 
-    ASSERT_EQ(subjects.Size(), 2);
+    const auto subjectsErr = identifier.GetSubjects(subjects);
+    ASSERT_TRUE(subjectsErr.IsNone()) << tests::utils::ErrorToStr(subjectsErr);
+
+    ASSERT_EQ(subjects.Size(), 3);
+    ASSERT_STREQ(subjects[0].CStr(), "subject1");
+    ASSERT_STREQ(subjects[1].CStr(), "subject2");
+    ASSERT_STREQ(subjects[2].CStr(), "subject3");
 }
 
-TEST_F(FileIdentifierTest, GetSubjectsNoMemory)
-{
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_TRUE(err.IsNone()) << err.Message();
-
-    StaticArray<StaticString<cSubjectIDLen>, 1> subjects;
-    const auto                                  subjectsResult = mFileIdentifier.GetSubjects(subjects);
-    ASSERT_FALSE(subjectsResult.IsNone()) << subjectsResult.Message();
-    ASSERT_TRUE(subjectsResult.Is(Error::Enum::eNoMemory)) << subjectsResult.Message();
-
-    ASSERT_TRUE(subjects.IsEmpty());
-}
+} // namespace aos::iam::identhandler::fileidentifier
