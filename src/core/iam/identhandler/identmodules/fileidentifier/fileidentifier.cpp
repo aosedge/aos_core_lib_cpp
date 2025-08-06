@@ -17,7 +17,7 @@ namespace aos::iam::identhandler {
  * Public
  **********************************************************************************************************************/
 
-Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsObserver)
+Error FileIdentifier::Init(const Config& config, aos::identhandler::SubjectsObserverItf& subjectsObserver)
 {
     mConfig           = config;
     mSubjectsObserver = &subjectsObserver;

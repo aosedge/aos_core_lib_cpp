@@ -8,9 +8,9 @@
 #ifndef AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 #define AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 
+#include <core/common/identhandler/identhandler.hpp>
 #include <core/common/types/types.hpp>
 #include <core/iam/config.hpp>
-#include <core/iam/identhandler/identhandler.hpp>
 
 namespace aos::iam::identhandler {
 
@@ -41,7 +41,7 @@ struct Config {
 /**
  * File identifier.
  */
-class FileIdentifier : public IdentHandlerItf {
+class FileIdentifier : public aos::identhandler::IdentHandlerItf {
 public:
     /**
      * Initializes file identifier.
@@ -50,7 +50,7 @@ public:
      * @param subjectsObserver subject observer.
      * @return Error.
      */
-    Error Init(const Config& config, SubjectsObserverItf& subjectsObserver);
+    Error Init(const Config& config, aos::identhandler::SubjectsObserverItf& subjectsObserver);
 
     /**
      * Returns System ID.
@@ -85,7 +85,7 @@ private:
     Error ReadSubjects();
 
     Config                                                      mConfig {};
-    SubjectsObserverItf*                                        mSubjectsObserver {};
+    aos::identhandler::SubjectsObserverItf*                     mSubjectsObserver {};
     StaticString<cSystemIDLen>                                  mSystemId;
     StaticString<cUnitModelLen>                                 mUnitModel;
     StaticArray<StaticString<cSubjectIDLen>, cMaxSubjectIDSize> mSubjects;

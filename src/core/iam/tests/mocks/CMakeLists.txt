@@ -18,7 +18,6 @@ set(HEADERS
     certhandlermock.hpp
     certloadermock.hpp
     certprovidermock.hpp
-    identhandlermock.hpp
     nodeinfoprovidermock.hpp
     nodemanagermock.hpp
     permhandlermock.hpp

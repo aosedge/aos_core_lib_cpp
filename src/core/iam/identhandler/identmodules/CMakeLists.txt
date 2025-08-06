@@ -12,7 +12,7 @@ set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::identmodules)
 set(TARGET_PREFIX ${TARGET_PREFIX}_identmodules)
 
 # ######################################################################################################################
-# Cert modules
+# Identifier modules
 # ######################################################################################################################
 
 add_subdirectory(fileidentifier)

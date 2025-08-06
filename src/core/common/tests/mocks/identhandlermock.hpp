@@ -5,14 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_IAM_TESTS_MOCKS_IDENTHANDLERMOCK_HPP_
-#define AOS_CORE_IAM_TESTS_MOCKS_IDENTHANDLERMOCK_HPP_
+#ifndef AOS_CORE_COMMON_TESTS_MOCKS_IDENTHANDLERMOCK_HPP_
+#define AOS_CORE_COMMON_TESTS_MOCKS_IDENTHANDLERMOCK_HPP_
 
 #include <gmock/gmock.h>
 
-#include <core/iam/identhandler/identhandler.hpp>
+#include <core/common/identhandler/identhandler.hpp>
 
-namespace aos::iam::identhandler {
+namespace aos::identhandler {
 
 /**
  * Subjects observer mock.
@@ -32,6 +32,6 @@ public:
     MOCK_METHOD(Error, GetSubjects, (Array<StaticString<cSubjectIDLen>> & subjects), (override));
 };
 
-} // namespace aos::iam::identhandler
+} // namespace aos::identhandler
 
 #endif
