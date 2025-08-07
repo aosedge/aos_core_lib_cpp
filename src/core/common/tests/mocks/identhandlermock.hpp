@@ -23,6 +23,15 @@ public:
 };
 
 /**
+ * Subjects publisher mock.
+ */
+class SubjectsPublisherMock : public SubjectsPublisherItf {
+public:
+    MOCK_METHOD(Error, SubscribeSubjectsChanged, (SubjectsObserverItf&), (override));
+    MOCK_METHOD(void, UnsubscribeSubjectsChanged, (SubjectsObserverItf&), (override));
+};
+
+/**
  * IdentHandler interface mock
  */
 class IdentHandlerMock : public IdentHandlerItf {

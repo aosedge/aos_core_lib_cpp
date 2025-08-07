@@ -36,6 +36,32 @@ public:
 };
 
 /**
+ * Subjects publisher interface.
+ */
+class SubjectsPublisherItf {
+public:
+    /**
+     * Destructor
+     */
+    virtual ~SubjectsPublisherItf() = default;
+
+    /**
+     * Subscribes to subjects changed events.
+     *
+     * @param observer subjects observer.
+     * @returns Error.
+     */
+    virtual Error SubscribeSubjectsChanged(SubjectsObserverItf& observer) = 0;
+
+    /**
+     * Unsubscribes from subjects changed events.
+     *
+     * @param observer subjects observer.
+     */
+    virtual void UnsubscribeSubjectsChanged(SubjectsObserverItf& observer) = 0;
+};
+
+/**
  * Ident handler interface.
  */
 class IdentHandlerItf {
