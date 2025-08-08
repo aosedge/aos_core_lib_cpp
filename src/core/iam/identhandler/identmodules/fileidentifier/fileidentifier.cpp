@@ -6,18 +6,19 @@
  */
 
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/log.hpp>
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
 
 #include "fileidentifier.hpp"
 
-namespace aos::iam::identhandler {
+namespace aos::iam::identhandler::fileidentifier {
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsObserver)
+Error FileIdentifier::Init(const Config& config, aos::identhandler::SubjectsObserverItf& subjectsObserver)
 {
     mConfig           = config;
     mSubjectsObserver = &subjectsObserver;
@@ -35,7 +36,9 @@ Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsOb
 
     err = ReadSubjects();
     if (!err.IsNone()) {
-        LOG_WRN() << "Can't read subjects: err=" << err << ". Empty subjects will be used";
+        LOG_WRN() << "Can't read subjects, empty subjects will be used" << Log::Field(err);
+
+        mSubjects.Clear();
     }
 
     return ErrorEnum::eNone;
@@ -57,9 +60,7 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    subjects = mSubjects;
-
-    return ErrorEnum::eNone;
+    return subjects.Assign(mSubjects);
 }
 
 /***********************************************************************************************************************
@@ -68,14 +69,14 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
 
 Error FileIdentifier::ReadSystemId()
 {
-    const auto err = fs::ReadFileToString(mConfig.systemIDPath, mSystemId);
+    const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemId);
 
     return AOS_ERROR_WRAP(err);
 }
 
 Error FileIdentifier::ReadUnitModel()
 {
-    const auto err = fs::ReadFileToString(mConfig.unitModelPath, mUnitModel);
+    const auto err = fs::ReadFileToString(mConfig.mUnitModelPath, mUnitModel);
 
     return AOS_ERROR_WRAP(err);
 }
@@ -84,7 +85,7 @@ Error FileIdentifier::ReadSubjects()
 {
     StaticString<cMaxSubjectIDSize * cSubjectIDLen> buffer;
 
-    auto err = fs::ReadFileToString(mConfig.subjectsPath, buffer);
+    auto err = fs::ReadFileToString(mConfig.mSubjectsPath, buffer);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -101,4 +102,4 @@ Error FileIdentifier::ReadSubjects()
     return ErrorEnum::eNone;
 }
 
-} // namespace aos::iam::identhandler
+} // namespace aos::iam::identhandler::fileidentifier

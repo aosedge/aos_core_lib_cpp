@@ -8,24 +8,13 @@
 # Target name
 # ######################################################################################################################
 
-set(TARGET_NAME mocks)
+set(TARGET_NAME identhandler)
 
 # ######################################################################################################################
 # Headers
 # ######################################################################################################################
 
-set(HEADERS
-    alertsmock.hpp
-    connectionprovidermock.hpp
-    cryptomock.hpp
-    downloadermock.hpp
-    fsmock.hpp
-    identhandlermock.hpp
-    logprovidermock.hpp
-    monitoringmock.hpp
-    ocispecmock.hpp
-    spaceallocatormock.hpp
-)
+set(HEADERS identhandler.hpp)
 
 # ######################################################################################################################
 # Target

@@ -5,13 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_IDENTHANDLER_IDENTHANDLER_HPP_
-#define AOS_CORE_IDENTHANDLER_IDENTHANDLER_HPP_
+#ifndef AOS_CORE_COMMON_IDENTHANDLER_IDENTHANDLER_HPP_
+#define AOS_CORE_COMMON_IDENTHANDLER_IDENTHANDLER_HPP_
 
 #include <core/common/types/types.hpp>
-#include <core/iam/config.hpp>
 
-namespace aos::iam::identhandler {
+namespace aos::identhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
@@ -34,6 +33,32 @@ public:
      * Destroys subjects changed observer interface.
      */
     virtual ~SubjectsObserverItf() = default;
+};
+
+/**
+ * Subjects publisher interface.
+ */
+class SubjectsPublisherItf {
+public:
+    /**
+     * Destructor
+     */
+    virtual ~SubjectsPublisherItf() = default;
+
+    /**
+     * Subscribes to subjects changed events.
+     *
+     * @param observer subjects observer.
+     * @returns Error.
+     */
+    virtual Error SubscribeSubjectsChanged(SubjectsObserverItf& observer) = 0;
+
+    /**
+     * Unsubscribes from subjects changed events.
+     *
+     * @param observer subjects observer.
+     */
+    virtual void UnsubscribeSubjectsChanged(SubjectsObserverItf& observer) = 0;
 };
 
 /**
@@ -85,6 +110,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::iam::identhandler
+} // namespace aos::identhandler
 
 #endif

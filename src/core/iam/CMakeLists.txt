@@ -17,8 +17,6 @@ set(HEADERS config.hpp)
 # Install targets
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_iam_identhandler)
-
 set(INSTALL_LIBRARIES
     aos_core_iam_certhandler
     aos_core_iam_certmodules_pkcs11

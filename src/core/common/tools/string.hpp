@@ -660,10 +660,21 @@ public:
         auto it     = begin();
         auto prevIt = it;
 
+        auto addElement = [&list](const String& str) -> Error {
+            if (auto err = list.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = list.Back().Assign(str); !err.IsNone()) {
+                return err;
+            }
+
+            return ErrorEnum::eNone;
+        };
+
         while (it != end()) {
             if (delim ? *it == delim : isspace(*it)) {
-                auto err = list.PushBack(String(prevIt, it - prevIt));
-                if (!err.IsNone()) {
+                if (auto err = addElement(String(prevIt, it - prevIt)); !err.IsNone()) {
                     return err;
                 }
 
@@ -677,8 +688,7 @@ public:
         }
 
         if (it != prevIt) {
-            auto err = list.PushBack(String(prevIt, it - prevIt));
-            if (!err.IsNone()) {
+            if (auto err = addElement(String(prevIt, it - prevIt)); !err.IsNone()) {
                 return err;
             }
         }
