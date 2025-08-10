@@ -24,6 +24,7 @@ set(INSTALL_HEADERS
     aos_core_cm_nodeinfoprovider
     aos_core_cm_resourcemanager
     aos_core_cm_storagestate
+    aos_core_cm_unitconfig
 )
 
 set(INSTALL_LIBRARIES)
@@ -56,6 +57,7 @@ add_subdirectory(networkmanager)
 add_subdirectory(nodeinfoprovider)
 add_subdirectory(resourcemanager)
 add_subdirectory(storagestate)
+add_subdirectory(unitconfig)
 
 if(WITH_TEST)
     add_subdirectory(tests)
