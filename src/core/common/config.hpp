@@ -114,13 +114,6 @@
 #endif
 
 /**
- * Service/layer description len.
- */
-#ifndef AOS_CONFIG_TYPES_DESCRIPTION_LEN
-#define AOS_CONFIG_TYPES_DESCRIPTION_LEN 200
-#endif
-
-/**
  * Max number of services.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICES
@@ -961,6 +954,34 @@
  */
 #ifndef AOS_CONFIG_OCISPEC_USER_NAME_LEN
 #define AOS_CONFIG_OCISPEC_USER_NAME_LEN 64
+#endif
+
+/**
+ * Identifier codename len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN 64
+#endif
+
+/**
+ * Identifier title len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN 128
+#endif
+
+/**
+ * Identifier description len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN 256
+#endif
+
+/**
+ * Identifier URN  len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_URN_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_URN_LEN 256
 #endif
 
 /**
