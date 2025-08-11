@@ -375,7 +375,7 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStatusStrings[] = {
+        static const char* const sLinuxNamespaceStrings[] = {
             "pid",
             "network",
             "mount",
@@ -387,7 +387,7 @@ public:
             "unknown",
         };
 
-        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+        return Array<const char* const>(sLinuxNamespaceStrings, ArraySize(sLinuxNamespaceStrings));
     };
 };
 
