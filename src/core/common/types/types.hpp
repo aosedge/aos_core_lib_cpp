@@ -76,12 +76,6 @@ constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
 constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
 
 /**
- * Service/layer description len.
- */
-
-constexpr auto cDescriptionLen = AOS_CONFIG_TYPES_DESCRIPTION_LEN;
-
-/**
  * Max number of instances.
  */
 constexpr auto cMaxNumInstances = AOS_CONFIG_TYPES_MAX_NUM_INSTANCES;
