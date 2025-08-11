@@ -11,7 +11,7 @@
 
 #include "alerts.hpp"
 #include "certificates.hpp"
-#include "cloudprotocol.hpp"
+#include "common.hpp"
 #include "desiredstatus.hpp"
 #include "envvars.hpp"
 #include "log.hpp"

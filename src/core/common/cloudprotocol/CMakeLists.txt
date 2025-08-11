@@ -18,7 +18,7 @@ set(HEADERS
     alerts.hpp
     certificates.hpp
     cloudmessage.hpp
-    cloudprotocol.hpp
+    common.hpp
     desiredstatus.hpp
     envvars.hpp
     log.hpp
