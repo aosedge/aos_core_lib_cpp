@@ -17,12 +17,12 @@ set(TARGET_NAME cloudprotocol)
 set(HEADERS
     alerts.hpp
     certificates.hpp
-    cloudmessage.hpp
     common.hpp
     desiredstatus.hpp
     envvars.hpp
     log.hpp
     monitoring.hpp
+    protocol.hpp
     provisioning.hpp
     servicediscovery.hpp
     state.hpp
