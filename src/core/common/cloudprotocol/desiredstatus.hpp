@@ -9,7 +9,7 @@
 
 #include <core/common/types/types.hpp>
 
-#include "cloudprotocol.hpp"
+#include "common.hpp"
 
 namespace aos::cloudprotocol {
 
