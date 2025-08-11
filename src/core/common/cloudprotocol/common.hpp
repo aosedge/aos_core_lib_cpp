@@ -9,9 +9,98 @@
 
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/optional.hpp>
+#include <core/common/tools/uuid.hpp>
 #include <core/common/types/types.hpp>
 
 namespace aos::cloudprotocol {
+
+/**
+ * Identifier codename len.
+ */
+constexpr auto cCoreNameLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
+
+/**
+ * Identifier title len.
+ */
+
+constexpr auto cTitleLen = AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN;
+
+/**
+ * Identifier description len.
+ */
+
+constexpr auto cDescriptionLen = AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN;
+
+/**
+ * Identifier URN  len.
+ */
+constexpr auto cURNLen = AOS_CONFIG_CLOUDPROTOCOL_URN_LEN;
+
+/**
+ * Update item type.
+ */
+class UpdateItemTypeType {
+public:
+    enum class Enum {
+        eComponent,
+        eService,
+        eLayer,
+        eSubject,
+        eOEM,
+
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sUpdateItemTypeStrings[] = {
+            "component",
+            "service",
+            "layer",
+            "subject",
+            "OEM",
+        };
+
+        return Array<const char* const>(sUpdateItemTypeStrings, ArraySize(sUpdateItemTypeStrings));
+    };
+};
+
+using UpdateItemTypeEnum = UpdateItemTypeType::Enum;
+using UpdateItemType     = EnumStringer<UpdateItemTypeType>;
+
+/**
+ * Aos identifier.
+ */
+struct Identifier {
+    Optional<uuid::UUID>                    mID;
+    Optional<UpdateItemType>                mType;
+    Optional<StaticString<cCoreNameLen>>    mCodeName;
+    Optional<StaticString<cTitleLen>>       mTitle;
+    Optional<StaticString<cDescriptionLen>> mDescription;
+    Optional<StaticString<cURNLen>>         mURN;
+
+    /**
+     * Compares identifiers.
+     *
+     * @param other identifier to compare.
+     * @return bool.
+     */
+    bool operator==(const Identifier& other) const
+    {
+        if (mURN.HasValue() && other.mURN.HasValue()) {
+            return mURN.GetValue() == other.mURN.GetValue();
+        }
+
+        return mType == other.mType && mCodeName == other.mCodeName;
+    }
+
+    /**
+     * Compares identifiers.
+     *
+     * @param other identifier to compare.
+     * @return bool.
+     */
+    bool operator!=(const Identifier& other) const { return !operator==(other); }
+};
 
 /**
  * Instance filter.
