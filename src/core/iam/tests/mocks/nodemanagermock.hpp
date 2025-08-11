@@ -19,7 +19,7 @@ namespace aos::iam::nodemanager {
 class NodeManagerMock : public NodeManagerItf {
 public:
     MOCK_METHOD(Error, SetNodeInfo, (const NodeInfo&), (override));
-    MOCK_METHOD(Error, SetNodeStatus, (const String&, NodeStatus), (override));
+    MOCK_METHOD(Error, SetNodeState, (const String&, NodeState), (override));
     MOCK_METHOD(Error, GetNodeInfo, (const String&, NodeInfo&), (const, override));
     MOCK_METHOD(Error, GetAllNodeIds, (Array<StaticString<cNodeIDLen>>&), (const, override));
     MOCK_METHOD(Error, RemoveNodeInfo, (const String&), (override));
