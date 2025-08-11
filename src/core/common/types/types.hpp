@@ -1241,13 +1241,13 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStatusStrings[] = {
+        static const char* const sNodeAttributeStrings[] = {
             "MainNode",
             "AosComponents",
             "NodeRunners",
         };
 
-        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+        return Array<const char* const>(sNodeAttributeStrings, ArraySize(sNodeAttributeStrings));
     };
 };
 
@@ -1267,13 +1267,13 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStatusStrings[] = {
+        static const char* const sRunnerStrings[] = {
             "runc",
             "crun",
             "xrun",
         };
 
-        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+        return Array<const char* const>(sRunnerStrings, ArraySize(sRunnerStrings));
     };
 };
 
