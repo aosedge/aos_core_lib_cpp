@@ -726,13 +726,6 @@
 #endif
 
 /**
- * Maximum len of a certificate chain string representation.
- */
-#ifndef AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN
-#define AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN 4 * 1024
-#endif
-
-/**
  * Max expected number of certificates in a chain stored in PEM file.
  */
 #ifndef AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE
