@@ -42,6 +42,11 @@ static constexpr auto cCertsPerNodeCount = static_cast<size_t>(CertTypeEnum::eNu
 static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertsPerNodeCount;
 
 /**
+ * Certificate chain len.
+ */
+static constexpr auto cCertChainPEMLen = crypto::cCertChainSize * crypto::cCertPEMLen;
+
+/**
  * Cert type type.
  */
 class CertTypeType {
@@ -79,9 +84,9 @@ using CertType     = EnumStringer<CertTypeType>;
  * IssuedCertData issued unit certificate data.
  */
 struct IssuedCertData {
-    CertType                            mType;
-    StaticString<cNodeIDLen>            mNodeID;
-    StaticString<crypto::cCertChainLen> mCertificateChain;
+    CertType                       mType;
+    StaticString<cNodeIDLen>       mNodeID;
+    StaticString<cCertChainPEMLen> mCertificateChain;
 
     /**
      * Compares issued certificate data.
