@@ -125,11 +125,6 @@ constexpr auto cECDSAParamsOIDSize = AOS_CONFIG_CRYPTO_ECDSA_PARAMS_OID_SIZE;
 constexpr auto cECDSAPointDERSize = AOS_CONFIG_CRYPTO_ECDSA_POINT_DER_SIZE;
 
 /**
- * Maximum len of a certificate chain string representation.
- */
-constexpr auto cCertChainLen = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN;
-
-/**
  * Max expected number of certificates in a chain stored in PEM file.
  */
 constexpr auto cCertChainSize = AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE;
