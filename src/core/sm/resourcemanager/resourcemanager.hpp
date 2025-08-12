@@ -29,8 +29,15 @@ static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_RESOURCEMANAGER_NODE_CONFI
  * Node Config.
  */
 struct NodeConfig {
-    cloudprotocol::NodeConfig mNodeConfig;
-    StaticString<cVersionLen> mVersion;
+    StaticString<cVersionLen>                                   mVersion;
+    StaticString<cNodeTypeLen>                                  mNodeType;
+    StaticString<cNodeIDLen>                                    mNodeID;
+    Optional<AlertRules>                                        mAlertRules;
+    Optional<cloudprotocol::ResourceRatios>                     mResourceRatios;
+    StaticArray<DeviceInfo, cMaxNumNodeDevices>                 mDevices;
+    StaticArray<ResourceInfo, cMaxNumNodeResources>             mResources;
+    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
+    uint64_t                                                    mPriority {0};
 
     /**
      * Compares node config.
@@ -40,7 +47,10 @@ struct NodeConfig {
      */
     bool operator==(const NodeConfig& nodeConfig) const
     {
-        return mNodeConfig == nodeConfig.mNodeConfig && mVersion == nodeConfig.mVersion;
+        return mNodeType == nodeConfig.mNodeType && mNodeID == nodeConfig.mNodeID
+            && mAlertRules == nodeConfig.mAlertRules && mResourceRatios == nodeConfig.mResourceRatios
+            && mDevices == nodeConfig.mDevices && mResources == nodeConfig.mResources && mLabels == nodeConfig.mLabels
+            && mPriority == nodeConfig.mPriority;
     }
 
     /**
@@ -150,7 +160,7 @@ public:
      * @param nodeConfig[out] param to store node config.
      * @return Error.
      */
-    virtual Error GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const = 0;
+    virtual Error GetNodeConfig(NodeConfig& nodeConfig) const = 0;
 
     /**
      * Gets device info by name.
@@ -279,7 +289,7 @@ public:
      * @param nodeConfig[out] param to store node config.
      * @return Error.
      */
-    Error GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const override;
+    Error GetNodeConfig(NodeConfig& nodeConfig) const override;
 
     /**
      * Gets device info by name.
@@ -377,7 +387,7 @@ public:
 
 private:
     static constexpr auto cMaxNodeConfigChangeSubscribers = 2;
-    static constexpr auto cAllocatorSize = Max(sizeof(StaticString<cNodeConfigJSONLen>) + 2 * sizeof(NodeConfig),
+    static constexpr auto cAllocatorSize = Max(sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig),
         sizeof(DeviceInfo) + sizeof(StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>));
 
     Error LoadConfig();
@@ -393,7 +403,7 @@ private:
     StaticString<cNodeTypeLen>                                           mNodeType;
     StaticString<cFilePathLen>                                           mConfigPath;
     Error                                                                mConfigError {ErrorEnum::eNone};
-    UniquePtr<NodeConfig>                                                mConfig;
+    NodeConfig                                                           mConfig;
     StaticArray<NodeConfigReceiverItf*, cMaxNodeConfigChangeSubscribers> mSubscribers;
 
     mutable StaticMap<StaticString<cDeviceNameLen>, StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>,
