@@ -24,13 +24,22 @@ static constexpr auto cUnitSecretVersion = "2.0.0";
 /**
  * Certificate installation description size.
  */
-static constexpr auto cCertInstallationDescriptionSize
-    = AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_INSTALLATION_DESCRIPTION_SIZE;
+static constexpr auto cCertDescSize = AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE;
 
 /**
  * Certificate secret size.
  */
-static constexpr auto cCertSecretSize = AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_SECRET_SIZE;
+static constexpr auto cCertSecretSize = AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE;
+
+/**
+ * Maximum number of certificates per node.
+ */
+static constexpr auto cCertsPerNodeCount = static_cast<size_t>(CertTypeEnum::eNumCertificates);
+
+/**
+ * Maximum number of certificates per unit.
+ */
+static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertsPerNodeCount;
 
 /**
  * Cert type type.
@@ -65,16 +74,6 @@ public:
 
 using CertTypeEnum = CertTypeType::Enum;
 using CertType     = EnumStringer<CertTypeType>;
-
-/**
- * Maximum number of certificates per node.
- */
-static constexpr auto cCertificatesPerNodeCount = static_cast<size_t>(CertTypeEnum::eNumCertificates);
-
-/**
- * Maximum number of certificates per unit.
- */
-static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertificatesPerNodeCount;
 
 /**
  * IssuedCertData issued unit certificate data.
