@@ -128,6 +128,13 @@
 #endif
 
 /**
+ * Max number of update items.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS
+#define AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS 64
+#endif
+
+/**
  * Max number of instances.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_INSTANCES
@@ -377,6 +384,20 @@
  */
 #ifndef AOS_CONFIG_TYPES_OS_TYPE_LEN
 #define AOS_CONFIG_TYPES_OS_TYPE_LEN 16
+#endif
+
+/**
+ * OS feature len.
+ */
+#ifndef AOS_CONFIG_TYPES_OS_FEATURE_LEN
+#define AOS_CONFIG_TYPES_OS_FEATURE_LEN 64
+#endif
+
+/**
+ * OS features count.
+ */
+#ifndef AOS_CONFIG_TYPES_OS_FEATURES_COUNT
+#define AOS_CONFIG_TYPES_OS_FEATURES_COUNT 16
 #endif
 
 /**
@@ -992,6 +1013,76 @@
 #endif
 
 /**
+ * Max number of update images per update item.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES
+#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES 4
+#endif
+
+/**
+ * Max num URLs.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS
+#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS 8
+#endif
+
+/**
+ * Algorithm len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN 64
+#endif
+
+/**
+ * IV len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE 16
+#endif
+
+/**
+ * Key size.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE 64
+#endif
+
+/**
+ * Chain name len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN 64
+#endif
+
+/**
+ * OCSP value len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN 64
+#endif
+
+/**
+ * OCSP values count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT 4
+#endif
+
+/**
+ * Certificate fingerprint len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN 64
+#endif
+
+/**
+ * Max number of certificates.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES
+#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES 32
+#endif
+
+/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN
@@ -1123,13 +1214,6 @@
 
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT
 #define AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT 1
-#endif
-
-/**
- * Service discovery URLs count.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT
-#define AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT 8
 #endif
 
 /**

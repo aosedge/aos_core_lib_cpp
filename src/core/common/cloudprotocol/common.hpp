@@ -37,6 +37,16 @@ constexpr auto cDescriptionLen = AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN;
 constexpr auto cURNLen = AOS_CONFIG_CLOUDPROTOCOL_URN_LEN;
 
 /**
+ * Max num URLs.
+ */
+constexpr auto cMaxNumURLs = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS;
+
+/**
+ * Chain name len.
+ */
+constexpr auto cChainNameLen = AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN;
+
+/**
  * Update item type.
  */
 class UpdateItemTypeType {
@@ -45,9 +55,10 @@ public:
         eComponent,
         eService,
         eLayer,
+        eNode,
+        eRuntime,
         eSubject,
         eOEM,
-
     };
 
     static const Array<const char* const> GetStrings()
