@@ -9,17 +9,14 @@
 
 #include <core/common/types/types.hpp>
 
+#include "common.hpp"
+
 namespace aos::cloudprotocol {
 
 /**
  * Service discovery supported protocols count.
  */
 constexpr auto cServiceDiscoveryProtocolsCount = AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT;
-
-/**
- * Service discovery URLs count.
- */
-constexpr auto cServiceDiscoveryURLsCount = AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT;
 
 /**
  * Service discovery request.
@@ -71,12 +68,12 @@ using ServiceDiscoveryResponseError     = EnumStringer<ServiceDiscoveryResponseE
  * Service discovery response.
  */
 struct ServiceDiscoveryResponse {
-    size_t                                                         mVersion {};
-    StaticString<cSystemIDLen>                                     mSystemID;
-    Duration                                                       mNextRequestDelay;
-    StaticArray<StaticString<cURLLen>, cServiceDiscoveryURLsCount> mConnectionInfo;
-    StaticString<cBearerTokenLen>                                  mAuthToken;
-    ServiceDiscoveryResponseError                                  mErrorCode;
+    size_t                                         mVersion {};
+    StaticString<cSystemIDLen>                     mSystemID;
+    Duration                                       mNextRequestDelay;
+    StaticArray<StaticString<cURLLen>, cURLsCount> mConnectionInfo;
+    StaticString<cBearerTokenLen>                  mAuthToken;
+    ServiceDiscoveryResponseError                  mErrorCode;
 
     /**
      * Compares service discovery response.
