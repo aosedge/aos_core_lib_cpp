@@ -118,13 +118,13 @@ private:
 
 class MockResourceManager : public sm::resourcemanager::ResourceManagerItf {
 public:
-    MockResourceManager(Optional<AlertRules> alertRules = {}) { mConfig.mNodeConfig.mAlertRules = alertRules; }
+    MockResourceManager(Optional<AlertRules> alertRules = {}) { mConfig.mAlertRules = alertRules; }
 
     RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const override { return mConfig.mVersion; }
 
-    Error GetNodeConfig(cloudprotocol::NodeConfig& nodeConfig) const override
+    Error GetNodeConfig(sm::resourcemanager::NodeConfig& nodeConfig) const override
     {
-        nodeConfig = mConfig.mNodeConfig;
+        nodeConfig = mConfig;
 
         return ErrorEnum::eNone;
     }

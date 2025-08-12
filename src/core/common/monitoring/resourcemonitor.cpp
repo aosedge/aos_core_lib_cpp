@@ -61,7 +61,7 @@ Error ResourceMonitor::Start()
 
     auto nodeConfig = MakeUnique<sm::resourcemanager::NodeConfig>(&mAllocator);
 
-    if (auto err = mResourceManager->GetNodeConfig(nodeConfig->mNodeConfig); !err.IsNone()) {
+    if (auto err = mResourceManager->GetNodeConfig(*nodeConfig); !err.IsNone()) {
         LOG_ERR() << "Get node config failed, err=" << AOS_ERROR_WRAP(err);
     }
 
@@ -69,7 +69,7 @@ Error ResourceMonitor::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = SetupSystemAlerts(nodeConfig->mNodeConfig); !err.IsNone()) {
+    if (auto err = SetupSystemAlerts(*nodeConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -120,7 +120,7 @@ Error ResourceMonitor::ReceiveNodeConfig(const sm::resourcemanager::NodeConfig& 
 
     LOG_DBG() << "Receive node config: version=" << nodeConfig.mVersion;
 
-    if (auto err = SetupSystemAlerts(nodeConfig.mNodeConfig); !err.IsNone()) {
+    if (auto err = SetupSystemAlerts(nodeConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -275,7 +275,7 @@ double ResourceMonitor::CPUToDMIPs(double cpuPersentage) const
     return cpuPersentage * static_cast<double>(mMaxDMIPS) / 100.0;
 }
 
-Error ResourceMonitor::SetupSystemAlerts(const cloudprotocol::NodeConfig& nodeConfig)
+Error ResourceMonitor::SetupSystemAlerts(const sm::resourcemanager::NodeConfig& nodeConfig)
 {
     LOG_DBG() << "Setup system alerts";
 
