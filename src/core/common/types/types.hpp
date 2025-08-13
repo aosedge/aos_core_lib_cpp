@@ -396,7 +396,7 @@ static constexpr auto cFuncServiceMaxCount = AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_C
 /**
  * Max number of exposed ports.
  */
-static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_MAX_NUM_EXPOSED_PORTS;
+static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS;
 
 /**
  * Max exposed port len.
