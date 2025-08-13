@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_CM_NETWORKMANAGER_HPP_
 #define AOS_CORE_CM_NETWORKMANAGER_HPP_
 
+#include <core/cm/config.hpp>
 #include <core/common/types/types.hpp>
 
 namespace aos::cm::networkmanager {
