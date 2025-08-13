@@ -115,7 +115,7 @@ struct InstallCertData {
     CertType                                       mType;
     StaticString<cNodeIDLen>                       mNodeID;
     StaticString<crypto::cSerialNumStrLen>         mSerial;
-    ItemStatus                                     mStatus {ItemStatusEnum::eInstalled};
+    ItemStatus                                     mStatus;
     StaticString<cCertInstallationDescriptionSize> mDescription;
 
     /**
