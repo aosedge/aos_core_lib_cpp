@@ -1223,11 +1223,4 @@
 #define AOS_CONFIG_TIMERS_MAX_COUNT 32
 #endif
 
-/**
- * Max number of service instance connections.
- */
-#ifndef AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT
-#define AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT 16
-#endif
-
 #endif
