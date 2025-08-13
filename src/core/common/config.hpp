@@ -401,6 +401,13 @@
 #endif
 
 /**
+ * CPU variant len.
+ */
+#ifndef AOS_CONFIG_TYPES_CPU_VARIANT_LEN
+#define AOS_CONFIG_TYPES_CPU_VARIANT_LEN 16
+#endif
+
+/**
  * CPU architecture family len.
  */
 #ifndef AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN
