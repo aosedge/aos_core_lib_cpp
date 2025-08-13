@@ -186,6 +186,11 @@ constexpr auto cCPUModelNameLen = AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN;
 constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
 
 /*
+ * CPU variant len.
+ */
+constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
+
+/*
  * CPU arch family len.
  */
 constexpr auto cCPUArchFamilyLen = AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN;
