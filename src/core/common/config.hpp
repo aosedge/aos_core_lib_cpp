@@ -541,6 +541,13 @@
 #endif
 
 /**
+ * Max number of exposed ports.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS
+#define AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS 8
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1221,13 +1228,6 @@
  */
 #ifndef AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT
 #define AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT 16
-#endif
-
-/**
- * Max number of exposed ports.
- */
-#ifndef AOS_CONFIG_MAX_NUM_EXPOSED_PORTS
-#define AOS_CONFIG_MAX_NUM_EXPOSED_PORTS 8
 #endif
 
 #endif
