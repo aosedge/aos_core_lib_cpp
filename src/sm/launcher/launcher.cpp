@@ -27,12 +27,14 @@ const char* const cDefaultHostFSBinds[] = {"bin", "sbin", "lib", "lib64", "usr"}
  **********************************************************************************************************************/
 
 // cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
     resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
     iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
     monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
-    InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage)
+    InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage,
+    crypto::UUIDItf& uuidProvider)
 {
     LOG_DBG() << "Init launcher";
 
@@ -49,6 +51,7 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
     mServiceManager      = &serviceManager;
     mStatusReceiver      = &statusReceiver;
     mStorage             = &storage;
+    mUUIDProvider        = &uuidProvider;
 
     Error err;
 
@@ -589,14 +592,21 @@ Error Launcher::GetDesiredInstancesData(
             return instance.mInstanceInfo.mInstanceIdent == instanceInfo.mInstanceIdent;
         });
         if (currentInstance == currentInstances->end()) {
-            const auto instanceID = uuid::UUIDToString(uuid::CreateUUID());
-
-            if (auto err = desiredInstancesData.EmplaceBack(instanceInfo, instanceID); !err.IsNone()) {
+            auto [uuid, err] = mUUIDProvider->CreateUUIDv4();
+            if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
 
-            if (auto err = mStorage->AddInstance(desiredInstancesData.Back()); !err.IsNone()) {
-                LOG_ERR() << "Can't add instance: instanceID=" << instanceID << ", err=" << err;
+            const auto instanceID = uuid::UUIDToString(uuid);
+
+            err = desiredInstancesData.EmplaceBack(instanceInfo, instanceID);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            err = mStorage->AddInstance(desiredInstancesData.Back());
+            if (!err.IsNone()) {
+                LOG_ERR() << "Can't add instance" << Log::Field("instanceID", instanceID) << Log::Field(err);
             }
 
             continue;
@@ -1044,6 +1054,7 @@ Error Launcher::HandleOfflineTTLs()
 
     mThread.Join();
 
+    // cppcheck-suppress cstyleCast
     auto err = mThread.Run([this, outdatedInstances](void*) mutable {
         if (auto err = ProcessStopInstances(*outdatedInstances); !err.IsNone()) {
             LOG_ERR() << "Can't process stop instances: err=" << err;
@@ -1262,6 +1273,7 @@ Error Launcher::UpdateInstancesEnvVars()
 
     mThread.Join();
 
+    // cppcheck-suppress cstyleCast
     auto err = mThread.Run([this, restartInstances](void*) mutable {
         if (auto err = ProcessRestartInstances(*restartInstances); !err.IsNone()) {
             LOG_ERR() << "Can't process stop instances: err=" << err;

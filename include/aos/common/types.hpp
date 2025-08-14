@@ -379,7 +379,7 @@ static constexpr auto cFuncServiceMaxCount = AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_C
 struct InstanceIdent {
     StaticString<cServiceIDLen> mServiceID;
     StaticString<cSubjectIDLen> mSubjectID;
-    uint64_t                    mInstance;
+    uint64_t                    mInstance = 0;
 
     /**
      * Compares instance ident.
@@ -452,7 +452,7 @@ struct NetworkParameters {
     StaticString<cHostNameLen>                                 mNetworkID;
     StaticString<cSubnetLen>                                   mSubnet;
     StaticString<cIPLen>                                       mIP;
-    uint64_t                                                   mVlanID;
+    uint64_t                                                   mVlanID = 0;
     StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers> mDNSServers;
     StaticArray<FirewallRule, cMaxNumFirewallRules>            mFirewallRules;
 
@@ -483,8 +483,8 @@ struct NetworkParameters {
  */
 struct InstanceInfo {
     InstanceIdent              mInstanceIdent;
-    uint32_t                   mUID;
-    uint64_t                   mPriority;
+    uint32_t                   mUID      = 0;
+    uint64_t                   mPriority = 0;
     StaticString<cFilePathLen> mStoragePath;
     StaticString<cFilePathLen> mStatePath;
     NetworkParameters          mNetworkParameters;

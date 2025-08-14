@@ -73,11 +73,11 @@ public:
      * @param certType certificate type.
      * @param config module configuration.
      * @param pkcs11 reference to pkcs11 library context.
-     * @param x509Provider reference to x509 crypto interface.
+     * @param cryptoProvider reference to crypto provider interface.
      * @return Error.
      */
     Error Init(const String& certType, const PKCS11ModuleConfig& config, pkcs11::PKCS11Manager& pkcs11,
-        crypto::x509::ProviderItf& x509Provider);
+        crypto::CryptoProviderItf& cryptoProvider);
 
     /**
      * Owns the module.
@@ -209,7 +209,7 @@ private:
     PKCS11ModuleConfig         mConfig {};
 
     SharedPtr<pkcs11::LibraryContext> mPKCS11;
-    crypto::x509::ProviderItf*        mX509Provider {};
+    crypto::CryptoProviderItf*        mCryptoProvider {};
 
     uint32_t                        mSlotID = 0;
     StaticString<pkcs11::cLabelLen> mTokenLabel;

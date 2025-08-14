@@ -575,6 +575,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
         ReleaseAllocatedSpace(archivePath, downloadSpace.Get());
     });
 
+    // cppcheck-suppress constParameterPointer
     auto releaseServiceSpace = DeferRelease(&err, [&](Error* err) {
         if (!err->IsNone()) {
             ReleaseAllocatedSpace(servicePath, serviceSpace.Get());
@@ -595,7 +596,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
 
     archivePath = fs::JoinPath(mConfig.mDownloadDir, service.mServiceID);
 
-    if (err = mDownloader->Download(service.mURL, archivePath, downloader::DownloadContentEnum::eService);
+    if (err = mDownloader->Download(service.mURL, archivePath, cloudprotocol::DownloadTargetEnum::eService);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

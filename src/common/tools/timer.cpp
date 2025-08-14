@@ -129,7 +129,7 @@ void Timer::ProcessTimers(void* arg)
         auto now               = Time::Now();
         auto cbInvokeThreshold = Time(now).Add(cTimerResolution);
 
-        for (auto& timer : mRegisteredTimers) {
+        for (const auto& timer : mRegisteredTimers) {
             if (timer->mWakeupTime.IsZero()) {
                 break;
             }

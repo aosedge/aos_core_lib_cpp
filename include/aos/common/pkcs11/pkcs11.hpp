@@ -655,6 +655,7 @@ enum class EllipticCurve {
  */
 class PrivateKey {
 public:
+    // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs object instance with not initialized key part.
      *

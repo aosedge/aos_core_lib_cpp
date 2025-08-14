@@ -4,92 +4,82 @@
 
 # Aos core cpp libraries
 
-## Configure
+## Prepare build environment
 
-Configuration shall be done once for the desired options and targets.
+* Install `conan`:
 
-```sh
-mkdir ${BUILD_DIR}
-cd ${BUILD_DIR}
-cmake ${PATH_TO_SOURCES} -D${VAR1}=${VAL1} -D{VAR2}=${VAL2} ...
+```console
+pip install conan
 ```
 
-Supported options:
+* Install `lcov` (optional):
 
-| Option | Description |
-| --- | --- |
-| `WITH_TEST` | creates unit tests target |
-| `WITH_COVERAGE` | creates coverage calculation target |
-| `WITH_DOC` | creates documentation target |
+```console
+sudo apt install lcov
+```
 
-Options should be set to `ON` or `OFF` value.
+`lcov` is required to generate code coverage report. The version 2.0 or greater is required. If your Linux distributive
+doesn't contain the required version, download and install the required version manually. For example in Ubuntu 22.04
+it can be installed as following:
 
-Supported variables:
+```console
+wget https://launchpad.net/ubuntu/+source/lcov/2.0-4ubuntu2/+build/27959742/+files/lcov_2.0-4ubuntu2_all.deb
+sudo dpkg -i lcov_2.0-4ubuntu2_all.deb
+```
+
+## Build
+
+To make a build, run the following command:
+
+```console
+./build.sh build
+```
+
+It installs all external dependencies to conan, creates `./build` directory, builds the AoCore components with unit
+tests and coverage calculation target. It is also possible to customize the build using different cmake options:
+
+```console
+cd build/
+conan install ../conan/ --output-folder . --settings=build_type=Debug --build=missing
+cmake .. -DCMAKE_TOOLCHAIN_FILE=./conan_toolchain.cmake -DWITH_TEST=ON -DCMAKE_BUILD_TYPE=Debug
+```
+
+Cmake options:
+
+| Option | Value | Default | Description |
+| --- | --- | --- | --- |
+| `WITH_TEST` | `ON`, `OFF` | `OFF` | creates unit tests target |
+| `WITH_COVERAGE` | `ON`, `OFF` | `OFF` | creates coverage calculation target |
+| `WITH_DOC` | `ON`, `OFF` | `OFF` | creates documentation target |
+
+Cmake variables:
 
 | Variable | Description |
 | --- | --- |
 | `CMAKE_BUILD_TYPE` | `Release`, `Debug`, `RelWithDebInfo`, `MinSizeRel` |
 | `CMAKE_INSTALL_PREFIX` | overrides default install path |
 
-## Build libraries
-
-Configure example:
-
-```sh
-cd ${BUILD_DIR}
-cmake ../
-```
-
-Build:
-
-```sh
-cd ${BUILD_DIR}
-make
-```
-
 ## Run unit tests
-
-Configure example:
-
-```sh
-cd ${BUILD_DIR}
-cmake ../ -DWITH_TEST=ON
-```
 
 Build and run:
 
-```sh
-cd ${BUILD_DIR}
-make ; make test
+```console
+./build.sh test
 ```
 
 ## Check coverage
 
-`lcov` utility shall be installed on your host to run this target:
-
-```sh
-sudo apt install lcov
-```
-
-The coverage target is required test option to be `ON` as well as `Debug` build type.
-
-Configure example:
-
-```sh
-cd ${BUILD_DIR}
-cmake ../ -DWITH_TEST=ON -DWITH_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
-```
+`lcov` utility shall be installed on your host to run this target. See [this chapter](#prepare-build-environment).
 
 Build and run:
 
-```sh
-cd ${BUILD_DIR}
-make ; make coverage
+```console
+./build.sh coverage
 ```
 
 The overall coverage rate will be displayed at the end of the coverage target output:
 
-```sh
+```console
 ...
 Overall coverage rate:
   lines......: 94.7% (72 of 76 lines)
@@ -100,28 +90,20 @@ Detailed coverage information can be find by viewing `./coverage/index.html` fil
 
 ## Generate documentation
 
-`doxygen` package should be installed before generation the documentaions:
+`doxygen` package should be installed before generation the documentations:
 
-```sh
+```console
 sudo apt install doxygen
-```
-
-Configure example:
-
-```sh
-cd ${BUILD_DIR}
-cmake ../ -DWITH_DOC=ON
 ```
 
 Generate documentation:
 
-```sh
-cd ${BUILD_DIR}
-make doc
+```console
+./build.sh doc
 ```
 
-The result documentation is located in `${BUILD_DIR}/doc folder`. And it can be viewed by opening
-`./doc/html/index.html` file in your browser.
+The result documentation is located in `build/doc` folder. And it can be viewed by opening `build/doc/html/index.html`
+file in your browser.
 
 ## Install libraries
 
@@ -130,14 +112,14 @@ The default install path can be overridden by setting `CMAKE_INSTALL_PREFIX` var
 Configure example:
 
 ```sh
-cd ${BUILD_DIR}
+cd build/
 cmake ../ -DCMAKE_INSTALL_PREFIX=/my/location
 ```
 
 Install:
 
 ```sh
-cd ${BUILD_DIR}
+cd build/
 make  install
 ```
 

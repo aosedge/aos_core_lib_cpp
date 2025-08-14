@@ -44,7 +44,7 @@ public:
 
 protected:
     std::shared_ptr<CryptoFactoryItf> mFactory;
-    x509::ProviderItf*                mCryptoProvider;
+    CryptoProviderItf*                mCryptoProvider;
     HasherItf*                        mHashProvider;
     RandomItf*                        mRandomProvider;
 };

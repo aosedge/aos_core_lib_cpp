@@ -59,6 +59,7 @@ public:
      */
     Queue(const Queue& queue) = default;
 
+    // cppcheck-suppress operatorEqVarError
     /**
      * Copy queue from another queue.
      *

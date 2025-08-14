@@ -129,7 +129,7 @@ struct SystemAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    SystemAlert(const Time& timestamp = Time::Now())
+    explicit SystemAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eSystemAlert, timestamp)
     {
     }
@@ -207,7 +207,7 @@ struct CoreAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    CoreAlert(const Time& timestamp = Time::Now())
+    explicit CoreAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eCoreAlert, timestamp)
     {
     }
@@ -285,7 +285,7 @@ struct DownloadAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    DownloadAlert(const Time& timestamp = Time::Now())
+    explicit DownloadAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eDownloadProgressAlert, timestamp)
     {
     }
@@ -369,7 +369,7 @@ struct SystemQuotaAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    SystemQuotaAlert(const Time& timestamp = Time::Now())
+    explicit SystemQuotaAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eSystemQuotaAlert, timestamp)
         , mNodeID()
         , mParameter()
@@ -427,7 +427,7 @@ struct InstanceQuotaAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    InstanceQuotaAlert(const Time& timestamp = Time::Now())
+    explicit InstanceQuotaAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eInstanceQuotaAlert, timestamp)
         , mInstanceIdent()
         , mParameter()
@@ -485,7 +485,7 @@ struct DeviceAllocateAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    DeviceAllocateAlert(const Time& timestamp = Time::Now())
+    explicit DeviceAllocateAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eDeviceAllocateAlert, timestamp)
         , mInstanceIdent()
     {
@@ -540,7 +540,7 @@ struct ResourceValidateAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    ResourceValidateAlert(const Time& timestamp = Time::Now())
+    explicit ResourceValidateAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eResourceValidateAlert, timestamp)
     {
     }
@@ -597,7 +597,7 @@ struct ServiceInstanceAlert : AlertItem {
      *
      * @param timestamp alert timestamp.
      */
-    ServiceInstanceAlert(const Time& timestamp = Time::Now())
+    explicit ServiceInstanceAlert(const Time& timestamp = Time::Now())
         : AlertItem(AlertTagEnum::eServiceInstanceAlert, timestamp)
         , mInstanceIdent()
     {

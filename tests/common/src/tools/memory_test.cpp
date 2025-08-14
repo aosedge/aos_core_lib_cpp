@@ -218,7 +218,7 @@ TEST(MemoryTest, SharedPtrDerivedValueClass)
 
     class Child : public BaseClass {
     public:
-        Child(MockFunction<void()>* func)
+        explicit Child(MockFunction<void()>* func)
             : mFunc(func)
         {
         }

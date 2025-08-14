@@ -45,8 +45,8 @@ RetWithError<RSAPublicKey> ExtractRSAPublicKeyFromPrivateKey(const std::string& 
     std::unique_ptr<mbedtls_ctr_drbg_context, decltype(&mbedtls_ctr_drbg_free)> ctrDrbgPtr(
         &ctr_drbg, mbedtls_ctr_drbg_free);
 
-    auto ret = mbedtls_pk_parse_key(pkContextPtr.get(), (const unsigned char*)pemPrivKey.c_str(), pemPrivKey.size() + 1,
-        nullptr, 0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
+    auto ret = mbedtls_pk_parse_key(pkContextPtr.get(), reinterpret_cast<const uint8_t*>(pemPrivKey.c_str()),
+        pemPrivKey.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
     if (ret != 0) {
         return {{{}, {}}, aos::ErrorEnum::eInvalidArgument};
     }
@@ -90,8 +90,8 @@ RetWithError<ECDSAPublicKey> ExtractECDSAPublicKeyFromPrivateKey(const std::stri
 
     std::unique_ptr<mbedtls_pk_context, decltype(&mbedtls_pk_free)> pkPtr(&pk, mbedtls_pk_free);
 
-    if ((ret = mbedtls_pk_parse_key(
-             &pk, (const unsigned char*)pemPrivKey.data(), pemPrivKey.size() + 1, nullptr, 0, nullptr, nullptr))
+    if ((ret = mbedtls_pk_parse_key(&pk, reinterpret_cast<const uint8_t*>(pemPrivKey.data()), pemPrivKey.size() + 1,
+             nullptr, 0, nullptr, nullptr))
         != 0) {
         return {{{}, {}}, aos::ErrorEnum::eInvalidArgument};
     }
@@ -196,7 +196,7 @@ Error ImportECDSAPublicKey(const ECDSAPublicKey& ecdsaKey, mbedtls_pk_context& c
 
 class RSAPrivateKey : public PrivateKeyItf {
 public:
-    RSAPrivateKey(const std::string& privKeyPEM)
+    explicit RSAPrivateKey(const std::string& privKeyPEM)
         : mPublicKey {{}, {}}
     {
         Error err;
@@ -209,7 +209,7 @@ public:
         mPrivateKey = privKeyPEM;
     }
 
-    const PublicKeyItf& GetPublic() const { return mPublicKey; }
+    const PublicKeyItf& GetPublic() const override { return mPublicKey; }
 
     aos::Error Sign(
         const aos::Array<uint8_t>& digest, const SignOptions& options, aos::Array<uint8_t>& signature) const override
@@ -234,14 +234,14 @@ public:
         std::unique_ptr<mbedtls_entropy_context, decltype(&mbedtls_entropy_free)> entropyPtr(
             &entropy, mbedtls_entropy_free);
 
-        int ret = mbedtls_pk_parse_key(pkPtr.get(), (const uint8_t*)mPrivateKey.data(), mPrivateKey.size() + 1, nullptr,
-            0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
+        int ret = mbedtls_pk_parse_key(pkPtr.get(), reinterpret_cast<const uint8_t*>(mPrivateKey.data()),
+            mPrivateKey.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
         if (ret != 0) {
             return ret;
         }
 
-        ret = mbedtls_ctr_drbg_seed(
-            ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(), (const unsigned char*)pers, strlen(pers));
+        ret = mbedtls_ctr_drbg_seed(ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(),
+            reinterpret_cast<const uint8_t*>(pers), strlen(pers));
         if (ret != 0) {
             return ret;
         }
@@ -275,7 +275,7 @@ public:
 
 class ECDSAPrivateKey : public PrivateKeyItf {
 public:
-    ECDSAPrivateKey(const std::string& privKeyPEM)
+    explicit ECDSAPrivateKey(const std::string& privKeyPEM)
         : mPublicKey {{}, {}}
     {
         Error err;
@@ -288,7 +288,7 @@ public:
         mPrivateKey = privKeyPEM;
     }
 
-    const PublicKeyItf& GetPublic() const { return mPublicKey; }
+    const PublicKeyItf& GetPublic() const override { return mPublicKey; }
 
     aos::Error Sign(
         const aos::Array<uint8_t>& digest, const SignOptions& options, aos::Array<uint8_t>& signature) const override
@@ -312,14 +312,14 @@ public:
         std::unique_ptr<mbedtls_entropy_context, decltype(&mbedtls_entropy_free)> entropyPtr(
             &entropy, mbedtls_entropy_free);
 
-        int ret = mbedtls_pk_parse_key(pkPtr.get(), (const uint8_t*)mPrivateKey.data(), mPrivateKey.size() + 1, nullptr,
-            0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
+        int ret = mbedtls_pk_parse_key(pkPtr.get(), reinterpret_cast<const uint8_t*>(mPrivateKey.data()),
+            mPrivateKey.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
         if (ret != 0) {
             return ret;
         }
 
-        ret = mbedtls_ctr_drbg_seed(
-            ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(), (const unsigned char*)pers, strlen(pers));
+        ret = mbedtls_ctr_drbg_seed(ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(),
+            reinterpret_cast<const uint8_t*>(pers), strlen(pers));
         if (ret != 0) {
             return ret;
         }
@@ -369,7 +369,7 @@ std::string MBedTLSCryptoFactory::GetName()
     return "MBedTLS";
 }
 
-x509::ProviderItf& MBedTLSCryptoFactory::GetCryptoProvider()
+CryptoProviderItf& MBedTLSCryptoFactory::GetCryptoProvider()
 {
     return mProvider;
 }
@@ -403,8 +403,8 @@ RetWithError<std::shared_ptr<PrivateKeyItf>> MBedTLSCryptoFactory::GenerateRSAPr
     std::unique_ptr<mbedtls_ctr_drbg_context, decltype(&mbedtls_ctr_drbg_free)> ctrDrbgPtr(
         &ctr_drbg, mbedtls_ctr_drbg_free);
 
-    if (mbedtls_ctr_drbg_seed(
-            ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(), (const unsigned char*)pers, strlen(pers))
+    if (mbedtls_ctr_drbg_seed(ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(),
+            reinterpret_cast<const uint8_t*>(pers), strlen(pers))
         != 0) {
         return {{}, aos::ErrorEnum::eInvalidArgument};
     }
@@ -419,7 +419,7 @@ RetWithError<std::shared_ptr<PrivateKeyItf>> MBedTLSCryptoFactory::GenerateRSAPr
     }
 
     std::string pemKey(16000, '0');
-    if (mbedtls_pk_write_key_pem(pkPtr.get(), (uint8_t*)pemKey.c_str(), pemKey.size()) != 0) {
+    if (mbedtls_pk_write_key_pem(pkPtr.get(), reinterpret_cast<uint8_t*>(pemKey.data()), pemKey.size()) != 0) {
         return {{}, aos::ErrorEnum::eInvalidArgument};
     }
 
@@ -448,8 +448,8 @@ RetWithError<std::shared_ptr<PrivateKeyItf>> MBedTLSCryptoFactory::GenerateECDSA
     std::unique_ptr<mbedtls_ctr_drbg_context, decltype(&mbedtls_ctr_drbg_free)> ctrDrbgPtr(
         &ctrDrbg, mbedtls_ctr_drbg_free);
 
-    if (mbedtls_ctr_drbg_seed(
-            ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(), (const unsigned char*)pers, strlen(pers))
+    if (mbedtls_ctr_drbg_seed(ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(),
+            reinterpret_cast<const uint8_t*>(pers), strlen(pers))
         != 0) {
         return {{}, aos::ErrorEnum::eInvalidArgument};
     }
@@ -465,7 +465,7 @@ RetWithError<std::shared_ptr<PrivateKeyItf>> MBedTLSCryptoFactory::GenerateECDSA
     }
 
     std::string pemKey(2048, '0');
-    if (mbedtls_pk_write_key_pem(pkPtr.get(), (uint8_t*)pemKey.c_str(), pemKey.size()) != 0) {
+    if (mbedtls_pk_write_key_pem(pkPtr.get(), reinterpret_cast<uint8_t*>(pemKey.data()), pemKey.size()) != 0) {
         return {{}, aos::ErrorEnum::eInvalidArgument};
     }
 
@@ -600,7 +600,8 @@ Error MBedTLSCryptoFactory::Encrypt(const RSAPublicKey& pubKey, const Array<uint
     mbedtls_ctr_drbg_init(&ctrDrbg);
     mbedtls_entropy_init(&entropy);
 
-    int ret = mbedtls_ctr_drbg_seed(&ctrDrbg, mbedtls_entropy_func, &entropy, (const unsigned char*)pers, strlen(pers));
+    int ret = mbedtls_ctr_drbg_seed(
+        &ctrDrbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const uint8_t*>(pers), strlen(pers));
     if (ret != 0) {
         mbedtls_pk_free(&pubKeyCtx);
         mbedtls_entropy_free(&entropy);

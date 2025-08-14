@@ -26,6 +26,4 @@ TEST(BufferTest, Basic)
     staticBufferA = staticBufferB;
 
     EXPECT_EQ(strcmp(static_cast<char*>(staticBufferA.Get()), static_cast<char*>(staticBufferB.Get())), 0);
-
-    StaticBuffer<512> bufferC(staticBufferA);
 }

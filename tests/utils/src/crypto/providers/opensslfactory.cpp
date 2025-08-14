@@ -249,7 +249,7 @@ bool VerifyWithEVP(EVP_PKEY* evpKey, const Array<uint8_t>& signature, const Stat
 
 class RSAPrivateKey : public PrivateKeyItf {
 public:
-    RSAPrivateKey(const std::string& privKeyPEM)
+    explicit RSAPrivateKey(const std::string& privKeyPEM)
         : mPublicKey {{}, {}}
     {
         mPrivKey = nullptr;
@@ -278,7 +278,7 @@ public:
         }
     }
 
-    const aos::crypto::PublicKeyItf& GetPublic() const { return mPublicKey; }
+    const aos::crypto::PublicKeyItf& GetPublic() const override { return mPublicKey; }
 
     aos::Error Sign(const aos::Array<uint8_t>& digest, const aos::crypto::SignOptions& options,
         aos::Array<uint8_t>& signature) const override
@@ -320,7 +320,7 @@ public:
 
 class ECDSAPrivateKey : public PrivateKeyItf {
 public:
-    ECDSAPrivateKey(const std::string& privKeyPEM)
+    explicit ECDSAPrivateKey(const std::string& privKeyPEM)
         : mPublicKey {{}, {}}
     {
         mPrivKey = nullptr;
@@ -349,7 +349,7 @@ public:
         }
     }
 
-    const aos::crypto::PublicKeyItf& GetPublic() const { return mPublicKey; }
+    const aos::crypto::PublicKeyItf& GetPublic() const override { return mPublicKey; }
 
     aos::Error Sign(const aos::Array<uint8_t>& digest, const aos::crypto::SignOptions& options,
         aos::Array<uint8_t>& signature) const override
@@ -405,7 +405,7 @@ std::string OpenSSLCryptoFactory::GetName()
     return "OpenSSL";
 }
 
-x509::ProviderItf& OpenSSLCryptoFactory::GetCryptoProvider()
+CryptoProviderItf& OpenSSLCryptoFactory::GetCryptoProvider()
 {
     return mProvider;
 }
@@ -622,8 +622,8 @@ Error OpenSSLCryptoFactory::Encrypt(const RSAPublicKey& pubKey, const Array<uint
         return OPENSSL_ERROR();
     }
 
-    if (auto err = cipher.Resize(outLen); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto resizeErr = cipher.Resize(outLen); !resizeErr.IsNone()) {
+        return AOS_ERROR_WRAP(resizeErr);
     }
 
     if (EVP_PKEY_encrypt(ctx.Get(), cipher.Get(), &outLen, msg.Get(), msg.Size()) <= 0) {

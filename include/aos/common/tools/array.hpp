@@ -58,6 +58,8 @@ public:
      */
     Array(const Array& array) = default;
 
+    // cppcheck-suppress uninitMemberVar
+    // cppcheck-suppress operatorEqVarError
     /**
      * Assigns existing array to the current one.
      *
@@ -427,7 +429,7 @@ public:
             assert(false);
         }
 
-        auto curEnd = end();
+        const auto* curEnd = end();
 
         for (auto it = first; it != last; ++it) {
             it->~T();
@@ -437,6 +439,7 @@ public:
         auto curFirst = first;
 
         for (T* it = const_cast<RemoveConstType<T>*>(last); it != curEnd; ++it, ++curFirst) {
+            // cppcheck-suppress constStatement
             new (const_cast<RemoveConstType<T>*>(curFirst)) T(Move(*it));
             it->~T();
         }
@@ -552,6 +555,7 @@ public:
         Array<T>::operator=(array);
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Assigns static array from another  array.
      *

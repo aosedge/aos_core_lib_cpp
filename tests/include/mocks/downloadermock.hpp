@@ -18,7 +18,8 @@ namespace aos::downloader {
  */
 class DownloaderMock : public DownloaderItf {
 public:
-    MOCK_METHOD(Error, Download, (const String&, const String&, DownloadContent), (override));
+    MOCK_METHOD(Error, Download,
+        (const String&, const String&, cloudprotocol::DownloadTarget, const String&, const String&), (override));
 };
 
 } // namespace aos::downloader

@@ -56,7 +56,7 @@ Error AddMount(const Mount& mount, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
 {
     auto existNS = runtimeSpec.mLinux->mNamespaces.FindIf(
@@ -72,7 +72,7 @@ Error AddNamespace(const oci::LinuxNamespace& ns, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error AddEnvVars(const Array<StaticString<cEnvVarLen>>& envVars, oci::RuntimeSpec& runtimeSpec)
 {
     for (const auto& newEnvVar : envVars) {
@@ -112,7 +112,7 @@ Error AddEnvVars(const Array<StaticString<cEnvVarLen>>& envVars, oci::RuntimeSpe
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error SetCPULimit(int64_t quota, uint64_t period, oci::RuntimeSpec& runtimeSpec)
 {
     if (!runtimeSpec.mLinux->mResources->mCPU.HasValue()) {
@@ -125,7 +125,7 @@ Error SetCPULimit(int64_t quota, uint64_t period, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error SetRAMLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
 {
     if (!runtimeSpec.mLinux->mResources->mMemory.HasValue()) {
@@ -137,7 +137,7 @@ Error SetRAMLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error SetPIDLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
 {
     if (!runtimeSpec.mLinux->mResources->mPids.HasValue()) {
@@ -149,7 +149,7 @@ Error SetPIDLimit(int64_t limit, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec)
 {
     auto existRlimit = runtimeSpec.mProcess->mRlimits.FindIf(
@@ -165,7 +165,7 @@ Error AddRLimit(const oci::POSIXRlimit& rlimit, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress constParameter
+// cppcheck-suppress constParameterReference
 Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
 {
     if (runtimeSpec.mProcess->mUser.mAdditionalGIDs.Find(gid) != runtimeSpec.mProcess->mUser.mAdditionalGIDs.end()) {
@@ -180,7 +180,7 @@ Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
 }
 
 Error AddDevice(const oci::LinuxDevice& device, const StaticString<cPermissionsLen>& permissions,
-    oci::RuntimeSpec& runtimeSpec) // cppcheck-suppress constParameter
+    oci::RuntimeSpec& runtimeSpec) // cppcheck-suppress constParameterReference
 {
     auto existDevice = runtimeSpec.mLinux->mDevices.FindIf(
         [&path = device.mPath](const oci::LinuxDevice& device) { return device.mPath == path; });

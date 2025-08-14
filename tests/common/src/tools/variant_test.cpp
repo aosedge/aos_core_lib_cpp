@@ -38,7 +38,7 @@ TEST(VariantTest, TestDestructorCalled)
 
     class Foo {
     public:
-        Foo(MockFunction<void()>* func)
+        explicit Foo(MockFunction<void()>* func)
             : mFunc(func)
         {
         }

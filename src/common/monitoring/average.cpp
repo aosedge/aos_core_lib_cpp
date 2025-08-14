@@ -163,9 +163,7 @@ Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& 
         UpdateValue(data.mPartitions[i].mUsedSize, newData.mPartitions[i].mUsedSize, mWindowCount, isInitialized);
     }
 
-    if (!isInitialized) {
-        isInitialized = true;
-    }
+    isInitialized = true;
 
     return ErrorEnum::eNone;
 }

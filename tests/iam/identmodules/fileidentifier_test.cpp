@@ -46,6 +46,7 @@ protected:
         fs::Remove(cSubjectsPath);
     }
 
+    // cppcheck-suppress unusedStructMember
     SubjectsObserverMock mSubjectsObserver;
 
     FileIdentifier mFileIdentifier;

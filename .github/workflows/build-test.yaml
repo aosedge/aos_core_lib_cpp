@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+      - feature*
 
   pull_request_target:
     types:
@@ -23,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: read-all
     container:
-      image: ghcr.io/aosedge/aos-core-build-base:latest
+      image: ghcr.io/aosedge/aos-core-build:latest
       options: "--entrypoint /usr/bin/bash"
       credentials:
         username: ${{ github.actor }}
@@ -31,11 +32,8 @@ jobs:
 
     env:
       BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
-    steps:
-      # Apply solution to "HOME is overridden for containers" problem: https://github.com/actions/runner/issues/863
-      - name: Preserve $HOME set in the container
-        run: echo HOME=/root >> "$GITHUB_ENV"
 
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -43,21 +41,20 @@ jobs:
           repository: ${{github.event.pull_request.head.repo.full_name}}
           fetch-depth: 0
 
-      - name: Install Build Wrapper
+      - name: Install build wrapper
         uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v4
 
-      - name: Build using SonarQube Build Wrapper
+      - name: Build
         run: |
-          mkdir build
-          conan profile detect --force
-          conan install ./conan/ --output-folder build --settings=build_type=Debug --build=missing
-          cmake -S . -B build  -DCMAKE_TOOLCHAIN_FILE=./conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" \
-            -DCoverage_SONARQUBE=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_TEST=ON -DWITH_COVERAGE=ON -DWITH_MBEDTLS=ON -DWITH_OPENSSL=ON
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build/ --config Debug --parallel
+          ./build.sh build --ci
 
-      - name: Run Tests
+      - name: Test
         run: |
-          (cd build && make coverage)
+          ./build.sh coverage
+
+      - name: Static analysis
+        run: |
+          ./build.sh lint
 
       - name: Upload codecov report
         uses: codecov/codecov-action@v4
@@ -65,7 +62,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./build/coverage.total
 
-      - name: SonarCloud Scan on push
+      - name: SonarQube analysis
         if: github.event_name == 'push'
         uses: SonarSource/sonarqube-scan-action@v4
         env:
@@ -76,7 +73,7 @@ jobs:
             --define sonar.cfamily.compile-commands="${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
             --define sonar.coverageReportPaths=build/coverage_sonarqube.xml
 
-      - name: SonarCloud Scan on pull request
+      - name: SonarQube analysis
         if: github.event_name == 'pull_request_target'
         uses: SonarSource/sonarqube-scan-action@v4
         env:

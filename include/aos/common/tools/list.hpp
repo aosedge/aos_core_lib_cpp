@@ -599,6 +599,7 @@ public:
         List<T>::operator=(list);
     }
 
+    // cppcheck-suppress duplInheritedMember
     /**
      * Assigns static list from another list.
      *
