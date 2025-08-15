@@ -114,13 +114,6 @@
 #endif
 
 /**
- * Service/layer description len.
- */
-#ifndef AOS_CONFIG_TYPES_DESCRIPTION_LEN
-#define AOS_CONFIG_TYPES_DESCRIPTION_LEN 200
-#endif
-
-/**
  * Max number of services.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICES
@@ -132,6 +125,13 @@
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_LAYERS
 #define AOS_CONFIG_TYPES_MAX_NUM_LAYERS 64
+#endif
+
+/**
+ * Max number of update items.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS
+#define AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS 64
 #endif
 
 /**
@@ -387,6 +387,20 @@
 #endif
 
 /**
+ * OS feature len.
+ */
+#ifndef AOS_CONFIG_TYPES_OS_FEATURE_LEN
+#define AOS_CONFIG_TYPES_OS_FEATURE_LEN 64
+#endif
+
+/**
+ * OS features count.
+ */
+#ifndef AOS_CONFIG_TYPES_OS_FEATURES_COUNT
+#define AOS_CONFIG_TYPES_OS_FEATURES_COUNT 16
+#endif
+
+/**
  * Max number of CPUs.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_CPUS
@@ -405,6 +419,13 @@
  */
 #ifndef AOS_CONFIG_TYPES_CPU_ARCH_LEN
 #define AOS_CONFIG_TYPES_CPU_ARCH_LEN 16
+#endif
+
+/**
+ * CPU variant len.
+ */
+#ifndef AOS_CONFIG_TYPES_CPU_VARIANT_LEN
+#define AOS_CONFIG_TYPES_CPU_VARIANT_LEN 16
 #endif
 
 /**
@@ -517,6 +538,13 @@
  */
 #ifndef AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT
 #define AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_COUNT 16
+#endif
+
+/**
+ * Max number of exposed ports.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS
+#define AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS 8
 #endif
 
 /**
@@ -702,13 +730,6 @@
  */
 #ifndef AOS_CONFIG_CRYPTO_SIGNATURE_SIZE
 #define AOS_CONFIG_CRYPTO_SIGNATURE_SIZE 512
-#endif
-
-/**
- * Maximum len of a certificate chain string representation.
- */
-#ifndef AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN
-#define AOS_CONFIG_CRYPTO_CERTIFICATE_CHAIN_LEN 4 * 1024
 #endif
 
 /**
@@ -964,6 +985,104 @@
 #endif
 
 /**
+ * Identifier codename len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN 64
+#endif
+
+/**
+ * Identifier title len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN 128
+#endif
+
+/**
+ * Identifier description len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN 256
+#endif
+
+/**
+ * Identifier URN  len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_URN_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_URN_LEN 256
+#endif
+
+/**
+ * Max number of update images per update item.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES
+#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES 4
+#endif
+
+/**
+ * URLs count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_URLS_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_URLS_COUNT 8
+#endif
+
+/**
+ * Algorithm len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN 64
+#endif
+
+/**
+ * IV len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE 16
+#endif
+
+/**
+ * Key size.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE 64
+#endif
+
+/**
+ * Chain name len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN 64
+#endif
+
+/**
+ * OCSP value len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN 64
+#endif
+
+/**
+ * OCSP values count.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT
+#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT 4
+#endif
+
+/**
+ * Certificate fingerprint len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN 64
+#endif
+
+/**
+ * Max number of certificates.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES
+#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES 32
+#endif
+
+/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN
@@ -1078,15 +1197,15 @@
 /**
  * Certificate secret size.
  */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_SECRET_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_SECRET_SIZE 64
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE 64
 #endif
 
 /**
  * Certificate installation description size.
  */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_INSTALLATION_DESCRIPTION_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_INSTALLATION_DESCRIPTION_SIZE 1024
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE
+#define AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE 1024
 #endif
 
 /**
@@ -1098,31 +1217,10 @@
 #endif
 
 /**
- * Service discovery URLs count.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT
-#define AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_URLS_COUNT 8
-#endif
-
-/**
  * Maximum supported number of timers.
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
 #define AOS_CONFIG_TIMERS_MAX_COUNT 32
-#endif
-
-/**
- * Max number of service instance connections.
- */
-#ifndef AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT
-#define AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT 16
-#endif
-
-/**
- * Max number of exposed ports.
- */
-#ifndef AOS_CONFIG_MAX_NUM_EXPOSED_PORTS
-#define AOS_CONFIG_MAX_NUM_EXPOSED_PORTS 8
 #endif
 
 #endif

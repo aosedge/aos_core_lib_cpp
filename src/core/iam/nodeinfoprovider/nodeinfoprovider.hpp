@@ -57,23 +57,23 @@ static constexpr auto cAosComponentUM = "um";
 bool IsMainNode(const NodeInfo& nodeInfo);
 
 /**
- * Node status observer interface.
+ * Node state observer interface.
  */
-class NodeStatusObserverItf {
+class NodeStateObserverItf {
 public:
     /**
-     * On node status changed event.
+     * On node state changed event.
      *
      * @param nodeID node id
      * @param status node status
      * @return Error
      */
-    virtual Error OnNodeStatusChanged(const String& nodeID, const NodeStatus& status) = 0;
+    virtual Error OnNodeStateChanged(const String& nodeID, const NodeState& state) = 0;
 
     /**
      * Destructor.
      */
-    virtual ~NodeStatusObserverItf() = default;
+    virtual ~NodeStateObserverItf() = default;
 };
 
 /**
@@ -90,28 +90,28 @@ public:
     virtual Error GetNodeInfo(NodeInfo& nodeInfo) const = 0;
 
     /**
-     * Sets the node status.
+     * Sets the node state.
      *
-     * @param status node status
+     * @param state node state
      * @return Error
      */
-    virtual Error SetNodeStatus(const NodeStatus& status) = 0;
+    virtual Error SetNodeState(const NodeState& state) = 0;
 
     /**
-     * Subscribes on node status changed event.
+     * Subscribes on node state changed event.
      *
-     * @param observer node status changed observer
+     * @param observer node state changed observer
      * @return Error
      */
-    virtual Error SubscribeNodeStatusChanged(NodeStatusObserverItf& observer) = 0;
+    virtual Error SubscribeNodeStateChanged(NodeStateObserverItf& observer) = 0;
 
     /**
-     * Unsubscribes from node status changed event.
+     * Unsubscribes from node state changed event.
      *
-     * @param observer node status changed observer
+     * @param observer node state changed observer
      * @return Error
      */
-    virtual Error UnsubscribeNodeStatusChanged(NodeStatusObserverItf& observer) = 0;
+    virtual Error UnsubscribeNodeStateChanged(NodeStateObserverItf& observer) = 0;
 
     /**
      * Destructor.

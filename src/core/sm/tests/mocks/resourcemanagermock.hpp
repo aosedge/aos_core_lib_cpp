@@ -47,7 +47,7 @@ public:
 class ResourceManagerMock : public ResourceManagerItf {
 public:
     MOCK_METHOD(RetWithError<StaticString<cVersionLen>>, GetNodeConfigVersion, (), (const override));
-    MOCK_METHOD(Error, GetNodeConfig, (cloudprotocol::NodeConfig&), (const override));
+    MOCK_METHOD(Error, GetNodeConfig, (NodeConfig&), (const override));
     MOCK_METHOD(Error, GetDeviceInfo, (const String&, DeviceInfo&), (const override));
     MOCK_METHOD(Error, GetResourceInfo, (const String&, ResourceInfo&), (const override));
     MOCK_METHOD(Error, AllocateDevice, (const String&, const String&), (override));

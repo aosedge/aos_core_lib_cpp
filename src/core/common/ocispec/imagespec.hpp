@@ -141,7 +141,7 @@ struct Platform {
     StaticString<cCPUArchFamilyLen> mArchitecture;
     StaticString<cOSTypeLen>        mOS;
     StaticString<cVersionLen>       mOSVersion;
-    StaticString<cCPUArchLen>       mVariant;
+    StaticString<cCPUVariantLen>    mVariant;
 
     /**
      * Compares platform.

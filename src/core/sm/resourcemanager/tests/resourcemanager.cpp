@@ -58,11 +58,11 @@ static NodeConfig CreateNodeConfig(
 {
     NodeConfig nodeConfig;
 
-    nodeConfig.mVersion              = version;
-    nodeConfig.mNodeConfig.mNodeType = nodeType;
+    nodeConfig.mVersion  = version;
+    nodeConfig.mNodeType = nodeType;
 
     for (const auto& device : devices) {
-        nodeConfig.mNodeConfig.mDevices.PushBack(device);
+        nodeConfig.mDevices.PushBack(device);
     }
 
     return nodeConfig;
@@ -113,10 +113,10 @@ TEST_F(ResourceManagerTest, InitSucceeds)
 {
     InitResourceManager();
 
-    cloudprotocol::NodeConfig nodeConfig;
+    NodeConfig nodeConfig;
 
     ASSERT_TRUE(mResourceManager.GetNodeConfig(nodeConfig).IsNone());
-    EXPECT_EQ(nodeConfig, mConfig.mNodeConfig);
+    EXPECT_EQ(nodeConfig, mConfig);
 
     auto [version, err] = mResourceManager.GetNodeConfigVersion();
 
@@ -144,7 +144,7 @@ TEST_F(ResourceManagerTest, InitSucceedsWhenNodeConfigParseFails)
 
     InitResourceManager(expectedError);
 
-    cloudprotocol::NodeConfig nodeConfig;
+    NodeConfig nodeConfig;
 
     ASSERT_TRUE(mResourceManager.GetNodeConfig(nodeConfig).Is(expectedError));
 }
@@ -153,7 +153,7 @@ TEST_F(ResourceManagerTest, GetDeviceInfoFails)
 {
     DeviceInfo result;
 
-    mConfig.mNodeConfig.mDevices.Clear();
+    mConfig.mDevices.Clear();
     InitResourceManager();
 
     auto err = mResourceManager.GetDeviceInfo("random", result);
@@ -165,7 +165,7 @@ TEST_F(ResourceManagerTest, GetDeviceInfoSucceeds)
 {
     const auto deviceInfo = CreateDeviceInfo("random", 0, {"/dev/random"}, {"root"});
 
-    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(deviceInfo).IsNone());
+    ASSERT_TRUE(mConfig.mDevices.PushBack(deviceInfo).IsNone());
     EXPECT_CALL(mHostDeviceManager, CheckDevice(String("/dev/random"))).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mHostDeviceManager, CheckGroup(String("root"))).WillOnce(Return(ErrorEnum::eNone));
 
@@ -183,7 +183,7 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsOnEmptyResourcesConfig)
     ResourceInfo result;
 
     // Clear resources
-    mConfig.mNodeConfig.mResources.Clear();
+    mConfig.mResources.Clear();
 
     InitResourceManager();
 
@@ -198,10 +198,10 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsResourceNotFound)
     ResourceInfo resource;
     resource.mName = "resource-one";
 
-    auto err = mConfig.mNodeConfig.mResources.PushBack(resource);
+    auto err = mConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mConfig.mNodeConfig.mResources.Back().mName = "resource-one";
+    mConfig.mResources.Back().mName = "resource-one";
 
     InitResourceManager();
 
@@ -216,10 +216,10 @@ TEST_F(ResourceManagerTest, GetResourceSucceeds)
     ResourceInfo resource;
     resource.mName = "resource-one";
 
-    auto err = mConfig.mNodeConfig.mResources.PushBack(resource);
+    auto err = mConfig.mResources.PushBack(resource);
     ASSERT_TRUE(err.IsNone()) << "Failed to add a new resource: " << err.Message();
 
-    mConfig.mNodeConfig.mResources.Back().mName = "resource-one";
+    mConfig.mResources.Back().mName = "resource-one";
 
     InitResourceManager();
 
@@ -237,7 +237,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceFailsDueToConfigParseError)
 
 TEST_F(ResourceManagerTest, AllocateDeviceFailsOnDeviceNotFoundInConfig)
 {
-    mConfig.mNodeConfig.mDevices.Clear();
+    mConfig.mDevices.Clear();
 
     InitResourceManager();
 
@@ -263,7 +263,7 @@ TEST_F(ResourceManagerTest, AllocateDevice)
 
     // Initialize resource manager config
     for (const auto& testCase : testCases) {
-        ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(testCase.mDeviceInfo).IsNone());
+        ASSERT_TRUE(mConfig.mDevices.PushBack(testCase.mDeviceInfo).IsNone());
 
         EXPECT_CALL(mHostDeviceManager, CheckDevice(testCase.mDeviceInfo.mHostDevices[0]))
             .WillOnce(Return(ErrorEnum::eNone));
@@ -296,7 +296,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceForTheSameInstanceIsNotAnError)
 {
     const auto deviceInfo = CreateDeviceInfo("device0", 1, {"/dev/zero"}, {"group0"});
 
-    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(deviceInfo).IsNone());
+    ASSERT_TRUE(mConfig.mDevices.PushBack(deviceInfo).IsNone());
 
     EXPECT_CALL(mHostDeviceManager, CheckDevice(deviceInfo.mHostDevices[0])).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mHostDeviceManager, CheckGroup(deviceInfo.mGroups[0])).WillOnce(Return(ErrorEnum::eNone));
@@ -320,8 +320,8 @@ TEST_F(ResourceManagerTest, ReleaseDevice)
     const auto device0Info = CreateDeviceInfo("device0", 2, {"/dev/null"}, {"group0"});
     const auto device1Info = CreateDeviceInfo("device1", 2, {"/dev/zero"}, {"group1"});
 
-    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(device0Info).IsNone());
-    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(device1Info).IsNone());
+    ASSERT_TRUE(mConfig.mDevices.PushBack(device0Info).IsNone());
+    ASSERT_TRUE(mConfig.mDevices.PushBack(device1Info).IsNone());
 
     InitResourceManager();
 
@@ -372,7 +372,7 @@ TEST_F(ResourceManagerTest, ResetAllocatedDevices)
 {
     const auto deviceInfo = CreateDeviceInfo("device0", 2, {"/dev/zero"}, {"group0"});
 
-    ASSERT_TRUE(mConfig.mNodeConfig.mDevices.PushBack(deviceInfo).IsNone());
+    ASSERT_TRUE(mConfig.mDevices.PushBack(deviceInfo).IsNone());
 
     InitResourceManager();
 
@@ -425,7 +425,7 @@ TEST_F(ResourceManagerTest, CheckNodeConfigFailsOnNodeTypeMismatch)
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
-        config.mNodeConfig.mNodeType = "wrongType";
+        config.mNodeType = "wrongType";
 
         return ErrorEnum::eNone;
     }));
@@ -438,8 +438,8 @@ TEST_F(ResourceManagerTest, CheckNodeConfigSucceedsOnEmptyNodeConfigDevices)
     InitResourceManager();
 
     EXPECT_CALL(mJsonProvider, NodeConfigFromJSON).WillOnce(Invoke([&](const String&, NodeConfig& config) {
-        config.mNodeConfig.mNodeType = cNodeType;
-        config.mNodeConfig.mDevices.Clear();
+        config.mNodeType = cNodeType;
+        config.mDevices.Clear();
 
         return ErrorEnum::eNone;
     }));

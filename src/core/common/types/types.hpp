@@ -76,10 +76,9 @@ constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
 constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
 
 /**
- * Service/layer description len.
+ * Max number of update items.
  */
-
-constexpr auto cDescriptionLen = AOS_CONFIG_TYPES_DESCRIPTION_LEN;
+constexpr auto cMaxNumUpdateItems = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS;
 
 /**
  * Max number of instances.
@@ -161,6 +160,16 @@ constexpr auto cNodeNameLen = AOS_CONFIG_TYPES_NODE_NAME_LEN;
  */
 constexpr auto cOSTypeLen = AOS_CONFIG_TYPES_OS_TYPE_LEN;
 
+/**
+ * OS feature len.
+ */
+constexpr auto cOSFeatureLen = AOS_CONFIG_TYPES_OS_FEATURE_LEN;
+
+/**
+ * OS features count.
+ */
+constexpr auto cOSFeaturesCount = AOS_CONFIG_TYPES_OS_FEATURES_COUNT;
+
 /*
  * Max number of CPUs.
  */
@@ -190,6 +199,11 @@ constexpr auto cCPUModelNameLen = AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN;
  * CPU arch len.
  */
 constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
+
+/*
+ * CPU variant len.
+ */
+constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
 
 /*
  * CPU arch family len.
@@ -381,7 +395,7 @@ static constexpr auto cFuncServiceMaxCount = AOS_CONFIG_TYPES_FUNC_SERVICE_MAX_C
 /**
  * Max number of exposed ports.
  */
-static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_MAX_NUM_EXPOSED_PORTS;
+static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS;
 
 /**
  * Max exposed port len.
@@ -1133,35 +1147,6 @@ struct AlertRules {
 };
 
 /**
- * Resource ratios.
- */
-struct ResourceRatios {
-    Optional<double> mCPU;
-    Optional<double> mRAM;
-    Optional<double> mStorage;
-    Optional<double> mState;
-
-    /**
-     * Compares resource ratios.
-     *
-     * @param ratios resource ratios to compare.
-     * @return bool.
-     */
-    bool operator==(const ResourceRatios& ratios) const
-    {
-        return mCPU == ratios.mCPU && mRAM == ratios.mRAM && mStorage == ratios.mStorage && mState == ratios.mState;
-    }
-
-    /**
-     * Compares resource ratios.
-     *
-     * @param ratios resource ratios to compare.
-     * @return bool.
-     */
-    bool operator!=(const ResourceRatios& ratios) const { return !operator==(ratios); }
-};
-
-/**
  * Partition info.
  */
 struct PartitionInfo {
@@ -1247,13 +1232,13 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStatusStrings[] = {
+        static const char* const sNodeAttributeStrings[] = {
             "MainNode",
             "AosComponents",
             "NodeRunners",
         };
 
-        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+        return Array<const char* const>(sNodeAttributeStrings, ArraySize(sNodeAttributeStrings));
     };
 };
 
@@ -1273,13 +1258,13 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStatusStrings[] = {
+        static const char* const sRunnerStrings[] = {
             "runc",
             "crun",
             "xrun",
         };
 
-        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+        return Array<const char* const>(sRunnerStrings, ArraySize(sRunnerStrings));
     };
 };
 
@@ -1316,9 +1301,9 @@ struct NodeAttribute {
 using NodeAttributeStaticArray = StaticArray<NodeAttribute, cMaxNumNodeAttributes>;
 
 /**
- * Node status.
+ * Node state.
  */
-class NodeStatusType {
+class NodeStateType {
 public:
     enum class Enum {
         eUnprovisioned,
@@ -1329,18 +1314,18 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStatusStrings[] = {
+        static const char* const sNodeStateStrings[] = {
             "unprovisioned",
             "provisioned",
             "paused",
         };
 
-        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
+        return Array<const char* const>(sNodeStateStrings, ArraySize(sNodeStateStrings));
     };
 };
 
-using NodeStatusEnum = NodeStatusType::Enum;
-using NodeStatus     = EnumStringer<NodeStatusType>;
+using NodeStateEnum = NodeStateType::Enum;
+using NodeState     = EnumStringer<NodeStateType>;
 
 /**
  * Node info.
@@ -1349,7 +1334,7 @@ struct NodeInfo {
     StaticString<cNodeIDLen>   mNodeID;
     StaticString<cNodeTypeLen> mNodeType;
     StaticString<cNodeNameLen> mName;
-    NodeStatus                 mStatus;
+    NodeState                  mState;
     StaticString<cOSTypeLen>   mOSType;
     CPUInfoStaticArray         mCPUs;
     PartitionInfoStaticArray   mPartitions;
@@ -1386,7 +1371,7 @@ struct NodeInfo {
      */
     bool operator==(const NodeInfo& info) const
     {
-        return mNodeID == info.mNodeID && mNodeType == info.mNodeType && mName == info.mName && mStatus == info.mStatus
+        return mNodeID == info.mNodeID && mNodeType == info.mNodeType && mName == info.mName && mState == info.mState
             && mOSType == info.mOSType && mCPUs == info.mCPUs && mMaxDMIPS == info.mMaxDMIPS
             && mTotalRAM == info.mTotalRAM && mPartitions == info.mPartitions && mAttrs == info.mAttrs;
     }
@@ -1530,6 +1515,88 @@ public:
 
 using InstanceStateEnum = InstanceStateType::Enum;
 using InstanceState     = EnumStringer<InstanceStateType>;
+
+/**
+ * Architecture info.
+ */
+struct ArchInfo {
+    StaticString<cCPUArchLen>              mArchitecture;
+    Optional<StaticString<cCPUVariantLen>> mVariant;
+
+    /**
+     * Compares architecture info.
+     *
+     * @param other architecture info to compare with.
+     * @return bool.
+     */
+    bool operator==(const ArchInfo& other) const
+    {
+        return mArchitecture == other.mArchitecture && mVariant == other.mVariant;
+    }
+
+    /**
+     * Compares architecture info.
+     *
+     * @param info architecture info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ArchInfo& info) const { return !operator==(info); }
+};
+
+/**
+ * OS info.
+ */
+struct OSInfo {
+    StaticString<cOSTypeLen>                                             mOS;
+    Optional<StaticString<cVersionLen>>                                  mVersion;
+    Optional<StaticArray<StaticString<cOSFeatureLen>, cOSFeaturesCount>> mFeatures;
+
+    /**
+     * Compares OS info.
+     *
+     * @param other OS info to compare with.
+     * @return bool.
+     */
+    bool operator==(const OSInfo& other) const
+    {
+        return mOS == other.mOS && mVersion == other.mVersion && mFeatures == other.mFeatures;
+    }
+
+    /**
+     * Compares OS info.
+     *
+     * @param other OS info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const OSInfo& other) const { return !operator==(other); }
+};
+
+/**
+ * Platform info.
+ */
+struct PlatformInfo {
+    ArchInfo mArchInfo;
+    OSInfo   mOSInfo;
+
+    /**
+     * Compares platform info.
+     *
+     * @param other platform info to compare with.
+     * @return bool.
+     */
+    bool operator==(const PlatformInfo& other) const
+    {
+        return mArchInfo == other.mArchInfo && mOSInfo == other.mOSInfo;
+    }
+
+    /**
+     * Compares platform info.
+     *
+     * @param other platform info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PlatformInfo& other) const { return !operator==(other); }
+};
 
 } // namespace aos
 

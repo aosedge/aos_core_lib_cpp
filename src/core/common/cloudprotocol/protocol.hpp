@@ -11,7 +11,7 @@
 
 #include "alerts.hpp"
 #include "certificates.hpp"
-#include "cloudprotocol.hpp"
+#include "common.hpp"
 #include "desiredstatus.hpp"
 #include "envvars.hpp"
 #include "log.hpp"
@@ -26,6 +26,70 @@ namespace aos::cloudprotocol {
  * Cloud protocol version.
  */
 static constexpr auto cProtocolVersion = 7;
+
+/**
+ * Message type.
+ */
+class MessageTypeType {
+public:
+    enum class Enum {
+        eAlerts,
+        eDeprovisioningRequest,
+        eDeprovisioningResponse,
+        eDesiredStatus,
+        eFinishProvisioningRequest,
+        eFinishProvisioningResponse,
+        eInstallUnitCertificatesConfirmation,
+        eIssuedUnitCertificates,
+        eIssueUnitCertificates,
+        eMonitoringData,
+        eNewState,
+        eOverrideEnvVars,
+        eOverrideEnvVarsStatus,
+        ePushLog,
+        eRenewCertificatesNotification,
+        eRequestLog,
+        eStartProvisioningRequest,
+        eStartProvisioningResponse,
+        eStateAcceptance,
+        eStateRequest,
+        eUnitStatus,
+        eUpdateState,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "alerts",
+            "deprovisioningRequest",
+            "deprovisioningResponse",
+            "desiredStatus",
+            "finishProvisioningRequest",
+            "finishProvisioningResponse",
+            "installUnitCertificatesConfirmation",
+            "issuedUnitCertificates",
+            "issueUnitCertificates",
+            "monitoringData",
+            "newState",
+            "overrideEnvVars",
+            "overrideEnvVarsStatus",
+            "pushLog",
+            "renewCertificatesNotification",
+            "requestLog",
+            "startProvisioningRequest",
+            "startProvisioningResponse",
+            "stateAcceptance",
+            "stateRequest",
+            "unitStatus",
+            "updateState",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using MessageTypeEnum = MessageTypeType::Enum;
+using MessageType     = EnumStringer<MessageTypeType>;
 
 /**
  * Cloud message variant type.

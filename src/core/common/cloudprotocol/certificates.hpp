@@ -24,13 +24,27 @@ static constexpr auto cUnitSecretVersion = "2.0.0";
 /**
  * Certificate installation description size.
  */
-static constexpr auto cCertInstallationDescriptionSize
-    = AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_INSTALLATION_DESCRIPTION_SIZE;
+static constexpr auto cCertDescSize = AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE;
 
 /**
  * Certificate secret size.
  */
-static constexpr auto cCertSecretSize = AOS_CONFIG_CLOUDPROTOCOL_CERTIFICATE_SECRET_SIZE;
+static constexpr auto cCertSecretSize = AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE;
+
+/**
+ * Maximum number of certificates per node.
+ */
+static constexpr auto cCertsPerNodeCount = static_cast<size_t>(CertTypeEnum::eNumCertificates);
+
+/**
+ * Maximum number of certificates per unit.
+ */
+static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertsPerNodeCount;
+
+/**
+ * Certificate chain len.
+ */
+static constexpr auto cCertChainLen = crypto::cCertChainSize * crypto::cCertPEMLen;
 
 /**
  * Cert type type.
@@ -67,22 +81,12 @@ using CertTypeEnum = CertTypeType::Enum;
 using CertType     = EnumStringer<CertTypeType>;
 
 /**
- * Maximum number of certificates per node.
- */
-static constexpr auto cCertificatesPerNodeCount = static_cast<size_t>(CertTypeEnum::eNumCertificates);
-
-/**
- * Maximum number of certificates per unit.
- */
-static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertificatesPerNodeCount;
-
-/**
  * IssuedCertData issued unit certificate data.
  */
 struct IssuedCertData {
-    CertType                            mType;
-    StaticString<cNodeIDLen>            mNodeID;
-    StaticString<crypto::cCertChainLen> mCertificateChain;
+    CertType                    mType;
+    StaticString<cNodeIDLen>    mNodeID;
+    StaticString<cCertChainLen> mCertificateChain;
 
     /**
      * Compares issued certificate data.
@@ -111,7 +115,7 @@ struct InstallCertData {
     CertType                                       mType;
     StaticString<cNodeIDLen>                       mNodeID;
     StaticString<crypto::cSerialNumStrLen>         mSerial;
-    ItemStatus                                     mStatus {ItemStatusEnum::eInstalled};
+    ItemStatus                                     mStatus;
     StaticString<cCertInstallationDescriptionSize> mDescription;
 
     /**
