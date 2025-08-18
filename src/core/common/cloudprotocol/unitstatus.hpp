@@ -306,6 +306,62 @@ using InstancesStatusesStaticArray = StaticArray<InstancesStatuses, cMaxNumUpdat
 using SubjectStaticArray = StaticArray<Identifier, cMaxNumSubjects>;
 
 /**
+ * Update image status.
+ */
+struct UpdateImageStatus {
+    uuid::UUID  mImageID;
+    ImageStatus mStatus;
+    Error       mError;
+
+    /**
+     * Compares image status.
+     *
+     * @param other image status to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateImageStatus& other) const
+    {
+        return mImageID == other.mImageID && mStatus == other.mStatus && mError == other.mError;
+    }
+
+    /**
+     * Compares image status.
+     *
+     * @param other image status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateImageStatus& other) const { return !operator==(other); }
+};
+
+/**
+ * Update item status.
+ */
+struct UpdateItemStatus {
+    Identifier                                          mIdentifier;
+    StaticString<cVersionLen>                           mVersion;
+    StaticArray<UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
+
+    /**
+     * Compares update item status.
+     *
+     * @param other update item status to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateItemStatus& other) const
+    {
+        return mIdentifier == other.mIdentifier && mVersion == other.mVersion && mStatuses == other.mStatuses;
+    }
+
+    /**
+     * @brief Compares update item status.
+     *
+     * @param other update item status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateItemStatus& other) const { return !operator==(other); }
+};
+
+/**
  * Unit status
  */
 struct UnitStatus {
