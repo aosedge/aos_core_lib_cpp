@@ -18,35 +18,6 @@ namespace aos::cm::launcher {
  */
 
 /**
- * Update image info.
- */
-struct UpdateImageInfo : public ImageInfo {
-    StaticString<cVersionLen> mVersion;
-    StaticString<cURLLen>     mURL;
-    StaticString<cSHA256Size> mSHA256;
-    size_t                    mSize {};
-
-    /**
-     * Compares update image info.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator==(const UpdateImageInfo& other) const
-    {
-        return mVersion == other.mVersion && mURL == other.mURL && mSHA256 == other.mSHA256 && mSize == other.mSize;
-    }
-
-    /**
-     * Compares update image info.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator!=(const UpdateImageInfo& other) const { return !operator==(other); }
-};
-
-/**
  * Interface that provides update items images information.
  */
 class ImageInfoProviderItf {
@@ -57,13 +28,21 @@ public:
     virtual ~ImageInfoProviderItf() = default;
 
     /**
+     * Returns update item version.
+     *
+     * @param urn update item URN.
+     * @return RetWithError<StaticString<cVersionLen>>.
+     */
+    virtual RetWithError<StaticString<cVersionLen>> GetItemVersion(const String& urn) = 0;
+
+    /**
      * Returns update item images infos.
      *
      * @param urn update item URN.
      * @param[out] imagesInfos update item images info.
      * @return Error.
      */
-    virtual Error GetItemImages(const String& urn, Array<UpdateImageInfo>& imagesInfos) = 0;
+    virtual Error GetItemImages(const String& urn, Array<ImageInfo>& imagesInfos) = 0;
 
     /**
      * Returns service config.
