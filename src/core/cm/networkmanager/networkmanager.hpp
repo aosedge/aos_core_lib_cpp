@@ -27,9 +27,9 @@ static constexpr auto cMaxNumConnections = AOS_CONFIG_NETWORKMANAGER_CONNECTIONS
 static constexpr auto cConnectionNameLen = cServiceIDLen + cExposedPortLen;
 
 /**
- * Represents network configuration parameters for a service instance.
+ * Represents network configuration parameters for service.
  */
-struct NetworkInstanceData {
+struct NetworkServiceData {
     /**
      * List of hostnames.
      */
@@ -59,14 +59,15 @@ public:
     /**
      * Prepares and assigns network parameters for a service instance.
      *
-     * @param instanceID instance identifier.
+     * @param instanceIdent instance identifier.
      * @param networkID identifier of the target network.
-     * @param params input parameters for network setup.
+     * @param nodeID node identifier.
+     * @param networkData service network configuration data.
      * @param[out] result result network parameters.
      * @return Error.
      */
     virtual Error PrepareInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& networkID,
-        const String& nodeID, const NetworkInstanceData& instanceData, NetworkParameters& result)
+        const String& nodeID, const NetworkServiceData& networkData, NetworkParameters& result)
         = 0;
 
     /**
