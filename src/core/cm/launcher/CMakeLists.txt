@@ -14,7 +14,7 @@ set(TARGET_NAME launcher)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS nodemanager.hpp storage.hpp)
+set(HEADERS nodemanager.hpp storage.hpp itf/imageinfoprovider.hpp)
 
 # ######################################################################################################################
 # Target
