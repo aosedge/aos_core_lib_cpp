@@ -1,0 +1,162 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
+#define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
+
+#include <core/common/cloudprotocol/desiredstatus.hpp>
+#include <core/common/cloudprotocol/unitstatus.hpp>
+#include <core/common/tools/error.hpp>
+
+namespace aos::cm::imagemanager {
+
+/** @addtogroup cm Communication Manager
+ *  @{
+ */
+
+/**
+ * Update image info.
+ */
+struct UpdateImageInfo {
+    ImageInfo                  mImage;
+    StaticString<cPathLen>     mPath;
+    StaticString<cSHA256Size>  mSHA256;
+    size_t                     mSize {};
+    cloudprotocol::DecryptInfo mDecryptInfo;
+    cloudprotocol::SignInfo    mSignInfo;
+
+    /**
+     * Compares update image info.
+     *
+     * @param other info to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateImageInfo& other) const
+    {
+        return mImage == other.mImage && mURL == other.mURL && mSHA256 == other.mSHA256 && mSize == other.mSize
+            && mDecryptInfo == other.mDecryptInfo && mSignInfo == other.mSignInfo;
+    }
+
+    /**
+     * Compares update image info.
+     *
+     * @param other info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateImageInfo& other) const { return !operator==(other); }
+};
+
+/**
+ * Update item info.
+ */
+struct UpdateItemInfo {
+    StaticString<cURLLen>                             mURN;
+    StaticString<cVersionLen>                         mVersion;
+    StaticArray<UpdateImageInfo, cMaxNumUpdateImages> mImages;
+
+    /**
+     * Compares update item info.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateItemInfo& other) const
+    {
+        return mURN == other.mURN && mVersion == other.mVersion && mImages == other.mImages;
+    }
+
+    /**
+     * Compares update item info.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateItemInfo& other) const { return !operator==(other); }
+};
+
+/**
+ * Update item status.
+ */
+struct UpdateItemStatus {
+    StaticString<cURNLen>                                              mURN;
+    StaticString<cVersionLen>                                          mVersion;
+    StaticArray<cloudprotocol::UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
+
+    /**
+     * Compares update item status.
+     *
+     * @param other update item status to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateItemStatus& other) const
+    {
+        return mURN == other.mURN && mVersion == other.mVersion && mStatuses == other.mStatuses;
+    }
+
+    /**
+     * @brief Compares update item status.
+     *
+     * @param other update item status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateItemStatus& other) const { return !operator==(other); }
+};
+
+/**
+ * Interface that manages update items images.
+ */
+class ImageManagerItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~ImageManagerItf() = default;
+
+    /**
+     * Retrieves update items statuses.
+     *
+     * @param[out] statuses list of update items statuses.
+     * @return Error.
+     */
+    virtual Error GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses) = 0;
+
+    /**
+     * Installs update items.
+     *
+     * @param itemsInfo update items info.
+     * @param certificates list of certificates.
+     * @param certificateChains list of certificate chains.
+     * @param[out] statuses update items statuses.
+     * @return Error.
+     */
+    virtual Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
+        const Array<cloudprotocol::CertificateInfo>&              certificates,
+        const Array<cloudprotocol::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
+        = 0;
+
+    /**
+     * Uninstalls update items.
+     *
+     * @param urns update items URN's.
+     * @param[out] statuses update items statuses.
+     * @return Error.
+     */
+    virtual Error UninstallUpdateItems(const Array<StaticString<cURNLen>>& urns, Array<UpdateItemStatus>& statuses) = 0;
+
+    /**
+     * Reverts update items.
+     *
+     * @param urns update items URN's.
+     * @return Error.
+     */
+    virtual Error RevertUpdateItems(const Array<StaticString<cURNLen>>& urns, Array<UpdateItemStatus>& statuses) = 0;
+};
+
+/** @}*/
+
+} // namespace aos::cm::imagemanager
+
+#endif
