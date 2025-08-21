@@ -292,10 +292,10 @@ Error ResourceMonitor::SetupSystemAlerts(const sm::resourcemanager::NodeConfig& 
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eSystem, ResourceTypeEnum::eCPU, {}, {}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eSystem, ResourceTypeEnum::eCPU);
 
         if (auto err = mAlertProcessors[mAlertProcessors.Size() - 1].Init(
-                id, mMaxDMIPS, alertRules.mCPU.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(id));
+                *id, mMaxDMIPS, alertRules.mCPU.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(*id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -306,10 +306,10 @@ Error ResourceMonitor::SetupSystemAlerts(const sm::resourcemanager::NodeConfig& 
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eSystem, ResourceTypeEnum::eRAM, {}, {}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eSystem, ResourceTypeEnum::eRAM);
 
         if (auto err = mAlertProcessors[mAlertProcessors.Size() - 1].Init(
-                id, mMaxMemory, alertRules.mRAM.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(id));
+                *id, mMaxMemory, alertRules.mRAM.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(*id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -328,10 +328,11 @@ Error ResourceMonitor::SetupSystemAlerts(const sm::resourcemanager::NodeConfig& 
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eSystem, ResourceTypeEnum::ePartition, partitionRule.mName, {}};
+        auto id
+            = CreateResourceIdentifier(ResourceLevelEnum::eSystem, ResourceTypeEnum::ePartition, partitionRule.mName);
 
         if (err = mAlertProcessors[mAlertProcessors.Size() - 1].Init(
-                id, totalSize, partitionRule, *mAlertSender, CreateSystemQuotaAlertTemplate(id));
+                *id, totalSize, partitionRule, *mAlertSender, CreateSystemQuotaAlertTemplate(*id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -342,10 +343,10 @@ Error ResourceMonitor::SetupSystemAlerts(const sm::resourcemanager::NodeConfig& 
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eSystem, ResourceTypeEnum::eDownload, {}, {}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eSystem, ResourceTypeEnum::eDownload);
 
         if (auto err = mAlertProcessors[mAlertProcessors.Size() - 1].Init(
-                id, alertRules.mDownload.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(id));
+                *id, alertRules.mDownload.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(*id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -356,10 +357,10 @@ Error ResourceMonitor::SetupSystemAlerts(const sm::resourcemanager::NodeConfig& 
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eSystem, ResourceTypeEnum::eUpload, {}, {}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eSystem, ResourceTypeEnum::eUpload);
 
         if (auto err = mAlertProcessors[mAlertProcessors.Size() - 1].Init(
-                id, alertRules.mUpload.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(id));
+                *id, alertRules.mUpload.GetValue(), *mAlertSender, CreateSystemQuotaAlertTemplate(*id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -391,10 +392,10 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eInstance, ResourceTypeEnum::eCPU, {}, {instanceID}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eInstance, ResourceTypeEnum::eCPU, {}, {instanceID});
 
-        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(id, mMaxDMIPS, alertRules.mCPU.GetValue(),
-                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, id));
+        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(*id, mMaxDMIPS, alertRules.mCPU.GetValue(),
+                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, *id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -405,10 +406,10 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eInstance, ResourceTypeEnum::eRAM, {}, {instanceID}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eInstance, ResourceTypeEnum::eRAM, {}, {instanceID});
 
-        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(id, mMaxMemory, alertRules.mRAM.GetValue(),
-                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, id));
+        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(*id, mMaxMemory, alertRules.mRAM.GetValue(),
+                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, *id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -427,11 +428,11 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {
-            ResourceLevelEnum::eInstance, ResourceTypeEnum::ePartition, partitionRule.mName, {instanceID}};
+        auto id = CreateResourceIdentifier(
+            ResourceLevelEnum::eInstance, ResourceTypeEnum::ePartition, partitionRule.mName, {instanceID});
 
         if (err = alertProcessors[alertProcessors.Size() - 1].Init(
-                id, totalSize, partitionRule, *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, id));
+                *id, totalSize, partitionRule, *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, *id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -442,10 +443,10 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eInstance, ResourceTypeEnum::eDownload, {}, {instanceID}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eInstance, ResourceTypeEnum::eDownload, {}, {instanceID});
 
-        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(id, alertRules.mDownload.GetValue(),
-                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, id));
+        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(*id, alertRules.mDownload.GetValue(),
+                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, *id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -456,10 +457,10 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
             return AOS_ERROR_WRAP(err);
         }
 
-        ResourceIdentifier id {ResourceLevelEnum::eInstance, ResourceTypeEnum::eDownload, {}, {instanceID}};
+        auto id = CreateResourceIdentifier(ResourceLevelEnum::eInstance, ResourceTypeEnum::eDownload, {}, {instanceID});
 
-        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(
-                id, alertRules.mUpload.GetValue(), *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, id));
+        if (auto err = alertProcessors[alertProcessors.Size() - 1].Init(*id, alertRules.mUpload.GetValue(),
+                *mAlertSender, CreateInstanceQuotaAlertTemplate(instanceIdent, *id));
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -608,6 +609,13 @@ RetWithError<uint64_t> ResourceMonitor::GetPartitionTotalSize(const String& name
     }
 
     return {it->mTotalSize, ErrorEnum::eNone};
+}
+
+UniquePtr<ResourceIdentifier> ResourceMonitor::CreateResourceIdentifier(ResourceLevel level, ResourceType type,
+    const Optional<StaticString<cPartitionNameLen>>& partitionName,
+    const Optional<StaticString<cInstanceIDLen>>&    instanceID) const
+{
+    return MakeUnique<ResourceIdentifier>(&mAllocator, level, type, partitionName, instanceID);
 }
 
 } // namespace aos::monitoring
