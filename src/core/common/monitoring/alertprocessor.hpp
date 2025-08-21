@@ -70,6 +70,29 @@ using ResourceType     = EnumStringer<ResourceTypeType>;
  * Resource identifier.
  */
 struct ResourceIdentifier {
+    /**
+     * Default constructor.
+     */
+    ResourceIdentifier() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param level resource level.
+     * @param type resource type.
+     * @param partitionName partition name.
+     * @param instanceID instance ID.
+     */
+    ResourceIdentifier(ResourceLevel level, ResourceType type,
+        const Optional<StaticString<cPartitionNameLen>>& partitionName = {},
+        const Optional<StaticString<cInstanceIDLen>>&    instanceID    = {})
+        : mLevel(level)
+        , mType(type)
+        , mPartitionName(partitionName)
+        , mInstanceID(instanceID)
+    {
+    }
+
     ResourceLevel                             mLevel;
     ResourceType                              mType;
     Optional<StaticString<cPartitionNameLen>> mPartitionName;
