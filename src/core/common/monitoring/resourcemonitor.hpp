@@ -117,8 +117,9 @@ public:
     Error ReceiveNodeConfig(const sm::resourcemanager::NodeConfig& nodeConfig) override;
 
 private:
-    static constexpr auto cAllocatorSize = Max(sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig),
-        sizeof(InstanceMonitoringData) + sizeof(Array<AlertProcessor>));
+    static constexpr auto cAllocatorSize
+        = Max(sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
+            sizeof(InstanceMonitoringData) + sizeof(AlertProcessorStaticArray) + sizeof(ResourceIdentifier));
 
     String                      GetParameterName(const ResourceIdentifier& id) const;
     cloudprotocol::AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
@@ -136,6 +137,9 @@ private:
     void  ProcessAlerts(const MonitoringData& monitoringData, const Time& time, Array<AlertProcessor>& alertProcessors);
     RetWithError<uint64_t> GetCurrentUsage(const ResourceIdentifier& id, const MonitoringData& monitoringData) const;
     RetWithError<uint64_t> GetPartitionTotalSize(const String& name) const;
+    UniquePtr<ResourceIdentifier> CreateResourceIdentifier(ResourceLevel level, ResourceType type,
+        const Optional<StaticString<cPartitionNameLen>>& partitionName = {},
+        const Optional<StaticString<cInstanceIDLen>>&    instanceID    = {}) const;
 
     Config                                   mConfig;
     ResourceUsageProviderItf*                mResourceUsageProvider {};
