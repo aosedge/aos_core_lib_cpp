@@ -115,7 +115,7 @@ struct IPs {
  */
 struct Interface {
     StaticString<cInterfaceLen> mName;
-    StaticString<cMacLen>       mMac;
+    StaticString<cMACLen>       mMAC;
     StaticString<cFilePathLen>  mSandbox;
 };
 
