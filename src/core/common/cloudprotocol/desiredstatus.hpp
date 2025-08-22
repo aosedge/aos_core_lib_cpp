@@ -280,7 +280,7 @@ struct UpdateImageInfo {
 /**
  * Update item info.
  */
-struct UpdateItemInfo : public PlatformInfo {
+struct UpdateItemInfo {
     Identifier                                        mIdentifier;
     StaticString<cVersionLen>                         mVersion;
     StaticArray<UpdateImageInfo, cMaxNumUpdateImages> mImages;
