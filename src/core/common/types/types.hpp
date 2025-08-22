@@ -404,11 +404,6 @@ static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_POR
 static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
- * Bearer token len.
- */
-constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
-
-/**
  * Identifier URN  len.
  */
 constexpr auto cURNLen = AOS_CONFIG_TYPES_URN_LEN;
