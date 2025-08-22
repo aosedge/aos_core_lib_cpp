@@ -346,7 +346,7 @@ static constexpr auto cSubnetLen = AOS_CONFIG_TYPES_SUBNET_LEN;
 /**
  * Max MAC len.
  */
-static constexpr auto cMacLen = AOS_CONFIG_TYPES_MAC_LEN;
+static constexpr auto cMACLen = AOS_CONFIG_TYPES_MAC_LEN;
 
 /**
  * Max iptables chain name length.
