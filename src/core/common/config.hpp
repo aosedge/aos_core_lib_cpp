@@ -548,6 +548,20 @@
 #endif
 
 /**
+ * Identifier URN  len.
+ */
+#ifndef AOS_CONFIG_TYPES_URN_LEN
+#define AOS_CONFIG_TYPES_URN_LEN 256
+#endif
+
+/**
+ * Max number of update images per update item.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES
+#define AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES 4
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1003,20 +1017,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN 256
-#endif
-
-/**
- * Identifier URN  len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_URN_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_URN_LEN 256
-#endif
-
-/**
- * Max number of update images per update item.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES
-#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES 4
 #endif
 
 /**

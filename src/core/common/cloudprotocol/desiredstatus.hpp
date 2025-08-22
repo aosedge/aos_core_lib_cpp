@@ -15,11 +15,6 @@
 namespace aos::cloudprotocol {
 
 /**
- * Max number of update images per update item.
- */
-constexpr auto cMaxNumUpdateImages = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_UPDATE_IMAGES;
-
-/**
  * Algorithm len.
  */
 constexpr auto cAlgLen = AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN;

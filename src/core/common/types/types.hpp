@@ -409,6 +409,16 @@ static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
 
 /**
+ * Identifier URN  len.
+ */
+constexpr auto cURNLen = AOS_CONFIG_TYPES_URN_LEN;
+
+/**
+ * Max number of update images per update item.
+ */
+constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
