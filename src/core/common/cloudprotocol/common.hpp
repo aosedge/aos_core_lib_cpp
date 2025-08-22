@@ -32,11 +32,6 @@ constexpr auto cTitleLen = AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN;
 constexpr auto cDescriptionLen = AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN;
 
 /**
- * Identifier URN  len.
- */
-constexpr auto cURNLen = AOS_CONFIG_CLOUDPROTOCOL_URN_LEN;
-
-/**
  * Max num URLs.
  */
 constexpr auto cMaxNumURLs = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS;
