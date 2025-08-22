@@ -42,6 +42,11 @@ constexpr auto cMaxNumURLs = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS;
 constexpr auto cChainNameLen = AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN;
 
 /**
+ * Bearer token len.
+ */
+constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
+
+/**
  * Aos identifier.
  */
 struct Identifier {
