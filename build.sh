@@ -24,7 +24,6 @@ print_usage() {
     echo
     echo "Options:"
     echo "  --clean                    cleans build artifacts"
-    echo "  --aos-service <services>   specifies services (e.g., sm,mp,iam)"
     echo "  --ci                       uses build-wrapper for CI analysis (SonarQube)"
     echo "  --parallel <N>             specifies number of parallel jobs for build (default: all available cores)"
     echo
@@ -176,7 +175,6 @@ command="$1"
 shift
 
 ARG_CLEAN_FLAG=false
-ARG_AOS_SERVICES=""
 ARG_CI_FLAG=false
 ARG_PARALLEL_JOBS=$(nproc)
 
