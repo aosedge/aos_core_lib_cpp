@@ -33,7 +33,7 @@ message(STATUS)
 
 # Check compiler using static library instead of application
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-set(AOS_STACK_USAGE 4096)
+set(AOS_STACK_USAGE 8192)
 
 # ######################################################################################################################
 # Compiler flags
