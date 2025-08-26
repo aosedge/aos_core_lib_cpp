@@ -23,7 +23,7 @@ print_usage() {
     echo "  doc                        generates documentation"
     echo
     echo "Options:"
-    echo "  --clean                    cleans build artifacts"
+    echo "  --clean                    cleans build artifacts before building"
     echo "  --ci                       uses build-wrapper for CI analysis (SonarQube)"
     echo "  --parallel <N>             specifies number of parallel jobs for build (default: all available cores)"
     echo
@@ -116,8 +116,6 @@ parse_arguments() {
 build_target() {
     if [ "$ARG_CLEAN_FLAG" == "true" ]; then
         clean_build
-
-        return
     fi
 
     conan_setup
