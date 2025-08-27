@@ -548,6 +548,13 @@
 #endif
 
 /**
+ * Max num URLs.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_URLS
+#define AOS_CONFIG_TYPES_MAX_NUM_URLS 8
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1010,13 +1017,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN 256
-#endif
-
-/**
- * Max num URLs.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS
-#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS 8
 #endif
 
 /**
