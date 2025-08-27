@@ -48,11 +48,18 @@ Error PKCS11RSAPrivateKey::Sign(
     return mSession->Sign(&mechanism, mPrivKeyHandle, *t, signature);
 }
 
-Error PKCS11RSAPrivateKey::Decrypt(const Array<uint8_t>& cipher, Array<uint8_t>& result) const
+Error PKCS11RSAPrivateKey::Decrypt(
+    const Array<uint8_t>& cipher, const crypto::DecryptionOptions& options, Array<uint8_t>& result) const
 {
-    CK_MECHANISM mechanism = {CKM_RSA_PKCS, nullptr, 0};
 
-    return mSession->Decrypt(&mechanism, mPrivKeyHandle, cipher, result);
+    PCKS11RSAMechConverter visitor;
+
+    auto [mech, err] = options.ApplyVisitor(visitor);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return mSession->Decrypt(&mech, mPrivKeyHandle, cipher, result);
 }
 
 Array<uint8_t> PKCS11RSAPrivateKey::GetPrefix(crypto::Hash hash) const
@@ -72,6 +79,72 @@ Array<uint8_t> PKCS11RSAPrivateKey::GetPrefix(crypto::Hash hash) const
         assert(false);
         return Array<uint8_t>(nullptr, 0);
     }
+}
+
+/***********************************************************************************************************************
+ * PCKS11RSAMechConverter
+ **********************************************************************************************************************/
+
+RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::PKCS1v15DecryptionOptions& options) const
+{
+    if (options.mKeySize != 0) {
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+    }
+
+    return CK_MECHANISM {CKM_RSA_PKCS, nullptr, 0};
+}
+
+RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::OAEPDecryptionOptions& options) const
+{
+    CK_MECHANISM_TYPE    hashAlg;
+    CK_RSA_PKCS_MGF_TYPE mgf;
+
+    switch (options.mHash.GetValue()) {
+    case crypto::HashEnum::eSHA1:
+        hashAlg = CKM_SHA_1;
+        mgf     = CKG_MGF1_SHA1;
+        break;
+
+    case crypto::HashEnum::eSHA256:
+        hashAlg = CKM_SHA256;
+        mgf     = CKG_MGF1_SHA256;
+        break;
+
+    case crypto::HashEnum::eSHA384:
+        hashAlg = CKM_SHA384;
+        mgf     = CKG_MGF1_SHA384;
+        break;
+
+    case crypto::HashEnum::eSHA512:
+        hashAlg = CKM_SHA512;
+        mgf     = CKG_MGF1_SHA512;
+        break;
+
+    case crypto::HashEnum::eSHA3_224:
+        hashAlg = CKM_SHA3_224;
+        mgf     = CKG_MGF1_SHA3_224;
+        break;
+
+    case crypto::HashEnum::eSHA3_256:
+        hashAlg = CKM_SHA3_256;
+        mgf     = CKG_MGF1_SHA3_256;
+        break;
+
+    case crypto::HashEnum::eSHA512_224:
+    case crypto::HashEnum::eSHA512_256:
+    default:
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+    }
+
+    mOAEPParams.hashAlg         = hashAlg;
+    mOAEPParams.mgf             = mgf;
+    mOAEPParams.source          = CKZ_DATA_SPECIFIED;
+    mOAEPParams.pSourceData     = nullptr;
+    mOAEPParams.ulSourceDataLen = 0;
+
+    CK_MECHANISM mech = {CKM_RSA_PKCS_OAEP, &mOAEPParams, sizeof(mOAEPParams)};
+
+    return mech;
 }
 
 /***********************************************************************************************************************
