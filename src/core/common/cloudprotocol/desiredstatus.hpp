@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2025 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -227,7 +227,7 @@ struct SignInfo {
     StaticString<cChainNameLen>                                mChainName;
     StaticString<cAlgLen>                                      mAlg;
     StaticArray<uint8_t, crypto::cSignatureSize>               mValue;
-    StaticString<cTimeStrLen>                                  mTrustedTimestamp;
+    Time                                                       mTrustedTimestamp;
     StaticArray<StaticString<cOCSPValueLen>, cOCSPValuesCount> mOCSPValues;
     /**
      * Compares sign info.
