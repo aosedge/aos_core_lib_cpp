@@ -58,6 +58,7 @@ public:
         eInvalidChecksum,
         eAlreadyLoggedIn,
         eNotSupported,
+        eEOF,
         eNumErrors
     };
 
@@ -302,6 +303,7 @@ private:
             "invalid checksum",
             "already logged in",
             "not supported",
+            "EOF",
         };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));

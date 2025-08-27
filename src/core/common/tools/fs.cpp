@@ -512,4 +512,92 @@ RetWithError<size_t> CalculateSize(const String& path)
     return {size};
 }
 
+/***********************************************************************************************************************
+ * File implementation
+ **********************************************************************************************************************/
+
+File::~File()
+{
+    Close();
+}
+
+Error File::Open(const String& path, Mode mode)
+{
+    if (auto err = Close(); !err.IsNone()) {
+        return err;
+    }
+
+    int flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
+
+    mFd = open(path.CStr(), flags, 0644);
+    if (mFd < 0) {
+        return Error(errno, "file open failed");
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error File::Close()
+{
+    if (mFd >= 0) {
+        if (close(mFd) < 0) {
+            return Error(errno, "file close failed");
+        }
+
+        mFd = -1;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error File::ReadBlock(Array<uint8_t>& buffer)
+{
+    if (mFd < 0) {
+        return ErrorEnum::eWrongState;
+    }
+
+    auto blockSize = buffer.MaxSize();
+    buffer.Resize(blockSize);
+
+    bool   eof       = false;
+    size_t totalRead = 0;
+
+    while (totalRead < blockSize) {
+        ssize_t result = read(mFd, buffer.Get() + totalRead, blockSize - totalRead);
+        if (result < 0) {
+            return Error(errno, "file read failed");
+        } else if (result == 0) {
+            eof = true;
+            break; // EOF
+        }
+
+        totalRead += result;
+    }
+
+    buffer.Resize(totalRead);
+
+    return eof ? ErrorEnum::eEOF : ErrorEnum::eNone;
+}
+
+Error File::WriteBlock(const Array<uint8_t>& buffer)
+{
+    if (mFd < 0) {
+        return ErrorEnum::eWrongState;
+    }
+
+    size_t blockSize    = buffer.Size();
+    size_t totalWritten = 0;
+
+    while (totalWritten < blockSize) {
+        ssize_t result = write(mFd, buffer.Get() + totalWritten, blockSize - totalWritten);
+        if (result < 0) {
+            return Error(errno, "file write failed");
+        }
+
+        totalWritten += result;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::fs
