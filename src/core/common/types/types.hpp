@@ -107,6 +107,11 @@ constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
 constexpr auto cSHA256Size = 32;
 
 /**
+ * SHA384 size.
+ */
+constexpr auto cSHA384Size = 48;
+
+/**
  * SHA3-224 size.
  */
 constexpr auto cSHA3_224Size = 28;
