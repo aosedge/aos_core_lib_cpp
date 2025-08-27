@@ -317,6 +317,57 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
  */
 RetWithError<size_t> CalculateSize(const String& path);
 
+/**
+ * File class.
+ */
+class File {
+public:
+    /**
+     * File open mode.
+     */
+    enum class Mode { Read, Write };
+
+    /**
+     * Destructor.
+     */
+    ~File();
+
+    /**
+     * Opens a file in the specified mode.
+     *
+     * @param path path to the file.
+     * @param mode read or write mode.
+     * @return Error.
+     */
+    Error Open(const String& path, Mode mode);
+
+    /**
+     * Closes the file if open.
+     *
+     * @return Error.
+     */
+    Error Close();
+
+    /**
+     * Reads a block from the file.
+     *
+     * @param[out] buffer destination buffer.
+     * @return Error.
+     */
+    Error ReadBlock(Array<uint8_t>& buffer);
+
+    /**
+     * Writes a block to the file.
+     *
+     * @param[out] buffer source buffer.
+     * @return Error.
+     */
+    Error WriteBlock(const Array<uint8_t>& buffer);
+
+private:
+    int mFd = -1;
+};
+
 } // namespace fs
 } // namespace aos
 
