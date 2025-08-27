@@ -584,6 +584,10 @@ struct Certificate {
      */
     StaticArray<uint8_t, cSerialNumSize> mSerial;
     /**
+     * Issuer URLs.
+     */
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> mIssuerURLs;
+    /**
      * Certificate validity period.
      */
     Time mNotBefore, mNotAfter;

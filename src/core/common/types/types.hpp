@@ -51,6 +51,11 @@ constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
  */
 constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
 
+/*
+ * Maximum number of URLs.
+ */
+constexpr auto cMaxNumURLs = AOS_CONFIG_TYPES_MAX_NUM_URLS;
+
 /**
  * Max number of update items.
  */
