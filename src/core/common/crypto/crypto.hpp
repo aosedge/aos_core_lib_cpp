@@ -341,6 +341,25 @@ struct SignOptions {
 };
 
 /**
+ * PKCS1v15 decryption options.
+ */
+struct PKCS1v15DecryptionOptions {
+    int mKeySize = 0;
+};
+
+/**
+ * OAEP decryption options.
+ */
+struct OAEPDecryptionOptions {
+    Hash mHash;
+};
+
+/**
+ * Decryption options.
+ */
+using DecryptionOptions = Variant<PKCS1v15DecryptionOptions, OAEPDecryptionOptions>;
+
+/**
  * Private key interface.
  */
 class PrivateKeyItf {
@@ -366,10 +385,12 @@ public:
      * Decrypts a cipher message.
      *
      * @param cipher encrypted message.
+     * @param options decryption options.
      * @param[out] result decoded message.
      * @return Error.
      */
-    virtual Error Decrypt(const Array<uint8_t>& cipher, Array<uint8_t>& result) const = 0;
+    virtual Error Decrypt(const Array<uint8_t>& cipher, const DecryptionOptions& options, Array<uint8_t>& result) const
+        = 0;
 
     /**
      * Destroys object instance.
