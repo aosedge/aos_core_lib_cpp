@@ -51,10 +51,12 @@ public:
      * Implemented PKCS#1v1.5 decryption only.
      *
      * @param cipher encrypted message.
+     * @param options decryption options.
      * @param[out] result decoded message.
      * @return Error.
      */
-    Error Decrypt(const Array<uint8_t>& cipher, Array<uint8_t>& result) const override;
+    Error Decrypt(
+        const Array<uint8_t>& cipher, const crypto::DecryptionOptions& options, Array<uint8_t>& result) const override;
 
 private:
     static constexpr uint8_t cSHA1Prefix[]
@@ -78,6 +80,31 @@ private:
     SharedPtr<SessionContext> mSession;
     ObjectHandle              mPrivKeyHandle;
     crypto::RSAPublicKey      mPublicKey;
+};
+
+/**
+ * Converter for mechanism options of RSA encryption/decryption.
+ */
+struct PCKS11RSAMechConverter : public StaticVisitor<RetWithError<CK_MECHANISM>> {
+public:
+    /**
+     * Converts RSA PKCS1v15 decryption options.
+     *
+     * @param options pkcs1v15 decrypt options.
+     * @return RetWithError<CK_MECHANISM>.
+     */
+    RetWithError<CK_MECHANISM> Visit(const crypto::PKCS1v15DecryptionOptions& options) const;
+
+    /**
+     * Converts RSA OAEP decryption options.
+     *
+     * @param options pkcs1v15 decrypt options.
+     * @return RetWithError<CK_MECHANISM>.
+     */
+    RetWithError<CK_MECHANISM> Visit(const crypto::OAEPDecryptionOptions& options) const;
+
+private:
+    mutable CK_RSA_PKCS_OAEP_PARAMS mOAEPParams = {};
 };
 
 /**
@@ -120,12 +147,15 @@ public:
      * Some information here: https://stackoverflow.com/questions/76741626/how-to-decrypt-data-with-a-ecdsa-private-key
      *
      * @param cipher encrypted message.
+     * @param options decryption options.
      * @param[out] result decoded message.
      * @return Error.
      */
-    Error Decrypt(const Array<uint8_t>& cipher, Array<uint8_t>& result) const override
+    Error Decrypt(
+        const Array<uint8_t>& cipher, const crypto::DecryptionOptions& options, Array<uint8_t>& result) const override
     {
         (void)cipher;
+        (void)options;
         (void)result;
 
         return ErrorEnum::eFailed;

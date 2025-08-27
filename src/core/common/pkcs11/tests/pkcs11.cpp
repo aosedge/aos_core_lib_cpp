@@ -51,10 +51,10 @@ protected:
     SlotID                    mSlotID = 0;
     SharedPtr<LibraryContext> mLibrary;
 
-    StaticAllocator<Max(2 * sizeof(pkcs11::PKCS11RSAPrivateKey), sizeof(pkcs11::PKCS11ECDSAPrivateKey),
+    StaticAllocator<Max(2 * sizeof(PKCS11RSAPrivateKey), sizeof(PKCS11ECDSAPrivateKey),
                         2 * sizeof(crypto::x509::Certificate) + sizeof(crypto::x509::CertificateChain)
-                            + 2 * sizeof(pkcs11::PKCS11RSAPrivateKey))
-        + pkcs11::Utils::cLocalObjectsMaxSize>
+                            + 2 * sizeof(PKCS11RSAPrivateKey))
+        + Utils::cLocalObjectsMaxSize>
         mAllocator;
 };
 
@@ -490,7 +490,8 @@ TEST_F(PKCS11Test, PKCS11RSAPrivateKeyDecrypt)
     // decrypt message
     StaticArray<uint8_t, 256> result;
 
-    ASSERT_TRUE(privKey->Decrypt(cipher, result).IsNone());
+    ASSERT_TRUE(
+        privKey->Decrypt(cipher, crypto::DecryptionOptions {crypto::PKCS1v15DecryptionOptions {}}, result).IsNone());
 
     const auto actual   = std::vector<uint8_t>(result.begin(), result.end());
     const auto expected = std::vector<uint8_t>(msg.begin(), msg.end());
