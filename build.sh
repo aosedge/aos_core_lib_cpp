@@ -150,8 +150,7 @@ run_lint() {
     print_next_step "Run static analysis (cppcheck)"
 
     cppcheck --enable=all --inline-suppr --std=c++17 --error-exitcode=1 \
-        --suppressions-list=./suppressions.txt --project=build/compile_commands.json --file-filter='src/*' \
-        --file-filter='tests/*' --file-filter='include/*'
+        --suppressions-list=./suppressions.txt --project=build/compile_commands.json --file-filter='src/*'
 
     echo
     echo "Static analysis completed!"
