@@ -68,12 +68,12 @@ using ServiceDiscoveryResponseError     = EnumStringer<ServiceDiscoveryResponseE
  * Service discovery response.
  */
 struct ServiceDiscoveryResponse {
-    size_t                                         mVersion {};
-    StaticString<cSystemIDLen>                     mSystemID;
-    Duration                                       mNextRequestDelay;
-    StaticArray<StaticString<cURLLen>, cURLsCount> mConnectionInfo;
-    StaticString<cBearerTokenLen>                  mAuthToken;
-    ServiceDiscoveryResponseError                  mErrorCode;
+    size_t                                          mVersion {};
+    StaticString<cSystemIDLen>                      mSystemID;
+    Duration                                        mNextRequestDelay;
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> mConnectionInfo;
+    StaticString<cBearerTokenLen>                   mAuthToken;
+    ServiceDiscoveryResponseError                   mErrorCode;
 
     /**
      * Compares service discovery response.
