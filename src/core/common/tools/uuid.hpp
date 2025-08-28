@@ -43,7 +43,7 @@ StaticString<cUUIDLen> UUIDToString(const UUID& uuid);
  * @param src input string.
  * @return RetWithError<UUID>.
  */
-RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src);
+RetWithError<UUID> StringToUUID(const String& src);
 
 } // namespace aos::uuid
 
