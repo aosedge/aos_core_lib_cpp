@@ -55,6 +55,30 @@ constexpr auto cCertFingerprintLen = AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_L
 constexpr auto cMaxNumCertificates = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES;
 
 /**
+ * Node state.
+ */
+class NodeStateType {
+public:
+    enum class Enum {
+        eProvisioned,
+        ePaused,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sNodeStateStrings[] = {
+            "provisioned",
+            "paused",
+        };
+
+        return Array<const char* const>(sNodeStateStrings, ArraySize(sNodeStateStrings));
+    };
+};
+
+using NodeStateEnum = NodeStateType::Enum;
+using NodeState     = EnumStringer<NodeStateType>;
+
+/**
  * Desired node state.
  */
 struct DesiredNodeState {
