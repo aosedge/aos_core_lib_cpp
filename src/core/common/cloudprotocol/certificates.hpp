@@ -7,12 +7,13 @@
 #ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_CERTIFICATES_HPP_
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_CERTIFICATES_HPP_
 
+#include <core/common/cloudprotocol/certificates.hpp>
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/types.hpp>
 
-#include "cloudprotocol.hpp"
+#include "common.hpp"
 
 namespace aos::cloudprotocol {
 
