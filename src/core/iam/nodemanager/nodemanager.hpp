@@ -58,13 +58,13 @@ public:
     virtual Error SetNodeInfo(const NodeInfo& info) = 0;
 
     /**
-     * Updates node state.
+     * Updates node status.
      *
      * @param nodeID node identifier.
-     * @param state node state.
+     * @param status node status.
      * @return Error.
      */
-    virtual Error SetNodeState(const String& nodeID, NodeState state) = 0;
+    virtual Error SetNodeStatus(const String& nodeID, NodeStatus status) = 0;
 
     /**
      * Returns node info.
@@ -171,13 +171,13 @@ public:
     Error SetNodeInfo(const NodeInfo& info) override;
 
     /**
-     * Updates state for a node.
+     * Updates status for a node.
      *
      * @param nodeID node identifier.
-     * @param state node state.
+     * @param status node status.
      * @return Error.
      */
-    Error SetNodeState(const String& nodeID, NodeState state) override;
+    Error SetNodeStatus(const String& nodeID, NodeStatus status) override;
 
     /**
      * Returns node info.
