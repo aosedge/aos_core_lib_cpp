@@ -9,10 +9,9 @@
 
 #include <cstdint>
 
+#include <core/common/cloudprotocol/common.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/types.hpp>
-
-#include "cloudprotocol.hpp"
 
 namespace aos::cloudprotocol {
 /**
@@ -110,7 +109,7 @@ struct LogFilter {
     Optional<Time>                                      mFrom;
     Optional<Time>                                      mTill;
     StaticArray<StaticString<cNodeIDLen>, cMaxNumNodes> mNodeIDs;
-    InstanceFilter                                      mInstanceFilter;
+    aos::cloudprotocol::InstanceFilter                  mInstanceFilter;
 
     /**
      * Compares log filter.
