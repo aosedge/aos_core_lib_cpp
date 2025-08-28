@@ -1302,9 +1302,9 @@ struct NodeAttribute {
 using NodeAttributeStaticArray = StaticArray<NodeAttribute, cMaxNumNodeAttributes>;
 
 /**
- * Node state.
+ * Node status.
  */
-class NodeStateType {
+class NodeStatusType {
 public:
     enum class Enum {
         eUnprovisioned,
@@ -1315,18 +1315,18 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStateStrings[] = {
+        static const char* const sNodeStatusStrings[] = {
             "unprovisioned",
             "provisioned",
             "paused",
         };
 
-        return Array<const char* const>(sNodeStateStrings, ArraySize(sNodeStateStrings));
+        return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
     };
 };
 
-using NodeStateEnum = NodeStateType::Enum;
-using NodeState     = EnumStringer<NodeStateType>;
+using NodeStatusEnum = NodeStatusType::Enum;
+using NodeStatus     = EnumStringer<NodeStatusType>;
 
 /**
  * Node info.
@@ -1335,7 +1335,7 @@ struct NodeInfo {
     StaticString<cNodeIDLen>   mNodeID;
     StaticString<cNodeTypeLen> mNodeType;
     StaticString<cNodeNameLen> mName;
-    NodeState                  mState;
+    NodeStatus                 mStatus;
     StaticString<cOSTypeLen>   mOSType;
     CPUInfoStaticArray         mCPUs;
     PartitionInfoStaticArray   mPartitions;
@@ -1372,7 +1372,7 @@ struct NodeInfo {
      */
     bool operator==(const NodeInfo& info) const
     {
-        return mNodeID == info.mNodeID && mNodeType == info.mNodeType && mName == info.mName && mState == info.mState
+        return mNodeID == info.mNodeID && mNodeType == info.mNodeType && mName == info.mName && mStatus == info.mStatus
             && mOSType == info.mOSType && mCPUs == info.mCPUs && mMaxDMIPS == info.mMaxDMIPS
             && mTotalRAM == info.mTotalRAM && mPartitions == info.mPartitions && mAttrs == info.mAttrs;
     }
