@@ -47,56 +47,11 @@ public:
 using StateResultEnum = StateResultType::Enum;
 using StateResult     = EnumStringer<StateResultType>;
 
-struct BaseState {
-    /**
-     * Constructor.
-     *
-     * @param instanceIdent instance identifier.
-     * @param messageType state message type.
-     */
-    BaseState(const InstanceIdent& instanceIdent, MessageType messageType)
-        : mInstanceIdent(instanceIdent)
-        , mMessageType(messageType)
-    {
-    }
-
-    InstanceIdent mInstanceIdent;
-    MessageType   mMessageType;
-
-    /**
-     * Compares base state.
-     *
-     * @param state base state to compare with.
-     * @return bool.
-     */
-    bool operator==(const BaseState& state) const
-    {
-        return mInstanceIdent == state.mInstanceIdent && mMessageType == state.mMessageType;
-    }
-
-    /**
-     * Compares base state.
-     *
-     * @param state base state to compare with.
-     * @return bool.
-     */
-    bool operator!=(const BaseState& state) const { return !operator==(state); }
-};
-
 /**
  * State acceptance.
  */
-struct StateAcceptance : public BaseState {
-    /**
-     * Constructor.
-     *
-     * @param instanceIdent instance identifier.
-     */
-    explicit StateAcceptance(const InstanceIdent& instanceIdent = InstanceIdent())
-        : BaseState(instanceIdent, MessageTypeEnum::eStateAcceptance)
-    {
-    }
-
+struct StateAcceptance {
+    InstanceIdent                         mInstanceIdent;
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StateResult                           mResult;
     StaticString<cStateReason>            mReason;
@@ -109,8 +64,8 @@ struct StateAcceptance : public BaseState {
      */
     bool operator==(const StateAcceptance& acceptance) const
     {
-        return BaseState::operator==(acceptance) && mChecksum == acceptance.mChecksum && mResult == acceptance.mResult
-            && mReason == acceptance.mReason;
+        return mInstanceIdent == acceptance.mInstanceIdent && mChecksum == acceptance.mChecksum
+            && mResult == acceptance.mResult && mReason == acceptance.mReason;
     }
 
     /**
@@ -125,17 +80,8 @@ struct StateAcceptance : public BaseState {
 /**
  * Update state.
  */
-struct UpdateState : public BaseState {
-    /**
-     * Constructor.
-     *
-     * @param instanceIdent instance identifier.
-     */
-    explicit UpdateState(const InstanceIdent& instanceIdent = InstanceIdent())
-        : BaseState(instanceIdent, MessageTypeEnum::eUpdateState)
-    {
-    }
-
+struct UpdateState {
+    InstanceIdent                         mInstanceIdent;
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StaticString<cStateLen>               mState;
 
@@ -147,7 +93,7 @@ struct UpdateState : public BaseState {
      */
     bool operator==(const UpdateState& state) const
     {
-        return BaseState::operator==(state) && mChecksum == state.mChecksum && mState == state.mState;
+        return mInstanceIdent == state.mInstanceIdent && mChecksum == state.mChecksum && mState == state.mState;
     }
 
     /**
@@ -162,17 +108,8 @@ struct UpdateState : public BaseState {
 /**
  * New state.
  */
-struct NewState : public BaseState {
-    /**
-     * Constructor.
-     *
-     * @param instanceIdent instance identifier.
-     */
-    explicit NewState(const InstanceIdent& instanceIdent = InstanceIdent())
-        : BaseState(instanceIdent, MessageTypeEnum::eNewState)
-    {
-    }
-
+struct NewState {
+    InstanceIdent                         mInstanceIdent;
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StaticString<cStateLen>               mState;
 
@@ -184,25 +121,16 @@ struct NewState : public BaseState {
      */
     bool operator==(const NewState& state) const
     {
-        return BaseState::operator==(state) && mChecksum == state.mChecksum && mState == state.mState;
+        return mInstanceIdent == state.mInstanceIdent && mChecksum == state.mChecksum && mState == state.mState;
     }
 };
 
 /**
  * State request.
  */
-struct StateRequest : public BaseState {
-    /**
-     * Constructor.
-     *
-     * @param instanceIdent instance identifier.
-     */
-    explicit StateRequest(const InstanceIdent& instanceIdent = InstanceIdent())
-        : BaseState(instanceIdent, MessageTypeEnum::eStateRequest)
-    {
-    }
-
-    bool mDefault {};
+struct StateRequest {
+    InstanceIdent mInstanceIdent;
+    bool          mDefault {};
 
     /**
      * Compares state request.
@@ -212,7 +140,7 @@ struct StateRequest : public BaseState {
      */
     bool operator==(const StateRequest& request) const
     {
-        return BaseState::operator==(request) && mDefault == request.mDefault;
+        return mInstanceIdent == request.mInstanceIdent && mDefault == request.mDefault;
     }
 
     /**
