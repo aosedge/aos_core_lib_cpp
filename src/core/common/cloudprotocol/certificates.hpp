@@ -79,11 +79,11 @@ struct IssuedCertData {
  * InstallCertData install certificate data.
  */
 struct InstallCertData {
-    CertType                                       mType;
-    StaticString<cNodeIDLen>                       mNodeID;
-    StaticString<crypto::cSerialNumStrLen>         mSerial;
-    ItemStatus                                     mStatus;
-    StaticString<cCertInstallationDescriptionSize> mDescription;
+    CertType                               mType;
+    StaticString<cNodeIDLen>               mNodeID;
+    StaticString<crypto::cSerialNumStrLen> mSerial;
+    ItemStatus                             mStatus;
+    StaticString<cDescriptionLen>          mDescription;
 
     /**
      * Compares install certificate data.
