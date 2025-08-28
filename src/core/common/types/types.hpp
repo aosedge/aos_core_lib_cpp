@@ -1626,6 +1626,72 @@ struct ImageInfo : public PlatformInfo {
     bool operator!=(const ImageInfo& other) const { return !operator==(other); }
 };
 
+/**
+ * Cert type type.
+ */
+class CertTypeType {
+public:
+    enum class Enum {
+        eOffline,
+        eOnline,
+        eUM,
+        eSM,
+        eCM,
+        eIAM,
+        eNumCertificates,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "offline",
+            "online",
+            "um",
+            "sm",
+            "cm",
+            "iam",
+            "unknown",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using CertTypeEnum = CertTypeType::Enum;
+using CertType     = EnumStringer<CertTypeType>;
+
+/**
+ * Update item type.
+ */
+class UpdateItemTypeType {
+public:
+    enum class Enum {
+        eComponent,
+        eService,
+        eLayer,
+        eNode,
+        eRuntime,
+        eSubject,
+        eOEM,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sUpdateItemTypeStrings[] = {
+            "component",
+            "service",
+            "layer",
+            "subject",
+            "OEM",
+        };
+
+        return Array<const char* const>(sUpdateItemTypeStrings, ArraySize(sUpdateItemTypeStrings));
+    };
+};
+
+using UpdateItemTypeEnum = UpdateItemTypeType::Enum;
+using UpdateItemType     = EnumStringer<UpdateItemTypeType>;
+
 } // namespace aos
 
 #endif
