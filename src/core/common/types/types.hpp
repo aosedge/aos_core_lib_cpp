@@ -1310,7 +1310,7 @@ public:
         eUnprovisioned,
         eProvisioned,
         ePaused,
-        eNumStates,
+        eError,
     };
 
     static const Array<const char* const> GetStrings()
@@ -1319,6 +1319,7 @@ public:
             "unprovisioned",
             "provisioned",
             "paused",
+            "error",
         };
 
         return Array<const char* const>(sNodeStatusStrings, ArraySize(sNodeStatusStrings));
