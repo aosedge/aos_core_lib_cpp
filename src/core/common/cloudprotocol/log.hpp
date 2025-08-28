@@ -9,10 +9,9 @@
 
 #include <cstdint>
 
+#include <core/common/cloudprotocol/common.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/types.hpp>
-
-#include "cloudprotocol.hpp"
 
 namespace aos::cloudprotocol {
 /**
