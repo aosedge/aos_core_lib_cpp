@@ -17,7 +17,7 @@ namespace aos::cloudprotocol {
 /**
  * Identifier codename len.
  */
-constexpr auto cCoreNameLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
+constexpr auto cCodeNameLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
 
 /**
  * Identifier title len.
@@ -52,7 +52,7 @@ constexpr auto cChainNameLen = AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN;
 struct Identifier {
     Optional<uuid::UUID>                    mID;
     Optional<UpdateItemType>                mType;
-    Optional<StaticString<cCoreNameLen>>    mCodeName;
+    Optional<StaticString<cCodeNameLen>>    mCodeName;
     Optional<StaticString<cTitleLen>>       mTitle;
     Optional<StaticString<cDescriptionLen>> mDescription;
     Optional<StaticString<cURNLen>>         mURN;
