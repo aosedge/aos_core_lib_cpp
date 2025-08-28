@@ -46,7 +46,7 @@ StaticString<cUUIDLen> UUIDToString(const UUID& src)
     return result;
 }
 
-RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src)
+RetWithError<UUID> StringToUUID(const String& src)
 {
     UUID result;
 
@@ -56,7 +56,9 @@ RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src)
         return {result, ErrorEnum::eNone};
     }
 
-    assert(cTemplate.Size() == src.Size());
+    if (cTemplate.Size() != src.Size()) {
+        return {result, ErrorEnum::eInvalidArgument};
+    }
 
     for (size_t i = 0; i < src.Size();) {
         if (src[i] == '-') {
@@ -68,8 +70,13 @@ RetWithError<UUID> StringToUUID(const StaticString<uuid::cUUIDLen>& src)
             return {result, ErrorEnum::eInvalidArgument};
         }
 
-        assert(i + 2 <= src.Size());
-        assert(src[i + 1] != '-');
+        if (i + 2 > src.Size()) {
+            return {result, ErrorEnum::eNoMemory};
+        }
+
+        if (src[i + 1] == '-') {
+            return {result, ErrorEnum::eInvalidArgument};
+        }
 
         StaticString<2>         srcChunk;
         StaticArray<uint8_t, 1> resultChunk;
