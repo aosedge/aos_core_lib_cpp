@@ -51,7 +51,7 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Set node info: nodeID=" << info.mNodeID << ", state=" << info.mState;
+    LOG_DBG() << "Set node info: nodeID=" << info.mNodeID << ", status=" << info.mStatus;
 
     const auto* cachedInfo = GetNodeFromCache(info.mNodeID);
 
@@ -62,17 +62,17 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
     return UpdateNodeInfo(info);
 }
 
-Error NodeManager::SetNodeState(const String& nodeID, NodeState state)
+Error NodeManager::SetNodeStatus(const String& nodeID, NodeStatus status)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Set node state: nodeID=" << nodeID << ", state=" << state;
+    LOG_DBG() << "Set node status: nodeID=" << nodeID << ", status=" << status;
 
     auto        nodeInfo   = MakeUnique<NodeInfo>(&mAllocator);
     const auto* cachedInfo = GetNodeFromCache(nodeID);
 
     if (cachedInfo != nullptr) {
-        if (cachedInfo->mState == state) {
+        if (cachedInfo->mStatus == status) {
             return ErrorEnum::eNone;
         }
 
@@ -80,7 +80,7 @@ Error NodeManager::SetNodeState(const String& nodeID, NodeState state)
     }
 
     nodeInfo->mNodeID = nodeID;
-    nodeInfo->mState  = state;
+    nodeInfo->mStatus = status;
 
     return UpdateNodeInfo(*nodeInfo);
 }
@@ -197,7 +197,7 @@ Error NodeManager::UpdateNodeInfo(const NodeInfo& info)
 {
     Error err = ErrorEnum::eNone;
 
-    if (info.mState == NodeStateEnum::eUnprovisioned) {
+    if (info.mStatus == NodeStatusEnum::eUnprovisioned) {
         err = mStorage->RemoveNodeInfo(info.mNodeID);
         if (err.Is(ErrorEnum::eNotFound)) {
             err = ErrorEnum::eNone;
