@@ -48,40 +48,6 @@ static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertsPerNodeCount;
 static constexpr auto cCertChainPEMLen = crypto::cCertChainSize * crypto::cCertPEMLen;
 
 /**
- * Cert type type.
- */
-class CertTypeType {
-public:
-    enum class Enum {
-        eOffline,
-        eOnline,
-        eUM,
-        eSM,
-        eCM,
-        eIAM,
-        eNumCertificates,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "offline",
-            "online",
-            "um",
-            "sm",
-            "cm",
-            "iam",
-            "unknown",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using CertTypeEnum = CertTypeType::Enum;
-using CertType     = EnumStringer<CertTypeType>;
-
-/**
  * IssuedCertData issued unit certificate data.
  */
 struct IssuedCertData {
