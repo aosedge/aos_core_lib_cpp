@@ -138,7 +138,7 @@ struct ResourceRatios {
  * Node config.
  */
 struct NodeConfig {
-    Identifier                                                  mNode;
+    Optional<Identifier>                                        mNode;
     Identifier                                                  mNodeGroupSubject;
     Optional<AlertRules>                                        mAlertRules;
     Optional<ResourceRatios>                                    mResourceRatios;
