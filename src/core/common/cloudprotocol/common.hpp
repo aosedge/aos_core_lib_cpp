@@ -47,38 +47,6 @@ constexpr auto cMaxNumURLs = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_URLS;
 constexpr auto cChainNameLen = AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN;
 
 /**
- * Update item type.
- */
-class UpdateItemTypeType {
-public:
-    enum class Enum {
-        eComponent,
-        eService,
-        eLayer,
-        eNode,
-        eRuntime,
-        eSubject,
-        eOEM,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sUpdateItemTypeStrings[] = {
-            "component",
-            "service",
-            "layer",
-            "subject",
-            "OEM",
-        };
-
-        return Array<const char* const>(sUpdateItemTypeStrings, ArraySize(sUpdateItemTypeStrings));
-    };
-};
-
-using UpdateItemTypeEnum = UpdateItemTypeType::Enum;
-using UpdateItemType     = EnumStringer<UpdateItemTypeType>;
-
-/**
  * Aos identifier.
  */
 struct Identifier {
