@@ -399,6 +399,16 @@ static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_POR
 static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
+ * Max length of connection name.
+ */
+static constexpr auto cConnectionNameLen = cServiceIDLen + cExposedPortLen;
+
+/**
+ * Max number of allowed connections.
+ */
+static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS;
+
+/**
  * Identifier URN  len.
  */
 constexpr auto cURNLen = AOS_CONFIG_TYPES_URN_LEN;
