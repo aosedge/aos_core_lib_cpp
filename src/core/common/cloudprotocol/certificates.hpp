@@ -23,11 +23,6 @@ namespace aos::cloudprotocol {
 static constexpr auto cUnitSecretVersion = "2.0.0";
 
 /**
- * Certificate installation description size.
- */
-static constexpr auto cCertDescSize = AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE;
-
-/**
  * Certificate secret size.
  */
 static constexpr auto cCertSecretSize = AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE;
