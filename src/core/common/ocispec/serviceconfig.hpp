@@ -113,6 +113,7 @@ struct ServiceConfig {
     Duration                                                                       mOfflineTTL;
     ServiceQuotas                                                                  mQuotas;
     Optional<RequestedResources>                                                   mRequestedResources;
+    StaticArray<StaticString<cConnectionNameLen>, cMaxNumConnections>              mAllowedConnections;
     StaticArray<ServiceDevice, cMaxNumNodeDevices>                                 mDevices;
     StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
@@ -130,8 +131,8 @@ struct ServiceConfig {
             && mSkipResourceLimits == config.mSkipResourceLimits && mHostname == config.mHostname
             && mBalancingPolicy == config.mBalancingPolicy && mRunners == config.mRunners
             && mRunParameters == config.mRunParameters && mSysctl == config.mSysctl && mOfflineTTL == config.mOfflineTTL
-            && mQuotas == config.mQuotas && mRequestedResources == config.mRequestedResources
-            && mAlertRules == config.mAlertRules;
+            && mQuotas == config.mQuotas && mAllowedConnections == config.mAllowedConnections
+            && mRequestedResources == config.mRequestedResources && mAlertRules == config.mAlertRules;
     }
 
     /**
