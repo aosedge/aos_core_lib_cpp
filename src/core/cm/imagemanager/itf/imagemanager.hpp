@@ -97,7 +97,7 @@ struct UpdateItemStatus {
     }
 
     /**
-     * @brief Compares update item status.
+     * Compares update item status.
      *
      * @param other update item status to compare with.
      * @return bool.

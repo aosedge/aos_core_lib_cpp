@@ -17,16 +17,6 @@ namespace aos::cm::networkmanager {
  */
 
 /**
- * Max number of allowed connections.
- */
-static constexpr auto cMaxNumConnections = AOS_CONFIG_NETWORKMANAGER_CONNECTIONS_PER_INSTANCE_MAX_COUNT;
-
-/**
- * Max length of connection name.
- */
-static constexpr auto cConnectionNameLen = cServiceIDLen + cExposedPortLen;
-
-/**
  * Represents network configuration parameters for service.
  */
 struct NetworkServiceData {

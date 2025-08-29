@@ -541,6 +541,13 @@
 #endif
 
 /**
+ * Max number of service instance connections.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS
+#define AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS 16
+#endif
+
+/**
  * Identifier URN  len.
  */
 #ifndef AOS_CONFIG_TYPES_URN_LEN
