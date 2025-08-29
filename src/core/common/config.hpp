@@ -1202,13 +1202,6 @@
 #endif
 
 /**
- * Certificate installation description size.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_CERT_DESC_SIZE 1024
-#endif
-
-/**
  * Service discovery supported protocols count.
  */
 
