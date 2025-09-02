@@ -56,7 +56,7 @@ public:
      * @param[out] result result network parameters.
      * @return Error.
      */
-    virtual Error PrepareInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& networkID,
+    virtual Error PrepareInstanceNetworkParameters(const InstanceIdentObsolete& instanceIdent, const String& networkID,
         const String& nodeID, const NetworkServiceData& networkData, NetworkParameters& result)
         = 0;
 
@@ -67,7 +67,7 @@ public:
      * @param nodeID node identifier.
      * @return Error.
      */
-    virtual Error RemoveInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& nodeID) = 0;
+    virtual Error RemoveInstanceNetworkParameters(const InstanceIdentObsolete& instanceIdent, const String& nodeID) = 0;
 
     /**
      * Restarts DNS server.
@@ -82,7 +82,7 @@ public:
      * @param[out] instances list of instances.
      * @return Error.
      */
-    virtual Error GetInstances(Array<InstanceIdent>& instances) const = 0;
+    virtual Error GetInstances(Array<InstanceIdentObsolete>& instances) const = 0;
 
     /**
      * Updates network configuration for the given providers and node.

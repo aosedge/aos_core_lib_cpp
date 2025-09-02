@@ -22,7 +22,7 @@ struct InstanceInfo {
     /**
      * Instance identifier.
      */
-    InstanceIdent mInstanceID;
+    InstanceIdentObsolete mInstanceID;
 
     /**
      * Node identifier.
@@ -82,7 +82,7 @@ public:
      * @param instanceID instance identifier.
      * @return Error.
      */
-    virtual Error RemoveInstance(const InstanceIdent& instanceID) = 0;
+    virtual Error RemoveInstance(const InstanceIdentObsolete& instanceID) = 0;
 
     /**
      * Get information about a stored instance.
@@ -91,7 +91,7 @@ public:
      * @param[out] info instance info.
      * @return Error.
      */
-    virtual Error GetInstance(const InstanceIdent& instanceID, InstanceInfo& info) const = 0;
+    virtual Error GetInstance(const InstanceIdentObsolete& instanceID, InstanceInfo& info) const = 0;
 
     /**
      * Get all stored instances.

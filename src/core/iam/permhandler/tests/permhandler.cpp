@@ -47,7 +47,7 @@ protected:
 
 TEST_F(PermHandlerTest, RegisterInstanceSucceeds)
 {
-    InstanceIdent                              instanceIdent;
+    InstanceIdentObsolete                      instanceIdent;
     StaticArray<FunctionServicePermissions, 1> perms;
 
     const auto err = mPermHandler.RegisterInstance(instanceIdent, perms);
@@ -57,7 +57,7 @@ TEST_F(PermHandlerTest, RegisterInstanceSucceeds)
 
 TEST_F(PermHandlerTest, RegisterInstanceReturnsSecretFromCache)
 {
-    InstanceIdent                              instanceIdent;
+    InstanceIdentObsolete                      instanceIdent;
     StaticArray<FunctionServicePermissions, 1> perms;
     Error                                      err;
     StaticString<cSecretLen>                   secret1;
@@ -75,7 +75,7 @@ TEST_F(PermHandlerTest, RegisterInstanceReturnsSecretFromCache)
 TEST_F(PermHandlerTest, RegisterInstanceReachedMaxSize)
 {
     const StaticArray<FunctionServicePermissions, 1> perms;
-    InstanceIdent                                    instanceIdent {"", "", 0};
+    InstanceIdentObsolete                            instanceIdent {"", "", 0};
     Error                                            err;
     StaticString<cSecretLen>                         secret;
 
@@ -96,7 +96,7 @@ TEST_F(PermHandlerTest, RegisterInstanceReachedMaxSize)
 
 TEST_F(PermHandlerTest, GetPermissionsNotFound)
 {
-    InstanceIdent                       instanceIdent;
+    InstanceIdentObsolete               instanceIdent;
     StaticArray<FunctionPermissions, 1> perms;
 
     auto err = mPermHandler.GetPermissions("uknownSecretUUID", "unknownServerId", instanceIdent, perms);
@@ -105,7 +105,7 @@ TEST_F(PermHandlerTest, GetPermissionsNotFound)
 
 TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
 {
-    const InstanceIdent instanceIdent1 {"serviceID1", "subjectID1", 1};
+    const InstanceIdentObsolete instanceIdent1 {"serviceID1", "subjectID1", 1};
 
     FunctionServicePermissions testServicePermissions;
     testServicePermissions.mName = "testService";
@@ -115,7 +115,7 @@ TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
     StaticArray<FunctionServicePermissions, 2> funcServerPermissions;
     funcServerPermissions.PushBack(testServicePermissions);
 
-    InstanceIdent                       resInstanceIdent;
+    InstanceIdentObsolete               resInstanceIdent;
     StaticArray<FunctionPermissions, 1> resServicePerms;
     Error                               err;
     StaticString<cSecretLen>            secret;
@@ -130,7 +130,7 @@ TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
 
 TEST_F(PermHandlerTest, UnregisterInstance)
 {
-    InstanceIdent instanceIdent;
+    InstanceIdentObsolete instanceIdent;
     instanceIdent.mServiceID = "test-service-id";
 
     StaticArray<FunctionServicePermissions, 1> perms;
@@ -152,9 +152,9 @@ TEST_F(PermHandlerTest, UnregisterInstance)
 
 TEST_F(PermHandlerTest, TestInstancePermissions)
 {
-    const InstanceIdent instanceIdent1 {"serviceID1", "subjectID1", 1};
-    const InstanceIdent instanceIdent2 {"serviceID2", "subjectID2", 2};
-    InstanceIdent       instance;
+    const InstanceIdentObsolete instanceIdent1 {"serviceID1", "subjectID1", 1};
+    const InstanceIdentObsolete instanceIdent2 {"serviceID2", "subjectID2", 2};
+    InstanceIdentObsolete       instance;
 
     FunctionServicePermissions visServicePermissions;
     visServicePermissions.mName = "vis";

@@ -473,8 +473,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     PartitionInfo instancePartitionsData[] = {{"state", {}, "", 0, 256}, {"storage", {}, "", 0, 512}};
     auto          instancePartitions = Array<PartitionInfo>(instancePartitionsData, ArraySize(instancePartitionsData));
 
-    InstanceIdent instance0Ident {"service0", "subject0", 0};
-    InstanceIdent instance1Ident {"service1", "subject1", 1};
+    InstanceIdentObsolete instance0Ident {"service0", "subject0", 0};
+    InstanceIdentObsolete instance1Ident {"service1", "subject1", 1};
 
     Pair<String, InstanceMonitoringData> instancesMonitoringData[] = {
         {"instance0", {instance0Ident, {10000, 2048, instancePartitions, 10, 20}}},
@@ -540,9 +540,9 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
 
     connectionPublisher->NotifyConnect();
 
-    InstanceIdent  instance0Ident {"service0", "subject0", 0};
-    PartitionParam partitionParmsData[] = {{"disk", ""}};
-    auto           partitionParams      = Array<PartitionParam>(partitionParmsData, ArraySize(partitionParmsData));
+    InstanceIdentObsolete instance0Ident {"service0", "subject0", 0};
+    PartitionParam        partitionParmsData[] = {{"disk", ""}};
+    auto                  partitionParams = Array<PartitionParam>(partitionParmsData, ArraySize(partitionParmsData));
 
     resourceUsageProvider->ProvideInitialInstancesData({"instance0"});
 
@@ -688,15 +688,15 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     instanceAlertRules.mPartitions.PushBack({Time::cMilliseconds, 10.0, 20.0, "state"});
     instanceAlertRules.mPartitions.PushBack({Time::cMilliseconds, 10.0, 20.0, "storage"});
 
-    InstanceIdent instance0Ident {"service0", "subject0", 0};
-    InstanceIdent instance1Ident {"service1", "subject1", 1};
+    InstanceIdentObsolete instance0Ident {"service0", "subject0", 0};
+    InstanceIdentObsolete instance1Ident {"service1", "subject1", 1};
 
     Pair<String, InstanceMonitoringData> instancesMonitoringData[] = {
         {"instance0", {instance0Ident, {100, 2048, instancePartitions, 10, 20}}},
         {"instance1", {instance1Ident, {150, 1024, instancePartitions, 20, 40}}},
     };
 
-    const std::vector<Pair<InstanceIdent, AlertData>> expectedInstanceAlerts = {
+    const std::vector<Pair<InstanceIdentObsolete, AlertData>> expectedInstanceAlerts = {
         {instance0Ident, {"instanceQuotaAlert", "cpu", 100 * maxDmips / 100, cloudprotocol::AlertStatusEnum::eRaise}},
         {instance0Ident, {"instanceQuotaAlert", "state", 128, cloudprotocol::AlertStatusEnum::eRaise}},
         {instance0Ident, {"instanceQuotaAlert", "storage", 256, cloudprotocol::AlertStatusEnum::eRaise}},
@@ -765,7 +765,7 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
 
     for (const auto& received : instanceQuotaAlerts) {
         EXPECT_NE(std::find_if(expectedInstanceAlerts.begin(), expectedInstanceAlerts.end(),
-                      [&](const Pair<InstanceIdent, AlertData>& expected) {
+                      [&](const Pair<InstanceIdentObsolete, AlertData>& expected) {
                           return expected.mFirst == received.mInstanceIdent && expected.mSecond == received;
                       }),
             expectedInstanceAlerts.end());
@@ -824,8 +824,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringDataOnInstanceSpikes)
     PartitionInfo instancePartitionsData[] = {{"states", {}, "", 0, 256}, {"storages", {}, "", 0, 512}};
     auto          instancePartitions = Array<PartitionInfo>(instancePartitionsData, ArraySize(instancePartitionsData));
 
-    InstanceIdent instance0Ident {"service0", "subject0", 0};
-    InstanceIdent instance1Ident {"service1", "subject1", 1};
+    InstanceIdentObsolete instance0Ident {"service0", "subject0", 0};
+    InstanceIdentObsolete instance1Ident {"service1", "subject1", 1};
 
     Pair<String, InstanceMonitoringData> instancesMonitoringData[] = {
         {"instance0",

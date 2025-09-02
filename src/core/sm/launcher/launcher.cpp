@@ -188,7 +188,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     return ErrorEnum::eNone;
 }
 
-Error Launcher::GetCurrentRunStatus(Array<InstanceStatus>& instances) const
+Error Launcher::GetCurrentRunStatus(Array<InstanceStatusObsolete>& instances) const
 {
     UniqueLock lock {mMutex};
 
@@ -246,7 +246,7 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
 
     LOG_DBG() << "Update run status";
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         auto currentInstance = mCurrentInstances.FindIf(
@@ -513,7 +513,7 @@ Error Launcher::ProcessRestartInstances(const Array<InstanceData>& instances)
 
 Error Launcher::SendRunStatus()
 {
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
         if (instance.RunError().IsNone()) {
@@ -547,7 +547,7 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         StaticString<cVersionLen> serviceVersion;
@@ -1169,7 +1169,8 @@ Error Launcher::RemoveOutdatedEnvVars()
     return ErrorEnum::eNone;
 }
 
-Error Launcher::GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const
+Error Launcher::GetInstanceEnvVars(
+    const InstanceIdentObsolete& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const
 {
     for (const auto& currentEnvVar : mCurrentEnvVars) {
         if (currentEnvVar.mFilter.Match(instanceIdent)) {
@@ -1217,7 +1218,7 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
 
     for (const auto& instanceData : instances) {
         auto instance = GetInstance(instanceData.mInstanceID);

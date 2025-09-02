@@ -14,8 +14,10 @@ using namespace aos;
 TEST(CommonTest, Types)
 {
     // InstanceIdent comparision
-    EXPECT_TRUE((InstanceIdent {"service1", "subject1", 2}) == (InstanceIdent {"service1", "subject1", 2}));
-    EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2}) != (InstanceIdent {"service1", "subject1", 2}));
+    EXPECT_TRUE(
+        (InstanceIdentObsolete {"service1", "subject1", 2}) == (InstanceIdentObsolete {"service1", "subject1", 2}));
+    EXPECT_FALSE(
+        (InstanceIdentObsolete {"service1", "subject1", 2}) != (InstanceIdentObsolete {"service1", "subject1", 2}));
 
     // InstanceInfo comparision
     EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}})
@@ -24,12 +26,12 @@ TEST(CommonTest, Types)
         != (InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}}));
 
     // InstanceStatus comparision
-    EXPECT_TRUE(
-        (InstanceStatus {{"service1", "subject1", 2}, "3.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone})
-        == (InstanceStatus {
+    EXPECT_TRUE((InstanceStatusObsolete {
+                    {"service1", "subject1", 2}, "3.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone})
+        == (InstanceStatusObsolete {
             {"service1", "subject1", 2}, "3.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone}));
-    EXPECT_FALSE(
-        (InstanceStatus {{"service1", "subject1", 2}, "3.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone})
-        != (InstanceStatus {
+    EXPECT_FALSE((InstanceStatusObsolete {
+                     {"service1", "subject1", 2}, "3.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone})
+        != (InstanceStatusObsolete {
             {"service1", "subject1", 2}, "3.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone}));
 }
