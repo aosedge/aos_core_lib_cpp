@@ -59,7 +59,7 @@ struct PartitionParam {
  * Instance resource monitor parameters.
  */
 struct InstanceMonitorParams {
-    InstanceIdent                                  mInstanceIdent;
+    InstanceIdentObsolete                          mInstanceIdent;
     StaticArray<PartitionParam, cMaxNumPartitions> mPartitions;
     uint32_t                                       mUID;
     uint32_t                                       mGID;
@@ -80,7 +80,7 @@ struct InstanceMonitoringData {
      *
      * @param instanceIdent instance ident.
      */
-    explicit InstanceMonitoringData(const InstanceIdent& instanceIdent)
+    explicit InstanceMonitoringData(const InstanceIdentObsolete& instanceIdent)
         : mInstanceIdent(instanceIdent)
     {
     }
@@ -110,17 +110,17 @@ struct InstanceMonitoringData {
      * @param instanceIdent instance ident.
      * @param monitoringData monitoring data.
      */
-    InstanceMonitoringData(const InstanceIdent& instanceIdent, const MonitoringData& monitoringData)
+    InstanceMonitoringData(const InstanceIdentObsolete& instanceIdent, const MonitoringData& monitoringData)
         : mInstanceIdent(instanceIdent)
         , mMonitoringData(monitoringData)
     {
     }
 
-    InstanceIdent    mInstanceIdent  = {};
-    MonitoringData   mMonitoringData = {};
-    uint32_t         mUID            = 0;
-    uint32_t         mGID            = 0;
-    InstanceRunState mRunState       = InstanceRunStateEnum::eFailed;
+    InstanceIdentObsolete mInstanceIdent  = {};
+    MonitoringData        mMonitoringData = {};
+    uint32_t              mUID            = 0;
+    uint32_t              mGID            = 0;
+    InstanceRunState      mRunState       = InstanceRunStateEnum::eFailed;
 
     /**
      * Compares instance monitoring data.

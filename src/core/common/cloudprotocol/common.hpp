@@ -95,7 +95,7 @@ struct InstanceFilter {
      * @param instanceIdent instance ident to match.
      * @return bool.
      */
-    bool Match(const InstanceIdent& instanceIdent) const
+    bool Match(const InstanceIdentObsolete& instanceIdent) const
     {
         return (!mServiceID.HasValue() || *mServiceID == instanceIdent.mServiceID)
             && (!mSubjectID.HasValue() || *mSubjectID == instanceIdent.mSubjectID)

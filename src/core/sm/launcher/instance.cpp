@@ -189,7 +189,7 @@ void Instance::SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars
     mOverrideEnvVars = envVars;
 };
 
-Error Instance::ToInstanceStatus(InstanceStatus& instanceStatus) const
+Error Instance::ToInstanceStatus(InstanceStatusObsolete& instanceStatus) const
 {
     instanceStatus.mInstanceIdent = mInstanceInfo.mInstanceIdent;
     instanceStatus.mStatus        = mRunState;

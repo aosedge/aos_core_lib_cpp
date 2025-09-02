@@ -30,7 +30,7 @@ constexpr auto cSecretLen = AOS_CONFIG_PERMHANDLER_SECRET_LEN;
  */
 struct InstancePermissions {
     StaticString<cSecretLen>                                      mSecret;
-    InstanceIdent                                                 mInstanceIdent;
+    InstanceIdentObsolete                                         mInstanceIdent;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
 
     /**
@@ -40,7 +40,7 @@ struct InstancePermissions {
      * @param instanceIdent instance ident.
      * @param funcServicePerms functional service permissions.
      */
-    InstancePermissions(const String& secret, const InstanceIdent& instanceIdent,
+    InstancePermissions(const String& secret, const InstanceIdentObsolete& instanceIdent,
         const Array<FunctionServicePermissions>& funcServicePerms)
         : mSecret(secret)
         , mInstanceIdent(instanceIdent)
@@ -62,7 +62,7 @@ public:
      * @returns RetWithError<StaticString<cSecretLen>>.
      */
     virtual RetWithError<StaticString<cSecretLen>> RegisterInstance(
-        const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
+        const InstanceIdentObsolete& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
         = 0;
 
     /**
@@ -71,7 +71,7 @@ public:
      * @param instanceIdent instance identification.
      * @returns Error.
      */
-    virtual Error UnregisterInstance(const InstanceIdent& instanceIdent) = 0;
+    virtual Error UnregisterInstance(const InstanceIdentObsolete& instanceIdent) = 0;
 
     /**
      * Returns instance ident and permissions by secret and functional server ID.
@@ -82,7 +82,7 @@ public:
      * @param[out] servicePermissions result service permission.
      * @returns Error.
      */
-    virtual Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
+    virtual Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdentObsolete& instanceIdent,
         Array<FunctionPermissions>& servicePermissions)
         = 0;
 
@@ -109,8 +109,8 @@ public:
      * @param instancePermissions instance permissions.
      * @returns RetWithError<StaticString<cSecretLen>>.
      */
-    RetWithError<StaticString<cSecretLen>> RegisterInstance(
-        const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions) override;
+    RetWithError<StaticString<cSecretLen>> RegisterInstance(const InstanceIdentObsolete& instanceIdent,
+        const Array<FunctionServicePermissions>&                                         instancePermissions) override;
 
     /**
      * Unregisters instance deletes service instance with permissions from cache.
@@ -118,7 +118,7 @@ public:
      * @param instanceIdent instance identification.
      * @returns Error.
      */
-    Error UnregisterInstance(const InstanceIdent& instanceIdent) override;
+    Error UnregisterInstance(const InstanceIdentObsolete& instanceIdent) override;
 
     /**
      * Returns instance ident and permissions by secret and functional server ID.
@@ -129,16 +129,16 @@ public:
      * @param[out] servicePermissions result service permission.
      * @returns Error.
      */
-    Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
+    Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdentObsolete& instanceIdent,
         Array<FunctionPermissions>& servicePermissions) override;
 
 private:
-    Error                                  AddSecret(const String& secret, const InstanceIdent& instanceIdent,
+    Error                                  AddSecret(const String& secret, const InstanceIdentObsolete& instanceIdent,
                                          const Array<FunctionServicePermissions>& instancePermissions);
     InstancePermissions*                   FindBySecret(const String& secret);
-    InstancePermissions*                   FindByInstanceIdent(const InstanceIdent& instanceIdent);
+    InstancePermissions*                   FindByInstanceIdent(const InstanceIdentObsolete& instanceIdent);
     RetWithError<StaticString<cSecretLen>> GenerateSecret();
-    RetWithError<StaticString<cSecretLen>> GetSecretForInstance(const InstanceIdent& instanceIdent);
+    RetWithError<StaticString<cSecretLen>> GetSecretForInstance(const InstanceIdentObsolete& instanceIdent);
 
     Mutex                                              mMutex;
     StaticArray<InstancePermissions, cMaxNumInstances> mInstancesPerms;

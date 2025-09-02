@@ -163,7 +163,7 @@ public:
      * @param instances instances status array.
      * @return Error.
      */
-    Error InstancesRunStatus(const Array<InstanceStatus>& status) override
+    Error InstancesRunStatus(const Array<InstanceStatusObsolete>& status) override
     {
         mPromise.set_value(status);
 
@@ -176,7 +176,7 @@ public:
      *
      * @return Error.
      */
-    Error InstancesUpdateStatus(const Array<InstanceStatus>& status) override
+    Error InstancesUpdateStatus(const Array<InstanceStatusObsolete>& status) override
     {
         mPromise.set_value(status);
 
@@ -190,13 +190,13 @@ public:
      */
     auto GetFeature()
     {
-        mPromise = std::promise<const Array<InstanceStatus>>();
+        mPromise = std::promise<const Array<InstanceStatusObsolete>>();
 
         return mPromise.get_future();
     }
 
 private:
-    std::promise<const Array<InstanceStatus>> mPromise;
+    std::promise<const Array<InstanceStatusObsolete>> mPromise;
 };
 
 } // namespace aos::sm::launcher

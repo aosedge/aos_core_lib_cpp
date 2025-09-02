@@ -264,7 +264,7 @@ public:
      * @param instanceStatus[out] instance status.
      * @return Error.
      */
-    Error ToInstanceStatus(InstanceStatus& instanceStatus) const;
+    Error ToInstanceStatus(InstanceStatusObsolete& instanceStatus) const;
 
     /**
      * Compares instances.
