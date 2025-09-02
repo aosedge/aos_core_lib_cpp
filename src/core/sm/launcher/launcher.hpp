@@ -54,7 +54,7 @@ public:
      * @param instances instances status.
      * @return Error.
      */
-    virtual Error GetCurrentRunStatus(Array<InstanceStatus>& instances) const = 0;
+    virtual Error GetCurrentRunStatus(Array<InstanceStatusObsolete>& instances) const = 0;
 
     /**
      * Overrides environment variables for specified instances.
@@ -79,7 +79,7 @@ public:
      * @param instances instances status array.
      * @return Error.
      */
-    virtual Error InstancesRunStatus(const Array<InstanceStatus>& instances) = 0;
+    virtual Error InstancesRunStatus(const Array<InstanceStatusObsolete>& instances) = 0;
 
     /**
      * Sends instances update status.
@@ -87,7 +87,7 @@ public:
      *
      * @return Error.
      */
-    virtual Error InstancesUpdateStatus(const Array<InstanceStatus>& instances) = 0;
+    virtual Error InstancesUpdateStatus(const Array<InstanceStatusObsolete>& instances) = 0;
 };
 
 /**
@@ -304,7 +304,7 @@ public:
      * @param instances instances status.
      * @return Error.
      */
-    Error GetCurrentRunStatus(Array<InstanceStatus>& instances) const override;
+    Error GetCurrentRunStatus(Array<InstanceStatusObsolete>& instances) const override;
 
     /**
      * Overrides environment variables for specified instances.
@@ -349,12 +349,12 @@ private:
 
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
-    static constexpr auto cAllocatorSize
-        = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
-                + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-                + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
-            sizeof(EnvVarsArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray)
-                + sizeof(ServiceStatusStaticArray) + +sizeof(LayerStatusStaticArray));
+    static constexpr auto cAllocatorSize = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3
+            + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)
+            + sizeof(servicemanager::ServiceDataStaticArray) + sizeof(InstanceStatusObsoleteStaticArray)
+            + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
+        sizeof(EnvVarsArray) + sizeof(InstanceStatusObsoleteStaticArray) + sizeof(InstanceDataStaticArray)
+            + sizeof(ServiceStatusStaticArray) + +sizeof(LayerStatusStaticArray));
 
     void  ShowResourceUsageStats();
     Error ProcessLastInstances();
@@ -383,7 +383,8 @@ private:
     Error HandleOfflineTTLs();
     Error SetEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
         Array<cloudprotocol::EnvVarsInstanceStatus>&                  statuses);
-    Error GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const;
+    Error GetInstanceEnvVars(
+        const InstanceIdentObsolete& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const;
     Error RemoveOutdatedEnvVars();
     Error GetEnvChangedInstances(Array<InstanceData>& instance) const;
     Error SendEnvChangedInstancesStatus(const Array<InstanceData>& instances);

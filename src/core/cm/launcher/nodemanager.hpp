@@ -139,7 +139,7 @@ public:
      * @param instances service instance list.
      * @return Error.
      */
-    virtual Error StopInstances(const String& nodeID, const Array<InstanceIdent>& instances) = 0;
+    virtual Error StopInstances(const String& nodeID, const Array<InstanceIdentObsolete>& instances) = 0;
 
     /**
      * Retrieves average monitoring data for a node.

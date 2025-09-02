@@ -134,7 +134,7 @@ Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringCo
     return ErrorEnum::eNone;
 }
 
-Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
+Error Average::StopInstanceMonitoring(const InstanceIdentObsolete& instanceIdent)
 {
     auto err = mAverageInstancesData.Remove(instanceIdent);
     if (!err.IsNone()) {

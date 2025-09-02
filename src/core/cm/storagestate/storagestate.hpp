@@ -23,18 +23,18 @@ namespace aos::cm::storagestate {
  * Setup storage state instance params.
  */
 struct SetupParams {
-    InstanceIdent mInstanceIdent;
-    size_t        mUID {};
-    size_t        mGID {};
-    size_t        mStateQuota {};
-    size_t        mStorageQuota {};
+    InstanceIdentObsolete mInstanceIdent;
+    size_t                mUID {};
+    size_t                mGID {};
+    size_t                mStateQuota {};
+    size_t                mStorageQuota {};
 };
 
 /**
  * Storage state instance info.
  */
 struct StorageStateInstanceInfo {
-    InstanceIdent                         mInstanceIdent;
+    InstanceIdentObsolete                 mInstanceIdent;
     StaticString<cInstanceIDLen>          mInstanceID;
     size_t                                mStorageQuota {};
     size_t                                mStateQuota {};
@@ -81,7 +81,7 @@ public:
      * @param instanceIdent instance ident to remove.
      * @return Error.
      */
-    virtual Error RemoveStorageStateInfo(const InstanceIdent& instanceIdent) = 0;
+    virtual Error RemoveStorageStateInfo(const InstanceIdentObsolete& instanceIdent) = 0;
 
     /**
      * Returns all storage state instance infos.
@@ -98,7 +98,8 @@ public:
      * @param storageStateInfo[out] storage state instance info result.
      * @return Error.
      */
-    virtual Error GetStorageStateInfo(const InstanceIdent& instanceIdent, StorageStateInstanceInfo& storageStateInfo)
+    virtual Error GetStorageStateInfo(
+        const InstanceIdentObsolete& instanceIdent, StorageStateInstanceInfo& storageStateInfo)
         = 0;
 
     /**
@@ -136,7 +137,7 @@ public:
      * @param instanceIdent instance ident.
      * @return Error.
      */
-    virtual Error Cleanup(const InstanceIdent& instanceIdent) = 0;
+    virtual Error Cleanup(const InstanceIdentObsolete& instanceIdent) = 0;
 
     /**
      * Removes storage state instance.
@@ -144,7 +145,7 @@ public:
      * @param instanceIdent instance ident.
      * @return Error.
      */
-    virtual Error Remove(const InstanceIdent& instanceIdent) = 0;
+    virtual Error Remove(const InstanceIdentObsolete& instanceIdent) = 0;
 
     /**
      * Updates storage state with new state.
@@ -169,7 +170,7 @@ public:
      * @param checkSum[out] checksum.
      * @return Error
      */
-    virtual Error GetInstanceCheckSum(const InstanceIdent& instanceIdent, String& checkSum) = 0;
+    virtual Error GetInstanceCheckSum(const InstanceIdentObsolete& instanceIdent, String& checkSum) = 0;
 
     /**
      * Destructor.

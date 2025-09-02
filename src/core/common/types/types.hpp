@@ -503,7 +503,7 @@ struct PlatformInfo {
 /**
  * Instance identification.
  */
-struct InstanceIdent {
+struct InstanceIdentObsolete {
     StaticString<cServiceIDLen> mServiceID;
     StaticString<cSubjectIDLen> mSubjectID;
     uint64_t                    mInstance = 0;
@@ -514,7 +514,7 @@ struct InstanceIdent {
      * @param instance ident to compare.
      * @return bool.
      */
-    bool operator<(const InstanceIdent& instance) const
+    bool operator<(const InstanceIdentObsolete& instance) const
     {
         return mServiceID <= instance.mServiceID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
     }
@@ -525,7 +525,7 @@ struct InstanceIdent {
      * @param instance ident to compare.
      * @return bool.
      */
-    bool operator==(const InstanceIdent& instance) const
+    bool operator==(const InstanceIdentObsolete& instance) const
     {
         return mServiceID == instance.mServiceID && mSubjectID == instance.mSubjectID
             && mInstance == instance.mInstance;
@@ -537,7 +537,7 @@ struct InstanceIdent {
      * @param instance ident to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceIdent& instance) const { return !operator==(instance); }
+    bool operator!=(const InstanceIdentObsolete& instance) const { return !operator==(instance); }
 
     /**
      * Outputs instance ident to log.
@@ -547,7 +547,7 @@ struct InstanceIdent {
      *
      * @return Log&.
      */
-    friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
+    friend Log& operator<<(Log& log, const InstanceIdentObsolete& instanceIdent)
     {
         return log << "{" << instanceIdent.mServiceID << ":" << instanceIdent.mSubjectID << ":"
                    << instanceIdent.mInstance << "}";
@@ -620,7 +620,7 @@ struct NetworkParameters {
  * Instance info.
  */
 struct InstanceInfo {
-    InstanceIdent              mInstanceIdent;
+    InstanceIdentObsolete      mInstanceIdent;
     uint32_t                   mUID      = 0;
     uint64_t                   mPriority = 0;
     StaticString<cFilePathLen> mStoragePath;
@@ -675,8 +675,8 @@ using InstanceRunState     = EnumStringer<InstanceRunStateType>;
 /**
  * Instance status.
  */
-struct InstanceStatus {
-    InstanceIdent                   mInstanceIdent;
+struct InstanceStatusObsolete {
+    InstanceIdentObsolete           mInstanceIdent;
     StaticString<cVersionLen>       mServiceVersion;
     StaticString<2 * cSHA3_224Size> mStateChecksum;
     InstanceRunState                mStatus;
@@ -689,7 +689,7 @@ struct InstanceStatus {
      * @param instance status to compare.
      * @return bool.
      */
-    bool operator==(const InstanceStatus& instance) const
+    bool operator==(const InstanceStatusObsolete& instance) const
     {
         return mInstanceIdent == instance.mInstanceIdent && mServiceVersion == instance.mServiceVersion
             && mStateChecksum == instance.mStateChecksum && mStatus == instance.mStatus && mNodeID == instance.mNodeID
@@ -702,13 +702,13 @@ struct InstanceStatus {
      * @param instance status to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceStatus& instance) const { return !operator==(instance); }
+    bool operator!=(const InstanceStatusObsolete& instance) const { return !operator==(instance); }
 };
 
 /**
  * Instance status static array.
  */
-using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
+using InstanceStatusObsoleteStaticArray = StaticArray<InstanceStatusObsolete, cMaxNumInstances>;
 
 /**
  * Item status type.
