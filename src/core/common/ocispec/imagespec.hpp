@@ -138,10 +138,10 @@ struct ImageConfig {
  * Describes the platform which the image in the manifest runs on.
  */
 struct Platform {
-    StaticString<cCPUArchFamilyLen> mArchitecture;
-    StaticString<cOSTypeLen>        mOS;
-    StaticString<cVersionLen>       mOSVersion;
-    StaticString<cCPUVariantLen>    mVariant;
+    StaticString<cCPUArchLen>    mArchitecture;
+    StaticString<cOSTypeLen>     mOS;
+    StaticString<cVersionLen>    mOSVersion;
+    StaticString<cCPUVariantLen> mVariant;
 
     /**
      * Compares platform.
