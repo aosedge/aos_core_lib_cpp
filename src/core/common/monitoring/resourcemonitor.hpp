@@ -158,8 +158,8 @@ private:
     Mutex mMutex;
     Timer mTimer = {};
 
-    uint64_t mMaxDMIPS {};
-    uint64_t mMaxMemory {};
+    size_t mMaxDMIPS {};
+    size_t mMaxMemory {};
 
     AlertProcessorStaticArray                                                            mAlertProcessors;
     StaticMap<StaticString<cInstanceIDLen>, AlertProcessorStaticArray, cMaxNumInstances> mInstanceAlertProcessors;
