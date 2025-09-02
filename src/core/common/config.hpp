@@ -429,13 +429,6 @@
 #endif
 
 /**
- * CPU architecture family len.
- */
-#ifndef AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN
-#define AOS_CONFIG_TYPES_CPU_ARCH_FAMILY_LEN 16
-#endif
-
-/**
  * Node attribute name len.
  */
 #ifndef AOS_CONFIG_TYPES_NODE_ATTRIBUTE_NAME_LEN
