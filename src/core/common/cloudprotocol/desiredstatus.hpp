@@ -76,6 +76,8 @@ struct DesiredNodeState {
     bool operator!=(const DesiredNodeState& state) const { return !operator==(state); }
 };
 
+using DesiredNodeStateStaticArray = StaticArray<DesiredNodeState, cMaxNumNodes>;
+
 /**
  * Resource ratios.
  */
@@ -253,13 +255,15 @@ struct UpdateImageInfo {
     bool operator!=(const UpdateImageInfo& other) const { return !operator==(other); }
 };
 
+using UpdateImageInfoStaticArray = StaticArray<UpdateImageInfo, cMaxNumUpdateImages>;
+
 /**
  * Update item info.
  */
 struct UpdateItemInfo {
-    Identifier                                        mIdentifier;
-    StaticString<cVersionLen>                         mVersion;
-    StaticArray<UpdateImageInfo, cMaxNumUpdateImages> mImages;
+    Identifier                 mIdentifier;
+    StaticString<cVersionLen>  mVersion;
+    UpdateImageInfoStaticArray mImages;
 
     /**
      * Compares update item info.
@@ -281,15 +285,19 @@ struct UpdateItemInfo {
     bool operator!=(const UpdateItemInfo& other) const { return !operator==(other); }
 };
 
+using UpdateItemInfoStaticArray = StaticArray<UpdateItemInfo, cMaxNumUpdateItems>;
+
+using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
+
 /**
  * Instance info.
  */
 struct InstanceInfo {
-    Identifier                                                  mIdentifier;
-    Identifier                                                  mSubject;
-    uint64_t                                                    mPriority {0};
-    size_t                                                      mNumInstances;
-    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
+    Identifier        mIdentifier;
+    Identifier        mSubject;
+    uint64_t          mPriority {0};
+    size_t            mNumInstances;
+    LabelsStaticArray mLabels;
 
     /**
      * Compares instance info.
@@ -311,6 +319,8 @@ struct InstanceInfo {
      */
     bool operator!=(const InstanceInfo& other) const { return !operator==(other); }
 };
+
+using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 
 /**
  * Certificate info.
@@ -339,6 +349,8 @@ struct CertificateInfo {
     bool operator!=(const CertificateInfo& other) const { return !operator==(other); }
 };
 
+using CertificateInfoStaticArray = StaticArray<CertificateInfo, cMaxNumCertificates>;
+
 /**
  * Certificate chain info.
  */
@@ -366,16 +378,18 @@ struct CertificateChainInfo {
     bool operator!=(const CertificateChainInfo& other) const { return !operator==(other); }
 };
 
+using CertificateChainInfoStaticArray = StaticArray<CertificateChainInfo, crypto::cCertChainsCount>;
+
 /**
  * Desired status.
  */
 struct DesiredStatus {
-    StaticArray<DesiredNodeState, cMaxNumNodes>                 mNodes;
-    Optional<UnitConfig>                                        mUnitConfig;
-    StaticArray<UpdateItemInfo, cMaxNumUpdateItems>             mUpdateItems;
-    StaticArray<InstanceInfo, cMaxNumInstances>                 mInstances;
-    StaticArray<CertificateInfo, cMaxNumCertificates>           mCertificates;
-    StaticArray<CertificateChainInfo, crypto::cCertChainsCount> mCertificateChains;
+    DesiredNodeStateStaticArray     mNodes;
+    Optional<UnitConfig>            mUnitConfig;
+    UpdateItemInfoStaticArray       mUpdateItems;
+    InstanceInfoStaticArray         mInstances;
+    CertificateInfoStaticArray      mCertificates;
+    CertificateChainInfoStaticArray mCertificateChains;
 
     /**
      * Compares desired status.
