@@ -96,8 +96,8 @@ TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
 {
     EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
 
-    StaticString<cSubjectIDLen * cMaxSubjectIDSize> subjects;
-    for (size_t i {0}; i < cMaxSubjectIDSize + 1; ++i) {
+    StaticString<cSubjectIDLen * cMaxNumSubjects> subjects;
+    for (size_t i {0}; i < cMaxNumSubjects + 1; ++i) {
         subjects.Append("subject\n");
     }
 

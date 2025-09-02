@@ -84,11 +84,11 @@ private:
     Error ReadUnitModel();
     Error ReadSubjects();
 
-    Config                                                      mConfig {};
-    SubjectsObserverItf*                                        mSubjectsObserver {};
-    StaticString<cSystemIDLen>                                  mSystemId;
-    StaticString<cUnitModelLen>                                 mUnitModel;
-    StaticArray<StaticString<cSubjectIDLen>, cMaxSubjectIDSize> mSubjects;
+    Config                                                    mConfig {};
+    SubjectsObserverItf*                                      mSubjectsObserver {};
+    StaticString<cSystemIDLen>                                mSystemId;
+    StaticString<cUnitModelLen>                               mUnitModel;
+    StaticArray<StaticString<cSubjectIDLen>, cMaxNumSubjects> mSubjects;
 };
 
 /** @}*/

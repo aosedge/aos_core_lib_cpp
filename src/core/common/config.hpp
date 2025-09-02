@@ -65,10 +65,10 @@
 #endif
 
 /**
- * Max expected number of subject ids.
+ * Max number of subjects.
  */
-#ifndef AOS_CONFIG_TYPES_MAX_SUBJECTS_SIZE
-#define AOS_CONFIG_TYPES_MAX_SUBJECTS_SIZE 4
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS
+#define AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS 4
 #endif
 
 /**

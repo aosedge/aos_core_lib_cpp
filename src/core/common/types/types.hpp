@@ -42,9 +42,9 @@ static constexpr auto cMaxNumServiceProviders = AOS_CONFIG_TYPES_MAX_NUM_SERVICE
 constexpr auto cSubjectIDLen = AOS_CONFIG_TYPES_SUBJECT_ID_LEN;
 
 /*
- * Max number of subject ID(s).
+ * Max number of subjects.
  */
-constexpr auto cMaxSubjectIDSize = AOS_CONFIG_TYPES_MAX_SUBJECTS_SIZE;
+constexpr auto cMaxNumSubjects = AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS;
 
 /*
  * System ID len.
