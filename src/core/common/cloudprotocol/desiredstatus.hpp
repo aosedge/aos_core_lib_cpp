@@ -232,7 +232,7 @@ struct SignInfo {
 struct UpdateImageInfo {
     ImageInfo                                       mImage;
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mURLs;
-    StaticString<cSHA256Size>                       mSHA256;
+    StaticArray<uint8_t, cSHA256Size>               mSHA256;
     size_t                                          mSize {};
     DecryptInfo                                     mDecryptInfo;
     SignInfo                                        mSignInfo;
