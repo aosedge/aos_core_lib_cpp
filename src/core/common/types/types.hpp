@@ -571,9 +571,9 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sInstanceRunStateStrings[] = {"failed", "active"};
+        static const char* const sStrings[] = {"failed", "active"};
 
-        return Array<const char* const>(sInstanceRunStateStrings, ArraySize(sInstanceRunStateStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
@@ -1233,13 +1233,13 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeAttributeStrings[] = {
+        static const char* const sStrings[] = {
             "MainNode",
             "AosComponents",
             "NodeRunners",
         };
 
-        return Array<const char* const>(sNodeAttributeStrings, ArraySize(sNodeAttributeStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
@@ -1259,13 +1259,13 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sRunnerStrings[] = {
+        static const char* const sStrings[] = {
             "runc",
             "crun",
             "xrun",
         };
 
-        return Array<const char* const>(sRunnerStrings, ArraySize(sRunnerStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
@@ -1315,14 +1315,14 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sNodeStateStrings[] = {
+        static const char* const sStrings[] = {
             "unprovisioned",
             "provisioned",
             "paused",
             "error",
         };
 
-        return Array<const char* const>(sNodeStateStrings, ArraySize(sNodeStateStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
@@ -1455,12 +1455,12 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sStateStrings[] = {
+        static const char* const sStrings[] = {
             "active",
             "cached",
         };
 
-        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
@@ -1678,7 +1678,7 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sUpdateItemTypeStrings[] = {
+        static const char* const sStrings[] = {
             "component",
             "service",
             "layer",
@@ -1686,7 +1686,7 @@ public:
             "OEM",
         };
 
-        return Array<const char* const>(sUpdateItemTypeStrings, ArraySize(sUpdateItemTypeStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
