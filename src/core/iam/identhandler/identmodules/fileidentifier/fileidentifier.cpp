@@ -82,7 +82,7 @@ Error FileIdentifier::ReadUnitModel()
 
 Error FileIdentifier::ReadSubjects()
 {
-    StaticString<cMaxSubjectIDSize * cSubjectIDLen> buffer;
+    StaticString<cMaxNumSubjects * cSubjectIDLen> buffer;
 
     auto err = fs::ReadFileToString(mConfig.subjectsPath, buffer);
     if (!err.IsNone()) {
