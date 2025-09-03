@@ -74,7 +74,7 @@ jobs:
 
         with:
           args: >
-            --define sonar.cfamily.compile-commands="${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
+            --define sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json
             --define sonar.coverageReportPaths=build/coverage_sonarqube.xml
 
       - name: SonarQube analysis (on pull request)
@@ -91,5 +91,5 @@ jobs:
             --define sonar.pullrequest.key=${{ github.event.pull_request.number }}
             --define sonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
             --define sonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
-            --define sonar.cfamily.compile-commands="${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
+            --define sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json
             --define sonar.coverageReportPaths=build/coverage_sonarqube.xml
