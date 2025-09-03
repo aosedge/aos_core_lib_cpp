@@ -92,8 +92,7 @@ Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec);
  * @param runtimeSpec runtime spec.
  * @return Error.
  */
-Error AddDevice(
-    const oci::LinuxDevice& device, const StaticString<cPermissionsLen>& permissions, oci::RuntimeSpec& runtimeSpec);
+Error AddDevice(const oci::LinuxDevice& device, const String& permissions, oci::RuntimeSpec& runtimeSpec);
 
 } // namespace aos::sm::launcher
 

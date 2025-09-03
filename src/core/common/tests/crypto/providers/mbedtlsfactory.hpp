@@ -105,7 +105,7 @@ public:
      * @return bool.
      */
     bool VerifySignature(
-        const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest) override;
+        const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest) override;
 
     /**
      * Verifies ECDSA signature.
@@ -116,7 +116,7 @@ public:
      * @return bool.
      */
     bool VerifySignature(
-        const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest) override;
+        const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest) override;
 
     /**
      * Encrypts message using RSA public key.
