@@ -79,6 +79,8 @@ build_project() {
         print_next_step "Run build-wrapper and build (CI mode)"
 
         build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build ./build/ --config "$ARG_BUILD_TYPE" --parallel "$ARG_PARALLEL_JOBS"
+
+        ls -la $BUILD_WRAPPER_OUT_DIR
     else
         print_next_step "Run build"
 
