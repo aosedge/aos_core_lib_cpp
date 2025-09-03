@@ -104,7 +104,12 @@ constexpr auto cMaxNumNodes = AOS_CONFIG_TYPES_MAX_NUM_NODES;
 /**
  * Node ID len.
  */
-constexpr auto cNodeIDLen = AOS_CONFIG_TYPES_NODE_ID_LEN;
+constexpr auto cNodeIDLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
+
+/**
+ * Runtime ID len.
+ */
+constexpr auto cRuntimeIDLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
 
 /**
  * Node type len.
@@ -555,6 +560,61 @@ struct InstanceIdentObsolete {
 };
 
 /**
+ * Instance identification.
+ */
+struct InstanceIdent {
+    StaticString<cURNLen> mUpdateItemURN;
+    StaticString<cURNLen> mSubjectURN;
+    uint64_t              mInstance = 0;
+
+    /**
+     * Compares instance ident.
+     *
+     * @param instance ident to compare.
+     * @return bool.
+     */
+    bool operator<(const InstanceIdent& instance) const
+    {
+        return mUpdateItemURN <= instance.mUpdateItemURN && mSubjectURN <= instance.mSubjectURN
+            && mInstance < instance.mInstance;
+    }
+
+    /**
+     * Compares instance ident.
+     *
+     * @param instance ident to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceIdent& instance) const
+    {
+        return mUpdateItemURN == instance.mUpdateItemURN && mSubjectURN == instance.mSubjectURN
+            && mInstance == instance.mInstance;
+    }
+
+    /**
+     * Compares instance ident.
+     *
+     * @param instance ident to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceIdent& instance) const { return !operator==(instance); }
+
+    /**
+     * Outputs instance ident to log.
+     *
+     * @param log log to output.
+     * @param instanceIdent instance ident.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
+    {
+        return log << "{" << instanceIdent.mUpdateItemURN << ":" << instanceIdent.mSubjectURN << ":"
+                   << instanceIdent.mInstance << "}";
+    }
+};
+
+/**
  * Firewall rule.
  */
 struct FirewallRule {
@@ -829,6 +889,45 @@ public:
 
 using UnitConfigStateEnum = UnitConfigStateType::Enum;
 using UnitConfigState     = EnumStringer<UnitConfigStateType>;
+
+/**
+ * Instance status.
+ */
+struct InstanceStatus {
+    InstanceIdent                     mInstanceIdent;
+    StaticString<cVersionLen>         mVersion;
+    StaticString<cNodeIDLen>          mNodeID;
+    StaticString<cRuntimeIDLen>       mRuntimeID;
+    StaticArray<uint8_t, cSHA256Size> mStateChecksum;
+    InstanceState                     mState;
+    Error                             mError;
+
+    /**
+     * Compares instance status.
+     *
+     * @param instance status to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceStatus& instance) const
+    {
+        return mInstanceIdent == instance.mInstanceIdent && mVersion == instance.mVersion
+            && mStateChecksum == instance.mStateChecksum && mState == instance.mState && mNodeID == instance.mNodeID
+            && mRuntimeID == instance.mRuntimeID && mError == instance.mError;
+    }
+
+    /**
+     * Compares instance status.
+     *
+     * @param instance status to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceStatus& instance) const { return !operator==(instance); }
+};
+
+/**
+ * Instance status static array.
+ */
+using InstanceStatusObsoleteStaticArray = StaticArray<InstanceStatusObsolete, cMaxNumInstances>;
 
 /**
  * Service status.
