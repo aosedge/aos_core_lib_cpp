@@ -28,7 +28,7 @@ Mutex                                                                Instance::s
  * Public
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
+Instance::Instance(const InstanceInfoObsolete& instanceInfo, const String& instanceID,
     const servicemanager::ServiceData& service, const Config& config, servicemanager::ServiceManagerItf& serviceManager,
     layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
     networkmanager::NetworkManagerItf& networkmanager, iam::permhandler::PermHandlerItf& permHandler,
