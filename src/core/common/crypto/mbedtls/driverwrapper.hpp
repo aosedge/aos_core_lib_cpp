@@ -27,16 +27,15 @@ struct KeyInfo {
 };
 
 /**
- * @brief Add key to the list of builtin keys.
+ * Adds key to the list of builtin keys.
  *
  * @param key Key description.
- *
  * @return Key ID and error code.
  */
 aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKey);
 
 /**
- * @brief Remove key from the list of builtin keys.
+ * Removes key from the list of builtin keys.
  *
  * @param keyId Key ID.
  */
