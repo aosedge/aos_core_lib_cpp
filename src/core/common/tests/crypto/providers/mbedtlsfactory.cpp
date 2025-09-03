@@ -527,7 +527,7 @@ bool MBedTLSCryptoFactory::VerifyCSR(const std::string& pemCSR)
 }
 
 bool MBedTLSCryptoFactory::VerifySignature(
-    const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
+    const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
 {
     mbedtls_pk_context pubKeyCtx;
 
@@ -546,7 +546,7 @@ bool MBedTLSCryptoFactory::VerifySignature(
 }
 
 bool MBedTLSCryptoFactory::VerifySignature(
-    const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
+    const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
 {
     mbedtls_pk_context pubKeyCtx;
 

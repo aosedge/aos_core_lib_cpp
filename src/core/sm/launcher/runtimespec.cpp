@@ -179,7 +179,7 @@ Error AddAdditionalGID(uint32_t gid, oci::RuntimeSpec& runtimeSpec)
     return ErrorEnum::eNone;
 }
 
-Error AddDevice(const oci::LinuxDevice& device, const StaticString<cPermissionsLen>& permissions,
+Error AddDevice(const oci::LinuxDevice& device, const String& permissions,
     oci::RuntimeSpec& runtimeSpec) // cppcheck-suppress constParameterReference
 {
     auto existDevice = runtimeSpec.mLinux->mDevices.FindIf(

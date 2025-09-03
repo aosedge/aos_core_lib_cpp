@@ -226,7 +226,7 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const ECDSAPublicKey& pubKey)
     return {pkey, ErrorEnum::eNone};
 }
 
-bool VerifyWithEVP(EVP_PKEY* evpKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
+bool VerifyWithEVP(EVP_PKEY* evpKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
 {
     auto ctx = DeferRelease(EVP_PKEY_CTX_new(evpKey, nullptr), EVP_PKEY_CTX_free);
     if (!ctx) {
@@ -574,7 +574,7 @@ bool OpenSSLCryptoFactory::VerifyCSR(const std::string& pemCSR)
 }
 
 bool OpenSSLCryptoFactory::VerifySignature(
-    const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
+    const RSAPublicKey& pubKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
 {
     auto [evpKey, err] = GetEvpPublicKey(pubKey);
     if (!err.IsNone()) {
@@ -587,7 +587,7 @@ bool OpenSSLCryptoFactory::VerifySignature(
 }
 
 bool OpenSSLCryptoFactory::VerifySignature(
-    const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const StaticArray<uint8_t, 32>& digest)
+    const ECDSAPublicKey& pubKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
 {
     auto [evpKey, err] = GetEvpPublicKey(pubKey);
     if (!err.IsNone()) {
