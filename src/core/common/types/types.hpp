@@ -409,6 +409,88 @@ constexpr auto cURNLen = AOS_CONFIG_TYPES_URN_LEN;
 constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
 
 /**
+ * Architecture info.
+ */
+struct ArchInfo {
+    StaticString<cCPUArchLen>              mArchitecture;
+    Optional<StaticString<cCPUVariantLen>> mVariant;
+
+    /**
+     * Compares architecture info.
+     *
+     * @param other architecture info to compare with.
+     * @return bool.
+     */
+    bool operator==(const ArchInfo& other) const
+    {
+        return mArchitecture == other.mArchitecture && mVariant == other.mVariant;
+    }
+
+    /**
+     * Compares architecture info.
+     *
+     * @param info architecture info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ArchInfo& info) const { return !operator==(info); }
+};
+
+/**
+ * OS info.
+ */
+struct OSInfo {
+    StaticString<cOSTypeLen>                                   mOS;
+    Optional<StaticString<cVersionLen>>                        mVersion;
+    StaticArray<StaticString<cOSFeatureLen>, cOSFeaturesCount> mFeatures;
+
+    /**
+     * Compares OS info.
+     *
+     * @param other OS info to compare with.
+     * @return bool.
+     */
+    bool operator==(const OSInfo& other) const
+    {
+        return mOS == other.mOS && mVersion == other.mVersion && mFeatures == other.mFeatures;
+    }
+
+    /**
+     * Compares OS info.
+     *
+     * @param other OS info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const OSInfo& other) const { return !operator==(other); }
+};
+
+/**
+ * Platform info.
+ */
+struct PlatformInfo {
+    ArchInfo mArchInfo;
+    OSInfo   mOSInfo;
+
+    /**
+     * Compares platform info.
+     *
+     * @param other platform info to compare with.
+     * @return bool.
+     */
+    bool operator==(const PlatformInfo& other) const
+    {
+        return mArchInfo == other.mArchInfo && mOSInfo == other.mOSInfo;
+    }
+
+    /**
+     * Compares platform info.
+     *
+     * @param other platform info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PlatformInfo& other) const { return !operator==(other); }
+};
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
@@ -657,6 +739,86 @@ public:
 
 using ItemStatusEnum = ItemStatusType::Enum;
 using ItemStatus     = EnumStringer<ItemStatusType>;
+
+/**
+ * Image state type.
+ */
+class ImageStateType {
+public:
+    enum class Enum {
+        eUnknown,
+        eDownloading,
+        ePending,
+        eInstalling,
+        eInstalled,
+        eRemoving,
+        eRemoved,
+        eFailed,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "unknown",
+            "downloading",
+            "pending",
+            "installing",
+            "installed",
+            "removing",
+            "removed",
+            "failed",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using ImageStateEnum = ImageStateType::Enum;
+using ImageState     = EnumStringer<ImageStateType>;
+
+/**
+ * Instance state type.
+ */
+class InstanceStateType {
+public:
+    enum class Enum { eActivating, eActive, eInactive, eFailed };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {"activating", "active", "inactive", "failed"};
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using InstanceStateEnum = InstanceStateType::Enum;
+using InstanceState     = EnumStringer<InstanceStateType>;
+
+/**
+ * Unit config state type.
+ */
+class UnitConfigStateType {
+public:
+    enum class Enum {
+        eAbsent,
+        eInstalled,
+        eFailed,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "absent",
+            "installed",
+            "failed",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using UnitConfigStateEnum = UnitConfigStateType::Enum;
+using UnitConfigState     = EnumStringer<UnitConfigStateType>;
 
 /**
  * Service status.
@@ -1187,12 +1349,11 @@ using PartitionInfoStaticArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
  * CPU info.
  */
 struct CPUInfo {
-    StaticString<cCPUModelNameLen>            mModelName;
-    size_t                                    mNumCores;
-    size_t                                    mNumThreads;
-    StaticString<cCPUArchLen>                 mArch;
-    Optional<StaticString<cCPUArchFamilyLen>> mArchFamily;
-    Optional<uint64_t>                        mMaxDMIPS;
+    StaticString<cCPUModelNameLen> mModelName;
+    size_t                         mNumCores   = 0;
+    size_t                         mNumThreads = 0;
+    ArchInfo                       mArchInfo;
+    Optional<size_t>               mMaxDMIPS;
 
     /**
      * Compares CPU info.
@@ -1203,7 +1364,7 @@ struct CPUInfo {
     bool operator==(const CPUInfo& info) const
     {
         return mModelName == info.mModelName && mNumCores == info.mNumCores && mNumThreads == info.mNumThreads
-            && mArch == info.mArch && mArchFamily == info.mArchFamily && mMaxDMIPS == info.mMaxDMIPS;
+            && mArchInfo == info.mArchInfo && mMaxDMIPS == info.mMaxDMIPS;
     }
 
     /**
@@ -1480,125 +1641,18 @@ public:
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sStateStrings[] = {
+        static const char* const sStrings[] = {
             "active",
             "cached",
             "pending",
         };
 
-        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
 };
 
 using ServiceStateEnum = ServiceStateType::Enum;
 using ServiceState     = EnumStringer<ServiceStateType>;
-
-/**
- * Instance state type.
- */
-class InstanceStateType {
-public:
-    enum class Enum {
-        eActive,
-        eCached,
-        ePending,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStateStrings[] = {
-            "active",
-            "cached",
-        };
-
-        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
-    };
-};
-
-using InstanceStateEnum = InstanceStateType::Enum;
-using InstanceState     = EnumStringer<InstanceStateType>;
-
-/**
- * Architecture info.
- */
-struct ArchInfo {
-    StaticString<cCPUArchLen>              mArchitecture;
-    Optional<StaticString<cCPUVariantLen>> mVariant;
-
-    /**
-     * Compares architecture info.
-     *
-     * @param other architecture info to compare with.
-     * @return bool.
-     */
-    bool operator==(const ArchInfo& other) const
-    {
-        return mArchitecture == other.mArchitecture && mVariant == other.mVariant;
-    }
-
-    /**
-     * Compares architecture info.
-     *
-     * @param info architecture info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ArchInfo& info) const { return !operator==(info); }
-};
-
-/**
- * OS info.
- */
-struct OSInfo {
-    StaticString<cOSTypeLen>                                             mOS;
-    Optional<StaticString<cVersionLen>>                                  mVersion;
-    Optional<StaticArray<StaticString<cOSFeatureLen>, cOSFeaturesCount>> mFeatures;
-
-    /**
-     * Compares OS info.
-     *
-     * @param other OS info to compare with.
-     * @return bool.
-     */
-    bool operator==(const OSInfo& other) const
-    {
-        return mOS == other.mOS && mVersion == other.mVersion && mFeatures == other.mFeatures;
-    }
-
-    /**
-     * Compares OS info.
-     *
-     * @param other OS info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const OSInfo& other) const { return !operator==(other); }
-};
-
-/**
- * Platform info.
- */
-struct PlatformInfo {
-    ArchInfo mArchInfo;
-    OSInfo   mOSInfo;
-
-    /**
-     * Compares platform info.
-     *
-     * @param other platform info to compare with.
-     * @return bool.
-     */
-    bool operator==(const PlatformInfo& other) const
-    {
-        return mArchInfo == other.mArchInfo && mOSInfo == other.mOSInfo;
-    }
-
-    /**
-     * Compares platform info.
-     *
-     * @param other platform info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const PlatformInfo& other) const { return !operator==(other); }
-};
 
 /**
  * Image info.
