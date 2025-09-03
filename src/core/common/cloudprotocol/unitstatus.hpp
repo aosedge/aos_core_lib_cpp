@@ -11,6 +11,8 @@
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/types.hpp>
 
+#include "common.hpp"
+
 namespace aos::cloudprotocol {
 
 /**
@@ -34,82 +36,285 @@ static constexpr auto cComponentTypeLen = AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_TYP
 static constexpr auto cUnitConfigStatusCount = AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT;
 
 /**
+ * Max number of runtimes per node.
+ */
+static constexpr auto cMaxNumNodeRuntimes = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_NODE_RUNTIMES;
+
+/**
+ * Runtime type len.
+ */
+static constexpr auto cRuntimeTypeLen = AOS_CONFIG_CLOUDPROTOCOL_RUNTIME_TYPE_LEN;
+
+/**
  * Unit config status.
  */
 struct UnitConfigStatus {
     StaticString<cVersionLen> mVersion;
-    ItemStatus                mStatus;
+    UnitConfigState           mState;
     Error                     mError;
 
     /**
      * Compares unit config status.
      *
-     * @param status unit config status to compare with.
+     * @param other unit config status to compare with.
      * @return bool.
      */
-    bool operator==(const UnitConfigStatus& status) const
+    bool operator==(const UnitConfigStatus& other) const
     {
-        return mVersion == status.mVersion && mStatus == status.mStatus && mError == status.mError;
+        return mVersion == other.mVersion && mState == other.mState && mError == other.mError;
     }
 
-    /**
-     * Compares unit config status.
-     *
-     * @param status unit config status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const UnitConfigStatus& status) const { return !operator==(status); }
+    bool operator!=(const UnitConfigStatus& other) const { return !operator==(other); }
 };
 
 using UnitConfigStatusStaticArray = StaticArray<UnitConfigStatus, cUnitConfigStatusCount>;
 
 /**
- * Component status.
+ * Resource info.
  */
-struct ComponentStatus {
-    StaticString<cComponentIDLen>           mComponentID;
-    StaticString<cComponentTypeLen>         mComponentType;
-    StaticString<cVersionLen>               mVersion;
-    Optional<StaticString<cNodeIDLen>>      mNodeID;
-    ItemStatus                              mStatus;
-    Optional<StaticString<cAnnotationsLen>> mAnnotations;
-    Error                                   mError;
+struct ResourceInfo {
+    StaticString<cResourceNameLen> mName;
+    size_t                         mSharedCount {0};
 
     /**
-     * Compares component status.
+     * Compares resource info.
      *
-     * @param status component status to compare with.
+     * @param other resource info to compare with.
      * @return bool.
      */
-    bool operator==(const ComponentStatus& status) const
+    bool operator==(const ResourceInfo& other) const
     {
-        return mComponentID == status.mComponentID && mComponentType == status.mComponentType
-            && mVersion == status.mVersion && mNodeID == status.mNodeID && mStatus == status.mStatus
-            && mAnnotations == status.mAnnotations && mError == status.mError;
+        return mName == other.mName && mSharedCount == other.mSharedCount;
     }
 
     /**
-     * Compares component status.
+     * @brief Compares resource info.
      *
-     * @param status component status to compare with.
+     * @param other resource info to compare with.
      * @return bool.
      */
-    bool operator!=(const ComponentStatus& status) const { return !operator==(status); }
+    bool operator!=(const ResourceInfo& other) const { return !operator==(other); }
 };
 
-using ComponentStatusStaticArray = StaticArray<ComponentStatus, 2 * cMaxNumNodes>;
+using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+
+/**
+ * Runtime info.
+ */
+struct RuntimeInfo : public PlatformInfo {
+    Identifier                    mIdentifier;
+    StaticString<cRuntimeTypeLen> mRuntimeType;
+    size_t                        mMaxDMIPS     = 0;
+    size_t                        mTotalRAM     = 0;
+    size_t                        mMaxInstances = 0;
+
+    /**
+     * Compares runtime info.
+     *
+     * @param other runtime info to compare with.
+     * @return bool.
+     */
+    bool operator==(const RuntimeInfo& other) const
+    {
+        return mIdentifier == other.mIdentifier && mMaxDMIPS == other.mMaxDMIPS && mTotalRAM == other.mTotalRAM
+            && mMaxInstances == other.mMaxInstances;
+    }
+
+    /**
+     * @brief Compares runtime info.
+     *
+     * @param other runtime info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const RuntimeInfo& other) const { return !operator==(other); }
+};
+
+using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
+
+/**
+ * Unit node information.
+ */
+struct NodeInfo {
+    Identifier               mIdentifier;
+    Identifier               mNodeGroupSubject;
+    size_t                   mMaxDMIPS = 0;
+    size_t                   mTotalRAM = 0;
+    OSInfo                   mOSInfo;
+    CPUInfoStaticArray       mCPUs;
+    PartitionInfoStaticArray mPartitions;
+    ResourceInfoStaticArray  mResources;
+    RuntimeInfoStaticArray   mRuntimes;
+    NodeAttributeStaticArray mAttrs;
+    NodeState                mState;
+    Error                    mError;
+
+    /**
+     * Compares node info.
+     *
+     * @param other node info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeInfo& other) const
+    {
+        return mIdentifier == other.mIdentifier && mNodeGroupSubject == other.mNodeGroupSubject
+            && mMaxDMIPS == other.mMaxDMIPS && mTotalRAM == other.mTotalRAM && mCPUs == other.mCPUs
+            && mOSInfo == other.mOSInfo && mPartitions == other.mPartitions && mResources == other.mResources
+            && mRuntimes == other.mRuntimes && mAttrs == other.mAttrs && mState == other.mState
+            && mError == other.mError;
+    }
+
+    /**
+     * Compares node info.
+     *
+     * @param other node info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeInfo& other) const { return !operator==(other); }
+};
+
+using NodeInfoStaticArray = StaticArray<NodeInfo, cMaxNumNodes>;
+
+/**
+ * Image status.
+ */
+struct ImageStatus {
+    uuid::UUID mImageID;
+    ImageState mState;
+    Error      mError;
+
+    /**
+     * Compares image status.
+     *
+     * @param other image status to compare with.
+     * @return bool.
+     */
+    bool operator==(const ImageStatus& other) const
+    {
+        return mImageID == other.mImageID && mState == other.mState && mError == other.mError;
+    }
+
+    /**
+     * Compares image status.
+     *
+     * @param other image status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ImageStatus& other) const { return !operator==(other); }
+};
+
+using ImageStatusStaticArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
+
+/**
+ * Update item status.
+ */
+struct UpdateItemStatus {
+    Identifier                mIdentifier;
+    StaticString<cVersionLen> mVersion;
+    ImageStatusStaticArray    mStatuses;
+
+    /**
+     * Compares update item status.
+     *
+     * @param other update item status to compare with.
+     * @return bool.
+     */
+    bool operator==(const UpdateItemStatus& other) const
+    {
+        return mIdentifier == other.mIdentifier && mVersion == other.mVersion && mStatuses == other.mStatuses;
+    }
+
+    /**
+     * @brief Compares update item status.
+     *
+     * @param other update item status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UpdateItemStatus& other) const { return !operator==(other); }
+};
+
+using UpdateItemStatusStaticArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems>;
+
+/**
+ * Instance status.
+ */
+struct InstanceStatus : public PlatformInfo {
+    Identifier                        mNode;
+    Identifier                        mRuntime;
+    uint64_t                          mInstance = 0;
+    StaticArray<uint8_t, cSHA256Size> mStateChecksum;
+    InstanceState                     mState;
+    Error                             mError;
+
+    /**
+     * Compares instance status.
+     *
+     * @param other instance status to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstanceStatus& other) const
+    {
+        return mNode == other.mNode && mRuntime == other.mRuntime && mInstance == other.mInstance
+            && mStateChecksum == other.mStateChecksum && mState == other.mState && mError == other.mError;
+    }
+
+    /**
+     * Compares instance status.
+     *
+     * @param other instance status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstanceStatus& other) const { return !operator==(other); }
+};
+
+using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
+
+/**
+ * Instances statuses.
+ */
+struct InstancesStatuses {
+    Identifier                mIdentifier;
+    Identifier                mSubject;
+    StaticString<cVersionLen> mVersion;
+    InstanceStatusStaticArray mInstances;
+
+    /**
+     * Compare instances statuses.
+     *
+     * @param other instances statuses to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstancesStatuses& other) const
+    {
+        return mIdentifier == other.mIdentifier && mSubject == other.mSubject && mVersion == other.mVersion
+            && mInstances == other.mInstances;
+    }
+
+    /**
+     * Compares instances statuses.
+     *
+     * @param other instances statuses to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstancesStatuses& other) const { return !operator==(other); }
+};
+
+using InstancesStatusesStaticArray = StaticArray<InstancesStatuses, cMaxNumUpdateItems>;
+
+/*
+ * Subjects.
+ */
+using SubjectStaticArray = StaticArray<Identifier, cMaxNumSubjects>;
 
 /**
  * Unit status
  */
 struct UnitStatus {
-    UnitConfigStatusStaticArray         mUnitConfigStatus;
-    StaticArray<NodeInfo, cMaxNumNodes> mNodeInfo;
-    ServiceStatusStaticArray            mServiceStatus;
-    InstanceStatusStaticArray           mInstanceStatus;
-    LayerStatusStaticArray              mLayerStatus;
-    ComponentStatusStaticArray          mComponentStatus;
-    StaticString<cSubjectIDLen>         mUnitSubjects;
+    bool                                   mIsDeltaInfo {};
+    Optional<UnitConfigStatusStaticArray>  mUnitConfig;
+    Optional<NodeInfoStaticArray>          mNodes;
+    Optional<UpdateItemStatusStaticArray>  mUpdateItems;
+    Optional<InstancesStatusesStaticArray> mInstances;
+    Optional<SubjectStaticArray>           mUnitSubjects;
 
     /**
      * Compares unit status.
@@ -119,10 +324,8 @@ struct UnitStatus {
      */
     bool operator==(const UnitStatus& status) const
     {
-        return mUnitConfigStatus == status.mUnitConfigStatus && mNodeInfo == status.mNodeInfo
-            && mServiceStatus == status.mServiceStatus && mInstanceStatus == status.mInstanceStatus
-            && mLayerStatus == status.mLayerStatus && mComponentStatus == status.mComponentStatus
-            && mUnitSubjects == status.mUnitSubjects;
+        return mUnitConfig == status.mUnitConfig && mNodes == status.mNodes && mUnitSubjects == status.mUnitSubjects
+            && mUpdateItems == status.mUpdateItems;
     }
 
     /**
@@ -132,41 +335,6 @@ struct UnitStatus {
      * @return bool.
      */
     bool operator!=(const UnitStatus& status) const { return !operator==(status); }
-};
-
-/**
- * Delta unit status.
- */
-struct DeltaUnitStatus {
-    Optional<UnitConfigStatusStaticArray>         mUnitConfigStatus;
-    Optional<StaticArray<NodeInfo, cMaxNumNodes>> mNodeInfo;
-    Optional<ServiceStatusStaticArray>            mServiceStatus;
-    Optional<InstanceStatusStaticArray>           mInstanceStatus;
-    Optional<LayerStatusStaticArray>              mLayerStatus;
-    Optional<ComponentStatusStaticArray>          mComponentStatus;
-    Optional<StaticString<cSubjectIDLen>>         mUnitSubjects;
-
-    /**
-     * Compares unit status.
-     *
-     * @param status unit status to compare with.
-     * @return bool.
-     */
-    bool operator==(const DeltaUnitStatus& status) const
-    {
-        return mUnitConfigStatus == status.mUnitConfigStatus && mNodeInfo == status.mNodeInfo
-            && mServiceStatus == status.mServiceStatus && mInstanceStatus == status.mInstanceStatus
-            && mLayerStatus == status.mLayerStatus && mComponentStatus == status.mComponentStatus
-            && mUnitSubjects == status.mUnitSubjects;
-    }
-
-    /**
-     * Compares unit status.
-     *
-     * @param status unit status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const DeltaUnitStatus& status) const { return !operator==(status); }
 };
 
 } // namespace aos::cloudprotocol
