@@ -94,11 +94,10 @@ using MessageType     = EnumStringer<MessageTypeType>;
 /**
  * Cloud message variant type.
  */
-using MessageVariant = Variant<Alerts, Monitoring, UnitStatus, DeltaUnitStatus, DesiredStatus, NewState, StateRequest,
-    StateAcceptance, UpdateState, RequestLog, PushLog, OverrideEnvVarsRequest, OverrideEnvVarsStatuses,
-    RenewCertsNotification, IssuedUnitCerts, IssueUnitCerts, InstallUnitCertsConfirmation, StartProvisioningRequest,
-    StartProvisioningResponse, FinishProvisioningRequest, FinishProvisioningResponse, DeprovisioningRequest,
-    DeprovisioningResponse>;
+using MessageVariant = Variant<Alerts, Monitoring, UnitStatus, DesiredStatus, NewState, StateRequest, StateAcceptance,
+    UpdateState, RequestLog, PushLog, OverrideEnvVarsRequest, OverrideEnvVarsStatuses, RenewCertsNotification,
+    IssuedUnitCerts, IssueUnitCerts, InstallUnitCertsConfirmation, StartProvisioningRequest, StartProvisioningResponse,
+    FinishProvisioningRequest, FinishProvisioningResponse, DeprovisioningRequest, DeprovisioningResponse>;
 
 /**
  * Cloud message header.

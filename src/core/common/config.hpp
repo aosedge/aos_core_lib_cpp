@@ -1181,6 +1181,20 @@
 #endif
 
 /**
+ * Max number of runtimes per node.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_NODE_RUNTIMES
+#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_NODE_RUNTIMES 4
+#endif
+
+/**
+ * Runtime type len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_RUNTIME_TYPE_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_RUNTIME_TYPE_LEN 64
+#endif
+
+/**
  * Monitoring items count.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT
