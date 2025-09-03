@@ -679,7 +679,7 @@ struct NetworkParameters {
 /**
  * Instance info.
  */
-struct InstanceInfo {
+struct InstanceInfoObsolete {
     InstanceIdentObsolete      mInstanceIdent;
     uint32_t                   mUID      = 0;
     uint64_t                   mPriority = 0;
@@ -693,7 +693,7 @@ struct InstanceInfo {
      * @param instance info to compare.
      * @return bool.
      */
-    bool operator==(const InstanceInfo& instance) const
+    bool operator==(const InstanceInfoObsolete& instance) const
     {
         return mInstanceIdent == instance.mInstanceIdent && mUID == instance.mUID && mPriority == instance.mPriority
             && mStoragePath == instance.mStoragePath && mStatePath == instance.mStatePath
@@ -706,13 +706,13 @@ struct InstanceInfo {
      * @param instance info to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceInfo& instance) const { return !operator==(instance); }
+    bool operator!=(const InstanceInfoObsolete& instance) const { return !operator==(instance); }
 };
 
 /**
  * Instance info static array.
  */
-using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
+using InstanceInfoObsoleteStaticArray = StaticArray<InstanceInfoObsolete, cMaxNumInstances>;
 
 /**
  * Instance run state.
