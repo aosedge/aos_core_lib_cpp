@@ -45,7 +45,7 @@ public:
      * @return Error.
      */
     virtual Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
-        const Array<InstanceInfo>& instances, bool forceRestart)
+        const Array<InstanceInfoObsolete>& instances, bool forceRestart)
         = 0;
 
     /**
@@ -95,7 +95,7 @@ public:
  */
 struct InstanceData {
 public:
-    InstanceInfo                 mInstanceInfo;
+    InstanceInfoObsolete         mInstanceInfo;
     StaticString<cInstanceIDLen> mInstanceID;
 
     /**
@@ -109,7 +109,7 @@ public:
      * @param info instance info.
      * @param instanceID instance ID.
      */
-    InstanceData(const InstanceInfo& info, const String& instanceID)
+    InstanceData(const InstanceInfoObsolete& info, const String& instanceID)
         : mInstanceInfo(info)
         , mInstanceID(instanceID)
     {
@@ -296,7 +296,7 @@ public:
      * @return Error.
      */
     Error RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
-        const Array<InstanceInfo>& instances, bool forceRestart = false) override;
+        const Array<InstanceInfoObsolete>& instances, bool forceRestart = false) override;
 
     /**
      * Returns current run status.
@@ -349,8 +349,8 @@ private:
 
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
-    static constexpr auto cAllocatorSize = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3
-            + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)
+    static constexpr auto cAllocatorSize = Max(sizeof(InstanceInfoObsoleteStaticArray)
+            + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray) + sizeof(LayerInfoStaticArray)
             + sizeof(servicemanager::ServiceDataStaticArray) + sizeof(InstanceStatusObsoleteStaticArray)
             + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
         sizeof(EnvVarsArray) + sizeof(InstanceStatusObsoleteStaticArray) + sizeof(InstanceDataStaticArray)
@@ -358,7 +358,7 @@ private:
 
     void  ShowResourceUsageStats();
     Error ProcessLastInstances();
-    Error ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart = false);
+    Error ProcessInstances(const Array<InstanceInfoObsolete>& instances, bool forceRestart = false);
     Error ProcessServices(const Array<ServiceInfo>& services);
     Error ProcessLayers(const Array<LayerInfo>& layers);
     Error ProcessStopInstances(const Array<InstanceData>& instances);
@@ -370,7 +370,7 @@ private:
     void  RestartInstances(const Array<InstanceData>& instances);
     void  CacheServices(const Array<InstanceData>& instances);
     Error GetDesiredInstancesData(
-        const Array<InstanceInfo>& desiredInstancesInfo, Array<InstanceData>& desiredInstancesData) const;
+        const Array<InstanceInfoObsolete>& desiredInstancesInfo, Array<InstanceData>& desiredInstancesData) const;
     Error CalculateInstances(const Array<InstanceData>& desiredInstancesData, bool forceRestart,
         Array<InstanceData>& startInstances, Array<InstanceData>& stopInstances);
     Error GetCurrentInstances(Array<InstanceData>& instances) const;

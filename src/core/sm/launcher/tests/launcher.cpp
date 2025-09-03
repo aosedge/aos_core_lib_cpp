@@ -66,7 +66,7 @@ constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
  **********************************************************************************************************************/
 
 struct TestData {
-    std::vector<InstanceInfo>                        mInstances;
+    std::vector<InstanceInfoObsolete>                mInstances;
     std::vector<ServiceInfo>                         mServices;
     std::vector<LayerInfo>                           mLayers;
     std::vector<InstanceStatusObsolete>              mStatus;
@@ -184,7 +184,7 @@ TEST_F(LauncherTest, RunInstances)
     std::vector<TestData> testData = {
         // start from scratch
         {
-            std::vector<InstanceInfo> {
+            std::vector<InstanceInfoObsolete> {
                 {{"service0", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service1", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service2", "subject0", 0}, 0, 0, "", "", {}},
@@ -204,7 +204,7 @@ TEST_F(LauncherTest, RunInstances)
         },
         // start the same instances
         {
-            std::vector<InstanceInfo> {
+            std::vector<InstanceInfoObsolete> {
                 {{"service0", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service1", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service2", "subject0", 0}, 0, 0, "", "", {}},
@@ -224,7 +224,7 @@ TEST_F(LauncherTest, RunInstances)
         },
         // stop and start some instances
         {
-            std::vector<InstanceInfo> {
+            std::vector<InstanceInfoObsolete> {
                 {{"service0", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service2", "subject0", 1}, 0, 0, "", "", {}},
                 {{"service3", "subject0", 2}, 0, 0, "", "", {}},
@@ -244,7 +244,7 @@ TEST_F(LauncherTest, RunInstances)
         },
         // new service version
         {
-            std::vector<InstanceInfo> {
+            std::vector<InstanceInfoObsolete> {
                 {{"service0", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service2", "subject0", 1}, 0, 0, "", "", {}},
                 {{"service3", "subject0", 2}, 0, 0, "", "", {}},
@@ -264,7 +264,7 @@ TEST_F(LauncherTest, RunInstances)
         },
         // run error
         {
-            std::vector<InstanceInfo> {
+            std::vector<InstanceInfoObsolete> {
                 {{"service0", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service1", "subject0", 0}, 0, 0, "", "", {}},
                 {{"service2", "subject0", 0}, 0, 0, "", "", {}},
@@ -322,7 +322,7 @@ TEST_F(LauncherTest, RunInstances)
         EXPECT_TRUE(mLauncher
                         ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
                             Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
-                            Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
+                            Array<InstanceInfoObsolete>(testItem.mInstances.data(), testItem.mInstances.size()))
                         .IsNone());
 
         EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
@@ -365,7 +365,7 @@ TEST_F(LauncherTest, RunMaxInstances)
     EXPECT_TRUE(mLauncher
                     ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
                         Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
-                        Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
+                        Array<InstanceInfoObsolete>(testItem.mInstances.data(), testItem.mInstances.size()))
                     .IsNone());
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);

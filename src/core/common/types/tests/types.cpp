@@ -20,10 +20,10 @@ TEST(CommonTest, Types)
         (InstanceIdentObsolete {"service1", "subject1", 2}) != (InstanceIdentObsolete {"service1", "subject1", 2}));
 
     // InstanceInfo comparision
-    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}})
-        == (InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}}));
-    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}})
-        != (InstanceInfo {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}}));
+    EXPECT_TRUE((InstanceInfoObsolete {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}})
+        == (InstanceInfoObsolete {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}}));
+    EXPECT_FALSE((InstanceInfoObsolete {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}})
+        != (InstanceInfoObsolete {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}}));
 
     // InstanceStatus comparision
     EXPECT_TRUE((InstanceStatusObsolete {

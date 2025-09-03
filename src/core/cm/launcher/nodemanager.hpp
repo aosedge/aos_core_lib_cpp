@@ -129,7 +129,7 @@ public:
      * @return Error.
      */
     virtual Error StartInstances(const String& nodeID, const Array<ServiceInfo>& services,
-        const Array<LayerInfo>& layers, const Array<InstanceInfo>& instances, bool forceRestart)
+        const Array<LayerInfo>& layers, const Array<InstanceInfoObsolete>& instances, bool forceRestart)
         = 0;
 
     /**
