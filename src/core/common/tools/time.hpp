@@ -466,7 +466,7 @@ public:
     }
 
     /**
-     * @brief Returns UTC string representation.
+     * Returns UTC string representation.
      *
      * @return StaticString<cTimeStrLen>
      */

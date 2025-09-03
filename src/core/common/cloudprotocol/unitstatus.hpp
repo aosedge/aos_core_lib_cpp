@@ -88,7 +88,7 @@ struct ResourceInfo {
     }
 
     /**
-     * @brief Compares resource info.
+     * Compares resource info.
      *
      * @param other resource info to compare with.
      * @return bool.
@@ -121,7 +121,7 @@ struct RuntimeInfo : public PlatformInfo {
     }
 
     /**
-     * @brief Compares runtime info.
+     * Compares runtime info.
      *
      * @param other runtime info to compare with.
      * @return bool.
@@ -224,7 +224,7 @@ struct UpdateItemStatus {
     }
 
     /**
-     * @brief Compares update item status.
+     * Compares update item status.
      *
      * @param other update item status to compare with.
      * @return bool.
