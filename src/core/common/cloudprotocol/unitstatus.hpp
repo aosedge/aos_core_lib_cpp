@@ -334,34 +334,6 @@ struct UpdateImageStatus {
 };
 
 /**
- * Update item status.
- */
-struct UpdateItemStatus {
-    Identifier                                          mIdentifier;
-    StaticString<cVersionLen>                           mVersion;
-    StaticArray<UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
-
-    /**
-     * Compares update item status.
-     *
-     * @param other update item status to compare with.
-     * @return bool.
-     */
-    bool operator==(const UpdateItemStatus& other) const
-    {
-        return mIdentifier == other.mIdentifier && mVersion == other.mVersion && mStatuses == other.mStatuses;
-    }
-
-    /**
-     * @brief Compares update item status.
-     *
-     * @param other update item status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const UpdateItemStatus& other) const { return !operator==(other); }
-};
-
-/**
  * Unit status
  */
 struct UnitStatus {
