@@ -104,8 +104,10 @@ using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
 struct RuntimeInfo : public PlatformInfo {
     Identifier                    mIdentifier;
     StaticString<cRuntimeTypeLen> mRuntimeType;
-    size_t                        mMaxDMIPS     = 0;
-    size_t                        mTotalRAM     = 0;
+    Optional<size_t>              mMaxDMIPS;
+    Optional<size_t>              mAllowedDMIPS;
+    Optional<size_t>              mTotalRAM;
+    Optional<ssize_t>             mAllowedRAM;
     size_t                        mMaxInstances = 0;
 
     /**
@@ -137,8 +139,9 @@ using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
 struct NodeInfo {
     Identifier               mIdentifier;
     Identifier               mNodeGroupSubject;
-    size_t                   mMaxDMIPS = 0;
-    size_t                   mTotalRAM = 0;
+    size_t                   mMaxDMIPS {};
+    size_t                   mTotalRAM {};
+    Optional<size_t>         mPhysicalRAM;
     OSInfo                   mOSInfo;
     CPUInfoStaticArray       mCPUs;
     PartitionInfoStaticArray mPartitions;
@@ -240,7 +243,7 @@ using UpdateItemStatusStaticArray = StaticArray<UpdateItemStatus, cMaxNumUpdateI
 struct InstanceStatus : public PlatformInfo {
     Identifier                        mNode;
     Identifier                        mRuntime;
-    uint64_t                          mInstance = 0;
+    uint64_t                          mInstance {};
     StaticArray<uint8_t, cSHA256Size> mStateChecksum;
     InstanceState                     mState;
     Error                             mError;
