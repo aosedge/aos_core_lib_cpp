@@ -40,6 +40,7 @@ public:
  * Interface for notifying about update item statuses.
  */
 class StatusNotifierItf {
+public:
     /**
      * Destructor.
      */
