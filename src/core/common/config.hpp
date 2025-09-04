@@ -548,13 +548,6 @@
 #endif
 
 /**
- * Identifier URN  len.
- */
-#ifndef AOS_CONFIG_TYPES_URN_LEN
-#define AOS_CONFIG_TYPES_URN_LEN 256
-#endif
-
-/**
  * Max number of update images per update item.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES
@@ -999,11 +992,17 @@
 #endif
 
 /**
+ * Identifier URN  len.
+ */
+#ifndef AOS_CONFIG_CLOUDPROTOCOL_URN_LEN
+#define AOS_CONFIG_CLOUDPROTOCOL_URN_LEN 256
+#endif
+
+/**
  * Identifier codename len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN 64
-#endif
 
 /**
  * Identifier title len.

@@ -60,12 +60,12 @@ public:
     /**
      * Returns update image info for desired platform.
      *
-     * @param urn update item URN.
+     * @param id update item ID.
      * @param platform platform information.
      * @param[out] info update image info.
      * @return Error.
      */
-    virtual Error GetUpdateImageInfo(const String& urn, const PlatformInfo& platform, UpdateImageInfo& info) = 0;
+    virtual Error GetUpdateImageInfo(const uuid::UUID& id, const PlatformInfo& platform, UpdateImageInfo& info) = 0;
 
     /**
      * Returns layer image info.
