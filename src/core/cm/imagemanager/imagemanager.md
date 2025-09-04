@@ -161,7 +161,7 @@ is returned.
 
 ## GetUpdateImageInfo
 
-Returns image info for specified update item URN and platform. The image info contains image version, URL to download,
+Returns image info for specified update item ID and platform. The image info contains image version, URL to download,
 size, checksum etc.
 
 ## GetLayerImageInfo

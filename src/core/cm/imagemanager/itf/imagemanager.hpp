@@ -53,7 +53,8 @@ struct UpdateImageInfo {
  * Update item info.
  */
 struct UpdateItemInfo {
-    StaticString<cURLLen>                             mURN;
+    uuid::UUID                                        mID;
+    UpdateItemType                                    mType;
     StaticString<cVersionLen>                         mVersion;
     StaticArray<UpdateImageInfo, cMaxNumUpdateImages> mImages;
 
@@ -65,7 +66,7 @@ struct UpdateItemInfo {
      */
     bool operator==(const UpdateItemInfo& other) const
     {
-        return mURN == other.mURN && mVersion == other.mVersion && mImages == other.mImages;
+        return mID == other.mID && mType == other.mType && mVersion == other.mVersion && mImages == other.mImages;
     }
 
     /**
@@ -81,7 +82,7 @@ struct UpdateItemInfo {
  * Update item status.
  */
 struct UpdateItemStatus {
-    StaticString<cURNLen>                                              mURN;
+    uuid::UUID                                                         mID;
     StaticString<cVersionLen>                                          mVersion;
     StaticArray<cloudprotocol::UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
 
@@ -93,7 +94,7 @@ struct UpdateItemStatus {
      */
     bool operator==(const UpdateItemStatus& other) const
     {
-        return mURN == other.mURN && mVersion == other.mVersion && mStatuses == other.mStatuses;
+        return mID == other.mID && mVersion == other.mVersion && mStatuses == other.mStatuses;
     }
 
     /**
@@ -140,19 +141,19 @@ public:
     /**
      * Uninstalls update items.
      *
-     * @param urns update items URN's.
+     * @param ids update items ID's.
      * @param[out] statuses update items statuses.
      * @return Error.
      */
-    virtual Error UninstallUpdateItems(const Array<StaticString<cURNLen>>& urns, Array<UpdateItemStatus>& statuses) = 0;
+    virtual Error UninstallUpdateItems(const Array<uuid::UUID>& ids, Array<UpdateItemStatus>& statuses) = 0;
 
     /**
      * Reverts update items.
      *
-     * @param urns update items URN's.
+     * @param ids update items ID's.
      * @return Error.
      */
-    virtual Error RevertUpdateItems(const Array<StaticString<cURNLen>>& urns, Array<UpdateItemStatus>& statuses) = 0;
+    virtual Error RevertUpdateItems(const Array<uuid::UUID>& ids, Array<UpdateItemStatus>& statuses) = 0;
 };
 
 /** @}*/
