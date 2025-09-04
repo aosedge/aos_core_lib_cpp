@@ -15,6 +15,11 @@
 namespace aos::cloudprotocol {
 
 /**
+ * Identifier URN  len.
+ */
+constexpr auto cURNLen = AOS_CONFIG_CLOUDPROTOCOL_URN_LEN;
+
+/**
  * Identifier codename len.
  */
 constexpr auto cCodeNameLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;

@@ -414,11 +414,6 @@ static constexpr auto cConnectionNameLen = cServiceIDLen + cExposedPortLen;
 static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS;
 
 /**
- * Identifier URN  len.
- */
-constexpr auto cURNLen = AOS_CONFIG_TYPES_URN_LEN;
-
-/**
  * Max number of update images per update item.
  */
 constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
@@ -563,9 +558,9 @@ struct InstanceIdentObsolete {
  * Instance identification.
  */
 struct InstanceIdent {
-    StaticString<cURNLen> mUpdateItemURN;
-    StaticString<cURNLen> mSubjectURN;
-    uint64_t              mInstance = 0;
+    uuid::UUID mUpdateItemID;
+    uuid::UUID mSubjectID;
+    uint64_t   mInstance = 0;
 
     /**
      * Compares instance ident.
@@ -575,7 +570,8 @@ struct InstanceIdent {
      */
     bool operator<(const InstanceIdent& instance) const
     {
-        return mUpdateItemURN <= instance.mUpdateItemURN && mSubjectURN <= instance.mSubjectURN
+        return uuid::UUIDToString(mUpdateItemID) <= uuid::UUIDToString(instance.mUpdateItemID)
+            && uuid::UUIDToString(mSubjectID) <= uuid::UUIDToString(instance.mSubjectID)
             && mInstance < instance.mInstance;
     }
 
@@ -587,7 +583,7 @@ struct InstanceIdent {
      */
     bool operator==(const InstanceIdent& instance) const
     {
-        return mUpdateItemURN == instance.mUpdateItemURN && mSubjectURN == instance.mSubjectURN
+        return mUpdateItemID == instance.mUpdateItemID && mSubjectID == instance.mSubjectID
             && mInstance == instance.mInstance;
     }
 
@@ -609,8 +605,8 @@ struct InstanceIdent {
      */
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
-        return log << "{" << instanceIdent.mUpdateItemURN << ":" << instanceIdent.mSubjectURN << ":"
-                   << instanceIdent.mInstance << "}";
+        return log << "{" << uuid::UUIDToString(instanceIdent.mUpdateItemID) << ":"
+                   << uuid::UUIDToString(instanceIdent.mSubjectID) << ":" << instanceIdent.mInstance << "}";
     }
 };
 
