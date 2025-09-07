@@ -14,7 +14,7 @@ set(TARGET_NAME imagemanager)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/statuslistener.hpp)
+set(HEADERS itf/imagemanager.hpp itf/statusnotifier.hpp)
 
 # ######################################################################################################################
 # Target
