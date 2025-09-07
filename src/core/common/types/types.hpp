@@ -887,6 +887,45 @@ using UnitConfigStateEnum = UnitConfigStateType::Enum;
 using UnitConfigState     = EnumStringer<UnitConfigStateType>;
 
 /**
+ * Instance info.
+ */
+struct InstanceInfo {
+    InstanceIdent               mInstanceIdent;
+    StaticString<cRuntimeIDLen> mRuntimeID;
+    uint32_t                    mUID {};
+    uint64_t                    mPriority {};
+    StaticString<cFilePathLen>  mStoragePath;
+    StaticString<cFilePathLen>  mStatePath;
+    NetworkParameters           mNetworkParameters;
+
+    /**
+     * Compares instance info.
+     *
+     * @param instance info to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceInfo& instance) const
+    {
+        return mInstanceIdent == instance.mInstanceIdent && mRuntimeID == instance.mRuntimeID && mUID == instance.mUID
+            && mPriority == instance.mPriority && mStoragePath == instance.mStoragePath
+            && mStatePath == instance.mStatePath && mNetworkParameters == instance.mNetworkParameters;
+    }
+
+    /**
+     * Compares instance info.
+     *
+     * @param instance info to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceInfo& instance) const { return !operator==(instance); }
+};
+
+/**
+ * Instance info static array.
+ */
+using InstanceInfoObsoleteStaticArray = StaticArray<InstanceInfoObsolete, cMaxNumInstances>;
+
+/**
  * Instance status.
  */
 struct InstanceStatus {
