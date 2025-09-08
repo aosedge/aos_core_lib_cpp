@@ -758,6 +758,7 @@ private:
     Error CreateNetwork(const NetworkInfo& network);
     Error GenerateVlanIfName(String& vlanIfName);
     Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
+    Error CleanupInstanceNetworkResources(const String& instanceID, const String& networkID);
 
     StorageItf*                                                                   mStorage {};
     cni::CNIItf*                                                                  mCNI {};
