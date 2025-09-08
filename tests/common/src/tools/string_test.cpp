@@ -412,3 +412,19 @@ TEST(StringTest, Replace)
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(str, "Hi Aos! Goodbye Universe!");
 }
+
+TEST(StringTest, Compare)
+{
+    const auto cLhsStr = String("Test string");
+
+    EXPECT_EQ(cLhsStr.Compare("Test string"), 0);
+    EXPECT_LT(cLhsStr.Compare("Test string1"), 0);
+    EXPECT_LT(cLhsStr.Compare("Test strinh"), 0);
+    EXPECT_GT(cLhsStr.Compare("Test strina"), 0);
+    EXPECT_GT(cLhsStr.Compare("Test"), 0);
+
+    EXPECT_EQ(cLhsStr.Compare("Test string", String::CaseSensitivity::CaseInsensitive), 0);
+    EXPECT_EQ(cLhsStr.Compare("test string", String::CaseSensitivity::CaseInsensitive), 0);
+    EXPECT_EQ(cLhsStr.Compare("TEST STRING", String::CaseSensitivity::CaseInsensitive), 0);
+    EXPECT_LT(cLhsStr.Compare("TEST STRING1", String::CaseSensitivity::CaseInsensitive), 0);
+}

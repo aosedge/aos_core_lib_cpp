@@ -24,6 +24,11 @@ namespace aos {
  */
 class String : public Array<char> {
 public:
+    enum class CaseSensitivity {
+        CaseInsensitive,
+        CaseSensitive,
+    };
+
     /**
      * Creates string.
      */
@@ -764,6 +769,23 @@ public:
         }
 
         return {Size(), ErrorEnum::eNotFound};
+    }
+
+    /**
+     * Compares string with another string.
+     *
+     * @param str string to compare with.
+     * @param caseSensitivity comparation case sensitivity.
+     * @return int: 0 - if strings are equal, <0 - if current string is less than str,
+     *              >0 - if current string is greater than str.
+     */
+    int Compare(const String& str, CaseSensitivity caseSensitivity = CaseSensitivity::CaseSensitive) const
+    {
+        if (caseSensitivity == CaseSensitivity::CaseSensitive) {
+            return strcmp(CStr(), str.CStr());
+        }
+
+        return strcasecmp(CStr(), str.CStr());
     }
 };
 
