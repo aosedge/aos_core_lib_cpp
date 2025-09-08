@@ -261,6 +261,32 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
 
     Error err;
 
+    if (auto errCleanupResources = CleanupInstanceNetworkResources(instanceID, networkID);
+        !errCleanupResources.IsNone()) {
+        if (err.IsNone()) {
+            err = errCleanupResources;
+        }
+    }
+
+    if (auto errRemoveFromCache = RemoveInstanceFromCache(instanceID, networkID);
+        !errRemoveFromCache.IsNone() && err.IsNone()) {
+        err = errRemoveFromCache;
+    }
+
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    LOG_DBG() << "Instance removed from network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::CleanupInstanceNetworkResources(const String& instanceID, const String& networkID)
+{
+    Error err;
+
     if (auto errStopInstanceMonitoring = mNetMonitor->StopInstanceMonitoring(instanceID);
         !errStopInstanceMonitoring.IsNone()) {
         if (err.IsNone()) {
@@ -275,13 +301,6 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
         }
     }
 
-    if (auto errRemoveInstanceFromCache = RemoveInstanceFromCache(instanceID, networkID);
-        !errRemoveInstanceFromCache.IsNone()) {
-        if (err.IsNone()) {
-            err = errRemoveInstanceFromCache;
-        }
-    }
-
     if (auto errRemoveInstanceFromStorage = mStorage->RemoveInstanceNetworkInfo(instanceID);
         !errRemoveInstanceFromStorage.IsNone()) {
         if (err.IsNone()) {
@@ -289,14 +308,7 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
         }
     }
 
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    LOG_DBG() << "Instance removed from network" << Log::Field("instanceID", instanceID)
-              << Log::Field("networkID", networkID);
-
-    return ErrorEnum::eNone;
+    return err;
 }
 
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
@@ -1005,9 +1017,14 @@ Error NetworkManager::RemoveNetwork(const String& networkID)
     Error err;
 
     for (const auto& instance : provider->mSecond) {
-        if (auto errRemoveInstance = RemoveInstanceFromNetwork(instance.mFirst, networkID);
+        if (auto errRemoveInstance = CleanupInstanceNetworkResources(instance.mFirst, networkID);
             !errRemoveInstance.IsNone() && err.IsNone()) {
             err = errRemoveInstance;
+        }
+
+        if (auto errRemoveFromCache = RemoveInstanceFromCache(instance.mFirst, networkID);
+            !errRemoveFromCache.IsNone() && err.IsNone()) {
+            err = errRemoveFromCache;
         }
     }
 
