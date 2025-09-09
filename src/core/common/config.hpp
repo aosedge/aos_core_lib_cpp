@@ -1003,6 +1003,7 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN 64
+#endif
 
 /**
  * Identifier title len.
