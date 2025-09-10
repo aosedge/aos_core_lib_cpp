@@ -29,7 +29,7 @@ public:
      *
      * @param info node info.
      */
-    virtual void OnNodeInfoChange(const NodeInfo& info) = 0;
+    virtual void OnNodeInfoChange(const NodeInfoObsolete& info) = 0;
 
     /**
      * Node info removed notification.
@@ -55,7 +55,7 @@ public:
      * @param info node info.
      * @return Error.
      */
-    virtual Error SetNodeInfo(const NodeInfo& info) = 0;
+    virtual Error SetNodeInfo(const NodeInfoObsolete& info) = 0;
 
     /**
      * Updates node state.
@@ -64,7 +64,7 @@ public:
      * @param state node state.
      * @return Error.
      */
-    virtual Error SetNodeState(const String& nodeID, NodeState state) = 0;
+    virtual Error SetNodeState(const String& nodeID, NodeStateObsolete state) = 0;
 
     /**
      * Returns node info.
@@ -73,7 +73,7 @@ public:
      * @param[out] nodeInfo result node identifier.
      * @return Error.
      */
-    virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(const String& nodeID, NodeInfoObsolete& nodeInfo) const = 0;
 
     /**
      * Returns ids for all the node in the manager.
@@ -116,7 +116,7 @@ public:
      * @param info node info.
      * @return Error.
      */
-    virtual Error SetNodeInfo(const NodeInfo& info) = 0;
+    virtual Error SetNodeInfo(const NodeInfoObsolete& info) = 0;
 
     /**
      * Returns node info.
@@ -125,7 +125,7 @@ public:
      * @param[out] nodeInfo result node identifier.
      * @return Error.
      */
-    virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(const String& nodeID, NodeInfoObsolete& nodeInfo) const = 0;
 
     /**
      * Returns ids for all the node in the manager.
@@ -168,7 +168,7 @@ public:
      * @param info node info.
      * @return Error.
      */
-    Error SetNodeInfo(const NodeInfo& info) override;
+    Error SetNodeInfo(const NodeInfoObsolete& info) override;
 
     /**
      * Updates state for a node.
@@ -177,7 +177,7 @@ public:
      * @param state node state.
      * @return Error.
      */
-    Error SetNodeState(const String& nodeID, NodeState state) override;
+    Error SetNodeState(const String& nodeID, NodeStateObsolete state) override;
 
     /**
      * Returns node info.
@@ -186,7 +186,7 @@ public:
      * @param[out] nodeInfo result node identifier.
      * @return Error.
      */
-    Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const override;
+    Error GetNodeInfo(const String& nodeID, NodeInfoObsolete& nodeInfo) const override;
 
     /**
      * Returns ids for all the node in the manager.
@@ -215,21 +215,21 @@ public:
 private:
     static constexpr auto cNodeMaxNum = AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM;
     static constexpr auto cAllocatorSize
-        = sizeof(StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>) + sizeof(NodeInfo);
+        = sizeof(StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>) + sizeof(NodeInfoObsolete);
 
-    NodeInfo*       GetNodeFromCache(const String& nodeID);
-    const NodeInfo* GetNodeFromCache(const String& nodeID) const;
-    Error           UpdateNodeInfo(const NodeInfo& info);
+    NodeInfoObsolete*       GetNodeFromCache(const String& nodeID);
+    const NodeInfoObsolete* GetNodeFromCache(const String& nodeID) const;
+    Error                   UpdateNodeInfo(const NodeInfoObsolete& info);
 
-    Error UpdateCache(const NodeInfo& nodeInfo);
+    Error UpdateCache(const NodeInfoObsolete& nodeInfo);
 
-    RetWithError<NodeInfo*> AddNodeInfoToCache();
-    void                    NotifyNodeInfoChange(const NodeInfo& nodeInfo);
+    RetWithError<NodeInfoObsolete*> AddNodeInfoToCache();
+    void                            NotifyNodeInfoChange(const NodeInfoObsolete& nodeInfo);
 
-    NodeInfoStorageItf*                mStorage          = nullptr;
-    NodeInfoListenerItf*               mNodeInfoListener = nullptr;
-    StaticArray<NodeInfo, cNodeMaxNum> mNodeInfoCache;
-    mutable Mutex                      mMutex;
+    NodeInfoStorageItf*                        mStorage          = nullptr;
+    NodeInfoListenerItf*                       mNodeInfoListener = nullptr;
+    StaticArray<NodeInfoObsolete, cNodeMaxNum> mNodeInfoCache;
+    mutable Mutex                              mMutex;
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };

@@ -1609,7 +1609,7 @@ using NodeAttributeStaticArray = StaticArray<NodeAttribute, cMaxNumNodeAttribute
 /**
  * Node state.
  */
-class NodeStateType {
+class NodeStateObsoleteType {
 public:
     enum class Enum {
         eUnprovisioned,
@@ -1631,17 +1631,45 @@ public:
     };
 };
 
+using NodeStateObsoleteEnum = NodeStateObsoleteType::Enum;
+using NodeStateObsolete     = EnumStringer<NodeStateObsoleteType>;
+
+/**
+ * Node state.
+ */
+class NodeStateType {
+public:
+    enum class Enum {
+        eOffline,
+        eOnline,
+        eError,
+        ePaused,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "offline",
+            "online",
+            "error",
+            "paused",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
 using NodeStateEnum = NodeStateType::Enum;
 using NodeState     = EnumStringer<NodeStateType>;
 
 /**
  * Node info.
  */
-struct NodeInfo {
+struct NodeInfoObsolete {
     StaticString<cNodeIDLen>   mNodeID;
     StaticString<cNodeTypeLen> mNodeType;
     StaticString<cNodeNameLen> mName;
-    NodeState                  mState;
+    NodeStateObsolete          mState;
     StaticString<cOSTypeLen>   mOSType;
     CPUInfoStaticArray         mCPUs;
     PartitionInfoStaticArray   mPartitions;
@@ -1676,11 +1704,53 @@ struct NodeInfo {
      * @param info node info to compare with.
      * @return bool.
      */
-    bool operator==(const NodeInfo& info) const
+    bool operator==(const NodeInfoObsolete& info) const
     {
         return mNodeID == info.mNodeID && mNodeType == info.mNodeType && mName == info.mName && mState == info.mState
             && mOSType == info.mOSType && mCPUs == info.mCPUs && mMaxDMIPS == info.mMaxDMIPS
             && mTotalRAM == info.mTotalRAM && mPartitions == info.mPartitions && mAttrs == info.mAttrs;
+    }
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeInfoObsolete& info) const { return !operator==(info); }
+};
+
+/**
+ * Node info.
+ */
+struct NodeInfo {
+    StaticString<cNodeIDLen>   mNodeID;
+    StaticString<cNodeTypeLen> mNodeType;
+    StaticString<cNodeNameLen> mName;
+    size_t                     mMaxDMIPS {};
+    size_t                     mTotalRAM {};
+    Optional<size_t>           mPhysicalRAM;
+    OSInfo                     mOSInfo;
+    CPUInfoStaticArray         mCPUs;
+    PartitionInfoStaticArray   mPartitions;
+    NodeAttributeStaticArray   mAttrs;
+    bool                       mProvisioned = false;
+    NodeState                  mState;
+    Error                      mError;
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeInfo& info) const
+    {
+        return mNodeID == info.mNodeID && mNodeType == info.mNodeType && mName == info.mName
+            && mMaxDMIPS == info.mMaxDMIPS && mTotalRAM == info.mTotalRAM && mPhysicalRAM == info.mPhysicalRAM
+            && mOSInfo == info.mOSInfo && mCPUs == info.mCPUs && mPartitions == info.mPartitions
+            && mAttrs == info.mAttrs && mProvisioned == info.mProvisioned && mState == info.mState
+            && mError == info.mError;
     }
 
     /**

@@ -29,7 +29,7 @@ Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInf
     mAlertSender           = &alertSender;
     mConnectionPublisher   = &connectionPublisher;
 
-    auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+    auto nodeInfo = MakeUnique<NodeInfoObsolete>(&mAllocator);
 
     if (auto err = nodeInfoProvider.GetNodeInfo(*nodeInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

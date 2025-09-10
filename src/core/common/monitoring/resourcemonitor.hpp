@@ -118,7 +118,7 @@ public:
 
 private:
     static constexpr auto cAllocatorSize
-        = Max(sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
+        = Max(sizeof(NodeInfoObsolete) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
             sizeof(InstanceMonitoringData) + sizeof(AlertProcessorStaticArray) + sizeof(ResourceIdentifier));
 
     String                      GetParameterName(const ResourceIdentifier& id) const;

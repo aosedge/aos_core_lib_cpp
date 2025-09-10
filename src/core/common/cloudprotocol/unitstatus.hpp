@@ -148,6 +148,7 @@ struct NodeInfo {
     ResourceInfoStaticArray  mResources;
     RuntimeInfoStaticArray   mRuntimes;
     NodeAttributeStaticArray mAttrs;
+    bool                     mProvisioned = false;
     NodeState                mState;
     Error                    mError;
 
@@ -162,8 +163,8 @@ struct NodeInfo {
         return mIdentifier == other.mIdentifier && mNodeGroupSubject == other.mNodeGroupSubject
             && mMaxDMIPS == other.mMaxDMIPS && mTotalRAM == other.mTotalRAM && mCPUs == other.mCPUs
             && mOSInfo == other.mOSInfo && mPartitions == other.mPartitions && mResources == other.mResources
-            && mRuntimes == other.mRuntimes && mAttrs == other.mAttrs && mState == other.mState
-            && mError == other.mError;
+            && mRuntimes == other.mRuntimes && mAttrs == other.mAttrs && mProvisioned == other.mProvisioned
+            && mState == other.mState && mError == other.mError;
     }
 
     /**

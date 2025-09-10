@@ -9,7 +9,7 @@
 
 namespace aos::iam::nodeinfoprovider {
 
-bool IsMainNode(const NodeInfo& nodeInfo)
+bool IsMainNode(const NodeInfoObsolete& nodeInfo)
 {
     return nodeInfo.mAttrs.FindIf([](const auto& attr) {
         return !attr.mName.Compare(cAttrMainNode, String::CaseSensitivity::CaseInsensitive);

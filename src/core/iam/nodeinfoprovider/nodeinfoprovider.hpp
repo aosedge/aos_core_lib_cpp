@@ -54,7 +54,7 @@ static constexpr auto cAosComponentUM = "um";
  * @param nodeInfo node info.
  * @return bool.
  */
-bool IsMainNode(const NodeInfo& nodeInfo);
+bool IsMainNode(const NodeInfoObsolete& nodeInfo);
 
 /**
  * Node state observer interface.
@@ -68,7 +68,7 @@ public:
      * @param state node state.
      * @return Error.
      */
-    virtual Error OnNodeStateChanged(const String& nodeID, const NodeState& state) = 0;
+    virtual Error OnNodeStateChanged(const String& nodeID, const NodeStateObsolete& state) = 0;
 
     /**
      * Destructor.
@@ -87,7 +87,7 @@ public:
      * @param[out] nodeInfo node info
      * @return Error
      */
-    virtual Error GetNodeInfo(NodeInfo& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(NodeInfoObsolete& nodeInfo) const = 0;
 
     /**
      * Sets the node state.
@@ -95,7 +95,7 @@ public:
      * @param state node state.
      * @return Error.
      */
-    virtual Error SetNodeState(const NodeState& state) = 0;
+    virtual Error SetNodeState(const NodeStateObsolete& state) = 0;
 
     /**
      * Subscribes on node state changed event.

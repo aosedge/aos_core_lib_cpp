@@ -79,19 +79,19 @@ bool operator==(const AlertData& lhs, const T& rhs)
 
 class MockNodeInfoProvider : public iam::nodeinfoprovider::NodeInfoProviderItf {
 public:
-    MockNodeInfoProvider(const NodeInfo& nodeInfo)
+    MockNodeInfoProvider(const NodeInfoObsolete& nodeInfo)
         : mNodeInfo(nodeInfo)
     {
     }
 
-    Error GetNodeInfo(NodeInfo& nodeInfo) const override
+    Error GetNodeInfo(NodeInfoObsolete& nodeInfo) const override
     {
         nodeInfo = mNodeInfo;
 
         return ErrorEnum::eNone;
     }
 
-    Error SetNodeState(const NodeState& state) override
+    Error SetNodeState(const NodeStateObsolete& state) override
     {
         (void)state;
 
@@ -113,7 +113,7 @@ public:
     }
 
 private:
-    NodeInfo mNodeInfo {};
+    NodeInfoObsolete mNodeInfo {};
 };
 
 class MockResourceManager : public sm::resourcemanager::ResourceManagerItf {
@@ -435,8 +435,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
 {
     PartitionInfo nodePartitionsInfo[] = {{"disk1", {}, "", 512, 256}, {"disk2", {}, "", 1024, 512}};
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
-    auto          nodeInfo             = NodeInfo {
-        "node1", "type1", "name1", NodeStateEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
+    auto          nodeInfo             = NodeInfoObsolete {
+        "node1", "type1", "name1", NodeStateObsoleteEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
     AlertRules alertRules;
     alertRules.mCPU.SetValue(AlertRulePercents {Time::cMilliseconds, 10, 20});
@@ -519,8 +519,8 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
 {
     PartitionInfo nodePartitionsInfo[] = {{"disk", {}, "", 512, 256}};
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
-    auto          nodeInfo             = NodeInfo {
-        "node1", "type1", "name1", NodeStateEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
+    auto          nodeInfo             = NodeInfoObsolete {
+        "node1", "type1", "name1", NodeStateObsoleteEnum::eProvisioned, "linux", {}, nodePartitions, {}, 10000, 8192};
 
     auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
     auto resourceManager       = std::make_unique<MockResourceManager>();
@@ -645,8 +645,8 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     PartitionInfo nodePartitionsInfo[] = {{"disk1", {}, "", 512, 256}, {"disk2", {}, "", 1024, 512},
         {"state", {}, "", 512, 128}, {"storage", {}, "", 1024, 256}};
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
-    auto          nodeInfo             = NodeInfo {
-        "node1", "type1", "name1", NodeStateEnum::eProvisioned, "linux", {}, nodePartitions, {}, maxDmips, 8192};
+    auto nodeInfo = NodeInfoObsolete {"node1", "type1", "name1", NodeStateObsoleteEnum::eProvisioned, "linux", {},
+        nodePartitions, {}, maxDmips, 8192};
 
     AlertRules alertRules;
     alertRules.mCPU.SetValue(AlertRulePercents {Time::cMilliseconds, 10.0, 20.0});
@@ -797,8 +797,8 @@ TEST_F(MonitoringTest, GetNodeMonitoringDataOnInstanceSpikes)
 
     PartitionInfo nodePartitionsInfo[] = {{"states", {}, "", 1024, 128}, {"storages", {}, "", 1024, 64}};
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
-    auto          nodeInfo             = NodeInfo {
-        "node1", "type1", "name1", NodeStateEnum::eProvisioned, "linux", {}, nodePartitions, {}, cNodeDMIPS, 8192};
+    auto nodeInfo = NodeInfoObsolete {"node1", "type1", "name1", NodeStateObsoleteEnum::eProvisioned, "linux", {},
+        nodePartitions, {}, cNodeDMIPS, 8192};
 
     auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(nodeInfo);
     auto resourceManager       = std::make_unique<MockResourceManager>();
