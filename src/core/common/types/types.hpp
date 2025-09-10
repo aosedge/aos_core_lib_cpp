@@ -1313,7 +1313,7 @@ using EnvVarsArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
 /**
  * Resource info.
  */
-struct ResourceInfo {
+struct ResourceInfoObsolete {
     StaticString<cResourceNameLen>                          mName;
     StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups> mGroups;
     StaticArray<Mount, cMaxNumFSMounts>                     mMounts;
@@ -1326,7 +1326,7 @@ struct ResourceInfo {
      * @param resourceInfo resource info to compare.
      * @return bool.
      */
-    bool operator==(const ResourceInfo& resourceInfo) const
+    bool operator==(const ResourceInfoObsolete& resourceInfo) const
     {
         return mName == resourceInfo.mName && mGroups == resourceInfo.mGroups && mMounts == resourceInfo.mMounts
             && mEnv == resourceInfo.mEnv && mHosts == resourceInfo.mHosts;
@@ -1338,7 +1338,7 @@ struct ResourceInfo {
      * @param resourceInfo resource info to compare.
      * @return bool.
      */
-    bool operator!=(const ResourceInfo& resourceInfo) const { return !operator==(resourceInfo); }
+    bool operator!=(const ResourceInfoObsolete& resourceInfo) const { return !operator==(resourceInfo); }
 };
 
 /**
@@ -1960,6 +1960,35 @@ public:
 
 using UpdateItemTypeEnum = UpdateItemTypeType::Enum;
 using UpdateItemType     = EnumStringer<UpdateItemTypeType>;
+
+/**
+ * Resource info.
+ */
+struct ResourceInfo {
+    StaticString<cResourceNameLen> mName;
+    size_t                         mSharedCount {0};
+
+    /**
+     * Compares resource info.
+     *
+     * @param other resource info to compare with.
+     * @return bool.
+     */
+    bool operator==(const ResourceInfo& other) const
+    {
+        return mName == other.mName && mSharedCount == other.mSharedCount;
+    }
+
+    /**
+     * Compares resource info.
+     *
+     * @param other resource info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ResourceInfo& other) const { return !operator==(other); }
+};
+
+using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
 
 } // namespace aos
 

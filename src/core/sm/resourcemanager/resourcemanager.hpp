@@ -35,7 +35,7 @@ struct NodeConfig {
     Optional<AlertRules>                                        mAlertRules;
     Optional<cloudprotocol::ResourceRatios>                     mResourceRatios;
     StaticArray<DeviceInfo, cMaxNumNodeDevices>                 mDevices;
-    StaticArray<ResourceInfo, cMaxNumNodeResources>             mResources;
+    StaticArray<ResourceInfoObsolete, cMaxNumNodeResources>     mResources;
     StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
     uint64_t                                                    mPriority {0};
 
@@ -178,7 +178,7 @@ public:
      * @param[out] resourceInfo param to store resource info.
      * @return Error.
      */
-    virtual Error GetResourceInfo(const String& resourceName, ResourceInfo& resourceInfo) const = 0;
+    virtual Error GetResourceInfo(const String& resourceName, ResourceInfoObsolete& resourceInfo) const = 0;
 
     /**
      * Allocates device by name.
@@ -307,7 +307,7 @@ public:
      * @param[out] resourceInfo param to store resource info.
      * @return Error.
      */
-    Error GetResourceInfo(const String& resourceName, ResourceInfo& resourceInfo) const override;
+    Error GetResourceInfo(const String& resourceName, ResourceInfoObsolete& resourceInfo) const override;
 
     /**
      * Allocates device by name.

@@ -78,7 +78,7 @@ Error ResourceManager::GetDeviceInfo(const String& deviceName, DeviceInfo& devic
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::GetResourceInfo(const String& resourceName, ResourceInfo& resourceInfo) const
+Error ResourceManager::GetResourceInfo(const String& resourceName, ResourceInfoObsolete& resourceInfo) const
 {
     LockGuard lock {mMutex};
 
