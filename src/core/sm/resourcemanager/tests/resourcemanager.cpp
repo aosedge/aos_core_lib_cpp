@@ -180,7 +180,7 @@ TEST_F(ResourceManagerTest, GetDeviceInfoSucceeds)
 
 TEST_F(ResourceManagerTest, GetResourceInfoFailsOnEmptyResourcesConfig)
 {
-    ResourceInfo result;
+    ResourceInfoObsolete result;
 
     // Clear resources
     mConfig.mResources.Clear();
@@ -193,9 +193,9 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsOnEmptyResourcesConfig)
 
 TEST_F(ResourceManagerTest, GetResourceInfoFailsResourceNotFound)
 {
-    ResourceInfo result;
+    ResourceInfoObsolete result;
+    ResourceInfoObsolete resource;
 
-    ResourceInfo resource;
     resource.mName = "resource-one";
 
     auto err = mConfig.mResources.PushBack(resource);
@@ -211,9 +211,9 @@ TEST_F(ResourceManagerTest, GetResourceInfoFailsResourceNotFound)
 
 TEST_F(ResourceManagerTest, GetResourceSucceeds)
 {
-    ResourceInfo result;
+    ResourceInfoObsolete result;
+    ResourceInfoObsolete resource;
 
-    ResourceInfo resource;
     resource.mName = "resource-one";
 
     auto err = mConfig.mResources.PushBack(resource);
