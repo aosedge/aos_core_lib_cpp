@@ -24,7 +24,7 @@ static bool CaseInsensitiveEqual(const aos::String& lhs, const aos::String& rhs)
 
 namespace aos::iam::nodeinfoprovider {
 
-bool IsMainNode(const NodeInfo& nodeInfo)
+bool IsMainNode(const NodeInfoObsolete& nodeInfo)
 {
     return nodeInfo.mAttrs.FindIf([](const auto& attr) { return CaseInsensitiveEqual(attr.mName, cAttrMainNode); })
         != nodeInfo.mAttrs.end();

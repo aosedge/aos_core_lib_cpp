@@ -37,9 +37,9 @@ std::vector<T> ConvertToStl(const Array<T>& arr)
     return std::vector<T>(arr.begin(), arr.end());
 }
 
-NodeInfo CreateNodeInfo(const String& id, aos::NodeStateEnum state)
+NodeInfoObsolete CreateNodeInfo(const String& id, aos::NodeStateObsoleteEnum state)
 {
-    NodeInfo info;
+    NodeInfoObsolete info;
 
     info.mNodeID = id;
     info.mState  = state;
@@ -53,7 +53,7 @@ NodeInfo CreateNodeInfo(const String& id, aos::NodeStateEnum state)
 
 class NodeInfoListenerMock : public NodeInfoListenerItf {
 public:
-    MOCK_METHOD(void, OnNodeInfoChange, (const NodeInfo& info));
+    MOCK_METHOD(void, OnNodeInfoChange, (const NodeInfoObsolete& info));
     MOCK_METHOD(void, OnNodeRemoved, (const String& nodeID));
 };
 
@@ -63,8 +63,8 @@ public:
 
 TEST_F(NodeManagerTest, Init)
 {
-    NodeInfo node0 = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
-    NodeInfo node1 = CreateNodeInfo("node1", NodeStateEnum::ePaused);
+    NodeInfoObsolete node0 = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
+    NodeInfoObsolete node1 = CreateNodeInfo("node1", NodeStateObsoleteEnum::ePaused);
 
     EXPECT_CALL(mStorage, GetAllNodeIds(_)).WillOnce(Invoke([&](Array<StaticString<cNodeIDLen>>& dst) {
         dst.PushBack(node0.mNodeID);
@@ -73,21 +73,23 @@ TEST_F(NodeManagerTest, Init)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorage, GetNodeInfo(node0.mNodeID, _)).WillOnce(Invoke([&](const String& nodeID, NodeInfo& nodeInfo) {
-        (void)nodeID;
+    EXPECT_CALL(mStorage, GetNodeInfo(node0.mNodeID, _))
+        .WillOnce(Invoke([&](const String& nodeID, NodeInfoObsolete& nodeInfo) {
+            (void)nodeID;
 
-        nodeInfo = node0;
+            nodeInfo = node0;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
-    EXPECT_CALL(mStorage, GetNodeInfo(node1.mNodeID, _)).WillOnce(Invoke([&](const String& nodeID, NodeInfo& nodeInfo) {
-        (void)nodeID;
+    EXPECT_CALL(mStorage, GetNodeInfo(node1.mNodeID, _))
+        .WillOnce(Invoke([&](const String& nodeID, NodeInfoObsolete& nodeInfo) {
+            (void)nodeID;
 
-        nodeInfo = node1;
+            nodeInfo = node1;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     ASSERT_TRUE(mManager.Init(mStorage).IsNone());
 
@@ -99,7 +101,7 @@ TEST_F(NodeManagerTest, Init)
 
 TEST_F(NodeManagerTest, SetNodeInfoUnprovisioned)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eUnprovisioned);
+    NodeInfoObsolete info = CreateNodeInfo("node0", NodeStateObsoleteEnum::eUnprovisioned);
 
     EXPECT_CALL(mStorage, RemoveNodeInfo(info.mNodeID)).WillOnce(Return(ErrorEnum::eNotFound));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
@@ -107,7 +109,7 @@ TEST_F(NodeManagerTest, SetNodeInfoUnprovisioned)
 
 TEST_F(NodeManagerTest, SetNodeInfoProvisioned)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
+    NodeInfoObsolete info = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
 
     EXPECT_CALL(mStorage, SetNodeInfo(info)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
@@ -116,7 +118,7 @@ TEST_F(NodeManagerTest, SetNodeInfoProvisioned)
 TEST_F(NodeManagerTest, SetNodeStateUnprovisioned)
 {
     StaticString<cNodeIDLen> node0 = "node0";
-    NodeState                state = NodeStateEnum::eUnprovisioned;
+    NodeStateObsolete        state = NodeStateObsoleteEnum::eUnprovisioned;
 
     EXPECT_CALL(mStorage, RemoveNodeInfo(node0)).WillOnce(Return(ErrorEnum::eNotFound));
     ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
@@ -124,7 +126,7 @@ TEST_F(NodeManagerTest, SetNodeStateUnprovisioned)
 
 TEST_F(NodeManagerTest, SetNodeStateProvisioned)
 {
-    NodeInfo node0 = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
+    NodeInfoObsolete node0 = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
 
     EXPECT_CALL(mStorage, SetNodeInfo(node0)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeState(node0.mNodeID, node0.mState).IsNone());
@@ -133,19 +135,19 @@ TEST_F(NodeManagerTest, SetNodeStateProvisioned)
 TEST_F(NodeManagerTest, GetNodeInfoNotFound)
 {
     StaticString<cNodeIDLen> node0 = "node0";
-    NodeInfo                 nodeInfo;
+    NodeInfoObsolete         nodeInfo;
 
     ASSERT_EQ(mManager.GetNodeInfo(node0, nodeInfo), ErrorEnum::eNotFound);
 }
 
 TEST_F(NodeManagerTest, GetNodeInfoOk)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
+    NodeInfoObsolete info = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
 
     EXPECT_CALL(mStorage, SetNodeInfo(info)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
 
-    NodeInfo result;
+    NodeInfoObsolete result;
 
     ASSERT_TRUE(mManager.GetNodeInfo(info.mNodeID, result).IsNone());
     EXPECT_EQ(result, info);
@@ -156,7 +158,7 @@ TEST_F(NodeManagerTest, GetAllNodeIds)
     StaticString<cNodeIDLen> node0 = "node0";
     StaticString<cNodeIDLen> node1 = "node1";
 
-    NodeState state = NodeStateEnum::eProvisioned;
+    NodeStateObsolete state = NodeStateObsoleteEnum::eProvisioned;
 
     EXPECT_CALL(mStorage, SetNodeInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
@@ -172,10 +174,10 @@ TEST_F(NodeManagerTest, RemoveNodeInfo)
 {
     StaticString<cNodeIDLen> node0 = "node0";
 
-    NodeInfo  nodeInfo;
-    NodeState state = NodeStateEnum::eProvisioned;
+    NodeInfoObsolete  nodeInfo;
+    NodeStateObsolete state = NodeStateObsoleteEnum::eProvisioned;
 
-    EXPECT_CALL(mStorage, SetNodeInfo(Field(&NodeInfo::mNodeID, node0))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, SetNodeInfo(Field(&NodeInfoObsolete::mNodeID, node0))).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
 
     ASSERT_EQ(mManager.GetNodeInfo(node0, nodeInfo), ErrorEnum::eNone);
@@ -187,7 +189,7 @@ TEST_F(NodeManagerTest, RemoveNodeInfo)
 
 TEST_F(NodeManagerTest, NotifyNodeInfoChangeOnSetNodeInfo)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
+    NodeInfoObsolete info = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
 
     NodeInfoListenerMock listener;
 
@@ -201,7 +203,7 @@ TEST_F(NodeManagerTest, NotifyNodeInfoChangeOnSetNodeInfo)
 
 TEST_F(NodeManagerTest, NotifyNodeRemoved)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
+    NodeInfoObsolete info = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
 
     NodeInfoListenerMock listener;
 
