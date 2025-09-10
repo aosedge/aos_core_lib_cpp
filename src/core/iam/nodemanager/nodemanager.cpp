@@ -31,7 +31,7 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
     }
 
     for (const auto& nodeID : *nodeIDs) {
-        auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+        auto nodeInfo = MakeUnique<NodeInfoObsolete>(&mAllocator);
 
         err = storage.GetNodeInfo(nodeID, *nodeInfo);
         if (!err.IsNone()) {
@@ -47,7 +47,7 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::SetNodeInfo(const NodeInfo& info)
+Error NodeManager::SetNodeInfo(const NodeInfoObsolete& info)
 {
     LockGuard lock {mMutex};
 
@@ -62,13 +62,13 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
     return UpdateNodeInfo(info);
 }
 
-Error NodeManager::SetNodeState(const String& nodeID, NodeState state)
+Error NodeManager::SetNodeState(const String& nodeID, NodeStateObsolete state)
 {
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Set node state: nodeID=" << nodeID << ", state=" << state;
 
-    auto        nodeInfo   = MakeUnique<NodeInfo>(&mAllocator);
+    auto        nodeInfo   = MakeUnique<NodeInfoObsolete>(&mAllocator);
     const auto* cachedInfo = GetNodeFromCache(nodeID);
 
     if (cachedInfo != nullptr) {
@@ -85,7 +85,7 @@ Error NodeManager::SetNodeState(const String& nodeID, NodeState state)
     return UpdateNodeInfo(*nodeInfo);
 }
 
-Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const
+Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfoObsolete& nodeInfo) const
 {
     LockGuard lock {mMutex};
 
@@ -153,7 +153,7 @@ Error NodeManager::SubscribeNodeInfoChange(NodeInfoListenerItf& listener)
  * Private
  **********************************************************************************************************************/
 
-NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
+NodeInfoObsolete* NodeManager::GetNodeFromCache(const String& nodeID)
 {
     for (auto& nodeInfo : mNodeInfoCache) {
         if (nodeInfo.mNodeID == nodeID) {
@@ -164,12 +164,12 @@ NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
     return nullptr;
 }
 
-const NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID) const
+const NodeInfoObsolete* NodeManager::GetNodeFromCache(const String& nodeID) const
 {
     return const_cast<NodeManager*>(this)->GetNodeFromCache(nodeID);
 }
 
-Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
+Error NodeManager::UpdateCache(const NodeInfoObsolete& nodeInfo)
 {
     bool isAdded = false;
 
@@ -193,11 +193,11 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::UpdateNodeInfo(const NodeInfo& info)
+Error NodeManager::UpdateNodeInfo(const NodeInfoObsolete& info)
 {
     Error err = ErrorEnum::eNone;
 
-    if (info.mState == NodeStateEnum::eUnprovisioned) {
+    if (info.mState == NodeStateObsoleteEnum::eUnprovisioned) {
         err = mStorage->RemoveNodeInfo(info.mNodeID);
         if (err.Is(ErrorEnum::eNotFound)) {
             err = ErrorEnum::eNone;
@@ -213,7 +213,7 @@ Error NodeManager::UpdateNodeInfo(const NodeInfo& info)
     return UpdateCache(info);
 }
 
-RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache()
+RetWithError<NodeInfoObsolete*> NodeManager::AddNodeInfoToCache()
 {
     auto err = mNodeInfoCache.EmplaceBack();
     if (!err.IsNone()) {
@@ -223,7 +223,7 @@ RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache()
     return {&mNodeInfoCache.Back(), ErrorEnum::eNone};
 }
 
-void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo)
+void NodeManager::NotifyNodeInfoChange(const NodeInfoObsolete& nodeInfo)
 {
     if (mNodeInfoListener) {
         mNodeInfoListener->OnNodeInfoChange(nodeInfo);

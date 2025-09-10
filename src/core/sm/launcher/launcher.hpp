@@ -433,7 +433,7 @@ private:
     StaticList<Instance, cMaxNumInstances>                    mCurrentInstances;
     cloudprotocol::EnvVarsInstanceInfoArray                   mCurrentEnvVars;
     StaticString<cFilePathLen>                                mHostWhiteoutsDir;
-    NodeInfo                                                  mNodeInfo;
+    NodeInfoObsolete                                          mNodeInfo;
     Time                                                      mOnlineTime;
     Timer                                                     mTimer;
 };

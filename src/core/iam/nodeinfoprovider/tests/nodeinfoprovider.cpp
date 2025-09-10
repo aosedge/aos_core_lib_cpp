@@ -24,14 +24,14 @@ class NodeInfoProviderTest : public testing::Test { };
 
 TEST_F(NodeInfoProviderTest, IsMainNodeReturnsFalseOnEmptyAttrs)
 {
-    aos::NodeInfo nodeInfo;
+    aos::NodeInfoObsolete nodeInfo;
 
     EXPECT_FALSE(IsMainNode(nodeInfo)) << "Node has no main node attribute";
 }
 
 TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrue)
 {
-    aos::NodeInfo nodeInfo;
+    aos::NodeInfoObsolete nodeInfo;
 
     nodeInfo.mAttrs.PushBack({"MainNode", ""});
 
@@ -40,7 +40,7 @@ TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrue)
 
 TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrueCaseInsensitive)
 {
-    aos::NodeInfo nodeInfo;
+    aos::NodeInfoObsolete nodeInfo;
 
     nodeInfo.mAttrs.PushBack({"mainNODE", ""});
 
