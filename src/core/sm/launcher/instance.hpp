@@ -318,7 +318,7 @@ private:
         + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
             sizeof(oci::ImageSpec)
                 + Max(sizeof(EnvVarsArray), sizeof(LayersStaticArray) + sizeof(layermanager::LayerData),
-                    sizeof(Mount) + sizeof(ResourceInfo),
+                    sizeof(Mount) + sizeof(ResourceInfoObsolete),
                     sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>)));
     static constexpr auto cNumAllocations  = 8;
     static constexpr auto cRuntimeSpecFile = "config.json";

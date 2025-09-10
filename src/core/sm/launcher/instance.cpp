@@ -325,7 +325,7 @@ size_t Instance::GetNumCPUCores() const
 Error Instance::SetResources(const Array<StaticString<cResourceNameLen>>& resources, oci::RuntimeSpec& runtimeSpec)
 {
     for (const auto& resource : resources) {
-        auto resourceInfo = MakeUnique<ResourceInfo>(&sAllocator);
+        auto resourceInfo = MakeUnique<ResourceInfoObsolete>(&sAllocator);
 
         if (auto err = mResourceManager.GetResourceInfo(resource, *resourceInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -653,7 +653,7 @@ Error Instance::CreateRuntimeSpec(
 Error Instance::AddNetworkHostsFromResources(const Array<StaticString<cResourceNameLen>>& resources, Array<Host>& hosts)
 {
     for (auto const& resource : resources) {
-        auto resourceInfo = MakeUnique<ResourceInfo>(&sAllocator);
+        auto resourceInfo = MakeUnique<ResourceInfoObsolete>(&sAllocator);
 
         if (auto err = mResourceManager.GetResourceInfo(resource, *resourceInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);

@@ -137,7 +137,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error GetResourceInfo(const String& resourceName, ResourceInfo& resourceInfo) const override
+    Error GetResourceInfo(const String& resourceName, ResourceInfoObsolete& resourceInfo) const override
     {
         (void)resourceName;
         (void)resourceInfo;

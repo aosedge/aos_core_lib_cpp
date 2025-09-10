@@ -49,7 +49,7 @@ public:
     MOCK_METHOD(RetWithError<StaticString<cVersionLen>>, GetNodeConfigVersion, (), (const override));
     MOCK_METHOD(Error, GetNodeConfig, (NodeConfig&), (const override));
     MOCK_METHOD(Error, GetDeviceInfo, (const String&, DeviceInfo&), (const override));
-    MOCK_METHOD(Error, GetResourceInfo, (const String&, ResourceInfo&), (const override));
+    MOCK_METHOD(Error, GetResourceInfo, (const String&, ResourceInfoObsolete&), (const override));
     MOCK_METHOD(Error, AllocateDevice, (const String&, const String&), (override));
     MOCK_METHOD(Error, ReleaseDevice, (const String&, const String&), (override));
     MOCK_METHOD(Error, ReleaseDevices, (const String&), (override));
