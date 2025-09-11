@@ -96,6 +96,25 @@ struct RequestedResources {
 struct ServiceDevice {
     StaticString<cDeviceNameLen>  mDevice;
     StaticString<cPermissionsLen> mPermissions;
+
+    /**
+     * Compares devices.
+     *
+     * @param device service device.
+     * @return bool.
+     */
+    bool operator==(const ServiceDevice& device) const
+    {
+        return mDevice == device.mDevice && mPermissions == device.mPermissions;
+    }
+
+    /**
+     * Compares devices.
+     *
+     * @param device service device.
+     * @return bool.
+     */
+    bool operator!=(const ServiceDevice& device) const { return !operator==(device); }
 };
 
 /**
