@@ -21,11 +21,11 @@ namespace aos::monitoring {
  * Monitoring data.
  */
 struct MonitoringData {
-    double                     mCPU;
-    size_t                     mRAM;
+    double                     mCPU {};
+    size_t                     mRAM {};
     PartitionInfoObsoleteArray mPartitions;
-    uint64_t                   mDownload;
-    uint64_t                   mUpload;
+    uint64_t                   mDownload {};
+    uint64_t                   mUpload {};
 
     /**
      * Compares monitoring data.
@@ -115,11 +115,12 @@ struct InstanceMonitoringData {
     {
     }
 
-    InstanceIdent  mInstanceIdent  = {};
-    MonitoringData mMonitoringData = {};
-    uid_t          mUID            = 0;
-    gid_t          mGID            = 0;
-    InstanceState  mState          = InstanceStateEnum::eFailed;
+    InstanceIdent        mInstanceIdent;
+    StaticString<cIDLen> mRuntimeID;
+    MonitoringData       mMonitoringData;
+    uid_t                mUID {};
+    gid_t                mGID {};
+    InstanceState        mState;
 
     /**
      * Compares instance monitoring data.
@@ -129,8 +130,9 @@ struct InstanceMonitoringData {
      */
     bool operator==(const InstanceMonitoringData& data) const
     {
-        return mInstanceIdent == data.mInstanceIdent && mMonitoringData == data.mMonitoringData && mUID == data.mUID
-            && mGID == data.mGID;
+        return mInstanceIdent == data.mInstanceIdent && mRuntimeID == data.mRuntimeID
+            && mMonitoringData == data.mMonitoringData && mUID == data.mUID && mGID == data.mGID
+            && mState == data.mState;
     }
 
     /**
