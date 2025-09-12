@@ -16,14 +16,42 @@ namespace aos::cm::nodeinfoprovider {
  */
 
 /**
+ * Node info.
+ */
+struct NodeInfo : public aos::NodeInfo {
+    ResourceInfoStaticArray mResources;
+    RuntimeInfoStaticArray  mRuntimes;
+
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    // cppcheck-suppress duplInheritedMember
+    bool operator==(const NodeInfo& info) const
+    {
+        return aos::NodeInfo::operator==(info) && mResources == info.mResources && mRuntimes == info.mRuntimes;
+    }
+    /**
+     * Compares node info.
+     *
+     * @param info node info to compare with.
+     * @return bool.
+     */
+    // cppcheck-suppress duplInheritedMember
+    bool operator!=(const NodeInfo& info) const { return !operator==(info); }
+};
+
+/**
  * Interface for receiving notification about changing node information.
  */
-class InfoListenerItf {
+class NodeInfoListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~InfoListenerItf() = default;
+    virtual ~NodeInfoListenerItf() = default;
 
     /**
      * Notifies about node info changed.
@@ -34,7 +62,7 @@ public:
 };
 
 /**
- * Node information provider interface.
+ * Node info provider interface.
  */
 class NodeInfoProviderItf {
 public:
@@ -42,6 +70,14 @@ public:
      * Destructor.
      */
     virtual ~NodeInfoProviderItf() = default;
+
+    /**
+     * Returns ids for all the nodes of the unit.
+     *
+     * @param[out] ids result node identifiers.
+     * @return Error.
+     */
+    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
 
     /**
      * Returns info for specified node.
@@ -53,20 +89,12 @@ public:
     virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
 
     /**
-     * Returns ids for all the nodes of the unit.
-     *
-     * @param[out] ids result node identifiers.
-     * @return Error.
-     */
-    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
-
-    /**
      * Subscribes node info notifications.
      *
      * @param listener node info listener.
      * @return Error.
      */
-    virtual Error SubscribeListener(InfoListenerItf& listener) = 0;
+    virtual Error SubscribeListener(NodeInfoListenerItf& listener) = 0;
 
     /**
      * Unsubscribes from node info notifications.
@@ -74,7 +102,7 @@ public:
      * @param listener node info listener.
      * @return Error.
      */
-    virtual Error UnsubscribeListener(InfoListenerItf& listener) = 0;
+    virtual Error UnsubscribeListener(NodeInfoListenerItf& listener) = 0;
 };
 
 /** @}*/
