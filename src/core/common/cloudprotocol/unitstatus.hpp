@@ -36,16 +36,6 @@ static constexpr auto cComponentTypeLen = AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_TYP
 static constexpr auto cUnitConfigStatusCount = AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT;
 
 /**
- * Max number of runtimes per node.
- */
-static constexpr auto cMaxNumNodeRuntimes = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_NODE_RUNTIMES;
-
-/**
- * Runtime type len.
- */
-static constexpr auto cRuntimeTypeLen = AOS_CONFIG_CLOUDPROTOCOL_RUNTIME_TYPE_LEN;
-
-/**
  * Unit config status.
  */
 struct UnitConfigStatus {

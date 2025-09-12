@@ -534,6 +534,20 @@
 #endif
 
 /**
+ * Runtime type len.
+ */
+#ifndef AOS_CONFIG_TYPES_RUNTIME_TYPE_LEN
+#define AOS_CONFIG_TYPES_RUNTIME_TYPE_LEN 64
+#endif
+
+/**
+ * Max number of runtimes per node.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES
+#define AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES 4
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1164,20 +1178,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT
 #define AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT 2
-#endif
-
-/**
- * Max number of runtimes per node.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_NODE_RUNTIMES
-#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_NODE_RUNTIMES 4
-#endif
-
-/**
- * Runtime type len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_RUNTIME_TYPE_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_RUNTIME_TYPE_LEN 64
 #endif
 
 /**

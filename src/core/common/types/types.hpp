@@ -87,6 +87,16 @@ constexpr auto cNodeIDLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
 constexpr auto cRuntimeIDLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
 
 /**
+ * Runtime type len.
+ */
+static constexpr auto cRuntimeTypeLen = AOS_CONFIG_TYPES_RUNTIME_TYPE_LEN;
+
+/**
+ * Max number of runtimes per node.
+ */
+static constexpr auto cMaxNumNodeRuntimes = AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES;
+
+/**
  * Node type len.
  */
 constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
@@ -1881,6 +1891,42 @@ struct ResourceInfo {
 };
 
 using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+
+/**
+ * Runtime info.
+ */
+struct RuntimeInfo : public PlatformInfo {
+    StaticString<cRuntimeIDLen>   mRuntimeID;
+    StaticString<cRuntimeTypeLen> mRuntimeType;
+    Optional<size_t>              mMaxDMIPS;
+    Optional<size_t>              mAllowedDMIPS;
+    Optional<size_t>              mTotalRAM;
+    Optional<ssize_t>             mAllowedRAM;
+    size_t                        mMaxInstances = 0;
+
+    /**
+     * Compares runtime info.
+     *
+     * @param other runtime info to compare with.
+     * @return bool.
+     */
+    bool operator==(const RuntimeInfo& other) const
+    {
+        return mRuntimeID == other.mRuntimeID && mRuntimeType == other.mRuntimeType && mMaxDMIPS == other.mMaxDMIPS
+            && mAllowedDMIPS == other.mAllowedDMIPS && mTotalRAM == other.mTotalRAM && mAllowedRAM == other.mAllowedRAM
+            && mMaxInstances == other.mMaxInstances && PlatformInfo::operator==(other);
+    }
+
+    /**
+     * Compares runtime info.
+     *
+     * @param other runtime info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const RuntimeInfo& other) const { return !operator==(other); }
+};
+
+using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
 
 } // namespace aos
 
