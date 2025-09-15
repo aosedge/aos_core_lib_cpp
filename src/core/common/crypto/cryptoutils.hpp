@@ -80,7 +80,7 @@ private:
         = crypto::cCertChainsCount * crypto::cCertChainSize * sizeof(crypto::x509::Certificate)
         + sizeof(PEMCertChainBlob);
     static constexpr auto cKeyAllocatorSize
-        = AOS_CONFIG_CRYPTO_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cPrivKeyPEMLen);
+        = AOS_CONFIG_CRYPTO_PRIV_KEYS_COUNT * pkcs11::cPrivateKeyMaxSize + sizeof(crypto::cPrivKeyPEMLen);
     static constexpr auto cNumAllocation = AOS_CONFIG_CRYPTO_NUM_ALLOCATIONS;
 
     static constexpr auto cDefaultPKCS11Library = AOS_CONFIG_CRYPTO_DEFAULT_PKCS11_LIB;

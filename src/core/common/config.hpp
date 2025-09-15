@@ -754,10 +754,17 @@
 #endif
 
 /**
- * Number of private keys to be stored in crypto::CertLoader.
+ * Maximum number of private keys loaded at the same time.
  */
-#ifndef AOS_CONFIG_CRYPTO_KEYS_COUNT
-#define AOS_CONFIG_CRYPTO_KEYS_COUNT 8
+#ifndef AOS_CONFIG_CRYPTO_PRIV_KEYS_COUNT
+#define AOS_CONFIG_CRYPTO_PRIV_KEYS_COUNT 8
+#endif
+
+/**
+ * Maximum number of public keys loaded at the same time.
+ */
+#ifndef AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT
+#define AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT 8
 #endif
 
 /**
@@ -782,17 +789,17 @@
 #endif
 
 /**
- * Maximum number of public keys to be allocated by cryptoprovider simultaneously.
- */
-#ifndef AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT
-#define AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT 8
-#endif
-
-/**
  * Maximum number of hasher instances to be allocated by cryptoprovider.
  */
 #ifndef AOS_CONFIG_CRYPTO_HASHER_COUNT
 #define AOS_CONFIG_CRYPTO_HASHER_COUNT 32
+#endif
+
+/**
+ * Maximum number of AES Cipher instances.
+ */
+#ifndef AOS_CONFIG_CRYPTO_AES_CIPHER_COUNT
+#define AOS_CONFIG_CRYPTO_AES_CIPHER_COUNT 8
 #endif
 
 /**
