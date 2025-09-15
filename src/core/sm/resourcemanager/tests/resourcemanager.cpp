@@ -247,9 +247,9 @@ TEST_F(ResourceManagerTest, AllocateDeviceFailsOnDeviceNotFoundInConfig)
 TEST_F(ResourceManagerTest, AllocateDevice)
 {
     struct TestCase {
-        DeviceInfo                                mDeviceInfo;
-        std::vector<StaticString<cInstanceIDLen>> mInstancesToAllocate;
-        std::vector<StaticString<cInstanceIDLen>> mExpectedInstances;
+        DeviceInfo                        mDeviceInfo;
+        std::vector<StaticString<cIDLen>> mInstancesToAllocate;
+        std::vector<StaticString<cIDLen>> mExpectedInstances;
     } testCases[] = {
         {CreateDeviceInfo("device0", 0, {"/dev/zero"}, {"group0"}), {"instance0", "instance1", "instance2"},
             {"instance0", "instance1", "instance2"}},
@@ -259,7 +259,7 @@ TEST_F(ResourceManagerTest, AllocateDevice)
             {"instance0", "instance1"}},
     };
 
-    StaticArray<StaticString<cInstanceIDLen>, ArraySize(testCases)> instances;
+    StaticArray<StaticString<cIDLen>, ArraySize(testCases)> instances;
 
     // Initialize resource manager config
     for (const auto& testCase : testCases) {
@@ -287,7 +287,7 @@ TEST_F(ResourceManagerTest, AllocateDevice)
         ASSERT_TRUE(mResourceManager.GetDeviceInstances(testCase.mDeviceInfo.mName, instances).IsNone());
 
         ASSERT_EQ(instances,
-            Array<StaticString<cInstanceIDLen>>(testCase.mExpectedInstances.data(), testCase.mExpectedInstances.size()))
+            Array<StaticString<cIDLen>>(testCase.mExpectedInstances.data(), testCase.mExpectedInstances.size()))
             << "Allocated instances mismatch for device " << testCase.mDeviceInfo.mName.CStr();
     }
 }
@@ -307,7 +307,7 @@ TEST_F(ResourceManagerTest, AllocateDeviceForTheSameInstanceIsNotAnError)
         ASSERT_TRUE(mResourceManager.AllocateDevice(deviceInfo.mName, "instance0").IsNone());
     }
 
-    StaticArray<StaticString<cInstanceIDLen>, 2> instances;
+    StaticArray<StaticString<cIDLen>, 2> instances;
 
     ASSERT_TRUE(mResourceManager.GetDeviceInstances(deviceInfo.mName, instances).IsNone());
 
@@ -339,7 +339,7 @@ TEST_F(ResourceManagerTest, ReleaseDevice)
     // release one instance
     ASSERT_TRUE(mResourceManager.ReleaseDevice(device0Info.mName, "instance0").IsNone());
 
-    StaticArray<StaticString<cInstanceIDLen>, 2> instances;
+    StaticArray<StaticString<cIDLen>, 2> instances;
     ASSERT_TRUE(mResourceManager.GetDeviceInstances(device0Info.mName, instances).IsNone());
 
     ASSERT_EQ(instances.Size(), 1);
@@ -379,7 +379,7 @@ TEST_F(ResourceManagerTest, ResetAllocatedDevices)
     ASSERT_TRUE(mResourceManager.AllocateDevice(deviceInfo.mName, "instance0").IsNone());
     ASSERT_TRUE(mResourceManager.AllocateDevice(deviceInfo.mName, "instance1").IsNone());
 
-    StaticArray<StaticString<cInstanceIDLen>, 2> instances;
+    StaticArray<StaticString<cIDLen>, 2> instances;
     ASSERT_TRUE(mResourceManager.GetDeviceInstances(deviceInfo.mName, instances).IsNone());
 
     ASSERT_EQ(instances.Size(), 2);
@@ -395,7 +395,7 @@ TEST_F(ResourceManagerTest, GetDeviceInstancesReturnsNotFound)
 {
     InitResourceManager();
 
-    StaticArray<StaticString<cInstanceIDLen>, 1> instances;
+    StaticArray<StaticString<cIDLen>, 1> instances;
 
     ASSERT_TRUE(mResourceManager.GetDeviceInstances("unknown", instances).Is(ErrorEnum::eNotFound));
 }

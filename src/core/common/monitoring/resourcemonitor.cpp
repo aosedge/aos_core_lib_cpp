@@ -613,7 +613,7 @@ RetWithError<uint64_t> ResourceMonitor::GetPartitionTotalSize(const String& name
 
 UniquePtr<ResourceIdentifier> ResourceMonitor::CreateResourceIdentifier(ResourceLevel level, ResourceType type,
     const Optional<StaticString<cPartitionNameLen>>& partitionName,
-    const Optional<StaticString<cInstanceIDLen>>&    instanceID) const
+    const Optional<StaticString<cIDLen>>&            instanceID) const
 {
     return MakeUnique<ResourceIdentifier>(&mAllocator, level, type, partitionName, instanceID);
 }

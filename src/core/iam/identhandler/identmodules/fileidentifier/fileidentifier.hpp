@@ -57,7 +57,7 @@ public:
      *
      * @returns RetWithError<StaticString>.
      */
-    RetWithError<StaticString<cSystemIDLen>> GetSystemID() override;
+    RetWithError<StaticString<cIDLen>> GetSystemID() override;
 
     /**
      * Returns unit model.
@@ -72,7 +72,7 @@ public:
      * @param[out] subjects result subjects.
      * @returns Error.
      */
-    Error GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects) override;
+    Error GetSubjects(Array<StaticString<cIDLen>>& subjects) override;
 
     /**
      * Destroys ident handler interface.
@@ -84,11 +84,11 @@ private:
     Error ReadUnitModel();
     Error ReadSubjects();
 
-    Config                                                    mConfig {};
-    SubjectsObserverItf*                                      mSubjectsObserver {};
-    StaticString<cSystemIDLen>                                mSystemId;
-    StaticString<cUnitModelLen>                               mUnitModel;
-    StaticArray<StaticString<cSubjectIDLen>, cMaxNumSubjects> mSubjects;
+    Config                                             mConfig {};
+    SubjectsObserverItf*                               mSubjectsObserver {};
+    StaticString<cIDLen>                               mSystemId;
+    StaticString<cIDLen>                               mUnitModel;
+    StaticArray<StaticString<cIDLen>, cMaxNumSubjects> mSubjects;
 };
 
 /** @}*/

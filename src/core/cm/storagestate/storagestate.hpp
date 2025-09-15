@@ -35,7 +35,7 @@ struct SetupParams {
  */
 struct StorageStateInstanceInfo {
     InstanceIdentObsolete                 mInstanceIdent;
-    StaticString<cInstanceIDLen>          mInstanceID;
+    StaticString<cIDLen>                  mInstanceID;
     size_t                                mStorageQuota {};
     size_t                                mStateQuota {};
     StaticString<crypto::cSHA2DigestSize> mStateChecksum;

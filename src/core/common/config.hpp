@@ -37,13 +37,6 @@
 #endif
 
 /**
- * Service provider ID len.
- */
-#ifndef AOS_CONFIG_TYPES_PROVIDER_ID_LEN
-#define AOS_CONFIG_TYPES_PROVIDER_ID_LEN 40
-#endif
-
-/**
  * Max number of service providers.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS
@@ -51,17 +44,10 @@
 #endif
 
 /**
- * Service ID len.
+ * ID len.
  */
-#ifndef AOS_CONFIG_TYPES_SERVICE_ID_LEN
-#define AOS_CONFIG_TYPES_SERVICE_ID_LEN 40
-#endif
-
-/**
- * Subject ID len.
- */
-#ifndef AOS_CONFIG_TYPES_SUBJECT_ID_LEN
-#define AOS_CONFIG_TYPES_SUBJECT_ID_LEN 40
+#ifndef AOS_CONFIG_TYPES_ID_LEN
+#define AOS_CONFIG_TYPES_ID_LEN 40
 #endif
 
 /**
@@ -69,13 +55,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS
 #define AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS 4
-#endif
-
-/**
- * System ID len.
- */
-#ifndef AOS_CONFIG_TYPES_SYSTEM_ID_LEN
-#define AOS_CONFIG_TYPES_SYSTEM_ID_LEN 40
 #endif
 
 /**

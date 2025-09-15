@@ -91,7 +91,7 @@ public:
      * @param nodeID node identifier.
      * @return Error.
      */
-    virtual Error UpdateProviderNetwork(const Array<StaticString<cProviderIDLen>>& providers, const String& nodeID) = 0;
+    virtual Error UpdateProviderNetwork(const Array<StaticString<cIDLen>>& providers, const String& nodeID) = 0;
 };
 
 /** @}*/

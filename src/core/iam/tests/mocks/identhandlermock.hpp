@@ -19,7 +19,7 @@ namespace aos::iam::identhandler {
  */
 class SubjectsObserverMock : public SubjectsObserverItf {
 public:
-    MOCK_METHOD(Error, SubjectsChanged, (const Array<StaticString<cSubjectIDLen>>&), (override));
+    MOCK_METHOD(Error, SubjectsChanged, (const Array<StaticString<cIDLen>>&), (override));
 };
 
 /**
@@ -27,9 +27,9 @@ public:
  */
 class IdentHandlerMock : public IdentHandlerItf {
 public:
-    MOCK_METHOD(RetWithError<StaticString<cSystemIDLen>>, GetSystemID, (), (override));
+    MOCK_METHOD(RetWithError<StaticString<cIDLen>>, GetSystemID, (), (override));
     MOCK_METHOD(RetWithError<StaticString<cUnitModelLen>>, GetUnitModel, (), (override));
-    MOCK_METHOD(Error, GetSubjects, (Array<StaticString<cSubjectIDLen>> & subjects), (override));
+    MOCK_METHOD(Error, GetSubjects, (Array<StaticString<cIDLen>> & subjects), (override));
 };
 
 } // namespace aos::iam::identhandler

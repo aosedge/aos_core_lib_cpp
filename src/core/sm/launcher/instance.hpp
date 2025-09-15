@@ -373,7 +373,7 @@ private:
     static Mutex                                            sMutex;
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
-    StaticString<cInstanceIDLen>         mInstanceID;
+    StaticString<cIDLen>                 mInstanceID;
     InstanceInfoObsolete                 mInstanceInfo;
     servicemanager::ServiceData          mService;
     const Config&                        mConfig;

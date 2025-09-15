@@ -120,8 +120,8 @@ struct MessageHeader {
     {
     }
 
-    size_t                     mVersion {};
-    StaticString<cSystemIDLen> mSystemID;
+    size_t               mVersion {};
+    StaticString<cIDLen> mSystemID;
 
     /**
      * Compares message headers.

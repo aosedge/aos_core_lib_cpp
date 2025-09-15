@@ -90,9 +90,9 @@ struct Identifier {
  * Instance filter.
  */
 struct InstanceFilter {
-    Optional<StaticString<cServiceIDLen>> mServiceID;
-    Optional<StaticString<cSubjectIDLen>> mSubjectID;
-    Optional<uint64_t>                    mInstance;
+    Optional<StaticString<cIDLen>> mServiceID;
+    Optional<StaticString<cIDLen>> mSubjectID;
+    Optional<uint64_t>             mInstance;
 
     /**
      * Returns true if instance ident matches filter.
