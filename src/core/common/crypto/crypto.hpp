@@ -242,6 +242,30 @@ using HashEnum = HashType::Enum;
 using Hash     = EnumStringer<HashType>;
 
 /**
+ * Padding type.
+ */
+class PaddingType {
+public:
+    enum class Enum { ePKCS1v1_5, ePSS, eNone };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sContentTypeStrings[] = {"PKCS1v1_5", "PSS", "Node"};
+        return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
+    };
+};
+
+using PaddingEnum = PaddingType::Enum;
+using Padding     = EnumStringer<PaddingType>;
+
+/**
+ * Verify options.
+ */
+struct VerifyOptions {
+    Time mCurrentTime;
+};
+
+/**
  * Hash interface.
  */
 class HashItf {
@@ -1169,6 +1193,33 @@ public:
      * @result Error.
      */
     virtual Error ASN1DecodeOID(const Array<uint8_t>& inOID, Array<uint8_t>& dst) = 0;
+
+    /**
+     * Verifies a digital signature using the provided public key and digest.
+     *
+     * @param pubKey public key.
+     * @param hashFunc hash function that was used to produce the digest.
+     * @param padding padding type.
+     * @param digest message digest to verify.
+     * @param signature signature to verify against the digest.
+     * @return Error.
+     */
+    virtual Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
+        const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+        = 0;
+
+    /**
+     * Verifies the certificate against a chain of intermediate and root certificates.
+     *
+     * @param rootCerts trusted root certificates.
+     * @param intermCerts intermediate certificate chain used to build the path to a trusted root.
+     * @param options verify options.
+     * @param cert certificate to verify.
+     * @return Error.
+     */
+    virtual Error Verify(const Array<Certificate>& rootCerts, const Array<Certificate>& intermCerts,
+        const VerifyOptions& options, const Certificate& cert)
+        = 0;
 
     /**
      * Destroys object instance.
