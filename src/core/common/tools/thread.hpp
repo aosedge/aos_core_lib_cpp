@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <cstdint>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "config.hpp"
 #include "error.hpp"
@@ -221,8 +222,46 @@ private:
 };
 
 /**
- * Aos lock guard.
+ * Aos semaphore.
  */
+class Semaphore {
+public:
+    /**
+     * Constructs Aos semaphore.
+     *
+     * @param initial initial semaphore value.
+     */
+    explicit Semaphore(unsigned int initial = 1) { sem_init(&mSem, 0, initial); }
+
+    /**
+     * Destroys Aos semaphore.
+     */
+    ~Semaphore() { sem_destroy(&mSem); }
+
+    /**
+     * Locks semaphore.
+     *
+     * @return Error.
+     */
+    Error Lock() { return sem_wait(&mSem); }
+
+    /**
+     * Unlocks semaphore.
+     *
+     * @return Error.
+     */
+    Error Unlock() { return sem_post(&mSem); }
+
+private:
+    sem_t mSem;
+};
+
+/**
+ * Aos lock guard.
+ *
+ * @tparam Locker synchronization primitive(mutex, semaphore).
+ */
+template <typename Locker = Mutex>
 class LockGuard : private NonCopyable {
 public:
     /**
@@ -230,16 +269,16 @@ public:
      *
      * @param mutex mutex used to guard.
      */
-    explicit LockGuard(Mutex& mutex)
-        : mMutex(mutex)
+    explicit LockGuard(Locker& locker)
+        : mLocker(locker)
     {
-        mError = mMutex.Lock();
+        mError = mLocker.Lock();
     }
 
     /**
      * Destroys lock guard instance.
      */
-    ~LockGuard() { mMutex.Unlock(); }
+    ~LockGuard() { mLocker.Unlock(); }
 
     /**
      * Returns current lock guard error.
@@ -249,22 +288,24 @@ public:
     Error GetError() { return mError; }
 
 private:
-    Mutex& mMutex;
-    Error  mError;
+    Locker& mLocker;
+    Error   mError;
 };
 
 /**
  * Aos unique lock.
+ * @tparam Locker synchronization primitive(mutex, semaphore).
  */
+template <typename Locker = Mutex>
 class UniqueLock : private NonCopyable {
 public:
     /**
      * Creates unique lock instance.
      *
-     * @param mutex mutex used to guard.
+     * @param lock synchronization primitive to lock.
      */
-    explicit UniqueLock(Mutex& mutex)
-        : mMutex(mutex)
+    explicit UniqueLock(Locker& lock)
+        : mLocker(lock)
         , mIsLocked(false)
     {
         mError = Lock();
@@ -285,7 +326,7 @@ public:
      */
     Error Lock()
     {
-        if (mError = mMutex.Lock(); !mError.IsNone()) {
+        if (mError = mLocker.Lock(); !mError.IsNone()) {
             return mError;
         }
 
@@ -299,7 +340,7 @@ public:
      */
     Error Unlock()
     {
-        if (mError = mMutex.Unlock(); !mError.IsNone()) {
+        if (mError = mLocker.Unlock(); !mError.IsNone()) {
             return mError;
         }
 
@@ -316,16 +357,16 @@ public:
     Error GetError() const { return mError; }
 
     /**
-     * Returns reference to holding mutex.
+     * Returns reference to holding lock.
      *
      * @return Mutex&.
      */
-    Mutex& GetMutex() { return mMutex; }
+    Mutex& GetLock() { return mLocker; }
 
 private:
-    Mutex& mMutex;
-    bool   mIsLocked;
-    Error  mError;
+    Locker& mLocker;
+    bool    mIsLocked;
+    Error   mError;
 };
 
 /**
@@ -349,9 +390,9 @@ public:
      * @param lock unique lock.
      * @return Error.
      */
-    Error Wait(UniqueLock& lock)
+    Error Wait(UniqueLock<>& lock)
     {
-        return mError = pthread_cond_wait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetMutex()));
+        return mError = pthread_cond_wait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetLock()));
     }
 
     /**
@@ -361,11 +402,11 @@ public:
      * @param absTime absolute time.
      * @return Error.
      */
-    Error Wait(UniqueLock& lock, Time absTime)
+    Error Wait(UniqueLock<>& lock, Time absTime)
     {
         auto unixTime = absTime.UnixTime();
 
-        auto ret = pthread_cond_timedwait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetMutex()), &unixTime);
+        auto ret = pthread_cond_timedwait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetLock()), &unixTime);
 
         if (ret == ETIMEDOUT) {
             return mError = ErrorEnum::eTimeout;
@@ -381,7 +422,7 @@ public:
      * @param absTime absolute time.
      * @return Error.
      */
-    Error Wait(UniqueLock& lock, Duration duration) { return Wait(lock, Time::Now(cClockID).Add(duration)); }
+    Error Wait(UniqueLock<>& lock, Duration duration) { return Wait(lock, Time::Now(cClockID).Add(duration)); }
 
     /**
      * Blocks the current thread until the condition variable is awakened and predicate condition is met.
@@ -391,7 +432,7 @@ public:
      * @return Error.
      */
     template <typename T>
-    Error Wait(UniqueLock& lock, T waitCondition)
+    Error Wait(UniqueLock<>& lock, T waitCondition)
     {
         while (!waitCondition()) {
             auto err = Wait(lock);
@@ -413,7 +454,7 @@ public:
      * @return Error.
      */
     template <typename T>
-    Error Wait(UniqueLock& lock, Time absTime, T waitCondition)
+    Error Wait(UniqueLock<>& lock, Time absTime, T waitCondition)
     {
         while (!waitCondition()) {
             auto err = Wait(lock, absTime);
@@ -435,7 +476,7 @@ public:
      * @return Error.
      */
     template <typename T>
-    Error Wait(UniqueLock& lock, Duration duration, T waitCondition)
+    Error Wait(UniqueLock<>& lock, Duration duration, T waitCondition)
     {
         return Wait(lock, Time::Now(cClockID).Add(duration), waitCondition);
     }
