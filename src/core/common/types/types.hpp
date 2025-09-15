@@ -414,6 +414,11 @@ static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONN
 constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
 
 /**
+ * Max number of concurrent items.
+ */
+constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
+
+/**
  * Architecture info.
  */
 struct ArchInfo {

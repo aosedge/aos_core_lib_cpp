@@ -555,6 +555,13 @@
 #endif
 
 /**
+ * Max number of concurrent items.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS
+#define AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS 2
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1207,6 +1214,20 @@
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
 #define AOS_CONFIG_TIMERS_MAX_COUNT 32
+#endif
+
+/**
+ * Number of recipient info in envelope data.
+ */
+#ifndef AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVELOPEDATA
+#define AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVELOPEDATA 4
+#endif
+
+/**
+ * Maximum size for cloud metadata.
+ */
+#ifndef AOS_CONFIG_CRYPTO_ENCRYPT_METADATA
+#define AOS_CONFIG_CRYPTO_ENCRYPT_METADATA 1024
 #endif
 
 /**
