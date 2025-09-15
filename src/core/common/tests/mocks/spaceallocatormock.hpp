@@ -18,6 +18,23 @@ public:
     MOCK_METHOD(Error, RemoveItem, (const String& id), (override));
 };
 
+class MockSpace : public SpaceItf {
+public:
+    MOCK_METHOD(Error, Accept, (), (override));
+    MOCK_METHOD(Error, Release, (), (override));
+    MOCK_METHOD(Error, Resize, (size_t size), (override));
+    MOCK_METHOD(size_t, Size, (), (const, override));
+};
+
+class MockSpaceAllocator : public SpaceAllocatorItf {
+public:
+    MOCK_METHOD(RetWithError<UniquePtr<SpaceItf>>, AllocateSpace, (size_t size), (override));
+    MOCK_METHOD(void, FreeSpace, (size_t size), (override));
+    MOCK_METHOD(Error, AddOutdatedItem, (const String& id, size_t size, const Time& timestamp), (override));
+    MOCK_METHOD(Error, RestoreOutdatedItem, (const String& id), (override));
+    MOCK_METHOD(Error, AllocateDone, (), (override));
+};
+
 } // namespace aos::spaceallocator
 
 #endif
