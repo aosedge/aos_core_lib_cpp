@@ -592,62 +592,6 @@ struct NetworkParameters {
 };
 
 /**
- * Instance run state.
- */
-class InstanceRunStateType {
-public:
-    enum class Enum { eFailed, eActive, eNumStates };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {"failed", "active"};
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using InstanceRunStateEnum = InstanceRunStateType::Enum;
-using InstanceRunState     = EnumStringer<InstanceRunStateType>;
-
-/**
- * Instance status.
- */
-struct InstanceStatusObsolete {
-    InstanceIdent                   mInstanceIdent;
-    StaticString<cVersionLen>       mServiceVersion;
-    StaticString<2 * cSHA3_224Size> mStateChecksum;
-    InstanceRunState                mStatus;
-    StaticString<cNodeIDLen>        mNodeID;
-    Error                           mError;
-
-    /**
-     * Compares instance status.
-     *
-     * @param instance status to compare.
-     * @return bool.
-     */
-    bool operator==(const InstanceStatusObsolete& instance) const
-    {
-        return mInstanceIdent == instance.mInstanceIdent && mServiceVersion == instance.mServiceVersion
-            && mStateChecksum == instance.mStateChecksum && mStatus == instance.mStatus && mNodeID == instance.mNodeID
-            && mError == instance.mError;
-    }
-
-    /**
-     * Compares instance status.
-     *
-     * @param instance status to compare.
-     * @return bool.
-     */
-    bool operator!=(const InstanceStatusObsolete& instance) const { return !operator==(instance); }
-};
-
-/**
- * Instance status static array.
- */
-using InstanceStatusObsoleteStaticArray = StaticArray<InstanceStatusObsolete, cMaxNumInstances>;
-
-/**
  * Item status type.
  */
 class ItemStatusType {
@@ -843,7 +787,7 @@ struct InstanceStatus {
 /**
  * Instance status static array.
  */
-using InstanceStatusObsoleteStaticArray = StaticArray<InstanceStatusObsolete, cMaxNumInstances>;
+using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
 
 /**
  * Service status.

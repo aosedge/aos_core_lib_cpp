@@ -171,18 +171,18 @@ Error ResourceMonitor::StartInstanceMonitoring(const String& instanceID, const I
     return ErrorEnum::eNone;
 }
 
-Error ResourceMonitor::UpdateInstanceRunState(const String& instanceID, InstanceRunState runState)
+Error ResourceMonitor::UpdateInstanceState(const String& instanceID, InstanceState state)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Update instance run state: instanceID=" << instanceID << ", runState=" << runState;
+    LOG_DBG() << "Update instance state: instanceID=" << instanceID << ", state=" << state;
 
     auto instanceData = mInstanceMonitoringData.Find(instanceID);
     if (instanceData == mInstanceMonitoringData.end()) {
         return ErrorEnum::eNotFound;
     }
 
-    instanceData->mSecond.mRunState = runState;
+    instanceData->mSecond.mState = state;
 
     return ErrorEnum::eNone;
 }
@@ -510,7 +510,7 @@ void ResourceMonitor::ProcessMonitoring()
     for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
         if (auto err = mResourceUsageProvider->GetInstanceMonitoringData(instanceID, instanceMonitoringData);
             !err.IsNone()) {
-            if (instanceMonitoringData.mRunState == InstanceRunStateEnum::eActive) {
+            if (instanceMonitoringData.mState == InstanceStateEnum::eActive) {
                 LOG_ERR() << "Failed to get instance monitoring data: err=" << err;
             }
 

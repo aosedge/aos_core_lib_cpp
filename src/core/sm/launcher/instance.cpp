@@ -124,13 +124,13 @@ Error Instance::Start()
 
     auto runStatus = mRunner.StartInstance(mInstanceID, mRuntimeDir, runParams);
 
-    mRunState = runStatus.mState;
+    mState = runStatus.mState;
 
     if (!runStatus.mError.IsNone()) {
         return AOS_ERROR_WRAP(runStatus.mError);
     }
 
-    if (auto err = mResourceMonitor.UpdateInstanceRunState(mInstanceID, mRunState); !err.IsNone()) {
+    if (auto err = mResourceMonitor.UpdateInstanceState(mInstanceID, mState); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -189,13 +189,13 @@ void Instance::SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars
     mOverrideEnvVars = envVars;
 };
 
-Error Instance::ToInstanceStatus(InstanceStatusObsolete& instanceStatus) const
+Error Instance::ToInstanceStatus(InstanceStatus& instanceStatus) const
 {
     instanceStatus.mInstanceIdent = mInstanceInfo.mInstanceIdent;
-    instanceStatus.mStatus        = mRunState;
-    instanceStatus.mError         = mRunError;
+    instanceStatus.mState         = mState;
+    instanceStatus.mError         = mError;
 
-    if (auto err = instanceStatus.mServiceVersion.Assign(mService.mVersion); !err.IsNone()) {
+    if (auto err = instanceStatus.mVersion.Assign(mService.mVersion); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
