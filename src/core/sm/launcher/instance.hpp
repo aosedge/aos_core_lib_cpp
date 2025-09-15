@@ -151,13 +151,12 @@ public:
      * @param hostWhiteoutsDir host whiteouts directory.
      * @param nodeInfo node info.
      */
-    Instance(const InstanceInfoObsolete& instanceInfo, const String& instanceID,
-        const servicemanager::ServiceData& service, const Config& config,
-        servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
-        resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
-        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
-        monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir,
-        const NodeInfoObsolete& nodeInfo);
+    Instance(const InstanceInfo& instanceInfo, const String& instanceID, const servicemanager::ServiceData& service,
+        const Config& config, servicemanager::ServiceManagerItf& serviceManager,
+        layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
+        networkmanager::NetworkManagerItf& networkManager, iam::permhandler::PermHandlerItf& permHandler,
+        runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
+        oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfoObsolete& nodeInfo);
 
     /**
      * Starts instance.
@@ -185,7 +184,7 @@ public:
      *
      * @return instance info.
      */
-    const InstanceInfoObsolete& Info() const { return mInstanceInfo; };
+    const InstanceInfo& Info() const { return mInstanceInfo; };
 
     /**
      * Sets run state.
@@ -289,7 +288,7 @@ public:
      * @param info info to compare.
      * @return bool.
      */
-    bool operator==(const InstanceInfoObsolete& info) const { return mInstanceInfo == info; }
+    bool operator==(const InstanceInfo& info) const { return mInstanceInfo == info; }
 
     /**
      * Compares instance with instance info.
@@ -297,7 +296,7 @@ public:
      * @param info info to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceInfoObsolete& info) const { return !operator==(info); }
+    bool operator!=(const InstanceInfo& info) const { return !operator==(info); }
 
     /**
      * Outputs instance to log.
@@ -374,7 +373,7 @@ private:
     static StaticAllocator<cAllocatorSize, cNumAllocations> sAllocator;
 
     StaticString<cIDLen>                 mInstanceID;
-    InstanceInfoObsolete                 mInstanceInfo;
+    InstanceInfo                         mInstanceInfo;
     servicemanager::ServiceData          mService;
     const Config&                        mConfig;
     servicemanager::ServiceManagerItf&   mServiceManager;
