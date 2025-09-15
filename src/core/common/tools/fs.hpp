@@ -10,6 +10,9 @@
 
 #include <dirent.h>
 
+#include <core/common/crypto/crypto.hpp>
+#include <core/common/types/types.hpp>
+
 #include "config.hpp"
 #include "noncopyable.hpp"
 #include "string.hpp"
@@ -148,6 +151,68 @@ private:
     DIR*                       mDir = nullptr;
     Entry                      mEntry;
     StaticString<cFilePathLen> mRoot;
+};
+
+/**
+ * File info.
+ */
+struct FileInfo {
+    /**
+     * Constructor.
+     */
+    FileInfo() = default;
+
+    StaticArray<uint8_t, cSHA256Size> mSHA256;
+    size_t                            mSize {};
+};
+
+/**
+ * File info provider.
+ */
+class FileInfoProviderItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~FileInfoProviderItf() = default;
+
+    /**
+     * Creates file info.
+     *
+     * @param path file path.
+     * @param[out] info file info.
+     * @return Error.
+     */
+    virtual Error CreateFileInfo(const String& path, FileInfo& info) = 0;
+};
+
+/**
+ * File info provider implementation.
+ */
+class FileInfoProvider : public FileInfoProviderItf {
+public:
+    /**
+     * Initializes file info provider.
+     *
+     * @param hashProvider hash provider.
+     * @return Error.
+     */
+    Error Init(crypto::HasherItf& hashProvider);
+
+    /**
+     * Creates file info.
+     *
+     * @param path file path.
+     * @param[out] info file info.
+     * @return Error.
+     */
+    Error CreateFileInfo(const String& path, FileInfo& info) override;
+
+private:
+    static constexpr auto cReadFileBufferSize = AOS_CONFIG_TYPES_READ_FILE_BUFFER_SIZE;
+
+    crypto::HasherItf*                        mHashProvider {};
+    StaticArray<uint8_t, cReadFileBufferSize> mReadFileBuffer;
 };
 
 using DirIteratorStaticArray = StaticArray<DirIterator, cDirIteratorMaxSize>;

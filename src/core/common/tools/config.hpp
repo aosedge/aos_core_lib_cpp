@@ -100,6 +100,13 @@
 #endif
 
 /**
+ * Read file buffer size.
+ */
+#ifndef AOS_CONFIG_TYPES_READ_FILE_BUFFER_SIZE
+#define AOS_CONFIG_TYPES_READ_FILE_BUFFER_SIZE 32 * 1024
+#endif
+
+/**
  * Directory iterator max count.
  */
 #ifndef AOS_CONFIG_FS_DIR_ITERATOR_MAX_COUNT
