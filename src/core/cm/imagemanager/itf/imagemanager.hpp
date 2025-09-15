@@ -53,7 +53,7 @@ struct UpdateImageInfo {
  * Update item info.
  */
 struct UpdateItemInfo {
-    uuid::UUID                                        mID;
+    StaticString<cIDLen>                              mID;
     UpdateItemType                                    mType;
     StaticString<cVersionLen>                         mVersion;
     StaticArray<UpdateImageInfo, cMaxNumUpdateImages> mImages;
@@ -82,7 +82,7 @@ struct UpdateItemInfo {
  * Update item status.
  */
 struct UpdateItemStatus {
-    uuid::UUID                                                         mID;
+    StaticString<cIDLen>                                               mID;
     StaticString<cVersionLen>                                          mVersion;
     StaticArray<cloudprotocol::UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
 
@@ -145,7 +145,7 @@ public:
      * @param[out] statuses update items statuses.
      * @return Error.
      */
-    virtual Error UninstallUpdateItems(const Array<uuid::UUID>& ids, Array<UpdateItemStatus>& statuses) = 0;
+    virtual Error UninstallUpdateItems(const Array<StaticString<cIDLen>>& ids, Array<UpdateItemStatus>& statuses) = 0;
 
     /**
      * Reverts update items.
@@ -153,7 +153,7 @@ public:
      * @param ids update items ID's.
      * @return Error.
      */
-    virtual Error RevertUpdateItems(const Array<uuid::UUID>& ids, Array<UpdateItemStatus>& statuses) = 0;
+    virtual Error RevertUpdateItems(const Array<StaticString<cIDLen>>& ids, Array<UpdateItemStatus>& statuses) = 0;
 };
 
 /** @}*/
