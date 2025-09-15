@@ -205,6 +205,152 @@ public:
      */
     RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID& space, const Array<uint8_t>& name) override;
 
+    /**
+     * Creates a new AES encoder.
+     *
+     * @param mode AES mode: "CBC" supported only.
+     * @param key encryption key.
+     * @param iv initialization vector: must be 16 bytes for CBC mode.
+     * @return RetWithError<UniquePtr<AESCipherItf>>.
+     */
+    RetWithError<UniquePtr<AESCipherItf>> CreateAESEncoder(
+        const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv) override;
+
+    /**
+     * Creates a new AES decoder.
+     *
+     * @param mode AES mode: "CBC" supported only.
+     * @param key decryption key.
+     * @param iv initialization vector: must be 16 bytes for CBC mode.
+     * @return RetWithError<UniquePtr<AESCipherItf>>.
+     */
+    RetWithError<UniquePtr<AESCipherItf>> CreateAESDecoder(
+        const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv) override;
+
+    /**
+     * Verifies a digital signature using provided public key and digest.
+     *
+     * @param pubKey public key.
+     * @param hashFunc hash function that was used to produce the digest.
+     * @param padding padding type.
+     * @param digest message digest to verify.
+     * @param signature signature to verify against the digest.
+     * @return Error.
+     */
+    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
+        const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
+
+    /**
+     * Verifies the certificate against a chain of intermediate and root certificates.
+     *
+     * @param rootCerts trusted root certificates.
+     * @param intermCerts intermediate certificate chain used to build the path to a trusted root.
+     * @param options verify options.
+     * @param cert certificate to verify.
+     * @return Error.
+     */
+    Error Verify(const Array<x509::Certificate>& rootCerts, const Array<x509::Certificate>& intermCerts,
+        const VerifyOptions& options, const x509::Certificate& cert) override;
+
+    /**
+     * Discards an ASN.1 tag-length and invokes reader for its content.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param asn1reader reader handles content of the structure.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadStruct(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& asn1reader) override;
+
+    /**
+     * Reads an ASN.1 SET and invokes the reader for each element.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param asn1reader reader callback to handle each element.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadSet(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& asn1reader) override;
+
+    /**
+     * Reads an ASN.1 SEQUENCE and invokes the reader for each element.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param asn1reader reader callback to handle each element.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadSequence(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& asn1reader) override;
+
+    /**
+     * Reads an ASN.1 INTEGER value.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param[out] value result integer.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadInteger(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int& value) override;
+
+    /**
+     * Reads a large ASN.1 INTEGER (BigInt) as a byte array.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param[out] result result integer bytes.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadBigInt(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result) override;
+
+    /**
+     * Reads an ASN.1 Object Identifier (OID).
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param[out] oid result OID.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadOID(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ObjectIdentifier& oid) override;
+
+    /**
+     * Reads an ASN.1 AlgorithmIdentifier(AID).
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param[out] aid result AID.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadAID(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::AlgorithmIdentifier& aid) override;
+
+    /**
+     * Reads an ASN.1 OCTET STRING.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param[out] result result octet string.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadOctetString(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result) override;
+
+    /**
+     * Returns a raw ASN.1 value.
+     *
+     * @param data input data buffer.
+     * @param opt parse options.
+     * @param[out] result parsed ASN1 value.
+     * @return ASN1ParseResult.
+     */
+    asn1::ASN1ParseResult ReadRawValue(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1Value& result) override;
+
 private:
     class MBedTLSHash : public crypto::HashItf, private NonCopyable {
     public:
@@ -219,17 +365,52 @@ private:
         psa_algorithm_t      mAlgorithm = PSA_ALG_SHA3_256;
     };
 
+    class MbedTLSAESCipher : public crypto::AESCipherItf, private NonCopyable {
+    public:
+        Error Init(const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt = true);
+        Error EncryptBlock(const Block& input, Block& output) override;
+        Error DecryptBlock(const Block& input, Block& output) override;
+        Error Finalize(Block& output);
+        ~MbedTLSAESCipher();
+
+    private:
+        bool                         mEncrypt = false;
+        mbedtls_cipher_context_t     mCtx;
+        const mbedtls_cipher_info_t* mInfo        = nullptr;
+        bool                         mInitialized = false;
+    };
+
+    class MbedTLSRSAPrivKey : public crypto::PrivateKeyItf {
+    public:
+        MbedTLSRSAPrivKey();
+
+        Error               Init(const String& pemBlob);
+        const PublicKeyItf& GetPublic() const override;
+        Error Sign(const Array<uint8_t>& digest, const SignOptions& options, Array<uint8_t>& signature) const override;
+        Error Decrypt(
+            const Array<uint8_t>& cipher, const DecryptionOptions& options, Array<uint8_t>& result) const override;
+
+        ~MbedTLSRSAPrivKey();
+
+    private:
+        mutable mbedtls_pk_context mPrivKey;
+    };
+
     static constexpr auto cAllocatorSize
         = AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey))
-        + AOS_CONFIG_CRYPTO_HASHER_COUNT * sizeof(MBedTLSHash);
+        + AOS_CONFIG_CRYPTO_HASHER_COUNT * sizeof(MBedTLSHash)
+        + AOS_CONFIG_CRYPTO_PRIV_KEYS_COUNT * sizeof(MbedTLSRSAPrivKey);
 
-    Error              ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
-    Error              GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error              GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error              ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
-    Error              ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
-    Error              ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
-    RetWithError<Time> ConvertTime(const mbedtls_x509_time& src);
+    static int                             VerifyTime(void* data, mbedtls_x509_crt* crt, int depth, uint32_t* flags);
+    static RetWithError<Time>              ConvertTime(const mbedtls_x509_time& src);
+    static RetWithError<mbedtls_x509_time> ConvertTime(const Time& src);
+
+    Error ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
+    Error GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
+    Error GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt);
+    Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
+    Error ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
+    Error ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
 
     void  InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk);
     Error SetCSRProperties(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const x509::CSR& templ);
