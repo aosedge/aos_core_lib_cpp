@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tools/thread.hpp>
+#include <thread>
 
 using namespace aos;
 
@@ -24,7 +25,7 @@ public:
     void   Inc() { mValue = mValue + mInc; }
     void   SetIncrementer(int i) { mInc = i; }
     int    GetResult() const { return mValue; }
-    Mutex& GetMutex() { return mMutex; }
+    Mutex& GetLock() { return mMutex; }
 
 private:
     int   mValue;
@@ -57,7 +58,7 @@ TEST(ThreadTest, Basic)
     EXPECT_TRUE(incThread
                     .Run([&calc](void*) {
                         for (auto i = 0; i < cNumIteration; i++) {
-                            LockGuard lock(calc.GetMutex());
+                            LockGuard lock(calc.GetLock());
                             EXPECT_TRUE(lock.GetError().IsNone());
 
                             calc.Inc();
@@ -69,7 +70,7 @@ TEST(ThreadTest, Basic)
     EXPECT_TRUE(distThread
                     .Run([&](void*) {
                         for (auto i = 0; i < cNumIteration; i++) {
-                            LockGuard lock(calc.GetMutex());
+                            LockGuard lock(calc.GetLock());
 
                             calc.SetIncrementer(0);
 
@@ -246,4 +247,42 @@ TEST(ThreadTest, ThreadPool)
     EXPECT_EQ(value3, i);
 
     EXPECT_TRUE(threadPool.Shutdown().IsNone());
+}
+
+TEST(ThreadTest, SemaphoreTest)
+{
+    Semaphore sem(2);
+    Mutex     maxMutex;
+
+    std::atomic<int> currentRunning {0};
+    int              maxRunning = 0;
+
+    auto worker = [&]() {
+        LockGuard lock {sem};
+
+        int cur = ++currentRunning;
+
+        {
+            LockGuard maxLock {maxMutex};
+            if (cur > maxRunning) {
+                maxRunning = cur;
+            }
+        }
+
+        sleep(1);
+
+        --currentRunning;
+    };
+
+    std::vector<std::thread> threads;
+
+    for (int i = 0; i < 3; i++) {
+        threads.emplace_back(worker);
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    EXPECT_EQ(maxRunning, 2) << "At most 2 threads should run simultaneously";
 }
