@@ -447,32 +447,6 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
     }
 }
 
-int ConvertHashAlgToNID(HashEnum hashAlg)
-{
-    switch (hashAlg) {
-    case HashEnum::eSHA1:
-        return NID_sha1;
-
-    case HashEnum::eSHA224:
-        return NID_sha224;
-
-    case HashEnum::eSHA256:
-        return NID_sha256;
-
-    case HashEnum::eSHA384:
-        return NID_sha384;
-
-    case HashEnum::eSHA512:
-        return NID_sha512;
-
-    case HashEnum::eSHA3_256:
-        return NID_sha3_256;
-
-    default:
-        return NID_undef;
-    }
-}
-
 void* SignNewCtx(void* provctx, const char* propq)
 {
     (void)provctx;
@@ -799,6 +773,41 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
 void AOS_OPENSSL_free(void* ptr)
 {
     OPENSSL_free(ptr);
+}
+
+int ConvertHashAlgToNID(HashEnum hashAlg)
+{
+    switch (hashAlg) {
+    case HashEnum::eSHA1:
+        return NID_sha1;
+
+    case HashEnum::eSHA224:
+        return NID_sha224;
+
+    case HashEnum::eSHA256:
+        return NID_sha256;
+
+    case HashEnum::eSHA384:
+        return NID_sha384;
+
+    case HashEnum::eSHA512:
+        return NID_sha512;
+
+    case HashEnum::eSHA512_224:
+        return NID_sha512_224;
+
+    case HashEnum::eSHA512_256:
+        return NID_sha512_256;
+
+    case HashEnum::eSHA3_224:
+        return NID_sha3_224;
+
+    case HashEnum::eSHA3_256:
+        return NID_sha3_256;
+
+    default:
+        return NID_undef;
+    }
 }
 
 } // namespace aos::crypto::openssl
