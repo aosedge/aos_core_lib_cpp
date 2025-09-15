@@ -19,12 +19,12 @@ namespace aos::cm::launcher {
  * Instance info.
  */
 struct InstanceInfo {
-    uuid::UUID        mUpdateItemID;
-    UpdateItemType    mUpdateItemType;
-    uuid::UUID        mSubjectID;
-    uint64_t          mPriority {0};
-    size_t            mNumInstances {0};
-    LabelsStaticArray mLabels;
+    StaticString<cIDLen> mUpdateItemID;
+    UpdateItemType       mUpdateItemType;
+    StaticString<cIDLen> mSubjectID;
+    uint64_t             mPriority {0};
+    size_t               mNumInstances {0};
+    LabelsStaticArray    mLabels;
 
     /**
      * Compares instance info.

@@ -182,9 +182,9 @@ using NodeInfoStaticArray = StaticArray<NodeInfo, cMaxNumNodes>;
  * Image status.
  */
 struct ImageStatus {
-    uuid::UUID mImageID;
-    ImageState mState;
-    Error      mError;
+    StaticString<cIDLen> mImageID;
+    ImageState           mState;
+    Error                mError;
 
     /**
      * Compares image status.
@@ -313,9 +313,9 @@ using SubjectStaticArray = StaticArray<Identifier, cMaxNumSubjects>;
  * Update image status.
  */
 struct UpdateImageStatus {
-    uuid::UUID  mImageID;
-    ImageStatus mStatus;
-    Error       mError;
+    StaticString<cIDLen> mImageID;
+    ImageStatus          mStatus;
+    Error                mError;
 
     /**
      * Compares image status.
