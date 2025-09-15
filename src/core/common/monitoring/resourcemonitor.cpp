@@ -257,7 +257,7 @@ cloudprotocol::AlertVariant ResourceMonitor::CreateSystemQuotaAlertTemplate(
 }
 
 cloudprotocol::AlertVariant ResourceMonitor::CreateInstanceQuotaAlertTemplate(
-    const InstanceIdentObsolete& instanceIdent, const ResourceIdentifier& resourceIdentifier) const
+    const InstanceIdent& instanceIdent, const ResourceIdentifier& resourceIdentifier) const
 {
     cloudprotocol::AlertVariant       alertItem;
     cloudprotocol::InstanceQuotaAlert quotaAlert {};

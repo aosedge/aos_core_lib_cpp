@@ -26,7 +26,7 @@ Error PermHandler::Init(crypto::UUIDItf& uuidProvider)
 }
 
 RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
-    const InstanceIdentObsolete& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
+    const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
 {
     LockGuard lock {mMutex};
 
@@ -53,7 +53,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
     return {secret};
 }
 
-Error PermHandler::UnregisterInstance(const InstanceIdentObsolete& instanceIdent)
+Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
 {
     LockGuard lock {mMutex};
 
@@ -67,8 +67,8 @@ Error PermHandler::UnregisterInstance(const InstanceIdentObsolete& instanceIdent
     return ErrorEnum::eNone;
 }
 
-Error PermHandler::GetPermissions(const String& secret, const String& funcServerID,
-    InstanceIdentObsolete& instanceIdent, Array<FunctionPermissions>& servicePermissions)
+Error PermHandler::GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
+    Array<FunctionPermissions>& servicePermissions)
 {
     LockGuard lock {mMutex};
 
@@ -100,7 +100,7 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
  * Private
  **********************************************************************************************************************/
 
-Error PermHandler::AddSecret(const String& secret, const InstanceIdentObsolete& instanceIdent,
+Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instanceIdent,
     const Array<FunctionServicePermissions>& instancePermissions)
 {
     const auto err = mInstancesPerms.EmplaceBack(secret, instanceIdent, instancePermissions);
@@ -116,7 +116,7 @@ InstancePermissions* PermHandler::FindBySecret(const String& secret)
     return mInstancesPerms.FindIf([&secret](const auto& item) { return secret == item.mSecret; });
 }
 
-InstancePermissions* PermHandler::FindByInstanceIdent(const InstanceIdentObsolete& instanceIdent)
+InstancePermissions* PermHandler::FindByInstanceIdent(const InstanceIdent& instanceIdent)
 {
     return mInstancesPerms.FindIf([&instanceIdent](const auto& elem) { return instanceIdent == elem.mInstanceIdent; });
 }
@@ -140,7 +140,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()
     return {secret};
 }
 
-RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const InstanceIdentObsolete& instanceIdent)
+RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)
 {
     const auto instance = FindByInstanceIdent(instanceIdent);
     if (instance == mInstancesPerms.end()) {

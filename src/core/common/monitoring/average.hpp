@@ -59,7 +59,7 @@ public:
      * @param instanceIdent instance identification.
      * @return Error.
      */
-    Error StopInstanceMonitoring(const InstanceIdentObsolete& instanceIdent);
+    Error StopInstanceMonitoring(const InstanceIdent& instanceIdent);
 
 private:
     struct AverageData {
@@ -72,9 +72,9 @@ private:
     Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized);
     Error GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const;
 
-    size_t                                                          mWindowCount = 0;
-    AverageData                                                     mAverageNodeData {};
-    StaticMap<InstanceIdentObsolete, AverageData, cMaxNumInstances> mAverageInstancesData {};
+    size_t                                                  mWindowCount = 0;
+    AverageData                                             mAverageNodeData {};
+    StaticMap<InstanceIdent, AverageData, cMaxNumInstances> mAverageInstancesData {};
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };

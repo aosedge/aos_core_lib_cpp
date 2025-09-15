@@ -1169,8 +1169,7 @@ Error Launcher::RemoveOutdatedEnvVars()
     return ErrorEnum::eNone;
 }
 
-Error Launcher::GetInstanceEnvVars(
-    const InstanceIdentObsolete& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const
+Error Launcher::GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const
 {
     for (const auto& currentEnvVar : mCurrentEnvVars) {
         if (currentEnvVar.mFilter.Match(instanceIdent)) {

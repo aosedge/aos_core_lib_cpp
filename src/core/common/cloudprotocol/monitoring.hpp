@@ -102,7 +102,7 @@ struct NodeMonitoringData {
  * Instance monitoring data.
  */
 struct InstanceMonitoringData {
-    InstanceIdentObsolete                              mInstanceIdent;
+    InstanceIdent                                      mInstanceIdent;
     StaticString<cNodeIDLen>                           mNodeID;
     StaticArray<MonitoringData, cMonitoringItemsCount> mItems;
 
