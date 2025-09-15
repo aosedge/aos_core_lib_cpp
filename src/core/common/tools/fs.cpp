@@ -92,6 +92,48 @@ bool DirIterator::Next()
 }
 
 /***********************************************************************************************************************
+ * FileInfoProvider implementation
+ **********************************************************************************************************************/
+
+Error FileInfoProvider::Init(crypto::HasherItf& hashProvider)
+{
+    mHashProvider = &hashProvider;
+
+    return ErrorEnum::eNone;
+}
+
+Error FileInfoProvider::CreateFileInfo(const String& path, FileInfo& info)
+{
+    auto [size, err] = CalculateSize(path);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    info.mSize = size;
+
+    auto [hasherPtr, errHash] = mHashProvider->CreateHash(crypto::HashEnum::eSHA256);
+    if (!errHash.IsNone()) {
+        return errHash;
+    }
+
+    mReadFileBuffer.Clear();
+
+    if (err = ReadFile(path, mReadFileBuffer); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = hasherPtr->Update(mReadFileBuffer); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = hasherPtr->Finalize(info.mSHA256); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
  * fs functions implementation
  **********************************************************************************************************************/
 
