@@ -68,12 +68,12 @@ struct ServiceData {
     /**
      * Service size.
      */
-    uint64_t mSize;
+    size_t mSize;
 
     /**
      * Service group identifier.
      */
-    uint32_t mGID;
+    gid_t mGID;
 
     /**
      * Compares service data.

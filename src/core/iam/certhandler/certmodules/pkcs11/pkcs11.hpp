@@ -50,12 +50,12 @@ struct PKCS11ModuleConfig {
     /**
      * User ID.
      */
-    uint32_t mUID;
+    uid_t mUID;
 
     /**
      * Group ID.
      */
-    uint32_t mGID;
+    gid_t mGID;
 
     /**
      * Module

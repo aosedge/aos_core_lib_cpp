@@ -61,8 +61,8 @@ struct PartitionParam {
 struct InstanceMonitorParams {
     InstanceIdent                                  mInstanceIdent;
     StaticArray<PartitionParam, cMaxNumPartitions> mPartitions;
-    uint32_t                                       mUID;
-    uint32_t                                       mGID;
+    uid_t                                          mUID;
+    gid_t                                          mGID;
     Optional<AlertRules>                           mAlertRules;
 };
 
@@ -118,8 +118,8 @@ struct InstanceMonitoringData {
 
     InstanceIdent  mInstanceIdent  = {};
     MonitoringData mMonitoringData = {};
-    uint32_t       mUID            = 0;
-    uint32_t       mGID            = 0;
+    uid_t          mUID            = 0;
+    gid_t          mGID            = 0;
     InstanceState  mState          = InstanceStateEnum::eFailed;
 
     /**
