@@ -9,12 +9,15 @@
 #include <stdexcept>
 #include <vector>
 
+extern "C" {
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/error.h>
 #include <mbedtls/oid.h>
 #include <mbedtls/pk.h>
+#include <mbedtls/psa_util.h>
 #include <mbedtls/x509_crt.h>
+}
 
 #include "mbedtlsfactory.hpp"
 
@@ -234,19 +237,21 @@ public:
         std::unique_ptr<mbedtls_entropy_context, decltype(&mbedtls_entropy_free)> entropyPtr(
             &entropy, mbedtls_entropy_free);
 
-        int ret = mbedtls_pk_parse_key(pkPtr.get(), reinterpret_cast<const uint8_t*>(mPrivateKey.data()),
-            mPrivateKey.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
-        if (ret != 0) {
-            return ret;
-        }
-
-        ret = mbedtls_ctr_drbg_seed(ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(),
+        int ret = mbedtls_ctr_drbg_seed(ctrDrbgPtr.get(), mbedtls_entropy_func, entropyPtr.get(),
             reinterpret_cast<const uint8_t*>(pers), strlen(pers));
         if (ret != 0) {
             return ret;
         }
 
+        ret = mbedtls_pk_parse_key(pkPtr.get(), reinterpret_cast<const uint8_t*>(mPrivateKey.c_str()),
+            mPrivateKey.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
+        if (ret != 0) {
+            return ret;
+        }
+
         size_t signatureLen;
+
+        signature.Resize(signature.MaxSize());
 
         ret = mbedtls_pk_sign(pkPtr.get(), MBEDTLS_MD_SHA256, digest.Get(), digest.Size(), signature.Get(),
             signature.Size(), &signatureLen, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
@@ -259,7 +264,8 @@ public:
         return aos::ErrorEnum::eNone;
     }
 
-    aos::Error Decrypt(const aos::Array<unsigned char>&, aos::Array<unsigned char>&) const
+    aos::Error Decrypt(
+        const aos::Array<unsigned char>&, const crypto::DecryptionOptions&, aos::Array<unsigned char>&) const
     {
         return aos::ErrorEnum::eNotSupported;
     }
@@ -325,6 +331,7 @@ public:
         }
 
         size_t signatureLen;
+        signature.Resize(signature.MaxSize());
 
         ret = mbedtls_pk_sign(pkPtr.get(), MBEDTLS_MD_SHA384, digest.Get(), digest.Size(), signature.Get(),
             signature.Size(), &signatureLen, mbedtls_ctr_drbg_random, ctrDrbgPtr.get());
@@ -332,19 +339,38 @@ public:
             return ret;
         }
 
-        // mbedtls_pk_sign adds ASN1 tags to the signature that makes a result incorrect as a raw signature expected.
-        // As a workaround for the tests just correct size of the result.
-        signature.Resize(digest.Size() * 2);
+        signature.Resize(signatureLen);
 
-        return aos::ErrorEnum::eNone;
+        mbedtls_ecp_keypair* ec   = mbedtls_pk_ec(*pkPtr);
+        size_t               bits = ec->MBEDTLS_PRIVATE(grp).pbits;
+
+        return UnpackSignature(signature, bits);
     }
 
-    aos::Error Decrypt(const aos::Array<unsigned char>&, aos::Array<unsigned char>&) const
+    aos::Error Decrypt(
+        const aos::Array<unsigned char>&, const crypto::DecryptionOptions&, aos::Array<unsigned char>&) const
     {
         return aos::ErrorEnum::eNotSupported;
     }
 
-public:
+private:
+    Error UnpackSignature(Array<uint8_t>& signature, size_t bits) const
+    {
+        size_t rawLen = 0;
+
+        int ret = mbedtls_ecdsa_der_to_raw(bits, signature.Get(), signature.Size(), signature.Get(),
+            signature.MaxSize(), // in-place: overwrite DER with raw
+            &rawLen);
+
+        if (ret != 0) {
+            return AOS_ERROR_WRAP(ret);
+        }
+
+        signature.Resize(rawLen);
+
+        return ErrorEnum::eNone;
+    }
+
     ECDSAPublicKey mPublicKey;
     std::string    mPrivateKey;
 };
@@ -469,7 +495,7 @@ RetWithError<std::shared_ptr<PrivateKeyItf>> MBedTLSCryptoFactory::GenerateECDSA
         return {{}, aos::ErrorEnum::eInvalidArgument};
     }
 
-    size_t keyLen = strlen(reinterpret_cast<char*>(pemKey.data()));
+    size_t keyLen = strlen(pemKey.c_str());
     pemKey.resize(keyLen);
 
     auto key = std::make_shared<ECDSAPrivateKey>(pemKey);

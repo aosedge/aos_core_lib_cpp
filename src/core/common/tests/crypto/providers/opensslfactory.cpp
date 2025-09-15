@@ -226,14 +226,24 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const ECDSAPublicKey& pubKey)
     return {pkey, ErrorEnum::eNone};
 }
 
-bool VerifyWithEVP(EVP_PKEY* evpKey, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
+bool VerifyWithEVP(EVP_PKEY* evpKey, KeyType keyType, const Array<uint8_t>& signature, const Array<uint8_t>& digest)
 {
     auto ctx = DeferRelease(EVP_PKEY_CTX_new(evpKey, nullptr), EVP_PKEY_CTX_free);
     if (!ctx) {
         return false;
     }
 
-    if (EVP_PKEY_verify_init(ctx.Get()) != 1 || EVP_PKEY_CTX_set_signature_md(ctx.Get(), EVP_sha256()) != 1
+    if (EVP_PKEY_verify_init(ctx.Get()) != 1) {
+        return false;
+    }
+
+    if (keyType.GetValue() == KeyTypeEnum::eRSA) {
+        if (EVP_PKEY_CTX_set_rsa_padding(ctx.Get(), RSA_PKCS1_PADDING) != 1) {
+            return false;
+        }
+    }
+
+    if (EVP_PKEY_CTX_set_signature_md(ctx.Get(), EVP_sha256()) != 1
         || EVP_PKEY_verify(ctx.Get(), signature.Get(), signature.Size(), digest.Get(), digest.Size()) != 1) {
 
         return false;
@@ -295,6 +305,7 @@ public:
         size_t sigLen = signature.MaxSize();
 
         if (EVP_PKEY_sign_init(ctx.Get()) != 1 || EVP_PKEY_CTX_set_signature_md(ctx.Get(), EVP_sha256()) != 1
+            || EVP_PKEY_CTX_set_rsa_padding(ctx.Get(), RSA_PKCS1_PADDING) != 1
             || EVP_PKEY_sign(ctx.Get(), signature.Get(), &sigLen, digest.Get(), digest.Size()) != 1) {
 
             return OPENSSL_ERROR();
@@ -303,7 +314,8 @@ public:
         return signature.Resize(sigLen);
     }
 
-    aos::Error Decrypt(const aos::Array<unsigned char>&, aos::Array<unsigned char>&) const
+    aos::Error Decrypt(
+        const aos::Array<unsigned char>&, const crypto::DecryptionOptions&, aos::Array<unsigned char>&) const
     {
         return aos::ErrorEnum::eNotSupported;
     }
@@ -374,7 +386,8 @@ public:
         return signature.Resize(sigLen);
     }
 
-    aos::Error Decrypt(const aos::Array<unsigned char>&, aos::Array<unsigned char>&) const
+    aos::Error Decrypt(
+        const aos::Array<unsigned char>&, const crypto::DecryptionOptions&, aos::Array<unsigned char>&) const
     {
         return aos::ErrorEnum::eNotSupported;
     }
@@ -583,7 +596,7 @@ bool OpenSSLCryptoFactory::VerifySignature(
 
     auto freeKey = DeferRelease(evpKey, EVP_PKEY_free);
 
-    return VerifyWithEVP(evpKey, signature, digest);
+    return VerifyWithEVP(evpKey, KeyTypeEnum::eRSA, signature, digest);
 }
 
 bool OpenSSLCryptoFactory::VerifySignature(
@@ -596,7 +609,7 @@ bool OpenSSLCryptoFactory::VerifySignature(
 
     auto freeKey = DeferRelease(evpKey, EVP_PKEY_free);
 
-    return VerifyWithEVP(evpKey, signature, digest);
+    return VerifyWithEVP(evpKey, KeyTypeEnum::eECDSA, signature, digest);
 }
 
 Error OpenSSLCryptoFactory::Encrypt(const RSAPublicKey& pubKey, const Array<uint8_t>& msg, Array<uint8_t>& cipher)
