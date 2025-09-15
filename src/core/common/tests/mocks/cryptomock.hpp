@@ -11,8 +11,25 @@
 #include <gmock/gmock.h>
 
 #include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/cryptohelper.hpp>
 
 namespace aos::crypto {
+
+/**
+ * Provides interface to mock crypto helper.
+ */
+class CryptoHelperMock : public CryptoHelperItf {
+public:
+    MOCK_METHOD(Error, Decrypt,
+        (const String& encryptedPath, const String& decryptedPath, const cloudprotocol::DecryptInfo& decryptionInfo),
+        (override));
+    MOCK_METHOD(Error, ValidateSigns,
+        (const String& decryptedPath, const cloudprotocol::SignInfo& signs,
+            const Array<cloudprotocol::CertificateChainInfo>& chains,
+            const Array<cloudprotocol::CertificateInfo>&      certs),
+        (override));
+    MOCK_METHOD(Error, DecryptMetadata, (const Array<uint8_t>& input, Array<uint8_t>& output), (override));
+};
 
 namespace x509 {
 
