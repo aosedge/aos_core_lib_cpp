@@ -37,6 +37,11 @@ public:
     MOCK_METHOD(Error, ASN1EncodeDERSequence, (const Array<Array<uint8_t>>&, Array<uint8_t>&), (override));
     MOCK_METHOD(Error, ASN1DecodeOctetString, (const Array<uint8_t>&, Array<uint8_t>&), (override));
     MOCK_METHOD(Error, ASN1DecodeOID, (const Array<uint8_t>&, Array<uint8_t>&), (override));
+    MOCK_METHOD(Error, Verify,
+        ((const Variant<ECDSAPublicKey, RSAPublicKey>&), Hash, Padding, const Array<uint8_t>&, const Array<uint8_t>&),
+        (override));
+    MOCK_METHOD(Error, Verify,
+        (const Array<Certificate>&, const Array<Certificate>&, const VerifyOptions&, const Certificate&), (override));
 };
 
 } // namespace x509
