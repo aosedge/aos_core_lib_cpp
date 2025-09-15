@@ -18,7 +18,7 @@ namespace aos::sm::runner {
  */
 struct RunStatus {
     StaticString<cIDLen> mInstanceID;
-    InstanceRunState     mState;
+    InstanceState        mState;
     Error                mError;
 
     /**

@@ -188,7 +188,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     return ErrorEnum::eNone;
 }
 
-Error Launcher::GetCurrentRunStatus(Array<InstanceStatusObsolete>& instances) const
+Error Launcher::GetCurrentRunStatus(Array<InstanceStatus>& instances) const
 {
     UniqueLock lock {mMutex};
 
@@ -199,13 +199,13 @@ Error Launcher::GetCurrentRunStatus(Array<InstanceStatusObsolete>& instances) co
     }
 
     for (const auto& instance : mCurrentInstances) {
-        if (instance.RunError().IsNone()) {
+        if (instance.GetError().IsNone()) {
             LOG_DBG() << "Run instance status: instanceID=" << instance
-                      << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState();
+                      << ", serviceVersion=" << instance.GetServiceVersion() << ", state=" << instance.GetState();
         } else {
             LOG_ERR() << "Run instance status: instanceID=" << instance
-                      << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState()
-                      << ", err=" << instance.RunError();
+                      << ", serviceVersion=" << instance.GetServiceVersion() << ", state=" << instance.GetState()
+                      << ", err=" << instance.GetError();
         }
 
         if (auto err = instances.EmplaceBack(); !err.IsNone()) {
@@ -246,7 +246,7 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
 
     LOG_DBG() << "Update run status";
 
-    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         auto currentInstance = mCurrentInstances.FindIf(
@@ -257,20 +257,19 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
             continue;
         }
 
-        if (currentInstance->RunState() != instance.mState) {
-            currentInstance->SetRunState(instance.mState);
-            currentInstance->SetRunError(instance.mError);
+        if (currentInstance->GetState() != instance.mState) {
+            currentInstance->SetState(instance.mState);
+            currentInstance->SetError(instance.mError);
 
             if (!mLaunchInProgress) {
-                if (currentInstance->RunError().IsNone()) {
+                if (currentInstance->GetError().IsNone()) {
                     LOG_DBG() << "Update instance status: instanceID=" << *currentInstance
                               << ", serviceVersion=" << currentInstance->GetServiceVersion()
-                              << ", runState=" << currentInstance->RunState();
+                              << ", state=" << currentInstance->GetState();
                 } else {
                     LOG_ERR() << "Update instance status: instanceID=" << *currentInstance
                               << ", serviceVersion=" << currentInstance->GetServiceVersion()
-                              << ", runState=" << currentInstance->RunState()
-                              << ", err=" << currentInstance->RunError();
+                              << ", state=" << currentInstance->GetState() << ", err=" << currentInstance->GetError();
                 }
 
                 if (auto err = status->EmplaceBack(); !err.IsNone()) {
@@ -513,16 +512,16 @@ Error Launcher::ProcessRestartInstances(const Array<InstanceData>& instances)
 
 Error Launcher::SendRunStatus()
 {
-    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
-        if (instance.RunError().IsNone()) {
+        if (instance.GetError().IsNone()) {
             LOG_DBG() << "Run instance status: instanceID=" << instance
-                      << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState();
+                      << ", serviceVersion=" << instance.GetServiceVersion() << ", state=" << instance.GetState();
         } else {
             LOG_ERR() << "Run instance status: instanceID=" << instance
-                      << ", serviceVersion=" << instance.GetServiceVersion() << ", runState=" << instance.RunState()
-                      << ", err=" << instance.RunError();
+                      << ", serviceVersion=" << instance.GetServiceVersion() << ", state=" << instance.GetState()
+                      << ", err=" << instance.GetError();
         }
 
         if (auto err = status->EmplaceBack(); !err.IsNone()) {
@@ -547,7 +546,7 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         StaticString<cVersionLen> serviceVersion;
@@ -559,20 +558,20 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
             serviceVersion = service->mVersion;
         }
 
-        auto runState = InstanceRunState(InstanceRunStateEnum::eFailed);
-        auto runErr   = Error(ErrorEnum::eFailed, "offline timeout");
+        auto state       = InstanceState(InstanceStateEnum::eFailed);
+        auto instanceErr = Error(ErrorEnum::eFailed, "offline timeout");
 
         LOG_ERR() << "Instance status: instanceID=" << instance.mInstanceID << ", serviceVersion=" << serviceVersion
-                  << ", runState=" << runState << ", err=" << runErr;
+                  << ", state=" << state << ", err=" << instanceErr;
 
         if (auto err = status->EmplaceBack(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        status->Back().mInstanceIdent  = instance.mInstanceInfo.mInstanceIdent;
-        status->Back().mServiceVersion = serviceVersion;
-        status->Back().mStatus         = runState;
-        status->Back().mError          = runErr;
+        status->Back().mInstanceIdent = instance.mInstanceInfo.mInstanceIdent;
+        status->Back().mVersion       = serviceVersion;
+        status->Back().mState         = state;
+        status->Back().mError         = instanceErr;
     }
 
     LOG_DBG() << "Send update status";
@@ -885,8 +884,8 @@ Error Launcher::StartInstance(const InstanceData& info)
 
             auto err = Error(ErrorEnum::eNotFound, "service not found");
 
-            mCurrentInstances.Back().SetRunState(InstanceRunStateEnum::eFailed);
-            mCurrentInstances.Back().SetRunError(err);
+            mCurrentInstances.Back().SetState(InstanceStateEnum::eFailed);
+            mCurrentInstances.Back().SetError(err);
 
             return AOS_ERROR_WRAP(err);
         }
@@ -912,8 +911,8 @@ Error Launcher::StartInstance(const InstanceData& info)
     if (auto err = instance->Start(); !err.IsNone()) {
         LockGuard lock {mMutex};
 
-        instance->SetRunState(InstanceRunStateEnum::eFailed);
-        instance->SetRunError(err);
+        instance->SetState(InstanceStateEnum::eFailed);
+        instance->SetError(err);
 
         return AOS_ERROR_WRAP(err);
     }
@@ -1217,7 +1216,7 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusObsoleteStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
 
     for (const auto& instanceData : instances) {
         auto instance = GetInstance(instanceData.mInstanceID);
@@ -1228,13 +1227,13 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
             continue;
         }
 
-        if (instance->RunError().IsNone()) {
+        if (instance->GetError().IsNone()) {
             LOG_DBG() << "Run instance status: instanceID=" << *instance
-                      << ", serviceVersion=" << instance->GetServiceVersion() << ", runState=" << instance->RunState();
+                      << ", serviceVersion=" << instance->GetServiceVersion() << ", state=" << instance->GetState();
         } else {
             LOG_ERR() << "Run instance status: instanceID=" << *instance
-                      << ", serviceVersion=" << instance->GetServiceVersion() << ", runState=" << instance->RunState()
-                      << ", err=" << instance->RunError();
+                      << ", serviceVersion=" << instance->GetServiceVersion() << ", state=" << instance->GetState()
+                      << ", err=" << instance->GetError();
         }
 
         if (auto err = status->EmplaceBack(); !err.IsNone()) {
