@@ -24,8 +24,8 @@ namespace aos::cm::storagestate {
  */
 struct SetupParams {
     InstanceIdent mInstanceIdent;
-    size_t        mUID {};
-    size_t        mGID {};
+    uid_t         mUID {};
+    gid_t         mGID {};
     size_t        mStateQuota {};
     size_t        mStorageQuota {};
 };

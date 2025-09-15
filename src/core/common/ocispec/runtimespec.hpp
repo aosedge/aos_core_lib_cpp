@@ -72,8 +72,8 @@ struct Root {
  * User specifies specific user (and group) information for the container process.
  */
 struct User {
-    uint32_t                             mUID;
-    uint32_t                             mGID;
+    uid_t                                mUID;
+    gid_t                                mGID;
     Optional<uint32_t>                   mUmask;
     StaticArray<uint32_t, cMaxNumGroups> mAdditionalGIDs;
     StaticString<cUserNameLen>           mUsername;
@@ -443,8 +443,8 @@ struct LinuxDevice {
     int64_t                      mMajor;
     int64_t                      mMinor;
     Optional<uint32_t>           mFileMode;
-    Optional<uint32_t>           mUID;
-    Optional<uint32_t>           mGID;
+    Optional<uid_t>              mUID;
+    Optional<gid_t>              mGID;
 
     /**
      * Compares LinuxDevice spec.
