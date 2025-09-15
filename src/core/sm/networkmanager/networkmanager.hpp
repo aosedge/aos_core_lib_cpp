@@ -97,8 +97,8 @@ struct NetworkInfo {
  * Instance network information.
  */
 struct InstanceNetworkInfo {
-    StaticString<cInstanceIDLen> mInstanceID;
-    StaticString<cProviderIDLen> mNetworkID;
+    StaticString<cIDLen> mInstanceID;
+    StaticString<cIDLen> mNetworkID;
 
     /**
      * Default constructor.
@@ -694,8 +694,8 @@ private:
         StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> mHost;
     };
 
-    using InstanceCache = StaticMap<StaticString<cInstanceIDLen>, NetworkData, cMaxNumInstances>;
-    using NetworkCache  = StaticMap<StaticString<cProviderIDLen>, InstanceCache, cMaxNumServiceProviders>;
+    using InstanceCache = StaticMap<StaticString<cIDLen>, NetworkData, cMaxNumInstances>;
+    using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumServiceProviders>;
 
     static constexpr uint64_t cBurstLen                  = 12800;
     static constexpr auto     cMaxExposedPort            = 2;
@@ -750,19 +750,19 @@ private:
     Error GenerateVlanIfName(String& vlanIfName);
     Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
 
-    StorageItf*                                                                   mStorage {};
-    cni::CNIItf*                                                                  mCNI {};
-    TrafficMonitorItf*                                                            mNetMonitor {};
-    NamespaceManagerItf*                                                          mNetns {};
-    InterfaceManagerItf*                                                          mNetIf {};
-    crypto::RandomItf*                                                            mRandom {};
-    InterfaceFactoryItf*                                                          mNetIfFactory {};
-    StaticString<cFilePathLen>                                                    mCNINetworkCacheDir;
-    NetworkCache                                                                  mNetworkData;
-    StaticMap<StaticString<cProviderIDLen>, NetworkInfo, cMaxNumServiceProviders> mNetworkProviders;
-    StaticAllocator<sizeof(NetworkInfo)>                                          mNetworkInfoAllocator;
-    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumServiceProviders>)>    mNetworkInfosAllocator;
-    StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)>   mInstanceNetworkInfosAllocator;
+    StorageItf*                                                                 mStorage {};
+    cni::CNIItf*                                                                mCNI {};
+    TrafficMonitorItf*                                                          mNetMonitor {};
+    NamespaceManagerItf*                                                        mNetns {};
+    InterfaceManagerItf*                                                        mNetIf {};
+    crypto::RandomItf*                                                          mRandom {};
+    InterfaceFactoryItf*                                                        mNetIfFactory {};
+    StaticString<cFilePathLen>                                                  mCNINetworkCacheDir;
+    NetworkCache                                                                mNetworkData;
+    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumServiceProviders>       mNetworkProviders;
+    StaticAllocator<sizeof(NetworkInfo)>                                        mNetworkInfoAllocator;
+    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumServiceProviders>)>  mNetworkInfosAllocator;
+    StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
     mutable Mutex mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))

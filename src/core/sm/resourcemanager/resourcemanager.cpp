@@ -115,7 +115,7 @@ Error ResourceManager::AllocateDevice(const String& deviceName, const String& in
 
     auto deviceIt = mAllocatedDevices.Find(deviceName);
     if (deviceIt == mAllocatedDevices.end()) {
-        auto instances = MakeUnique<StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>>(&mAllocator);
+        auto instances = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
 
         if (auto err = instances->PushBack(instanceID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -205,8 +205,7 @@ Error ResourceManager::ResetAllocatedDevices()
     return ErrorEnum::eNone;
 }
 
-Error ResourceManager::GetDeviceInstances(
-    const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const
+Error ResourceManager::GetDeviceInstances(const String& deviceName, Array<StaticString<cIDLen>>& instanceIDs) const
 {
     LockGuard lock {mMutex};
 

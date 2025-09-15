@@ -26,7 +26,7 @@ namespace aos::sm::layermanager {
 struct LayerData {
     StaticString<cLayerDigestLen> mLayerDigest;
     StaticString<cLayerDigestLen> mUnpackedLayerDigest;
-    StaticString<cLayerIDLen>     mLayerID;
+    StaticString<cIDLen>          mLayerID;
     StaticString<cVersionLen>     mVersion;
     StaticString<cFilePathLen>    mPath;
     StaticString<cVersionLen>     mOSVersion;

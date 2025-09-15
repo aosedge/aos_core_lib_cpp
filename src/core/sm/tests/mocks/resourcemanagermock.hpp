@@ -54,7 +54,7 @@ public:
     MOCK_METHOD(Error, ReleaseDevice, (const String&, const String&), (override));
     MOCK_METHOD(Error, ReleaseDevices, (const String&), (override));
     MOCK_METHOD(Error, ResetAllocatedDevices, (), (override));
-    MOCK_METHOD(Error, GetDeviceInstances, (const String&, Array<StaticString<cInstanceIDLen>>&), (const override));
+    MOCK_METHOD(Error, GetDeviceInstances, (const String&, Array<StaticString<cIDLen>>&), (const override));
     MOCK_METHOD(Error, CheckNodeConfig, (const String&, const String&), (const override));
     MOCK_METHOD(Error, UpdateNodeConfig, (const String&, const String&), (override));
     MOCK_METHOD(Error, SubscribeCurrentNodeConfigChange, (NodeConfigReceiverItf&), (override));

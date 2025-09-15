@@ -200,7 +200,7 @@ struct Arg {
  *
  */
 struct RuntimeConf {
-    StaticString<cInstanceIDLen>     mContainerID;
+    StaticString<cIDLen>             mContainerID;
     StaticString<cFilePathLen>       mNetNS;
     StaticString<cInterfaceLen>      mIfName;
     StaticArray<Arg, cMaxNumRouters> mArgs;

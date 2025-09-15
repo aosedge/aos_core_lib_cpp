@@ -95,8 +95,8 @@ public:
  */
 struct InstanceData {
 public:
-    InstanceInfoObsolete         mInstanceInfo;
-    StaticString<cInstanceIDLen> mInstanceID;
+    InstanceInfoObsolete mInstanceInfo;
+    StaticString<cIDLen> mInstanceID;
 
     /**
      * Default constructor.

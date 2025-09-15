@@ -220,8 +220,7 @@ public:
      * @param instances[out] param to store instance ID(s).
      * @return Error.
      */
-    virtual Error GetDeviceInstances(const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const
-        = 0;
+    virtual Error GetDeviceInstances(const String& deviceName, Array<StaticString<cIDLen>>& instanceIDs) const = 0;
 
     /**
      * Checks configuration.
@@ -349,7 +348,7 @@ public:
      * @param instances[out] param to store instance ID(s).
      * @return Error.
      */
-    Error GetDeviceInstances(const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const override;
+    Error GetDeviceInstances(const String& deviceName, Array<StaticString<cIDLen>>& instanceIDs) const override;
 
     /**
      * Checks configuration.
@@ -388,7 +387,7 @@ public:
 private:
     static constexpr auto cMaxNodeConfigChangeSubscribers = 2;
     static constexpr auto cAllocatorSize = Max(sizeof(StaticString<cNodeConfigJSONLen>) + sizeof(NodeConfig),
-        sizeof(DeviceInfo) + sizeof(StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>));
+        sizeof(DeviceInfo) + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>));
 
     Error LoadConfig();
     Error WriteConfig(const NodeConfig& config);
@@ -406,7 +405,7 @@ private:
     NodeConfig                                                           mConfig;
     StaticArray<NodeConfigReceiverItf*, cMaxNodeConfigChangeSubscribers> mSubscribers;
 
-    mutable StaticMap<StaticString<cDeviceNameLen>, StaticArray<StaticString<cInstanceIDLen>, cMaxNumInstances>,
+    mutable StaticMap<StaticString<cDeviceNameLen>, StaticArray<StaticString<cIDLen>, cMaxNumInstances>,
         cMaxNumNodeDevices>
         mAllocatedDevices;
 };
