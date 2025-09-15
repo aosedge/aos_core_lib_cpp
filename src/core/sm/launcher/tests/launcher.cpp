@@ -41,8 +41,8 @@ using namespace testing;
 
 namespace std {
 template <>
-struct hash<aos::InstanceIdentObsolete> {
-    std::size_t operator()(const aos::InstanceIdentObsolete& instanceIdent) const
+struct hash<aos::InstanceIdent> {
+    std::size_t operator()(const aos::InstanceIdent& instanceIdent) const
     {
         // Use std::string's hash function directly
         return std::hash<std::string> {}(std::string(instanceIdent.mServiceID.CStr()) + "-"
@@ -66,11 +66,11 @@ constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
  **********************************************************************************************************************/
 
 struct TestData {
-    std::vector<InstanceInfoObsolete>                mInstances;
-    std::vector<ServiceInfo>                         mServices;
-    std::vector<LayerInfo>                           mLayers;
-    std::vector<InstanceStatusObsolete>              mStatus;
-    std::unordered_map<InstanceIdentObsolete, Error> mErrors;
+    std::vector<InstanceInfoObsolete>        mInstances;
+    std::vector<ServiceInfo>                 mServices;
+    std::vector<LayerInfo>                   mLayers;
+    std::vector<InstanceStatusObsolete>      mStatus;
+    std::unordered_map<InstanceIdent, Error> mErrors;
 };
 
 /***********************************************************************************************************************
@@ -281,8 +281,8 @@ TEST_F(LauncherTest, RunInstances)
                 {{"service2", "subject0", 0}, "1.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone},
             },
             {
-                {InstanceIdentObsolete {"service0", "subject0", 0}, ErrorEnum::eNotFound},
-                {InstanceIdentObsolete {"service1", "subject0", 0}, ErrorEnum::eNotFound},
+                {InstanceIdent {"service0", "subject0", 0}, ErrorEnum::eNotFound},
+                {InstanceIdent {"service1", "subject0", 0}, ErrorEnum::eNotFound},
             },
         },
         // stop all instances
@@ -338,8 +338,8 @@ TEST_F(LauncherTest, RunMaxInstances)
     TestData testItem;
 
     for (size_t i = 0; i < cMaxNumInstances; i++) {
-        auto                  serviceID = "service" + std::to_string(i % cMaxNumServices);
-        InstanceIdentObsolete ident     = {serviceID.c_str(), "subject0", i / cMaxNumServices};
+        auto          serviceID = "service" + std::to_string(i % cMaxNumServices);
+        InstanceIdent ident     = {serviceID.c_str(), "subject0", i / cMaxNumServices};
 
         testItem.mInstances.push_back({ident, 0, 0, "", "", {}});
         testItem.mStatus.push_back({ident, "1.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone});

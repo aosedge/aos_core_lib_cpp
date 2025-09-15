@@ -441,7 +441,7 @@ struct InstanceQuotaAlert : AlertItem {
     {
     }
 
-    InstanceIdentObsolete            mInstanceIdent;
+    InstanceIdent                    mInstanceIdent;
     StaticString<cAlertParameterLen> mParameter;
     uint64_t                         mValue;
     AlertStatus                      mStatus;
@@ -496,7 +496,7 @@ struct DeviceAllocateAlert : AlertItem {
     {
     }
 
-    InstanceIdentObsolete          mInstanceIdent;
+    InstanceIdent                  mInstanceIdent;
     StaticString<cNodeIDLen>       mNodeID;
     StaticString<cDeviceNameLen>   mDevice;
     StaticString<cAlertMessageLen> mMessage;
@@ -608,7 +608,7 @@ struct ServiceInstanceAlert : AlertItem {
     {
     }
 
-    InstanceIdentObsolete          mInstanceIdent;
+    InstanceIdent                  mInstanceIdent;
     StaticString<cVersionLen>      mServiceVersion;
     StaticString<cAlertMessageLen> mMessage;
 

@@ -14,10 +14,8 @@ using namespace aos;
 TEST(CommonTest, Types)
 {
     // InstanceIdent comparision
-    EXPECT_TRUE(
-        (InstanceIdentObsolete {"service1", "subject1", 2}) == (InstanceIdentObsolete {"service1", "subject1", 2}));
-    EXPECT_FALSE(
-        (InstanceIdentObsolete {"service1", "subject1", 2}) != (InstanceIdentObsolete {"service1", "subject1", 2}));
+    EXPECT_TRUE((InstanceIdent {"service1", "subject1", 2}) == (InstanceIdent {"service1", "subject1", 2}));
+    EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2}) != (InstanceIdent {"service1", "subject1", 2}));
 
     // InstanceInfo comparision
     EXPECT_TRUE((InstanceInfoObsolete {{"service1", "subject1", 2}, 3, 4, "state", "storage", {}})

@@ -478,7 +478,7 @@ struct PlatformInfo {
 /**
  * Instance identification.
  */
-struct InstanceIdentObsolete {
+struct InstanceIdent {
     StaticString<cIDLen> mServiceID;
     StaticString<cIDLen> mSubjectID;
     uint64_t             mInstance = 0;
@@ -489,7 +489,7 @@ struct InstanceIdentObsolete {
      * @param instance ident to compare.
      * @return bool.
      */
-    bool operator<(const InstanceIdentObsolete& instance) const
+    bool operator<(const InstanceIdent& instance) const
     {
         return mServiceID <= instance.mServiceID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
     }
@@ -500,65 +500,9 @@ struct InstanceIdentObsolete {
      * @param instance ident to compare.
      * @return bool.
      */
-    bool operator==(const InstanceIdentObsolete& instance) const
-    {
-        return mServiceID == instance.mServiceID && mSubjectID == instance.mSubjectID
-            && mInstance == instance.mInstance;
-    }
-
-    /**
-     * Compares instance ident.
-     *
-     * @param instance ident to compare.
-     * @return bool.
-     */
-    bool operator!=(const InstanceIdentObsolete& instance) const { return !operator==(instance); }
-
-    /**
-     * Outputs instance ident to log.
-     *
-     * @param log log to output.
-     * @param instanceIdent instance ident.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const InstanceIdentObsolete& instanceIdent)
-    {
-        return log << "{" << instanceIdent.mServiceID << ":" << instanceIdent.mSubjectID << ":"
-                   << instanceIdent.mInstance << "}";
-    }
-};
-
-/**
- * Instance identification.
- */
-struct InstanceIdent {
-    uuid::UUID mUpdateItemID;
-    uuid::UUID mSubjectID;
-    uint64_t   mInstance = 0;
-
-    /**
-     * Compares instance ident.
-     *
-     * @param instance ident to compare.
-     * @return bool.
-     */
-    bool operator<(const InstanceIdent& instance) const
-    {
-        return uuid::UUIDToString(mUpdateItemID) <= uuid::UUIDToString(instance.mUpdateItemID)
-            && uuid::UUIDToString(mSubjectID) <= uuid::UUIDToString(instance.mSubjectID)
-            && mInstance < instance.mInstance;
-    }
-
-    /**
-     * Compares instance ident.
-     *
-     * @param instance ident to compare.
-     * @return bool.
-     */
     bool operator==(const InstanceIdent& instance) const
     {
-        return mUpdateItemID == instance.mUpdateItemID && mSubjectID == instance.mSubjectID
+        return mServiceID == instance.mServiceID && mSubjectID == instance.mSubjectID
             && mInstance == instance.mInstance;
     }
 
@@ -580,8 +524,8 @@ struct InstanceIdent {
      */
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
-        return log << "{" << uuid::UUIDToString(instanceIdent.mUpdateItemID) << ":"
-                   << uuid::UUIDToString(instanceIdent.mSubjectID) << ":" << instanceIdent.mInstance << "}";
+        return log << "{" << instanceIdent.mServiceID << ":" << instanceIdent.mSubjectID << ":"
+                   << instanceIdent.mInstance << "}";
     }
 };
 
@@ -651,7 +595,7 @@ struct NetworkParameters {
  * Instance info.
  */
 struct InstanceInfoObsolete {
-    InstanceIdentObsolete      mInstanceIdent;
+    InstanceIdent              mInstanceIdent;
     uint32_t                   mUID      = 0;
     uint64_t                   mPriority = 0;
     StaticString<cFilePathLen> mStoragePath;
@@ -707,7 +651,7 @@ using InstanceRunState     = EnumStringer<InstanceRunStateType>;
  * Instance status.
  */
 struct InstanceStatusObsolete {
-    InstanceIdentObsolete           mInstanceIdent;
+    InstanceIdent                   mInstanceIdent;
     StaticString<cVersionLen>       mServiceVersion;
     StaticString<2 * cSHA3_224Size> mStateChecksum;
     InstanceRunState                mStatus;
