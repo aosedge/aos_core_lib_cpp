@@ -730,11 +730,11 @@ public:
      */
     RetWithError<size_t> FindSubstr(size_t startPos, const String& substr) const
     {
-        if (substr.Size() > Size()) {
+        if (substr.Size() == 0 || substr.Size() > Size()) {
             return {Size(), ErrorEnum::eNotFound};
         }
 
-        for (size_t i = startPos; i < Size() - substr.Size(); i++) {
+        for (size_t i = startPos; i <= Size() - substr.Size(); i++) {
             const auto chunk = Array<char>(CStr() + i, substr.Size());
 
             if (chunk == substr) {
