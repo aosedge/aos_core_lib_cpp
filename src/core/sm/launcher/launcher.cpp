@@ -138,7 +138,7 @@ Error Launcher::Stop()
 }
 
 Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<LayerInfo>& layers,
-    const Array<InstanceInfoObsolete>& instances, bool forceRestart)
+    const Array<InstanceInfo>& instances, bool forceRestart)
 {
     {
         LockGuard lock {mMutex};
@@ -158,7 +158,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
     auto err
-        = mThread.Run([this, instances = MakeShared<const InstanceInfoObsoleteStaticArray>(&mAllocator, instances),
+        = mThread.Run([this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
                           services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
                           layers   = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) {
               if (auto err = ProcessLayers(*layers); !err.IsNone()) {
@@ -443,7 +443,7 @@ Error Launcher::ProcessLastInstances()
     return ErrorEnum::eNone;
 }
 
-Error Launcher::ProcessInstances(const Array<InstanceInfoObsolete>& instances, bool forceRestart)
+Error Launcher::ProcessInstances(const Array<InstanceInfo>& instances, bool forceRestart)
 {
     LOG_DBG() << "Process instances: restart=" << forceRestart;
 
@@ -585,7 +585,7 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
 }
 
 Error Launcher::GetDesiredInstancesData(
-    const Array<InstanceInfoObsolete>& desiredInstancesInfo, Array<InstanceData>& desiredInstancesData) const
+    const Array<InstanceInfo>& desiredInstancesInfo, Array<InstanceData>& desiredInstancesData) const
 {
     LockGuard lock {mMutex};
 
@@ -674,7 +674,7 @@ Error Launcher::CalculateInstances(const Array<InstanceData>& desiredInstancesDa
             continue;
         }
 
-        auto compareInfo = MakeUnique<InstanceInfoObsolete>(&mAllocator, currentInstance->Info());
+        auto compareInfo = MakeUnique<InstanceInfo>(&mAllocator, currentInstance->Info());
 
         compareInfo->mPriority = desiredInstance.mInstanceInfo.mPriority;
 

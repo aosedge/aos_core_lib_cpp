@@ -19,7 +19,7 @@ namespace aos::sm::launcher {
 class LauncherMock : public LauncherItf {
 public:
     MOCK_METHOD(Error, RunInstances,
-        (const Array<ServiceInfo>&, const Array<LayerInfo>&, const Array<InstanceInfoObsolete>&, bool), (override));
+        (const Array<ServiceInfo>&, const Array<LayerInfo>&, const Array<InstanceInfo>&, bool), (override));
     MOCK_METHOD(Error, GetCurrentRunStatus, (Array<InstanceStatusObsolete>&), (const override));
     MOCK_METHOD(Error, OverrideEnvVars,
         (const Array<cloudprotocol::EnvVarsInstanceInfo>&, Array<cloudprotocol::EnvVarsInstanceStatus>&), (override));
