@@ -100,13 +100,6 @@
 #endif
 
 /**
- * File/directory path len.
- */
-#ifndef AOS_CONFIG_FS_FILE_PATH_LEN
-#define AOS_CONFIG_FS_FILE_PATH_LEN 256
-#endif
-
-/**
  * Directory iterator max count.
  */
 #ifndef AOS_CONFIG_FS_DIR_ITERATOR_MAX_COUNT

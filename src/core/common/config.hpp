@@ -142,6 +142,13 @@
 #endif
 
 /**
+ * File/directory path len.
+ */
+#ifndef AOS_CONFIG_TYPES_FILE_PATH_LEN
+#define AOS_CONFIG_TYPES_FILE_PATH_LEN 256
+#endif
+
+/**
  * File system mount option len.
  */
 #ifndef AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN

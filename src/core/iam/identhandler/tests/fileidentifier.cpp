@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tools/buffer.hpp>
+#include <core/common/tools/fs.hpp>
 #include <core/iam/identhandler/identmodules/fileidentifier/fileidentifier.hpp>
 #include <core/iam/tests/mocks/identhandlermock.hpp>
 
