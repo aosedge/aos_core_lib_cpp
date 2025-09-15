@@ -16,11 +16,6 @@
 
 namespace aos {
 
-/*
- * File path len.
- */
-constexpr auto cFilePathLen = AOS_CONFIG_FS_FILE_PATH_LEN;
-
 /**
  * Directory iterator max count.
  */

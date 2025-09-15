@@ -9,6 +9,7 @@
 #include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/fs.hpp>
 
 #if defined(WITH_MBEDTLS)
 #include <core/common/tests/crypto/providers/mbedtlsfactory.hpp>

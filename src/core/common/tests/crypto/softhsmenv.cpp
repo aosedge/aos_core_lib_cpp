@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <core/common/tools/fs.hpp>
+
 #include "softhsmenv.hpp"
 
 namespace aos::test {

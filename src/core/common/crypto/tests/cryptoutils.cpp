@@ -11,6 +11,7 @@
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/fs.hpp>
 
 namespace aos::crypto {
 
