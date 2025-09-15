@@ -575,20 +575,42 @@ Error MbedTLSCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
 
 RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorithm)
 {
-    psa_algorithm_t alg = PSA_ALG_SHA3_256;
+    psa_algorithm_t alg = PSA_ALG_NONE;
 
-    if (algorithm.GetValue() == HashEnum::eSHA256) {
+    switch (algorithm.GetValue()) {
+    case HashEnum::eSHA1:
+        alg = PSA_ALG_SHA_1;
+        break;
+    case HashEnum::eSHA224:
+        alg = PSA_ALG_SHA_224;
+        break;
+    case HashEnum::eSHA256:
         alg = PSA_ALG_SHA_256;
-    } else if (algorithm.GetValue() == HashEnum::eSHA3_224) {
+        break;
+    case HashEnum::eSHA384:
+        alg = PSA_ALG_SHA_384;
+        break;
+    case HashEnum::eSHA512:
+        alg = PSA_ALG_SHA_512;
+        break;
+    case HashEnum::eSHA512_224:
+        alg = PSA_ALG_SHA_512_224;
+        break;
+    case HashEnum::eSHA512_256:
+        alg = PSA_ALG_SHA_512_256;
+        break;
+    case HashEnum::eSHA3_224:
         alg = PSA_ALG_SHA3_224;
-    } else if (algorithm.GetValue() == HashEnum::eSHA3_256) {
+        break;
+    case HashEnum::eSHA3_256:
         alg = PSA_ALG_SHA3_256;
-    } else {
+        break;
+    case HashEnum::eNone:
+    default:
         return {nullptr, ErrorEnum::eNotSupported};
     }
 
     auto hasher = MakeUnique<MBedTLSHash>(&mAllocator, alg);
-
     if (auto err = hasher->Init(); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
