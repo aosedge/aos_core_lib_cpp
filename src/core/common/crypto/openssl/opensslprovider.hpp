@@ -92,6 +92,14 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
  */
 void AOS_OPENSSL_free(void* ptr);
 
+/**
+ * Converts a hash algorithm to its corresponding OpenSSL NID(numeric identifier).
+ *
+ * @param hashAlg hash algorithm.
+ * @return int.
+ */
+int ConvertHashAlgToNID(HashEnum hashAlg);
+
 } // namespace aos::crypto::openssl
 
 #endif
