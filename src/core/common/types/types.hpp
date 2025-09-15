@@ -717,7 +717,7 @@ using UnitConfigState     = EnumStringer<UnitConfigStateType>;
 struct InstanceInfo {
     InstanceIdent               mInstanceIdent;
     StaticString<cRuntimeIDLen> mRuntimeID;
-    uint32_t                    mUID {};
+    uid_t                       mUID {};
     uint64_t                    mPriority {};
     StaticString<cFilePathLen>  mStoragePath;
     StaticString<cFilePathLen>  mStatePath;
@@ -937,7 +937,7 @@ struct ServiceInfo {
     StaticString<cIDLen>              mServiceID;
     StaticString<cIDLen>              mProviderID;
     StaticString<cVersionLen>         mVersion;
-    uint32_t                          mGID;
+    gid_t                             mGID;
     StaticString<cURLLen>             mURL;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
     size_t                            mSize;
