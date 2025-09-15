@@ -227,7 +227,7 @@ using TrafficPeriod     = EnumStringer<TrafficPeriodType>;
  * Instance network parameters.
  */
 struct InstanceNetworkParameters {
-    InstanceIdentObsolete                                           mInstanceIdent;
+    InstanceIdent                                                   mInstanceIdent;
     aos::NetworkParameters                                          mNetworkParameters;
     StaticString<cHostNameLen>                                      mHostname;
     StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;

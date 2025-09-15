@@ -124,7 +124,7 @@ private:
     String                      GetParameterName(const ResourceIdentifier& id) const;
     cloudprotocol::AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
     cloudprotocol::AlertVariant CreateInstanceQuotaAlertTemplate(
-        const InstanceIdentObsolete& instanceIdent, const ResourceIdentifier& resourceIdentifier) const;
+        const InstanceIdent& instanceIdent, const ResourceIdentifier& resourceIdentifier) const;
     double CPUToDMIPs(double cpuPersentage) const;
 
     Error SetupAlerts(
