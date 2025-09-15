@@ -71,7 +71,7 @@ endif()
 # Sources
 # ######################################################################################################################
 
-set(SOURCES crypto.cpp cryptoutils.cpp)
+set(SOURCES crypto.cpp cryptohelper.cpp cryptoutils.cpp)
 
 if(WITH_MBEDTLS)
     list(APPEND SOURCES mbedtls/cryptoprovider.cpp mbedtls/driverwrapper.cpp)

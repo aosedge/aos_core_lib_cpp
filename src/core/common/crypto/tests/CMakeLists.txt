@@ -13,7 +13,7 @@ set(TARGET_NAME crypto_test)
 set(SOURCES crypto.cpp)
 
 if(WITH_MBEDTLS OR WITH_OPENSSL)
-    list(APPEND SOURCES cryptoprovider.cpp cryptoutils.cpp)
+    list(APPEND SOURCES cryptohelper.cpp cryptoprovider.cpp cryptoutils.cpp)
 endif()
 
 # ######################################################################################################################
@@ -35,3 +35,38 @@ add_test(
     LIBRARIES
     ${LIBRARIES}
 )
+
+######################################################################################################################
+# Gen certificates
+# ######################################################################################################################
+
+include(cmake/gencertificates.cmake)
+
+message("\n\n==================================================")
+message("Generating certificates for CryptoProvider tests...")
+message("==================================================")
+
+gencertificates("${TARGET_PREFIX}_${TARGET_NAME}" "${CMAKE_CURRENT_BINARY_DIR}/certificates")
+
+message("\n\n==================================================")
+message("Generating certificates for CryptoHelper tests...")
+message("==================================================")
+
+generate_cryptohelper_test_certs("${TARGET_PREFIX}_${TARGET_NAME}" "${CMAKE_CURRENT_BINARY_DIR}/cryptohelper")
+
+cryptohelper_generate_test_aes(
+    "${TARGET_PREFIX}_${TARGET_NAME}" "${CMAKE_CURRENT_BINARY_DIR}/cryptohelper/aes"
+    "${CMAKE_CURRENT_BINARY_DIR}/cryptohelper/offline1.pem"
+)
+cryptohelper_generate_encrypted_test_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/cryptohelper/aes/aes.key"
+    "${CMAKE_CURRENT_BINARY_DIR}/cryptohelper/aes/hello-world.txt"
+)
+
+cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.txt" "online")
+cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.txt" "offline1")
+cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.txt" "offline2")
+cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.txt" "onlineTest1")
+cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.txt" "onlineTest2")
+
+cryptohelper_create_cms("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world-cms.txt" "offline1")
