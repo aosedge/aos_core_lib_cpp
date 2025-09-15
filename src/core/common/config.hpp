@@ -1076,13 +1076,6 @@
 #endif
 
 /**
- * Max number of certificates.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES
-#define AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES 32
-#endif
-
-/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN
@@ -1214,6 +1207,13 @@
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
 #define AOS_CONFIG_TIMERS_MAX_COUNT 32
+#endif
+
+/**
+ * Max number of certificates.
+ */
+#ifndef AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES
+#define AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES 32
 #endif
 
 #endif

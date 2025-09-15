@@ -155,6 +155,11 @@ constexpr auto cSHA1InputDataSize = AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE;
 constexpr auto cSignatureSize = AOS_CONFIG_CRYPTO_SIGNATURE_SIZE;
 
 /**
+ * Max number of certificates.
+ */
+constexpr auto cMaxNumCertificates = AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES;
+
+/**
  * Supported key types.
  */
 class KeyAlgorithm {
