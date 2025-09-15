@@ -1697,7 +1697,7 @@ using ServiceState     = EnumStringer<ServiceStateType>;
  * Image info.
  */
 struct ImageInfo : public PlatformInfo {
-    uuid::UUID mImageID;
+    StaticString<cIDLen> mImageID;
 
     /**
      * Compares image info.

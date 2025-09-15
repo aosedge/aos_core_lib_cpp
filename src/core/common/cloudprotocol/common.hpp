@@ -55,7 +55,7 @@ constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
  * Aos identifier.
  */
 struct Identifier {
-    Optional<uuid::UUID>                    mID;
+    Optional<StaticString<cIDLen>>          mID;
     Optional<UpdateItemType>                mType;
     Optional<StaticString<cCodeNameLen>>    mCodeName;
     Optional<StaticString<cTitleLen>>       mTitle;

@@ -33,7 +33,7 @@ public:
      * @param id update item ID.
      * @return RetWithError<StaticString<cVersionLen>>.
      */
-    virtual RetWithError<StaticString<cVersionLen>> GetItemVersion(const uuid::UUID& id) = 0;
+    virtual RetWithError<StaticString<cVersionLen>> GetItemVersion(const String& id) = 0;
 
     /**
      * Returns update item images infos.
@@ -42,7 +42,7 @@ public:
      * @param[out] imagesInfos update item images info.
      * @return Error.
      */
-    virtual Error GetItemImages(const uuid::UUID& id, Array<ImageInfo>& imagesInfos) = 0;
+    virtual Error GetItemImages(const String& id, Array<ImageInfo>& imagesInfos) = 0;
 
     /**
      * Returns service config.
@@ -52,7 +52,7 @@ public:
      * @param config service config.
      * @return Error.
      */
-    virtual Error GetServiceConfig(const uuid::UUID& id, const uuid::UUID& imageID, oci::ServiceConfig& config) = 0;
+    virtual Error GetServiceConfig(const String& id, const String& imageID, oci::ServiceConfig& config) = 0;
 
     /**
      * Returns image config.
@@ -62,7 +62,7 @@ public:
      * @param config image config.
      * @return Error.
      */
-    virtual Error GetImageConfig(const uuid::UUID& id, const uuid::UUID& imageID, oci::ImageConfig& config) = 0;
+    virtual Error GetImageConfig(const String& id, const String& imageID, oci::ImageConfig& config) = 0;
 };
 
 /** @}*/

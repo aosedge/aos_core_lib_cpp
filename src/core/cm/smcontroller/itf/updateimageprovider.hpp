@@ -20,7 +20,7 @@ namespace aos::cm::smcontroller {
  * Update image info.
  */
 struct UpdateImageInfo {
-    uuid::UUID                mImageID;
+    StaticString<cIDLen>      mImageID;
     StaticString<cVersionLen> mVersion;
     StaticString<cURLLen>     mURL;
     StaticString<cSHA256Size> mSHA256;
@@ -65,7 +65,7 @@ public:
      * @param[out] info update image info.
      * @return Error.
      */
-    virtual Error GetUpdateImageInfo(const uuid::UUID& id, const PlatformInfo& platform, UpdateImageInfo& info) = 0;
+    virtual Error GetUpdateImageInfo(const String& id, const PlatformInfo& platform, UpdateImageInfo& info) = 0;
 
     /**
      * Returns layer image info.
