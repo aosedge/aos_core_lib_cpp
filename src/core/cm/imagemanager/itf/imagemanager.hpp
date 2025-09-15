@@ -21,12 +21,12 @@ namespace aos::cm::imagemanager {
  * Update image info.
  */
 struct UpdateImageInfo {
-    ImageInfo                  mImage;
-    StaticString<cFilePathLen> mPath;
-    StaticString<cSHA256Size>  mSHA256;
-    size_t                     mSize {};
-    cloudprotocol::DecryptInfo mDecryptInfo;
-    cloudprotocol::SignInfo    mSignInfo;
+    ImageInfo                         mImage;
+    StaticString<cFilePathLen>        mPath;
+    StaticArray<uint8_t, cSHA256Size> mSHA256;
+    size_t                            mSize {};
+    cloudprotocol::DecryptInfo        mDecryptInfo;
+    cloudprotocol::SignInfo           mSignInfo;
 
     /**
      * Compares update image info.
@@ -36,7 +36,7 @@ struct UpdateImageInfo {
      */
     bool operator==(const UpdateImageInfo& other) const
     {
-        return mImage == other.mImage && mSHA256 == other.mSHA256 && mSize == other.mSize
+        return mImage == other.mImage && mPath == other.mPath && mSHA256 == other.mSHA256 && mSize == other.mSize
             && mDecryptInfo == other.mDecryptInfo && mSignInfo == other.mSignInfo;
     }
 
