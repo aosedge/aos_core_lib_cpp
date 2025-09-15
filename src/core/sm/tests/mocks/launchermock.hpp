@@ -20,7 +20,7 @@ class LauncherMock : public LauncherItf {
 public:
     MOCK_METHOD(Error, RunInstances,
         (const Array<ServiceInfo>&, const Array<LayerInfo>&, const Array<InstanceInfo>&, bool), (override));
-    MOCK_METHOD(Error, GetCurrentRunStatus, (Array<InstanceStatusObsolete>&), (const override));
+    MOCK_METHOD(Error, GetCurrentRunStatus, (Array<InstanceStatus>&), (const override));
     MOCK_METHOD(Error, OverrideEnvVars,
         (const Array<cloudprotocol::EnvVarsInstanceInfo>&, Array<cloudprotocol::EnvVarsInstanceStatus>&), (override));
 };
@@ -30,8 +30,8 @@ public:
  */
 class InstanceStatusReceiverMock : public InstanceStatusReceiverItf {
 public:
-    MOCK_METHOD(Error, InstancesRunStatus, (const Array<InstanceStatusObsolete>&), (override));
-    MOCK_METHOD(Error, InstancesUpdateStatus, (const Array<InstanceStatusObsolete>&), (override));
+    MOCK_METHOD(Error, InstancesRunStatus, (const Array<InstanceStatus>&), (override));
+    MOCK_METHOD(Error, InstancesUpdateStatus, (const Array<InstanceStatus>&), (override));
 };
 
 /**

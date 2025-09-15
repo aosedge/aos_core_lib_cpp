@@ -187,32 +187,32 @@ public:
     const InstanceInfo& Info() const { return mInstanceInfo; };
 
     /**
-     * Sets run state.
+     * Sets state.
      *
-     * @param runState run state.
+     * @param state state.
      */
-    void SetRunState(InstanceRunState runState) { mRunState = runState; }
+    void SetState(InstanceState state) { mState = state; }
 
     /**
-     * Sets run error.
+     * Sets error.
      *
-     * @param error run error.
+     * @param error error.
      */
-    void SetRunError(const Error& error) { mRunError = error; }
+    void SetError(const Error& error) { mError = error; }
 
     /**
-     * Returns instance run state.
+     * Returns instance state.
      *
-     * @return const InstanceRunState& run state.
+     * @return const InstanceState& state.
      */
-    const InstanceRunState& RunState() const { return mRunState; };
+    const InstanceState& GetState() const { return mState; };
 
     /**
      * Returns instance error.
      *
-     * @return const Error& run error.
+     * @return const Error& error.
      */
-    const Error& RunError() const { return mRunError; };
+    const Error& GetError() const { return mError; };
 
     /**
      * Returns instance service version.
@@ -264,7 +264,7 @@ public:
      * @param instanceStatus[out] instance status.
      * @return Error.
      */
-    Error ToInstanceStatus(InstanceStatusObsolete& instanceStatus) const;
+    Error ToInstanceStatus(InstanceStatus& instanceStatus) const;
 
     /**
      * Compares instances.
@@ -389,8 +389,8 @@ private:
     const NodeInfoObsolete&              mNodeInfo;
 
     StaticString<cFilePathLen> mRuntimeDir;
-    InstanceRunState           mRunState;
-    Error                      mRunError;
+    InstanceState              mState;
+    Error                      mError;
     bool                       mPermissionsRegistered = false;
     Duration                   mOfflineTTL            = 0;
     EnvVarsArray               mOverrideEnvVars;

@@ -77,10 +77,10 @@ public:
      * Updates instance's run state.
      *
      * @param instanceID instance ID.
-     * @param runState run state.
+     * @param state state.
      * @return Error.
      */
-    Error UpdateInstanceRunState(const String& instanceID, InstanceRunState runState) override;
+    Error UpdateInstanceState(const String& instanceID, InstanceState state) override;
 
     /**
      * Stops instance monitoring.
