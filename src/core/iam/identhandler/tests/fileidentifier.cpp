@@ -96,7 +96,7 @@ TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
 {
     EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
 
-    StaticString<cSubjectIDLen * cMaxNumSubjects> subjects;
+    StaticString<cIDLen * cMaxNumSubjects> subjects;
     for (size_t i {0}; i < cMaxNumSubjects + 1; ++i) {
         subjects.Append("subject\n");
     }
@@ -137,8 +137,8 @@ TEST_F(FileIdentifierTest, GetSubjects)
     const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
-    StaticArray<StaticString<cSubjectIDLen>, 2> subjects;
-    const auto                                  subjectsResult = mFileIdentifier.GetSubjects(subjects);
+    StaticArray<StaticString<cIDLen>, 2> subjects;
+    const auto                           subjectsResult = mFileIdentifier.GetSubjects(subjects);
     ASSERT_TRUE(subjectsResult.IsNone()) << subjectsResult.Message();
 
     ASSERT_EQ(subjects.Size(), 2);
@@ -150,8 +150,8 @@ TEST_F(FileIdentifierTest, GetSubjectsNoMemory)
     const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
-    StaticArray<StaticString<cSubjectIDLen>, 1> subjects;
-    const auto                                  subjectsResult = mFileIdentifier.GetSubjects(subjects);
+    StaticArray<StaticString<cIDLen>, 1> subjects;
+    const auto                           subjectsResult = mFileIdentifier.GetSubjects(subjects);
     ASSERT_FALSE(subjectsResult.IsNone()) << subjectsResult.Message();
     ASSERT_TRUE(subjectsResult.Is(Error::Enum::eNoMemory)) << subjectsResult.Message();
 

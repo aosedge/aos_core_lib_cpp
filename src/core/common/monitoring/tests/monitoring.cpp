@@ -170,7 +170,7 @@ public:
 
     Error ResetAllocatedDevices() override { return ErrorEnum::eNone; }
 
-    Error GetDeviceInstances(const String& deviceName, Array<StaticString<cInstanceIDLen>>& instanceIDs) const override
+    Error GetDeviceInstances(const String& deviceName, Array<StaticString<cIDLen>>& instanceIDs) const override
     {
         (void)deviceName;
         (void)instanceIDs;

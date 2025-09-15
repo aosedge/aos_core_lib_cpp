@@ -28,7 +28,7 @@ public:
      * @param[in] messages subject changed messages.
      * @returns Error.
      */
-    virtual Error SubjectsChanged(const Array<StaticString<cSubjectIDLen>>& messages) = 0;
+    virtual Error SubjectsChanged(const Array<StaticString<cIDLen>>& messages) = 0;
 
     /**
      * Destroys subjects changed observer interface.
@@ -60,14 +60,14 @@ public:
      *
      * @returns RetWithError<StaticString>.
      */
-    virtual RetWithError<StaticString<cSystemIDLen>> GetSystemID() = 0;
+    virtual RetWithError<StaticString<cIDLen>> GetSystemID() = 0;
 
     /**
      * Returns unit model.
      *
      * @returns RetWithError<StaticString>.
      */
-    virtual RetWithError<StaticString<cUnitModelLen>> GetUnitModel() = 0;
+    virtual RetWithError<StaticString<cIDLen>> GetUnitModel() = 0;
 
     /**
      * Returns subjects.
@@ -75,7 +75,7 @@ public:
      * @param[out] subjects result subjects.
      * @returns Error.
      */
-    virtual Error GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects) = 0;
+    virtual Error GetSubjects(Array<StaticString<cIDLen>>& subjects) = 0;
 
     /**
      * Destroys ident handler interface.

@@ -294,7 +294,7 @@ Error ServiceManager::RemoveService(const ServiceData& service)
 
 Error ServiceManager::RemoveItem(const String& id)
 {
-    StaticArray<StaticString<Max(cServiceIDLen, cVersionLen)>, 2> splitted;
+    StaticArray<StaticString<Max(cIDLen, cVersionLen)>, 2> splitted;
 
     if (auto err = id.Split(splitted, '_'); !err.IsNone() || splitted.Size() != 2) {
         return AOS_ERROR_WRAP(Error(err, "unexpected service id format"));

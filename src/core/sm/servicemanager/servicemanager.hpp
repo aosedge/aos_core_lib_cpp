@@ -33,12 +33,12 @@ struct ServiceData {
     /**
      * Service ID.
      */
-    StaticString<cServiceIDLen> mServiceID;
+    StaticString<cIDLen> mServiceID;
 
     /**
      * Provider ID.
      */
-    StaticString<cProviderIDLen> mProviderID;
+    StaticString<cIDLen> mProviderID;
 
     /**
      * Service version.
@@ -333,7 +333,7 @@ private:
     static constexpr auto cNumInstallThreads  = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
     static constexpr auto cImageManifestFile  = "manifest.json";
     static constexpr auto cImageBlobsFolder   = "blobs";
-    static constexpr auto cAllocatorItemLen   = cServiceIDLen + cVersionLen + 1;
+    static constexpr auto cAllocatorItemLen   = cIDLen + cVersionLen + 1;
     static constexpr auto cNumServiceVersions = 2;
 
     Error ProcessAlreadyInstalledServices(Array<ServiceInfo>& desiredServices, Array<ServiceStatus>& serviceStatuses);

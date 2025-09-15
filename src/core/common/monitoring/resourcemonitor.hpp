@@ -139,7 +139,7 @@ private:
     RetWithError<uint64_t> GetPartitionTotalSize(const String& name) const;
     UniquePtr<ResourceIdentifier> CreateResourceIdentifier(ResourceLevel level, ResourceType type,
         const Optional<StaticString<cPartitionNameLen>>& partitionName = {},
-        const Optional<StaticString<cInstanceIDLen>>&    instanceID    = {}) const;
+        const Optional<StaticString<cIDLen>>&            instanceID    = {}) const;
 
     Config                                   mConfig;
     ResourceUsageProviderItf*                mResourceUsageProvider {};
@@ -150,8 +150,8 @@ private:
 
     Average mAverage;
 
-    NodeMonitoringData                                                                mNodeMonitoringData {};
-    StaticMap<StaticString<cInstanceIDLen>, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
+    NodeMonitoringData                                                        mNodeMonitoringData {};
+    StaticMap<StaticString<cIDLen>, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
 
     bool mSendMonitoring {};
 
@@ -161,8 +161,8 @@ private:
     size_t mMaxDMIPS {};
     size_t mMaxMemory {};
 
-    AlertProcessorStaticArray                                                            mAlertProcessors;
-    StaticMap<StaticString<cInstanceIDLen>, AlertProcessorStaticArray, cMaxNumInstances> mInstanceAlertProcessors;
+    AlertProcessorStaticArray                                                    mAlertProcessors;
+    StaticMap<StaticString<cIDLen>, AlertProcessorStaticArray, cMaxNumInstances> mInstanceAlertProcessors;
 
     mutable StaticAllocator<cAllocatorSize> mAllocator;
 };

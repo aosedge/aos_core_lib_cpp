@@ -85,7 +85,7 @@ struct ResourceIdentifier {
      */
     ResourceIdentifier(ResourceLevel level, ResourceType type,
         const Optional<StaticString<cPartitionNameLen>>& partitionName = {},
-        const Optional<StaticString<cInstanceIDLen>>&    instanceID    = {})
+        const Optional<StaticString<cIDLen>>&            instanceID    = {})
         : mLevel(level)
         , mType(type)
         , mPartitionName(partitionName)
@@ -96,7 +96,7 @@ struct ResourceIdentifier {
     ResourceLevel                             mLevel;
     ResourceType                              mType;
     Optional<StaticString<cPartitionNameLen>> mPartitionName;
-    Optional<StaticString<cInstanceIDLen>>    mInstanceID;
+    Optional<StaticString<cIDLen>>            mInstanceID;
 
     /**
      * Outputs resource identifier to log.

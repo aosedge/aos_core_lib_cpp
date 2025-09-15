@@ -22,14 +22,9 @@
 namespace aos {
 
 /*
- * Provider ID len.
+ *  ID len.
  */
-constexpr auto cProviderIDLen = AOS_CONFIG_TYPES_PROVIDER_ID_LEN;
-
-/*
- * Service ID len.
- */
-constexpr auto cServiceIDLen = AOS_CONFIG_TYPES_SERVICE_ID_LEN;
+constexpr auto cIDLen = AOS_CONFIG_TYPES_ID_LEN;
 
 /**
  * Max number of service providers.
@@ -37,34 +32,14 @@ constexpr auto cServiceIDLen = AOS_CONFIG_TYPES_SERVICE_ID_LEN;
 static constexpr auto cMaxNumServiceProviders = AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS;
 
 /*
- * Subject ID len.
- */
-constexpr auto cSubjectIDLen = AOS_CONFIG_TYPES_SUBJECT_ID_LEN;
-
-/*
  * Max number of subjects.
  */
 constexpr auto cMaxNumSubjects = AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS;
 
 /*
- * System ID len.
- */
-constexpr auto cSystemIDLen = AOS_CONFIG_TYPES_SYSTEM_ID_LEN;
-
-/*
- * Layer ID len.
- */
-constexpr auto cLayerIDLen = AOS_CONFIG_TYPES_LAYER_ID_LEN;
-
-/*
  * Layer digest len.
  */
 constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
-
-/*
- * Instance ID len.
- */
-constexpr auto cInstanceIDLen = AOS_CONFIG_TYPES_INSTANCE_ID_LEN;
 
 /*
  * Unit model len.
@@ -406,7 +381,7 @@ static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 /**
  * Max length of connection name.
  */
-static constexpr auto cConnectionNameLen = cServiceIDLen + cExposedPortLen;
+static constexpr auto cConnectionNameLen = cIDLen + cExposedPortLen;
 
 /**
  * Max number of allowed connections.
@@ -504,9 +479,9 @@ struct PlatformInfo {
  * Instance identification.
  */
 struct InstanceIdentObsolete {
-    StaticString<cServiceIDLen> mServiceID;
-    StaticString<cSubjectIDLen> mSubjectID;
-    uint64_t                    mInstance = 0;
+    StaticString<cIDLen> mServiceID;
+    StaticString<cIDLen> mSubjectID;
+    uint64_t             mInstance = 0;
 
     /**
      * Compares instance ident.
@@ -1002,10 +977,10 @@ struct ServiceStatus {
         mStatus = status;
     }
 
-    StaticString<cServiceIDLen> mServiceID;
-    StaticString<cVersionLen>   mVersion;
-    ItemStatus                  mStatus;
-    Error                       mError;
+    StaticString<cIDLen>      mServiceID;
+    StaticString<cVersionLen> mVersion;
+    ItemStatus                mStatus;
+    Error                     mError;
 
     /**
      * Compares service status.
@@ -1073,7 +1048,7 @@ struct LayerStatus {
         mStatus = status;
     }
 
-    StaticString<cServiceIDLen>   mLayerID;
+    StaticString<cIDLen>          mLayerID;
     StaticString<cLayerDigestLen> mDigest;
     StaticString<cVersionLen>     mVersion;
     ItemStatus                    mStatus;
@@ -1109,8 +1084,8 @@ using LayerStatusStaticArray = StaticArray<LayerStatus, cMaxNumLayers>;
  * Service info.
  */
 struct ServiceInfo {
-    StaticString<cServiceIDLen>       mServiceID;
-    StaticString<cProviderIDLen>      mProviderID;
+    StaticString<cIDLen>              mServiceID;
+    StaticString<cIDLen>              mProviderID;
     StaticString<cVersionLen>         mVersion;
     uint32_t                          mGID;
     StaticString<cURLLen>             mURL;
@@ -1149,7 +1124,7 @@ using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 // LayerInfo layer info.
 struct LayerInfo {
-    StaticString<cLayerIDLen>         mLayerID;
+    StaticString<cIDLen>              mLayerID;
     StaticString<cLayerDigestLen>     mLayerDigest;
     StaticString<cVersionLen>         mVersion;
     StaticString<cURLLen>             mURL;

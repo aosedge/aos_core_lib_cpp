@@ -41,7 +41,7 @@ Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsOb
     return ErrorEnum::eNone;
 }
 
-RetWithError<StaticString<cSystemIDLen>> FileIdentifier::GetSystemID()
+RetWithError<StaticString<cIDLen>> FileIdentifier::GetSystemID()
 {
     return mSystemId;
 }
@@ -51,7 +51,7 @@ RetWithError<StaticString<cUnitModelLen>> FileIdentifier::GetUnitModel()
     return mUnitModel;
 }
 
-Error FileIdentifier::GetSubjects(Array<StaticString<cSubjectIDLen>>& subjects)
+Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
 {
     if (subjects.MaxSize() < mSubjects.Size()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
@@ -82,7 +82,7 @@ Error FileIdentifier::ReadUnitModel()
 
 Error FileIdentifier::ReadSubjects()
 {
-    StaticString<cMaxNumSubjects * cSubjectIDLen> buffer;
+    StaticString<cMaxNumSubjects * cIDLen> buffer;
 
     auto err = fs::ReadFileToString(mConfig.subjectsPath, buffer);
     if (!err.IsNone()) {
