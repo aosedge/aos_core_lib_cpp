@@ -592,44 +592,6 @@ struct NetworkParameters {
 };
 
 /**
- * Instance info.
- */
-struct InstanceInfoObsolete {
-    InstanceIdent              mInstanceIdent;
-    uint32_t                   mUID      = 0;
-    uint64_t                   mPriority = 0;
-    StaticString<cFilePathLen> mStoragePath;
-    StaticString<cFilePathLen> mStatePath;
-    NetworkParameters          mNetworkParameters;
-
-    /**
-     * Compares instance info.
-     *
-     * @param instance info to compare.
-     * @return bool.
-     */
-    bool operator==(const InstanceInfoObsolete& instance) const
-    {
-        return mInstanceIdent == instance.mInstanceIdent && mUID == instance.mUID && mPriority == instance.mPriority
-            && mStoragePath == instance.mStoragePath && mStatePath == instance.mStatePath
-            && mNetworkParameters == instance.mNetworkParameters;
-    }
-
-    /**
-     * Compares instance info.
-     *
-     * @param instance info to compare.
-     * @return bool.
-     */
-    bool operator!=(const InstanceInfoObsolete& instance) const { return !operator==(instance); }
-};
-
-/**
- * Instance info static array.
- */
-using InstanceInfoObsoleteStaticArray = StaticArray<InstanceInfoObsolete, cMaxNumInstances>;
-
-/**
  * Instance run state.
  */
 class InstanceRunStateType {
@@ -842,7 +804,7 @@ struct InstanceInfo {
 /**
  * Instance info static array.
  */
-using InstanceInfoObsoleteStaticArray = StaticArray<InstanceInfoObsolete, cMaxNumInstances>;
+using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 
 /**
  * Instance status.

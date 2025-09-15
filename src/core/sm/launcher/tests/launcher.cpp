@@ -66,7 +66,7 @@ constexpr auto cWaitStatusTimeout = std::chrono::seconds(5);
  **********************************************************************************************************************/
 
 struct TestData {
-    std::vector<InstanceInfoObsolete>        mInstances;
+    std::vector<InstanceInfo>                mInstances;
     std::vector<ServiceInfo>                 mServices;
     std::vector<LayerInfo>                   mLayers;
     std::vector<InstanceStatusObsolete>      mStatus;
@@ -184,10 +184,10 @@ TEST_F(LauncherTest, RunInstances)
     std::vector<TestData> testData = {
         // start from scratch
         {
-            std::vector<InstanceInfoObsolete> {
-                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service1", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service2", "subject0", 0}, 0, 0, "", "", {}},
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, "", 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -204,10 +204,10 @@ TEST_F(LauncherTest, RunInstances)
         },
         // start the same instances
         {
-            std::vector<InstanceInfoObsolete> {
-                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service1", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service2", "subject0", 0}, 0, 0, "", "", {}},
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, "", 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -224,10 +224,10 @@ TEST_F(LauncherTest, RunInstances)
         },
         // stop and start some instances
         {
-            std::vector<InstanceInfoObsolete> {
-                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service2", "subject0", 1}, 0, 0, "", "", {}},
-                {{"service3", "subject0", 2}, 0, 0, "", "", {}},
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service2", "subject0", 1}, "", 0, 0, "", "", {}},
+                {{"service3", "subject0", 2}, "", 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -244,10 +244,10 @@ TEST_F(LauncherTest, RunInstances)
         },
         // new service version
         {
-            std::vector<InstanceInfoObsolete> {
-                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service2", "subject0", 1}, 0, 0, "", "", {}},
-                {{"service3", "subject0", 2}, 0, 0, "", "", {}},
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service2", "subject0", 1}, "", 0, 0, "", "", {}},
+                {{"service3", "subject0", 2}, "", 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "2.0.0", 0, "", {}, 0},
@@ -264,10 +264,10 @@ TEST_F(LauncherTest, RunInstances)
         },
         // run error
         {
-            std::vector<InstanceInfoObsolete> {
-                {{"service0", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service1", "subject0", 0}, 0, 0, "", "", {}},
-                {{"service2", "subject0", 0}, 0, 0, "", "", {}},
+            std::vector<InstanceInfo> {
+                {{"service0", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, "", 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, "", 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -322,7 +322,7 @@ TEST_F(LauncherTest, RunInstances)
         EXPECT_TRUE(mLauncher
                         ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
                             Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
-                            Array<InstanceInfoObsolete>(testItem.mInstances.data(), testItem.mInstances.size()))
+                            Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
                         .IsNone());
 
         EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
@@ -341,7 +341,7 @@ TEST_F(LauncherTest, RunMaxInstances)
         auto          serviceID = "service" + std::to_string(i % cMaxNumServices);
         InstanceIdent ident     = {serviceID.c_str(), "subject0", i / cMaxNumServices};
 
-        testItem.mInstances.push_back({ident, 0, 0, "", "", {}});
+        testItem.mInstances.push_back({ident, "", 0, 0, "", "", {}});
         testItem.mStatus.push_back({ident, "1.0.0", "", InstanceRunStateEnum::eActive, "", ErrorEnum::eNone});
     }
 
@@ -365,7 +365,7 @@ TEST_F(LauncherTest, RunMaxInstances)
     EXPECT_TRUE(mLauncher
                     ->RunInstances(Array<ServiceInfo>(testItem.mServices.data(), testItem.mServices.size()),
                         Array<LayerInfo>(testItem.mLayers.data(), testItem.mLayers.size()),
-                        Array<InstanceInfoObsolete>(testItem.mInstances.data(), testItem.mInstances.size()))
+                        Array<InstanceInfo>(testItem.mInstances.data(), testItem.mInstances.size()))
                     .IsNone());
 
     EXPECT_EQ(feature.wait_for(cWaitStatusTimeout), std::future_status::ready);
