@@ -45,11 +45,6 @@ constexpr auto cOCSPValuesCount = AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT;
 constexpr auto cCertFingerprintLen = AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN;
 
 /**
- * Max number of certificates.
- */
-constexpr auto cMaxNumCertificates = AOS_CONFIG_CLOUDPROTOCOL_MAX_NUM_CERTIFICATES;
-
-/**
  * Node state.
  */
 class NodeStateType {
@@ -311,6 +306,8 @@ struct UpdateItemInfo {
 
 using UpdateItemInfoStaticArray = StaticArray<UpdateItemInfo, cMaxNumUpdateItems>;
 
+using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
+
 /**
  * Instance info.
  */
@@ -371,7 +368,7 @@ struct CertificateInfo {
     bool operator!=(const CertificateInfo& other) const { return !operator==(other); }
 };
 
-using CertificateInfoStaticArray = StaticArray<CertificateInfo, cMaxNumCertificates>;
+using CertificateInfoStaticArray = StaticArray<CertificateInfo, crypto::cMaxNumCertificates>;
 
 /**
  * Certificate chain info.
