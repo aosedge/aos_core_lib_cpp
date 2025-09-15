@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <core/common/tools/fs.hpp>
+
 #include "imageparts.hpp"
 
 namespace aos::sm::image {

@@ -13,7 +13,6 @@
 #include <core/common/config.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/error.hpp>
-#include <core/common/tools/fs.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/time.hpp>
@@ -412,6 +411,11 @@ static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONN
  * Max number of update images per update item.
  */
 constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
+
+/*
+ * File path len.
+ */
+constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 
 /**
  * Max number of concurrent items.
