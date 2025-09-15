@@ -428,6 +428,15 @@ private:
     int mFd = -1;
 };
 
+/**
+ * Returns base name of the path.
+ *
+ * @param path path.
+ * @param base base name.
+ * @return Error.
+ */
+Error BaseName(const String& path, String& base);
+
 } // namespace fs
 } // namespace aos
 

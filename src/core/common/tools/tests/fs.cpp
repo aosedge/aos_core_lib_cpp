@@ -474,3 +474,28 @@ TEST_F(FSTest, CalculateNoMemory)
 
     EXPECT_EQ(fs::CalculateSize(walkDirRoot.c_str()), RetWithError<size_t>(cExpectedSize));
 }
+
+TEST_F(FSTest, BaseName)
+{
+    auto check = [](const char* input, const char* expected) {
+        StaticString<cFilePathLen> base;
+        EXPECT_TRUE(fs::BaseName(input, base).IsNone()) << "Input: " << input;
+        EXPECT_STREQ(base.CStr(), expected) << "Input: " << input;
+    };
+
+    check("", ".");
+    check("/", "/");
+    check("////", "/");
+
+    check(".", ".");
+    check("..", "..");
+
+    check("file", "file");
+    check("dir/", "dir");
+
+    check("/home/root/test.txt", "test.txt");
+    check("/home/root/", "root");
+    check("home", "home");
+    check("home/", "home");
+    check("/dir//sub///file//", "file");
+}

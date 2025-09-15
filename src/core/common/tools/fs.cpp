@@ -642,4 +642,40 @@ Error File::WriteBlock(const Array<uint8_t>& buffer)
     return ErrorEnum::eNone;
 }
 
+Error BaseName(const String& path, String& base)
+{
+    if (auto err = base.Assign(path); !err.IsNone()) {
+        return err;
+    }
+
+    if (base.Size() == 0) {
+        base = ".";
+
+        return ErrorEnum::eNone;
+    }
+
+    base.RightTrim("/");
+
+    if (base.Size() == 0) {
+        base = "/";
+        return ErrorEnum::eNone;
+    }
+
+    size_t lastSlashPos = base.Size();
+
+    for (size_t i = base.Size(); i > 0; --i) {
+        if (base[i - 1] == '/') {
+            lastSlashPos = i - 1;
+
+            break;
+        }
+    }
+
+    if (lastSlashPos < base.Size()) {
+        return base.Remove(base.Get(), base.Get() + lastSlashPos + 1);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::fs
