@@ -311,8 +311,6 @@ struct UpdateItemInfo {
 
 using UpdateItemInfoStaticArray = StaticArray<UpdateItemInfo, cMaxNumUpdateItems>;
 
-using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
-
 /**
  * Instance info.
  */
