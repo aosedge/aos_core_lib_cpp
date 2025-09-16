@@ -479,7 +479,7 @@ struct PlatformInfo {
  * Instance identification.
  */
 struct InstanceIdent {
-    StaticString<cIDLen> mServiceID;
+    StaticString<cIDLen> mItemID;
     StaticString<cIDLen> mSubjectID;
     uint64_t             mInstance = 0;
 
@@ -491,7 +491,7 @@ struct InstanceIdent {
      */
     bool operator<(const InstanceIdent& instance) const
     {
-        return mServiceID <= instance.mServiceID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
+        return mItemID <= instance.mItemID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
     }
 
     /**
@@ -502,8 +502,7 @@ struct InstanceIdent {
      */
     bool operator==(const InstanceIdent& instance) const
     {
-        return mServiceID == instance.mServiceID && mSubjectID == instance.mSubjectID
-            && mInstance == instance.mInstance;
+        return mItemID == instance.mItemID && mSubjectID == instance.mSubjectID && mInstance == instance.mInstance;
     }
 
     /**
@@ -524,8 +523,8 @@ struct InstanceIdent {
      */
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
-        return log << "{" << instanceIdent.mServiceID << ":" << instanceIdent.mSubjectID << ":"
-                   << instanceIdent.mInstance << "}";
+        return log << "{" << instanceIdent.mItemID << ":" << instanceIdent.mSubjectID << ":" << instanceIdent.mInstance
+                   << "}";
     }
 };
 

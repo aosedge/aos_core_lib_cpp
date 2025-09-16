@@ -131,7 +131,7 @@ TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
 TEST_F(PermHandlerTest, UnregisterInstance)
 {
     InstanceIdent instanceIdent;
-    instanceIdent.mServiceID = "test-service-id";
+    instanceIdent.mItemID = "test-item-id";
 
     StaticArray<FunctionServicePermissions, 1> perms;
     StaticString<cSecretLen>                   secret;
