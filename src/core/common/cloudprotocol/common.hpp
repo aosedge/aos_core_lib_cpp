@@ -86,68 +86,6 @@ struct Identifier {
     bool operator!=(const Identifier& other) const { return !operator==(other); }
 };
 
-/**
- * Instance filter.
- */
-struct InstanceFilter {
-    Optional<StaticString<cIDLen>> mServiceID;
-    Optional<StaticString<cIDLen>> mSubjectID;
-    Optional<uint64_t>             mInstance;
-
-    /**
-     * Returns true if instance ident matches filter.
-     *
-     * @param instanceIdent instance ident to match.
-     * @return bool.
-     */
-    bool Match(const InstanceIdent& instanceIdent) const
-    {
-        return (!mServiceID.HasValue() || *mServiceID == instanceIdent.mItemID)
-            && (!mSubjectID.HasValue() || *mSubjectID == instanceIdent.mSubjectID)
-            && (!mInstance.HasValue() || *mInstance == instanceIdent.mInstance);
-    }
-
-    /**
-     * Compares instance filter.
-     *
-     * @param filter instance filter to compare with.
-     * @return bool.
-     */
-    bool operator==(const InstanceFilter& filter) const
-    {
-        return mServiceID == filter.mServiceID && mSubjectID == filter.mSubjectID && mInstance == filter.mInstance;
-    }
-
-    /**
-     * Compares instance filter.
-     *
-     * @param filter instance filter to compare with.
-     * @return bool.
-     */
-    bool operator!=(const InstanceFilter& filter) const { return !operator==(filter); }
-
-    /**
-     * Outputs instance filter to log.
-     *
-     * @param log log to output.
-     * @param instanceFilter instance filter.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const InstanceFilter& instanceFilter)
-    {
-        StaticString<32> instanceStr = "*";
-
-        if (instanceFilter.mInstance.HasValue()) {
-            instanceStr.Convert(*instanceFilter.mInstance);
-        }
-
-        return log << "{" << (instanceFilter.mServiceID.HasValue() ? *instanceFilter.mServiceID : "*") << ":"
-                   << (instanceFilter.mSubjectID.HasValue() ? *instanceFilter.mSubjectID : "*") << ":" << instanceStr
-                   << "}";
-    }
-};
-
 } // namespace aos::cloudprotocol
 
 #endif
