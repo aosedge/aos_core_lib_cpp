@@ -19,8 +19,8 @@ namespace aos::cm::launcher {
  * Instance info.
  */
 struct InstanceInfo {
-    StaticString<cIDLen> mUpdateItemID;
-    UpdateItemType       mUpdateItemType;
+    StaticString<cIDLen> mItemID;
+    UpdateItemType       mItemType;
     StaticString<cIDLen> mSubjectID;
     uint64_t             mPriority {0};
     size_t               mNumInstances {0};
@@ -34,9 +34,8 @@ struct InstanceInfo {
      */
     bool operator==(const InstanceInfo& other) const
     {
-        return mUpdateItemID == other.mUpdateItemID && mUpdateItemType == other.mUpdateItemType
-            && mSubjectID == other.mSubjectID && mPriority == other.mPriority && mNumInstances == other.mNumInstances
-            && mLabels == other.mLabels;
+        return mItemID == other.mItemID && mItemType == other.mItemType && mSubjectID == other.mSubjectID
+            && mPriority == other.mPriority && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
     }
 
     /**
