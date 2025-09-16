@@ -325,7 +325,7 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
             continue;
         }
 
-        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
+        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mItemID);
         if (service == mCurrentServices.end()) {
             LOG_ERR() << "Service not found: instanceID=" << instance.mInstanceID;
 
@@ -551,9 +551,9 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
     for (const auto& instance : instances) {
         StaticString<cVersionLen> serviceVersion;
 
-        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mServiceID);
+        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mItemID);
         if (service == mCurrentServices.end()) {
-            LOG_ERR() << "Service not found: serviceID=" << instance.mInstanceInfo.mInstanceIdent.mServiceID;
+            LOG_ERR() << "Service not found: serviceID=" << instance.mInstanceInfo.mInstanceIdent.mItemID;
         } else {
             serviceVersion = service->mVersion;
         }
@@ -677,7 +677,7 @@ Error Launcher::CalculateInstances(const Array<InstanceData>& desiredInstancesDa
 
         compareInfo->mPriority = desiredInstance.mInstanceInfo.mPriority;
 
-        auto service = GetService(desiredInstance.mInstanceInfo.mInstanceIdent.mServiceID);
+        auto service = GetService(desiredInstance.mInstanceInfo.mInstanceIdent.mItemID);
 
         if ((*compareInfo != desiredInstance.mInstanceInfo) || service == mCurrentServices.end()
             || service->mVersion != currentInstance->GetServiceVersion() || forceRestart) {
@@ -839,7 +839,7 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
     mCurrentServices.Clear();
 
     for (const auto& instance : instances) {
-        const auto& serviceID = instance.mInstanceInfo.mInstanceIdent.mServiceID;
+        const auto& serviceID = instance.mInstanceInfo.mInstanceIdent.mItemID;
 
         if (GetService(serviceID) != mCurrentServices.end()) {
             continue;
@@ -872,7 +872,7 @@ Error Launcher::StartInstance(const InstanceData& info)
             return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
         }
 
-        auto service = GetService(info.mInstanceInfo.mInstanceIdent.mServiceID);
+        auto service = GetService(info.mInstanceInfo.mInstanceIdent.mItemID);
         if (service == mCurrentServices.end()) {
             if (auto err
                 = mCurrentInstances.EmplaceBack(info.mInstanceInfo, info.mInstanceID, servicemanager::ServiceData {},
