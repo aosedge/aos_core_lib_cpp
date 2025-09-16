@@ -571,18 +571,18 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
         }
     }
 
-    if (!network.mInstanceIdent.mServiceID.IsEmpty() && !network.mInstanceIdent.mSubjectID.IsEmpty()) {
+    if (!network.mInstanceIdent.mItemID.IsEmpty() && !network.mInstanceIdent.mSubjectID.IsEmpty()) {
         StaticString<cHostNameLen> host;
 
         host.Format("%d.%s.%s", network.mInstanceIdent.mInstance, network.mInstanceIdent.mSubjectID.CStr(),
-            network.mInstanceIdent.mServiceID.CStr());
+            network.mInstanceIdent.mItemID.CStr());
 
         if (auto err = PushHostWithDomain(host, networkID, hosts); !err.IsNone()) {
             return err;
         }
 
         if (network.mInstanceIdent.mInstance == 0) {
-            host.Format("%s.%s", network.mInstanceIdent.mSubjectID.CStr(), network.mInstanceIdent.mServiceID.CStr());
+            host.Format("%s.%s", network.mInstanceIdent.mSubjectID.CStr(), network.mInstanceIdent.mItemID.CStr());
 
             if (auto err = PushHostWithDomain(host, networkID, hosts); !err.IsNone()) {
                 return err;

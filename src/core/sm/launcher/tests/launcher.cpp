@@ -45,7 +45,7 @@ struct hash<aos::InstanceIdent> {
     std::size_t operator()(const aos::InstanceIdent& instanceIdent) const
     {
         // Use std::string's hash function directly
-        return std::hash<std::string> {}(std::string(instanceIdent.mServiceID.CStr()) + "-"
+        return std::hash<std::string> {}(std::string(instanceIdent.mItemID.CStr()) + "-"
             + instanceIdent.mSubjectID.CStr() + "-" + std::to_string(instanceIdent.mInstance));
     }
 };

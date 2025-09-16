@@ -57,7 +57,7 @@ protected:
     InstanceNetworkParameters CreateTestInstanceNetworkParameters()
     {
         InstanceNetworkParameters params;
-        params.mInstanceIdent.mServiceID  = "test-service";
+        params.mInstanceIdent.mItemID     = "test-item";
         params.mInstanceIdent.mSubjectID  = "test-subject";
         params.mInstanceIdent.mInstance   = 0;
         params.mNetworkParameters.mIP     = "192.168.1.2";

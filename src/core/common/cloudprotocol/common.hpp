@@ -102,7 +102,7 @@ struct InstanceFilter {
      */
     bool Match(const InstanceIdent& instanceIdent) const
     {
-        return (!mServiceID.HasValue() || *mServiceID == instanceIdent.mServiceID)
+        return (!mServiceID.HasValue() || *mServiceID == instanceIdent.mItemID)
             && (!mSubjectID.HasValue() || *mSubjectID == instanceIdent.mSubjectID)
             && (!mInstance.HasValue() || *mInstance == instanceIdent.mInstance);
     }
