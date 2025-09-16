@@ -1135,6 +1135,11 @@ struct DeviceInfo {
 using EnvVarsStaticArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
 
 /**
+ * Labels static array.
+ */
+using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
+
+/**
  * Resource info.
  */
 struct ResourceInfoObsolete {
