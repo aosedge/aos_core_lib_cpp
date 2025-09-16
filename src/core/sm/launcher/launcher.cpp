@@ -899,7 +899,7 @@ Error Launcher::StartInstance(const InstanceData& info)
 
         instance = &mCurrentInstances.Back();
 
-        auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
+        auto envVars = MakeUnique<EnvVarsStaticArray>(&mAllocator);
 
         if (auto err = GetInstanceEnvVars(info.mInstanceInfo.mInstanceIdent, *envVars); !err.IsNone()) {
             return err;
@@ -1192,7 +1192,7 @@ Error Launcher::GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<Sta
 Error Launcher::GetEnvChangedInstances(Array<InstanceData>& instances) const
 {
     for (auto& instance : mCurrentInstances) {
-        auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
+        auto envVars = MakeUnique<EnvVarsStaticArray>(&mAllocator);
 
         if (auto err = GetInstanceEnvVars(instance.Info().mInstanceIdent, *envVars); !err.IsNone()) {
             LOG_ERR() << "Can't get instance env vars: instanceID=" << instance.InstanceID() << ", err=" << err;

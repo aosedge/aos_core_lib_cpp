@@ -1132,7 +1132,7 @@ struct DeviceInfo {
 /**
  * Env vars static array.
  */
-using EnvVarsArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
+using EnvVarsStaticArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
 
 /**
  * Resource info.
@@ -1141,7 +1141,7 @@ struct ResourceInfoObsolete {
     StaticString<cResourceNameLen>                          mName;
     StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups> mGroups;
     StaticArray<Mount, cMaxNumFSMounts>                     mMounts;
-    EnvVarsArray                                            mEnv;
+    EnvVarsStaticArray                                      mEnv;
     StaticArray<Host, cMaxNumHosts>                         mHosts;
 
     /**
