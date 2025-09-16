@@ -429,12 +429,13 @@ private:
     mutable ConditionalVariable mCondVar;
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
-    StaticList<Instance, cMaxNumInstances>                    mCurrentInstances;
-    cloudprotocol::EnvVarsInstanceInfoArray                   mCurrentEnvVars;
-    StaticString<cFilePathLen>                                mHostWhiteoutsDir;
-    NodeInfoObsolete                                          mNodeInfo;
-    Time                                                      mOnlineTime;
-    Timer                                                     mTimer;
+    // cppcheck-suppress templateRecursion
+    StaticList<Instance, cMaxNumInstances>  mCurrentInstances;
+    cloudprotocol::EnvVarsInstanceInfoArray mCurrentEnvVars;
+    StaticString<cFilePathLen>              mHostWhiteoutsDir;
+    NodeInfoObsolete                        mNodeInfo;
+    Time                                    mOnlineTime;
+    Timer                                   mTimer;
 };
 
 /** @}*/
