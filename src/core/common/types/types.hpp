@@ -1074,13 +1074,11 @@ struct Host {
      * @param hostname hostname.
      */
     Host(const String& ip, const String& hostname)
-        : mIP(ip)
-        , mHostname(hostname)
+        : mHostname(hostname)
+        , mIP(ip)
+
     {
     }
-
-    StaticString<cIPLen>       mIP;
-    StaticString<cHostNameLen> mHostname;
 
     /**
      * Compares host.
@@ -1097,6 +1095,9 @@ struct Host {
      * @return bool.
      */
     bool operator!=(const Host& host) const { return !operator==(host); }
+
+    StaticString<cHostNameLen> mHostname;
+    StaticString<cIPLen>       mIP;
 };
 
 /**
