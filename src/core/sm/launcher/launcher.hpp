@@ -353,7 +353,7 @@ private:
         = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
                 + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
                 + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
-            sizeof(EnvVarsArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray)
+            sizeof(EnvVarsStaticArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray)
                 + sizeof(ServiceStatusStaticArray) + +sizeof(LayerStatusStaticArray));
 
     void  ShowResourceUsageStats();

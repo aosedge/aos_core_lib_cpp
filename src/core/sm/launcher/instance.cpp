@@ -226,7 +226,7 @@ Error Instance::BindHostDirs(oci::RuntimeSpec& runtimeSpec)
 
 Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
 {
-    auto                     envVars = MakeUnique<EnvVarsArray>(&sAllocator);
+    auto                     envVars = MakeUnique<EnvVarsStaticArray>(&sAllocator);
     StaticString<cEnvVarLen> envVar;
 
     if (auto err = envVar.Format("%s=%s", cEnvAosServiceID, mService.mServiceID.CStr()); !err.IsNone()) {
