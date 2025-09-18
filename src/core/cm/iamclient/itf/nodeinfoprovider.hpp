@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
-#define AOS_CORE_COMMON_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
+#ifndef AOS_CORE_CM_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
+#define AOS_CORE_CM_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
 
 #include <core/common/types/types.hpp>
 
-namespace aos::iamclient {
+namespace aos::cm::iamclient {
 /**
  * Interface for receiving notification about changing node information.
  */
@@ -39,6 +39,14 @@ public:
     virtual ~NodeInfoProviderItf() = default;
 
     /**
+     * Returns ids for all the nodes of the unit.
+     *
+     * @param[out] ids result node identifiers.
+     * @return Error.
+     */
+    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
+
+    /**
      * Returns info for specified node.
      *
      * @param nodeID node identifier.
@@ -46,14 +54,6 @@ public:
      * @return Error.
      */
     virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
-
-    /**
-     * Returns ids for all the nodes of the unit.
-     *
-     * @param[out] ids result node identifiers.
-     * @return Error.
-     */
-    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
 
     /**
      * Subscribes node info notifications.
@@ -72,6 +72,6 @@ public:
     virtual Error UnsubscribeListener(NodeInfoListenerItf& listener) = 0;
 };
 
-} // namespace aos::iamclient
+} // namespace aos::cm::iamclient
 
 #endif
