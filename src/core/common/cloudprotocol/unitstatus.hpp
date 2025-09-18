@@ -304,7 +304,7 @@ using SubjectStaticArray = StaticArray<Identifier, cMaxNumSubjects>;
  */
 struct UpdateImageStatus {
     StaticString<cIDLen> mImageID;
-    ImageStatus          mStatus;
+    ImageState           mState;
     Error                mError;
 
     /**
@@ -315,7 +315,7 @@ struct UpdateImageStatus {
      */
     bool operator==(const UpdateImageStatus& other) const
     {
-        return mImageID == other.mImageID && mStatus == other.mStatus && mError == other.mError;
+        return mImageID == other.mImageID && mState == other.mState && mError == other.mError;
     }
 
     /**
