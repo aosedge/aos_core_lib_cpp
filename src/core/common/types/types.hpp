@@ -1840,9 +1840,8 @@ public:
     enum class Enum {
         eOffline,
         eOnline,
-        eUM,
-        eSM,
         eCM,
+        eSM,
         eIAM,
         eNumCertificates,
     };
@@ -1852,9 +1851,8 @@ public:
         static const char* const sStrings[] = {
             "offline",
             "online",
-            "um",
-            "sm",
             "cm",
+            "sm",
             "iam",
             "unknown",
         };
