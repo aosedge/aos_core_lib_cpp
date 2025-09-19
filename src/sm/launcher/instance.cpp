@@ -254,9 +254,7 @@ Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
 
 Error Instance::ApplyImageConfig(const oci::ImageSpec& imageSpec, oci::RuntimeSpec& runtimeSpec)
 {
-    StaticString<cOSTypeLen> os = imageSpec.mOS;
-
-    if (os.ToLower() != cLinuxOS) {
+    if (imageSpec.mOS.Compare(cLinuxOS, String::CaseSensitivity::CaseInsensitive) != 0) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "unsupported OS in image config"));
     }
 
