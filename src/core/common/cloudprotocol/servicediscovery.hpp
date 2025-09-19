@@ -23,7 +23,7 @@ constexpr auto cServiceDiscoveryProtocolsCount = AOS_CONFIG_CLOUDPROTOCOL_SERVIC
  */
 struct ServiceDiscoveryRequest {
     size_t                                                                       mVersion {};
-    StaticString<cSystemIDLen>                                                   mSystemID;
+    StaticString<cIDLen>                                                         mSystemID;
     StaticArray<StaticString<cProtocolNameLen>, cServiceDiscoveryProtocolsCount> mSupportedProtocols;
 
     /**
@@ -69,7 +69,7 @@ using ServiceDiscoveryResponseError     = EnumStringer<ServiceDiscoveryResponseE
  */
 struct ServiceDiscoveryResponse {
     size_t                                          mVersion {};
-    StaticString<cSystemIDLen>                      mSystemID;
+    StaticString<cIDLen>                            mSystemID;
     Duration                                        mNextRequestDelay;
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mConnectionInfo;
     StaticString<cBearerTokenLen>                   mAuthToken;
