@@ -81,6 +81,34 @@ struct Identity {
     bool operator!=(const Identity& other) const { return !operator==(other); }
 };
 
+/**
+ * Instance identity.
+ */
+struct InstanceIdent {
+    Identity mIdentity;
+    Identity mSubject;
+    uint64_t mInstance = 0;
+
+    /**
+     * Compares instance identities.
+     *
+     * @param other instance identity to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceIdent& other) const
+    {
+        return mIdentity == other.mIdentity && mSubject == other.mSubject && mInstance == other.mInstance;
+    }
+
+    /**
+     * Compares instance identities.
+     *
+     * @param other instance identity to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceIdent& other) const { return !operator==(other); }
+};
+
 } // namespace aos::cloudprotocol
 
 #endif
