@@ -250,7 +250,7 @@ private:
     Error ParseRID(const Array<uint8_t>& data, RecipientID& content);
     Error ParseEncryptedContentInfo(const Array<uint8_t>& data, EncryptedContentInfo& content);
     Error GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint8_t>& symmetricKey);
-    Error DecryptCMSKey(const TransRecipientInfo& ktri, PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey);
+    Error DecryptCMSKey(const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey);
     Error DecryptMessage(const EncryptedContentInfo& content, const Array<uint8_t>& symKey, Array<uint8_t>& message);
     Error DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& input, Array<uint8_t>& message);
 

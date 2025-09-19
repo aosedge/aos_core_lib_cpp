@@ -909,7 +909,8 @@ Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint
     return DecryptCMSKey(info, *privKey, symmetricKey);
 }
 
-Error CryptoHelper::DecryptCMSKey(const TransRecipientInfo& ktri, PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey)
+Error CryptoHelper::DecryptCMSKey(
+    const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey)
 {
     if (ktri.mKeyEncryptionAlgorithm.mOID != cRSAEncryptionOid) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "unknown public encryption OID"));

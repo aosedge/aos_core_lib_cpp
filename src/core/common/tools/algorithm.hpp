@@ -131,6 +131,7 @@ public:
     {
         assert(!IsEmpty());
 
+        // cppcheck-suppress returnTempReference
         return *begin();
     }
 
