@@ -1976,6 +1976,32 @@ public:
 using StateResultEnum = StateResultType::Enum;
 using StateResult     = EnumStringer<StateResultType>;
 
+/**
+ *Core component type.
+ */
+class CoreComponentType {
+public:
+    enum class Enum {
+        eCM,
+        eSM,
+        eIAM,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sTargetTypeStrings[] = {
+            "CM",
+            "SM",
+            "IAM",
+        };
+
+        return Array<const char* const>(sTargetTypeStrings, ArraySize(sTargetTypeStrings));
+    };
+};
+
+using CoreComponentEnum = CoreComponentType::Enum;
+using CoreComponent     = EnumStringer<CoreComponentType>;
+
 } // namespace aos
 
 #endif
