@@ -194,7 +194,7 @@ TEST(MemoryTest, DeferRelease)
 
     EXPECT_CALL(deleter, Call(&dummy)).Times(1);
     {
-        auto defer = DeferRelease(&dummy, deleter.AsStdFunction());
+        [[maybe_unused]] auto defer = DeferRelease(&dummy, deleter.AsStdFunction());
     }
 }
 
@@ -204,7 +204,7 @@ TEST(MemoryTest, DeferReleaseNoOpForNull)
 
     EXPECT_CALL(deleter, Call(testing::_)).Times(0);
     {
-        auto defer = DeferRelease(static_cast<int*>(nullptr), deleter.AsStdFunction());
+        [[maybe_unused]] auto defer = DeferRelease(static_cast<int*>(nullptr), deleter.AsStdFunction());
     }
 }
 
