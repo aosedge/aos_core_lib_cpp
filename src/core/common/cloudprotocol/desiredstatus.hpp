@@ -72,8 +72,8 @@ using NodeState     = EnumStringer<NodeStateType>;
  * Desired node state.
  */
 struct DesiredNodeState {
-    Identifier mIdentifier;
-    NodeState  mState;
+    Identity  mIdentity;
+    NodeState mState;
 
     /**
      * Compares desired nodes states.
@@ -83,7 +83,7 @@ struct DesiredNodeState {
      */
     bool operator==(const DesiredNodeState& state) const
     {
-        return mIdentifier == state.mIdentifier && mState == state.mState;
+        return mIdentity == state.mIdentity && mState == state.mState;
     }
 
     /**
@@ -130,8 +130,8 @@ struct ResourceRatios {
  * Node config.
  */
 struct NodeConfig {
-    Optional<Identifier>                                        mNode;
-    Identifier                                                  mNodeGroupSubject;
+    Optional<Identity>                                          mNode;
+    Identity                                                    mNodeGroupSubject;
     Optional<AlertRules>                                        mAlertRules;
     Optional<ResourceRatios>                                    mResourceRatios;
     StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
@@ -280,7 +280,7 @@ using UpdateImageInfoStaticArray = StaticArray<UpdateImageInfo, cMaxNumUpdateIma
  * Update item info.
  */
 struct UpdateItemInfo {
-    Identifier                 mIdentifier;
+    Identity                   mIdentity;
     StaticString<cVersionLen>  mVersion;
     UpdateImageInfoStaticArray mImages;
 
@@ -292,7 +292,7 @@ struct UpdateItemInfo {
      */
     bool operator==(const UpdateItemInfo& other) const
     {
-        return mIdentifier == other.mIdentifier && mVersion == other.mVersion && mImages == other.mImages;
+        return mIdentity == other.mIdentity && mVersion == other.mVersion && mImages == other.mImages;
     }
 
     /**
@@ -312,8 +312,8 @@ using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLa
  * Instance info.
  */
 struct InstanceInfo {
-    Identifier        mIdentifier;
-    Identifier        mSubject;
+    Identity          mIdentity;
+    Identity          mSubject;
     uint64_t          mPriority {0};
     size_t            mNumInstances;
     LabelsStaticArray mLabels;
@@ -326,7 +326,7 @@ struct InstanceInfo {
      */
     bool operator==(const InstanceInfo& other) const
     {
-        return mIdentifier == other.mIdentifier && mSubject == other.mSubject && mPriority == other.mPriority
+        return mIdentity == other.mIdentity && mSubject == other.mSubject && mPriority == other.mPriority
             && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
     }
 

@@ -92,7 +92,7 @@ using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
  * Runtime info.
  */
 struct RuntimeInfo : public PlatformInfo {
-    Identifier                    mIdentifier;
+    Identity                      mIdentity;
     StaticString<cRuntimeTypeLen> mRuntimeType;
     Optional<size_t>              mMaxDMIPS;
     Optional<size_t>              mAllowedDMIPS;
@@ -108,7 +108,7 @@ struct RuntimeInfo : public PlatformInfo {
      */
     bool operator==(const RuntimeInfo& other) const
     {
-        return mIdentifier == other.mIdentifier && mMaxDMIPS == other.mMaxDMIPS && mTotalRAM == other.mTotalRAM
+        return mIdentity == other.mIdentity && mMaxDMIPS == other.mMaxDMIPS && mTotalRAM == other.mTotalRAM
             && mMaxInstances == other.mMaxInstances;
     }
 
@@ -127,8 +127,8 @@ using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
  * Unit node information.
  */
 struct NodeInfo {
-    Identifier               mIdentifier;
-    Identifier               mNodeGroupSubject;
+    Identity                 mIdentity;
+    Identity                 mNodeGroupSubject;
     size_t                   mMaxDMIPS {};
     size_t                   mTotalRAM {};
     Optional<size_t>         mPhysicalRAM;
@@ -150,7 +150,7 @@ struct NodeInfo {
      */
     bool operator==(const NodeInfo& other) const
     {
-        return mIdentifier == other.mIdentifier && mNodeGroupSubject == other.mNodeGroupSubject
+        return mIdentity == other.mIdentity && mNodeGroupSubject == other.mNodeGroupSubject
             && mMaxDMIPS == other.mMaxDMIPS && mTotalRAM == other.mTotalRAM && mCPUs == other.mCPUs
             && mOSInfo == other.mOSInfo && mPartitions == other.mPartitions && mResources == other.mResources
             && mRuntimes == other.mRuntimes && mAttrs == other.mAttrs && mProvisioned == other.mProvisioned
@@ -202,7 +202,7 @@ using ImageStatusStaticArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
  * Update item status.
  */
 struct UpdateItemStatus {
-    Identifier                mIdentifier;
+    Identity                  mIdentity;
     StaticString<cVersionLen> mVersion;
     ImageStatusStaticArray    mStatuses;
 
@@ -214,7 +214,7 @@ struct UpdateItemStatus {
      */
     bool operator==(const UpdateItemStatus& other) const
     {
-        return mIdentifier == other.mIdentifier && mVersion == other.mVersion && mStatuses == other.mStatuses;
+        return mIdentity == other.mIdentity && mVersion == other.mVersion && mStatuses == other.mStatuses;
     }
 
     /**
@@ -232,8 +232,8 @@ using UpdateItemStatusStaticArray = StaticArray<UpdateItemStatus, cMaxNumUpdateI
  * Instance status.
  */
 struct InstanceStatus : public PlatformInfo {
-    Identifier                        mNode;
-    Identifier                        mRuntime;
+    Identity                          mNode;
+    Identity                          mRuntime;
     uint64_t                          mInstance {};
     StaticArray<uint8_t, cSHA256Size> mStateChecksum;
     InstanceState                     mState;
@@ -266,8 +266,8 @@ using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
  * Instances statuses.
  */
 struct InstancesStatuses {
-    Identifier                mIdentifier;
-    Identifier                mSubject;
+    Identity                  mIdentity;
+    Identity                  mSubject;
     StaticString<cVersionLen> mVersion;
     InstanceStatusStaticArray mInstances;
 
@@ -279,7 +279,7 @@ struct InstancesStatuses {
      */
     bool operator==(const InstancesStatuses& other) const
     {
-        return mIdentifier == other.mIdentifier && mSubject == other.mSubject && mVersion == other.mVersion
+        return mIdentity == other.mIdentity && mSubject == other.mSubject && mVersion == other.mVersion
             && mInstances == other.mInstances;
     }
 
@@ -297,7 +297,7 @@ using InstancesStatusesStaticArray = StaticArray<InstancesStatuses, cMaxNumUpdat
 /*
  * Subjects.
  */
-using SubjectStaticArray = StaticArray<Identifier, cMaxNumSubjects>;
+using SubjectStaticArray = StaticArray<Identity, cMaxNumSubjects>;
 
 /**
  * Update image status.

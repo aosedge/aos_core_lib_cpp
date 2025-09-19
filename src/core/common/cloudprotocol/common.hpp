@@ -47,9 +47,9 @@ constexpr auto cChainNameLen = AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN;
 constexpr auto cBearerTokenLen = AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN;
 
 /**
- * Aos identifier.
+ * Aos identity.
  */
-struct Identifier {
+struct Identity {
     Optional<StaticString<cIDLen>>          mID;
     Optional<UpdateItemType>                mType;
     Optional<StaticString<cCodeNameLen>>    mCodeName;
@@ -58,12 +58,12 @@ struct Identifier {
     Optional<StaticString<cURNLen>>         mURN;
 
     /**
-     * Compares identifiers.
+     * Compares identities.
      *
-     * @param other identifier to compare.
+     * @param other identity to compare.
      * @return bool.
      */
-    bool operator==(const Identifier& other) const
+    bool operator==(const Identity& other) const
     {
         if (mURN.HasValue() && other.mURN.HasValue()) {
             return mURN.GetValue() == other.mURN.GetValue();
@@ -73,12 +73,12 @@ struct Identifier {
     }
 
     /**
-     * Compares identifiers.
+     * Compares identities.
      *
-     * @param other identifier to compare.
+     * @param other identity to compare.
      * @return bool.
      */
-    bool operator!=(const Identifier& other) const { return !operator==(other); }
+    bool operator!=(const Identity& other) const { return !operator==(other); }
 };
 
 } // namespace aos::cloudprotocol
