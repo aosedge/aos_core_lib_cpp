@@ -7,21 +7,11 @@
 #ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_ALERTS_HPP_
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_ALERTS_HPP_
 
-#include <core/common/tools/log.hpp>
 #include <core/common/tools/variant.hpp>
-#include <core/common/types/types.hpp>
+
+#include "common.hpp"
 
 namespace aos::cloudprotocol {
-
-/**
- * Alert download target id len.
- */
-constexpr auto cAlertDownloadTargetIDLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_CORE_DOWNLOAD_TARGET_ID_LEN;
-
-/**
- * Alert download progress len.
- */
-constexpr auto cAlertDownloadProgressLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_DOWNLOAD_PROGRESS_LEN;
 
 /**
  * Alert items count.
@@ -36,12 +26,11 @@ public:
     enum class Enum {
         eSystemAlert,
         eCoreAlert,
-        eResourceValidateAlert,
-        eDeviceAllocateAlert,
+        eResourceAllocateAlert,
         eSystemQuotaAlert,
         eInstanceQuotaAlert,
         eDownloadProgressAlert,
-        eServiceInstanceAlert,
+        eInstanceAlert,
     };
 
     static const Array<const char* const> GetStrings()
@@ -49,12 +38,11 @@ public:
         static const char* const sAlertTagStrings[] = {
             "systemAlert",
             "coreAlert",
-            "resourceValidateAlert",
-            "deviceAllocateAlert",
+            "resourceAllocateAlert",
             "systemQuotaAlert",
             "instanceQuotaAlert",
             "downloadProgressAlert",
-            "serviceInstanceAlert",
+            "instanceAlert",
         };
 
         return Array<const char* const>(sAlertTagStrings, ArraySize(sAlertTagStrings));
@@ -68,18 +56,6 @@ using AlertTag     = EnumStringer<AlertTagType>;
  * Alert item.
  */
 struct AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param tag alert tag.
-     * @param timestamp alert timestamp.
-     */
-    AlertItem(AlertTag tag, const Time& timestamp)
-        : mTimestamp(timestamp)
-        , mTag(tag)
-    {
-    }
-
     Time     mTimestamp;
     AlertTag mTag;
 
@@ -98,33 +74,13 @@ struct AlertItem {
      * @return bool.
      */
     bool operator!=(const AlertItem& item) const { return !operator==(item); }
-
-    /**
-     * Outputs alert item to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const AlertItem& alert) { return log << alert.mTimestamp << ":" << alert.mTag; }
 };
 
 /**
  * System alert.
  */
 struct SystemAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit SystemAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eSystemAlert, timestamp)
-    {
-    }
-
-    StaticString<cNodeIDLen>       mNodeID;
+    Identity                       mNodeID;
     StaticString<cAlertMessageLen> mMessage;
 
     /**
@@ -142,67 +98,13 @@ struct SystemAlert : AlertItem {
      * @return bool.
      */
     bool operator!=(const SystemAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs system alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const SystemAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mMessage
-                   << "}";
-    }
 };
-
-/**
- * Core component type.
- */
-class CoreComponentType {
-public:
-    enum class Enum {
-        eServiceManager,
-        eUpdateManager,
-        eIAMAnager,
-        eCommunicationManager,
-        eVIS,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sTargetTypeStrings[] = {
-            "aos-servicemanager",
-            "aos-updatemanager",
-            "aos-iamanager",
-            "aos-communicationmanager",
-            "aos-vis",
-        };
-
-        return Array<const char* const>(sTargetTypeStrings, ArraySize(sTargetTypeStrings));
-    };
-};
-
-using CoreComponentEnum = CoreComponentType::Enum;
-using CoreComponent     = EnumStringer<CoreComponentType>;
 
 /**
  * Core alert.
  */
 struct CoreAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit CoreAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eCoreAlert, timestamp)
-    {
-    }
-
-    StaticString<cNodeIDLen>       mNodeID;
+    Identity                       mNodeID;
     CoreComponent                  mCoreComponent;
     StaticString<cAlertMessageLen> mMessage;
 
@@ -224,154 +126,44 @@ struct CoreAlert : AlertItem {
      * @return bool.
      */
     bool operator!=(const CoreAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs core alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const CoreAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mCoreComponent
-                   << ":" << alert.mMessage << "}";
-    }
 };
 
 /**
- * Download target type.
+ * Resource allocate alert.
  */
-class DownloadTargetType {
-public:
-    enum class Enum {
-        eComponent,
-        eLayer,
-        eService,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sTargetTypeStrings[] = {
-            "component",
-            "layer",
-            "service",
-        };
-
-        return Array<const char* const>(sTargetTypeStrings, ArraySize(sTargetTypeStrings));
-    };
-};
-
-using DownloadTargetEnum = DownloadTargetType::Enum;
-using DownloadTarget     = EnumStringer<DownloadTargetType>;
-
-/**
- * Download alert.
- */
-struct DownloadAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit DownloadAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eDownloadProgressAlert, timestamp)
-    {
-    }
-
-    DownloadTarget                          mTargetType;
-    StaticString<cAlertDownloadTargetIDLen> mTargetID;
-    StaticString<cVersionLen>               mVersion;
-    StaticString<cAlertMessageLen>          mMessage;
-    StaticString<cURLLen>                   mURL;
-    StaticString<cAlertDownloadProgressLen> mDownloadedBytes;
-    StaticString<cAlertDownloadProgressLen> mTotalBytes;
+struct ResourceAllocateAlert : AlertItem, InstanceIdent {
+    Identity                       mNodeID;
+    StaticString<cResourceNameLen> mResource;
+    StaticString<cAlertMessageLen> mMessage;
 
     /**
-     * Compares download alert.
+     * Compares resource allocate alert.
      *
-     * @param alert download alert to compare with.
+     * @param alert resource allocate alert to compare with.
      * @return bool.
      */
-    bool operator==(const DownloadAlert& alert) const
+    bool operator==(const ResourceAllocateAlert& alert) const
     {
-        return mTargetType == alert.mTargetType && mTargetID == alert.mTargetID && mVersion == alert.mVersion
-            && mMessage == alert.mMessage && mURL == alert.mURL && mDownloadedBytes == alert.mDownloadedBytes
-            && mTotalBytes == alert.mTotalBytes;
+        return InstanceIdent::operator==(alert) && mNodeID == alert.mNodeID && mResource == alert.mResource
+            && mMessage == alert.mMessage;
     }
 
     /**
-     * Compares download alert.
+     * Compares resource allocate alert.
      *
-     * @param alert download alert to compare with.
+     * @param alert resource allocate alert to compare with.
      * @return bool.
      */
-    bool operator!=(const DownloadAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs download alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const DownloadAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mTargetType << ":" << alert.mURL
-                   << ":" << alert.mMessage << "}";
-    }
+    bool operator!=(const ResourceAllocateAlert& alert) const { return !operator==(alert); }
 };
-
-/**
- * Alert status type.
- */
-class AlertStatusType {
-public:
-    enum class Enum {
-        eRaise,
-        eContinue,
-        eFall,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sAlertStatusStrings[] = {
-            "raise",
-            "continue",
-            "fall",
-        };
-
-        return Array<const char* const>(sAlertStatusStrings, ArraySize(sAlertStatusStrings));
-    };
-};
-
-using AlertStatusEnum = AlertStatusType::Enum;
-using AlertStatus     = EnumStringer<AlertStatusType>;
 
 /**
  * System quota alert.
  */
 struct SystemQuotaAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit SystemQuotaAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eSystemQuotaAlert, timestamp)
-        , mNodeID()
-        , mParameter()
-        , mValue(0)
-        , mStatus()
-    {
-    }
-
-    StaticString<cNodeIDLen>         mNodeID;
+    Identity                         mNodeID;
     StaticString<cAlertParameterLen> mParameter;
     uint64_t                         mValue;
-    AlertStatus                      mStatus;
 
     /**
      * Compares system quota alert.
@@ -381,8 +173,7 @@ struct SystemQuotaAlert : AlertItem {
      */
     bool operator==(const SystemQuotaAlert& alert) const
     {
-        return mNodeID == alert.mNodeID && mParameter == alert.mParameter && mValue == alert.mValue
-            && mStatus == alert.mStatus;
+        return mNodeID == alert.mNodeID && mParameter == alert.mParameter && mValue == alert.mValue;
     }
 
     /**
@@ -392,44 +183,14 @@ struct SystemQuotaAlert : AlertItem {
      * @return bool.
      */
     bool operator!=(const SystemQuotaAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs system quota alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const SystemQuotaAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mParameter
-                   << ":" << alert.mValue << ":" << alert.mStatus << "}";
-    }
 };
 
 /**
  * Instance quota alert.
  */
-struct InstanceQuotaAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit InstanceQuotaAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eInstanceQuotaAlert, timestamp)
-        , mInstanceIdent()
-        , mParameter()
-        , mValue(0)
-        , mStatus()
-    {
-    }
-
-    InstanceIdent                    mInstanceIdent;
+struct InstanceQuotaAlert : AlertItem, InstanceIdent {
     StaticString<cAlertParameterLen> mParameter;
     uint64_t                         mValue;
-    AlertStatus                      mStatus;
 
     /**
      * Compares instance quota alert.
@@ -439,8 +200,7 @@ struct InstanceQuotaAlert : AlertItem {
      */
     bool operator==(const InstanceQuotaAlert& alert) const
     {
-        return mInstanceIdent == alert.mInstanceIdent && mParameter == alert.mParameter && mValue == alert.mValue
-            && mStatus == alert.mStatus;
+        return InstanceIdent::operator==(alert) && mParameter == alert.mParameter && mValue == alert.mValue;
     }
 
     /**
@@ -450,190 +210,69 @@ struct InstanceQuotaAlert : AlertItem {
      * @return bool.
      */
     bool operator!=(const InstanceQuotaAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs instance quota alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const InstanceQuotaAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mParameter << ":" << alert.mValue
-                   << ":" << alert.mStatus << "}";
-    }
 };
 
 /**
- * Device allocate alert.
+ * Download alert.
  */
-struct DeviceAllocateAlert : AlertItem {
+struct DownloadAlert : AlertItem {
+    Identity                       mIdentity;
+    StaticString<cVersionLen>      mVersion;
+    StaticString<cAlertMessageLen> mMessage;
+    StaticString<cURLLen>          mURL;
+    size_t                         mDownloadedBytes;
+    size_t                         mTotalBytes;
+
     /**
-     * Constructor.
+     * Compares download alert.
      *
-     * @param timestamp alert timestamp.
+     * @param alert download alert to compare with.
+     * @return bool.
      */
-    explicit DeviceAllocateAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eDeviceAllocateAlert, timestamp)
-        , mInstanceIdent()
+    bool operator==(const DownloadAlert& alert) const
     {
+        return mIdentity == alert.mIdentity && mVersion == alert.mVersion && mMessage == alert.mMessage
+            && mURL == alert.mURL && mDownloadedBytes == alert.mDownloadedBytes && mTotalBytes == alert.mTotalBytes;
     }
 
-    InstanceIdent                  mInstanceIdent;
-    StaticString<cNodeIDLen>       mNodeID;
-    StaticString<cDeviceNameLen>   mDevice;
+    /**
+     * Compares download alert.
+     *
+     * @param alert download alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const DownloadAlert& alert) const { return !operator==(alert); }
+};
+
+/**
+ * Instance alert.
+ */
+struct InstanceAlert : AlertItem, InstanceIdent {
+    StaticString<cVersionLen>      mVersion;
     StaticString<cAlertMessageLen> mMessage;
 
     /**
-     * Compares device allocate alert.
+     * Compares instance alert.
      *
-     * @param alert device allocate alert to compare with.
+     * @param alert  instance alert to compare with.
      * @return bool.
      */
-    bool operator==(const DeviceAllocateAlert& alert) const
+    bool operator==(const InstanceAlert& alert) const
     {
-        return mInstanceIdent == alert.mInstanceIdent && mNodeID == alert.mNodeID && mDevice == alert.mDevice
-            && mMessage == alert.mMessage;
+        return InstanceIdent::operator==(alert) && mVersion == alert.mVersion && mMessage == alert.mMessage;
     }
 
     /**
-     * Compares device allocate alert.
+     * Compares instance alert.
      *
-     * @param alert device allocate alert to compare with.
+     * @param alert  instance alert to compare with.
      * @return bool.
      */
-    bool operator!=(const DeviceAllocateAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs device allocate alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const DeviceAllocateAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mInstanceIdent << ":" << alert.mNodeID
-                   << ":" << alert.mDevice << ":" << alert.mMessage << "}";
-    }
-};
-
-/**
- * Resource validate alert.
- */
-struct ResourceValidateAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit ResourceValidateAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eResourceValidateAlert, timestamp)
-    {
-    }
-
-    StaticString<cNodeIDLen>                 mNodeID;
-    StaticString<cResourceNameLen>           mName;
-    StaticArray<Error, cMaxNumNodeResources> mErrors;
-
-    /**
-     * Compares resource validate alert.
-     *
-     * @param alert resource validate alert to compare with.
-     * @return bool.
-     */
-    bool operator==(const ResourceValidateAlert& alert) const
-    {
-        return mNodeID == alert.mNodeID && mName == alert.mName && mErrors == alert.mErrors;
-    }
-
-    /**
-     * Compares resource validate alert.
-     *
-     * @param alert resource validate alert to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ResourceValidateAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs resource validate alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const ResourceValidateAlert& alert)
-    {
-        log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mName;
-
-        for (const auto& error : alert.mErrors) {
-            log << ":" << error;
-        }
-
-        return log << "}";
-    }
-};
-
-/**
- * Service instance alert.
- */
-struct ServiceInstanceAlert : AlertItem {
-    /**
-     * Constructor.
-     *
-     * @param timestamp alert timestamp.
-     */
-    explicit ServiceInstanceAlert(const Time& timestamp = Time::Now())
-        : AlertItem(AlertTagEnum::eServiceInstanceAlert, timestamp)
-        , mInstanceIdent()
-    {
-    }
-
-    InstanceIdent                  mInstanceIdent;
-    StaticString<cVersionLen>      mServiceVersion;
-    StaticString<cAlertMessageLen> mMessage;
-
-    /**
-     * Compares service instance alert.
-     *
-     * @param alert service instance alert to compare with.
-     * @return bool.
-     */
-    bool operator==(const ServiceInstanceAlert& alert) const
-    {
-        return mInstanceIdent == alert.mInstanceIdent && mServiceVersion == alert.mServiceVersion
-            && mMessage == alert.mMessage;
-    }
-
-    /**
-     * Compares service instance alert.
-     *
-     * @param alert service instance alert to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ServiceInstanceAlert& alert) const { return !operator==(alert); }
-
-    /**
-     * Outputs service instance alert to log.
-     *
-     * @param log log to output.
-     * @param alert alert.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const ServiceInstanceAlert& alert)
-    {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mInstanceIdent << ":"
-                   << alert.mServiceVersion << ":" << alert.mMessage << "}";
-    }
+    bool operator!=(const InstanceAlert& alert) const { return !operator==(alert); }
 };
 
 using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
-    DeviceAllocateAlert, ResourceValidateAlert, ServiceInstanceAlert>;
+    ResourceAllocateAlert, InstanceAlert>;
 
 using AlertVariantStaticArray = StaticArray<AlertVariant, cAlertItemsCount>;
 
