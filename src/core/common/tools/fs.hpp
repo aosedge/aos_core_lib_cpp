@@ -89,6 +89,84 @@ public:
 };
 
 /**
+ * FS event type.
+ */
+class FSEventType {
+public:
+    enum class Enum {
+        eAccess,
+        eModify,
+        eClose,
+        eCreate,
+        eDelete,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "access",
+            "modify",
+            "close",
+            "create",
+            "delete",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using FSEventEnum = FSEventType::Enum;
+using FSEvent     = EnumStringer<FSEventType>;
+
+/**
+ * Interface to receive file system events.
+ */
+class FSEventSubscriberItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~FSEventSubscriberItf() = default;
+
+    /**
+     * Called when file system event occurs for a specified path.
+     *
+     * @param path path to the file or directory that triggered the event.
+     * @param events array of events that occurred.
+     */
+    virtual void OnFSEvent(const String& path, const Array<FSEvent>& events) = 0;
+};
+
+/**
+ * Interface to watch file system events.
+ */
+class FSWatcherItf {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~FSWatcherItf() = default;
+
+    /**
+     * Subscribes subscriber on fs events for the specified path.
+     *
+     * @param path path to watch.
+     * @param subscriber subscriber object.
+     * @return Error.
+     */
+    virtual Error Subscribe(const String& path, FSEventSubscriberItf& subscriber) = 0;
+
+    /**
+     * Unsubscribes subscriber.
+     *
+     * @param path path to unsubscribe from.
+     * @param subscriber subscriber to unsubscribe.
+     * @return Error.
+     */
+    virtual Error Unsubscribe(const String& path, FSEventSubscriberItf& subscriber) = 0;
+};
+
+/**
  * Directory iterator.
  * The iteration order is unspecified, except that each directory entry is visited only once.
  */

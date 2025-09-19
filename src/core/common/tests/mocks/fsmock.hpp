@@ -21,6 +21,13 @@ public:
     MOCK_METHOD(Error, SetUserQuota, (const String& path, size_t quota, size_t uid), (const, override));
     MOCK_METHOD(Error, ChangeOwner, (const String& path, uint32_t uid, uint32_t gid), (const, override));
 };
+
+class FSWatcherMock : public fs::FSWatcherItf {
+public:
+    MOCK_METHOD(Error, Subscribe, (const String& path, fs::FSEventSubscriberItf& subscriber), (override));
+    MOCK_METHOD(Error, Unsubscribe, (const String& path, fs::FSEventSubscriberItf& subscriber), (override));
+};
+
 } // namespace aos
 
 #endif
