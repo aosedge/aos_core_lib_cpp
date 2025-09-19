@@ -67,18 +67,18 @@ RetWithError<RSAPublicKey> ExtractRSAPublicKeyFromPrivateKey(const std::string& 
     std::unique_ptr<mbedtls_mpi, decltype(&mbedtls_mpi_free)> mpiNPtr(&mpiN, mbedtls_mpi_free);
     std::unique_ptr<mbedtls_mpi, decltype(&mbedtls_mpi_free)> mpiEPtr(&mpiE, mbedtls_mpi_free);
 
-    if ((ret = mbedtls_rsa_export(rsa_context, mpiNPtr.get(), nullptr, nullptr, nullptr, mpiEPtr.get())) != 0) {
+    if (mbedtls_rsa_export(rsa_context, mpiNPtr.get(), nullptr, nullptr, nullptr, mpiEPtr.get()) != 0) {
         return {{{}, {}}, aos::ErrorEnum::eInvalidArgument};
     }
 
     StaticArray<uint8_t, cRSAModulusSize>     n;
     StaticArray<uint8_t, cRSAPubExponentSize> e;
 
-    if ((ret = ConvertMbedtlsMpiToArray(mpiNPtr.get(), n)) != 0) {
+    if (ConvertMbedtlsMpiToArray(mpiNPtr.get(), n) != 0) {
         return {{{}, {}}, aos::ErrorEnum::eInvalidArgument};
     }
 
-    if ((ret = ConvertMbedtlsMpiToArray(mpiEPtr.get(), e)) != 0) {
+    if (ConvertMbedtlsMpiToArray(mpiEPtr.get(), e) != 0) {
         return {{{}, {}}, aos::ErrorEnum::eInvalidArgument};
     }
 
@@ -91,7 +91,7 @@ RetWithError<ECDSAPublicKey> ExtractECDSAPublicKeyFromPrivateKey(const std::stri
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
 
-    std::unique_ptr<mbedtls_pk_context, decltype(&mbedtls_pk_free)> pkPtr(&pk, mbedtls_pk_free);
+    [[maybe_unused]] auto pkRelease = DeferRelease(&pk, mbedtls_pk_free);
 
     if ((ret = mbedtls_pk_parse_key(&pk, reinterpret_cast<const uint8_t*>(pemPrivKey.data()), pemPrivKey.size() + 1,
              nullptr, 0, nullptr, nullptr))
@@ -529,7 +529,7 @@ bool MBedTLSCryptoFactory::VerifyCertificate(const std::string& pemCert)
     mbedtls_x509_crt cert;
     mbedtls_x509_crt_init(&cert);
 
-    std::unique_ptr<mbedtls_x509_crt, decltype(&mbedtls_x509_crt_free)> certPtr(&cert, mbedtls_x509_crt_free);
+    [[maybe_unused]] auto certRelease = DeferRelease(&cert, mbedtls_x509_crt_free);
 
     int ret = mbedtls_x509_crt_parse(&cert, reinterpret_cast<const uint8_t*>(pemCert.c_str()), pemCert.size() + 1);
     if (ret != 0) {
@@ -546,10 +546,9 @@ bool MBedTLSCryptoFactory::VerifyCSR(const std::string& pemCSR)
     mbedtls_x509_csr csr;
     mbedtls_x509_csr_init(&csr);
 
-    std::unique_ptr<mbedtls_x509_csr, decltype(&mbedtls_x509_csr_free)> csrPtr(&csr, mbedtls_x509_csr_free);
+    [[maybe_unused]] auto csrRelease = DeferRelease(&csr, mbedtls_x509_csr_free);
 
-    return mbedtls_x509_csr_parse(csrPtr.get(), reinterpret_cast<const uint8_t*>(pemCSR.c_str()), pemCSR.size() + 1)
-        == 0;
+    return mbedtls_x509_csr_parse(&csr, reinterpret_cast<const uint8_t*>(pemCSR.c_str()), pemCSR.size() + 1) == 0;
 }
 
 bool MBedTLSCryptoFactory::VerifySignature(

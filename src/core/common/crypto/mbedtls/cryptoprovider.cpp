@@ -371,10 +371,9 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     size_t               bytesLeft = static_cast<size_t>(length);
 
     while (bytesLeft > 0) {
-        long elemLength    = 0;
-        int  elemTag       = 0;
-        int  elemClass     = 0;
-        bool isConstructed = false;
+        long elemLength = 0;
+        int  elemTag    = 0;
+        int  elemClass  = 0;
 
         const unsigned char* nextPtr = elemPtr;
         err = GetASN1Object(&nextPtr, elemLength, elemTag, elemClass, isConstructed, static_cast<long>(bytesLeft));
@@ -413,7 +412,7 @@ Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, Pad
 {
     mbedtls_rsa_context rsa;
     mbedtls_rsa_init(&rsa);
-    auto releaseRSA = DeferRelease(&rsa, mbedtls_rsa_free);
+    [[maybe_unused]] auto releaseRSA = DeferRelease(&rsa, mbedtls_rsa_free);
 
     int ret = mbedtls_rsa_import_raw(&rsa, pubKey.GetN().Get(), pubKey.GetN().Size(), nullptr, 0, // P - unused
         nullptr, 0, // Q - unused
@@ -500,16 +499,16 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
     mbedtls_ecp_keypair   keypair;
 
     mbedtls_ecp_group_init(&grp);
-    auto grpRelease = DeferRelease(&grp, mbedtls_ecp_group_free);
+    [[maybe_unused]] auto grpRelease = DeferRelease(&grp, mbedtls_ecp_group_free);
 
     mbedtls_ecp_point_init(&ecPoint);
-    auto QRelease = DeferRelease(&ecPoint, mbedtls_ecp_point_free);
+    [[maybe_unused]] auto QRelease = DeferRelease(&ecPoint, mbedtls_ecp_point_free);
 
     mbedtls_ecdsa_init(&ctx);
-    auto ctxRelease = DeferRelease(&ctx, mbedtls_ecdsa_free);
+    [[maybe_unused]] auto ctxRelease = DeferRelease(&ctx, mbedtls_ecdsa_free);
 
     mbedtls_ecp_keypair_init(&keypair);
-    auto keypairRelease = DeferRelease(&keypair, mbedtls_ecp_keypair_free);
+    [[maybe_unused]] auto keypairRelease = DeferRelease(&keypair, mbedtls_ecp_keypair_free);
 
     // Init public key.
     mbedtls_asn1_buf oidBuf;
@@ -547,10 +546,10 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
     mbedtls_mpi r, s;
 
     mbedtls_mpi_init(&r);
-    auto releaseR = DeferRelease(&r, mbedtls_mpi_free);
+    [[maybe_unused]] auto releaseR = DeferRelease(&r, mbedtls_mpi_free);
 
     mbedtls_mpi_init(&s);
-    auto releaseS = DeferRelease(&s, mbedtls_mpi_free);
+    [[maybe_unused]] auto releaseS = DeferRelease(&s, mbedtls_mpi_free);
 
     size_t rsLen = signature.Size() / 2;
 
@@ -1135,8 +1134,8 @@ Error MbedTLSCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
 
     mbedtls_x509_crt_init(&root);
     mbedtls_x509_crt_init(&interm);
-    auto releaseRoot   = DeferRelease(&root, mbedtls_x509_crt_free);
-    auto releaseInterm = DeferRelease(&interm, mbedtls_x509_crt_free);
+    [[maybe_unused]] auto releaseRoot   = DeferRelease(&root, mbedtls_x509_crt_free);
+    [[maybe_unused]] auto releaseInterm = DeferRelease(&interm, mbedtls_x509_crt_free);
 
     // Load root certificates.
     for (const auto& r : rootCerts) {
@@ -1295,7 +1294,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadBigInt(
 
     mbedtls_mpi mpi;
     mbedtls_mpi_init(&mpi);
-    auto mpiRelease = DeferRelease(&mpi, mbedtls_mpi_free);
+    [[maybe_unused]] auto mpiRelease = DeferRelease(&mpi, mbedtls_mpi_free);
 
     int ret = mbedtls_asn1_get_mpi(const_cast<uint8_t**>(&p), end, &mpi);
     if (ret != 0) {
@@ -1755,6 +1754,7 @@ const PublicKeyItf& MbedTLSCryptoProvider::MbedTLSRSAPrivKey::GetPublic() const
 {
     assert(false);
 
+    // cppcheck-suppress nullPointer
     return *static_cast<PublicKeyItf*>(nullptr);
 }
 
@@ -2201,13 +2201,13 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
                 ret = mbedtls_asn1_get_tag(&p, gnEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6);
                 if (ret == 0) {
                     StaticString<cURLLen> str;
-                    if (auto err
+                    if (auto insErr
                         = str.Insert(str.begin(), reinterpret_cast<char*>(p), reinterpret_cast<char*>(p) + gnLen);
-                        !err.IsNone()) {
-                        return AOS_ERROR_WRAP(err);
+                        !insErr.IsNone()) {
+                        return AOS_ERROR_WRAP(insErr);
                     }
 
-                    if (auto err = cert.mIssuerURLs.PushBack(str); !err.IsNone()) {
+                    if (auto pushErr = cert.mIssuerURLs.PushBack(str); !pushErr.IsNone()) {
                         return AOS_ERROR_WRAP(err);
                     }
                 }

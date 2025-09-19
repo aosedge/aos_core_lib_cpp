@@ -16,7 +16,7 @@ namespace aos::monitoring {
  **********************************************************************************************************************/
 
 // cppcheck-suppress constParameterReference
-Error ResourceMonitor::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+Error ResourceMonitor::Init(const Config& config, const iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     sm::resourcemanager::ResourceManagerItf& resourceManager, ResourceUsageProviderItf& resourceUsageProvider,
     SenderItf& monitorSender, alerts::SenderItf& alertSender, ConnectionPublisherItf& connectionPublisher)
 {

@@ -638,9 +638,9 @@ using ObjectIdentifier = StaticString<cASN1ObjIdLen>;
  * ASN1 value.
  */
 struct ASN1Value {
-    int            mTagClass;
-    int            mTagNumber;
-    bool           mIsConstructed;
+    int            mTagClass {};
+    int            mTagNumber {};
+    bool           mIsConstructed {};
     Array<uint8_t> mValue;
 
     /**
@@ -817,7 +817,7 @@ struct ASN1ParseResult {
      * @param err error object.
      * @param remaining not parsed content.
      */
-    ASN1ParseResult(const Error err, const Array<uint8_t>& remaining)
+    ASN1ParseResult(const Error& err, const Array<uint8_t>& remaining)
         : mError(err)
         , mRemaining(remaining)
     {

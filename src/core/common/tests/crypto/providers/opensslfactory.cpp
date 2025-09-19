@@ -594,7 +594,7 @@ bool OpenSSLCryptoFactory::VerifySignature(
         return false;
     }
 
-    auto freeKey = DeferRelease(evpKey, EVP_PKEY_free);
+    [[maybe_unused]] auto freeKey = DeferRelease(evpKey, EVP_PKEY_free);
 
     return VerifyWithEVP(evpKey, KeyTypeEnum::eRSA, signature, digest);
 }
@@ -607,7 +607,7 @@ bool OpenSSLCryptoFactory::VerifySignature(
         return false;
     }
 
-    auto freeKey = DeferRelease(evpKey, EVP_PKEY_free);
+    [[maybe_unused]] auto freeKey = DeferRelease(evpKey, EVP_PKEY_free);
 
     return VerifyWithEVP(evpKey, KeyTypeEnum::eECDSA, signature, digest);
 }
