@@ -576,6 +576,20 @@
 #endif
 
 /**
+ * Alert message len.
+ */
+#ifndef AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN
+#define AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN 256
+#endif
+
+/**
+ * Alert parameter len.
+ */
+#ifndef AOS_CONFIG_TYPES_ALERT_PARAMETER_LEN
+#define AOS_CONFIG_TYPES_ALERT_PARAMETER_LEN 16
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1097,13 +1111,6 @@
 #endif
 
 /**
- * Alert message len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN 128
-#endif
-
-/**
  * Alert download target id len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_CORE_DOWNLOAD_TARGET_ID_LEN
@@ -1115,20 +1122,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_DOWNLOAD_PROGRESS_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_ALERT_DOWNLOAD_PROGRESS_LEN 64
-#endif
-
-/**
- * Alert parameter len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_PARAMETER_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_ALERT_PARAMETER_LEN 16
-#endif
-
-/**
- * Resource alert errors size.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_RESOURCE_ERRORS_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_ALERT_RESOURCE_ERRORS_SIZE 4
 #endif
 
 /**

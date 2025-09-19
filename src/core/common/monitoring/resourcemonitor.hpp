@@ -121,9 +121,9 @@ private:
         = Max(sizeof(NodeInfoObsolete) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
             sizeof(InstanceMonitoringData) + sizeof(AlertProcessorStaticArray) + sizeof(ResourceIdentifier));
 
-    String                      GetParameterName(const ResourceIdentifier& id) const;
-    cloudprotocol::AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
-    cloudprotocol::AlertVariant CreateInstanceQuotaAlertTemplate(
+    String       GetParameterName(const ResourceIdentifier& id) const;
+    AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
+    AlertVariant CreateInstanceQuotaAlertTemplate(
         const InstanceIdent& instanceIdent, const ResourceIdentifier& resourceIdentifier) const;
     double CPUToDMIPs(double cpuPersentage) const;
 

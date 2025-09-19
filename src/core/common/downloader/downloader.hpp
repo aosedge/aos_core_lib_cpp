@@ -30,7 +30,7 @@ public:
      * @param version version.
      * @return Error.
      */
-    virtual Error Download(const String& url, const String& path, cloudprotocol::DownloadTarget targetType,
+    virtual Error Download(const String& url, const String& path, UpdateItemType targetType,
         const String& targetID = "", const String& version = "")
         = 0;
 

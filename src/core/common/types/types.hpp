@@ -17,6 +17,7 @@
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/uuid.hpp>
+#include <core/common/tools/variant.hpp>
 
 namespace aos {
 
@@ -426,6 +427,16 @@ constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
  * State length.
  */
 static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
+
+/**
+ * Alert message len.
+ */
+constexpr auto cAlertMessageLen = AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN;
+
+/**
+ * Alert parameter len.
+ */
+constexpr auto cAlertParameterLen = AOS_CONFIG_TYPES_ALERT_PARAMETER_LEN;
 
 /**
  * Architecture info.
@@ -2001,6 +2012,508 @@ public:
 
 using CoreComponentEnum = CoreComponentType::Enum;
 using CoreComponent     = EnumStringer<CoreComponentType>;
+
+/**
+ * Alert item.
+ */
+struct AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit AlertItem(const Time& timestamp)
+        : mTimestamp(timestamp)
+    {
+    }
+
+    Time mTimestamp;
+
+    /**
+     * Compares alert item.
+     *
+     * @param item alert item to compare with.
+     * @return bool.
+     */
+    bool operator==(const AlertItem& item) const { return mTimestamp == item.mTimestamp; }
+
+    /**
+     * Compares alert item.
+     *
+     * @param item alert item to compare with.
+     * @return bool.
+     */
+    bool operator!=(const AlertItem& item) const { return !operator==(item); }
+
+    /**
+     * Outputs alert item to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const AlertItem& alert) { return log << alert.mTimestamp; }
+};
+
+/**
+ * System alert.
+ */
+struct SystemAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit SystemAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    StaticString<cNodeIDLen>       mNodeID;
+    StaticString<cAlertMessageLen> mMessage;
+
+    /**
+     * Compares system alert.
+     *
+     * @param alert system alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const SystemAlert& alert) const { return mNodeID == alert.mNodeID && mMessage == alert.mMessage; }
+
+    /**
+     * Compares system alert.
+     *
+     * @param alert system alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const SystemAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs system alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const SystemAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mMessage
+                   << "}";
+    }
+};
+
+/**
+ * Core alert.
+ */
+struct CoreAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit CoreAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    StaticString<cNodeIDLen>       mNodeID;
+    CoreComponent                  mCoreComponent;
+    StaticString<cAlertMessageLen> mMessage;
+
+    /**
+     * Compares core alert.
+     *
+     * @param alert core alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const CoreAlert& alert) const
+    {
+        return mNodeID == alert.mNodeID && mCoreComponent == alert.mCoreComponent && mMessage == alert.mMessage;
+    }
+
+    /**
+     * Compares core alert.
+     *
+     * @param alert core alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CoreAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs core alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const CoreAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mCoreComponent
+                   << ":" << alert.mMessage << "}";
+    }
+};
+
+/**
+ * Download alert.
+ */
+struct DownloadAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit DownloadAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    StaticString<cIDLen>           mItemID;
+    UpdateItemType                 mItemType;
+    StaticString<cVersionLen>      mVersion;
+    StaticString<cAlertMessageLen> mMessage;
+    StaticString<cURLLen>          mURL;
+    size_t                         mDownloadedBytes {};
+    size_t                         mTotalBytes {};
+
+    /**
+     * Compares download alert.
+     *
+     * @param alert download alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const DownloadAlert& alert) const
+    {
+        return mItemID == alert.mItemID && mItemType == alert.mItemType && mVersion == alert.mVersion
+            && mMessage == alert.mMessage && mURL == alert.mURL && mDownloadedBytes == alert.mDownloadedBytes
+            && mTotalBytes == alert.mTotalBytes;
+    }
+
+    /**
+     * Compares download alert.
+     *
+     * @param alert download alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const DownloadAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs download alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const DownloadAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mItemType << ":" << alert.mItemID
+                   << ":" << alert.mURL << ":" << alert.mMessage << "}";
+    }
+};
+
+/**
+ * Quota alert state.
+ */
+class QuotaAlertStateType {
+public:
+    enum class Enum {
+        eRaise,
+        eContinue,
+        eFall,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "raise",
+            "continue",
+            "fall",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using QuotaAlertStateEnum = QuotaAlertStateType::Enum;
+using QuotaAlertState     = EnumStringer<QuotaAlertStateType>;
+
+/**
+ * System quota alert.
+ */
+struct SystemQuotaAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit SystemQuotaAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    StaticString<cNodeIDLen>         mNodeID;
+    StaticString<cAlertParameterLen> mParameter;
+    uint64_t                         mValue {};
+    QuotaAlertState                  mState;
+
+    /**
+     * Compares system quota alert.
+     *
+     * @param alert system quota alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const SystemQuotaAlert& alert) const
+    {
+        return mNodeID == alert.mNodeID && mParameter == alert.mParameter && mValue == alert.mValue
+            && mState == alert.mState;
+    }
+
+    /**
+     * Compares system quota alert.
+     *
+     * @param alert system quota alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const SystemQuotaAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs system quota alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const SystemQuotaAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mParameter
+                   << ":" << alert.mValue << ":" << alert.mState << "}";
+    }
+};
+
+/**
+ * Instance quota alert.
+ */
+struct InstanceQuotaAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit InstanceQuotaAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    InstanceIdent                    mInstanceIdent;
+    StaticString<cAlertParameterLen> mParameter;
+    uint64_t                         mValue {};
+    QuotaAlertState                  mState;
+
+    /**
+     * Compares instance quota alert.
+     *
+     * @param alert instance quota alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstanceQuotaAlert& alert) const
+    {
+        return mInstanceIdent == alert.mInstanceIdent && mParameter == alert.mParameter && mValue == alert.mValue
+            && mState == alert.mState;
+    }
+
+    /**
+     * Compares instance quota alert.
+     *
+     * @param alert instance quota alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstanceQuotaAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs instance quota alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const InstanceQuotaAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mInstanceIdent << ":"
+                   << alert.mParameter << ":" << alert.mValue << ":" << alert.mState << "}";
+    }
+};
+
+/**
+ * Device allocate alert.
+ */
+struct DeviceAllocateAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit DeviceAllocateAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    InstanceIdent                  mInstanceIdent;
+    StaticString<cNodeIDLen>       mNodeID;
+    StaticString<cDeviceNameLen>   mDevice;
+    StaticString<cAlertMessageLen> mMessage;
+
+    /**
+     * Compares device allocate alert.
+     *
+     * @param alert device allocate alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const DeviceAllocateAlert& alert) const
+    {
+        return mInstanceIdent == alert.mInstanceIdent && mNodeID == alert.mNodeID && mDevice == alert.mDevice
+            && mMessage == alert.mMessage;
+    }
+
+    /**
+     * Compares device allocate alert.
+     *
+     * @param alert device allocate alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const DeviceAllocateAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs device allocate alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const DeviceAllocateAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mInstanceIdent << ":" << alert.mNodeID
+                   << ":" << alert.mDevice << ":" << alert.mMessage << "}";
+    }
+};
+
+/**
+ * Resource validate alert.
+ */
+struct ResourceValidateAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit ResourceValidateAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    StaticString<cNodeIDLen>                 mNodeID;
+    StaticString<cResourceNameLen>           mName;
+    StaticArray<Error, cMaxNumNodeResources> mErrors;
+
+    /**
+     * Compares resource validate alert.
+     *
+     * @param alert resource validate alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const ResourceValidateAlert& alert) const
+    {
+        return mNodeID == alert.mNodeID && mName == alert.mName && mErrors == alert.mErrors;
+    }
+
+    /**
+     * Compares resource validate alert.
+     *
+     * @param alert resource validate alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ResourceValidateAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs resource validate alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const ResourceValidateAlert& alert)
+    {
+        log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mName;
+
+        for (const auto& error : alert.mErrors) {
+            log << ":" << error;
+        }
+
+        return log << "}";
+    }
+};
+
+/**
+ * Instance alert.
+ */
+struct InstanceAlert : AlertItem {
+    /**
+     * Constructor.
+     *
+     * @param timestamp alert timestamp.
+     */
+    explicit InstanceAlert(const Time& timestamp = Time::Now())
+        : AlertItem(timestamp)
+    {
+    }
+
+    InstanceIdent                  mInstanceIdent;
+    StaticString<cVersionLen>      mServiceVersion;
+    StaticString<cAlertMessageLen> mMessage;
+
+    /**
+     * Compares service instance alert.
+     *
+     * @param alert service instance alert to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstanceAlert& alert) const
+    {
+        return mInstanceIdent == alert.mInstanceIdent && mServiceVersion == alert.mServiceVersion
+            && mMessage == alert.mMessage;
+    }
+
+    /**
+     * Compares service instance alert.
+     *
+     * @param alert service instance alert to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstanceAlert& alert) const { return !operator==(alert); }
+
+    /**
+     * Outputs service instance alert to log.
+     *
+     * @param log log to output.
+     * @param alert alert.
+     *
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const InstanceAlert& alert)
+    {
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mInstanceIdent << ":"
+                   << alert.mServiceVersion << ":" << alert.mMessage << "}";
+    }
+};
+
+using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
+    DeviceAllocateAlert, ResourceValidateAlert, InstanceAlert>;
 
 } // namespace aos
 

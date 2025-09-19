@@ -12,39 +12,39 @@ namespace aos::monitoring {
 
 namespace {
 
-class CreateAlertVisitor : public StaticVisitor<cloudprotocol::AlertVariant> {
+class CreateAlertVisitor : public StaticVisitor<AlertVariant> {
 public:
-    CreateAlertVisitor(uint64_t currentValue, const Time& currentTime, cloudprotocol::AlertStatus status)
+    CreateAlertVisitor(uint64_t currentValue, const Time& currentTime, QuotaAlertState state)
         : mCurrentVal(currentValue)
         , mCurrentTime(currentTime)
-        , mStatus(status)
+        , mState(state)
     {
     }
 
-    Res Visit(const cloudprotocol::SystemQuotaAlert& val) const
+    Res Visit(const SystemQuotaAlert& val) const
     {
         auto systemQuotaAlert = val;
 
         systemQuotaAlert.mTimestamp = mCurrentTime;
         systemQuotaAlert.mValue     = mCurrentVal;
-        systemQuotaAlert.mStatus    = mStatus;
+        systemQuotaAlert.mState     = mState;
 
         Res result;
-        result.SetValue<cloudprotocol::SystemQuotaAlert>(systemQuotaAlert);
+        result.SetValue<SystemQuotaAlert>(systemQuotaAlert);
 
         return result;
     }
 
-    Res Visit(const cloudprotocol::InstanceQuotaAlert& val) const
+    Res Visit(const InstanceQuotaAlert& val) const
     {
         auto instanceQuotaAlert = val;
 
         instanceQuotaAlert.mTimestamp = mCurrentTime;
         instanceQuotaAlert.mValue     = mCurrentVal;
-        instanceQuotaAlert.mStatus    = mStatus;
+        instanceQuotaAlert.mState     = mState;
 
         Res result;
-        result.SetValue<cloudprotocol::InstanceQuotaAlert>(instanceQuotaAlert);
+        result.SetValue<InstanceQuotaAlert>(instanceQuotaAlert);
 
         return result;
     }
@@ -58,9 +58,9 @@ public:
     }
 
 private:
-    uint64_t                   mCurrentVal;
-    Time                       mCurrentTime;
-    cloudprotocol::AlertStatus mStatus;
+    uint64_t        mCurrentVal;
+    Time            mCurrentTime;
+    QuotaAlertState mState;
 };
 
 } // namespace
@@ -70,7 +70,7 @@ private:
  **********************************************************************************************************************/
 
 Error AlertProcessor::Init(ResourceIdentifier id, uint64_t maxValue, const AlertRulePercents& rule,
-    alerts::SenderItf& sender, const cloudprotocol::AlertVariant& alertTemplate)
+    alerts::SenderItf& sender, const AlertVariant& alertTemplate)
 {
     mID           = id;
     mMinTimeout   = rule.mMinTimeout;
@@ -86,8 +86,8 @@ Error AlertProcessor::Init(ResourceIdentifier id, uint64_t maxValue, const Alert
     return ErrorEnum::eNone;
 }
 
-Error AlertProcessor::Init(ResourceIdentifier id, const AlertRulePoints& rule, alerts::SenderItf& sender,
-    const cloudprotocol::AlertVariant& alertTemplate)
+Error AlertProcessor::Init(
+    ResourceIdentifier id, const AlertRulePoints& rule, alerts::SenderItf& sender, const AlertVariant& alertTemplate)
 {
     mID           = id;
     mMinTimeout   = rule.mMinTimeout;
@@ -129,16 +129,16 @@ Error AlertProcessor::HandleMaxThreshold(uint64_t currentValue, const Time& curr
 
     if (currentValue >= mMaxThreshold && !mMaxThresholdTime.IsZero()
         && currentTime.Sub(mMaxThresholdTime) >= mMinTimeout) {
-        const cloudprotocol::AlertStatus status = cloudprotocol::AlertStatusEnum::eRaise;
+        const QuotaAlertState state = QuotaAlertStateEnum::eRaise;
 
-        LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", status=" << status
+        LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", state=" << state
                   << ", time=" << currentTime;
 
         mAlertCondition   = true;
         mMaxThresholdTime = currentTime;
         mMinThresholdTime = Time();
 
-        if (auto sendErr = SendAlert(currentValue, currentTime, status); err.IsNone() && !sendErr.IsNone()) {
+        if (auto sendErr = SendAlert(currentValue, currentTime, state); err.IsNone() && !sendErr.IsNone()) {
             err = AOS_ERROR_WRAP(sendErr);
         }
     }
@@ -156,14 +156,14 @@ Error AlertProcessor::HandleMinThreshold(uint64_t currentValue, const Time& curr
         mMinThresholdTime = Time();
 
         if (currentTime.Sub(mMaxThresholdTime) >= mMinTimeout) {
-            const cloudprotocol::AlertStatus status = cloudprotocol::AlertStatusEnum::eContinue;
+            const QuotaAlertState state = QuotaAlertStateEnum::eContinue;
 
             mMaxThresholdTime = currentTime;
 
-            LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", status=" << status
+            LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", state=" << state
                       << ", time=" << currentTime;
 
-            if (auto err = SendAlert(currentValue, currentTime, status); !err.IsNone()) {
+            if (auto err = SendAlert(currentValue, currentTime, state); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -181,16 +181,16 @@ Error AlertProcessor::HandleMinThreshold(uint64_t currentValue, const Time& curr
     }
 
     if (currentTime.Sub(mMinThresholdTime) >= mMinTimeout) {
-        const cloudprotocol::AlertStatus status = cloudprotocol::AlertStatusEnum::eFall;
+        const QuotaAlertState state = QuotaAlertStateEnum::eFall;
 
-        LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", status=" << status
+        LOG_INF() << "Resource alert: id=" << mID << ", value=" << currentValue << ", state=" << state
                   << ", time=" << currentTime;
 
         mAlertCondition   = false;
         mMinThresholdTime = currentTime;
         mMaxThresholdTime = Time();
 
-        if (auto err = SendAlert(currentValue, currentTime, status); !err.IsNone()) {
+        if (auto err = SendAlert(currentValue, currentTime, state); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -198,9 +198,9 @@ Error AlertProcessor::HandleMinThreshold(uint64_t currentValue, const Time& curr
     return ErrorEnum::eNone;
 }
 
-Error AlertProcessor::SendAlert(uint64_t currentValue, const Time& currentTime, cloudprotocol::AlertStatus status)
+Error AlertProcessor::SendAlert(uint64_t currentValue, const Time& currentTime, QuotaAlertState state)
 {
-    CreateAlertVisitor visitor(currentValue, currentTime, status);
+    CreateAlertVisitor visitor(currentValue, currentTime, state);
 
     auto alert = mAlertTemplate.ApplyVisitor(visitor);
 

@@ -242,30 +242,29 @@ String ResourceMonitor::GetParameterName(const ResourceIdentifier& id) const
     return id.mType.ToString();
 }
 
-cloudprotocol::AlertVariant ResourceMonitor::CreateSystemQuotaAlertTemplate(
-    const ResourceIdentifier& resourceIdentifier) const
+AlertVariant ResourceMonitor::CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const
 {
-    cloudprotocol::AlertVariant     alertItem;
-    cloudprotocol::SystemQuotaAlert quotaAlert {};
+    AlertVariant     alertItem;
+    SystemQuotaAlert quotaAlert {};
 
     quotaAlert.mNodeID    = mNodeMonitoringData.mNodeID;
     quotaAlert.mParameter = GetParameterName(resourceIdentifier);
 
-    alertItem.SetValue<cloudprotocol::SystemQuotaAlert>(quotaAlert);
+    alertItem.SetValue<SystemQuotaAlert>(quotaAlert);
 
     return alertItem;
 }
 
-cloudprotocol::AlertVariant ResourceMonitor::CreateInstanceQuotaAlertTemplate(
+AlertVariant ResourceMonitor::CreateInstanceQuotaAlertTemplate(
     const InstanceIdent& instanceIdent, const ResourceIdentifier& resourceIdentifier) const
 {
-    cloudprotocol::AlertVariant       alertItem;
-    cloudprotocol::InstanceQuotaAlert quotaAlert {};
+    AlertVariant       alertItem;
+    InstanceQuotaAlert quotaAlert {};
 
     quotaAlert.mInstanceIdent = instanceIdent;
     quotaAlert.mParameter     = GetParameterName(resourceIdentifier);
 
-    alertItem.SetValue<cloudprotocol::InstanceQuotaAlert>(quotaAlert);
+    alertItem.SetValue<InstanceQuotaAlert>(quotaAlert);
 
     return alertItem;
 }

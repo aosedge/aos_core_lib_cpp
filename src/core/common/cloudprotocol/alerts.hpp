@@ -14,11 +14,6 @@
 namespace aos::cloudprotocol {
 
 /**
- * Alert message len.
- */
-constexpr auto cAlertMessageLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_MESSAGE_LEN;
-
-/**
  * Alert download target id len.
  */
 constexpr auto cAlertDownloadTargetIDLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_CORE_DOWNLOAD_TARGET_ID_LEN;
@@ -27,16 +22,6 @@ constexpr auto cAlertDownloadTargetIDLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_CORE_D
  * Alert download progress len.
  */
 constexpr auto cAlertDownloadProgressLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_DOWNLOAD_PROGRESS_LEN;
-
-/**
- * Alert parameter len.
- */
-constexpr auto cAlertParameterLen = AOS_CONFIG_CLOUDPROTOCOL_ALERT_PARAMETER_LEN;
-
-/**
- * Resource alert errors size.
- */
-constexpr auto cAlertResourceErrorsSize = AOS_CONFIG_CLOUDPROTOCOL_ALERT_RESOURCE_ERRORS_SIZE;
 
 /**
  * Alert items count.
@@ -550,9 +535,9 @@ struct ResourceValidateAlert : AlertItem {
     {
     }
 
-    StaticString<cNodeIDLen>                     mNodeID;
-    StaticString<cResourceNameLen>               mName;
-    StaticArray<Error, cAlertResourceErrorsSize> mErrors;
+    StaticString<cNodeIDLen>                 mNodeID;
+    StaticString<cResourceNameLen>           mName;
+    StaticArray<Error, cMaxNumNodeResources> mErrors;
 
     /**
      * Compares resource validate alert.

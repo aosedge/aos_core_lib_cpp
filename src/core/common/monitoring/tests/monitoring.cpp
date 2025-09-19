@@ -41,36 +41,35 @@ void SetInstancesMonitoringData(
 
 class GetAlertVariantVisitor : public StaticVisitor<void> {
 public:
-    GetAlertVariantVisitor(std::vector<cloudprotocol::SystemQuotaAlert>& systemAlerts,
-        std::vector<cloudprotocol::InstanceQuotaAlert>&                  instanceAlerts)
+    GetAlertVariantVisitor(std::vector<SystemQuotaAlert>& systemAlerts, std::vector<InstanceQuotaAlert>& instanceAlerts)
         : mSystemAlerts(systemAlerts)
         , mInstanceAlerts(instanceAlerts)
     {
     }
 
-    void Visit(const cloudprotocol::SystemQuotaAlert& alert) const { mSystemAlerts.push_back(alert); }
+    void Visit(const SystemQuotaAlert& alert) const { mSystemAlerts.push_back(alert); }
 
-    void Visit(const cloudprotocol::InstanceQuotaAlert& alert) const { mInstanceAlerts.push_back(alert); }
+    void Visit(const InstanceQuotaAlert& alert) const { mInstanceAlerts.push_back(alert); }
 
     void Visit(...) const { }
 
 private:
-    std::vector<cloudprotocol::SystemQuotaAlert>&   mSystemAlerts;
-    std::vector<cloudprotocol::InstanceQuotaAlert>& mInstanceAlerts;
+    std::vector<SystemQuotaAlert>&   mSystemAlerts;
+    std::vector<InstanceQuotaAlert>& mInstanceAlerts;
 };
 
 struct AlertData {
-    std::string                mTag;
-    std::string                mParameter;
-    uint64_t                   mValue;
-    cloudprotocol::AlertStatus mStatus;
+    std::string     mTag;
+    std::string     mParameter;
+    uint64_t        mValue;
+    QuotaAlertState mState;
 };
 
 template <typename T>
 bool operator==(const AlertData& lhs, const T& rhs)
 {
     return lhs.mTag == lhs.mTag && lhs.mParameter == rhs.mParameter.CStr() && lhs.mValue == rhs.mValue
-        && lhs.mStatus == rhs.mStatus;
+        && lhs.mState == rhs.mState;
 }
 
 /***********************************************************************************************************************
@@ -351,7 +350,7 @@ private:
 
 class AlertSenderStub : public alerts::SenderItf {
 public:
-    Error SendAlert(const cloudprotocol::AlertVariant& alert) override
+    Error SendAlert(const AlertVariant& alert) override
     {
         std::lock_guard lock {mMutex};
 
@@ -364,14 +363,14 @@ public:
         return ErrorEnum::eNone;
     }
 
-    std::vector<cloudprotocol::SystemQuotaAlert> GetSystemQuotaAlerts() const
+    std::vector<SystemQuotaAlert> GetSystemQuotaAlerts() const
     {
         std::lock_guard lock {mMutex};
 
         return mSystemQuotaAlerts;
     }
 
-    std::vector<cloudprotocol::InstanceQuotaAlert> GetInstanceQuotaAlerts() const
+    std::vector<InstanceQuotaAlert> GetInstanceQuotaAlerts() const
     {
         std::lock_guard lock {mMutex};
 
@@ -379,9 +378,9 @@ public:
     }
 
 private:
-    mutable std::mutex                             mMutex;
-    std::vector<cloudprotocol::SystemQuotaAlert>   mSystemQuotaAlerts;
-    std::vector<cloudprotocol::InstanceQuotaAlert> mInstanceQuotaAlerts;
+    mutable std::mutex              mMutex;
+    std::vector<SystemQuotaAlert>   mSystemQuotaAlerts;
+    std::vector<InstanceQuotaAlert> mInstanceQuotaAlerts;
 };
 
 class MockConnectionPublisher : public ConnectionPublisherItf {
@@ -697,14 +696,14 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     };
 
     const std::vector<Pair<InstanceIdent, AlertData>> expectedInstanceAlerts = {
-        {instance0Ident, {"instanceQuotaAlert", "cpu", 100 * maxDmips / 100, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance0Ident, {"instanceQuotaAlert", "state", 128, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance0Ident, {"instanceQuotaAlert", "storage", 256, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance0Ident, {"instanceQuotaAlert", "download", 20, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance1Ident, {"instanceQuotaAlert", "cpu", 150 * maxDmips / 100, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance1Ident, {"instanceQuotaAlert", "state", 128, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance1Ident, {"instanceQuotaAlert", "storage", 256, cloudprotocol::AlertStatusEnum::eRaise}},
-        {instance1Ident, {"instanceQuotaAlert", "download", 20, cloudprotocol::AlertStatusEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "cpu", 100 * maxDmips / 100, QuotaAlertStateEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "state", 128, QuotaAlertStateEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "storage", 256, QuotaAlertStateEnum::eRaise}},
+        {instance0Ident, {"instanceQuotaAlert", "download", 20, QuotaAlertStateEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "cpu", 150 * maxDmips / 100, QuotaAlertStateEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "state", 128, QuotaAlertStateEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "storage", 256, QuotaAlertStateEnum::eRaise}},
+        {instance1Ident, {"instanceQuotaAlert", "download", 20, QuotaAlertStateEnum::eRaise}},
     };
 
     auto providedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
@@ -716,12 +715,12 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     providedNodeMonitoringData->mMonitoringData = {100, 8192, nodePartitions, 120, 240};
 
     const std::vector<AlertData> expectedSystemAlerts = {
-        {"systemQuotaAlert", "cpu", maxDmips, cloudprotocol::AlertStatusEnum::eRaise},
-        {"systemQuotaAlert", "ram", 8192, cloudprotocol::AlertStatusEnum::eRaise},
-        {"systemQuotaAlert", "disk1", 256, cloudprotocol::AlertStatusEnum::eRaise},
-        {"systemQuotaAlert", "disk2", 512, cloudprotocol::AlertStatusEnum::eRaise},
-        {"systemQuotaAlert", "download", 120, cloudprotocol::AlertStatusEnum::eRaise},
-        {"systemQuotaAlert", "upload", 240, cloudprotocol::AlertStatusEnum::eRaise},
+        {"systemQuotaAlert", "cpu", maxDmips, QuotaAlertStateEnum::eRaise},
+        {"systemQuotaAlert", "ram", 8192, QuotaAlertStateEnum::eRaise},
+        {"systemQuotaAlert", "disk1", 256, QuotaAlertStateEnum::eRaise},
+        {"systemQuotaAlert", "disk2", 512, QuotaAlertStateEnum::eRaise},
+        {"systemQuotaAlert", "download", 120, QuotaAlertStateEnum::eRaise},
+        {"systemQuotaAlert", "upload", 240, QuotaAlertStateEnum::eRaise},
     };
 
     SetInstancesMonitoringData(*providedNodeMonitoringData,
