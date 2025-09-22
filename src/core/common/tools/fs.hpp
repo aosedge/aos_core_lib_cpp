@@ -76,6 +76,16 @@ public:
      * @return Error.
      */
     virtual Error SetUserQuota(const String& path, size_t quota, size_t uid) const = 0;
+
+    /**
+     * Changes the owner of a file or directory.
+     *
+     * @param path path to the file or directory.
+     * @param uid new user ID.
+     * @param gid new group ID.
+     * @return Error.
+     */
+    virtual Error ChangeOwner(const String& path, uint32_t uid, uint32_t gid) const = 0;
 };
 
 /**
