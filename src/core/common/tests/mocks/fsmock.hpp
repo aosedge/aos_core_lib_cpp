@@ -19,6 +19,7 @@ public:
     MOCK_METHOD(RetWithError<size_t>, GetDirSize, (const String& dir), (const, override));
     MOCK_METHOD(RetWithError<size_t>, GetAvailableSize, (const String& dir), (const, override));
     MOCK_METHOD(Error, SetUserQuota, (const String& path, size_t quota, size_t uid), (const, override));
+    MOCK_METHOD(Error, ChangeOwner, (const String& path, uint32_t uid, uint32_t gid), (const, override));
 };
 } // namespace aos
 
