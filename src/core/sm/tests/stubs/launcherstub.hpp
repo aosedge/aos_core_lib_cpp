@@ -94,7 +94,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error GetOverrideEnvVars(Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) const override
+    Error GetOverrideEnvVars(Array<EnvVarsInstanceInfo>& envVarsInstanceInfos) const override
     {
         std::lock_guard lock {mMutex};
 
@@ -103,7 +103,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error SetOverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) override
+    Error SetOverrideEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInstanceInfos) override
     {
         std::lock_guard lock {mMutex};
 
@@ -147,9 +147,9 @@ private:
     std::vector<InstanceData> mInstances;
     mutable std::mutex        mMutex;
 
-    uint64_t                                mOperationVersion = launcher::Launcher::cOperationVersion;
-    cloudprotocol::EnvVarsInstanceInfoArray mEnvVarsInstanceInfos;
-    Time                                    mOnlineTime = Time::Now();
+    uint64_t                       mOperationVersion = launcher::Launcher::cOperationVersion;
+    EnvVarsInstanceInfoStaticArray mEnvVarsInstanceInfos;
+    Time                           mOnlineTime = Time::Now();
 };
 
 /**

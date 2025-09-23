@@ -109,6 +109,34 @@ struct InstanceIdent {
     bool operator!=(const InstanceIdent& other) const { return !operator==(other); }
 };
 
+/**
+ * Instance filter.
+ */
+struct InstanceFilter {
+    Optional<Identity> mIdentity;
+    Optional<Identity> mSubject;
+    Optional<uint64_t> mInstance;
+
+    /**
+     * Compares instance filters.
+     *
+     * @param other instance filter to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceFilter& other) const
+    {
+        return mIdentity == other.mIdentity && mSubject == other.mSubject && mInstance == other.mInstance;
+    }
+
+    /**
+     * Compares instance filters.
+     *
+     * @param other instance filter to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceFilter& other) const { return !operator==(other); }
+};
+
 } // namespace aos::cloudprotocol
 
 #endif

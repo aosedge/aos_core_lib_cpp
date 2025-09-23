@@ -14,61 +14,10 @@
 namespace aos::cloudprotocol {
 
 /**
- * Environment variable info.
- */
-struct EnvVarInfo {
-    StaticString<cEnvVarNameLen>  mName;
-    StaticString<cEnvVarValueLen> mValue;
-    Optional<Time>                mTTL;
-
-    /**
-     * Compares environment variable info.
-     *
-     * @param info environment variable info to compare with.
-     * @return bool.
-     */
-    bool operator==(const EnvVarInfo& info) const
-    {
-        return mName == info.mName && mValue == info.mValue && mTTL == info.mTTL;
-    }
-
-    /**
-     * Compares environment variable info.
-     *
-     * @param info environment variable info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const EnvVarInfo& info) const { return !operator==(info); }
-};
-
-/**
- * Env vars info static array.
- */
-using EnvVarInfoArray = StaticArray<EnvVarInfo, cMaxNumEnvVariables>;
-
-/**
  * Environment variables instance info.
  */
-struct EnvVarsInstanceInfo {
-    InstanceFilter  mFilter;
-    EnvVarInfoArray mVariables;
-
-    /**
-     * Default constructor.
-     */
-    EnvVarsInstanceInfo() = default;
-
-    /**
-     * Creates environment variable instance info.
-     *
-     * @param filter instance filter.
-     * @param variables environment variables.
-     */
-    EnvVarsInstanceInfo(const InstanceFilter& filter, const Array<EnvVarInfo>& variables)
-        : mFilter(filter)
-        , mVariables(variables)
-    {
-    }
+struct EnvVarsInstanceInfo : public InstanceFilter {
+    EnvVarInfoStaticArray mVariables;
 
     /**
      * Compares environment variable instance info.
@@ -78,7 +27,7 @@ struct EnvVarsInstanceInfo {
      */
     bool operator==(const EnvVarsInstanceInfo& info) const
     {
-        return mFilter == info.mFilter && mVariables == info.mVariables;
+        return InstanceFilter::operator==(info) && mVariables == info.mVariables;
     }
 
     /**
@@ -90,57 +39,13 @@ struct EnvVarsInstanceInfo {
     bool operator!=(const EnvVarsInstanceInfo& info) const { return !operator==(info); }
 };
 
-using EnvVarsInstanceInfoArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
-
-/**
- * Environment variable status.
- */
-struct EnvVarStatus {
-    StaticString<cEnvVarNameLen> mName;
-    Error                        mError;
-
-    /**
-     * Compares environment variable status.
-     *
-     * @param status environment variable instance to compare with.
-     * @return bool.
-     */
-    bool operator==(const EnvVarStatus& status) const { return mName == status.mName && mError == status.mError; }
-
-    /**
-     * Compares environment variable status.
-     *
-     * @param status environment variable instance to compare with.
-     * @return bool.
-     */
-    bool operator!=(const EnvVarStatus& status) const { return !operator==(status); }
-};
-
-using EnvVarStatusArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
+using EnvVarsInstanceInfoStaticArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
 
 /**
  * Environment variables instance status.
  */
-struct EnvVarsInstanceStatus {
-    InstanceFilter    mFilter;
-    EnvVarStatusArray mStatuses;
-
-    /**
-     * Default constructor.
-     */
-    EnvVarsInstanceStatus() = default;
-
-    /**
-     * Creates environment variable instance status.
-     *
-     * @param filter instance filter.
-     * @param statuses environment variable statuses.
-     */
-    EnvVarsInstanceStatus(const InstanceFilter& filter, const Array<EnvVarStatus>& statuses)
-        : mFilter(filter)
-        , mStatuses(statuses)
-    {
-    }
+struct EnvVarsInstanceStatus : public InstanceIdent {
+    EnvVarStatusStaticArray mStatuses;
 
     /**
      * Compares environment variable instance status.
@@ -150,7 +55,7 @@ struct EnvVarsInstanceStatus {
      */
     bool operator==(const EnvVarsInstanceStatus& status) const
     {
-        return mFilter == status.mFilter && mStatuses == status.mStatuses;
+        return InstanceIdent::operator==(status) && mStatuses == status.mStatuses;
     }
 
     /**
@@ -162,13 +67,13 @@ struct EnvVarsInstanceStatus {
     bool operator!=(const EnvVarsInstanceStatus& status) const { return !operator==(status); }
 };
 
-using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
+using EnvVarsInstanceStatusStaticArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
 
 /**
  * Environment variable override request.
  */
 struct OverrideEnvVarsRequest {
-    EnvVarsInstanceInfoArray mItems;
+    EnvVarsInstanceInfoStaticArray mItems;
 
     /**
      * Compares environment variable override request.
@@ -191,7 +96,7 @@ struct OverrideEnvVarsRequest {
  * Environment variable override statuses.
  */
 struct OverrideEnvVarsStatuses {
-    EnvVarsInstanceStatusArray mStatuses;
+    EnvVarsInstanceStatusStaticArray mStatuses;
 
     /**
      * Compares environment variable override statuses.

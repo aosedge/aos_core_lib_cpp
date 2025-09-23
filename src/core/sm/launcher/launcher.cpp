@@ -220,8 +220,7 @@ Error Launcher::GetCurrentRunStatus(Array<InstanceStatus>& instances) const
     return ErrorEnum::eNone;
 }
 
-Error Launcher::OverrideEnvVars(
-    const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo, Array<cloudprotocol::EnvVarsInstanceStatus>& statuses)
+Error Launcher::OverrideEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInfo, Array<EnvVarsInstanceStatus>& statuses)
 {
     {
         LockGuard lock {mMutex};
@@ -1084,40 +1083,23 @@ Error Launcher::HandleOfflineTTLs()
     return ErrorEnum::eNone;
 }
 
-Error Launcher::SetEnvVars(
-    const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo, Array<cloudprotocol::EnvVarsInstanceStatus>& statuses)
+Error Launcher::SetEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInfo, Array<EnvVarsInstanceStatus>& statuses)
 {
+    (void)statuses;
+
     auto now = Time::Now();
 
     for (const auto& envVarInfo : envVarsInfo) {
-        if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        auto& currentStatus = statuses.Back();
-
-        currentStatus.mFilter = envVarInfo.mFilter;
 
         for (const auto& envVar : envVarInfo.mVariables) {
-            LOG_DBG() << "Override env var: filter=" << envVarInfo.mFilter << ", name=" << envVar.mName
-                      << ", value=" << envVar.mValue << ", ttl=" << (envVar.mTTL.HasValue() ? *envVar.mTTL : Time());
+            LOG_DBG() << "Override env var: filter=" << static_cast<InstanceFilter>(envVarInfo)
+                      << ", name=" << envVar.mName << ", value=" << envVar.mValue
+                      << ", ttl=" << (envVar.mTTL.HasValue() ? *envVar.mTTL : Time());
 
             if (envVar.mTTL.HasValue() && *envVar.mTTL < now) {
                 Error envVarErr(ErrorEnum::eTimeout, "environment variable expired");
 
                 LOG_ERR() << "Error overriding environment variable: name=" << envVar.mName << ", err=" << envVarErr;
-
-                if (auto err
-                    = currentStatus.mStatuses.EmplaceBack(cloudprotocol::EnvVarStatus {envVar.mName, envVarErr});
-                    !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
-                }
-            } else {
-                if (auto err
-                    = currentStatus.mStatuses.EmplaceBack(cloudprotocol::EnvVarStatus {envVar.mName, ErrorEnum::eNone});
-                    !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
-                }
             }
         }
     }
@@ -1143,7 +1125,7 @@ Error Launcher::RemoveOutdatedEnvVars()
     auto updated = false;
 
     for (auto& instanceEnvVars : mCurrentEnvVars) {
-        if (instanceEnvVars.mVariables.RemoveIf([&now](const cloudprotocol::EnvVarInfo& envVar) {
+        if (instanceEnvVars.mVariables.RemoveIf([&now](const EnvVarInfo& envVar) {
                 if (envVar.mTTL.HasValue() && *envVar.mTTL < now) {
                     LOG_DBG() << "Remove outdated env var: name=" << envVar.mName << ", value=" << envVar.mValue;
 
@@ -1157,7 +1139,7 @@ Error Launcher::RemoveOutdatedEnvVars()
     }
 
     mCurrentEnvVars.RemoveIf(
-        [](const cloudprotocol::EnvVarsInstanceInfo& instanceEnvVars) { return instanceEnvVars.mVariables.IsEmpty(); });
+        [](const EnvVarsInstanceInfo& instanceEnvVars) { return instanceEnvVars.mVariables.IsEmpty(); });
 
     if (updated) {
         if (auto err = mStorage->SetOverrideEnvVars(mCurrentEnvVars); !err.IsNone()) {
@@ -1171,7 +1153,7 @@ Error Launcher::RemoveOutdatedEnvVars()
 Error Launcher::GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const
 {
     for (const auto& currentEnvVar : mCurrentEnvVars) {
-        if (currentEnvVar.mFilter.Match(instanceIdent)) {
+        if (static_cast<InstanceFilter>(currentEnvVar).Match(instanceIdent)) {
             for (const auto& envVar : currentEnvVar.mVariables) {
                 StaticString<cEnvVarLen> fullEnvVar;
 

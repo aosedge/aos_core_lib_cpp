@@ -2513,6 +2513,138 @@ struct InstanceAlert : AlertItem {
 using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
     DeviceAllocateAlert, ResourceValidateAlert, InstanceAlert>;
 
+/**
+ * Environment variable info.
+ */
+struct EnvVarInfo {
+    StaticString<cEnvVarNameLen>  mName;
+    StaticString<cEnvVarValueLen> mValue;
+    Optional<Time>                mTTL;
+
+    /**
+     * Compares environment variable info.
+     *
+     * @param info environment variable info to compare with.
+     * @return bool.
+     */
+    bool operator==(const EnvVarInfo& info) const
+    {
+        return mName == info.mName && mValue == info.mValue && mTTL == info.mTTL;
+    }
+
+    /**
+     * Compares environment variable info.
+     *
+     * @param info environment variable info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const EnvVarInfo& info) const { return !operator==(info); }
+};
+
+/**
+ * Env vars info static array.
+ */
+using EnvVarInfoStaticArray = StaticArray<EnvVarInfo, cMaxNumEnvVariables>;
+
+/**
+ * Environment variables instance info.
+ */
+struct EnvVarsInstanceInfo : public InstanceFilter {
+    EnvVarInfoStaticArray mVariables;
+
+    /**
+     * Default constructor.
+     */
+    EnvVarsInstanceInfo() = default;
+
+    /**
+     * Creates environment variable instance info.
+     *
+     * @param filter instance filter.
+     * @param variables environment variables.
+     */
+    EnvVarsInstanceInfo(const InstanceFilter& filter, const Array<EnvVarInfo>& variables)
+        : InstanceFilter(filter)
+        , mVariables(variables)
+    {
+    }
+
+    /**
+     * Compares environment variable instance info.
+     *
+     * @param info environment variable instance info to compare with.
+     * @return bool.
+     */
+    bool operator==(const EnvVarsInstanceInfo& info) const
+    {
+        return InstanceFilter::operator==(info) && mVariables == info.mVariables;
+    }
+
+    /**
+     * Compares environment variable instance info.
+     *
+     * @param info environment variable instance info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const EnvVarsInstanceInfo& info) const { return !operator==(info); }
+};
+
+using EnvVarsInstanceInfoStaticArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
+
+/**
+ * Environment variable status.
+ */
+struct EnvVarStatus {
+    StaticString<cEnvVarNameLen> mName;
+    Error                        mError;
+
+    /**
+     * Compares environment variable status.
+     *
+     * @param status environment variable instance to compare with.
+     * @return bool.
+     */
+    bool operator==(const EnvVarStatus& status) const { return mName == status.mName && mError == status.mError; }
+
+    /**
+     * Compares environment variable status.
+     *
+     * @param status environment variable instance to compare with.
+     * @return bool.
+     */
+    bool operator!=(const EnvVarStatus& status) const { return !operator==(status); }
+};
+
+using EnvVarStatusStaticArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
+
+/**
+ * Environment variables instance status.
+ */
+struct EnvVarsInstanceStatus : public InstanceIdent {
+    EnvVarStatusStaticArray mStatuses;
+
+    /**
+     * Compares environment variable instance status.
+     *
+     * @param status environment variable instance status to compare with.
+     * @return bool.
+     */
+    bool operator==(const EnvVarsInstanceStatus& status) const
+    {
+        return InstanceIdent::operator==(status) && mStatuses == status.mStatuses;
+    }
+
+    /**
+     * Compares environment variable instance status.
+     *
+     * @param status environment variable instance status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const EnvVarsInstanceStatus& status) const { return !operator==(status); }
+};
+
+using EnvVarsInstanceStatusStaticArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
+
 } // namespace aos
 
 #endif
