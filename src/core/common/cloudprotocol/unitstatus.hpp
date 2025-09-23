@@ -57,7 +57,7 @@ struct UnitConfigStatus {
     bool operator!=(const UnitConfigStatus& other) const { return !operator==(other); }
 };
 
-using UnitConfigStatusStaticArray = StaticArray<UnitConfigStatus, cUnitConfigStatusCount>;
+using UnitConfigStatusArray = StaticArray<UnitConfigStatus, cUnitConfigStatusCount>;
 
 /**
  * Resource info.
@@ -86,7 +86,7 @@ struct ResourceInfo {
     bool operator!=(const ResourceInfo& other) const { return !operator==(other); }
 };
 
-using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+using ResourceInfoArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
 
 /**
  * Runtime info.
@@ -121,26 +121,26 @@ struct RuntimeInfo : public PlatformInfo {
     bool operator!=(const RuntimeInfo& other) const { return !operator==(other); }
 };
 
-using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
+using RuntimeInfoArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
 
 /**
  * Unit node information.
  */
 struct NodeInfo {
-    Identity                 mIdentity;
-    Identity                 mNodeGroupSubject;
-    size_t                   mMaxDMIPS {};
-    size_t                   mTotalRAM {};
-    Optional<size_t>         mPhysicalRAM;
-    OSInfo                   mOSInfo;
-    CPUInfoStaticArray       mCPUs;
-    PartitionInfoStaticArray mPartitions;
-    ResourceInfoStaticArray  mResources;
-    RuntimeInfoStaticArray   mRuntimes;
-    NodeAttributeStaticArray mAttrs;
-    bool                     mProvisioned = false;
-    NodeState                mState;
-    Error                    mError;
+    Identity           mIdentity;
+    Identity           mNodeGroupSubject;
+    size_t             mMaxDMIPS {};
+    size_t             mTotalRAM {};
+    Optional<size_t>   mPhysicalRAM;
+    OSInfo             mOSInfo;
+    CPUInfoArray       mCPUs;
+    PartitionInfoArray mPartitions;
+    ResourceInfoArray  mResources;
+    RuntimeInfoArray   mRuntimes;
+    NodeAttributeArray mAttrs;
+    bool               mProvisioned = false;
+    NodeState          mState;
+    Error              mError;
 
     /**
      * Compares node info.
@@ -166,7 +166,7 @@ struct NodeInfo {
     bool operator!=(const NodeInfo& other) const { return !operator==(other); }
 };
 
-using NodeInfoStaticArray = StaticArray<NodeInfo, cMaxNumNodes>;
+using NodeInfoArray = StaticArray<NodeInfo, cMaxNumNodes>;
 
 /**
  * Update item status.
@@ -174,7 +174,7 @@ using NodeInfoStaticArray = StaticArray<NodeInfo, cMaxNumNodes>;
 struct UpdateItemStatus {
     Identity                  mIdentity;
     StaticString<cVersionLen> mVersion;
-    ImageStatusStaticArray    mStatuses;
+    ImageStatusArray          mStatuses;
 
     /**
      * Compares update item status.
@@ -196,7 +196,7 @@ struct UpdateItemStatus {
     bool operator!=(const UpdateItemStatus& other) const { return !operator==(other); }
 };
 
-using UpdateItemStatusStaticArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems>;
+using UpdateItemStatusArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems>;
 
 /**
  * Instance status.
@@ -230,7 +230,7 @@ struct InstanceStatus : public PlatformInfo {
     bool operator!=(const InstanceStatus& other) const { return !operator==(other); }
 };
 
-using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
+using InstanceStatusArray = StaticArray<InstanceStatus, cMaxNumInstances>;
 
 /**
  * Instances statuses.
@@ -239,7 +239,7 @@ struct InstancesStatuses {
     Identity                  mIdentity;
     Identity                  mSubject;
     StaticString<cVersionLen> mVersion;
-    InstanceStatusStaticArray mInstances;
+    InstanceStatusArray       mInstances;
 
     /**
      * Compare instances statuses.
@@ -262,23 +262,23 @@ struct InstancesStatuses {
     bool operator!=(const InstancesStatuses& other) const { return !operator==(other); }
 };
 
-using InstancesStatusesStaticArray = StaticArray<InstancesStatuses, cMaxNumUpdateItems>;
+using InstancesStatusesArray = StaticArray<InstancesStatuses, cMaxNumUpdateItems>;
 
 /*
  * Subjects.
  */
-using SubjectStaticArray = StaticArray<Identity, cMaxNumSubjects>;
+using SubjectArray = StaticArray<Identity, cMaxNumSubjects>;
 
 /**
  * Unit status
  */
 struct UnitStatus {
-    bool                                   mIsDeltaInfo {};
-    Optional<UnitConfigStatusStaticArray>  mUnitConfig;
-    Optional<NodeInfoStaticArray>          mNodes;
-    Optional<UpdateItemStatusStaticArray>  mUpdateItems;
-    Optional<InstancesStatusesStaticArray> mInstances;
-    Optional<SubjectStaticArray>           mUnitSubjects;
+    bool                             mIsDeltaInfo {};
+    Optional<UnitConfigStatusArray>  mUnitConfig;
+    Optional<NodeInfoArray>          mNodes;
+    Optional<UpdateItemStatusArray>  mUpdateItems;
+    Optional<InstancesStatusesArray> mInstances;
+    Optional<SubjectArray>           mUnitSubjects;
 
     /**
      * Compares unit status.

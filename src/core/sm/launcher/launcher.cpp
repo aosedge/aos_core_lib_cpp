@@ -157,28 +157,27 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
 
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
-    auto err
-        = mThread.Run([this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
-                          services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
-                          layers   = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) {
-              if (auto err = ProcessLayers(*layers); !err.IsNone()) {
-                  LOG_ERR() << "Can't process layers: err=" << err;
-              }
+    auto err = mThread.Run([this, instances = MakeShared<const InstanceInfoArray>(&mAllocator, instances),
+                               services = MakeShared<const ServiceInfoArray>(&mAllocator, services),
+                               layers   = MakeShared<const LayerInfoArray>(&mAllocator, layers), forceRestart](void*) {
+        if (auto err = ProcessLayers(*layers); !err.IsNone()) {
+            LOG_ERR() << "Can't process layers: err=" << err;
+        }
 
-              if (auto err = ProcessServices(*services); !err.IsNone()) {
-                  LOG_ERR() << "Can't process services: err=" << err;
-              }
+        if (auto err = ProcessServices(*services); !err.IsNone()) {
+            LOG_ERR() << "Can't process services: err=" << err;
+        }
 
-              if (auto err = ProcessInstances(*instances, forceRestart); !err.IsNone()) {
-                  LOG_ERR() << "Can't process instances: err=" << err;
-              }
+        if (auto err = ProcessInstances(*instances, forceRestart); !err.IsNone()) {
+            LOG_ERR() << "Can't process instances: err=" << err;
+        }
 
-              if (auto err = SendRunStatus(); !err.IsNone()) {
-                  LOG_ERR() << "Can't send run status: err=" << err;
-              }
+        if (auto err = SendRunStatus(); !err.IsNone()) {
+            LOG_ERR() << "Can't send run status: err=" << err;
+        }
 
-              FinishLaunch();
-          });
+        FinishLaunch();
+    });
     if (!err.IsNone()) {
         FinishLaunch();
 
@@ -245,7 +244,7 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
 
     LOG_DBG() << "Update run status";
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         auto currentInstance = mCurrentInstances.FindIf(
@@ -381,7 +380,7 @@ Error Launcher::ProcessServices(const Array<ServiceInfo>& services)
 {
     LOG_DBG() << "Process services";
 
-    auto serviceStatuses = MakeUnique<ServiceStatusStaticArray>(&mAllocator);
+    auto serviceStatuses = MakeUnique<ServiceStatusArray>(&mAllocator);
 
     auto err = mServiceManager->ProcessDesiredServices(services, *serviceStatuses);
     if (!err.IsNone()) {
@@ -395,7 +394,7 @@ Error Launcher::ProcessLayers(const Array<LayerInfo>& layers)
 {
     LOG_DBG() << "Process layers";
 
-    auto layerStatuses = MakeUnique<LayerStatusStaticArray>(&mAllocator);
+    auto layerStatuses = MakeUnique<LayerStatusArray>(&mAllocator);
 
     auto err = mLayerManager->ProcessDesiredLayers(layers, *layerStatuses);
     if (!err.IsNone()) {
@@ -409,7 +408,7 @@ Error Launcher::ProcessLastInstances()
 {
     LOG_DBG() << "Process last instances";
 
-    auto startInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+    auto startInstances = MakeUnique<InstanceDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllInstances(*startInstances); !err.IsNone()) {
         return err;
@@ -421,7 +420,7 @@ Error Launcher::ProcessLastInstances()
         LOG_ERR() << "Can't fill current instances: err=" << err;
     }
 
-    auto stopInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+    auto stopInstances = MakeUnique<InstanceDataArray>(&mAllocator);
 
     if (auto err = GetCurrentInstances(*stopInstances); !err.IsNone()) {
         LOG_WRN() << "Error occurred while getting current instances: err=" << err;
@@ -445,14 +444,14 @@ Error Launcher::ProcessInstances(const Array<InstanceInfo>& instances, bool forc
 {
     LOG_DBG() << "Process instances: restart=" << forceRestart;
 
-    auto desiredInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+    auto desiredInstances = MakeUnique<InstanceDataArray>(&mAllocator);
 
     if (auto err = GetDesiredInstancesData(instances, *desiredInstances); !err.IsNone()) {
         return err;
     }
 
-    auto startInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
-    auto stopInstances  = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+    auto startInstances = MakeUnique<InstanceDataArray>(&mAllocator);
+    auto stopInstances  = MakeUnique<InstanceDataArray>(&mAllocator);
 
     CacheServices(*desiredInstances);
 
@@ -511,7 +510,7 @@ Error Launcher::ProcessRestartInstances(const Array<InstanceData>& instances)
 
 Error Launcher::SendRunStatus()
 {
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
         if (instance.GetError().IsNone()) {
@@ -545,7 +544,7 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         StaticString<cVersionLen> serviceVersion;
@@ -589,7 +588,7 @@ Error Launcher::GetDesiredInstancesData(
 
     LOG_DBG() << "Get desired instances data";
 
-    auto currentInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+    auto currentInstances = MakeUnique<InstanceDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllInstances(*currentInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -898,7 +897,7 @@ Error Launcher::StartInstance(const InstanceData& info)
 
         instance = &mCurrentInstances.Back();
 
-        auto envVars = MakeUnique<EnvVarsStaticArray>(&mAllocator);
+        auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
 
         if (auto err = GetInstanceEnvVars(info.mInstanceInfo.mInstanceIdent, *envVars); !err.IsNone()) {
             return err;
@@ -996,7 +995,7 @@ Error Launcher::StopCurrentInstances()
 
     auto finishLaunch = DeferRelease(&mLaunchInProgress, [this](bool*) { FinishLaunch(); });
 
-    auto stopInstances = MakeUnique<InstanceDataStaticArray>(&mAllocator);
+    auto stopInstances = MakeUnique<InstanceDataArray>(&mAllocator);
 
     if (auto err = GetCurrentInstances(*stopInstances); !err.IsNone()) {
         LOG_WRN() << "Error occurred while getting current instances: err=" << err;
@@ -1026,7 +1025,7 @@ Error Launcher::GetOutdatedInstances(Array<InstanceData>& instances)
 
 Error Launcher::HandleOfflineTTLs()
 {
-    SharedPtr<InstanceDataStaticArray> outdatedInstances;
+    SharedPtr<InstanceDataArray> outdatedInstances;
 
     LOG_DBG() << "Handle offline TTLs";
 
@@ -1047,7 +1046,7 @@ Error Launcher::HandleOfflineTTLs()
             return AOS_ERROR_WRAP(err);
         }
 
-        outdatedInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
+        outdatedInstances = MakeShared<InstanceDataArray>(&mAllocator);
 
         if (auto err = GetOutdatedInstances(*outdatedInstances); !err.IsNone()) {
             LOG_ERR() << "Can't get outdated instances: err=" << err;
@@ -1174,7 +1173,7 @@ Error Launcher::GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<Sta
 Error Launcher::GetEnvChangedInstances(Array<InstanceData>& instances) const
 {
     for (auto& instance : mCurrentInstances) {
-        auto envVars = MakeUnique<EnvVarsStaticArray>(&mAllocator);
+        auto envVars = MakeUnique<EnvVarsArray>(&mAllocator);
 
         if (auto err = GetInstanceEnvVars(instance.Info().mInstanceIdent, *envVars); !err.IsNone()) {
             LOG_ERR() << "Can't get instance env vars: instanceID=" << instance.InstanceID() << ", err=" << err;
@@ -1198,7 +1197,7 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instanceData : instances) {
         auto instance = GetInstance(instanceData.mInstanceID);
@@ -1238,7 +1237,7 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
 
 Error Launcher::UpdateInstancesEnvVars()
 {
-    SharedPtr<InstanceDataStaticArray> restartInstances;
+    SharedPtr<InstanceDataArray> restartInstances;
 
     {
         UniqueLock lock {mMutex};
@@ -1251,7 +1250,7 @@ Error Launcher::UpdateInstancesEnvVars()
             return AOS_ERROR_WRAP(err);
         }
 
-        restartInstances = MakeShared<InstanceDataStaticArray>(&mAllocator);
+        restartInstances = MakeShared<InstanceDataArray>(&mAllocator);
 
         if (auto err = GetEnvChangedInstances(*restartInstances); !err.IsNone()) {
             return err;

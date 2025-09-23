@@ -147,9 +147,9 @@ private:
     std::vector<InstanceData> mInstances;
     mutable std::mutex        mMutex;
 
-    uint64_t                       mOperationVersion = launcher::Launcher::cOperationVersion;
-    EnvVarsInstanceInfoStaticArray mEnvVarsInstanceInfos;
-    Time                           mOnlineTime = Time::Now();
+    uint64_t                 mOperationVersion = launcher::Launcher::cOperationVersion;
+    EnvVarsInstanceInfoArray mEnvVarsInstanceInfos;
+    Time                     mOnlineTime = Time::Now();
 };
 
 /**

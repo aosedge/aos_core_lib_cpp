@@ -116,7 +116,7 @@ protected:
 
         ASSERT_TRUE(mLauncher->Start().IsNone());
 
-        auto runStatus = std::make_unique<InstanceStatusStaticArray>();
+        auto runStatus = std::make_unique<InstanceStatusArray>();
 
         ASSERT_TRUE(mLauncher->GetCurrentRunStatus(*runStatus).IsNone());
         EXPECT_TRUE(tests::utils::CompareArrays(*runStatus, Array<InstanceStatus>()));

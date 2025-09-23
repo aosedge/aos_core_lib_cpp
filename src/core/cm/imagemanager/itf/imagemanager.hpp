@@ -84,7 +84,7 @@ struct UpdateItemInfo {
 struct UpdateItemStatus {
     StaticString<cIDLen>      mID;
     StaticString<cVersionLen> mVersion;
-    ImageStatusStaticArray    mStatuses;
+    ImageStatusArray          mStatuses;
 
     /**
      * Compares update item status.

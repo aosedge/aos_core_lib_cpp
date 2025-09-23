@@ -79,7 +79,7 @@ Error ServiceManager::Init(const Config& config, oci::OCISpecItf& ociManager, do
         return AOS_ERROR_WRAP(err);
     }
 
-    auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+    auto services = MakeUnique<ServiceDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllServices(*services); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -118,7 +118,7 @@ Error ServiceManager::Start()
     auto err = mTimer.Start(
         mConfig.mRemoveOutdatedPeriod,
         [this](void*) {
-            auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+            auto services = MakeUnique<ServiceDataArray>(&mAllocator);
 
             if (auto err = mStorage->GetAllServices(*services); !err.IsNone()) {
                 LOG_ERR() << "Can't get services: err=" << err;
@@ -162,7 +162,7 @@ Error ServiceManager::ProcessDesiredServices(const Array<ServiceInfo>& services,
         return err;
     }
 
-    auto desiredServices = MakeUnique<ServiceInfoStaticArray>(&mAllocator, services);
+    auto desiredServices = MakeUnique<ServiceInfoArray>(&mAllocator, services);
 
     if (auto err = ProcessAlreadyInstalledServices(*desiredServices, serviceStatuses); !err.IsNone()) {
         return err;
@@ -196,7 +196,7 @@ Error ServiceManager::GetService(const String& serviceID, ServiceData& service)
 
     LOG_DBG() << "Get service: serviceID=" << serviceID;
 
-    auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+    auto services = MakeUnique<ServiceDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllServices(*services); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -303,7 +303,7 @@ Error ServiceManager::RemoveItem(const String& id)
     const auto serviceID = splitted[0];
     const auto version   = splitted[1];
 
-    auto services = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+    auto services = MakeUnique<ServiceDataArray>(&mAllocator);
 
     mStorage->GetServiceVersions(serviceID, *services);
 
@@ -326,7 +326,7 @@ Error ServiceManager::RemoveItem(const String& id)
 Error ServiceManager::ProcessAlreadyInstalledServices(
     Array<ServiceInfo>& desiredServices, Array<ServiceStatus>& serviceStatuses)
 {
-    auto installedServices = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+    auto installedServices = MakeUnique<ServiceDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllServices(*installedServices); !err.IsNone()) {
         return err;
@@ -405,7 +405,7 @@ Error ServiceManager::InstallServices(const Array<ServiceInfo>& services, Array<
 
 Error ServiceManager::PrepareSpaceForServices(size_t desiredServicesNum)
 {
-    auto storedServices = MakeUnique<ServiceDataStaticArray>(&mAllocator);
+    auto storedServices = MakeUnique<ServiceDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllServices(*storedServices); !err.IsNone()) {
         return err;

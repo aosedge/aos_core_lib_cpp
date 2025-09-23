@@ -24,7 +24,7 @@ struct InstanceInfo {
     StaticString<cIDLen> mSubjectID;
     uint64_t             mPriority {0};
     size_t               mNumInstances {0};
-    LabelsStaticArray    mLabels;
+    LabelsArray          mLabels;
 
     /**
      * Compares instance info.

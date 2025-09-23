@@ -376,7 +376,7 @@ Error ResourceMonitor::SetupInstanceAlerts(const String& instanceID, const Insta
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance alerts processor already started"));
     }
 
-    auto instanceAlertProcessor = MakeUnique<AlertProcessorStaticArray>(&mAllocator);
+    auto instanceAlertProcessor = MakeUnique<AlertProcessorArray>(&mAllocator);
 
     if (auto err = mInstanceAlertProcessors.Set(instanceID, *instanceAlertProcessor); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

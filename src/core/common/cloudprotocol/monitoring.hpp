@@ -39,18 +39,18 @@ struct PartitionUsage {
     bool operator!=(const PartitionUsage& usage) const { return !operator==(usage); }
 };
 
-using PartitionUsageStaticArray = StaticArray<PartitionUsage, cMaxNumPartitions>;
+using PartitionUsageArray = StaticArray<PartitionUsage, cMaxNumPartitions>;
 
 /**
  * Monitoring data.
  */
 struct MonitoringData {
-    Time                      mTime;
-    size_t                    mCPU {};
-    size_t                    mRAM {};
-    size_t                    mDownload {};
-    size_t                    mUpload {};
-    PartitionUsageStaticArray mPartitions;
+    Time                mTime;
+    size_t              mCPU {};
+    size_t              mRAM {};
+    size_t              mDownload {};
+    size_t              mUpload {};
+    PartitionUsageArray mPartitions;
 
     /**
      * Compares monitoring data.
@@ -73,7 +73,7 @@ struct MonitoringData {
     bool operator!=(const MonitoringData& data) const { return !operator==(data); }
 };
 
-using MonitoringDataStaticArray = StaticArray<MonitoringData, cMonitoringItemsCount>;
+using MonitoringDataArray = StaticArray<MonitoringData, cMonitoringItemsCount>;
 
 /**
  * Instance state information.
@@ -102,15 +102,15 @@ struct InstanceStateInfo {
     bool operator!=(const InstanceStateInfo& info) const { return !operator==(info); };
 };
 
-using InstanceStateInfoStaticArray = StaticArray<InstanceStateInfo, cMonitoringItemsCount>;
+using InstanceStateInfoArray = StaticArray<InstanceStateInfo, cMonitoringItemsCount>;
 
 /**
  * Instance monitoring data.
  */
 struct InstanceMonitoringData : public InstanceIdent {
-    Identity                     mNodeID;
-    MonitoringDataStaticArray    mItems;
-    InstanceStateInfoStaticArray mStates;
+    Identity               mNodeID;
+    MonitoringDataArray    mItems;
+    InstanceStateInfoArray mStates;
 
     /**
      * Compares instance monitoring data.
@@ -133,7 +133,7 @@ struct InstanceMonitoringData : public InstanceIdent {
     bool operator!=(const InstanceMonitoringData& data) const { return !operator==(data); }
 };
 
-using InstanceMonitoringDataStaticArray = StaticArray<InstanceMonitoringData, cMaxNumInstances>;
+using InstanceMonitoringDataArray = StaticArray<InstanceMonitoringData, cMaxNumInstances>;
 
 /**
  * Node state info.
@@ -163,15 +163,15 @@ struct NodeStateInfo {
     bool operator!=(const NodeStateInfo& info) const { return !operator==(info); };
 };
 
-using NodeStateInfoStaticArray = StaticArray<NodeStateInfo, cMonitoringItemsCount>;
+using NodeStateInfoArray = StaticArray<NodeStateInfo, cMonitoringItemsCount>;
 
 /**
  * Node monitoring data.
  */
 struct NodeMonitoringData {
-    Identity                  mNodeID;
-    MonitoringDataStaticArray mItems;
-    NodeStateInfoStaticArray  mStates;
+    Identity            mNodeID;
+    MonitoringDataArray mItems;
+    NodeStateInfoArray  mStates;
 
     /**
      * Compares node monitoring data.
@@ -193,14 +193,14 @@ struct NodeMonitoringData {
     bool operator!=(const NodeMonitoringData& data) const { return !operator==(data); }
 };
 
-using NodeMonitoringDataStaticArray = StaticArray<NodeMonitoringData, cMaxNumNodes>;
+using NodeMonitoringDataArray = StaticArray<NodeMonitoringData, cMaxNumNodes>;
 
 /**
  * Monitoring message type.
  */
 struct Monitoring {
-    NodeMonitoringDataStaticArray     mNodes;
-    InstanceMonitoringDataStaticArray mInstances;
+    NodeMonitoringDataArray     mNodes;
+    InstanceMonitoringDataArray mInstances;
 
     /**
      * Compares monitoring message.

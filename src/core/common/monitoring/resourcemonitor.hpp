@@ -119,7 +119,7 @@ public:
 private:
     static constexpr auto cAllocatorSize
         = Max(sizeof(NodeInfoObsolete) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
-            sizeof(InstanceMonitoringData) + sizeof(AlertProcessorStaticArray) + sizeof(ResourceIdentifier));
+            sizeof(InstanceMonitoringData) + sizeof(AlertProcessorArray) + sizeof(ResourceIdentifier));
 
     String       GetParameterName(const ResourceIdentifier& id) const;
     AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
@@ -161,8 +161,8 @@ private:
     size_t mMaxDMIPS {};
     size_t mMaxMemory {};
 
-    AlertProcessorStaticArray                                                    mAlertProcessors;
-    StaticMap<StaticString<cIDLen>, AlertProcessorStaticArray, cMaxNumInstances> mInstanceAlertProcessors;
+    AlertProcessorArray                                                    mAlertProcessors;
+    StaticMap<StaticString<cIDLen>, AlertProcessorArray, cMaxNumInstances> mInstanceAlertProcessors;
 
     mutable StaticAllocator<cAllocatorSize> mAllocator;
 };

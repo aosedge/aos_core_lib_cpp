@@ -64,15 +64,15 @@ struct CSRInfo {
     bool operator!=(const CSRInfo& other) const { return !operator==(other); }
 };
 
-using CSRInfoStaticArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
+using CSRInfoArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
 
 /**
  * StartProvisioningResponse message.
  */
 struct StartProvisioningResponse {
-    Identity           mNodeID;
-    Error              mError;
-    CSRInfoStaticArray mCSRs;
+    Identity     mNodeID;
+    Error        mError;
+    CSRInfoArray mCSRs;
 
     /**
      * Compares start provisioning response.
@@ -121,14 +121,14 @@ struct CertInfo {
     bool operator!=(const CertInfo& other) const { return !operator==(other); }
 };
 
-using CertInfoStaticArray = StaticArray<CertInfo, cCertsPerNodeCount>;
+using CertInfoArray = StaticArray<CertInfo, cCertsPerNodeCount>;
 
 /**
  * FinishProvisioningRequest message.
  */
 struct FinishProvisioningRequest {
     Identity                      mNodeID;
-    CertInfoStaticArray           mCertificates;
+    CertInfoArray                 mCertificates;
     StaticString<cCertSecretSize> mPassword;
 
     /**

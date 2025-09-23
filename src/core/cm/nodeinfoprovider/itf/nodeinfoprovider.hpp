@@ -19,8 +19,8 @@ namespace aos::cm::nodeinfoprovider {
  * Node info.
  */
 struct NodeInfo : public aos::NodeInfo {
-    ResourceInfoStaticArray mResources;
-    RuntimeInfoStaticArray  mRuntimes;
+    ResourceInfoArray mResources;
+    RuntimeInfoArray  mRuntimes;
 
     /**
      * Compares node info.

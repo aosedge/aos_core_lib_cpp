@@ -186,7 +186,7 @@ private:
     bool     mAlertCondition   = false;
 };
 
-using AlertProcessorStaticArray = StaticArray<AlertProcessor, 4 + cMaxNumPartitions>;
+using AlertProcessorArray = StaticArray<AlertProcessor, 4 + cMaxNumPartitions>;
 
 } // namespace aos::monitoring
 

@@ -17,7 +17,7 @@ namespace aos::cloudprotocol {
  * Environment variables instance info.
  */
 struct EnvVarsInstanceInfo : public InstanceFilter {
-    EnvVarInfoStaticArray mVariables;
+    EnvVarInfoArray mVariables;
 
     /**
      * Compares environment variable instance info.
@@ -39,13 +39,13 @@ struct EnvVarsInstanceInfo : public InstanceFilter {
     bool operator!=(const EnvVarsInstanceInfo& info) const { return !operator==(info); }
 };
 
-using EnvVarsInstanceInfoStaticArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
+using EnvVarsInstanceInfoArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
 
 /**
  * Environment variables instance status.
  */
 struct EnvVarsInstanceStatus : public InstanceIdent {
-    EnvVarStatusStaticArray mStatuses;
+    EnvVarStatusArray mStatuses;
 
     /**
      * Compares environment variable instance status.
@@ -67,13 +67,13 @@ struct EnvVarsInstanceStatus : public InstanceIdent {
     bool operator!=(const EnvVarsInstanceStatus& status) const { return !operator==(status); }
 };
 
-using EnvVarsInstanceStatusStaticArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
+using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
 
 /**
  * Environment variable override request.
  */
 struct OverrideEnvVarsRequest {
-    EnvVarsInstanceInfoStaticArray mItems;
+    EnvVarsInstanceInfoArray mItems;
 
     /**
      * Compares environment variable override request.
@@ -96,7 +96,7 @@ struct OverrideEnvVarsRequest {
  * Environment variable override statuses.
  */
 struct OverrideEnvVarsStatuses {
-    EnvVarsInstanceStatusStaticArray mStatuses;
+    EnvVarsInstanceStatusArray mStatuses;
 
     /**
      * Compares environment variable override statuses.

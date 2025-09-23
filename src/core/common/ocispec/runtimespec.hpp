@@ -167,7 +167,7 @@ struct Process {
     bool                                                    mTerminal;
     User                                                    mUser;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mArgs;
-    EnvVarsStaticArray                                      mEnv;
+    EnvVarsArray                                            mEnv;
     StaticString<cMaxParamLen>                              mCwd;
     bool                                                    mNoNewPrivileges;
     Optional<LinuxCapabilities>                             mCapabilities;

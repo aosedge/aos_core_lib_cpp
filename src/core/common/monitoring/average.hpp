@@ -27,7 +27,7 @@ public:
      * @param windowCount window count.
      * @return Error.
      */
-    Error Init(const PartitionInfoStaticArray& nodeDisks, size_t windowCount);
+    Error Init(const PartitionInfoArray& nodeDisks, size_t windowCount);
 
     /**
      * Updates average data.

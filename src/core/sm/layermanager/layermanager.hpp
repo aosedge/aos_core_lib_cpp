@@ -56,7 +56,7 @@ struct LayerData {
     bool operator!=(const LayerData& info) const { return !operator==(info); }
 };
 
-using LayerDataStaticArray = StaticArray<LayerData, cMaxNumLayers>;
+using LayerDataArray = StaticArray<LayerData, cMaxNumLayers>;
 
 /**
  * Layer manager storage interface.
@@ -246,8 +246,8 @@ private:
     static constexpr auto cLayerOCIDescriptor = "layer.json";
     static constexpr auto cNumInstallThreads  = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;
     static constexpr auto cAllocatorSize = Max(cNumInstallThreads * (sizeof(oci::ImageManifest) + sizeof(LayerData))
-            + sizeof(LayerDataStaticArray) + sizeof(LayerInfoStaticArray),
-        sizeof(LayerDataStaticArray) + sizeof(fs::DirIterator) * 2);
+            + sizeof(LayerDataArray) + sizeof(LayerInfoArray),
+        sizeof(LayerDataArray) + sizeof(fs::DirIterator) * 2);
 
     Error PrepareSpaceForLayers(size_t desiredLayersNum);
     Error RemoveDamagedLayerFolders();

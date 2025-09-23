@@ -274,13 +274,13 @@ struct InstanceAlert : AlertItem, InstanceIdent {
 using AlertVariant = Variant<SystemAlert, CoreAlert, DownloadAlert, SystemQuotaAlert, InstanceQuotaAlert,
     ResourceAllocateAlert, InstanceAlert>;
 
-using AlertVariantStaticArray = StaticArray<AlertVariant, cAlertItemsCount>;
+using AlertVariantArray = StaticArray<AlertVariant, cAlertItemsCount>;
 
 /**
  * Alerts message structure.
  */
 struct Alerts {
-    AlertVariantStaticArray mItems;
+    AlertVariantArray mItems;
 
     /**
      * Compares alerts.

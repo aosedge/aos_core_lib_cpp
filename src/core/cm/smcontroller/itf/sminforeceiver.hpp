@@ -17,8 +17,8 @@ namespace aos::cm::smcontroller {
 
 struct SMInfo {
     StaticString<cNodeIDLen> mNodeID;
-    ResourceInfoStaticArray  mResources;
-    RuntimeInfoStaticArray   mRuntimes;
+    ResourceInfoArray        mResources;
+    RuntimeInfoArray         mRuntimes;
 
     /**
      * Compares SM status.

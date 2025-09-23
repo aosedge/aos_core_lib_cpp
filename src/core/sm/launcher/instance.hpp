@@ -231,9 +231,9 @@ public:
     /**
      * Returns instance override env vars.
      *
-     * @return const EnvVarsStaticArray&.
+     * @return const EnvVarsArray&.
      */
-    const EnvVarsStaticArray& GetOverrideEnvVars() const { return mOverrideEnvVars; };
+    const EnvVarsArray& GetOverrideEnvVars() const { return mOverrideEnvVars; };
 
     /**
      * Sets instance override env vars.
@@ -309,14 +309,14 @@ public:
     friend Log& operator<<(Log& log, const Instance& instance) { return log << instance.mInstanceID; }
 
 private:
-    using LayersStaticArray = StaticArray<StaticString<cFilePathLen>, cMaxNumLayers + 1>;
+    using LayersArray = StaticArray<StaticString<cFilePathLen>, cMaxNumLayers + 1>;
 
     static constexpr auto cRuntimeDir    = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
     static constexpr auto cAllocatorSize = sizeof(image::ImageParts) + sizeof(oci::ServiceConfig)
         + sizeof(oci::RuntimeSpec)
         + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
             sizeof(oci::ImageSpec)
-                + Max(sizeof(EnvVarsStaticArray), sizeof(LayersStaticArray) + sizeof(layermanager::LayerData),
+                + Max(sizeof(EnvVarsArray), sizeof(LayersArray) + sizeof(layermanager::LayerData),
                     sizeof(Mount) + sizeof(ResourceInfoObsolete),
                     sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>)));
     static constexpr auto cNumAllocations  = 8;
@@ -393,7 +393,7 @@ private:
     Error                      mError;
     bool                       mPermissionsRegistered = false;
     Duration                   mOfflineTTL            = 0;
-    EnvVarsStaticArray         mOverrideEnvVars;
+    EnvVarsArray               mOverrideEnvVars;
 };
 
 } // namespace aos::sm::launcher

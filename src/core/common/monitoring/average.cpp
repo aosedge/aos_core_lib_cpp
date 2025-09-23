@@ -48,7 +48,7 @@ void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
  * Public
  **********************************************************************************************************************/
 
-Error Average::Init(const PartitionInfoStaticArray& nodeDisks, size_t windowCount)
+Error Average::Init(const PartitionInfoArray& nodeDisks, size_t windowCount)
 {
     mWindowCount = windowCount;
     if (mWindowCount == 0) {

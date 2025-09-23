@@ -867,9 +867,9 @@ struct InstanceInfo {
 };
 
 /**
- * Instance info static array.
+ * Instance info array.
  */
-using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
+using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 
 /**
  * Instance status.
@@ -906,9 +906,9 @@ struct InstanceStatus {
 };
 
 /**
- * Instance status static array.
+ * Instance status array.
  */
-using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
+using InstanceStatusArray = StaticArray<InstanceStatus, cMaxNumInstances>;
 
 /**
  * Image status.
@@ -938,7 +938,7 @@ struct ImageStatus {
     bool operator!=(const ImageStatus& other) const { return !operator==(other); }
 };
 
-using ImageStatusStaticArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
+using ImageStatusArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
 
 /**
  * Service status.
@@ -1005,9 +1005,9 @@ struct ServiceStatus {
 };
 
 /**
- * Service status static array.
+ * Service status array.
  */
-using ServiceStatusStaticArray = StaticArray<ServiceStatus, cMaxNumServices>;
+using ServiceStatusArray = StaticArray<ServiceStatus, cMaxNumServices>;
 
 /**
  * Layer status.
@@ -1077,9 +1077,9 @@ struct LayerStatus {
 };
 
 /**
- * Layer status static array.
+ * Layer status array.
  */
-using LayerStatusStaticArray = StaticArray<LayerStatus, cMaxNumLayers>;
+using LayerStatusArray = StaticArray<LayerStatus, cMaxNumLayers>;
 
 /**
  * Service info.
@@ -1115,9 +1115,9 @@ struct ServiceInfo {
 };
 
 /**
- * Service info static array.
+ * Service info array.
  */
-using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
+using ServiceInfoArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 /**
  * Layer info.
@@ -1154,9 +1154,9 @@ struct LayerInfo {
 };
 
 /**
- * Layer info static array.
+ * Layer info array.
  */
-using LayerInfoStaticArray = StaticArray<LayerInfo, cMaxNumLayers>;
+using LayerInfoArray = StaticArray<LayerInfo, cMaxNumLayers>;
 
 /**
  * File system mount.
@@ -1283,14 +1283,14 @@ struct DeviceInfo {
 };
 
 /**
- * Env vars static array.
+ * Env vars array.
  */
-using EnvVarsStaticArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
+using EnvVarsArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
 
 /**
- * Labels static array.
+ * Labels array.
  */
-using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
+using LabelsArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
 
 /**
  * Resource info.
@@ -1299,7 +1299,7 @@ struct ResourceInfoObsolete {
     StaticString<cResourceNameLen>                          mName;
     StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups> mGroups;
     StaticArray<Mount, cMaxNumFSMounts>                     mMounts;
-    EnvVarsStaticArray                                      mEnv;
+    EnvVarsArray                                            mEnv;
     StaticArray<Host, cMaxNumHosts>                         mHosts;
 
     /**
@@ -1467,9 +1467,9 @@ struct PartitionInfo {
 };
 
 /**
- * Partition info static array.
+ * Partition info array.
  */
-using PartitionInfoStaticArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
+using PartitionInfoArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
 
 /**
  * CPU info.
@@ -1503,9 +1503,9 @@ struct CPUInfo {
 };
 
 /**
- * CPU info static array.
+ * CPU info array.
  */
-using CPUInfoStaticArray = StaticArray<CPUInfo, cMaxNumCPUs>;
+using CPUInfoArray = StaticArray<CPUInfo, cMaxNumCPUs>;
 
 /**
  * Node attribute enum.
@@ -1584,9 +1584,9 @@ struct NodeAttribute {
 };
 
 /**
- * Node attribute static array.
+ * Node attribute array.
  */
-using NodeAttributeStaticArray = StaticArray<NodeAttribute, cMaxNumNodeAttributes>;
+using NodeAttributeArray = StaticArray<NodeAttribute, cMaxNumNodeAttributes>;
 
 /**
  * Node state.
@@ -1653,9 +1653,9 @@ struct NodeInfoObsolete {
     StaticString<cNodeNameLen> mName;
     NodeStateObsolete          mState;
     StaticString<cOSTypeLen>   mOSType;
-    CPUInfoStaticArray         mCPUs;
-    PartitionInfoStaticArray   mPartitions;
-    NodeAttributeStaticArray   mAttrs;
+    CPUInfoArray               mCPUs;
+    PartitionInfoArray         mPartitions;
+    NodeAttributeArray         mAttrs;
     uint64_t                   mMaxDMIPS = 0;
     uint64_t                   mTotalRAM = 0;
 
@@ -1713,9 +1713,9 @@ struct NodeInfo {
     size_t                     mTotalRAM {};
     Optional<size_t>           mPhysicalRAM;
     OSInfo                     mOSInfo;
-    CPUInfoStaticArray         mCPUs;
-    PartitionInfoStaticArray   mPartitions;
-    NodeAttributeStaticArray   mAttrs;
+    CPUInfoArray               mCPUs;
+    PartitionInfoArray         mPartitions;
+    NodeAttributeArray         mAttrs;
     bool                       mProvisioned = false;
     NodeState                  mState;
     Error                      mError;
@@ -1968,7 +1968,7 @@ struct ResourceInfo {
     bool operator!=(const ResourceInfo& other) const { return !operator==(other); }
 };
 
-using ResourceInfoStaticArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+using ResourceInfoArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
 
 /**
  * Runtime info.
@@ -2004,7 +2004,7 @@ struct RuntimeInfo : public PlatformInfo {
     bool operator!=(const RuntimeInfo& other) const { return !operator==(other); }
 };
 
-using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
+using RuntimeInfoArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
 
 /**
  * State result type.
@@ -2587,15 +2587,15 @@ struct EnvVarInfo {
 };
 
 /**
- * Env vars info static array.
+ * Env vars info array.
  */
-using EnvVarInfoStaticArray = StaticArray<EnvVarInfo, cMaxNumEnvVariables>;
+using EnvVarInfoArray = StaticArray<EnvVarInfo, cMaxNumEnvVariables>;
 
 /**
  * Environment variables instance info.
  */
 struct EnvVarsInstanceInfo : public InstanceFilter {
-    EnvVarInfoStaticArray mVariables;
+    EnvVarInfoArray mVariables;
 
     /**
      * Default constructor.
@@ -2634,7 +2634,7 @@ struct EnvVarsInstanceInfo : public InstanceFilter {
     bool operator!=(const EnvVarsInstanceInfo& info) const { return !operator==(info); }
 };
 
-using EnvVarsInstanceInfoStaticArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
+using EnvVarsInstanceInfoArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
 
 /**
  * Environment variable status.
@@ -2660,13 +2660,13 @@ struct EnvVarStatus {
     bool operator!=(const EnvVarStatus& status) const { return !operator==(status); }
 };
 
-using EnvVarStatusStaticArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
+using EnvVarStatusArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
 
 /**
  * Environment variables instance status.
  */
 struct EnvVarsInstanceStatus : public InstanceIdent {
-    EnvVarStatusStaticArray mStatuses;
+    EnvVarStatusArray mStatuses;
 
     /**
      * Compares environment variable instance status.
@@ -2688,7 +2688,7 @@ struct EnvVarsInstanceStatus : public InstanceIdent {
     bool operator!=(const EnvVarsInstanceStatus& status) const { return !operator==(status); }
 };
 
-using EnvVarsInstanceStatusStaticArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
+using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
 
 /**
  * Log type type.
