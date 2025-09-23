@@ -20,6 +20,7 @@ set(HEADERS
     cryptomock.hpp
     downloadermock.hpp
     fsmock.hpp
+    identprovidermock.hpp
     logprovidermock.hpp
     monitoringmock.hpp
     ocispecmock.hpp

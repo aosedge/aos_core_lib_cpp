@@ -21,6 +21,7 @@ set(INSTALL_HEADERS
     aos_core_common_alerts
     aos_core_common_cloudprotocol
     aos_core_common_connectionprovider
+    aos_core_common_identprovider
     aos_core_common_logprovider
     aos_core_common_ocispec
     aos_core_common_spaceallocator
@@ -57,6 +58,7 @@ add_subdirectory(cloudprotocol)
 add_subdirectory(connectionprovider)
 add_subdirectory(crypto)
 add_subdirectory(downloader)
+add_subdirectory(identprovider)
 add_subdirectory(logprovider)
 add_subdirectory(monitoring)
 add_subdirectory(ocispec)

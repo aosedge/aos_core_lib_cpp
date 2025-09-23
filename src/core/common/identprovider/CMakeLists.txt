@@ -4,30 +4,20 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET_NAME identmodules_test)
-
 # ######################################################################################################################
-# Sources
+# Target name
 # ######################################################################################################################
 
-set(SOURCES fileidentifier.cpp)
+set(TARGET_NAME identprovider)
 
 # ######################################################################################################################
-# Libraries
+# Headers
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::iam::identmodules::fileidentifier GTest::gmock_main)
+set(HEADERS itf/identprovider.hpp)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_test(
-    TARGET_NAME
-    ${TARGET_NAME}
-    LOG_MODULE
-    SOURCES
-    ${SOURCES}
-    LIBRARIES
-    ${LIBRARIES}
-)
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})

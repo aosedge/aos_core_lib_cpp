@@ -5,17 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_IDENTHANDLER_IDENTHANDLER_HPP_
-#define AOS_CORE_IDENTHANDLER_IDENTHANDLER_HPP_
+#ifndef AOS_CORE_COMMON_IDENTPROVIDER_ITF_IDENTPROVIDER_HPP_
+#define AOS_CORE_COMMON_IDENTPROVIDER_ITF_IDENTPROVIDER_HPP_
 
 #include <core/common/types/types.hpp>
-#include <core/iam/config.hpp>
 
-namespace aos::iam::identhandler {
-
-/** @addtogroup iam Identification and Access Manager
- *  @{
- */
+namespace aos::identprovider {
 
 /**
  * Subjects observer interface.
@@ -23,9 +18,9 @@ namespace aos::iam::identhandler {
 class SubjectsObserverItf {
 public:
     /**
-     * Subjects observer interface.
+     * On subjects changed event.
      *
-     * @param[in] messages subject changed messages.
+     * @param messages changed messages.
      * @returns Error.
      */
     virtual Error SubjectsChanged(const Array<StaticString<cIDLen>>& messages) = 0;
@@ -37,24 +32,10 @@ public:
 };
 
 /**
- * Ident handler interface.
+ * Ident provider interface.
  */
-class IdentHandlerItf {
+class IdentProviderItf {
 public:
-    /**
-     * Starts ident handler.
-     *
-     * @returns Error.
-     */
-    virtual Error Start() { return ErrorEnum::eNone; }
-
-    /**
-     * Stops ident handler.
-     *
-     * @returns Error.
-     */
-    virtual Error Stop() { return ErrorEnum::eNone; }
-
     /**
      * Returns System ID.
      *
@@ -78,13 +59,28 @@ public:
     virtual Error GetSubjects(Array<StaticString<cIDLen>>& subjects) = 0;
 
     /**
-     * Destroys ident handler interface.
+     * Subscribes to subjects changed events.
+     *
+     * @param observer subjects observer.
+     * @returns Error.
      */
-    virtual ~IdentHandlerItf() = default;
+    virtual Error SubscribeSubjectsChanged(SubjectsObserverItf& observer) = 0;
+
+    /**
+     * Unsubscribes from subjects changed events.
+     *
+     * @param observer subjects observer.
+     */
+    virtual void UnsubscribeSubjectsChanged(SubjectsObserverItf& observer) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~IdentProviderItf() = default;
 };
 
 /** @}*/
 
-} // namespace aos::iam::identhandler
+} // namespace aos::identprovider
 
 #endif

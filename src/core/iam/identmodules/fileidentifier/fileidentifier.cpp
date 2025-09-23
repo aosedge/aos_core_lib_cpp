@@ -6,21 +6,23 @@
  */
 
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/log.hpp>
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
 
 #include "fileidentifier.hpp"
 
-namespace aos::iam::identhandler {
+namespace aos::iam::identmodules::fileidentifier {
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsObserver)
+Error FileIdentifier::Init(const Config& config)
 {
-    mConfig           = config;
-    mSubjectsObserver = &subjectsObserver;
+    LOG_DBG() << "Initialize file identifier";
+
+    mConfig = config;
     mSubjects.Clear();
 
     auto err = ReadSystemId();
@@ -35,7 +37,9 @@ Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsOb
 
     err = ReadSubjects();
     if (!err.IsNone()) {
-        LOG_WRN() << "Can't read subjects: err=" << err << ". Empty subjects will be used";
+        LOG_WRN() << "Can't read subjects, empty subjects will be used" << Log::Field(err);
+
+        mSubjects.Clear();
     }
 
     return ErrorEnum::eNone;
@@ -57,9 +61,19 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    subjects = mSubjects;
+    return subjects.Assign(mSubjects);
+}
+
+Error FileIdentifier::SubscribeSubjectsChanged(identprovider::SubjectsObserverItf& observer)
+{
+    (void)observer;
 
     return ErrorEnum::eNone;
+}
+
+void FileIdentifier::UnsubscribeSubjectsChanged(identprovider::SubjectsObserverItf& observer)
+{
+    (void)observer;
 }
 
 /***********************************************************************************************************************
@@ -68,14 +82,14 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
 
 Error FileIdentifier::ReadSystemId()
 {
-    const auto err = fs::ReadFileToString(mConfig.systemIDPath, mSystemId);
+    const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemId);
 
     return AOS_ERROR_WRAP(err);
 }
 
 Error FileIdentifier::ReadUnitModel()
 {
-    const auto err = fs::ReadFileToString(mConfig.unitModelPath, mUnitModel);
+    const auto err = fs::ReadFileToString(mConfig.mUnitModelPath, mUnitModel);
 
     return AOS_ERROR_WRAP(err);
 }
@@ -84,7 +98,7 @@ Error FileIdentifier::ReadSubjects()
 {
     StaticString<cMaxNumSubjects * cIDLen> buffer;
 
-    auto err = fs::ReadFileToString(mConfig.subjectsPath, buffer);
+    auto err = fs::ReadFileToString(mConfig.mSubjectsPath, buffer);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -96,9 +110,7 @@ Error FileIdentifier::ReadSubjects()
         return AOS_ERROR_WRAP(err);
     }
 
-    mSubjectsObserver->SubjectsChanged(mSubjects);
-
     return ErrorEnum::eNone;
 }
 
-} // namespace aos::iam::identhandler
+} // namespace aos::iam::identmodules::fileidentifier
