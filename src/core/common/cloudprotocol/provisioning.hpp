@@ -9,7 +9,7 @@
 
 #include <core/common/types/types.hpp>
 
-#include "certificates.hpp"
+#include "common.hpp"
 
 namespace aos::cloudprotocol {
 
@@ -17,7 +17,7 @@ namespace aos::cloudprotocol {
  * StartProvisioningRequest message.
  */
 struct StartProvisioningRequest {
-    StaticString<cNodeIDLen>      mNodeID;
+    Identity                      mNodeID;
     StaticString<cCertSecretSize> mPassword;
 
     /**
@@ -41,12 +41,38 @@ struct StartProvisioningRequest {
 };
 
 /**
+ * CSR info.
+ */
+struct CSRInfo {
+    CertType                         mType;
+    StaticString<crypto::cCSRPEMLen> mCsr;
+
+    /**
+     * Compares CSR info.
+     *
+     * @param other CSR info to compare with.
+     * @return bool.
+     */
+    bool operator==(const CSRInfo& other) const { return mType == other.mType && mCsr == other.mCsr; }
+
+    /**
+     * Compares CSR info.
+     *
+     * @param other CSR info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CSRInfo& other) const { return !operator==(other); }
+};
+
+using CSRInfoStaticArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
+
+/**
  * StartProvisioningResponse message.
  */
 struct StartProvisioningResponse {
-    StaticString<cNodeIDLen>                       mNodeID;
-    Error                                          mError;
-    StaticArray<IssueCertData, cCertsPerUnitCount> mCSRs;
+    Identity           mNodeID;
+    Error              mError;
+    CSRInfoStaticArray mCSRs;
 
     /**
      * Compares start provisioning response.
@@ -69,12 +95,41 @@ struct StartProvisioningResponse {
 };
 
 /**
+ * Certificate info.
+ */
+struct CertInfo {
+    CertType                               mType;
+    StaticString<crypto::cCertChainPEMLen> mCertificateChain;
+
+    /**
+     * Compares certificate info.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const CertInfo& other) const
+    {
+        return mType == other.mType && mCertificateChain == other.mCertificateChain;
+    }
+
+    /**
+     * Compares certificate info.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CertInfo& other) const { return !operator==(other); }
+};
+
+using CertInfoStaticArray = StaticArray<CertInfo, cCertsPerNodeCount>;
+
+/**
  * FinishProvisioningRequest message.
  */
 struct FinishProvisioningRequest {
-    StaticString<cNodeIDLen>                        mNodeID;
-    StaticArray<IssuedCertData, cCertsPerUnitCount> mCertificates;
-    StaticString<cCertSecretSize>                   mPassword;
+    Identity                      mNodeID;
+    CertInfoStaticArray           mCertificates;
+    StaticString<cCertSecretSize> mPassword;
 
     /**
      * Compares finish provisioning request.
@@ -100,8 +155,8 @@ struct FinishProvisioningRequest {
  * FinishProvisioningResponse message.
  */
 struct FinishProvisioningResponse {
-    StaticString<cNodeIDLen> mNodeID;
-    Error                    mError;
+    Identity mNodeID;
+    Error    mError;
 
     /**
      * Compares finish provisioning response.
@@ -127,7 +182,7 @@ struct FinishProvisioningResponse {
  * DeprovisioningRequest message.
  */
 struct DeprovisioningRequest {
-    StaticString<cNodeIDLen>      mNodeID;
+    Identity                      mNodeID;
     StaticString<cCertSecretSize> mPassword;
 
     /**
@@ -154,8 +209,8 @@ struct DeprovisioningRequest {
  * DeprovisioningRequest message.
  */
 struct DeprovisioningResponse {
-    StaticString<cNodeIDLen> mNodeID;
-    Error                    mError;
+    Identity mNodeID;
+    Error    mError;
 
     /**
      * Compares deprovisioning response.
