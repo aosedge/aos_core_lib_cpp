@@ -186,6 +186,16 @@ TEST(StringTest, Split)
     EXPECT_EQ(splitArray, resultArray);
 }
 
+TEST(StringTest, SplittedPieceExceedsDestinationItemSize)
+{
+    constexpr auto cString = "someLongPiece1 someLongPiece2";
+
+    StaticArray<StaticString<2>, 2> splitArray;
+
+    auto err = String(cString).Split(splitArray);
+    EXPECT_EQ(err, ErrorEnum::eNoMemory);
+}
+
 TEST(StringTest, HexToByteArray)
 {
     const String hex = "abcDEF0123456789";
