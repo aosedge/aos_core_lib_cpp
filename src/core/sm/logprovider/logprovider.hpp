@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_SM_LOGPROVIDER_LOGPROVIDER_HPP_
 #define AOS_CORE_SM_LOGPROVIDER_LOGPROVIDER_HPP_
 
-#include <core/common/cloudprotocol/log.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::sm::logprovider {
 
@@ -31,7 +31,7 @@ public:
      * @param log log.
      * @return Error.
      */
-    virtual Error OnLogReceived(const cloudprotocol::PushLog& log) = 0;
+    virtual Error OnLogReceived(const PushLog& log) = 0;
 };
 
 /**
@@ -50,7 +50,7 @@ public:
      * @param request request log.
      * @return Error.
      */
-    virtual Error GetInstanceLog(const cloudprotocol::RequestLog& request) = 0;
+    virtual Error GetInstanceLog(const RequestLog& request) = 0;
 
     /**
      * Gets instance crash log.
@@ -58,7 +58,7 @@ public:
      * @param request request log.
      * @return Error.
      */
-    virtual Error GetInstanceCrashLog(const cloudprotocol::RequestLog& request) = 0;
+    virtual Error GetInstanceCrashLog(const RequestLog& request) = 0;
 
     /**
      * Gets system log.
@@ -66,7 +66,7 @@ public:
      * @param request request log.
      * @return Error.
      */
-    virtual Error GetSystemLog(const cloudprotocol::RequestLog& request) = 0;
+    virtual Error GetSystemLog(const RequestLog& request) = 0;
 
     /**
      * Subscribes on logs.

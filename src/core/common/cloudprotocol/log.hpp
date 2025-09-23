@@ -14,102 +14,14 @@
 #include <core/common/types/types.hpp>
 
 namespace aos::cloudprotocol {
-/**
- * Log id len.
- */
-constexpr auto cLogIDLen = AOS_CONFIG_CLOUDPROTOCOL_LOG_ID_LEN;
-
-/**
- * Log content len.
- */
-constexpr auto cLogContentLen = AOS_CONFIG_CLOUDPROTOCOL_LOG_CONTENT_LEN;
-
-/**
- * Log type type.
- */
-class LogTypeType {
-public:
-    enum class Enum {
-        eSystemLog,
-        eServiceLog,
-        eCrashLog,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sLogTypeStrings[] = {
-            "systemLog",
-            "serviceLog",
-            "crashLog",
-        };
-
-        return Array<const char* const>(sLogTypeStrings, ArraySize(sLogTypeStrings));
-    };
-};
-
-using LogTypeEnum = LogTypeType::Enum;
-using LogType     = EnumStringer<LogTypeType>;
-
-/**
- * Log upload type type.
- */
-class LogUploadTypeType {
-public:
-    enum class Enum {
-        eHTTPS,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "https",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using LogUploadTypeEnum = LogUploadTypeType::Enum;
-using LogUploadType     = EnumStringer<LogUploadTypeType>;
-
-/**
- * Log upload options.
- */
-struct LogUploadOptions {
-    LogUploadType                 mType;
-    StaticString<cURLLen>         mURL;
-    StaticString<cBearerTokenLen> mBearerToken;
-    Optional<Time>                mBearerTokenTTL;
-
-    /**
-     * Compares log upload options.
-     *
-     * @param options log upload options to compare with.
-     * @return bool.
-     */
-    bool operator==(const LogUploadOptions& options) const
-    {
-        return mType == options.mType && mURL == options.mURL && mBearerToken == options.mBearerToken
-            && mBearerTokenTTL == options.mBearerTokenTTL;
-    }
-
-    /**
-     * Compares log upload options.
-     *
-     * @param options log upload options to compare with.
-     * @return bool.
-     */
-    bool operator!=(const LogUploadOptions& options) const { return !operator==(options); }
-};
 
 /**
  * Log filter.
  */
-struct LogFilter {
-    Optional<Time>                                      mFrom;
-    Optional<Time>                                      mTill;
-    StaticArray<StaticString<cNodeIDLen>, cMaxNumNodes> mNodeIDs;
-    InstanceFilter                                      mInstanceFilter;
+struct LogFilter : public InstanceFilter {
+    Optional<Time>                      mFrom;
+    Optional<Time>                      mTill;
+    StaticArray<Identity, cMaxNumNodes> mNodes;
 
     /**
      * Compares log filter.
@@ -119,8 +31,8 @@ struct LogFilter {
      */
     bool operator==(const LogFilter& filter) const
     {
-        return mFrom == filter.mFrom && mTill == filter.mTill && mNodeIDs == filter.mNodeIDs
-            && mInstanceFilter == filter.mInstanceFilter;
+        return InstanceFilter::operator==(filter) && mFrom == filter.mFrom && mTill == filter.mTill
+            && mNodes == filter.mNodes;
     }
 
     /**
@@ -133,7 +45,7 @@ struct LogFilter {
 };
 
 /**
- * Log status.
+ * Log request.
  */
 struct RequestLog {
     StaticString<cLogIDLen>    mLogID;
@@ -163,44 +75,16 @@ struct RequestLog {
 };
 
 /**
- * Log status type.
- */
-class LogStatusType {
-public:
-    enum class Enum {
-        eOk,
-        eError,
-        eEmpty,
-        eAbsent,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sLogStatusStrings[] = {
-            "ok",
-            "error",
-            "empty",
-            "absent",
-        };
-
-        return Array<const char* const>(sLogStatusStrings, ArraySize(sLogStatusStrings));
-    };
-};
-
-using LogStatusEnum = LogStatusType::Enum;
-using LogStatus     = EnumStringer<LogStatusType>;
-
-/**
  * Push log.
  */
 struct PushLog {
-    StaticString<cNodeIDLen>     mNodeID;
     StaticString<cLogIDLen>      mLogID;
+    Identity                     mNodeID;
     uint64_t                     mPartsCount;
     uint64_t                     mPart;
     StaticString<cLogContentLen> mContent;
     LogStatus                    mStatus;
-    Error                        mErrorInfo;
+    Error                        mError;
 
     /**
      * Compares push log.
@@ -211,7 +95,7 @@ struct PushLog {
     bool operator==(const PushLog& log) const
     {
         return mNodeID == log.mNodeID && mLogID == log.mLogID && mPartsCount == log.mPartsCount && mPart == log.mPart
-            && mContent == log.mContent && mStatus == log.mStatus && mErrorInfo == log.mErrorInfo;
+            && mContent == log.mContent && mStatus == log.mStatus && mError == log.mError;
     }
 
     /**

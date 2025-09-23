@@ -26,9 +26,9 @@ public:
  */
 class LogProviderMock : public LogProviderItf {
 public:
-    MOCK_METHOD(Error, GetInstanceLog, (const cloudprotocol::RequestLog& request), (override));
-    MOCK_METHOD(Error, GetInstanceCrashLog, (const cloudprotocol::RequestLog& request), (override));
-    MOCK_METHOD(Error, GetSystemLog, (const cloudprotocol::RequestLog& request), (override));
+    MOCK_METHOD(Error, GetInstanceLog, (const RequestLog& request), (override));
+    MOCK_METHOD(Error, GetInstanceCrashLog, (const RequestLog& request), (override));
+    MOCK_METHOD(Error, GetSystemLog, (const RequestLog& request), (override));
     MOCK_METHOD(Error, Subscribe, (LogObserverItf & observer), (override));
     MOCK_METHOD(Error, Unsubscribe, (LogObserverItf & observer), (override));
 };

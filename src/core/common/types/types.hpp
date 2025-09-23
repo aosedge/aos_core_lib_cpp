@@ -439,6 +439,21 @@ constexpr auto cAlertMessageLen = AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN;
 constexpr auto cAlertParameterLen = AOS_CONFIG_TYPES_ALERT_PARAMETER_LEN;
 
 /**
+ * Log id len.
+ */
+constexpr auto cLogIDLen = AOS_CONFIG_TYPES_LOG_ID_LEN;
+
+/**
+ * Log content len.
+ */
+constexpr auto cLogContentLen = AOS_CONFIG_TYPES_LOG_CONTENT_LEN;
+
+/**
+ * Bearer token len.
+ */
+constexpr auto cBearerTokenLen = AOS_CONFIG_TYPES_BEARER_TOKEN_LEN;
+
+/**
  * Architecture info.
  */
 struct ArchInfo {
@@ -2644,6 +2659,204 @@ struct EnvVarsInstanceStatus : public InstanceIdent {
 };
 
 using EnvVarsInstanceStatusStaticArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
+
+/**
+ * Log type type.
+ */
+class LogTypeType {
+public:
+    enum class Enum {
+        eSystemLog,
+        eServiceLog,
+        eCrashLog,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sLogTypeStrings[] = {
+            "systemLog",
+            "serviceLog",
+            "crashLog",
+        };
+
+        return Array<const char* const>(sLogTypeStrings, ArraySize(sLogTypeStrings));
+    };
+};
+
+using LogTypeEnum = LogTypeType::Enum;
+using LogType     = EnumStringer<LogTypeType>;
+
+/**
+ * Log filter.
+ */
+struct LogFilter : public InstanceFilter {
+    Optional<Time>                                      mFrom;
+    Optional<Time>                                      mTill;
+    StaticArray<StaticString<cNodeIDLen>, cMaxNumNodes> mNodes;
+
+    /**
+     * Compares log filter.
+     *
+     * @param filter log filter to compare with.
+     * @return bool.
+     */
+    bool operator==(const LogFilter& filter) const
+    {
+        return InstanceFilter::operator==(filter) && mFrom == filter.mFrom && mTill == filter.mTill
+            && mNodes == filter.mNodes;
+    }
+
+    /**
+     * Compares log filter.
+     *
+     * @param filter log filter to compare with.
+     * @return bool.
+     */
+    bool operator!=(const LogFilter& filter) const { return !operator==(filter); }
+};
+
+/**
+ * Log status type.
+ */
+class LogStatusType {
+public:
+    enum class Enum {
+        eOK,
+        eError,
+        eEmpty,
+        eAbsent,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sLogStatusStrings[] = {
+            "ok",
+            "error",
+            "empty",
+            "absent",
+        };
+
+        return Array<const char* const>(sLogStatusStrings, ArraySize(sLogStatusStrings));
+    };
+};
+
+using LogStatusEnum = LogStatusType::Enum;
+using LogStatus     = EnumStringer<LogStatusType>;
+
+/**
+ * Log upload type type.
+ */
+class LogUploadTypeType {
+public:
+    enum class Enum {
+        eHTTPS,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "https",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using LogUploadTypeEnum = LogUploadTypeType::Enum;
+using LogUploadType     = EnumStringer<LogUploadTypeType>;
+
+/**
+ * Log upload options.
+ */
+struct LogUploadOptions {
+    LogUploadType                 mType;
+    StaticString<cURLLen>         mURL;
+    StaticString<cBearerTokenLen> mBearerToken;
+    Optional<Time>                mBearerTokenTTL;
+
+    /**
+     * Compares log upload options.
+     *
+     * @param options log upload options to compare with.
+     * @return bool.
+     */
+    bool operator==(const LogUploadOptions& options) const
+    {
+        return mType == options.mType && mURL == options.mURL && mBearerToken == options.mBearerToken
+            && mBearerTokenTTL == options.mBearerTokenTTL;
+    }
+
+    /**
+     * Compares log upload options.
+     *
+     * @param options log upload options to compare with.
+     * @return bool.
+     */
+    bool operator!=(const LogUploadOptions& options) const { return !operator==(options); }
+};
+
+/**
+ * Log request.
+ */
+struct RequestLog {
+    StaticString<cLogIDLen>    mLogID;
+    LogType                    mLogType;
+    LogFilter                  mFilter;
+    Optional<LogUploadOptions> mUploadOptions;
+
+    /**
+     * Compares log request.
+     *
+     * @param request log request to compare with.
+     * @return bool.
+     */
+    bool operator==(const RequestLog& request) const
+    {
+        return mLogID == request.mLogID && mLogType == request.mLogType && mFilter == request.mFilter
+            && mUploadOptions == request.mUploadOptions;
+    }
+
+    /**
+     * Compares log request.
+     *
+     * @param request log request to compare with.
+     * @return bool.
+     */
+    bool operator!=(const RequestLog& request) const { return !operator==(request); }
+};
+
+/**
+ * Push log.
+ */
+struct PushLog {
+    StaticString<cLogIDLen>      mLogID;
+    StaticString<cNodeIDLen>     mNodeID;
+    uint64_t                     mPartsCount;
+    uint64_t                     mPart;
+    StaticString<cLogContentLen> mContent;
+    LogStatus                    mStatus;
+    Error                        mError;
+
+    /**
+     * Compares push log.
+     *
+     * @param log push log to compare with.
+     * @return bool.
+     */
+    bool operator==(const PushLog& log) const
+    {
+        return mNodeID == log.mNodeID && mLogID == log.mLogID && mPartsCount == log.mPartsCount && mPart == log.mPart
+            && mContent == log.mContent && mStatus == log.mStatus && mError == log.mError;
+    }
+
+    /**
+     * Compares push log.
+     *
+     * @param log push log to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PushLog& log) const { return !operator==(log); }
+};
 
 } // namespace aos
 
