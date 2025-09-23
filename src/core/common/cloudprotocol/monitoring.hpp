@@ -7,7 +7,6 @@
 #ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_MONITORING_HPP_
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_MONITORING_HPP_
 
-#include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/types.hpp>
 
@@ -74,37 +73,44 @@ struct MonitoringData {
     bool operator!=(const MonitoringData& data) const { return !operator==(data); }
 };
 
+using MonitoringDataStaticArray = StaticArray<MonitoringData, cMonitoringItemsCount>;
+
 /**
- * Node monitoring data.
+ * Instance state information.
  */
-struct NodeMonitoringData {
-    StaticString<cNodeIDLen>                           mNodeID;
-    StaticArray<MonitoringData, cMonitoringItemsCount> mItems;
+struct InstanceStateInfo {
+    Time          mTimestamp;
+    InstanceState mState;
 
     /**
-     * Compares node monitoring data.
+     * Compares instance state info.
      *
-     * @param data node monitoring data to compare with.
+     * @param info instance state info to compare with.
      * @return bool.
      */
-    bool operator==(const NodeMonitoringData& data) const { return mNodeID == data.mNodeID && mItems == data.mItems; }
+    bool operator==(const InstanceStateInfo& info) const
+    {
+        return mTimestamp == info.mTimestamp && mState == info.mState;
+    }
 
     /**
-     * Compares node monitoring data.
+     * Compares instance state info.
      *
-     * @param data node monitoring data to compare with.
+     * @param info instance state info to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeMonitoringData& data) const { return !operator==(data); }
+    bool operator!=(const InstanceStateInfo& info) const { return !operator==(info); };
 };
+
+using InstanceStateInfoStaticArray = StaticArray<InstanceStateInfo, cMonitoringItemsCount>;
 
 /**
  * Instance monitoring data.
  */
-struct InstanceMonitoringData {
-    InstanceIdent                                      mInstanceIdent;
-    StaticString<cNodeIDLen>                           mNodeID;
-    StaticArray<MonitoringData, cMonitoringItemsCount> mItems;
+struct InstanceMonitoringData : public InstanceIdent {
+    Identity                     mNodeID;
+    MonitoringDataStaticArray    mItems;
+    InstanceStateInfoStaticArray mStates;
 
     /**
      * Compares instance monitoring data.
@@ -114,7 +120,8 @@ struct InstanceMonitoringData {
      */
     bool operator==(const InstanceMonitoringData& data) const
     {
-        return mInstanceIdent == data.mInstanceIdent && mNodeID == data.mNodeID && mItems == data.mItems;
+        return InstanceIdent::operator==(data) && mNodeID == data.mNodeID && mItems == data.mItems
+            && mStates == data.mStates;
     }
 
     /**
@@ -126,12 +133,74 @@ struct InstanceMonitoringData {
     bool operator!=(const InstanceMonitoringData& data) const { return !operator==(data); }
 };
 
+using InstanceMonitoringDataStaticArray = StaticArray<InstanceMonitoringData, cMaxNumInstances>;
+
+/**
+ * Node state info.
+ */
+struct NodeStateInfo {
+    Time      mTimestamp;
+    bool      mProvisioned = false;
+    NodeState mState;
+
+    /**
+     * Compares node state info.
+     *
+     * @param info node state info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeStateInfo& info) const
+    {
+        return mTimestamp == info.mTimestamp && mProvisioned == info.mProvisioned && mState == info.mState;
+    }
+
+    /**
+     * Compares node state info.
+     *
+     * @param info node state info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeStateInfo& info) const { return !operator==(info); };
+};
+
+using NodeStateInfoStaticArray = StaticArray<NodeStateInfo, cMonitoringItemsCount>;
+
+/**
+ * Node monitoring data.
+ */
+struct NodeMonitoringData {
+    Identity                  mNodeID;
+    MonitoringDataStaticArray mItems;
+    NodeStateInfoStaticArray  mStates;
+
+    /**
+     * Compares node monitoring data.
+     *
+     * @param data node monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeMonitoringData& data) const
+    {
+        return mNodeID == data.mNodeID && mItems == data.mItems && mStates == data.mStates;
+    }
+
+    /**
+     * Compares node monitoring data.
+     *
+     * @param data node monitoring data to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeMonitoringData& data) const { return !operator==(data); }
+};
+
+using NodeMonitoringDataStaticArray = StaticArray<NodeMonitoringData, cMaxNumNodes>;
+
 /**
  * Monitoring message type.
  */
 struct Monitoring {
-    StaticArray<NodeMonitoringData, cMaxNumNodes>         mNodes;
-    StaticArray<InstanceMonitoringData, cMaxNumInstances> mServiceInstances;
+    NodeMonitoringDataStaticArray     mNodes;
+    InstanceMonitoringDataStaticArray mInstances;
 
     /**
      * Compares monitoring message.
@@ -141,7 +210,7 @@ struct Monitoring {
      */
     bool operator==(const Monitoring& monitoring) const
     {
-        return mNodes == monitoring.mNodes && mServiceInstances == monitoring.mServiceInstances;
+        return mNodes == monitoring.mNodes && mInstances == monitoring.mInstances;
     }
 
     /**
