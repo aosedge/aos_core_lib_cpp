@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
-#define AOS_CORE_COMMON_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
+#ifndef AOS_CORE_CM_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
+#define AOS_CORE_CM_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
 
 #include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/types/types.hpp>

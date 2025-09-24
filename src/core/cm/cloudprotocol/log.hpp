@@ -4,14 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_LOG_HPP_
-#define AOS_CORE_COMMON_CLOUDPROTOCOL_LOG_HPP_
+#ifndef AOS_CORE_CM_CLOUDPROTOCOL_LOG_HPP_
+#define AOS_CORE_CM_CLOUDPROTOCOL_LOG_HPP_
 
 #include <cstdint>
 
-#include <core/common/cloudprotocol/common.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/types.hpp>
+
+#include "common.hpp"
 
 namespace aos::cloudprotocol {
 

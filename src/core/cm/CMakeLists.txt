@@ -17,6 +17,7 @@ set(HEADERS config.hpp)
 # ######################################################################################################################
 
 set(INSTALL_HEADERS
+    aos_core_cm_cloudprotocol
     aos_core_cm_communication
     aos_core_cm_iamclient
     aos_core_cm_fileserver
@@ -52,6 +53,7 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_cm)
 # Subdirectories
 # ######################################################################################################################
 
+add_subdirectory(cloudprotocol)
 add_subdirectory(communication)
 add_subdirectory(iamclient)
 add_subdirectory(fileserver)

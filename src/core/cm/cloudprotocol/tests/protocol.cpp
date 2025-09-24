@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include <core/common/cloudprotocol/protocol.hpp>
+#include <core/cm/cloudprotocol/protocol.hpp>
 
 namespace aos::cloudprotocol {
 

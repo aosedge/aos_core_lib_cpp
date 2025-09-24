@@ -4,10 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_CERTIFICATES_HPP_
-#define AOS_CORE_COMMON_CLOUDPROTOCOL_CERTIFICATES_HPP_
+#ifndef AOS_CORE_CM_CLOUDPROTOCOL_CERTIFICATES_HPP_
+#define AOS_CORE_CM_CLOUDPROTOCOL_CERTIFICATES_HPP_
 
-#include <core/common/cloudprotocol/certificates.hpp>
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/optional.hpp>

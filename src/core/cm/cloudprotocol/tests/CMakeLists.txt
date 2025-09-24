@@ -16,7 +16,7 @@ set(SOURCES protocol.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::common::cloudprotocol GTest::gmock_main)
+set(LIBRARIES aos::core::cm::cloudprotocol GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
