@@ -98,35 +98,6 @@ struct DesiredNodeState {
 using DesiredNodeStateArray = StaticArray<DesiredNodeState, cMaxNumNodes>;
 
 /**
- * Resource ratios.
- */
-struct ResourceRatios {
-    Optional<double> mCPU;
-    Optional<double> mRAM;
-    Optional<double> mStorage;
-    Optional<double> mState;
-
-    /**
-     * Compares resource ratios.
-     *
-     * @param ratios resource ratios to compare.
-     * @return bool.
-     */
-    bool operator==(const ResourceRatios& ratios) const
-    {
-        return mCPU == ratios.mCPU && mRAM == ratios.mRAM && mStorage == ratios.mStorage && mState == ratios.mState;
-    }
-
-    /**
-     * Compares resource ratios.
-     *
-     * @param ratios resource ratios to compare.
-     * @return bool.
-     */
-    bool operator!=(const ResourceRatios& ratios) const { return !operator==(ratios); }
-};
-
-/**
  * Node config.
  */
 struct NodeConfig {
