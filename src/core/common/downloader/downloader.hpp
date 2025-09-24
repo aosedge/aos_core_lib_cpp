@@ -8,10 +8,7 @@
 #ifndef AOS_CORE_COMMON_DOWNLOADER_DOWNLOADER_HPP_
 #define AOS_CORE_COMMON_DOWNLOADER_DOWNLOADER_HPP_
 
-#include <core/common/cloudprotocol/alerts.hpp>
-#include <core/common/tools/enum.hpp>
-#include <core/common/tools/error.hpp>
-#include <core/common/tools/string.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::downloader {
 
