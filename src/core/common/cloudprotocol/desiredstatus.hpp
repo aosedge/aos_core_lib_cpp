@@ -7,42 +7,12 @@
 #ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/types/types.hpp>
 
 #include "common.hpp"
 
 namespace aos::cloudprotocol {
-
-/**
- * Algorithm len.
- */
-constexpr auto cAlgLen = AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN;
-
-/**
- * IV size.
- */
-constexpr auto cIVSize = AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE;
-
-/**
- * Key size.
- */
-constexpr auto cKeySize = AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE;
-
-/**
- * OCSP value len.
- */
-constexpr auto cOCSPValueLen = AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN;
-
-/**
- * OCSP values count.
- */
-constexpr auto cOCSPValuesCount = AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT;
-
-/**
- * Certificate fingerprint len.
- */
-constexpr auto cCertFingerprintLen = AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN;
 
 /**
  * Node state.
@@ -159,64 +129,6 @@ struct UnitConfig {
 };
 
 /**
- * Decryption info.
- */
-struct DecryptInfo {
-    StaticString<cAlgLen>          mBlockAlg;
-    StaticArray<uint8_t, cIVSize>  mBlockIV;
-    StaticArray<uint8_t, cKeySize> mBlockKey;
-
-    /**
-     * Compares decryption info.
-     *
-     * @param other decryption info to compare with.
-     * @return bool.
-     */
-    bool operator==(const DecryptInfo& other) const
-    {
-        return mBlockAlg == other.mBlockAlg && mBlockIV == other.mBlockIV && mBlockKey == other.mBlockKey;
-    }
-
-    /**
-     * Compares decryption info.
-     *
-     * @param other decryption info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const DecryptInfo& other) const { return !operator==(other); }
-};
-
-/**
- * Sign info.
- */
-struct SignInfo {
-    StaticString<cChainNameLen>                                mChainName;
-    StaticString<cAlgLen>                                      mAlg;
-    StaticArray<uint8_t, crypto::cSignatureSize>               mValue;
-    Time                                                       mTrustedTimestamp;
-    StaticArray<StaticString<cOCSPValueLen>, cOCSPValuesCount> mOCSPValues;
-    /**
-     * Compares sign info.
-     *
-     * @param other sign info to compare with.
-     * @return bool.
-     */
-    bool operator==(const SignInfo& other) const
-    {
-        return mChainName == other.mChainName && mAlg == other.mAlg && mValue == other.mValue
-            && mTrustedTimestamp == other.mTrustedTimestamp && mOCSPValues == other.mOCSPValues;
-    }
-
-    /**
-     * Compares sign info.
-     *
-     * @param other sign info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const SignInfo& other) const { return !operator==(other); }
-};
-
-/**
  * Update image info.
  */
 struct UpdateImageInfo {
@@ -224,8 +136,8 @@ struct UpdateImageInfo {
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mURLs;
     StaticArray<uint8_t, cSHA256Size>               mSHA256;
     size_t                                          mSize {};
-    DecryptInfo                                     mDecryptInfo;
-    SignInfo                                        mSignInfo;
+    crypto::DecryptInfo                             mDecryptInfo;
+    crypto::SignInfo                                mSignInfo;
 
     /**
      * Compares update image info.
@@ -313,73 +225,15 @@ struct InstanceInfo {
 using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 
 /**
- * Certificate info.
- */
-struct CertificateInfo {
-    StaticArray<uint8_t, crypto::cCertDERSize> mCertificate;
-    StaticString<cCertFingerprintLen>          mFingerprint;
-
-    /**
-     * Compares certificate info.
-     *
-     * @param other certificate info to compare with.
-     * @return bool.
-     */
-    bool operator==(const CertificateInfo& other) const
-    {
-        return mCertificate == other.mCertificate && mFingerprint == other.mFingerprint;
-    }
-
-    /**
-     * Compares certificate info.
-     *
-     * @param other certificate info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const CertificateInfo& other) const { return !operator==(other); }
-};
-
-using CertificateInfoArray = StaticArray<CertificateInfo, crypto::cMaxNumCertificates>;
-
-/**
- * Certificate chain info.
- */
-struct CertificateChainInfo {
-    StaticString<cChainNameLen>                                            mName;
-    StaticArray<StaticString<cCertFingerprintLen>, crypto::cCertChainSize> mFingerprints;
-
-    /**
-     * Compares certificate chain info.
-     *
-     * @param other certificate chain info to compare with.
-     * @return bool.
-     */
-    bool operator==(const CertificateChainInfo& other) const
-    {
-        return mName == other.mName && mFingerprints == other.mFingerprints;
-    }
-
-    /**
-     * Compares certificate chain info.
-     *
-     * @param other certificate chain info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const CertificateChainInfo& other) const { return !operator==(other); }
-};
-
-using CertificateChainInfoArray = StaticArray<CertificateChainInfo, crypto::cCertChainsCount>;
-
-/**
  * Desired status.
  */
 struct DesiredStatus {
-    DesiredNodeStateArray     mNodes;
-    Optional<UnitConfig>      mUnitConfig;
-    UpdateItemInfoArray       mUpdateItems;
-    InstanceInfoArray         mInstances;
-    CertificateInfoArray      mCertificates;
-    CertificateChainInfoArray mCertificateChains;
+    DesiredNodeStateArray             mNodes;
+    Optional<UnitConfig>              mUnitConfig;
+    UpdateItemInfoArray               mUpdateItems;
+    InstanceInfoArray                 mInstances;
+    crypto::CertificateInfoArray      mCertificates;
+    crypto::CertificateChainInfoArray mCertificateChains;
 
     /**
      * Compares desired status.

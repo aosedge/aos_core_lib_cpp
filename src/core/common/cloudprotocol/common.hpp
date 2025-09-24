@@ -37,11 +37,6 @@ constexpr auto cTitleLen = AOS_CONFIG_CLOUDPROTOCOL_TITLE_LEN;
 constexpr auto cDescriptionLen = AOS_CONFIG_CLOUDPROTOCOL_DESCRIPTION_LEN;
 
 /**
- * Chain name len.
- */
-constexpr auto cChainNameLen = AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN;
-
-/**
  * Aos identity.
  */
 struct Identity {

@@ -7,7 +7,6 @@
 #ifndef AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 #define AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 
-#include <core/common/cloudprotocol/desiredstatus.hpp>
 #include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/types/types.hpp>
 #include <core/iam/certhandler/certprovider.hpp>
@@ -25,9 +24,160 @@ constexpr auto cRecipientsInEnvelopeData = AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVEL
 constexpr auto cCloudMetadataSize = AOS_CONFIG_CRYPTO_ENCRYPT_METADATA;
 
 /**
- * Certificate structure.
+ * Certificate fingerprint len.
+ */
+constexpr auto cCertFingerprintLen = AOS_CONFIG_CRYPTO_CERT_FINGERPRINT_LEN;
+
+/**
+ * Chain name len.
+ */
+constexpr auto cChainNameLen = AOS_CONFIG_CRYPTO_CHAIN_NAME_LEN;
+
+/**
+ * Algorithm len.
+ */
+constexpr auto cAlgLen = AOS_CONFIG_CRYPTO_ALG_LEN;
+
+/**
+ * IV size.
+ */
+constexpr auto cIVSize = AOS_CONFIG_CRYPTO_IV_SIZE;
+
+/**
+ * Key size.
+ */
+constexpr auto cKeySize = AOS_CONFIG_CRYPTO_KEY_SIZE;
+
+/**
+ * OCSP value len.
+ */
+constexpr auto cOCSPValueLen = AOS_CONFIG_CRYPTO_OCSP_VALUE_LEN;
+
+/**
+ * OCSP values count.
+ */
+constexpr auto cOCSPValuesCount = AOS_CONFIG_CRYPTO_OCSP_VALUES_COUNT;
+
+/**
+ * Certificate info.
  */
 struct CertificateInfo {
+    StaticArray<uint8_t, cCertDERSize> mCertificate;
+    StaticString<cCertFingerprintLen>  mFingerprint;
+
+    /**
+     * Compares certificate info.
+     *
+     * @param other certificate info to compare with.
+     * @return bool.
+     */
+    bool operator==(const CertificateInfo& other) const
+    {
+        return mCertificate == other.mCertificate && mFingerprint == other.mFingerprint;
+    }
+
+    /**
+     * Compares certificate info.
+     *
+     * @param other certificate info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CertificateInfo& other) const { return !operator==(other); }
+};
+
+using CertificateInfoArray = StaticArray<CertificateInfo, crypto::cMaxNumCertificates>;
+
+/**
+ * Certificate chain info.
+ */
+struct CertificateChainInfo {
+    StaticString<cChainNameLen>                                            mName;
+    StaticArray<StaticString<cCertFingerprintLen>, crypto::cCertChainSize> mFingerprints;
+
+    /**
+     * Compares certificate chain info.
+     *
+     * @param other certificate chain info to compare with.
+     * @return bool.
+     */
+    bool operator==(const CertificateChainInfo& other) const
+    {
+        return mName == other.mName && mFingerprints == other.mFingerprints;
+    }
+
+    /**
+     * Compares certificate chain info.
+     *
+     * @param other certificate chain info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CertificateChainInfo& other) const { return !operator==(other); }
+};
+
+using CertificateChainInfoArray = StaticArray<CertificateChainInfo, cCertChainsCount>;
+
+/**
+ * Decryption info.
+ */
+struct DecryptInfo {
+    StaticString<cAlgLen>          mBlockAlg;
+    StaticArray<uint8_t, cIVSize>  mBlockIV;
+    StaticArray<uint8_t, cKeySize> mBlockKey;
+
+    /**
+     * Compares decryption info.
+     *
+     * @param other decryption info to compare with.
+     * @return bool.
+     */
+    bool operator==(const DecryptInfo& other) const
+    {
+        return mBlockAlg == other.mBlockAlg && mBlockIV == other.mBlockIV && mBlockKey == other.mBlockKey;
+    }
+
+    /**
+     * Compares decryption info.
+     *
+     * @param other decryption info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const DecryptInfo& other) const { return !operator==(other); }
+};
+
+/**
+ * Sign info.
+ */
+struct SignInfo {
+    StaticString<cChainNameLen>                                mChainName;
+    StaticString<cAlgLen>                                      mAlg;
+    StaticArray<uint8_t, crypto::cSignatureSize>               mValue;
+    Time                                                       mTrustedTimestamp;
+    StaticArray<StaticString<cOCSPValueLen>, cOCSPValuesCount> mOCSPValues;
+    /**
+     * Compares sign info.
+     *
+     * @param other sign info to compare with.
+     * @return bool.
+     */
+    bool operator==(const SignInfo& other) const
+    {
+        return mChainName == other.mChainName && mAlg == other.mAlg && mValue == other.mValue
+            && mTrustedTimestamp == other.mTrustedTimestamp && mOCSPValues == other.mOCSPValues;
+    }
+
+    /**
+     * Compares sign info.
+     *
+     * @param other sign info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const SignInfo& other) const { return !operator==(other); }
+};
+
+/**
+ * Certificate info in x509 format.
+ */
+struct X509CertificateInfo {
     /**
      * Certificate.
      */
@@ -36,15 +186,15 @@ struct CertificateInfo {
     /**
      * Certificate fingerprint.
      */
-    StaticString<cloudprotocol::cCertFingerprintLen> mFingerprint;
+    StaticString<cCertFingerprintLen> mFingerprint;
 };
 
 /**
  * Signing context.
  */
 struct SignContext {
-    StaticArray<CertificateInfo, cMaxNumCertificates>                          mCerts;
-    StaticArray<cloudprotocol::CertificateChainInfo, crypto::cCertChainsCount> mChains;
+    StaticArray<X509CertificateInfo, cMaxNumCertificates> mCerts;
+    CertificateChainInfoArray                             mChains;
 };
 
 /**
@@ -111,8 +261,7 @@ public:
      * @param decryptionInfo  decryption information.
      * @return Error.
      */
-    virtual Error Decrypt(
-        const String& encryptedPath, const String& decryptedPath, const cloudprotocol::DecryptInfo& decryptionInfo)
+    virtual Error Decrypt(const String& encryptedPath, const String& decryptedPath, const DecryptInfo& decryptionInfo)
         = 0;
 
     /**
@@ -124,8 +273,8 @@ public:
      * @param certs         certificates used for validation.
      * @return Error.
      */
-    virtual Error ValidateSigns(const String& decryptedPath, const cloudprotocol::SignInfo& signs,
-        const Array<cloudprotocol::CertificateChainInfo>& chains, const Array<cloudprotocol::CertificateInfo>& certs)
+    virtual Error ValidateSigns(const String& decryptedPath, const SignInfo& signs,
+        const Array<CertificateChainInfo>& chains, const Array<CertificateInfo>& certs)
         = 0;
 
     /**
@@ -177,8 +326,7 @@ public:
      * @param decryptionInfo  decryption information.
      * @return Error.
      */
-    Error Decrypt(const String& encryptedPath, const String& decryptedPath,
-        const cloudprotocol::DecryptInfo& decryptionInfo) override;
+    Error Decrypt(const String& encryptedPath, const String& decryptedPath, const DecryptInfo& decryptionInfo) override;
 
     /**
      * Validates digital signatures of a decrypted file against provided certificates and chains.
@@ -189,9 +337,8 @@ public:
      * @param certs         certificates used for validation.
      * @return Error.
      */
-    Error ValidateSigns(const String& decryptedPath, const cloudprotocol::SignInfo& signs,
-        const Array<cloudprotocol::CertificateChainInfo>& chains,
-        const Array<cloudprotocol::CertificateInfo>&      certs) override;
+    Error ValidateSigns(const String& decryptedPath, const SignInfo& signs, const Array<CertificateChainInfo>& chains,
+        const Array<CertificateInfo>& certs) override;
 
     /**
      * Decrypts metadata containing in a binary buffer.
@@ -216,7 +363,7 @@ private:
     static constexpr size_t cReadChunkSize = 1024;
 
     static constexpr auto cThreadHeapUsage = 2 * sizeof(iam::certhandler::CertInfo)
-        + sizeof(StaticString<cCertSubjSize>) + sizeof(StaticArray<uint8_t, crypto::cCertPEMLen>) + sizeof(SignContext)
+        + sizeof(StaticString<cCertSubjSize>) + sizeof(StaticArray<uint8_t, cCertPEMLen>) + sizeof(SignContext)
         + sizeof(x509::Certificate) + sizeof(StaticArray<uint8_t, cMaxHashSize>)
         + sizeof(StaticArray<x509::Certificate, cMaxNumCertificates>) + sizeof(StaticArray<uint8_t, cReadChunkSize>);
 
@@ -228,20 +375,19 @@ private:
     Error DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName);
     Error GetSymmetricAlgInfo(const String& algName, size_t& keySize, size_t& ivSize);
     Error CheckSessionKey(const String& symAlgName, const Array<uint8_t>& sessionIV, const Array<uint8_t>& sessionKey);
-    Error DecodeFile(const String& encryptedFile, const String& decryptedFile, crypto::AESCipherItf& decoder);
+    Error DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder);
 
-    Error AddCertificates(const Array<cloudprotocol::CertificateInfo>& cert, SignContext& ctx);
-    Error AddCertChains(const Array<cloudprotocol::CertificateChainInfo>& chains, SignContext& ctx);
-    Error VerifySigns(const String& file, const cloudprotocol::SignInfo& signs, SignContext& signCtx);
+    Error AddCertificates(const Array<CertificateInfo>& cert, SignContext& ctx);
+    Error AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx);
+    Error VerifySigns(const String& file, const SignInfo& signs, SignContext& signCtx);
 
     RetWithError<x509::Certificate*> GetCert(SignContext& signCtx, const String& fingerprint);
-    Error GetSignCert(SignContext& signCtx, const String& chainName, x509::Certificate*& signCert,
-        cloudprotocol::CertificateChainInfo*& chain);
+    Error                            GetSignCert(
+                                   SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain);
     Error DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName);
     RetWithError<Hash> DecodeHash(const String& hashName);
     Error              CalcHashSum(const Hash& hash, const String& fileName, Array<uint8_t>& hashSum);
-    Error              CreateIntermCertPool(
-                     SignContext& signCtx, const cloudprotocol::CertificateChainInfo& chain, Array<x509::Certificate>& pool);
+    Error CreateIntermCertPool(SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool);
 
     Error UnmarshalCMS(const Array<uint8_t>& der, ContentInfo& content);
     Error ParseContentInfo(const Array<uint8_t>& data, ContentInfo& content);

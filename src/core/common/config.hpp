@@ -1083,55 +1083,6 @@
 #endif
 
 /**
- * Algorithm len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN 64
-#endif
-
-/**
- * IV len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE 16
-#endif
-
-/**
- * Key size.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE 64
-#endif
-
-/**
- * Chain name len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN 64
-#endif
-
-/**
- * OCSP value len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN 64
-#endif
-
-/**
- * OCSP values count.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT
-#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT 4
-#endif
-
-/**
- * Certificate fingerprint len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN 64
-#endif
-
-/**
  * Alert download target id len.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ALERT_CORE_DOWNLOAD_TARGET_ID_LEN
@@ -1235,6 +1186,55 @@
  */
 #ifndef AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES
 #define AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES 32
+#endif
+
+/**
+ * Certificate fingerprint len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CERT_FINGERPRINT_LEN
+#define AOS_CONFIG_CRYPTO_CERT_FINGERPRINT_LEN 64
+#endif
+
+/**
+ * Chain name len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CHAIN_NAME_LEN
+#define AOS_CONFIG_CRYPTO_CHAIN_NAME_LEN 64
+#endif
+
+/**
+ * Algorithm len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_ALG_LEN
+#define AOS_CONFIG_CRYPTO_ALG_LEN 64
+#endif
+
+/**
+ * IV len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_IV_SIZE
+#define AOS_CONFIG_CRYPTO_IV_SIZE 16
+#endif
+
+/**
+ * Key size.
+ */
+#ifndef AOS_CONFIG_CRYPTO_KEY_SIZE
+#define AOS_CONFIG_CRYPTO_KEY_SIZE 64
+#endif
+
+/**
+ * OCSP value len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_OCSP_VALUE_LEN
+#define AOS_CONFIG_CRYPTO_OCSP_VALUE_LEN 64
+#endif
+
+/**
+ * OCSP values count.
+ */
+#ifndef AOS_CONFIG_CRYPTO_OCSP_VALUES_COUNT
+#define AOS_CONFIG_CRYPTO_OCSP_VALUES_COUNT 4
 #endif
 
 #endif

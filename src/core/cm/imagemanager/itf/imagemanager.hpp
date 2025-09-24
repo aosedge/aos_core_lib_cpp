@@ -7,9 +7,8 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 
-#include <core/common/cloudprotocol/desiredstatus.hpp>
-#include <core/common/cloudprotocol/unitstatus.hpp>
-#include <core/common/tools/error.hpp>
+#include <core/common/crypto/cryptohelper.hpp>
+#include <core/common/types/types.hpp>
 
 namespace aos::cm::imagemanager {
 
@@ -25,8 +24,8 @@ struct UpdateImageInfo {
     StaticString<cFilePathLen>        mPath;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
     size_t                            mSize {};
-    cloudprotocol::DecryptInfo        mDecryptInfo;
-    cloudprotocol::SignInfo           mSignInfo;
+    crypto::DecryptInfo               mDecryptInfo;
+    crypto::SignInfo                  mSignInfo;
 
     /**
      * Compares update image info.
@@ -134,8 +133,8 @@ public:
      * @return Error.
      */
     virtual Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
-        const Array<cloudprotocol::CertificateInfo>&              certificates,
-        const Array<cloudprotocol::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
+        const Array<crypto::CertificateInfo>&                     certificates,
+        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
         = 0;
 
     /**
