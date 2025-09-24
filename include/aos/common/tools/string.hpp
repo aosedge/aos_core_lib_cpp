@@ -14,6 +14,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #include "aos/common/tools/array.hpp"
 
