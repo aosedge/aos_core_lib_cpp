@@ -14,7 +14,7 @@ set(TARGET_NAME storagestate)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/sender.hpp storagestate.hpp)
+set(HEADERS itf/sender.hpp itf/state.hpp storagestate.hpp)
 
 # ######################################################################################################################
 # Target
