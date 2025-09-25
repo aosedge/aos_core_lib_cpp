@@ -11,22 +11,45 @@
 
 namespace aos::cm::imagemanager {
 
+namespace {
+
+RetWithError<StaticString<oci::cMaxDigestLen>> RemovePrefixFromDigest(const String& digest)
+{
+    StaticArray<const StaticString<oci::cMaxDigestLen>, 2> digestList;
+
+    if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    if (digestList.Size() != 2) {
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
+    }
+
+    return digestList[1];
+}
+
+} // namespace
+
 /**********************************************************************************************************************
  * Public
  ***********************************************************************************************************************/
 
 Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
-    spaceallocator::SpaceAllocatorItf& spaceAllocator, fileserver::FileServerItf& fileserver,
-    crypto::CryptoHelperItf& imageDecrypter, fs::FileInfoProviderItf& fileInfoProvider)
+    spaceallocator::SpaceAllocatorItf& spaceAllocator, spaceallocator::SpaceAllocatorItf& tmpSpaceAllocator,
+    fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& imageDecrypter,
+    fs::FileInfoProviderItf& fileInfoProvider, ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec)
 {
     LOG_DBG() << "Init image manager";
 
-    mConfig           = config;
-    mStorage          = &storage;
-    mSpaceAllocator   = &spaceAllocator;
-    mFileServer       = &fileserver;
-    mImageDecrypter   = &imageDecrypter;
-    mFileInfoProvider = &fileInfoProvider;
+    mConfig            = config;
+    mStorage           = &storage;
+    mSpaceAllocator    = &spaceAllocator;
+    mTmpSpaceAllocator = &tmpSpaceAllocator;
+    mFileServer        = &fileserver;
+    mImageDecrypter    = &imageDecrypter;
+    mFileInfoProvider  = &fileInfoProvider;
+    mImageUnpacker     = &imageUnpacker;
+    mOCISpec           = &ociSpec;
 
     return SetOutdatedItems();
 }
@@ -266,10 +289,52 @@ Error ImageManager::GetUpdateImageInfo(
     return ErrorEnum::eNotFound;
 }
 
-Error ImageManager::GetLayerImageInfo(
-    [[maybe_unused]] const String& digest, [[maybe_unused]] smcontroller::UpdateImageInfo& info)
+Error ImageManager::GetLayerImageInfo(const String& digest, smcontroller::UpdateImageInfo& info)
 {
-    return ErrorEnum::eNone;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get layer image info" << Log::Field("digest", digest);
+
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eActive || item.mType != UpdateItemTypeEnum::eLayer) {
+            continue;
+        }
+
+        for (const auto& image : item.mImages) {
+            if (image.mMetadata.IsEmpty()) {
+                continue;
+            }
+
+            oci::ContentDescriptor descriptor;
+
+            if (auto err = mOCISpec->ContentDescriptorFromJSON(image.mMetadata.Back(), descriptor); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            auto [layerDigest, err] = RemovePrefixFromDigest(descriptor.mDigest);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (layerDigest == digest) {
+                info.mImageID = image.mImageID;
+                info.mVersion = item.mVersion;
+                info.mURL     = image.mURL;
+                info.mSHA256  = image.mSHA256;
+                info.mSize    = image.mSize;
+
+                return ErrorEnum::eNone;
+            }
+        }
+    }
+
+    return ErrorEnum::eNotFound;
 }
 
 RetWithError<StaticString<cVersionLen>> ImageManager::GetItemVersion(const String& id)
@@ -326,16 +391,80 @@ Error ImageManager::GetItemImages(const String& id, Array<ImageInfo>& imagesInfo
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::GetServiceConfig([[maybe_unused]] const String& id, [[maybe_unused]] const String& imageID,
-    [[maybe_unused]] oci::ServiceConfig& config)
+Error ImageManager::GetServiceConfig(const String& id, const String& imageID, oci::ServiceConfig& config)
 {
-    return ErrorEnum::eNone;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get service config" << Log::Field("id", id) << Log::Field("imageID", imageID);
+
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxItemVersions>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemVersionsByID(id, *items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eActive || item.mType != UpdateItemTypeEnum::eService) {
+            continue;
+        }
+
+        for (const auto& image : item.mImages) {
+            if (image.mImageID == imageID) {
+                if (image.mMetadata.IsEmpty()) {
+                    return ErrorEnum::eNotFound;
+                }
+
+                // in metadata back is service config
+                if (auto err = mOCISpec->ServiceConfigFromJSON(image.mMetadata.Back(), config); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+
+                return ErrorEnum::eNone;
+            }
+        }
+    }
+
+    return ErrorEnum::eNotFound;
 }
 
-Error ImageManager::GetImageConfig([[maybe_unused]] const String& id, [[maybe_unused]] const String& imageID,
-    [[maybe_unused]] oci::ImageConfig& config)
+Error ImageManager::GetImageConfig(const String& id, const String& imageID, oci::ImageConfig& config)
 {
-    return ErrorEnum::eNone;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get image config" << Log::Field("id", id) << Log::Field("imageID", imageID);
+
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxItemVersions>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemVersionsByID(id, *items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eActive || item.mType != UpdateItemTypeEnum::eService) {
+            continue;
+        }
+
+        for (const auto& image : item.mImages) {
+            if (image.mImageID == imageID) {
+                if (image.mMetadata.IsEmpty()) {
+                    return ErrorEnum::eNotFound;
+                }
+
+                auto imageSpec = MakeUnique<oci::ImageSpec>(&mAllocator);
+
+                // in metadata front is image spec
+                if (auto err = mOCISpec->ImageSpecFromJSON(image.mMetadata.Front(), *imageSpec); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+
+                config = imageSpec->mConfig;
+
+                return ErrorEnum::eNone;
+            }
+        }
+    }
+
+    return ErrorEnum::eNotFound;
 }
 
 Error ImageManager::RemoveItem(const String& id)
@@ -431,6 +560,10 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
     auto itemPath    = fs::JoinPath("items", itemInfo.mVersion);
     auto installPath = fs::JoinPath(mConfig.mInstallPath, itemPath);
 
+    if (err = fs::MakeDirAll(installPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     // cppcheck-suppress constParameterPointer
     auto releaseItemSpace = DeferRelease(&err, [&](Error* err) {
         if (!err->IsNone()) {
@@ -448,6 +581,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
     auto item = MakeUnique<storage::ItemInfo>(&mAllocator);
 
     item->mID        = itemInfo.mID;
+    item->mType      = itemInfo.mType;
     item->mVersion   = itemInfo.mVersion;
     item->mState     = storage::ItemStateEnum::eActive;
     item->mPath      = installPath;
@@ -478,7 +612,8 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
             return AOS_ERROR_WRAP(err);
         }
 
-        if (err = InstallImage(image, installPath, itemPath, item->mImages.Back(), certificateChains, certificates);
+        if (err = InstallImage(
+                image, itemInfo.mType, installPath, itemPath, item->mImages.Back(), certificateChains, certificates);
             !err.IsNone()) {
             return err;
         }
@@ -788,9 +923,10 @@ void ImageManager::AcceptAllocatedSpace(spaceallocator::SpaceItf* space)
     }
 }
 
-Error ImageManager::InstallImage(const UpdateImageInfo& imageInfo, const String& installPath, const String& layerPath,
-    storage::ImageInfo& image, const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-    const Array<cloudprotocol::CertificateInfo>& certificates)
+Error ImageManager::InstallImage(const UpdateImageInfo& imageInfo, const UpdateItemType& itemType,
+    const String& installPath, const String& itemPath, storage::ImageInfo& image,
+    const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
+    const Array<cloudprotocol::CertificateInfo>&      certificates)
 {
     LOG_DBG() << "Install image item" << Log::Field("id", imageInfo.mImage.mImageID);
 
@@ -804,7 +940,155 @@ Error ImageManager::InstallImage(const UpdateImageInfo& imageInfo, const String&
     image.mImageID = imageInfo.mImage.mImageID;
     image.mPath    = decryptedFile;
 
-    if (auto err = PrepareURLsAndFileInfo(layerPath, decryptedFile, imageInfo, image); !err.IsNone()) {
+    if (auto err = PrepareURLsAndFileInfo(itemPath, decryptedFile, imageInfo, image); !err.IsNone()) {
+        return err;
+    }
+
+    auto tmpPath = fs::JoinPath(mConfig.mTmpPath, imageInfo.mImage.mImageID);
+
+    if (auto err = fs::MakeDirAll(tmpPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupTmpPath = DeferRelease(&tmpPath, [&]([[maybe_unused]] const String* path) { fs::RemoveAll(*path); });
+
+    switch (itemType.GetValue()) {
+    case UpdateItemTypeEnum::eLayer:
+        if (auto err = PrepareLayerMetadata(image, decryptedFile, tmpPath); !err.IsNone()) {
+            return err;
+        }
+
+        break;
+    case UpdateItemTypeEnum::eService:
+        if (auto err = PrepareServiceMetadata(image, decryptedFile, tmpPath); !err.IsNone()) {
+            return err;
+        }
+
+        break;
+    default:
+        return ErrorEnum::eNone;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::PrepareLayerMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath)
+{
+    auto [size, err] = mImageUnpacker->GetUncompressedFileSize(decryptedFile, cLayerMetadataFile);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto [space, errSpace] = mTmpSpaceAllocator->AllocateSpace(size);
+    if (!errSpace.IsNone()) {
+        return AOS_ERROR_WRAP(errSpace);
+    }
+
+    auto layerPath = fs::JoinPath(tmpPath, cLayerMetadataFile);
+
+    auto releaseManifest
+        = DeferRelease(&err, [&]([[maybe_unused]] Error* err) { ReleaseAllocatedSpace(layerPath, space.Get()); });
+
+    if (err = mImageUnpacker->ExtractFileFromArchive(decryptedFile, cLayerMetadataFile, layerPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = image.mMetadata.EmplaceBack(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::ReadFileToString(layerPath, image.mMetadata.Back()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ReadManifestFromTar(
+    const String& decryptedFile, oci::ImageManifest& manifest, const String& tmpPath)
+{
+    auto [size, err] = mImageUnpacker->GetUncompressedFileSize(decryptedFile, cManifestFile);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto [space, errSpace] = mTmpSpaceAllocator->AllocateSpace(size);
+    if (!errSpace.IsNone()) {
+        return AOS_ERROR_WRAP(errSpace);
+    }
+
+    auto manifestPath = fs::JoinPath(tmpPath, cManifestFile);
+
+    auto releaseManifest
+        = DeferRelease(&err, [&]([[maybe_unused]] Error* err) { ReleaseAllocatedSpace(manifestPath, space.Get()); });
+
+    if (err = mImageUnpacker->ExtractFileFromArchive(decryptedFile, cManifestFile, manifestPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = mOCISpec->LoadImageManifest(manifestPath, manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ReadDigestFromTar(
+    const String& decryptedFile, const String& inputDigest, storage::ImageInfo& image, const String& tmpPath)
+{
+    auto [digest, errDigest] = RemovePrefixFromDigest(inputDigest);
+    if (!errDigest.IsNone()) {
+        return errDigest;
+    }
+
+    auto [size, err] = mImageUnpacker->GetUncompressedFileSize(decryptedFile, digest);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto [spaceDigestData, errSpaceDigestData] = mTmpSpaceAllocator->AllocateSpace(size);
+    if (!errSpaceDigestData.IsNone()) {
+        return AOS_ERROR_WRAP(errSpaceDigestData);
+    }
+
+    auto digestDataPath = fs::JoinPath(tmpPath, digest);
+
+    auto releaseImageSpec = DeferRelease(
+        &err, [&]([[maybe_unused]] Error* err) { ReleaseAllocatedSpace(digestDataPath, spaceDigestData.Get()); });
+
+    if (err = mImageUnpacker->ExtractFileFromArchive(decryptedFile, digest, digestDataPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = image.mMetadata.EmplaceBack(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::ReadFileToString(digestDataPath, image.mMetadata.Back()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::PrepareServiceMetadata(
+    storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath)
+{
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+
+    if (auto err = ReadManifestFromTar(decryptedFile, *manifest, tmpPath); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = ReadDigestFromTar(decryptedFile, manifest->mConfig.mDigest, image, tmpPath); !err.IsNone()) {
+        return err;
+    }
+
+    if (!manifest->mAosService.HasValue()) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = ReadDigestFromTar(decryptedFile, manifest->mAosService->mDigest, image, tmpPath); !err.IsNone()) {
         return err;
     }
 
@@ -831,7 +1115,7 @@ Error ImageManager::DecryptAndValidate(const UpdateImageInfo& imageInfo, const S
 }
 
 Error ImageManager::PrepareURLsAndFileInfo(
-    const String& imagePath, const String& decryptedFile, const UpdateImageInfo& imageInfo, storage::ImageInfo& image)
+    const String& itemPath, const String& decryptedFile, const UpdateImageInfo& imageInfo, storage::ImageInfo& image)
 {
     StaticString<cFilePathLen> remoteURL;
     StaticString<cFilePathLen> localURL;
@@ -855,8 +1139,7 @@ Error ImageManager::PrepareURLsAndFileInfo(
         return ErrorEnum::eInvalidArgument;
     }
 
-    if (auto err = mFileServer->TranslateFilePathURL(fs::JoinPath(imagePath, imageBaseName), remoteURL);
-        !err.IsNone()) {
+    if (auto err = mFileServer->TranslateFilePathURL(fs::JoinPath(itemPath, imageBaseName), remoteURL); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
