@@ -11,6 +11,7 @@
 #include <core/cm/launcher/itf/imageinfoprovider.hpp>
 #include <core/cm/smcontroller/itf/updateimageprovider.hpp>
 #include <core/common/crypto/cryptohelper.hpp>
+#include <core/common/ocispec/ocispec.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/identifierpool.hpp>
@@ -19,6 +20,7 @@
 
 #include "config.hpp"
 #include "itf/imagemanager.hpp"
+#include "itf/imageunpacker.hpp"
 #include "itf/statusnotifier.hpp"
 #include "itf/storage.hpp"
 
@@ -49,8 +51,9 @@ public:
      * @return Error.
      */
     Error Init(const Config& config, storage::StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator,
-        fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& imageDecrypter,
-        fs::FileInfoProviderItf& fileInfoProvider);
+        spaceallocator::SpaceAllocatorItf& tmpSpaceAllocator, fileserver::FileServerItf& fileserver,
+        crypto::CryptoHelperItf& imageDecrypter, fs::FileInfoProviderItf& fileInfoProvider,
+        ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec);
 
     /**
      * Starts image manager.
@@ -189,10 +192,12 @@ public:
     Error RemoveItem(const String& id) override;
 
 private:
-    static constexpr auto   cNumActionThreads = AOS_CONFIG_IMAGEMANAGER_NUM_COOPERATE_ACTIONS;
-    static constexpr auto   cRemovePeriod     = 24 * Time::cHours;
-    static constexpr auto   cMaxNumListeners  = 1;
-    static constexpr size_t cMaxItemVersions  = 2;
+    static constexpr auto   cNumActionThreads  = AOS_CONFIG_IMAGEMANAGER_NUM_COOPERATE_ACTIONS;
+    static constexpr auto   cRemovePeriod      = 24 * Time::cHours;
+    static constexpr auto   cMaxNumListeners   = 1;
+    static constexpr size_t cMaxItemVersions   = 2;
+    static constexpr auto   cLayerMetadataFile = "layer.json";
+    static constexpr auto   cManifestFile      = "manifest.json";
 
     Error InstallUpdateItem(const UpdateItemInfo& itemInfo, const Array<cloudprotocol::CertificateInfo>& certificates,
         const Array<cloudprotocol::CertificateChainInfo>& certificateChains, UpdateItemStatus& status);
@@ -202,13 +207,14 @@ private:
     Error Remove(const storage::ItemInfo& item);
     void  ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space);
     void  AcceptAllocatedSpace(spaceallocator::SpaceItf* space);
-    Error InstallImage(const UpdateImageInfo& imageInfo, const String& installPath, const String& imagePath,
-        storage::ImageInfo& image, const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-        const Array<cloudprotocol::CertificateInfo>& certificates);
+    Error InstallImage(const UpdateImageInfo& imageInfo, const UpdateItemType& itemType, const String& installPath,
+        const String& itemPath, storage::ImageInfo& image,
+        const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
+        const Array<cloudprotocol::CertificateInfo>&      certificates);
     Error DecryptAndValidate(const UpdateImageInfo& imageInfo, const String& installPath,
         const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
         const Array<cloudprotocol::CertificateInfo>& certificates, StaticString<cFilePathLen>& outDecryptedFile);
-    Error PrepareURLsAndFileInfo(const String& imagePath, const String& decryptedFile, const UpdateImageInfo& imageInfo,
+    Error PrepareURLsAndFileInfo(const String& itemPath, const String& decryptedFile, const UpdateImageInfo& imageInfo,
         storage::ImageInfo& image);
     Error UpdatePrevVersions(const Array<storage::ItemInfo>& items);
     Error UninstallUpdateItem(const String& id, UpdateItemStatus& status);
@@ -220,20 +226,30 @@ private:
     void  NotifyItemRemovedListeners(const String& id);
     void  NotifyImageStatusChangedListeners(const cloudprotocol::UpdateImageStatus& status);
 
+    Error PrepareLayerMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);
+    Error PrepareServiceMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);
+    Error ReadManifestFromTar(const String& decryptedFile, oci::ImageManifest& manifest, const String& tmpPath);
+    Error ReadDigestFromTar(
+        const String& decryptedFile, const String& inputDigest, storage::ImageInfo& image, const String& tmpPath);
+
     storage::StorageItf*               mStorage {};
     spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
+    spaceallocator::SpaceAllocatorItf* mTmpSpaceAllocator {};
+    ImageUnpackerItf*                  mImageUnpacker {};
     fileserver::FileServerItf*         mFileServer {};
     crypto::CryptoHelperItf*           mImageDecrypter {};
     fs::FileInfoProviderItf*           mFileInfoProvider {};
+    oci::OCISpecItf*                   mOCISpec {};
 
     StaticArray<StatusListenerItf*, cMaxNumListeners> mListeners;
 
     Timer  mTimer;
     Config mConfig {};
 
-    StaticAllocator<(sizeof(StaticArray<storage::ItemInfo, cMaxNumUpdateItems>) + sizeof(storage::ItemInfo))
+    StaticAllocator<(sizeof(StaticArray<storage::ItemInfo, cMaxNumUpdateItems>) + sizeof(storage::ItemInfo)
+                        + sizeof(oci::ImageManifest) + sizeof(oci::ImageSpec))
             * cNumActionThreads,
-        cNumActionThreads * 2>
+        cNumActionThreads * 3>
         mAllocator;
 
     ThreadPool<cNumActionThreads, cMaxNumUpdateItems> mActionPool;
