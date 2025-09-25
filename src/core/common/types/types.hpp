@@ -423,6 +423,11 @@ constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
 
 /**
+ * State length.
+ */
+static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
+
+/**
  * Architecture info.
  */
 struct ArchInfo {

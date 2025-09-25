@@ -569,6 +569,13 @@
 #endif
 
 /**
+ * State len.
+ */
+#ifndef AOS_CONFIG_TYPES_STATE_LEN
+#define AOS_CONFIG_TYPES_STATE_LEN 64 * 1024
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1157,13 +1164,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_BEARER_TOKEN_LEN 256
-#endif
-
-/**
- * State len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_STATE_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_STATE_LEN 64 * 1024
 #endif
 
 /**
