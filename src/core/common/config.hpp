@@ -576,6 +576,13 @@
 #endif
 
 /**
+ * Max length of JSON.
+ */
+#ifndef AOS_CONFIG_TYPES_JSON_MAX_LEN
+#define AOS_CONFIG_TYPES_JSON_MAX_LEN 1024 * 4
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
