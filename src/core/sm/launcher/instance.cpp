@@ -76,7 +76,8 @@ Error Instance::Start()
 
         auto serviceConfig = MakeUnique<oci::ServiceConfig>(&sAllocator);
 
-        if (auto err = mOCIManager.LoadServiceConfig(imageParts->mServiceConfigPath, *serviceConfig); !err.IsNone()) {
+        if (auto err = mOCIManager.ServiceConfigFromFile(imageParts->mServiceConfigPath, *serviceConfig);
+            !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -626,7 +627,7 @@ Error Instance::CreateRuntimeSpec(
 {
     auto imageSpec = MakeUnique<oci::ImageSpec>(&sAllocator);
 
-    if (auto err = mOCIManager.LoadImageSpec(imageParts.mImageConfigPath, *imageSpec); !err.IsNone()) {
+    if (auto err = mOCIManager.ImageSpecFromFile(imageParts.mImageConfigPath, *imageSpec); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

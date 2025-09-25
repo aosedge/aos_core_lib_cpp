@@ -20,13 +20,22 @@ namespace aos::oci {
 class OCISpecItf {
 public:
     /**
-     * Loads OCI content descriptor.
+     * Loads OCI content descriptor from file.
      *
      * @param path file path.
      * @param descriptor[out]  content descriptor.
      * @return Error.
      */
-    virtual Error LoadContentDescriptor(const String& path, ContentDescriptor& descriptor) = 0;
+    virtual Error ContentDescriptorFromFile(const String& path, ContentDescriptor& descriptor) = 0;
+
+    /**
+     * Loads OCI content descriptor from json string.
+     *
+     * @param json json string.
+     * @param descriptor[out]  content descriptor.
+     * @return Error.
+     */
+    virtual Error ContentDescriptorFromJSON(const String& json, ContentDescriptor& descriptor) = 0;
 
     /**
      * Saves OCI content descriptor.
@@ -56,13 +65,22 @@ public:
     virtual Error SaveImageManifest(const String& path, const ImageManifest& manifest) = 0;
 
     /**
-     * Loads OCI image spec.
+     * Loads OCI image spec from file.
      *
      * @param path file path.
      * @param imageSpec image spec.
      * @return Error.
      */
-    virtual Error LoadImageSpec(const String& path, ImageSpec& imageSpec) = 0;
+    virtual Error ImageSpecFromFile(const String& path, ImageSpec& imageSpec) = 0;
+
+    /**
+     * Loads OCI image spec from json string.
+     *
+     * @param json json string.
+     * @param imageSpec image spec.
+     * @return Error.
+     */
+    virtual Error ImageSpecFromJSON(const String& json, ImageSpec& imageSpec) = 0;
 
     /**
      * Saves OCI image spec.
@@ -92,13 +110,22 @@ public:
     virtual Error SaveRuntimeSpec(const String& path, const RuntimeSpec& runtimeSpec) = 0;
 
     /**
-     * Loads Aos service config.
+     * Loads Aos service config from file.
      *
      * @param path file path.
      * @param serviceConfig service config.
      * @return Error.
      */
-    virtual Error LoadServiceConfig(const String& path, ServiceConfig& serviceConfig) = 0;
+    virtual Error ServiceConfigFromFile(const String& path, ServiceConfig& serviceConfig) = 0;
+
+    /**
+     * Loads Aos service config from json string.
+     *
+     * @param json json string.
+     * @param serviceConfig service config.
+     * @return Error.
+     */
+    virtual Error ServiceConfigFromJSON(const String& json, ServiceConfig& serviceConfig) = 0;
 
     /**
      * Saves Aos service config.

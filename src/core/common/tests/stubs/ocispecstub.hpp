@@ -21,13 +21,13 @@ namespace aos::oci {
 class OCISpecStub : public OCISpecItf {
 public:
     /**
-     * Loads OCI content descriptor.
+     * Loads OCI content descriptor from file.
      *
      * @param path file path.
      * @param descriptor[out]  content descriptor.
      * @return Error.
      */
-    Error LoadContentDescriptor(const String& path, ContentDescriptor& descriptor) override
+    Error ContentDescriptorFromFile(const String& path, ContentDescriptor& descriptor) override
     {
         std::lock_guard lock {mMutex};
 
@@ -37,6 +37,19 @@ public:
 
         descriptor = mContentDescriptors.at(path.CStr());
 
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Loads OCI content descriptor from json string.
+     *
+     * @param json json string.
+     * @param descriptor[out]  content descriptor.
+     * @return Error.
+     */
+    Error ContentDescriptorFromJSON(
+        [[maybe_unused]] const String& json, [[maybe_unused]] ContentDescriptor& descriptor) override
+    {
         return ErrorEnum::eNone;
     }
 
@@ -93,13 +106,13 @@ public:
     }
 
     /**
-     * Loads OCI image spec.
+     * Loads OCI image spec from file.
      *
      * @param path file path.
      * @param imageSpec image spec.
      * @return Error.
      */
-    Error LoadImageSpec(const String& path, oci::ImageSpec& imageSpec) override
+    Error ImageSpecFromFile(const String& path, oci::ImageSpec& imageSpec) override
     {
         std::lock_guard lock {mMutex};
 
@@ -109,6 +122,18 @@ public:
 
         imageSpec = mImageSpecs.at(path.CStr());
 
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Loads OCI image spec from json string.
+     *
+     * @param json json string.
+     * @param imageSpec image spec.
+     * @return Error.
+     */
+    Error ImageSpecFromJSON([[maybe_unused]] const String& json, [[maybe_unused]] oci::ImageSpec& imageSpec) override
+    {
         return ErrorEnum::eNone;
     }
 
@@ -165,13 +190,13 @@ public:
     }
 
     /**
-     * Loads Aos service config.
+     * Loads Aos service config from file.
      *
      * @param path file path.
      * @param serviceConfig service config.
      * @return Error.
      */
-    Error LoadServiceConfig(const String& path, ServiceConfig& serviceConfig) override
+    Error ServiceConfigFromFile(const String& path, ServiceConfig& serviceConfig) override
     {
         std::lock_guard lock {mMutex};
 
@@ -181,6 +206,19 @@ public:
 
         serviceConfig = mServiceConfigs.at(path.CStr());
 
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Loads Aos service config from json string.
+     *
+     * @param json json string.
+     * @param serviceConfig service config.
+     * @return Error.
+     */
+    Error ServiceConfigFromJSON(
+        [[maybe_unused]] const String& json, [[maybe_unused]] ServiceConfig& serviceConfig) override
+    {
         return ErrorEnum::eNone;
     }
 
