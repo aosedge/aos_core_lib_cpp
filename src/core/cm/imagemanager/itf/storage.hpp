@@ -12,6 +12,11 @@
 namespace aos::cm::imagemanager::storage {
 
 /**
+ * Maximum number of metadata entries per image.
+ */
+constexpr auto cMaxMetadataCount = 2;
+
+/**
  * Image state type.
  */
 class ItemStateType {
@@ -44,10 +49,11 @@ struct ImageInfo : public aos::ImageInfo {
      */
     ImageInfo() = default;
 
-    StaticString<cURLLen>             mURL;
-    StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize {};
-    StaticString<cFilePathLen>        mPath;
+    StaticString<cURLLen>                                     mURL;
+    StaticArray<uint8_t, cSHA256Size>                         mSHA256;
+    size_t                                                    mSize {};
+    StaticString<cFilePathLen>                                mPath;
+    StaticArray<StaticString<cJSONMaxLen>, cMaxMetadataCount> mMetadata;
 
     /**
      * Compares image info.
@@ -59,6 +65,7 @@ struct ImageInfo : public aos::ImageInfo {
     bool operator==(const ImageInfo& other) const
     {
         return mURL == other.mURL && mSHA256 == other.mSHA256 && mSize == other.mSize && mPath == other.mPath
+            && mMetadata == other.mMetadata
             && static_cast<const aos::ImageInfo&>(*this) == static_cast<const aos::ImageInfo&>(other);
     }
 
@@ -77,6 +84,7 @@ struct ImageInfo : public aos::ImageInfo {
  */
 struct ItemInfo {
     StaticString<cIDLen>                        mID;
+    UpdateItemType                              mType;
     StaticString<cVersionLen>                   mVersion;
     storage::ItemState                          mState;
     StaticString<cFilePathLen>                  mPath;
