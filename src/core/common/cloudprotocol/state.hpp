@@ -14,11 +14,6 @@
 namespace aos::cloudprotocol {
 
 /**
- * State length.
- */
-static constexpr auto cStateLen = AOS_CONFIG_CLOUDPROTOCOL_STATE_LEN;
-
-/**
  * State reason length.
  */
 static constexpr auto cStateReason = cErrorMessageLen;
