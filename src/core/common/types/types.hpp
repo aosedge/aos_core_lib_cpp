@@ -428,6 +428,11 @@ constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
 static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
 
 /**
+ * Max length of JSON.
+ */
+constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
+
+/**
  * Architecture info.
  */
 struct ArchInfo {
