@@ -7,13 +7,18 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <fstream>
+#include <thread>
+
 #include <core/cm/imagemanager/imagemanager.hpp>
 #include <core/cm/tests/mocks/fileserver.hpp>
 #include <core/common/tests/mocks/cryptomock.hpp>
 #include <core/common/tests/mocks/fileinfoprovider.hpp>
+#include <core/common/tests/mocks/ocispecmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tests/utils/log.hpp>
 
+#include "mocks/imageunpacker.hpp"
 #include "mocks/statusnotifier.hpp"
 #include "mocks/storage.hpp"
 
@@ -32,26 +37,39 @@ protected:
         tests::utils::InitLog();
 
         mConfig.mInstallPath   = "/tmp/imagemanager_test/install";
+        mConfig.mTmpPath       = "/tmp/imagemanager_test/temp";
         mConfig.mUpdateItemTTL = 24 * Time::cHours;
+
+        fs::MakeDirAll(mConfig.mInstallPath);
+        fs::MakeDirAll(mConfig.mTmpPath);
 
         EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
 
         EXPECT_TRUE(mImageManager
-                        .Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockFileServer, mMockImageDecrypter,
-                            mMockFileInfoProvider)
+                        .Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
+                            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec)
                         .IsNone());
+    }
+
+    void TearDown() override
+    {
+        fs::RemoveAll(mConfig.mInstallPath);
+        fs::RemoveAll(mConfig.mTmpPath);
     }
 
     Config                                         mConfig;
     ImageManager                                   mImageManager;
-    StaticAllocator<1024 * 5>                      mAllocator;
+    StaticAllocator<1024 * 5, 20>                  mAllocator;
     StrictMock<MockStorage>                        mMockStorage;
     StrictMock<spaceallocator::MockSpaceAllocator> mMockSpaceAllocator;
+    StrictMock<spaceallocator::MockSpaceAllocator> mMockTmpSpaceAllocator;
     StrictMock<fileserver::MockFileServer>         mMockFileServer;
     StrictMock<crypto::CryptoHelperMock>           mMockImageDecrypter;
     StrictMock<fs::MockFileInfoProvider>           mMockFileInfoProvider;
     StrictMock<spaceallocator::MockSpace>          mMockSpace;
     StrictMock<MockStatusListener>                 mMockStatusListener;
+    StrictMock<MockImageUnpacker>                  mMockImageUnpacker;
+    StrictMock<oci::OCISpecMock>                   mMockOCISpec;
 };
 
 /***********************************************************************************************************************
@@ -74,7 +92,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
         auto& itemInfo = itemsInfo.Back();
 
         itemInfo.mID      = (std::string("12345678-1234-1234-1234-12345678901") + std::to_string(i)).c_str();
-        itemInfo.mType    = UpdateItemTypeEnum::eService;
+        itemInfo.mType    = (i < 4) ? UpdateItemTypeEnum::eService : UpdateItemTypeEnum::eLayer;
         itemInfo.mVersion = (("1.0." + std::to_string(i)).c_str());
 
         auto err = itemInfo.mImages.EmplaceBack();
@@ -137,6 +155,32 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
             return ErrorEnum::eNone;
         })));
+    EXPECT_CALL(mMockTmpSpaceAllocator, AllocateSpace(_)).Times(13).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mMockImageUnpacker, GetUncompressedFileSize(_, _))
+        .Times(13)
+        .WillRepeatedly(Return(RetWithError<size_t>(128)));
+    EXPECT_CALL(mMockImageUnpacker, ExtractFileFromArchive(_, _, _))
+        .Times(13)
+        .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
+            std::ofstream file(outputPath.CStr());
+            file << "{}";
+            file.close();
+
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mMockOCISpec, LoadImageManifest(_, _))
+        .Times(4)
+        .WillRepeatedly(DoAll(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:configDigest";
+            manifest.mAosService.EmplaceValue();
+            manifest.mAosService->mDigest = "sha256:serviceDigest";
+
+            return ErrorEnum::eNone;
+        })));
     EXPECT_CALL(mMockStorage, AddItem(_)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
 
     auto err = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
@@ -155,7 +199,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
 TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
 {
-    StaticArray<UpdateItemInfo, 1>                      itemsInfo;
+    StaticArray<UpdateItemInfo, 1> itemsInfo;
+    // cppcheck-suppress templateRecursion
     StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
     StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
     StaticArray<UpdateItemStatus, 1>                    statuses;
@@ -226,6 +271,30 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
         mMockStorage, SetItemState(itemInfo.mID, String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
         .WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    // Metadata parsing expectations for service image
+    EXPECT_CALL(mMockTmpSpaceAllocator, AllocateSpace(_)).Times(3).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mMockImageUnpacker, GetUncompressedFileSize(_, _))
+        .Times(3)
+        .WillRepeatedly(Return(RetWithError<size_t>(128)));
+    EXPECT_CALL(mMockImageUnpacker, ExtractFileFromArchive(_, _, _))
+        .Times(3)
+        .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
+            std::ofstream file(outputPath.CStr());
+            file << "{}";
+            file.close();
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mMockOCISpec, LoadImageManifest(_, _))
+        .WillOnce(DoAll(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:configDigest";
+            manifest.mAosService.EmplaceValue();
+            manifest.mAosService->mDigest = "sha256:serviceDigest";
+            return ErrorEnum::eNone;
+        })));
     EXPECT_CALL(mMockStorage, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
     auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
@@ -329,6 +398,30 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
     EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(itemInfo.mID))).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockSpaceAllocator, FreeSpace(1024)).WillOnce(Return());
     EXPECT_CALL(mMockStorage, RemoveItem(itemInfo.mID, String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    // Metadata parsing expectations for service image
+    EXPECT_CALL(mMockTmpSpaceAllocator, AllocateSpace(_)).Times(3).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mMockImageUnpacker, GetUncompressedFileSize(_, _))
+        .Times(3)
+        .WillRepeatedly(Return(RetWithError<size_t>(128)));
+    EXPECT_CALL(mMockImageUnpacker, ExtractFileFromArchive(_, _, _))
+        .Times(3)
+        .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
+            std::ofstream file(outputPath.CStr());
+            file << "{}";
+            file.close();
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mMockOCISpec, LoadImageManifest(_, _))
+        .WillOnce(DoAll(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:configDigest";
+            manifest.mAosService.EmplaceValue();
+            manifest.mAosService->mDigest = "sha256:serviceDigest";
+            return ErrorEnum::eNone;
+        })));
     EXPECT_CALL(mMockStorage, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
@@ -1226,6 +1319,350 @@ TEST_F(ImageManagerTest, GetItemImages_NoActiveItems)
 
     EXPECT_TRUE(getErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(imagesInfos.Size(), 0) << "Should return no images when no active items";
+}
+
+TEST_F(ImageManagerTest, GetServiceConfig_Success)
+{
+    auto itemId  = "99999999-9999-9999-9999-999999999999";
+    auto imageId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "1.0.0";
+            activeItem.mType    = UpdateItemTypeEnum::eService;
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image    = activeItem.mImages.Back();
+            image.mImageID = imageId;
+
+            // Front: image spec data, Back: service config data
+            if (auto err = image.mMetadata.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            image.mMetadata.Back() = "image-spec-data";
+            if (auto err = image.mMetadata.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            image.mMetadata.Back() = "service-config-data";
+
+            // Add layer item to cover filter case
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& layerItem    = items.Back();
+            layerItem.mID      = "layer-id-1111-1111-1111-111111111111";
+            layerItem.mVersion = "1.0.0";
+            layerItem.mType    = UpdateItemTypeEnum::eLayer;
+            layerItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = layerItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& layerImage    = layerItem.mImages.Back();
+            layerImage.mImageID = "layer-image-id-aaaa-aaaa-aaaaaaaaaaaa";
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mMockOCISpec, ServiceConfigFromJSON(String("service-config-data"), _))
+        .WillOnce(DoAll(Invoke([](const String&, oci::ServiceConfig& svc) {
+            svc.mAuthor             = "author";
+            svc.mSkipResourceLimits = true;
+            svc.mBalancingPolicy    = "rr";
+            auto err                = svc.mRunners.EmplaceBack();
+            if (err.IsNone()) {
+                svc.mRunners.Back() = "runc";
+            }
+            return ErrorEnum::eNone;
+        })));
+
+    oci::ServiceConfig cfg;
+    auto               err = mImageManager.GetServiceConfig(itemId, imageId, cfg);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNone));
+    EXPECT_EQ(cfg.mAuthor, String("author"));
+    EXPECT_TRUE(cfg.mSkipResourceLimits);
+    EXPECT_EQ(cfg.mBalancingPolicy, String("rr"));
+    EXPECT_EQ(cfg.mRunners.Size(), 1);
+    EXPECT_EQ(cfg.mRunners[0], String("runc"));
+}
+
+TEST_F(ImageManagerTest, GetServiceConfig_NotFound_NoMetadata)
+{
+    auto itemId  = "99999999-9999-9999-9999-999999999999";
+    auto imageId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "1.0.0";
+            activeItem.mType    = UpdateItemTypeEnum::eService;
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            activeItem.mImages.Back().mImageID = imageId;
+
+            return ErrorEnum::eNone;
+        }));
+
+    oci::ServiceConfig cfg;
+    auto               err = mImageManager.GetServiceConfig(itemId, imageId, cfg);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(ImageManagerTest, GetImageConfig_Success)
+{
+    auto itemId  = "11112222-3333-4444-5555-666677778888";
+    auto imageId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "2.1.0";
+            activeItem.mType    = UpdateItemTypeEnum::eService;
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image    = activeItem.mImages.Back();
+            image.mImageID = imageId;
+
+            // Front: image spec data, Back: service config data
+            if (auto err = image.mMetadata.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            image.mMetadata.Back() = "image-spec-data";
+            if (auto err = image.mMetadata.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            image.mMetadata.Back() = "service-config-data";
+
+            // Add layer item to cover filter case
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& layerItem    = items.Back();
+            layerItem.mID      = "layer-id-0000-0000-0000-000000000000";
+            layerItem.mVersion = "1.0.0";
+            layerItem.mType    = UpdateItemTypeEnum::eLayer;
+            layerItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = layerItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& layerImage    = layerItem.mImages.Back();
+            layerImage.mImageID = "layer-image-id-cccc-cccc-cccccccccccc";
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mMockOCISpec, ImageSpecFromJSON(String("image-spec-data"), _))
+        .WillOnce(DoAll(Invoke([](const String&, oci::ImageSpec& spec) {
+            spec.mConfig.mWorkingDir = "/work";
+            auto err                 = spec.mConfig.mEnv.EmplaceBack();
+            if (err.IsNone()) {
+                spec.mConfig.mEnv.Back() = "A=1";
+            }
+            err = spec.mConfig.mCmd.EmplaceBack();
+            if (err.IsNone()) {
+                spec.mConfig.mCmd.Back() = "run";
+            }
+            return ErrorEnum::eNone;
+        })));
+
+    oci::ImageConfig cfg;
+    auto             err = mImageManager.GetImageConfig(itemId, imageId, cfg);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNone));
+    EXPECT_EQ(cfg.mWorkingDir, String("/work"));
+    EXPECT_EQ(cfg.mEnv.Size(), 1);
+    EXPECT_EQ(cfg.mEnv[0], String("A=1"));
+    EXPECT_EQ(cfg.mCmd.Size(), 1);
+    EXPECT_EQ(cfg.mCmd[0], String("run"));
+}
+
+TEST_F(ImageManagerTest, GetImageConfig_NotFound_NoMetadata)
+{
+    auto itemId  = "11112222-3333-4444-5555-666677778888";
+    auto imageId = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "2.1.0";
+            activeItem.mType    = UpdateItemTypeEnum::eService;
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            activeItem.mImages.Back().mImageID = imageId;
+
+            return ErrorEnum::eNone;
+        }));
+
+    oci::ImageConfig cfg;
+    auto             err = mImageManager.GetImageConfig(itemId, imageId, cfg);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(ImageManagerTest, GetLayerImageInfo_Success)
+{
+    std::string layerDigest = "abcd1234567890abcdef";
+
+    smcontroller::UpdateImageInfo info;
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& serviceItem    = items.Back();
+        serviceItem.mID      = "service-id-1111-1111-1111-111111111111";
+        serviceItem.mVersion = "1.0.0";
+        serviceItem.mType    = UpdateItemTypeEnum::eService;
+        serviceItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+        if (auto err = serviceItem.mImages.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+        serviceItem.mImages.Back().mImageID = "service-image-id";
+
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& layerItem    = items.Back();
+        layerItem.mID      = "layer-id-2222-2222-2222-222222222222";
+        layerItem.mVersion = "2.0.0";
+        layerItem.mType    = UpdateItemTypeEnum::eLayer;
+        layerItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+        if (auto err = layerItem.mImages.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& layerImage    = layerItem.mImages.Back();
+        layerImage.mImageID = "layer-image-id-3333-3333-333333333333";
+        layerImage.mURL     = "http://test-layer-url/layer.tar";
+        layerImage.mSize    = 4096;
+        layerImage.mSHA256.Clear();
+        layerImage.mSHA256.PushBack(0xDE);
+        layerImage.mSHA256.PushBack(0xAD);
+        layerImage.mSHA256.PushBack(0xBE);
+        layerImage.mSHA256.PushBack(0xEF);
+
+        if (auto err = layerImage.mMetadata.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+        layerImage.mMetadata.Back() = "layer-descriptor-data";
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mMockOCISpec, ContentDescriptorFromJSON(String("layer-descriptor-data"), _))
+        .WillOnce(DoAll(Invoke([&layerDigest](const String&, oci::ContentDescriptor& descriptor) {
+            descriptor.mMediaType = "application/vnd.oci.image.layer.v1.tar";
+            descriptor.mDigest    = ("sha256:" + layerDigest).c_str();
+            descriptor.mSize      = 4096;
+
+            return ErrorEnum::eNone;
+        })));
+
+    auto err = mImageManager.GetLayerImageInfo(layerDigest.c_str(), info);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNone));
+    EXPECT_EQ(info.mImageID, String("layer-image-id-3333-3333-333333333333"));
+    EXPECT_EQ(info.mVersion, String("2.0.0"));
+    EXPECT_EQ(info.mURL, String("http://test-layer-url/layer.tar"));
+    EXPECT_EQ(info.mSize, 4096);
+    EXPECT_EQ(info.mSHA256.Size(), 4);
+    EXPECT_EQ(info.mSHA256[0], 0xDE);
+    EXPECT_EQ(info.mSHA256[1], 0xAD);
+    EXPECT_EQ(info.mSHA256[2], 0xBE);
+    EXPECT_EQ(info.mSHA256[3], 0xEF);
+}
+
+TEST_F(ImageManagerTest, GetLayerImageInfo_NotFound_NoMatchingDigest)
+{
+    std::string layerDigest = "differentdigest1234567890";
+
+    smcontroller::UpdateImageInfo info;
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& layerItem    = items.Back();
+        layerItem.mID      = "layer-id-4444-4444-4444-444444444444";
+        layerItem.mVersion = "1.0.0";
+        layerItem.mType    = UpdateItemTypeEnum::eLayer;
+        layerItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+        if (auto err = layerItem.mImages.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& layerImage    = layerItem.mImages.Back();
+        layerImage.mImageID = "layer-image-id-5555-5555-555555555555";
+
+        // Add metadata with different content descriptor
+        if (auto err = layerImage.mMetadata.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+        layerImage.mMetadata.Back() = "different-layer-descriptor-data";
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mMockOCISpec, ContentDescriptorFromJSON(String("different-layer-descriptor-data"), _))
+        .WillOnce(DoAll(Invoke([](const String&, oci::ContentDescriptor& descriptor) {
+            descriptor.mMediaType = "application/vnd.oci.image.layer.v1.tar";
+            descriptor.mDigest    = "sha256:differentdigest0000000000";
+            descriptor.mSize      = 2048;
+
+            return ErrorEnum::eNone;
+        })));
+
+    auto err = mImageManager.GetLayerImageInfo(layerDigest.c_str(), info);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
 }
 
 } // namespace aos::cm::imagemanager
