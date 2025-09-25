@@ -17,6 +17,7 @@ namespace aos::cm::imagemanager {
 struct Config {
     StaticString<cFilePathLen> mInstallPath;
     Duration                   mUpdateItemTTL;
+    StaticString<cFilePathLen> mTmpPath;
 
     /**
      * Compares config.
@@ -26,7 +27,8 @@ struct Config {
      */
     bool operator==(const Config& other) const
     {
-        return mInstallPath == other.mInstallPath && mUpdateItemTTL == other.mUpdateItemTTL;
+        return mInstallPath == other.mInstallPath && mUpdateItemTTL == other.mUpdateItemTTL
+            && mTmpPath == other.mTmpPath;
     }
 
     /**
