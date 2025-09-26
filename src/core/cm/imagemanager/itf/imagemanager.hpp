@@ -82,9 +82,9 @@ struct UpdateItemInfo {
  * Update item status.
  */
 struct UpdateItemStatus {
-    StaticString<cIDLen>                                               mID;
-    StaticString<cVersionLen>                                          mVersion;
-    StaticArray<cloudprotocol::UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
+    StaticString<cIDLen>      mID;
+    StaticString<cVersionLen> mVersion;
+    ImageStatusStaticArray    mStatuses;
 
     /**
      * Compares update item status.

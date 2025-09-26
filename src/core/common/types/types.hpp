@@ -911,6 +911,36 @@ struct InstanceStatus {
 using InstanceStatusStaticArray = StaticArray<InstanceStatus, cMaxNumInstances>;
 
 /**
+ * Image status.
+ */
+struct ImageStatus {
+    StaticString<cIDLen> mImageID;
+    ImageState           mState;
+    Error                mError;
+
+    /**
+     * Compares image status.
+     *
+     * @param other image status to compare with.
+     * @return bool.
+     */
+    bool operator==(const ImageStatus& other) const
+    {
+        return mImageID == other.mImageID && mState == other.mState && mError == other.mError;
+    }
+
+    /**
+     * Compares image status.
+     *
+     * @param other image status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ImageStatus& other) const { return !operator==(other); }
+};
+
+using ImageStatusStaticArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
+
+/**
  * Service status.
  */
 struct ServiceStatus {

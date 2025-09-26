@@ -218,7 +218,7 @@ private:
     Error SetOutdatedItems();
     Error RemoveOutdatedItems();
     void  NotifyItemRemovedListeners(const String& id);
-    void  NotifyImageStatusChangedListeners(const cloudprotocol::UpdateImageStatus& status);
+    void  NotifyImageStatusChangedListeners(const ImageStatus& status);
 
     storage::StorageItf*               mStorage {};
     spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};

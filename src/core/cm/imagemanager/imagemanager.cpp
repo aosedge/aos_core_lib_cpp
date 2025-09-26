@@ -760,7 +760,7 @@ void ImageManager::NotifyItemRemovedListeners(const String& id)
     }
 }
 
-void ImageManager::NotifyImageStatusChangedListeners(const cloudprotocol::UpdateImageStatus& status)
+void ImageManager::NotifyImageStatusChangedListeners(const ImageStatus& status)
 {
     LOG_DBG() << "Notify image status changed listeners" << Log::Field("imageID", status.mImageID)
               << Log::Field("state", status.mState);

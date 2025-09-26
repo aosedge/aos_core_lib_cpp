@@ -169,36 +169,6 @@ struct NodeInfo {
 using NodeInfoStaticArray = StaticArray<NodeInfo, cMaxNumNodes>;
 
 /**
- * Image status.
- */
-struct ImageStatus {
-    StaticString<cIDLen> mImageID;
-    ImageState           mState;
-    Error                mError;
-
-    /**
-     * Compares image status.
-     *
-     * @param other image status to compare with.
-     * @return bool.
-     */
-    bool operator==(const ImageStatus& other) const
-    {
-        return mImageID == other.mImageID && mState == other.mState && mError == other.mError;
-    }
-
-    /**
-     * Compares image status.
-     *
-     * @param other image status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ImageStatus& other) const { return !operator==(other); }
-};
-
-using ImageStatusStaticArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
-
-/**
  * Update item status.
  */
 struct UpdateItemStatus {
@@ -298,34 +268,6 @@ using InstancesStatusesStaticArray = StaticArray<InstancesStatuses, cMaxNumUpdat
  * Subjects.
  */
 using SubjectStaticArray = StaticArray<Identity, cMaxNumSubjects>;
-
-/**
- * Update image status.
- */
-struct UpdateImageStatus {
-    StaticString<cIDLen> mImageID;
-    ImageState           mState;
-    Error                mError;
-
-    /**
-     * Compares image status.
-     *
-     * @param other image status to compare with.
-     * @return bool.
-     */
-    bool operator==(const UpdateImageStatus& other) const
-    {
-        return mImageID == other.mImageID && mState == other.mState && mError == other.mError;
-    }
-
-    /**
-     * Compares image status.
-     *
-     * @param other image status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const UpdateImageStatus& other) const { return !operator==(other); }
-};
 
 /**
  * Unit status

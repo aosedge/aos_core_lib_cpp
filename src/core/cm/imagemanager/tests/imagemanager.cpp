@@ -500,7 +500,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eRuntime));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(imageInfo.mImage.mImageID, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eFailed);
             EXPECT_EQ(status.mError, ErrorEnum::eRuntime);
         }));
@@ -571,7 +571,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
             return ErrorEnum::eNone;
         }));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(imageInfo.mImage.mImageID, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eFailed);
             EXPECT_EQ(status.mError, ErrorEnum::eInvalidChecksum);
         }));
@@ -632,7 +632,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
     EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
             EXPECT_TRUE(status.mError.IsNone());
         }));
@@ -689,7 +689,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
     EXPECT_CALL(mMockSpaceAllocator, FreeSpace(1024)).WillOnce(Return());
     EXPECT_CALL(mMockStorage, RemoveItem(String(id), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
             EXPECT_TRUE(status.mError.IsNone());
         }));
@@ -769,11 +769,11 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
         .WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
         .Times(2)
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
             EXPECT_TRUE(status.mError.IsNone());
         }))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eInstalled);
             EXPECT_TRUE(status.mError.IsNone());
         }));
