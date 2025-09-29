@@ -80,7 +80,7 @@ struct AlertItem {
  * System alert.
  */
 struct SystemAlert : AlertItem {
-    Identity                       mNodeID;
+    Identity                       mNode;
     StaticString<cAlertMessageLen> mMessage;
 
     /**
@@ -89,7 +89,7 @@ struct SystemAlert : AlertItem {
      * @param alert system alert to compare with.
      * @return bool.
      */
-    bool operator==(const SystemAlert& alert) const { return mNodeID == alert.mNodeID && mMessage == alert.mMessage; }
+    bool operator==(const SystemAlert& alert) const { return mNode == alert.mNode && mMessage == alert.mMessage; }
 
     /**
      * Compares system alert.
@@ -104,7 +104,7 @@ struct SystemAlert : AlertItem {
  * Core alert.
  */
 struct CoreAlert : AlertItem {
-    Identity                       mNodeID;
+    Identity                       mNode;
     CoreComponent                  mCoreComponent;
     StaticString<cAlertMessageLen> mMessage;
 
@@ -116,7 +116,7 @@ struct CoreAlert : AlertItem {
      */
     bool operator==(const CoreAlert& alert) const
     {
-        return mNodeID == alert.mNodeID && mCoreComponent == alert.mCoreComponent && mMessage == alert.mMessage;
+        return mNode == alert.mNode && mCoreComponent == alert.mCoreComponent && mMessage == alert.mMessage;
     }
 
     /**
@@ -132,7 +132,7 @@ struct CoreAlert : AlertItem {
  * Resource allocate alert.
  */
 struct ResourceAllocateAlert : AlertItem, InstanceIdent {
-    Identity                       mNodeID;
+    Identity                       mNode;
     StaticString<cResourceNameLen> mResource;
     StaticString<cAlertMessageLen> mMessage;
 
@@ -144,7 +144,7 @@ struct ResourceAllocateAlert : AlertItem, InstanceIdent {
      */
     bool operator==(const ResourceAllocateAlert& alert) const
     {
-        return InstanceIdent::operator==(alert) && mNodeID == alert.mNodeID && mResource == alert.mResource
+        return InstanceIdent::operator==(alert) && mNode == alert.mNode && mResource == alert.mResource
             && mMessage == alert.mMessage;
     }
 
@@ -161,9 +161,9 @@ struct ResourceAllocateAlert : AlertItem, InstanceIdent {
  * System quota alert.
  */
 struct SystemQuotaAlert : AlertItem {
-    Identity                         mNodeID;
+    Identity                         mNode;
     StaticString<cAlertParameterLen> mParameter;
-    uint64_t                         mValue;
+    size_t                           mValue;
 
     /**
      * Compares system quota alert.
@@ -173,7 +173,7 @@ struct SystemQuotaAlert : AlertItem {
      */
     bool operator==(const SystemQuotaAlert& alert) const
     {
-        return mNodeID == alert.mNodeID && mParameter == alert.mParameter && mValue == alert.mValue;
+        return mNode == alert.mNode && mParameter == alert.mParameter && mValue == alert.mValue;
     }
 
     /**
@@ -190,7 +190,7 @@ struct SystemQuotaAlert : AlertItem {
  */
 struct InstanceQuotaAlert : AlertItem, InstanceIdent {
     StaticString<cAlertParameterLen> mParameter;
-    uint64_t                         mValue;
+    size_t                           mValue;
 
     /**
      * Compares instance quota alert.
@@ -216,12 +216,12 @@ struct InstanceQuotaAlert : AlertItem, InstanceIdent {
  * Download alert.
  */
 struct DownloadAlert : AlertItem {
-    Identity                       mIdentity;
-    StaticString<cVersionLen>      mVersion;
-    StaticString<cAlertMessageLen> mMessage;
-    StaticString<cURLLen>          mURL;
-    size_t                         mDownloadedBytes;
-    size_t                         mTotalBytes;
+    StaticString<cIDLen>                     mImageID;
+    size_t                                   mDownloadedBytes;
+    size_t                                   mTotalBytes;
+    DownloadState                            mState;
+    Optional<StaticString<cAlertMessageLen>> mReason;
+    Error                                    mError;
 
     /**
      * Compares download alert.
@@ -231,8 +231,8 @@ struct DownloadAlert : AlertItem {
      */
     bool operator==(const DownloadAlert& alert) const
     {
-        return mIdentity == alert.mIdentity && mVersion == alert.mVersion && mMessage == alert.mMessage
-            && mURL == alert.mURL && mDownloadedBytes == alert.mDownloadedBytes && mTotalBytes == alert.mTotalBytes;
+        return mImageID == alert.mImageID && mDownloadedBytes == alert.mDownloadedBytes
+            && mTotalBytes == alert.mTotalBytes && mState == alert.mState && mReason == alert.mReason
     }
 
     /**

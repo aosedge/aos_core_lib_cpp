@@ -2200,6 +2200,34 @@ struct CoreAlert : AlertItem {
 };
 
 /**
+ * Download state.
+ */
+class DownloadStateType {
+public:
+    enum class Enum {
+        eStarted,
+        ePaused,
+        eInterrupted,
+        eFinished,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "started",
+            "paused",
+            "interrupted",
+            "finished",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using DownloadStateEnum = DownloadStateType::Enum;
+using DownloadState     = EnumStringer<DownloadStateType>;
+
+/**
  * Download alert.
  */
 struct DownloadAlert : AlertItem {
@@ -2213,13 +2241,12 @@ struct DownloadAlert : AlertItem {
     {
     }
 
-    StaticString<cIDLen>           mItemID;
-    UpdateItemType                 mItemType;
-    StaticString<cVersionLen>      mVersion;
-    StaticString<cAlertMessageLen> mMessage;
-    StaticString<cURLLen>          mURL;
-    size_t                         mDownloadedBytes {};
-    size_t                         mTotalBytes {};
+    StaticString<cIDLen>                     mImageID;
+    size_t                                   mDownloadedBytes {};
+    size_t                                   mTotalBytes {};
+    DownloadState                            mState;
+    Optional<StaticString<cAlertMessageLen>> mReason;
+    Error                                    mError;
 
     /**
      * Compares download alert.
@@ -2229,9 +2256,9 @@ struct DownloadAlert : AlertItem {
      */
     bool operator==(const DownloadAlert& alert) const
     {
-        return mItemID == alert.mItemID && mItemType == alert.mItemType && mVersion == alert.mVersion
-            && mMessage == alert.mMessage && mURL == alert.mURL && mDownloadedBytes == alert.mDownloadedBytes
-            && mTotalBytes == alert.mTotalBytes;
+        return mImageID == alert.mImageID && mDownloadedBytes == alert.mDownloadedBytes
+            && mTotalBytes == alert.mTotalBytes && mState == alert.mState && mReason == alert.mReason
+            && mError == alert.mError;
     }
 
     /**
@@ -2252,8 +2279,8 @@ struct DownloadAlert : AlertItem {
      */
     friend Log& operator<<(Log& log, const DownloadAlert& alert)
     {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mItemType << ":" << alert.mItemID
-                   << ":" << alert.mURL << ":" << alert.mMessage << "}";
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mImageID << ":"
+                   << alert.mDownloadedBytes << ":" << alert.mTotalBytes << "}";
     }
 };
 
