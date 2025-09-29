@@ -37,101 +37,61 @@ static constexpr auto cCertsPerNodeCount = static_cast<size_t>(CertTypeEnum::eNu
 static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertsPerNodeCount;
 
 /**
- * IssuedCertData issued unit certificate data.
+ * Certificate identification.
  */
-struct IssuedCertData {
-    CertType                               mType;
-    StaticString<cNodeIDLen>               mNodeID;
-    StaticString<crypto::cCertChainPEMLen> mCertificateChain;
+struct CertIdent {
+    CertType mType;
+    Identity mNode;
 
     /**
-     * Compares issued certificate data.
+     * Compares certificate identification.
      *
      * @param other object to compare with.
      * @return bool.
      */
-    bool operator==(const IssuedCertData& other) const
-    {
-        return mType == other.mType && mNodeID == other.mNodeID && mCertificateChain == other.mCertificateChain;
-    }
+    bool operator==(const CertIdent& other) const { return mType == other.mType && mNode == other.mNode; }
 
     /**
-     * Compares issued certificate data.
+     * Compares certificate identification.
      *
      * @param other object to compare with.
      * @return bool.
      */
-    bool operator!=(const IssuedCertData& other) const { return !operator==(other); }
+    bool operator!=(const CertIdent& other) const { return !operator==(other); }
 };
 
 /**
- * InstallCertData install certificate data.
+ * Node secret.
  */
-struct InstallCertData {
-    CertType                               mType;
-    StaticString<cNodeIDLen>               mNodeID;
-    StaticString<crypto::cSerialNumStrLen> mSerial;
-    ItemStatus                             mStatus;
-    StaticString<cDescriptionLen>          mDescription;
+struct NodeSecret {
+    Identity                      mNode;
+    StaticString<cCertSecretSize> mSecret;
 
     /**
-     * Compares install certificate data.
+     * Compares node secrets.
      *
      * @param other object to compare with.
      * @return bool.
      */
-    bool operator==(const InstallCertData& other) const
-    {
-        return mType == other.mType && mNodeID == other.mNodeID && mSerial == other.mSerial && mStatus == other.mStatus
-            && mDescription == other.mDescription;
-    }
+    bool operator==(const NodeSecret& other) const { return mNode == other.mNode && mSecret == other.mSecret; }
 
     /**
-     * Compares install certificate data.
+     * Compares node secrets.
      *
      * @param other object to compare with.
      * @return bool.
      */
-    bool operator!=(const InstallCertData& other) const { return !operator==(other); }
+    bool operator!=(const NodeSecret& other) const { return !operator==(other); }
 };
 
-/**
- * RenewCertData renew certificate data.
- */
-struct RenewCertData {
-    CertType                               mType;
-    StaticString<cNodeIDLen>               mNodeID;
-    StaticString<crypto::cSerialNumStrLen> mSerial;
-    Optional<Time>                         mValidTill;
-
-    /**
-     * Compares renew certificate data.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-
-    bool operator==(const RenewCertData& other) const
-    {
-        return mType == other.mType && mNodeID == other.mNodeID && mSerial == other.mSerial
-            && mValidTill == other.mValidTill;
-    }
-
-    /**
-     * Compares renew certificate data.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator!=(const RenewCertData& other) const { return !operator==(other); }
-};
+using NodeSecretArray = StaticArray<NodeSecret, cMaxNumNodes>;
 
 /**
- * UnitSecrets keeps secrets for nodes.
+ * Unit secrets.
  */
 struct UnitSecrets {
-    StaticString<cVersionLen>                                                        mVersion;
-    StaticMap<StaticString<cNodeIDLen>, StaticString<cCertSecretSize>, cMaxNumNodes> mNodes;
+    StaticString<cVersionLen> mVersion;
+    NodeSecretArray           mNodes;
 
     /**
      * Compares unit secrets.
@@ -151,12 +111,91 @@ struct UnitSecrets {
 };
 
 /**
- * IssueCertData issue certificate data.
+ * Issued certificate data.
  */
-struct IssueCertData {
-    CertType                         mType;
-    StaticString<cNodeIDLen>         mNodeID;
-    StaticString<crypto::cCSRPEMLen> mCsr;
+struct IssuedCertData : public CertIdent {
+    StaticString<crypto::cCertChainPEMLen> mCertificateChain;
+
+    /**
+     * Compares issued certificate data.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const IssuedCertData& other) const
+    {
+        return CertIdent::operator==(other) && mCertificateChain == other.mCertificateChain;
+    }
+
+    /**
+     * Compares issued certificate data.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const IssuedCertData& other) const { return !operator==(other); }
+};
+
+/**
+ * Install certificate status.
+ */
+struct InstallCertStatus : public CertIdent {
+    StaticString<crypto::cSerialNumStrLen> mSerial;
+    Error                                  mError;
+
+    /**
+     * Compares install certificate status.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstallCertStatus& other) const
+    {
+        return CertIdent::operator==(other) && mSerial == other.mSerial && mError == other.mError;
+    }
+
+    /**
+     * Compares install certificate status.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstallCertStatus& other) const { return !operator==(other); }
+};
+
+/**
+ * Renew certificate data.
+ */
+struct RenewCertData : public CertIdent {
+    StaticString<crypto::cSerialNumStrLen> mSerial;
+    Optional<Time>                         mValidTill;
+
+    /**
+     * Compares renew certificate data.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+
+    bool operator==(const RenewCertData& other) const
+    {
+        return CertIdent::operator==(other) && mSerial == other.mSerial && mValidTill == other.mValidTill;
+    }
+
+    /**
+     * Compares renew certificate data.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const RenewCertData& other) const { return !operator==(other); }
+};
+
+/**
+ * Issue certificate data.
+ */
+struct IssueCertData : public CertIdent {
+    StaticString<crypto::cCSRPEMLen> mCSR;
 
     /**
      * Compares issue certificate data.
@@ -164,10 +203,7 @@ struct IssueCertData {
      * @param other object to compare with.
      * @return bool.
      */
-    bool operator==(const IssueCertData& other) const
-    {
-        return mType == other.mType && mNodeID == other.mNodeID && mCsr == other.mCsr;
-    }
+    bool operator==(const IssueCertData& other) const { return CertIdent::operator==(other) && mCSR == other.mCSR; }
 
     /**
      * Compares issue certificate data.
@@ -179,7 +215,7 @@ struct IssueCertData {
 };
 
 /**
- * RenewCertsNotification renew certificate notification from cloud with pwd.
+ * Renew certificates notification.
  */
 struct RenewCertsNotification {
     StaticArray<RenewCertData, cCertsPerUnitCount> mCertificates;
@@ -206,7 +242,7 @@ struct RenewCertsNotification {
 };
 
 /**
- * IssuedUnitCerts issued unit certificates info.
+ * Issued unit certificates.
  */
 struct IssuedUnitCerts {
     StaticArray<IssuedCertData, cCertsPerUnitCount> mCertificates;
@@ -229,7 +265,7 @@ struct IssuedUnitCerts {
 };
 
 /**
- * IssueUnitCerts issue unit certificates request.
+ * Issue unit certificates.
  */
 struct IssueUnitCerts {
     StaticArray<IssueCertData, cCertsPerUnitCount> mRequests;
@@ -252,10 +288,10 @@ struct IssueUnitCerts {
 };
 
 /**
- * InstallUnitCertsConfirmation install unit certificates confirmation.
+ * Install unit certificates confirmation.
  */
 struct InstallUnitCertsConfirmation {
-    StaticArray<InstallCertData, cCertsPerUnitCount> mCertificates;
+    StaticArray<InstallCertStatus, cCertsPerUnitCount> mCertificates;
 
     /**
      * Compares install unit certificates confirmation.
