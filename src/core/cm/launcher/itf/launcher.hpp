@@ -60,14 +60,6 @@ public:
     virtual ~LauncherItf() = default;
 
     /**
-     * Returns current statuses of running instances.
-     *
-     * @param statuses instances statuses.
-     * @return Error.
-     */
-    virtual Error GetInstancesStatuses(Array<InstanceStatus>& statuses) = 0;
-
-    /**
      * Schedules and run instances.
      *
      * @param instances instances info.
