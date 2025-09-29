@@ -80,7 +80,7 @@ struct RequestLog {
  */
 struct PushLog {
     StaticString<cLogIDLen>      mLogID;
-    Identity                     mNodeID;
+    Identity                     mNode;
     uint64_t                     mPartsCount;
     uint64_t                     mPart;
     StaticString<cLogContentLen> mContent;
@@ -95,7 +95,7 @@ struct PushLog {
      */
     bool operator==(const PushLog& log) const
     {
-        return mNodeID == log.mNodeID && mLogID == log.mLogID && mPartsCount == log.mPartsCount && mPart == log.mPart
+        return mNode == log.mNode && mLogID == log.mLogID && mPartsCount == log.mPartsCount && mPart == log.mPart
             && mContent == log.mContent && mStatus == log.mStatus && mError == log.mError;
     }
 
