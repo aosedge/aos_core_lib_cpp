@@ -15,6 +15,40 @@ namespace aos::cm::launcher {
  *  @{
  */
 
+/*
+ * Instance info.
+ */
+struct RunInstanceRequest {
+    StaticString<cIDLen> mItemID;
+    StaticString<cIDLen> mProviderID;
+    UpdateItemType       mItemType;
+    StaticString<cIDLen> mSubjectID;
+    size_t               mPriority {};
+    size_t               mNumInstances {};
+    LabelsArray          mLabels;
+
+    /**
+     * Compares instance info.
+     *
+     * @param other instance info to compare.
+     * @return bool.
+     */
+    bool operator==(const RunInstanceRequest& other) const
+    {
+        return mItemID == other.mItemID && mProviderID == other.mProviderID && mItemType == other.mItemType
+            && mSubjectID == other.mSubjectID && mPriority == other.mPriority && mNumInstances == other.mNumInstances
+            && mLabels == other.mLabels;
+    }
+
+    /**
+     * Compares instance info.
+     *
+     * @param other instance info to compare.
+     * @return bool.
+     */
+    bool operator!=(const RunInstanceRequest& other) const { return !operator==(other); }
+};
+
 /**
  * Instance launcher interface.
  */
@@ -40,7 +74,7 @@ public:
      * @param[out] statuses instances statuses.
      * @return Error.
      */
-    virtual Error RunInstances(const Array<InstanceInfo>& instances) = 0;
+    virtual Error RunInstances(const Array<RunInstanceRequest>& instances) = 0;
 
     /**
      * Rebalances instances.
