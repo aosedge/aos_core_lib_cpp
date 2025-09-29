@@ -4,8 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_LAUNCHER_ITF_STATUSLISTENER_HPP_
-#define AOS_CORE_CM_LAUNCHER_ITF_STATUSLISTENER_HPP_
+#ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSPROVIER_HPP_
+#define AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSPROVIER_HPP_
+
+#include <core/common/types/instance.hpp>
 
 #include <core/common/types/instance.hpp>
 
@@ -18,12 +20,12 @@ namespace aos::cm::launcher {
 /**
  * Interface for receiving notification about instance statuses.
  */
-class StatusListenerItf {
+class InstanceStatusListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~StatusListenerItf() = default;
+    virtual ~InstanceStatusListenerItf() = default;
 
     /**
      * Notifies about instances statuses change.
@@ -36,11 +38,20 @@ public:
 /**
  * Interface for notifying about instance statuses.
  */
-class StatusNotifierItf {
+class InstanceStatusProviderItf {
+public:
     /**
      * Destructor.
      */
-    virtual ~StatusNotifierItf() = default;
+    virtual ~InstanceStatusProviderItf() = default;
+
+    /**
+     * Returns current statuses of running instances.
+     *
+     * @param[out] statuses instances statuses.
+     * @return Error.
+     */
+    virtual Error GetInstancesStatuses(Array<InstanceStatus>& statuses) = 0;
 
     /**
      * Subscribes status notifications.
@@ -48,7 +59,7 @@ class StatusNotifierItf {
      * @param listener status listener.
      * @return Error.
      */
-    virtual Error SubscribeListener(StatusListenerItf& listener) = 0;
+    virtual Error SubscribeListener(InstanceStatusListenerItf& listener) = 0;
 
     /**
      * Unsubscribes from status notifications.
@@ -56,7 +67,7 @@ class StatusNotifierItf {
      * @param listener status listener.
      * @return Error.
      */
-    virtual Error UnsubscribeListener(StatusListenerItf& listener) = 0;
+    virtual Error UnsubscribeListener(InstanceStatusListenerItf& listener) = 0;
 };
 
 /** @}*/
