@@ -14,38 +14,11 @@
 namespace aos::cloudprotocol {
 
 /**
- * StartProvisioningRequest message.
- */
-struct StartProvisioningRequest {
-    Identity                      mNodeID;
-    StaticString<cCertSecretSize> mPassword;
-
-    /**
-     * Compares start provisioning request.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator==(const StartProvisioningRequest& other) const
-    {
-        return mNodeID == other.mNodeID && mPassword == other.mPassword;
-    }
-
-    /**
-     * Compares start provisioning request.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator!=(const StartProvisioningRequest& other) const { return !operator==(other); }
-};
-
-/**
  * CSR info.
  */
 struct CSRInfo {
     CertType                         mType;
-    StaticString<crypto::cCSRPEMLen> mCsr;
+    StaticString<crypto::cCSRPEMLen> mCSR;
 
     /**
      * Compares CSR info.
@@ -53,7 +26,7 @@ struct CSRInfo {
      * @param other CSR info to compare with.
      * @return bool.
      */
-    bool operator==(const CSRInfo& other) const { return mType == other.mType && mCsr == other.mCsr; }
+    bool operator==(const CSRInfo& other) const { return mType == other.mType && mCSR == other.mCSR; }
 
     /**
      * Compares CSR info.
@@ -67,39 +40,11 @@ struct CSRInfo {
 using CSRInfoArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
 
 /**
- * StartProvisioningResponse message.
- */
-struct StartProvisioningResponse {
-    Identity     mNodeID;
-    Error        mError;
-    CSRInfoArray mCSRs;
-
-    /**
-     * Compares start provisioning response.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator==(const StartProvisioningResponse& other) const
-    {
-        return mNodeID == other.mNodeID && mError == other.mError && mCSRs == other.mCSRs;
-    }
-
-    /**
-     * Compares start provisioning response.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator!=(const StartProvisioningResponse& other) const { return !operator==(other); }
-};
-
-/**
  * Certificate info.
  */
 struct CertInfo {
-    CertType                               mType;
-    StaticString<crypto::cCertChainPEMLen> mCertificateChain;
+    CertType                               mCertType;
+    StaticString<crypto::cCertChainPEMLen> mCertChain;
 
     /**
      * Compares certificate info.
@@ -109,7 +54,7 @@ struct CertInfo {
      */
     bool operator==(const CertInfo& other) const
     {
-        return mType == other.mType && mCertificateChain == other.mCertificateChain;
+        return mCertType == other.mCertType && mCertChain == other.mCertChain;
     }
 
     /**
@@ -124,10 +69,65 @@ struct CertInfo {
 using CertInfoArray = StaticArray<CertInfo, cCertsPerNodeCount>;
 
 /**
+ * Start provisioning request.
+ */
+struct StartProvisioningRequest {
+    Identity                      mNode;
+    StaticString<cCertSecretSize> mPassword;
+
+    /**
+     * Compares start provisioning request.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const StartProvisioningRequest& other) const
+    {
+        return mNode == other.mNode && mPassword == other.mPassword;
+    }
+
+    /**
+     * Compares start provisioning request.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const StartProvisioningRequest& other) const { return !operator==(other); }
+};
+
+/**
+ * Start provisioning response.
+ */
+struct StartProvisioningResponse {
+    Identity     mNode;
+    CSRInfoArray mCSRs;
+    Error        mError;
+
+    /**
+     * Compares start provisioning response.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator==(const StartProvisioningResponse& other) const
+    {
+        return mNode == other.mNode && mCSRs == other.mCSRs && mError == other.mError;
+    }
+
+    /**
+     * Compares start provisioning response.
+     *
+     * @param other object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const StartProvisioningResponse& other) const { return !operator==(other); }
+};
+
+/**
  * FinishProvisioningRequest message.
  */
 struct FinishProvisioningRequest {
-    Identity                      mNodeID;
+    Identity                      mNode;
     CertInfoArray                 mCertificates;
     StaticString<cCertSecretSize> mPassword;
 
@@ -139,7 +139,7 @@ struct FinishProvisioningRequest {
      */
     bool operator==(const FinishProvisioningRequest& other) const
     {
-        return mNodeID == other.mNodeID && mCertificates == other.mCertificates && mPassword == other.mPassword;
+        return mNode == other.mNode && mCertificates == other.mCertificates && mPassword == other.mPassword;
     }
 
     /**
@@ -155,7 +155,7 @@ struct FinishProvisioningRequest {
  * FinishProvisioningResponse message.
  */
 struct FinishProvisioningResponse {
-    Identity mNodeID;
+    Identity mNode;
     Error    mError;
 
     /**
@@ -166,7 +166,7 @@ struct FinishProvisioningResponse {
      */
     bool operator==(const FinishProvisioningResponse& other) const
     {
-        return mNodeID == other.mNodeID && mError == other.mError;
+        return mNode == other.mNode && mError == other.mError;
     }
 
     /**
@@ -182,7 +182,7 @@ struct FinishProvisioningResponse {
  * DeprovisioningRequest message.
  */
 struct DeprovisioningRequest {
-    Identity                      mNodeID;
+    Identity                      mNode;
     StaticString<cCertSecretSize> mPassword;
 
     /**
@@ -193,7 +193,7 @@ struct DeprovisioningRequest {
      */
     bool operator==(const DeprovisioningRequest& other) const
     {
-        return mNodeID == other.mNodeID && mPassword == other.mPassword;
+        return mNode == other.mNode && mPassword == other.mPassword;
     }
 
     /**
@@ -209,7 +209,7 @@ struct DeprovisioningRequest {
  * DeprovisioningRequest message.
  */
 struct DeprovisioningResponse {
-    Identity mNodeID;
+    Identity mNode;
     Error    mError;
 
     /**
@@ -220,7 +220,7 @@ struct DeprovisioningResponse {
      */
     bool operator==(const DeprovisioningResponse& other) const
     {
-        return mNodeID == other.mNodeID && mError == other.mError;
+        return mNode == other.mNode && mError == other.mError;
     }
 
     /**
