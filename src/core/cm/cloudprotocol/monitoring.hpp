@@ -45,7 +45,7 @@ using PartitionUsageArray = StaticArray<PartitionUsage, cMaxNumPartitions>;
  * Monitoring data.
  */
 struct MonitoringData {
-    Time                mTime;
+    Time                mTimestamp {};
     size_t              mCPU {};
     size_t              mRAM {};
     size_t              mDownload {};
@@ -79,7 +79,7 @@ using MonitoringDataArray = StaticArray<MonitoringData, cMonitoringItemsCount>;
  * Instance state information.
  */
 struct InstanceStateInfo {
-    Time          mTimestamp;
+    Time          mTimestamp {};
     InstanceState mState;
 
     /**
@@ -108,7 +108,7 @@ using InstanceStateInfoArray = StaticArray<InstanceStateInfo, cMonitoringItemsCo
  * Instance monitoring data.
  */
 struct InstanceMonitoringData : public InstanceIdent {
-    Identity               mNodeID;
+    Identity               mNode;
     MonitoringDataArray    mItems;
     InstanceStateInfoArray mStates;
 
@@ -120,7 +120,7 @@ struct InstanceMonitoringData : public InstanceIdent {
      */
     bool operator==(const InstanceMonitoringData& data) const
     {
-        return InstanceIdent::operator==(data) && mNodeID == data.mNodeID && mItems == data.mItems
+        return InstanceIdent::operator==(data) && mNode == data.mNode && mItems == data.mItems
             && mStates == data.mStates;
     }
 
@@ -139,7 +139,7 @@ using InstanceMonitoringDataArray = StaticArray<InstanceMonitoringData, cMaxNumI
  * Node state info.
  */
 struct NodeStateInfo {
-    Time      mTimestamp;
+    Time      mTimestamp {};
     bool      mProvisioned = false;
     NodeState mState;
 
@@ -169,7 +169,7 @@ using NodeStateInfoArray = StaticArray<NodeStateInfo, cMonitoringItemsCount>;
  * Node monitoring data.
  */
 struct NodeMonitoringData {
-    Identity            mNodeID;
+    Identity            mNode;
     MonitoringDataArray mItems;
     NodeStateInfoArray  mStates;
 
@@ -181,7 +181,7 @@ struct NodeMonitoringData {
      */
     bool operator==(const NodeMonitoringData& data) const
     {
-        return mNodeID == data.mNodeID && mItems == data.mItems && mStates == data.mStates;
+        return mNode == data.mNode && mItems == data.mItems && mStates == data.mStates;
     }
 
     /**
