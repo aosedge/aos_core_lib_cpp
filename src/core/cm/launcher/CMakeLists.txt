@@ -14,12 +14,18 @@ set(TARGET_NAME launcher)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/imageinfoprovider.hpp itf/instancerunner.hpp itf/launcher.hpp itf/monitoringprovider.hpp
-            itf/statusnotifier.hpp
+set(HEADERS itf/imageinfoprovider.hpp itf/instancerunner.hpp itf/instancestatusprovider.hpp itf/launcher.hpp
+            itf/monitoringprovider.hpp itf/storage.hpp
 )
+
+# ######################################################################################################################
+# Sources
+# ######################################################################################################################
+
+set(SOURCES balancer.cpp instance.cpp instancemanager.cpp launcher.cpp node.cpp nodemanager.cpp)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS} SOURCES ${SOURCES})
