@@ -75,7 +75,7 @@ struct Identity {
  * Instance identity.
  */
 struct InstanceIdent {
-    Identity mIdentity;
+    Identity mItem;
     Identity mSubject;
     uint64_t mInstance = 0;
 
@@ -87,7 +87,7 @@ struct InstanceIdent {
      */
     bool operator==(const InstanceIdent& other) const
     {
-        return mIdentity == other.mIdentity && mSubject == other.mSubject && mInstance == other.mInstance;
+        return mItem == other.mItem && mSubject == other.mSubject && mInstance == other.mInstance;
     }
 
     /**
@@ -103,7 +103,7 @@ struct InstanceIdent {
  * Instance filter.
  */
 struct InstanceFilter {
-    Optional<Identity> mIdentity;
+    Optional<Identity> mItem;
     Optional<Identity> mSubject;
     Optional<uint64_t> mInstance;
 
@@ -115,7 +115,7 @@ struct InstanceFilter {
      */
     bool operator==(const InstanceFilter& other) const
     {
-        return mIdentity == other.mIdentity && mSubject == other.mSubject && mInstance == other.mInstance;
+        return mItem == other.mItem && mSubject == other.mSubject && mInstance == other.mInstance;
     }
 
     /**
