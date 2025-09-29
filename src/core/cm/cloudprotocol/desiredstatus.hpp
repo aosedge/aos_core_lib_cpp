@@ -164,6 +164,7 @@ using UpdateImageInfoArray = StaticArray<UpdateImageInfo, cMaxNumUpdateImages>;
  */
 struct UpdateItemInfo {
     Identity                  mIdentity;
+    Identity                  mOwner;
     StaticString<cVersionLen> mVersion;
     UpdateImageInfoArray      mImages;
 
@@ -175,7 +176,8 @@ struct UpdateItemInfo {
      */
     bool operator==(const UpdateItemInfo& other) const
     {
-        return mIdentity == other.mIdentity && mVersion == other.mVersion && mImages == other.mImages;
+        return mIdentity == other.mIdentity && mOwner == other.mOwner && mVersion == other.mVersion
+            && mImages == other.mImages;
     }
 
     /**
