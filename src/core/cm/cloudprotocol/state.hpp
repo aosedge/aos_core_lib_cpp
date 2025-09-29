@@ -19,40 +19,28 @@ namespace aos::cloudprotocol {
 static constexpr auto cStateReason = cErrorMessageLen;
 
 /**
- * State acceptance.
+ * New state.
  */
-struct StateAcceptance {
-    InstanceIdent                         mInstanceIdent;
+struct NewState : public InstanceIdent {
     StaticString<crypto::cSHA2DigestSize> mChecksum;
-    StateResult                           mResult;
-    StaticString<cStateReason>            mReason;
+    StaticString<cStateLen>               mState;
 
     /**
-     * Compares state acceptance.
+     * Compares new state.
      *
-     * @param acceptance state acceptance to compare with.
+     * @param state new state to compare with.
      * @return bool.
      */
-    bool operator==(const StateAcceptance& acceptance) const
+    bool operator==(const NewState& state) const
     {
-        return mInstanceIdent == acceptance.mInstanceIdent && mChecksum == acceptance.mChecksum
-            && mResult == acceptance.mResult && mReason == acceptance.mReason;
+        return InstanceIdent::operator==(state) && mChecksum == state.mChecksum && mState == state.mState;
     }
-
-    /**
-     * Compares state acceptance.
-     *
-     * @param acceptance state acceptance to compare with.
-     * @return bool.
-     */
-    bool operator!=(const StateAcceptance& acceptance) const { return !operator==(acceptance); }
 };
 
 /**
  * Update state.
  */
-struct UpdateState {
-    InstanceIdent                         mInstanceIdent;
+struct UpdateState : public InstanceIdent {
     StaticString<crypto::cSHA2DigestSize> mChecksum;
     StaticString<cStateLen>               mState;
 
@@ -64,7 +52,7 @@ struct UpdateState {
      */
     bool operator==(const UpdateState& state) const
     {
-        return mInstanceIdent == state.mInstanceIdent && mChecksum == state.mChecksum && mState == state.mState;
+        return InstanceIdent::operator==(state) && mChecksum == state.mChecksum && mState == state.mState;
     }
 
     /**
@@ -77,23 +65,32 @@ struct UpdateState {
 };
 
 /**
- * New state.
+ * State acceptance.
  */
-struct NewState {
-    InstanceIdent                         mInstanceIdent;
+struct StateAcceptance : public InstanceIdent {
     StaticString<crypto::cSHA2DigestSize> mChecksum;
-    StaticString<cStateLen>               mState;
+    StateResult                           mResult;
+    StaticString<cStateReason>            mReason;
 
     /**
-     * Compares new state.
+     * Compares state acceptance.
      *
-     * @param state new state to compare with.
+     * @param acceptance state acceptance to compare with.
      * @return bool.
      */
-    bool operator==(const NewState& state) const
+    bool operator==(const StateAcceptance& acceptance) const
     {
-        return mInstanceIdent == state.mInstanceIdent && mChecksum == state.mChecksum && mState == state.mState;
+        return InstanceIdent::operator==(acceptance) && mChecksum == acceptance.mChecksum
+            && mResult == acceptance.mResult && mReason == acceptance.mReason;
     }
+
+    /**
+     * Compares state acceptance.
+     *
+     * @param acceptance state acceptance to compare with.
+     * @return bool.
+     */
+    bool operator!=(const StateAcceptance& acceptance) const { return !operator==(acceptance); }
 };
 
 /**
