@@ -31,10 +31,10 @@ TEST(CommonTest, Types)
     EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2}) != (InstanceIdent {"service1", "subject1", 2}));
 
     //  comparision
-    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2}, "runc", 2, 3, 4, "state", "storage", {}})
-        == (InstanceInfo {{"service1", "subject1", 2}, "runc", 2, 3, 4, "state", "storage", {}}));
-    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2}, "runc", 2, 3, 4, "state", "storage", {}})
-        != (InstanceInfo {{"service1", "subject1", 2}, "runc", 2, 3, 4, "state", "storage", {}}));
+    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", 2, 3, 4, "state", "storage", {}})
+        == (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", 2, 3, 4, "state", "storage", {}}));
+    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", 2, 3, 4, "state", "storage", {}})
+        != (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", 2, 3, 4, "state", "storage", {}}));
 
     // InstanceStatus comparision
     EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", {}, InstanceStateEnum::eActive,

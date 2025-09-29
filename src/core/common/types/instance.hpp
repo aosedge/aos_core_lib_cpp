@@ -18,6 +18,7 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
+    StaticString<cIDLen>       mImageID;
     StaticString<cIDLen>       mRuntimeID;
     uid_t                      mUID {};
     gid_t                      mGID {};
