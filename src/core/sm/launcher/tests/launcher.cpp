@@ -185,9 +185,9 @@ TEST_F(LauncherTest, RunInstances)
         // start from scratch
         {
             std::vector<InstanceInfo> {
-                {{"service0", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service1", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service2", "subject0", 0}, "", 0, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -205,9 +205,9 @@ TEST_F(LauncherTest, RunInstances)
         // start the same instances
         {
             std::vector<InstanceInfo> {
-                {{"service0", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service1", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service2", "subject0", 0}, "", 0, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -225,9 +225,9 @@ TEST_F(LauncherTest, RunInstances)
         // stop and start some instances
         {
             std::vector<InstanceInfo> {
-                {{"service0", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service2", "subject0", 1}, "", 0, 0, 0, "", "", {}},
-                {{"service3", "subject0", 2}, "", 0, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service2", "subject0", 1}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service3", "subject0", 2}, "image1", "", 0, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -245,9 +245,9 @@ TEST_F(LauncherTest, RunInstances)
         // new service version
         {
             std::vector<InstanceInfo> {
-                {{"service0", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service2", "subject0", 1}, "", 0, 0, 0, "", "", {}},
-                {{"service3", "subject0", 2}, "", 0, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service2", "subject0", 1}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service3", "subject0", 2}, "image1", "", 0, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "2.0.0", 0, "", {}, 0},
@@ -265,9 +265,9 @@ TEST_F(LauncherTest, RunInstances)
         // run error
         {
             std::vector<InstanceInfo> {
-                {{"service0", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service1", "subject0", 0}, "", 0, 0, 0, "", "", {}},
-                {{"service2", "subject0", 0}, "", 0, 0, 0, "", "", {}},
+                {{"service0", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service1", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
+                {{"service2", "subject0", 0}, "image1", "", 0, 0, 0, "", "", {}},
             },
             std::vector<ServiceInfo> {
                 {"service0", "provider0", "1.0.0", 0, "", {}, 0},
@@ -341,7 +341,7 @@ TEST_F(LauncherTest, RunMaxInstances)
         auto          serviceID = "service" + std::to_string(i % cMaxNumServices);
         InstanceIdent ident     = {serviceID.c_str(), "subject0", i / cMaxNumServices};
 
-        testItem.mInstances.push_back({ident, "", 0, 0, 0, "", "", {}});
+        testItem.mInstances.push_back({ident, "", "image1", 0, 0, 0, "", "", {}});
         testItem.mStatus.push_back({ident, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"});
     }
 
