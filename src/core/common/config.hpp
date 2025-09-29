@@ -163,7 +163,7 @@
 #endif
 
 /**
- * Max number of instances.
+ * Max number of instances per unit.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_INSTANCES
 #define AOS_CONFIG_TYPES_MAX_NUM_INSTANCES 256
