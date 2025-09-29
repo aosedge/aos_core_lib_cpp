@@ -5,7 +5,7 @@
  */
 
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
-#ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
+#define AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
 
 namespace aos::cm::launcher {
 
@@ -34,7 +34,7 @@ public:
     virtual Error UpdateInstances(const String& nodeID, const Array<aos::InstanceInfo>& stopInstances,
         const Array<aos::InstanceInfo>& startInstances)
         = 0;
-}
+};
 
 /** @}*/
 
