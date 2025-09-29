@@ -1384,7 +1384,7 @@ TEST_F(ImageManagerTest, GetServiceConfig_Success)
         .WillOnce(DoAll(Invoke([](const String&, oci::ServiceConfig& svc) {
             svc.mAuthor             = "author";
             svc.mSkipResourceLimits = true;
-            svc.mBalancingPolicy    = "rr";
+            svc.mBalancingPolicy    = oci::BalancingPolicyEnum::eNone;
             auto err                = svc.mRunners.EmplaceBack();
             if (err.IsNone()) {
                 svc.mRunners.Back() = "runc";
@@ -1398,7 +1398,7 @@ TEST_F(ImageManagerTest, GetServiceConfig_Success)
     EXPECT_TRUE(err.Is(ErrorEnum::eNone));
     EXPECT_EQ(cfg.mAuthor, String("author"));
     EXPECT_TRUE(cfg.mSkipResourceLimits);
-    EXPECT_EQ(cfg.mBalancingPolicy, String("rr"));
+    EXPECT_EQ(cfg.mBalancingPolicy, oci::BalancingPolicyEnum::eNone);
     EXPECT_EQ(cfg.mRunners.Size(), 1);
     EXPECT_EQ(cfg.mRunners[0], String("runc"));
 }
