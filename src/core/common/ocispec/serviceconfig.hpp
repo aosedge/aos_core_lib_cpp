@@ -118,6 +118,27 @@ struct ServiceDevice {
 };
 
 /**
+ * Balancing policy.
+ */
+class BalancingPolicyType {
+public:
+    enum class Enum { eNone, eBalancingDisabled };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sBalancingPolicyStrings[] = {
+            "none",
+            "disabled",
+        };
+
+        return Array<const char* const>(sBalancingPolicyStrings, ArraySize(sBalancingPolicyStrings));
+    };
+};
+
+using BalancingPolicyEnum = BalancingPolicyType::Enum;
+using BalancingPolicy     = EnumStringer<BalancingPolicyType>;
+
+/**
  * Service configuration.
  */
 struct ServiceConfig {
@@ -125,7 +146,7 @@ struct ServiceConfig {
     StaticString<cAuthorLen>                                                       mAuthor;
     bool                                                                           mSkipResourceLimits;
     Optional<StaticString<cHostNameLen>>                                           mHostname;
-    StaticString<cBalancingPolicyLen>                                              mBalancingPolicy;
+    BalancingPolicy                                                                mBalancingPolicy;
     StaticArray<StaticString<cRunnerNameLen>, cMaxNumRunners>                      mRunners;
     RunParameters                                                                  mRunParameters;
     StaticMap<StaticString<cSysctlLen>, StaticString<cSysctlLen>, cSysctlMaxCount> mSysctl;
