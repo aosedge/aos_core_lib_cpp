@@ -145,27 +145,27 @@ public:
     /**
      * Gets items info.
      *
-     * @param services Items info.
+     * @param items Items info.
      * @return Error.
      */
-    virtual Error GetItemsInfo(Array<ItemInfo>& services) = 0;
+    virtual Error GetItemsInfo(Array<ItemInfo>& items) = 0;
 
     /**
      * Gets item versions by ID.
      *
      * @param id ID.
-     * @param services Items info.
+     * @param items Items info.
      * @return Error.
      */
-    virtual Error GetItemVersionsByID(const String& id, Array<ItemInfo>& services) = 0;
+    virtual Error GetItemVersionsByID(const String& id, Array<ItemInfo>& items) = 0;
 
     /**
      * Adds item.
      *
-     * @param serviceItem Item info.
+     * @param item Item info.
      * @return Error.
      */
-    virtual Error AddItem(const ItemInfo& serviceItem) = 0;
+    virtual Error AddItem(const ItemInfo& item) = 0;
 };
 
 } // namespace aos::cm::imagemanager::storage
