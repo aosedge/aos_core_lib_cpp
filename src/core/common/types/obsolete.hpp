@@ -18,12 +18,9 @@
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/uuid.hpp>
 
-namespace aos {
+#include "common.hpp"
 
-/*
- *  ID len.
- */
-constexpr auto cIDLen = AOS_CONFIG_TYPES_ID_LEN;
+namespace aos {
 
 /**
  * Max number of service providers.
@@ -44,11 +41,6 @@ constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
  * Unit model len.
  */
 constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
-
-/*
- * URL len.
- */
-constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
 
 /*
  * Maximum number of URLs.
@@ -131,26 +123,6 @@ constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
 constexpr auto cFileChunkSize = AOS_CONFIG_TYPES_FILE_CHUNK_SIZE;
 
 /*
- * Partition name len.
- */
-constexpr auto cPartitionNameLen = AOS_CONFIG_TYPES_PARTITION_NAME_LEN;
-
-/*
- * Max number of partitions.
- */
-constexpr auto cMaxNumPartitions = AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS;
-
-/**
- * Partition type len.
- */
-constexpr auto cPartitionTypeLen = AOS_CONFIG_TYPES_PARTITION_TYPES_LEN;
-
-/*
- * Max number of partition types.
- */
-constexpr auto cMaxNumPartitionTypes = AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES;
-
-/*
  * Node name len.
  */
 constexpr auto cNodeNameLen = AOS_CONFIG_TYPES_NODE_NAME_LEN;
@@ -204,11 +176,6 @@ constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
  * CPU variant len.
  */
 constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
-
-/**
- * Version max len.
- */
-constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
 
 /*
  * File system mount type len.
@@ -264,11 +231,6 @@ constexpr auto cDeviceNameLen = AOS_CONFIG_TYPES_DEVICE_NAME_LEN;
  * Max number of host devices.
  */
 constexpr auto cMaxNumHostDevices = AOS_CONFIG_TYPES_MAX_NUM_HOST_DEVICES;
-
-/**
- * Resource name len.
- */
-constexpr auto cResourceNameLen = AOS_CONFIG_TYPES_RESOURCE_NAME_LEN;
 
 /**
  * Group name len.
@@ -512,59 +474,6 @@ struct PlatformInfo {
      * @return bool.
      */
     bool operator!=(const PlatformInfo& other) const { return !operator==(other); }
-};
-
-/**
- * Instance identification.
- */
-struct InstanceIdent {
-    StaticString<cIDLen> mItemID;
-    StaticString<cIDLen> mSubjectID;
-    uint64_t             mInstance = 0;
-
-    /**
-     * Compares instance ident.
-     *
-     * @param instance ident to compare.
-     * @return bool.
-     */
-    bool operator<(const InstanceIdent& instance) const
-    {
-        return mItemID <= instance.mItemID && mSubjectID <= instance.mSubjectID && mInstance < instance.mInstance;
-    }
-
-    /**
-     * Compares instance ident.
-     *
-     * @param instance ident to compare.
-     * @return bool.
-     */
-    bool operator==(const InstanceIdent& instance) const
-    {
-        return mItemID == instance.mItemID && mSubjectID == instance.mSubjectID && mInstance == instance.mInstance;
-    }
-
-    /**
-     * Compares instance ident.
-     *
-     * @param instance ident to compare.
-     * @return bool.
-     */
-    bool operator!=(const InstanceIdent& instance) const { return !operator==(instance); }
-
-    /**
-     * Outputs instance ident to log.
-     *
-     * @param log log to output.
-     * @param instanceIdent instance ident.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
-    {
-        return log << "{" << instanceIdent.mItemID << ":" << instanceIdent.mSubjectID << ":" << instanceIdent.mInstance
-                   << "}";
-    }
 };
 
 /**
@@ -1273,118 +1182,6 @@ struct ResourceInfoObsolete {
 };
 
 /**
- * Alert rule percents.
- */
-struct AlertRulePercents {
-    Duration mMinTimeout;
-    double   mMinThreshold;
-    double   mMaxThreshold;
-
-    /**
-     * Compares alert rule percents.
-     *
-     * @param rule alert rule percents to compare.
-     * @return bool.
-     */
-    bool operator==(const AlertRulePercents& rule) const
-    {
-        return mMinTimeout == rule.mMinTimeout && mMinThreshold == rule.mMinThreshold
-            && mMaxThreshold == rule.mMaxThreshold;
-    }
-
-    /**
-     * Compares alert rule percents.
-     *
-     * @param rule alert rule percents to compare.
-     * @return bool.
-     */
-    bool operator!=(const AlertRulePercents& rule) const { return !operator==(rule); }
-};
-
-struct AlertRulePoints {
-    Duration mMinTimeout;
-    uint64_t mMinThreshold;
-    uint64_t mMaxThreshold;
-
-    /**
-     * Compares alert rule points.
-     *
-     * @param rule alert rule points to compare.
-     * @return bool.
-     */
-    bool operator==(const AlertRulePoints& rule) const
-    {
-        return mMinTimeout == rule.mMinTimeout && mMinThreshold == rule.mMinThreshold
-            && mMaxThreshold == rule.mMaxThreshold;
-    }
-
-    /**
-     * Compares alert rule points.
-     *
-     * @param rule alert rule points to compare.
-     * @return bool.
-     */
-    bool operator!=(const AlertRulePoints& rule) const { return !operator==(rule); }
-};
-
-/**
- * Partition alert rule.
- */
-struct PartitionAlertRule : public AlertRulePercents {
-    StaticString<cPartitionNameLen> mName;
-
-    /**
-     * Compares partition alert rule.
-     *
-     * @param rule partition alert rule to compare.
-     * @return bool.
-     */
-    bool operator==(const PartitionAlertRule& rule) const
-    {
-        return mName == rule.mName && static_cast<const AlertRulePercents&>(*this) == rule;
-    }
-
-    /**
-     * Compares partition alert rule.
-     *
-     * @param rule partition alert rule to compare.
-     * @return bool.
-     */
-    bool operator!=(const PartitionAlertRule& rule) const { return !operator==(rule); }
-};
-
-/**
- * Alert rules.
- */
-struct AlertRules {
-    Optional<AlertRulePercents>                        mRAM;
-    Optional<AlertRulePercents>                        mCPU;
-    StaticArray<PartitionAlertRule, cMaxNumPartitions> mPartitions;
-    Optional<AlertRulePoints>                          mDownload;
-    Optional<AlertRulePoints>                          mUpload;
-
-    /**
-     * Compares alert rules.
-     *
-     * @param rules alert rules to compare.
-     * @return bool.
-     */
-    bool operator==(const AlertRules& rules) const
-    {
-        return mRAM == rules.mRAM && mCPU == rules.mCPU && mPartitions == rules.mPartitions
-            && mDownload == rules.mDownload && mUpload == rules.mUpload;
-    }
-
-    /**
-     * Compares alert rules.
-     *
-     * @param rules alert rules to compare.
-     * @return bool.
-     */
-    bool operator!=(const AlertRules& rules) const { return !operator==(rules); }
-};
-
-/**
  * Partition info.
  */
 struct PartitionInfo {
@@ -1859,38 +1656,6 @@ public:
 
 using CertTypeEnum = CertTypeType::Enum;
 using CertType     = EnumStringer<CertTypeType>;
-
-/**
- * Update item type.
- */
-class UpdateItemTypeType {
-public:
-    enum class Enum {
-        eComponent,
-        eService,
-        eLayer,
-        eNode,
-        eRuntime,
-        eSubject,
-        eOEM,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "component",
-            "service",
-            "layer",
-            "subject",
-            "OEM",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using UpdateItemTypeEnum = UpdateItemTypeType::Enum;
-using UpdateItemType     = EnumStringer<UpdateItemTypeType>;
 
 /**
  * Resource info.

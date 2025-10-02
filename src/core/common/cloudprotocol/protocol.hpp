@@ -9,7 +9,6 @@
 
 #include <core/common/tools/variant.hpp>
 
-#include "alerts.hpp"
 #include "certificates.hpp"
 #include "common.hpp"
 #include "desiredstatus.hpp"
@@ -33,7 +32,6 @@ static constexpr auto cProtocolVersion = 7;
 class MessageTypeType {
 public:
     enum class Enum {
-        eAlerts,
         eDeprovisioningRequest,
         eDeprovisioningResponse,
         eDesiredStatus,
@@ -60,7 +58,6 @@ public:
     static const Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
-            "alerts",
             "deprovisioningRequest",
             "deprovisioningResponse",
             "desiredStatus",
@@ -94,7 +91,7 @@ using MessageType     = EnumStringer<MessageTypeType>;
 /**
  * Cloud message variant type.
  */
-using MessageVariant = Variant<Alerts, Monitoring, UnitStatus, DesiredStatus, NewState, StateRequest, StateAcceptance,
+using MessageVariant = Variant<Monitoring, UnitStatus, DesiredStatus, NewState, StateRequest, StateAcceptance,
     UpdateState, RequestLog, PushLog, OverrideEnvVarsRequest, OverrideEnvVarsStatuses, RenewCertsNotification,
     IssuedUnitCerts, IssueUnitCerts, InstallUnitCertsConfirmation, StartProvisioningRequest, StartProvisioningResponse,
     FinishProvisioningRequest, FinishProvisioningResponse, DeprovisioningRequest, DeprovisioningResponse>;
