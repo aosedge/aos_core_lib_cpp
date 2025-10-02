@@ -11,7 +11,6 @@
 #include <core/common/connectionprovider/connectionprovider.hpp>
 #include <core/common/tools/error.hpp>
 #include <core/common/tools/thread.hpp>
-#include <core/common/types/obsolete.hpp>
 #include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
 
 #include "alertprocessor.hpp"
