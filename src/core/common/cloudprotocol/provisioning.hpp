@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_PROVISIONING_HPP_
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_PROVISIONING_HPP_
 
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 #include "certificates.hpp"
 

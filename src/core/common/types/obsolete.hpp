@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_TYPES_TYPES_HPP_
-#define AOS_CORE_COMMON_TYPES_TYPES_HPP_
+#ifndef AOS_CORE_COMMON_TYPES_OBSOLETE_HPP_
+#define AOS_CORE_COMMON_TYPES_OBSOLETE_HPP_
 
 #include <cstdint>
 

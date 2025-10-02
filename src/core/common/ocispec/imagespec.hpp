@@ -8,7 +8,7 @@
 #define AOS_CORE_COMMON_OCISPEC_IMAGESPEC_HPP_
 
 #include <core/common/tools/optional.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 #include "common.hpp"
 

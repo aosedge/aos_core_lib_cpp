@@ -8,7 +8,7 @@
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_DESIREDSTATUS_HPP_
 
 #include <core/common/crypto/crypto.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 #include "common.hpp"
 

@@ -8,7 +8,7 @@
 #ifndef AOS_CORE_SM_LAUNCHER_CONFIG_HPP_
 #define AOS_CORE_SM_LAUNCHER_CONFIG_HPP_
 
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 #include <core/sm/config.hpp>
 
 namespace aos::sm::launcher {
