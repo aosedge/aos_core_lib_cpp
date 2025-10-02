@@ -8,7 +8,7 @@
 #ifndef AOS_CORE_IDENTHANDLER_IDENTHANDLER_HPP_
 #define AOS_CORE_IDENTHANDLER_IDENTHANDLER_HPP_
 
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 #include <core/iam/config.hpp>
 
 namespace aos::iam::identhandler {

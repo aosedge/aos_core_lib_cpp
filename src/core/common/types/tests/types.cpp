@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 using namespace aos;
 

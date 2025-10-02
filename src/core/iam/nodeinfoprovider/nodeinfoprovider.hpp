@@ -9,7 +9,7 @@
 #define AOS_CORE_IAM_NODEINFOPROVIDER_NODEINFOPROVIDER_HPP_
 
 #include <core/common/tools/error.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::iam::nodeinfoprovider {
 

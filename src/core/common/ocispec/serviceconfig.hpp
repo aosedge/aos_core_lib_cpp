@@ -9,7 +9,7 @@
 
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/optional.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 #include "common.hpp"
 

@@ -15,7 +15,7 @@
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/uuid.hpp>
 #include <core/common/tools/variant.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::crypto {
 

@@ -11,7 +11,6 @@
 #include <dirent.h>
 
 #include <core/common/crypto/crypto.hpp>
-#include <core/common/types/types.hpp>
 
 #include "config.hpp"
 #include "noncopyable.hpp"

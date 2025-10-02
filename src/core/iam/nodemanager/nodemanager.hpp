@@ -10,7 +10,7 @@
 
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 #include <core/iam/config.hpp>
 
 namespace aos::iam::nodemanager {

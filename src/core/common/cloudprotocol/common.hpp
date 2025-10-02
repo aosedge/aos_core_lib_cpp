@@ -10,7 +10,7 @@
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/uuid.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::cloudprotocol {
 

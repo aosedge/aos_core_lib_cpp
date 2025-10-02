@@ -10,7 +10,7 @@
 #include <core/common/ocispec/ocispec.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/string.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::sm::image {
 
