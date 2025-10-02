@@ -15,7 +15,6 @@ set(TARGET_NAME cloudprotocol)
 # ######################################################################################################################
 
 set(HEADERS
-    alerts.hpp
     certificates.hpp
     common.hpp
     desiredstatus.hpp

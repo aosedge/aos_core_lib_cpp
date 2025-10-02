@@ -8,7 +8,7 @@
 #define AOS_CORE_COMMON_MONITORING_ALERTPROCESSOR_HPP_
 
 #include <core/common/alerts/alerts.hpp>
-#include <core/common/cloudprotocol/alerts.hpp>
+#include <core/common/types/alerts.hpp>
 
 namespace aos::monitoring {
 
@@ -140,7 +140,7 @@ public:
      * @return Error.
      */
     Error Init(ResourceIdentifier id, uint64_t maxValue, const AlertRulePercents& rule, alerts::SenderItf& sender,
-        const cloudprotocol::AlertVariant& alertTemplate);
+        const AlertVariant& alertTemplate);
 
     /**
      * Initializes alert processor.
@@ -152,7 +152,7 @@ public:
      * @return Error.
      */
     Error Init(ResourceIdentifier id, const AlertRulePoints& rule, alerts::SenderItf& sender,
-        const cloudprotocol::AlertVariant& alertTemplate);
+        const AlertVariant& alertTemplate);
 
     /**
      * Checks alert detection. If alert condition is true, sends alert.
@@ -173,11 +173,11 @@ public:
 private:
     Error HandleMaxThreshold(uint64_t currentValue, const Time& currentTime);
     Error HandleMinThreshold(uint64_t currentValue, const Time& currentTime);
-    Error SendAlert(uint64_t currentValue, const Time& currentTime, cloudprotocol::AlertStatus status);
+    Error SendAlert(uint64_t currentValue, const Time& currentTime, QuotaAlertState state);
 
-    ResourceIdentifier          mID {};
-    alerts::SenderItf*          mAlertSender = nullptr;
-    cloudprotocol::AlertVariant mAlertTemplate;
+    ResourceIdentifier mID {};
+    alerts::SenderItf* mAlertSender = nullptr;
+    AlertVariant       mAlertTemplate;
 
     Duration mMinTimeout       = 0;
     uint64_t mMinThreshold     = 0;

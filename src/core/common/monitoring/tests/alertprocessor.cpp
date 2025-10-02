@@ -29,17 +29,18 @@ static constexpr auto cWaitTimeout = std::chrono::seconds {5};
 
 namespace {
 
-cloudprotocol::SystemQuotaAlert CreateSystemQuotaAlert(const String& nodeID, const String& parameter, uint64_t value,
-    std::optional<cloudprotocol::AlertStatus> status = std::nullopt, const Time& timestamp = Time())
+SystemQuotaAlert CreateSystemQuotaAlert(const String& nodeID, const String& parameter, uint64_t value,
+    std::optional<QuotaAlertState> state = std::nullopt, const Time& timestamp = Time())
 {
-    cloudprotocol::SystemQuotaAlert systemQuotaAlert(timestamp);
+    SystemQuotaAlert systemQuotaAlert;
 
+    systemQuotaAlert.mTimestamp = timestamp;
     systemQuotaAlert.mNodeID    = nodeID;
     systemQuotaAlert.mParameter = parameter;
     systemQuotaAlert.mValue     = value;
 
-    if (status) {
-        systemQuotaAlert.mStatus = *status;
+    if (state) {
+        systemQuotaAlert.mState = *state;
     }
 
     return systemQuotaAlert;
@@ -87,28 +88,27 @@ TEST_F(AlertProcessorTest, CheckRulePointAlertDetection)
     AlertProcessor alertProcessor;
 
     {
-        cloudprotocol::AlertVariant alertTemplate;
-        alertTemplate.SetValue<cloudprotocol::SystemQuotaAlert>(
-            CreateSystemQuotaAlert("node-id", resourceType.ToString(), 0));
+        AlertVariant alertTemplate;
+        alertTemplate.SetValue<SystemQuotaAlert>(CreateSystemQuotaAlert("node-id", resourceType.ToString(), 0));
         ASSERT_TRUE(alertProcessor.Init(id, rulePoints, mAlertSender, alertTemplate).IsNone());
     }
 
     Time currentTime = Time::Now();
 
     struct {
-        uint64_t                                  mCurrentValue;
-        Duration                                  mTimeDelta;
-        std::optional<cloudprotocol::AlertStatus> mExpectedStatus;
+        uint64_t                       mCurrentValue;
+        Duration                       mTimeDelta;
+        std::optional<QuotaAlertState> mExpectedState;
     } testCases[] = {
         {1, 0, {}},
         {2, rulePoints.mMinTimeout, {}},
         {90, 2 * rulePoints.mMinTimeout, {}},
         {91, 2 * rulePoints.mMinTimeout, {}},
         {95, 2 * rulePoints.mMinTimeout, {}},
-        {96, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eRaise}},
-        {90, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eContinue}},
+        {96, 2 * rulePoints.mMinTimeout, {QuotaAlertStateEnum::eRaise}},
+        {90, 2 * rulePoints.mMinTimeout, {QuotaAlertStateEnum::eContinue}},
         {80, 2 * rulePoints.mMinTimeout, {}},
-        {80, 2 * rulePoints.mMinTimeout, {cloudprotocol::AlertStatusEnum::eFall}},
+        {80, 2 * rulePoints.mMinTimeout, {QuotaAlertStateEnum::eFall}},
     };
 
     for (const auto& testCase : testCases) {
@@ -116,11 +116,11 @@ TEST_F(AlertProcessorTest, CheckRulePointAlertDetection)
         currentTime = currentTime.Add(testCase.mTimeDelta);
 
         const auto expectedAlert = CreateSystemQuotaAlert(
-            "node-id", resourceType.ToString(), testCase.mCurrentValue, testCase.mExpectedStatus, currentTime);
+            "node-id", resourceType.ToString(), testCase.mCurrentValue, testCase.mExpectedState, currentTime);
 
-        if (testCase.mExpectedStatus) {
+        if (testCase.mExpectedState) {
             EXPECT_CALL(mAlertSender, SendAlert).WillOnce(Invoke([&expectedAlert](const auto& alert) {
-                CompareAlertVisitor<cloudprotocol::SystemQuotaAlert> visitor(expectedAlert);
+                CompareAlertVisitor<SystemQuotaAlert> visitor(expectedAlert);
 
                 EXPECT_TRUE(alert.ApplyVisitor(visitor));
 
@@ -144,28 +144,27 @@ TEST_F(AlertProcessorTest, CheckRulePercentAlertDetection)
     AlertProcessor alertProcessor;
 
     {
-        cloudprotocol::AlertVariant alertTemplate;
-        alertTemplate.SetValue<cloudprotocol::SystemQuotaAlert>(
-            CreateSystemQuotaAlert("node-id", resourceType.ToString(), 0));
+        AlertVariant alertTemplate;
+        alertTemplate.SetValue<SystemQuotaAlert>(CreateSystemQuotaAlert("node-id", resourceType.ToString(), 0));
         ASSERT_TRUE(alertProcessor.Init(id, maxDMIPS, rulePercents, mAlertSender, alertTemplate).IsNone());
     }
 
     Time currentTime = Time::Now();
 
     struct {
-        uint64_t                                  mCurrentValue;
-        Duration                                  mTimeDelta;
-        std::optional<cloudprotocol::AlertStatus> mExpectedStatus;
+        uint64_t                       mCurrentValue;
+        Duration                       mTimeDelta;
+        std::optional<QuotaAlertState> mExpectedState;
     } testCases[] = {
         {1 * maxDMIPS / 100, 0, {}},
         {2 * maxDMIPS / 100, rulePercents.mMinTimeout, {}},
         {90 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
         {91 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
         {95 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
-        {96 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eRaise}},
-        {90 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eContinue}},
+        {96 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {QuotaAlertStateEnum::eRaise}},
+        {90 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {QuotaAlertStateEnum::eContinue}},
         {80 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {}},
-        {70 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {cloudprotocol::AlertStatusEnum::eFall}},
+        {70 * maxDMIPS / 100, 2 * rulePercents.mMinTimeout, {QuotaAlertStateEnum::eFall}},
     };
 
     for (const auto& testCase : testCases) {
@@ -173,11 +172,11 @@ TEST_F(AlertProcessorTest, CheckRulePercentAlertDetection)
         currentTime = currentTime.Add(testCase.mTimeDelta);
 
         const auto expectedAlert = CreateSystemQuotaAlert(
-            "node-id", resourceType.ToString(), testCase.mCurrentValue, testCase.mExpectedStatus, currentTime);
+            "node-id", resourceType.ToString(), testCase.mCurrentValue, testCase.mExpectedState, currentTime);
 
-        if (testCase.mExpectedStatus) {
+        if (testCase.mExpectedState) {
             EXPECT_CALL(mAlertSender, SendAlert).WillOnce(Invoke([&expectedAlert](const auto& alert) {
-                CompareAlertVisitor<cloudprotocol::SystemQuotaAlert> visitor(expectedAlert);
+                CompareAlertVisitor<SystemQuotaAlert> visitor(expectedAlert);
 
                 EXPECT_TRUE(alert.ApplyVisitor(visitor));
 

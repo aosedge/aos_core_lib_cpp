@@ -8,10 +8,7 @@
 #ifndef AOS_CORE_COMMON_DOWNLOADER_DOWNLOADER_HPP_
 #define AOS_CORE_COMMON_DOWNLOADER_DOWNLOADER_HPP_
 
-#include <core/common/cloudprotocol/alerts.hpp>
-#include <core/common/tools/enum.hpp>
-#include <core/common/tools/error.hpp>
-#include <core/common/tools/string.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::downloader {
 
@@ -25,14 +22,10 @@ public:
      *
      * @param url URL.
      * @param path path to file.
-     * @param targetType target type.
-     * @param targetID target ID.
-     * @param version version.
+     * @param imageID image ID.
      * @return Error.
      */
-    virtual Error Download(const String& url, const String& path, cloudprotocol::DownloadTarget targetType,
-        const String& targetID = "", const String& version = "")
-        = 0;
+    virtual Error Download(const String& url, const String& path, const String& imageID = "") = 0;
 
     /**
      * Destroys the Downloader Itf object.

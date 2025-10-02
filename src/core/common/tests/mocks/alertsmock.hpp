@@ -15,7 +15,7 @@ namespace aos::alerts {
 
 class AlertSenderMock : public SenderItf {
 public:
-    MOCK_METHOD(Error, SendAlert, (const cloudprotocol::AlertVariant&), (override));
+    MOCK_METHOD(Error, SendAlert, (const AlertVariant&), (override));
 };
 
 } // namespace aos::alerts
