@@ -16,7 +16,7 @@
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/identifierpool.hpp>
 #include <core/common/tools/timer.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 #include "config.hpp"
 #include "itf/imagemanager.hpp"

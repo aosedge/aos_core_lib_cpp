@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_SMCONTROLLER_ITF_SMSTATUSRECEIVER_HPP_
 #define AOS_CORE_CM_SMCONTROLLER_ITF_SMSTATUSRECEIVER_HPP_
 
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::cm::smcontroller {
 

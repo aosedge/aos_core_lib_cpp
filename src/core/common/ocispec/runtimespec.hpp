@@ -8,7 +8,7 @@
 #define AOS_CORE_COMMON_OCISPEC_RUNTIMESPEC_HPP_
 
 #include <core/common/tools/map.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 #include "common.hpp"
 

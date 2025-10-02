@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
 
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::cm::launcher {
 

@@ -9,7 +9,7 @@
 
 #include <core/common/cloudprotocol/desiredstatus.hpp>
 #include <core/common/crypto/cryptoutils.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 #include <core/iam/certhandler/certprovider.hpp>
 
 namespace aos::crypto {

@@ -9,7 +9,7 @@
 
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/variant.hpp>
-#include <core/common/types/types.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::cloudprotocol {
 
