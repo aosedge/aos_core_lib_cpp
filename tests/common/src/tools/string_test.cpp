@@ -411,6 +411,12 @@ TEST(StringTest, Replace)
     err = str.Replace("Universe", "Aos", 1);
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(str, "Hi Aos! Goodbye Universe!");
+
+    str = "Replace the whole string";
+
+    err = str.Replace(str, "replaced", 1);
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(str, "replaced");
 }
 
 TEST(StringTest, Compare)
