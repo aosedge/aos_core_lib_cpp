@@ -9,6 +9,7 @@
 
 #include <core/common/types/alerts.hpp>
 #include <core/common/types/certificates.hpp>
+#include <core/common/types/desiredstatus.hpp>
 #include <core/common/types/obsolete.hpp>
 #include <core/common/types/unitconfig.hpp>
 
