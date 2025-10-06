@@ -25,8 +25,8 @@ struct UpdateImageInfo {
     StaticString<cFilePathLen>        mPath;
     StaticArray<uint8_t, cSHA256Size> mSHA256;
     size_t                            mSize {};
-    cloudprotocol::DecryptInfo        mDecryptInfo;
-    cloudprotocol::SignInfo           mSignInfo;
+    crypto::DecryptInfo               mDecryptInfo;
+    crypto::SignInfo                  mSignInfo;
 
     /**
      * Compares update image info.
@@ -134,8 +134,8 @@ public:
      * @return Error.
      */
     virtual Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
-        const Array<cloudprotocol::CertificateInfo>&              certificates,
-        const Array<cloudprotocol::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
+        const Array<crypto::CertificateInfo>&                     certificates,
+        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
         = 0;
 
     /**

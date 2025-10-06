@@ -859,6 +859,76 @@
 #endif
 
 /**
+ * Certificate fingerprint len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CERT_FINGERPRINT_LEN
+#define AOS_CONFIG_CRYPTO_CERT_FINGERPRINT_LEN 64
+#endif
+
+/**
+ * Chain name len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_CHAIN_NAME_LEN
+#define AOS_CONFIG_CRYPTO_CHAIN_NAME_LEN 64
+#endif
+
+/**
+ * Algorithm len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_ALG_LEN
+#define AOS_CONFIG_CRYPTO_ALG_LEN 64
+#endif
+
+/**
+ * IV len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_IV_SIZE
+#define AOS_CONFIG_CRYPTO_IV_SIZE 16
+#endif
+
+/**
+ * Key size.
+ */
+#ifndef AOS_CONFIG_CRYPTO_KEY_SIZE
+#define AOS_CONFIG_CRYPTO_KEY_SIZE 64
+#endif
+
+/**
+ * OCSP value len.
+ */
+#ifndef AOS_CONFIG_CRYPTO_OCSP_VALUE_LEN
+#define AOS_CONFIG_CRYPTO_OCSP_VALUE_LEN 64
+#endif
+
+/**
+ * OCSP values count.
+ */
+#ifndef AOS_CONFIG_CRYPTO_OCSP_VALUES_COUNT
+#define AOS_CONFIG_CRYPTO_OCSP_VALUES_COUNT 4
+#endif
+
+/**
+ * Number of recipient info in envelope data.
+ */
+#ifndef AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVELOPEDATA
+#define AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVELOPEDATA 4
+#endif
+
+/**
+ * Maximum size for cloud metadata.
+ */
+#ifndef AOS_CONFIG_CRYPTO_ENCRYPT_METADATA
+#define AOS_CONFIG_CRYPTO_ENCRYPT_METADATA 1024
+#endif
+
+/**
+ * Max number of certificates.
+ */
+#ifndef AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES
+#define AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES 32
+#endif
+
+/**
  * Maximum length of PKCS11 slot description.
  */
 #ifndef AOS_CONFIG_PKCS11_SLOT_DESCRIPTION_LEN
@@ -1083,55 +1153,6 @@
 #endif
 
 /**
- * Algorithm len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_ALG_LEN 64
-#endif
-
-/**
- * IV len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_IV_SIZE 16
-#endif
-
-/**
- * Key size.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_KEY_SIZE 64
-#endif
-
-/**
- * Chain name len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_CHAIN_NAME_LEN 64
-#endif
-
-/**
- * OCSP value len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUE_LEN 64
-#endif
-
-/**
- * OCSP values count.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT
-#define AOS_CONFIG_CLOUDPROTOCOL_OCSP_VALUES_COUNT 4
-#endif
-
-/**
- * Certificate fingerprint len.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN
-#define AOS_CONFIG_CLOUDPROTOCOL_CERT_FINGERPRINT_LEN 64
-#endif
-
-/**
  * Environment variable name value.
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_ENV_VAR_VALUE_LEN
@@ -1207,27 +1228,6 @@
  */
 #ifndef AOS_CONFIG_TIMERS_MAX_COUNT
 #define AOS_CONFIG_TIMERS_MAX_COUNT 32
-#endif
-
-/**
- * Number of recipient info in envelope data.
- */
-#ifndef AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVELOPEDATA
-#define AOS_CONFIG_CRYPTO_RECIPIENTS_IN_ENVELOPEDATA 4
-#endif
-
-/**
- * Maximum size for cloud metadata.
- */
-#ifndef AOS_CONFIG_CRYPTO_ENCRYPT_METADATA
-#define AOS_CONFIG_CRYPTO_ENCRYPT_METADATA 1024
-#endif
-
-/**
- * Max number of certificates.
- */
-#ifndef AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES
-#define AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES 32
 #endif
 
 #endif

@@ -132,8 +132,8 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 }
 
 Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
-    const Array<cloudprotocol::CertificateInfo>&                    certificates,
-    const Array<cloudprotocol::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
+    const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
+    Array<UpdateItemStatus>& statuses)
 {
     LockGuard lock {mMutex};
 
@@ -493,8 +493,8 @@ Error ImageManager::RemoveItem(const String& id)
  ***********************************************************************************************************************/
 
 Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
-    const Array<cloudprotocol::CertificateInfo>&            certificates,
-    const Array<cloudprotocol::CertificateChainInfo>& certificateChains, UpdateItemStatus& status)
+    const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
+    UpdateItemStatus& status)
 {
     LOG_DBG() << "Install update item" << Log::Field("id", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
               << Log::Field("images", itemInfo.mImages.Size());
@@ -925,8 +925,7 @@ void ImageManager::AcceptAllocatedSpace(spaceallocator::SpaceItf* space)
 
 Error ImageManager::InstallImage(const UpdateImageInfo& imageInfo, const UpdateItemType& itemType,
     const String& installPath, const String& itemPath, storage::ImageInfo& image,
-    const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-    const Array<cloudprotocol::CertificateInfo>&      certificates)
+    const Array<crypto::CertificateChainInfo>& certificateChains, const Array<crypto::CertificateInfo>& certificates)
 {
     LOG_DBG() << "Install image item" << Log::Field("id", imageInfo.mImage.mImageID);
 
@@ -1096,8 +1095,8 @@ Error ImageManager::PrepareServiceMetadata(
 }
 
 Error ImageManager::DecryptAndValidate(const UpdateImageInfo& imageInfo, const String& installPath,
-    const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-    const Array<cloudprotocol::CertificateInfo>& certificates, StaticString<cFilePathLen>& outDecryptedFile)
+    const Array<crypto::CertificateChainInfo>& certificateChains, const Array<crypto::CertificateInfo>& certificates,
+    StaticString<cFilePathLen>& outDecryptedFile)
 {
     outDecryptedFile = fs::JoinPath(installPath, imageInfo.mImage.mImageID);
 
