@@ -61,10 +61,25 @@ constexpr auto cResourceNameLen = AOS_CONFIG_TYPES_RESOURCE_NAME_LEN;
  */
 constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
 
+/*
+ * Maximum number of URLs.
+ */
+constexpr auto cMaxNumURLs = AOS_CONFIG_TYPES_MAX_NUM_URLS;
+
+/*
+ * File path len.
+ */
+constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
+
 /**
  * Certificate secret size.
  */
 static constexpr auto cCertSecretSize = AOS_CONFIG_TYPES_CERT_SECRET_SIZE;
+
+/**
+ * Max number of concurrent items.
+ */
+constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
 
 /**
  * Core component type.

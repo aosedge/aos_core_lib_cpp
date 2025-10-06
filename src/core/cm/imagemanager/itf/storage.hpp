@@ -50,7 +50,7 @@ struct ImageInfo : public aos::ImageInfo {
     ImageInfo() = default;
 
     StaticString<cURLLen>                                     mURL;
-    StaticArray<uint8_t, cSHA256Size>                         mSHA256;
+    StaticArray<uint8_t, crypto::cSHA256Size>                 mSHA256;
     size_t                                                    mSize {};
     StaticString<cFilePathLen>                                mPath;
     StaticArray<StaticString<cJSONMaxLen>, cMaxMetadataCount> mMetadata;

@@ -20,11 +20,11 @@ namespace aos::cm::smcontroller {
  * Update image info.
  */
 struct UpdateImageInfo {
-    StaticString<cIDLen>              mImageID;
-    StaticString<cVersionLen>         mVersion;
-    StaticString<cURLLen>             mURL;
-    StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize {};
+    StaticString<cIDLen>                      mImageID;
+    StaticString<cVersionLen>                 mVersion;
+    StaticString<cURLLen>                     mURL;
+    StaticArray<uint8_t, crypto::cSHA256Size> mSHA256;
+    size_t                                    mSize {};
 
     /**
      * Compares update image info.

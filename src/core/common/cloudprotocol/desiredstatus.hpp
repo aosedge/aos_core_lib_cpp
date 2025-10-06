@@ -163,7 +163,7 @@ struct UnitConfig {
 struct UpdateImageInfo {
     ImageInfo                                       mImage;
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mURLs;
-    StaticArray<uint8_t, cSHA256Size>               mSHA256;
+    StaticArray<uint8_t, crypto::cSHA256Size>       mSHA256;
     size_t                                          mSize {};
     crypto::DecryptInfo                             mDecryptInfo;
     crypto::SignInfo                                mSignInfo;
