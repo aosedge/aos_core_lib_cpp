@@ -14,7 +14,7 @@ set(TARGET_NAME types)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS alerts.hpp certificates.hpp obsolete.hpp)
+set(HEADERS alerts.hpp certificates.hpp obsolete.hpp unitconfig.hpp)
 
 # ######################################################################################################################
 # Target

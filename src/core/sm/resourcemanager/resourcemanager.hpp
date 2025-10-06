@@ -8,7 +8,6 @@
 #ifndef AOS_CORE_SM_RESOURCEMANAGER_RESOURCEMANAGER_HPP_
 #define AOS_CORE_SM_RESOURCEMANAGER_RESOURCEMANAGER_HPP_
 
-#include <core/common/cloudprotocol/desiredstatus.hpp>
 #include <core/common/tools/error.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
@@ -33,7 +32,7 @@ struct NodeConfig {
     StaticString<cNodeTypeLen>                                  mNodeType;
     StaticString<cNodeIDLen>                                    mNodeID;
     Optional<AlertRules>                                        mAlertRules;
-    Optional<cloudprotocol::ResourceRatios>                     mResourceRatios;
+    Optional<ResourceRatios>                                    mResourceRatios;
     StaticArray<DeviceInfo, cMaxNumNodeDevices>                 mDevices;
     StaticArray<ResourceInfoObsolete, cMaxNumNodeResources>     mResources;
     StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;

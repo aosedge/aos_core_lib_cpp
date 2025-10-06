@@ -9,6 +9,7 @@
 
 #include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/types/obsolete.hpp>
+#include <core/common/types/unitconfig.hpp>
 
 #include "common.hpp"
 
@@ -94,67 +95,6 @@ struct ResourceRatios {
      * @return bool.
      */
     bool operator!=(const ResourceRatios& ratios) const { return !operator==(ratios); }
-};
-
-/**
- * Node config.
- */
-struct NodeConfig {
-    Optional<Identifier>                                        mNode;
-    Identifier                                                  mNodeGroupSubject;
-    Optional<AlertRules>                                        mAlertRules;
-    Optional<ResourceRatios>                                    mResourceRatios;
-    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
-    uint64_t                                                    mPriority {0};
-
-    /**
-     * Compares node configs.
-     *
-     * @param nodeConfig node config to compare.
-     * @return bool.
-     */
-    bool operator==(const NodeConfig& nodeConfig) const
-    {
-        return mNode == nodeConfig.mNode && mNodeGroupSubject == nodeConfig.mNodeGroupSubject
-            && mAlertRules == nodeConfig.mAlertRules && mResourceRatios == nodeConfig.mResourceRatios
-            && mLabels == nodeConfig.mLabels && mPriority == nodeConfig.mPriority;
-    }
-
-    /**
-     * Compares node configs.
-     *
-     * @param nodeConfig node config to compare.
-     * @return bool.
-     */
-    bool operator!=(const NodeConfig& nodeConfig) const { return !operator==(nodeConfig); }
-};
-
-/**
- * Unit config.
- */
-struct UnitConfig {
-    StaticString<cVersionLen>             mVersion;
-    StaticString<cVersionLen>             mFormatVersion;
-    StaticArray<NodeConfig, cMaxNumNodes> mNodes;
-
-    /**
-     * Compares unit config.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator==(const UnitConfig& other) const
-    {
-        return mVersion == other.mVersion && mFormatVersion == other.mFormatVersion && mNodes == other.mNodes;
-    }
-
-    /**
-     * Compares unit config.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator!=(const UnitConfig& other) const { return !operator==(other); }
 };
 
 /**
