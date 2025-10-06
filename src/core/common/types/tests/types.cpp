@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/types/alerts.hpp>
+#include <core/common/types/certificates.hpp>
 #include <core/common/types/obsolete.hpp>
 
 using namespace aos;
