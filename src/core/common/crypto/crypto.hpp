@@ -135,6 +135,11 @@ constexpr auto cCertChainSize = AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE;
 constexpr auto cCertChainsCount = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT;
 
 /**
+ * Certificate chain len.
+ */
+static constexpr auto cCertChainPEMLen = cCertChainSize * cCertPEMLen;
+
+/**
  * Maximum size of SHA2 digest.
  */
 constexpr auto cSHA2DigestSize = AOS_CONFIG_CRYPTO_SHA2_DIGEST_SIZE;
