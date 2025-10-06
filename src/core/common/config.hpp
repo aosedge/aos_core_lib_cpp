@@ -37,6 +37,13 @@
 #endif
 
 /**
+ * Maximum supported number of timers.
+ */
+#ifndef AOS_CONFIG_TOOLS_TIMERS_MAX_COUNT
+#define AOS_CONFIG_TOOLS_TIMERS_MAX_COUNT 32
+#endif
+
+/**
  * Alert message len.
  */
 #ifndef AOS_CONFIG_TYPES_ALERT_MESSAGE_LEN
@@ -1221,13 +1228,6 @@
 
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT
 #define AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT 1
-#endif
-
-/**
- * Maximum supported number of timers.
- */
-#ifndef AOS_CONFIG_TIMERS_MAX_COUNT
-#define AOS_CONFIG_TIMERS_MAX_COUNT 32
 #endif
 
 #endif
