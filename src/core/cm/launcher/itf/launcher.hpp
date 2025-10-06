@@ -7,45 +7,13 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/desiredstatus.hpp>
 
 namespace aos::cm::launcher {
 
 /** @addtogroup cm Communication Manager
  *  @{
  */
-
-/*
- * Instance info.
- */
-struct InstanceInfo {
-    StaticString<cIDLen> mItemID;
-    UpdateItemType       mItemType;
-    StaticString<cIDLen> mSubjectID;
-    uint64_t             mPriority {0};
-    size_t               mNumInstances {0};
-    LabelsStaticArray    mLabels;
-
-    /**
-     * Compares instance info.
-     *
-     * @param other instance info to compare.
-     * @return bool.
-     */
-    bool operator==(const InstanceInfo& other) const
-    {
-        return mItemID == other.mItemID && mItemType == other.mItemType && mSubjectID == other.mSubjectID
-            && mPriority == other.mPriority && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
-    }
-
-    /**
-     * Compares instance info.
-     *
-     * @param other instance info to compare.
-     * @return bool.
-     */
-    bool operator!=(const InstanceInfo& other) const { return !operator==(other); }
-};
 
 /**
  * Instance launcher interface.

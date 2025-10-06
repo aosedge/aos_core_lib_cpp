@@ -44,16 +44,6 @@ constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
 constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
 
 /**
- * Max number of update items.
- */
-constexpr auto cMaxNumUpdateItems = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS;
-
-/**
- * Max number of instances.
- */
-constexpr auto cMaxNumInstances = AOS_CONFIG_TYPES_MAX_NUM_INSTANCES;
-
-/**
  * Max number of services.
  */
 constexpr auto cMaxNumServices = AOS_CONFIG_TYPES_MAX_NUM_SERVICES;
@@ -84,11 +74,6 @@ static constexpr auto cRuntimeTypeLen = AOS_CONFIG_TYPES_RUNTIME_TYPE_LEN;
 static constexpr auto cMaxNumNodeRuntimes = AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES;
 
 /**
- * Node type len.
- */
-constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
-
-/**
  * Error message len.
  */
 constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
@@ -102,21 +87,6 @@ constexpr auto cFileChunkSize = AOS_CONFIG_TYPES_FILE_CHUNK_SIZE;
  * Node name len.
  */
 constexpr auto cNodeNameLen = AOS_CONFIG_TYPES_NODE_NAME_LEN;
-
-/*
- * OS type len.
- */
-constexpr auto cOSTypeLen = AOS_CONFIG_TYPES_OS_TYPE_LEN;
-
-/**
- * OS feature len.
- */
-constexpr auto cOSFeatureLen = AOS_CONFIG_TYPES_OS_FEATURE_LEN;
-
-/**
- * OS features count.
- */
-constexpr auto cOSFeaturesCount = AOS_CONFIG_TYPES_OS_FEATURES_COUNT;
 
 /*
  * Max number of CPUs.
@@ -142,16 +112,6 @@ constexpr auto cNodeAttributeValueLen = AOS_CONFIG_TYPES_NODE_ATTRIBUTE_VALUE_LE
  * CPU model name len.
  */
 constexpr auto cCPUModelNameLen = AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN;
-
-/*
- * CPU arch len.
- */
-constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
-
-/*
- * CPU variant len.
- */
-constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
 
 /*
  * File system mount type len.
@@ -261,16 +221,6 @@ constexpr auto cMaxNumNodeDevices = AOS_CONFIG_TYPES_MAX_NUM_NODE_DEVICES;
 constexpr auto cMaxNumNodeResources = AOS_CONFIG_TYPES_MAX_NUM_NODE_RESOURCES;
 
 /**
- * Label name len.
- */
-constexpr auto cLabelNameLen = AOS_CONFIG_TYPES_LABEL_NAME_LEN;
-
-/**
- * Max number of node's labels.
- */
-constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
-
-/**
  * Max subnet len.
  */
 static constexpr auto cSubnetLen = AOS_CONFIG_TYPES_SUBNET_LEN;
@@ -346,11 +296,6 @@ static constexpr auto cConnectionNameLen = cIDLen + cExposedPortLen;
 static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS;
 
 /**
- * Max number of update images per update item.
- */
-constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
-
-/**
  * State length.
  */
 static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
@@ -359,88 +304,6 @@ static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
  * Max length of JSON.
  */
 constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
-
-/**
- * Architecture info.
- */
-struct ArchInfo {
-    StaticString<cCPUArchLen>              mArchitecture;
-    Optional<StaticString<cCPUVariantLen>> mVariant;
-
-    /**
-     * Compares architecture info.
-     *
-     * @param other architecture info to compare with.
-     * @return bool.
-     */
-    bool operator==(const ArchInfo& other) const
-    {
-        return mArchitecture == other.mArchitecture && mVariant == other.mVariant;
-    }
-
-    /**
-     * Compares architecture info.
-     *
-     * @param info architecture info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ArchInfo& info) const { return !operator==(info); }
-};
-
-/**
- * OS info.
- */
-struct OSInfo {
-    StaticString<cOSTypeLen>                                   mOS;
-    Optional<StaticString<cVersionLen>>                        mVersion;
-    StaticArray<StaticString<cOSFeatureLen>, cOSFeaturesCount> mFeatures;
-
-    /**
-     * Compares OS info.
-     *
-     * @param other OS info to compare with.
-     * @return bool.
-     */
-    bool operator==(const OSInfo& other) const
-    {
-        return mOS == other.mOS && mVersion == other.mVersion && mFeatures == other.mFeatures;
-    }
-
-    /**
-     * Compares OS info.
-     *
-     * @param other OS info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const OSInfo& other) const { return !operator==(other); }
-};
-
-/**
- * Platform info.
- */
-struct PlatformInfo {
-    ArchInfo mArchInfo;
-    OSInfo   mOSInfo;
-
-    /**
-     * Compares platform info.
-     *
-     * @param other platform info to compare with.
-     * @return bool.
-     */
-    bool operator==(const PlatformInfo& other) const
-    {
-        return mArchInfo == other.mArchInfo && mOSInfo == other.mOSInfo;
-    }
-
-    /**
-     * Compares platform info.
-     *
-     * @param other platform info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const PlatformInfo& other) const { return !operator==(other); }
-};
 
 /**
  * Instance filter.
@@ -1535,33 +1398,6 @@ public:
 
 using ServiceStateEnum = ServiceStateType::Enum;
 using ServiceState     = EnumStringer<ServiceStateType>;
-
-/**
- * Image info.
- */
-struct ImageInfo : public PlatformInfo {
-    StaticString<cIDLen> mImageID;
-
-    /**
-     * Compares image info.
-     *
-     * @param other image info to compare with.
-     * @return bool.
-     */
-    bool operator==(const ImageInfo& other) const
-    {
-        return mImageID == other.mImageID
-            && static_cast<const PlatformInfo&>(*this) == static_cast<const PlatformInfo&>(other);
-    }
-
-    /**
-     * Compares image info.
-     *
-     * @param other image info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ImageInfo& other) const { return !operator==(other); }
-};
 
 /**
  * Resource info.

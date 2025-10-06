@@ -16,7 +16,6 @@ set(TARGET_NAME cloudprotocol)
 
 set(HEADERS
     common.hpp
-    desiredstatus.hpp
     envvars.hpp
     log.hpp
     monitoring.hpp

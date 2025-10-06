@@ -31,6 +31,26 @@ constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
  */
 constexpr auto cMaxNumNodes = AOS_CONFIG_TYPES_MAX_NUM_NODES;
 
+/**
+ * Max number of update images per update item.
+ */
+constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
+
+/**
+ * Max number of update items.
+ */
+constexpr auto cMaxNumUpdateItems = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS;
+
+/**
+ * Max number of instances.
+ */
+constexpr auto cMaxNumInstances = AOS_CONFIG_TYPES_MAX_NUM_INSTANCES;
+
+/**
+ * Node type len.
+ */
+constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
+
 /*
  * Partition name len.
  */
@@ -72,9 +92,44 @@ constexpr auto cMaxNumURLs = AOS_CONFIG_TYPES_MAX_NUM_URLS;
 constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
 
 /**
+ * Label name len.
+ */
+constexpr auto cLabelNameLen = AOS_CONFIG_TYPES_LABEL_NAME_LEN;
+
+/**
+ * Max number of node's labels.
+ */
+constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
+
+/**
  * Certificate secret size.
  */
 static constexpr auto cCertSecretSize = AOS_CONFIG_TYPES_CERT_SECRET_SIZE;
+
+/*
+ * OS type len.
+ */
+constexpr auto cOSTypeLen = AOS_CONFIG_TYPES_OS_TYPE_LEN;
+
+/**
+ * OS feature len.
+ */
+constexpr auto cOSFeatureLen = AOS_CONFIG_TYPES_OS_FEATURE_LEN;
+
+/**
+ * OS features count.
+ */
+constexpr auto cOSFeaturesCount = AOS_CONFIG_TYPES_OS_FEATURES_COUNT;
+
+/*
+ * CPU arch len.
+ */
+constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
+
+/*
+ * CPU variant len.
+ */
+constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
 
 /**
  * Max number of concurrent items.
@@ -363,6 +418,112 @@ struct ResourceRatios {
      * @return bool.
      */
     bool operator!=(const ResourceRatios& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Architecture info.
+ */
+struct ArchInfo {
+    StaticString<cCPUArchLen>              mArchitecture;
+    Optional<StaticString<cCPUVariantLen>> mVariant;
+
+    /**
+     * Compares architecture info.
+     *
+     * @param rhs architecture info to compare with.
+     * @return bool.
+     */
+    bool operator==(const ArchInfo& rhs) const
+    {
+        return mArchitecture == rhs.mArchitecture && mVariant == rhs.mVariant;
+    }
+
+    /**
+     * Compares architecture info.
+     *
+     * @param rhs architecture info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ArchInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * OS info.
+ */
+struct OSInfo {
+    StaticString<cOSTypeLen>                                   mOS;
+    Optional<StaticString<cVersionLen>>                        mVersion;
+    StaticArray<StaticString<cOSFeatureLen>, cOSFeaturesCount> mFeatures;
+
+    /**
+     * Compares OS info.
+     *
+     * @param rhs OS info to compare with.
+     * @return bool.
+     */
+    bool operator==(const OSInfo& rhs) const
+    {
+        return mOS == rhs.mOS && mVersion == rhs.mVersion && mFeatures == rhs.mFeatures;
+    }
+
+    /**
+     * Compares OS info.
+     *
+     * @param rhs OS info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const OSInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Platform info.
+ */
+struct PlatformInfo {
+    ArchInfo mArchInfo;
+    OSInfo   mOSInfo;
+
+    /**
+     * Compares platform info.
+     *
+     * @param rhs platform info to compare with.
+     * @return bool.
+     */
+    bool operator==(const PlatformInfo& rhs) const { return mArchInfo == rhs.mArchInfo && mOSInfo == rhs.mOSInfo; }
+
+    /**
+     * Compares platform info.
+     *
+     * @param rhs platform info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PlatformInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Image info.
+ */
+struct ImageInfo : public PlatformInfo {
+    StaticString<cIDLen> mImageID;
+
+    /**
+     * Compares image info.
+     *
+     * @param rhs image info to compare with.
+     * @return bool.
+     */
+    bool operator==(const ImageInfo& rhs) const
+    {
+        return mImageID == rhs.mImageID
+            && static_cast<const PlatformInfo&>(*this) == static_cast<const PlatformInfo&>(rhs);
+    }
+
+    /**
+     * Compares image info.
+     *
+     * @param rhs image info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ImageInfo& rhs) const { return !operator==(rhs); }
 };
 
 } // namespace aos
