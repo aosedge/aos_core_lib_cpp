@@ -10,6 +10,7 @@
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/types/obsolete.hpp>
+#include <core/common/types/unitconfig.hpp>
 
 #include "common.hpp"
 

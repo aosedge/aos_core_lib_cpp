@@ -336,6 +336,35 @@ struct AlertRules {
     bool operator!=(const AlertRules& rhs) const { return !operator==(rhs); }
 };
 
+/**
+ * Resource ratios.
+ */
+struct ResourceRatios {
+    Optional<double> mCPU;
+    Optional<double> mRAM;
+    Optional<double> mStorage;
+    Optional<double> mState;
+
+    /**
+     * Compares resource ratios.
+     *
+     * @param rhs resource ratios to compare.
+     * @return bool.
+     */
+    bool operator==(const ResourceRatios& rhs) const
+    {
+        return mCPU == rhs.mCPU && mRAM == rhs.mRAM && mStorage == rhs.mStorage && mState == rhs.mState;
+    }
+
+    /**
+     * Compares resource ratios.
+     *
+     * @param rhs resource ratios to compare.
+     * @return bool.
+     */
+    bool operator!=(const ResourceRatios& rhs) const { return !operator==(rhs); }
+};
+
 } // namespace aos
 
 #endif

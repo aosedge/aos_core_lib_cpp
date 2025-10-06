@@ -661,32 +661,6 @@ using InstanceStateEnum = InstanceStateType::Enum;
 using InstanceState     = EnumStringer<InstanceStateType>;
 
 /**
- * Unit config state type.
- */
-class UnitConfigStateType {
-public:
-    enum class Enum {
-        eAbsent,
-        eInstalled,
-        eFailed,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "absent",
-            "installed",
-            "failed",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using UnitConfigStateEnum = UnitConfigStateType::Enum;
-using UnitConfigState     = EnumStringer<UnitConfigStateType>;
-
-/**
  * Instance info.
  */
 struct InstanceInfo {
