@@ -7,9 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 
-#include <core/common/cloudprotocol/desiredstatus.hpp>
 #include <core/common/cloudprotocol/unitstatus.hpp>
-#include <core/common/tools/error.hpp>
 
 namespace aos::cm::imagemanager {
 
@@ -21,12 +19,12 @@ namespace aos::cm::imagemanager {
  * Update image info.
  */
 struct UpdateImageInfo {
-    ImageInfo                         mImage;
-    StaticString<cFilePathLen>        mPath;
-    StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize {};
-    crypto::DecryptInfo               mDecryptInfo;
-    crypto::SignInfo                  mSignInfo;
+    ImageInfo                                 mImage;
+    StaticString<cFilePathLen>                mPath;
+    StaticArray<uint8_t, crypto::cSHA256Size> mSHA256;
+    size_t                                    mSize {};
+    crypto::DecryptInfo                       mDecryptInfo;
+    crypto::SignInfo                          mSignInfo;
 
     /**
      * Compares update image info.

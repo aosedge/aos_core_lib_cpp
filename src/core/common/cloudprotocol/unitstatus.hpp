@@ -232,12 +232,12 @@ using UpdateItemStatusStaticArray = StaticArray<UpdateItemStatus, cMaxNumUpdateI
  * Instance status.
  */
 struct InstanceStatus : public PlatformInfo {
-    Identifier                        mNode;
-    Identifier                        mRuntime;
-    uint64_t                          mInstance {};
-    StaticArray<uint8_t, cSHA256Size> mStateChecksum;
-    InstanceState                     mState;
-    Error                             mError;
+    Identifier                                mNode;
+    Identifier                                mRuntime;
+    uint64_t                                  mInstance {};
+    StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
+    InstanceState                             mState;
+    Error                                     mError;
 
     /**
      * Compares instance status.

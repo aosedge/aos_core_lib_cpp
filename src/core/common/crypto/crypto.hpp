@@ -15,7 +15,7 @@
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/uuid.hpp>
 #include <core/common/tools/variant.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::crypto {
 
@@ -163,6 +163,21 @@ constexpr auto cSignatureSize = AOS_CONFIG_CRYPTO_SIGNATURE_SIZE;
  * Max number of certificates.
  */
 constexpr auto cMaxNumCertificates = AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES;
+
+/**
+ * SHA256 size.
+ */
+constexpr auto cSHA256Size = 32;
+
+/**
+ * SHA384 size.
+ */
+constexpr auto cSHA384Size = 48;
+
+/**
+ * SHA3-224 size.
+ */
+constexpr auto cSHA3_224Size = 28;
 
 /**
  * Supported key types.
