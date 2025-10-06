@@ -78,10 +78,10 @@ protected:
 
 TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 {
-    StaticArray<UpdateItemInfo, 5>                      itemsInfo;
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 5>                    statuses;
+    StaticArray<UpdateItemInfo, 5>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 5>             statuses;
 
     for (size_t i = 0; i < 5; ++i) {
         {
@@ -201,9 +201,9 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
 {
     StaticArray<UpdateItemInfo, 1> itemsInfo;
     // cppcheck-suppress templateRecursion
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 1>                    statuses;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
 
     {
         auto err = itemsInfo.EmplaceBack();
@@ -309,10 +309,10 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
 
 TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
 {
-    StaticArray<UpdateItemInfo, 1>                      itemsInfo;
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 1>                    statuses;
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
 
     {
         auto err = itemsInfo.EmplaceBack();
@@ -437,10 +437,10 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
 
 TEST_F(ImageManagerTest, InstallUpdateItems_SameVersionAlreadyExists)
 {
-    StaticArray<UpdateItemInfo, 1>                      itemsInfo;
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 1>                    statuses;
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
 
     {
         auto err = itemsInfo.EmplaceBack();
@@ -494,10 +494,10 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SameVersionAlreadyExists)
 
 TEST_F(ImageManagerTest, InstallUpdateItems_OlderVersionWrongState)
 {
-    StaticArray<UpdateItemInfo, 1>                      itemsInfo;
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 1>                    statuses;
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
 
     {
         auto err = itemsInfo.EmplaceBack();
@@ -551,10 +551,10 @@ TEST_F(ImageManagerTest, InstallUpdateItems_OlderVersionWrongState)
 
 TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
 {
-    StaticArray<UpdateItemInfo, 1>                      itemsInfo;
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 1>                    statuses;
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
 
     {
         auto err = itemsInfo.EmplaceBack();
@@ -614,10 +614,10 @@ TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
 
 TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
 {
-    StaticArray<UpdateItemInfo, 1>                      itemsInfo;
-    StaticArray<cloudprotocol::CertificateInfo, 1>      certificates;
-    StaticArray<cloudprotocol::CertificateChainInfo, 1> certificateChains;
-    StaticArray<UpdateItemStatus, 1>                    statuses;
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
 
     {
         auto err = itemsInfo.EmplaceBack();
