@@ -87,10 +87,8 @@ public:
      * @param[out] status update item status.
      * @return Error.
      */
-    Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
-        const Array<cloudprotocol::CertificateInfo>&      certificates,
-        const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-        Array<UpdateItemStatus>&                          statuses) override;
+    Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, const Array<crypto::CertificateInfo>& certificates,
+        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses) override;
 
     /**
      * Uninstalls update item.
@@ -199,8 +197,8 @@ private:
     static constexpr auto   cLayerMetadataFile = "layer.json";
     static constexpr auto   cManifestFile      = "manifest.json";
 
-    Error InstallUpdateItem(const UpdateItemInfo& itemInfo, const Array<cloudprotocol::CertificateInfo>& certificates,
-        const Array<cloudprotocol::CertificateChainInfo>& certificateChains, UpdateItemStatus& status);
+    Error InstallUpdateItem(const UpdateItemInfo& itemInfo, const Array<crypto::CertificateInfo>& certificates,
+        const Array<crypto::CertificateChainInfo>& certificateChains, UpdateItemStatus& status);
     Error ValidateActiveVersionItem(const UpdateItemInfo& itemInfo, const Array<storage::ItemInfo>& items);
     Error ValidateCachedVersionItem(const UpdateItemInfo& itemInfo, const Array<storage::ItemInfo>& items);
     Error SetState(const storage::ItemInfo& item, storage::ItemState state);
@@ -208,12 +206,11 @@ private:
     void  ReleaseAllocatedSpace(const String& path, spaceallocator::SpaceItf* space);
     void  AcceptAllocatedSpace(spaceallocator::SpaceItf* space);
     Error InstallImage(const UpdateImageInfo& imageInfo, const UpdateItemType& itemType, const String& installPath,
-        const String& itemPath, storage::ImageInfo& image,
-        const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-        const Array<cloudprotocol::CertificateInfo>&      certificates);
+        const String& itemPath, storage::ImageInfo& image, const Array<crypto::CertificateChainInfo>& certificateChains,
+        const Array<crypto::CertificateInfo>& certificates);
     Error DecryptAndValidate(const UpdateImageInfo& imageInfo, const String& installPath,
-        const Array<cloudprotocol::CertificateChainInfo>& certificateChains,
-        const Array<cloudprotocol::CertificateInfo>& certificates, StaticString<cFilePathLen>& outDecryptedFile);
+        const Array<crypto::CertificateChainInfo>& certificateChains,
+        const Array<crypto::CertificateInfo>& certificates, StaticString<cFilePathLen>& outDecryptedFile);
     Error PrepareURLsAndFileInfo(const String& itemPath, const String& decryptedFile, const UpdateImageInfo& imageInfo,
         storage::ImageInfo& image);
     Error UpdatePrevVersions(const Array<storage::ItemInfo>& items);

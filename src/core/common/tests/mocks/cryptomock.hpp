@@ -21,12 +21,11 @@ namespace aos::crypto {
 class CryptoHelperMock : public CryptoHelperItf {
 public:
     MOCK_METHOD(Error, Decrypt,
-        (const String& encryptedPath, const String& decryptedPath, const cloudprotocol::DecryptInfo& decryptionInfo),
+        (const String& encryptedPath, const String& decryptedPath, const crypto::DecryptInfo& decryptionInfo),
         (override));
     MOCK_METHOD(Error, ValidateSigns,
-        (const String& decryptedPath, const cloudprotocol::SignInfo& signs,
-            const Array<cloudprotocol::CertificateChainInfo>& chains,
-            const Array<cloudprotocol::CertificateInfo>&      certs),
+        (const String& decryptedPath, const crypto::SignInfo& signs, const Array<crypto::CertificateChainInfo>& chains,
+            const Array<crypto::CertificateInfo>& certs),
         (override));
     MOCK_METHOD(Error, DecryptMetadata, (const Array<uint8_t>& input, Array<uint8_t>& output), (override));
 };

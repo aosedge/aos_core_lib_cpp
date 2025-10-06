@@ -71,14 +71,13 @@ Error CryptoHelper::GetServiceDiscoveryURLs(Array<StaticString<cURLLen>>& urls)
     return SetDefaultServiceDiscoveryURL(urls);
 }
 
-Error CryptoHelper::Decrypt(
-    const String& encryptedFile, const String& decryptedFile, const cloudprotocol::DecryptInfo& decryptInfo)
+Error CryptoHelper::Decrypt(const String& encryptedFile, const String& decryptedFile, const DecryptInfo& decryptInfo)
 {
     const auto& symmetricAlgName = decryptInfo.mBlockAlg;
     const auto& sessionKey       = decryptInfo.mBlockKey;
     const auto& sessionIV        = decryptInfo.mBlockIV;
 
-    StaticString<cloudprotocol::cAlgLen> algName, modeName, paddingName;
+    StaticString<cAlgLen> algName, modeName, paddingName;
 
     auto err = DecodeSymAlgNames(symmetricAlgName, algName, modeName, paddingName);
     if (!err.IsNone()) {
@@ -101,8 +100,8 @@ Error CryptoHelper::Decrypt(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::ValidateSigns(const String& decryptedPath, const cloudprotocol::SignInfo& signs,
-    const Array<cloudprotocol::CertificateChainInfo>& chains, const Array<cloudprotocol::CertificateInfo>& certs)
+Error CryptoHelper::ValidateSigns(const String& decryptedPath, const SignInfo& signs,
+    const Array<CertificateChainInfo>& chains, const Array<CertificateInfo>& certs)
 {
     LockGuard lock {mSemaphore};
 
@@ -244,7 +243,7 @@ Error CryptoHelper::DecodeSymAlgNames(const String& algString, String& algName, 
     // alg string example: AES128/CBC/PKCS7PADDING
     static constexpr auto cAlgoParts = 3;
 
-    StaticArray<StaticString<cloudprotocol::cAlgLen>, cAlgoParts> parts;
+    StaticArray<StaticString<cAlgLen>, cAlgoParts> parts;
 
     if (auto err = algString.Split(parts, '/'); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -324,10 +323,10 @@ Error CryptoHelper::CheckSessionKey(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryptedFile, crypto::AESCipherItf& decoder)
+Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder)
 {
-    crypto::AESCipherItf::Block inBlock, outBlock;
-    fs::File                    inputFile, outputFile;
+    AESCipherItf::Block inBlock, outBlock;
+    fs::File            inputFile, outputFile;
 
     Error err = inputFile.Open(encryptedFile, fs::File::Mode::Read);
     if (!err.IsNone()) {
@@ -387,17 +386,17 @@ Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryp
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::AddCertificates(const Array<cloudprotocol::CertificateInfo>& certs, SignContext& ctx)
+Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignContext& ctx)
 {
     ctx.mCerts.Clear();
 
     for (const auto& certInfo : certs) {
-        StaticString<cloudprotocol::cCertFingerprintLen> fingerprint = certInfo.mFingerprint;
+        StaticString<cCertFingerprintLen> fingerprint = certInfo.mFingerprint;
 
         fingerprint.ToUpper();
 
         auto iter = ctx.mCerts.FindIf(
-            [&fingerprint](const CertificateInfo& certInfo) { return certInfo.mFingerprint == fingerprint; });
+            [&fingerprint](const X509CertificateInfo& certInfo) { return certInfo.mFingerprint == fingerprint; });
 
         if (iter != ctx.mCerts.end()) {
             continue;
@@ -420,13 +419,13 @@ Error CryptoHelper::AddCertificates(const Array<cloudprotocol::CertificateInfo>&
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::AddCertChains(const Array<cloudprotocol::CertificateChainInfo>& chains, SignContext& ctx)
+Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx)
 {
     ctx.mChains.Clear();
 
     for (const auto& chainInfo : chains) {
         auto iter = ctx.mChains.FindIf(
-            [&chainInfo](const cloudprotocol::CertificateChainInfo& item) { return item.mName == chainInfo.mName; });
+            [&chainInfo](const CertificateChainInfo& item) { return item.mName == chainInfo.mName; });
 
         if (iter != ctx.mChains.end()) {
             continue;
@@ -447,16 +446,16 @@ Error CryptoHelper::AddCertChains(const Array<cloudprotocol::CertificateChainInf
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::VerifySigns(const String& file, const cloudprotocol::SignInfo& signs, SignContext& signCtx)
+Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignContext& signCtx)
 {
-    x509::Certificate*                   signCert = nullptr;
-    cloudprotocol::CertificateChainInfo* chain    = nullptr;
+    x509::Certificate*    signCert = nullptr;
+    CertificateChainInfo* chain    = nullptr;
 
     if (auto err = GetSignCert(signCtx, signs.mChainName, signCert, chain); !err.IsNone()) {
         return err;
     }
 
-    StaticString<cloudprotocol::cAlgLen> algName, hashName, paddingName;
+    StaticString<cAlgLen> algName, hashName, paddingName;
 
     if (auto err = DecodeSignAlgNames(signs.mAlg, algName, hashName, paddingName); !err.IsNone()) {
         return err;
@@ -513,7 +512,7 @@ Error CryptoHelper::VerifySigns(const String& file, const cloudprotocol::SignInf
 RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, const String& fingerprint)
 {
     auto iter = signCtx.mCerts.FindIf(
-        [&fingerprint](const CertificateInfo& info) { return info.mFingerprint == fingerprint; });
+        [&fingerprint](const X509CertificateInfo& info) { return info.mFingerprint == fingerprint; });
 
     if (iter == signCtx.mCerts.end()) {
         return {nullptr, ErrorEnum::eNotFound};
@@ -522,11 +521,11 @@ RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, con
     return &iter->mCertificate;
 }
 
-Error CryptoHelper::GetSignCert(SignContext& signCtx, const String& chainName, x509::Certificate*& signCert,
-    cloudprotocol::CertificateChainInfo*& chain)
+Error CryptoHelper::GetSignCert(
+    SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain)
 {
-    auto chainIt = signCtx.mChains.FindIf(
-        [&chainName](const cloudprotocol::CertificateChainInfo& chain) { return chain.mName == chainName; });
+    auto chainIt
+        = signCtx.mChains.FindIf([&chainName](const CertificateChainInfo& chain) { return chain.mName == chainName; });
 
     if (chainIt == signCtx.mChains.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
@@ -556,7 +555,7 @@ Error CryptoHelper::DecodeSignAlgNames(const String& algString, String& algName,
     // alg string example: RSA/SHA256/PKCS1v1_5 or RSA/SHA256
     static constexpr auto cAlgoParts = 3;
 
-    StaticArray<StaticString<cloudprotocol::cAlgLen>, cAlgoParts> parts;
+    StaticArray<StaticString<cAlgLen>, cAlgoParts> parts;
 
     if (auto err = algString.Split(parts, '/'); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -595,7 +594,7 @@ Error CryptoHelper::DecodeSignAlgNames(const String& algString, String& algName,
 
 RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
 {
-    StaticString<cloudprotocol::cAlgLen> upperHash = hashName;
+    StaticString<cAlgLen> upperHash = hashName;
 
     upperHash.ToUpper();
 
@@ -661,7 +660,7 @@ Error CryptoHelper::CalcHashSum(const Hash& hash, const String& fileName, Array<
 }
 
 Error CryptoHelper::CreateIntermCertPool(
-    SignContext& signCtx, const cloudprotocol::CertificateChainInfo& chain, Array<x509::Certificate>& pool)
+    SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool)
 {
     pool.Clear();
 

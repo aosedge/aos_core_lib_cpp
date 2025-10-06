@@ -8,7 +8,6 @@
 
 #include <vector>
 
-#include <core/common/cloudprotocol/servicediscovery.hpp>
 #include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
@@ -55,10 +54,10 @@ std::vector<uint8_t> ReadFileFromCrtDir(const String& fileName)
     return {content.begin(), content.end()};
 }
 
-cloudprotocol::DecryptInfo CreateDecryptionInfo(
+DecryptInfo CreateDecryptionInfo(
     const char* blockAlg, const std::vector<uint8_t>& blockIV, const std::vector<uint8_t>& blockKey)
 {
-    cloudprotocol::DecryptInfo decryptInfo;
+    DecryptInfo decryptInfo;
 
     decryptInfo.mBlockAlg = blockAlg;
     decryptInfo.mBlockIV  = Array<uint8_t>(blockIV.data(), blockIV.size());
@@ -69,7 +68,7 @@ cloudprotocol::DecryptInfo CreateDecryptionInfo(
     return decryptInfo;
 }
 
-cloudprotocol::CertificateInfo CreateCert(CryptoProviderItf& provider, const char* name)
+CertificateInfo CreateCert(CryptoProviderItf& provider, const char* name)
 {
     auto fullPath = CRYPTOHELPER_CERTS_DIR "/" + std::string(name) + ".pem";
 
@@ -79,7 +78,7 @@ cloudprotocol::CertificateInfo CreateCert(CryptoProviderItf& provider, const cha
     AssertOK(fs::ReadFileToString(fullPath.c_str(), pem));
     AssertOK(provider.PEMToX509Certs(pem, chain));
 
-    cloudprotocol::CertificateInfo cert;
+    CertificateInfo cert;
 
     cert.mFingerprint = name;
     cert.mCertificate = chain[0].mRaw;
@@ -87,9 +86,9 @@ cloudprotocol::CertificateInfo CreateCert(CryptoProviderItf& provider, const cha
     return cert;
 }
 
-cloudprotocol::CertificateChainInfo CreateCertChain(const char* name, const std::vector<std::string> fingerprints)
+CertificateChainInfo CreateCertChain(const char* name, const std::vector<std::string> fingerprints)
 {
-    cloudprotocol::CertificateChainInfo chain;
+    CertificateChainInfo chain;
 
     chain.mName = name;
 
@@ -100,9 +99,9 @@ cloudprotocol::CertificateChainInfo CreateCertChain(const char* name, const std:
     return chain;
 }
 
-cloudprotocol::SignInfo CreateSigns(const char* chainName, const char* algName)
+SignInfo CreateSigns(const char* chainName, const char* algName)
 {
-    cloudprotocol::SignInfo signs;
+    SignInfo signs;
 
     signs.mChainName = chainName;
     signs.mAlg       = algName;
@@ -177,9 +176,9 @@ TEST_F(CryptoHelperTest, ServiceDiscoveryURLs)
 TEST_F(CryptoHelperTest, Decrypt)
 {
     struct TestData {
-        const char*                mEncryptedFile;
-        cloudprotocol::DecryptInfo mDecryptInfo;
-        std::vector<uint8_t>       mDecryptedContent;
+        const char*          mEncryptedFile;
+        DecryptInfo          mDecryptInfo;
+        std::vector<uint8_t> mDecryptedContent;
     };
 
     std::vector<TestData> testData = {
@@ -204,9 +203,9 @@ TEST_F(CryptoHelperTest, Decrypt)
 TEST_F(CryptoHelperTest, ValidateSigns)
 {
     struct TestData {
-        std::vector<cloudprotocol::CertificateInfo> mCerts;
-        cloudprotocol::CertificateChainInfo         mChain;
-        cloudprotocol::SignInfo                     mSigns;
+        std::vector<CertificateInfo> mCerts;
+        CertificateChainInfo         mChain;
+        SignInfo                     mSigns;
     };
 
     constexpr auto cDecryptedFile = CRYPTOHELPER_CERTS_DIR "/hello-world.txt";
@@ -238,10 +237,10 @@ TEST_F(CryptoHelperTest, ValidateSigns)
             CreateSigns("onlineTest2", "RSA/SHA256/PKCS1v1_5")}};
 
     for (const auto& item : testData) {
-        StaticArray<cloudprotocol::CertificateInfo, 10> certs;
-        certs = Array<cloudprotocol::CertificateInfo>(item.mCerts.data(), item.mCerts.size());
+        StaticArray<CertificateInfo, 10> certs;
+        certs = Array<CertificateInfo>(item.mCerts.data(), item.mCerts.size());
 
-        StaticArray<cloudprotocol::CertificateChainInfo, 1> chains;
+        StaticArray<CertificateChainInfo, 1> chains;
         chains.PushBack(item.mChain);
 
         ASSERT_TRUE(mCryptoHelper.ValidateSigns(cDecryptedFile, item.mSigns, chains, certs).IsNone());
