@@ -11,6 +11,7 @@
 #include <cstdint>
 
 #include <core/common/config.hpp>
+#include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/error.hpp>
 #include <core/common/tools/log.hpp>
@@ -41,11 +42,6 @@ constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;
  * Unit model len.
  */
 constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
-
-/*
- * Maximum number of URLs.
- */
-constexpr auto cMaxNumURLs = AOS_CONFIG_TYPES_MAX_NUM_URLS;
 
 /**
  * Max number of update items.
@@ -91,21 +87,6 @@ static constexpr auto cMaxNumNodeRuntimes = AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIM
  * Node type len.
  */
 constexpr auto cNodeTypeLen = AOS_CONFIG_TYPES_NODE_TYPE_LEN;
-
-/**
- * SHA256 size.
- */
-constexpr auto cSHA256Size = 32;
-
-/**
- * SHA384 size.
- */
-constexpr auto cSHA384Size = 48;
-
-/**
- * SHA3-224 size.
- */
-constexpr auto cSHA3_224Size = 28;
 
 /**
  * Error message len.
@@ -368,16 +349,6 @@ static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONN
  * Max number of update images per update item.
  */
 constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
-
-/*
- * File path len.
- */
-constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
-
-/**
- * Max number of concurrent items.
- */
-constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
 
 /**
  * State length.
@@ -758,13 +729,13 @@ using InstanceInfoStaticArray = StaticArray<InstanceInfo, cMaxNumInstances>;
  * Instance status.
  */
 struct InstanceStatus {
-    InstanceIdent                     mInstanceIdent;
-    StaticString<cVersionLen>         mVersion;
-    StaticString<cNodeIDLen>          mNodeID;
-    StaticString<cRuntimeIDLen>       mRuntimeID;
-    StaticArray<uint8_t, cSHA256Size> mStateChecksum;
-    InstanceState                     mState;
-    Error                             mError;
+    InstanceIdent                             mInstanceIdent;
+    StaticString<cVersionLen>                 mVersion;
+    StaticString<cNodeIDLen>                  mNodeID;
+    StaticString<cRuntimeIDLen>               mRuntimeID;
+    StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
+    InstanceState                             mState;
+    Error                                     mError;
 
     /**
      * Compares instance status.
@@ -938,13 +909,13 @@ using LayerStatusStaticArray = StaticArray<LayerStatus, cMaxNumLayers>;
  * Service info.
  */
 struct ServiceInfo {
-    StaticString<cIDLen>              mServiceID;
-    StaticString<cIDLen>              mProviderID;
-    StaticString<cVersionLen>         mVersion;
-    gid_t                             mGID;
-    StaticString<cURLLen>             mURL;
-    StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize;
+    StaticString<cIDLen>                      mServiceID;
+    StaticString<cIDLen>                      mProviderID;
+    StaticString<cVersionLen>                 mVersion;
+    gid_t                                     mGID;
+    StaticString<cURLLen>                     mURL;
+    StaticArray<uint8_t, crypto::cSHA256Size> mSHA256;
+    size_t                                    mSize;
 
     /**
      * Compares service info.
@@ -978,12 +949,12 @@ using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 // LayerInfo layer info.
 struct LayerInfo {
-    StaticString<cIDLen>              mLayerID;
-    StaticString<cLayerDigestLen>     mLayerDigest;
-    StaticString<cVersionLen>         mVersion;
-    StaticString<cURLLen>             mURL;
-    StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize;
+    StaticString<cIDLen>                      mLayerID;
+    StaticString<cLayerDigestLen>             mLayerDigest;
+    StaticString<cVersionLen>                 mVersion;
+    StaticString<cURLLen>                     mURL;
+    StaticArray<uint8_t, crypto::cSHA256Size> mSHA256;
+    size_t                                    mSize;
 
     /**
      * Compares layer info.

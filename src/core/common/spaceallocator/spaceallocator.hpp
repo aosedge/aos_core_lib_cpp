@@ -12,6 +12,7 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/time.hpp>
+#include <core/common/types/obsolete.hpp>
 
 namespace aos::spaceallocator {
 /**

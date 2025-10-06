@@ -249,8 +249,8 @@ struct FileInfo {
      */
     FileInfo() = default;
 
-    StaticArray<uint8_t, cSHA256Size> mSHA256;
-    size_t                            mSize {};
+    StaticArray<uint8_t, crypto::cSHA256Size> mSHA256;
+    size_t                                    mSize {};
 };
 
 /**
