@@ -109,7 +109,7 @@ private:
 
     // Set two threads for callbacks: in case if any executes for a long time, another will hedge.
     static constexpr auto     cInvocationThreadsCount = 2;
-    static constexpr auto     cMaxTimersCount         = AOS_CONFIG_TIMERS_MAX_COUNT;
+    static constexpr auto     cMaxTimersCount         = AOS_CONFIG_TOOLS_TIMERS_MAX_COUNT;
     static constexpr Duration cTimerResolution        = Time::cMicroseconds * 500;
 
     static Error RegisterTimer(Timer* timer);
