@@ -68,11 +68,6 @@ constexpr auto cMaxNumServices = AOS_CONFIG_TYPES_MAX_NUM_SERVICES;
 constexpr auto cMaxNumLayers = AOS_CONFIG_TYPES_MAX_NUM_LAYERS;
 
 /**
- * Max number of nodes.
- */
-constexpr auto cMaxNumNodes = AOS_CONFIG_TYPES_MAX_NUM_NODES;
-
-/**
  * Node ID len.
  */
 constexpr auto cNodeIDLen = AOS_CONFIG_CLOUDPROTOCOL_CODENAME_LEN;
@@ -1622,40 +1617,6 @@ struct ImageInfo : public PlatformInfo {
      */
     bool operator!=(const ImageInfo& other) const { return !operator==(other); }
 };
-
-/**
- * Cert type type.
- */
-class CertTypeType {
-public:
-    enum class Enum {
-        eOffline,
-        eOnline,
-        eUM,
-        eSM,
-        eCM,
-        eIAM,
-        eNumCertificates,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "offline",
-            "online",
-            "um",
-            "sm",
-            "cm",
-            "iam",
-            "unknown",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using CertTypeEnum = CertTypeType::Enum;
-using CertType     = EnumStringer<CertTypeType>;
 
 /**
  * Resource info.

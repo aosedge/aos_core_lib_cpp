@@ -9,7 +9,6 @@
 
 #include <core/common/tools/variant.hpp>
 
-#include "certificates.hpp"
 #include "common.hpp"
 #include "desiredstatus.hpp"
 #include "envvars.hpp"

@@ -604,6 +604,13 @@
 #endif
 
 /**
+ * Certificate secret size.
+ */
+#ifndef AOS_CONFIG_TYPES_CERT_SECRET_SIZE
+#define AOS_CONFIG_TYPES_CERT_SECRET_SIZE 64
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
@@ -1185,13 +1192,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT
 #define AOS_CONFIG_CLOUDPROTOCOL_MONITORING_ITEMS_COUNT 16
-#endif
-
-/**
- * Certificate secret size.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE
-#define AOS_CONFIG_CLOUDPROTOCOL_CERT_SECRET_SIZE 64
 #endif
 
 /**

@@ -26,6 +26,11 @@ constexpr auto cIDLen = AOS_CONFIG_TYPES_ID_LEN;
  */
 constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
 
+/**
+ * Max number of nodes.
+ */
+constexpr auto cMaxNumNodes = AOS_CONFIG_TYPES_MAX_NUM_NODES;
+
 /*
  * Partition name len.
  */
@@ -55,6 +60,11 @@ constexpr auto cResourceNameLen = AOS_CONFIG_TYPES_RESOURCE_NAME_LEN;
  * URL len.
  */
 constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
+
+/**
+ * Certificate secret size.
+ */
+static constexpr auto cCertSecretSize = AOS_CONFIG_TYPES_CERT_SECRET_SIZE;
 
 /**
  * Core component type.
@@ -113,6 +123,38 @@ public:
 
 using UpdateItemTypeEnum = UpdateItemTypeType::Enum;
 using UpdateItemType     = EnumStringer<UpdateItemTypeType>;
+
+/**
+ * Cert type type.
+ */
+class CertTypeType {
+public:
+    enum class Enum {
+        eOffline,
+        eOnline,
+        eSM,
+        eCM,
+        eIAM,
+        eNumCertificates,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "offline",
+            "online",
+            "sm",
+            "cm",
+            "iam",
+            "unknown",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using CertTypeEnum = CertTypeType::Enum;
+using CertType     = EnumStringer<CertTypeType>;
 
 /**
  * Instance identification.
