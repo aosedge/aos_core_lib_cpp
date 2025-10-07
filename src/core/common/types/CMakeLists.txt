@@ -22,6 +22,7 @@ set(HEADERS
     instance.hpp
     log.hpp
     monitoring.hpp
+    network.hpp
     obsolete.hpp
     permissions.hpp
     provisioning.hpp

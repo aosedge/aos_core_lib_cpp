@@ -10,6 +10,7 @@
 #include <core/common/crypto/crypto.hpp>
 
 #include "common.hpp"
+#include "network.hpp"
 
 namespace aos {
 
