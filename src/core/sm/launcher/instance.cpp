@@ -745,7 +745,7 @@ Error Instance::PrepareRootFS(const image::ImageParts& imageParts, const Array<M
         return AOS_ERROR_WRAP(err);
     }
 
-    auto layers = MakeUnique<LayersStaticArray>(&sAllocator);
+    auto layers = MakeUnique<LayersArray>(&sAllocator);
 
     if (auto err = layers->PushBack(mountPoints); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

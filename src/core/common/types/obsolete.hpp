@@ -164,9 +164,9 @@ struct ServiceStatus {
 };
 
 /**
- * Service status static array.
+ * Service status array.
  */
-using ServiceStatusStaticArray = StaticArray<ServiceStatus, cMaxNumServices>;
+using ServiceStatusArray = StaticArray<ServiceStatus, cMaxNumServices>;
 
 /**
  * Layer status.
@@ -236,9 +236,9 @@ struct LayerStatus {
 };
 
 /**
- * Layer status static array.
+ * Layer status array.
  */
-using LayerStatusStaticArray = StaticArray<LayerStatus, cMaxNumLayers>;
+using LayerStatusArray = StaticArray<LayerStatus, cMaxNumLayers>;
 
 /**
  * Service info.
@@ -274,9 +274,9 @@ struct ServiceInfo {
 };
 
 /**
- * Service info static array.
+ * Service info array.
  */
-using ServiceInfoStaticArray = StaticArray<ServiceInfo, cMaxNumServices>;
+using ServiceInfoArray = StaticArray<ServiceInfo, cMaxNumServices>;
 
 /**
  * Layer info.
@@ -313,9 +313,9 @@ struct LayerInfo {
 };
 
 /**
- * Layer info static array.
+ * Layer info array.
  */
-using LayerInfoStaticArray = StaticArray<LayerInfo, cMaxNumLayers>;
+using LayerInfoArray = StaticArray<LayerInfo, cMaxNumLayers>;
 
 /**
  * Device info.
@@ -410,7 +410,7 @@ struct PartitionInfoObsolete {
 };
 
 /**
- * Partition info static array.
+ * Partition info  array.
  */
 using PartitionInfoObsoleteArray = StaticArray<PartitionInfoObsolete, cMaxNumPartitions>;
 

@@ -119,7 +119,7 @@ TEST_F(ServiceManagerTest, DamagedServicesAreRemovedOnStart)
                         mImageHandler)
                     .IsNone());
 
-    auto services = std::make_unique<ServiceDataStaticArray>();
+    auto services = std::make_unique<ServiceDataArray>();
 
     ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
@@ -165,7 +165,7 @@ TEST_F(ServiceManagerTest, RemoveOutdatedServicesByTimer)
 
     ASSERT_TRUE(serviceManager.Stop().IsNone());
 
-    auto services = std::make_unique<ServiceDataStaticArray>();
+    auto services = std::make_unique<ServiceDataArray>();
 
     ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
@@ -311,7 +311,7 @@ TEST_F(ServiceManagerTest, ProcessDesiredServices)
             mImageHandler.SetCalculateDigestResult(fs::JoinPath(service.mImagePath, "manifest.json"), "sha256:123");
         }
 
-        auto serviceStatuses = std::make_unique<ServiceStatusStaticArray>();
+        auto serviceStatuses = std::make_unique<ServiceStatusArray>();
 
         EXPECT_TRUE(serviceManager
                         .ProcessDesiredServices(
@@ -329,7 +329,7 @@ TEST_F(ServiceManagerTest, ProcessDesiredServices)
             FAIL() << "Invalid service status";
         }
 
-        auto services = std::make_unique<ServiceDataStaticArray>();
+        auto services = std::make_unique<ServiceDataArray>();
 
         EXPECT_TRUE(mStorage.GetAllServices(*services).IsNone());
 
@@ -365,7 +365,7 @@ TEST_F(ServiceManagerTest, ProcessDesiredServicesOnInvalidService)
     }
 
     const auto desiredServices = Array<ServiceInfo>(testData.data(), testData.size());
-    auto       serviceStatuses = std::make_unique<ServiceStatusStaticArray>();
+    auto       serviceStatuses = std::make_unique<ServiceStatusArray>();
 
     ASSERT_TRUE(serviceManager.ProcessDesiredServices(desiredServices, *serviceStatuses).IsNone());
 
@@ -422,11 +422,11 @@ TEST_F(ServiceManagerTest, RemoveService)
     }
 
     const auto desiredServices = Array<ServiceInfo>(testData.data(), testData.size());
-    auto       serviceStatuses = std::make_unique<ServiceStatusStaticArray>();
+    auto       serviceStatuses = std::make_unique<ServiceStatusArray>();
 
     ASSERT_TRUE(serviceManager.ProcessDesiredServices(desiredServices, *serviceStatuses).IsNone());
 
-    auto services = std::make_unique<ServiceDataStaticArray>();
+    auto services = std::make_unique<ServiceDataArray>();
     ASSERT_TRUE(mStorage.GetAllServices(*services).IsNone());
     ASSERT_EQ(services->Size(), testData.size());
 
