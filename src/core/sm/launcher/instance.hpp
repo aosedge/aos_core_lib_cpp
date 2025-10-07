@@ -12,6 +12,7 @@
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tools/allocator.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/types/instance.hpp>
 #include <core/iam/permhandler/permhandler.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/layermanager/layermanager.hpp>
