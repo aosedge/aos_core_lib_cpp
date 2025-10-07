@@ -16,7 +16,6 @@ set(TARGET_NAME cloudprotocol)
 
 set(HEADERS
     common.hpp
-    log.hpp
     monitoring.hpp
     protocol.hpp
     provisioning.hpp
