@@ -15,6 +15,7 @@
 #include <core/common/types/monitoring.hpp>
 #include <core/common/types/obsolete.hpp>
 #include <core/common/types/provisioning.hpp>
+#include <core/common/types/state.hpp>
 #include <core/common/types/unitconfig.hpp>
 
 using namespace aos;

@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_STORAGESTATE_ITF_STATE_HPP_
 #define AOS_CORE_CM_STORAGESTATE_ITF_STATE_HPP_
 
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/state.hpp>
 
 namespace aos::cm::storagestate {
 
