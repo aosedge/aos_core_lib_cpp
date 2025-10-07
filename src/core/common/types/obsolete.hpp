@@ -275,11 +275,6 @@ static constexpr auto cConnectionNameLen = cIDLen + cExposedPortLen;
 static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS;
 
 /**
- * State length.
- */
-static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
-
-/**
  * Max length of JSON.
  */
 constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
@@ -1329,30 +1324,6 @@ struct RuntimeInfo : public PlatformInfo {
 };
 
 using RuntimeInfoStaticArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
-
-/**
- * State result type.
- */
-class StateResultType {
-public:
-    enum class Enum {
-        eAccepted,
-        eRejected,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "accepted",
-            "rejected",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using StateResultEnum = StateResultType::Enum;
-using StateResult     = EnumStringer<StateResultType>;
 
 } // namespace aos
 
