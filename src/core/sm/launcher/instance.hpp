@@ -231,9 +231,9 @@ public:
     /**
      * Returns instance override env vars.
      *
-     * @return const EnvVarsStaticArray&.
+     * @return const EnvVarArray&.
      */
-    const EnvVarsStaticArray& GetOverrideEnvVars() const { return mOverrideEnvVars; };
+    const EnvVarArray& GetOverrideEnvVars() const { return mOverrideEnvVars; };
 
     /**
      * Sets instance override env vars.
@@ -316,7 +316,7 @@ private:
         + sizeof(oci::RuntimeSpec)
         + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
             sizeof(oci::ImageSpec)
-                + Max(sizeof(EnvVarsStaticArray), sizeof(LayersStaticArray) + sizeof(layermanager::LayerData),
+                + Max(sizeof(EnvVarArray), sizeof(LayersStaticArray) + sizeof(layermanager::LayerData),
                     sizeof(Mount) + sizeof(ResourceInfoObsolete),
                     sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>)));
     static constexpr auto cNumAllocations  = 8;
@@ -393,7 +393,7 @@ private:
     Error                      mError;
     bool                       mPermissionsRegistered = false;
     Duration                   mOfflineTTL            = 0;
-    EnvVarsStaticArray         mOverrideEnvVars;
+    EnvVarArray                mOverrideEnvVars;
 };
 
 } // namespace aos::sm::launcher

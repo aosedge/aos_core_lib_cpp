@@ -10,12 +10,12 @@
 
 #include <assert.h>
 
-#include <core/common/cloudprotocol/envvars.hpp>
 #include <core/common/connectionprovider/connectionprovider.hpp>
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/ocispec/ocispec.hpp>
 #include <core/common/tools/list.hpp>
 #include <core/common/tools/noncopyable.hpp>
+#include <core/common/types/envvars.hpp>
 #include <core/common/types/obsolete.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/layermanager/layermanager.hpp>
@@ -63,8 +63,7 @@ public:
      * @param statuses[out] environment variables statuses.
      * @return Error
      */
-    virtual Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
-        Array<cloudprotocol::EnvVarsInstanceStatus>&                               statuses)
+    virtual Error OverrideEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInfo, Array<EnvVarsInstanceStatus>& statuses)
         = 0;
 };
 
@@ -195,7 +194,7 @@ public:
      * @param envVarsInstanceInfos[out] instances's override environment variables array.
      * @return Error.
      */
-    virtual Error GetOverrideEnvVars(Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) const = 0;
+    virtual Error GetOverrideEnvVars(Array<EnvVarsInstanceInfo>& envVarsInstanceInfos) const = 0;
 
     /**
      * Sets instances's override environment variables array.
@@ -203,7 +202,7 @@ public:
      * @param envVarsInstanceInfos instances's override environment variables array.
      * @return Error.
      */
-    virtual Error SetOverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInstanceInfos) = 0;
+    virtual Error SetOverrideEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInstanceInfos) = 0;
 
     /**
      * Returns online time.
@@ -313,8 +312,8 @@ public:
      * @param statuses[out] environment variables statuses.
      * @return Error
      */
-    Error OverrideEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
-        Array<cloudprotocol::EnvVarsInstanceStatus>&                       statuses) override;
+    Error OverrideEnvVars(
+        const Array<EnvVarsInstanceInfo>& envVarsInfo, Array<EnvVarsInstanceStatus>& statuses) override;
 
     /**
      * Updates run instances status.
@@ -353,7 +352,7 @@ private:
         = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
                 + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
                 + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
-            sizeof(EnvVarsStaticArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray)
+            sizeof(EnvVarArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray)
                 + sizeof(ServiceStatusStaticArray) + +sizeof(LayerStatusStaticArray));
 
     void  ShowResourceUsageStats();
@@ -381,8 +380,7 @@ private:
     Error StopCurrentInstances();
     Error GetOutdatedInstances(Array<InstanceData>& instances);
     Error HandleOfflineTTLs();
-    Error SetEnvVars(const Array<cloudprotocol::EnvVarsInstanceInfo>& envVarsInfo,
-        Array<cloudprotocol::EnvVarsInstanceStatus>&                  statuses);
+    Error SetEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInfo, Array<EnvVarsInstanceStatus>& statuses);
     Error GetInstanceEnvVars(const InstanceIdent& instanceIdent, Array<StaticString<cEnvVarLen>>& envVars) const;
     Error RemoveOutdatedEnvVars();
     Error GetEnvChangedInstances(Array<InstanceData>& instance) const;
@@ -430,12 +428,12 @@ private:
 
     StaticArray<servicemanager::ServiceData, cMaxNumServices> mCurrentServices;
     // cppcheck-suppress templateRecursion
-    StaticList<Instance, cMaxNumInstances>  mCurrentInstances;
-    cloudprotocol::EnvVarsInstanceInfoArray mCurrentEnvVars;
-    StaticString<cFilePathLen>              mHostWhiteoutsDir;
-    NodeInfoObsolete                        mNodeInfo;
-    Time                                    mOnlineTime;
-    Timer                                   mTimer;
+    StaticList<Instance, cMaxNumInstances> mCurrentInstances;
+    EnvVarsInstanceInfoArray               mCurrentEnvVars;
+    StaticString<cFilePathLen>             mHostWhiteoutsDir;
+    NodeInfoObsolete                       mNodeInfo;
+    Time                                   mOnlineTime;
+    Timer                                  mTimer;
 };
 
 /** @}*/
