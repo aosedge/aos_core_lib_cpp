@@ -8,7 +8,6 @@
 #define AOS_CORE_CM_LAUNCHER_ITF_MONITORINGPROVIDER_HPP_
 
 #include <core/common/monitoring/monitoring.hpp>
-#include <core/common/types/obsolete.hpp>
 
 namespace aos::cm::launcher {
 

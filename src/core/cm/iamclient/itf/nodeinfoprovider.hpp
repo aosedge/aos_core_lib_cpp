@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
 #define AOS_CORE_CM_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
 
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::cm::iamclient {
 /**

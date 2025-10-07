@@ -15,7 +15,6 @@
 #include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
-#include <core/common/types/obsolete.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/image/imagehandler.hpp>
 #include <core/sm/image/imageparts.hpp>

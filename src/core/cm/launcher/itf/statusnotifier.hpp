@@ -7,8 +7,6 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_STATUSLISTENER_HPP_
 #define AOS_CORE_CM_LAUNCHER_ITF_STATUSLISTENER_HPP_
 
-#include <core/common/types/obsolete.hpp>
-
 namespace aos::cm::launcher {
 
 /** @addtogroup cm Communication Manager

@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_STATUSLISTENER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_STATUSLISTENER_HPP_
 
-#include <core/common/cloudprotocol/common.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::cm::imagemanager {
 

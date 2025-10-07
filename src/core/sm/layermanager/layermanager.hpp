@@ -10,7 +10,6 @@
 #include <core/common/downloader/downloader.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/timer.hpp>
-#include <core/common/types/obsolete.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/image/imagehandler.hpp>
 

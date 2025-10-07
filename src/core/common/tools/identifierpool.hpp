@@ -7,8 +7,6 @@
 #ifndef AOS_CORE_COMMON_TOOLS_IDENTIFIERPOOL_HPP_
 #define AOS_CORE_COMMON_TOOLS_IDENTIFIERPOOL_HPP_
 
-#include <core/common/types/obsolete.hpp>
-
 #include "noncopyable.hpp"
 #include "thread.hpp"
 
