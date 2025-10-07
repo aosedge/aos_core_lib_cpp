@@ -227,6 +227,52 @@ using CertTypeEnum = CertTypeType::Enum;
 using CertType     = EnumStringer<CertTypeType>;
 
 /**
+ * Instance state type.
+ */
+class InstanceStateType {
+public:
+    enum class Enum { eActivating, eActive, eInactive, eFailed };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {"activating", "active", "inactive", "failed"};
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using InstanceStateEnum = InstanceStateType::Enum;
+using InstanceState     = EnumStringer<InstanceStateType>;
+
+/**
+ * Node state.
+ */
+class NodeStateType {
+public:
+    enum class Enum {
+        eOffline,
+        eOnline,
+        eError,
+        ePaused,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "offline",
+            "online",
+            "error",
+            "paused",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using NodeStateEnum = NodeStateType::Enum;
+using NodeState     = EnumStringer<NodeStateType>;
+
+/**
  * Instance identification.
  */
 struct InstanceIdent {
@@ -587,6 +633,40 @@ struct ImageInfo : public PlatformInfo {
      */
     bool operator!=(const ImageInfo& rhs) const { return !operator==(rhs); }
 };
+
+/**
+ * Partition info.
+ */
+struct PartitionInfo {
+    StaticString<cPartitionNameLen>                                     mName;
+    StaticArray<StaticString<cPartitionTypeLen>, cMaxNumPartitionTypes> mTypes;
+    StaticString<cFilePathLen>                                          mPath;
+    size_t                                                              mTotalSize {};
+
+    /**
+     * Compares partition info.
+     *
+     * @param rhs partition info to compare with.
+     * @return bool.
+     */
+    bool operator==(const PartitionInfo& rhs) const
+    {
+        return mName == rhs.mName && mPath == rhs.mPath && mTypes == rhs.mTypes && mTotalSize == rhs.mTotalSize;
+    }
+
+    /**
+     * Compares partition info.
+     *
+     * @param rhs partition info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const PartitionInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Partition info array.
+ */
+using PartitionInfoArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
 
 } // namespace aos
 
