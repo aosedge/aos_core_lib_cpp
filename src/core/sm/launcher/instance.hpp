@@ -269,34 +269,34 @@ public:
     /**
      * Compares instances.
      *
-     * @param instance instance to compare.
+     * @param rhs instance to compare.
      * @return bool.
      */
-    bool operator==(const Instance& instance) const { return mInstanceInfo == instance.mInstanceInfo; }
+    bool operator==(const Instance& rhs) const { return mInstanceInfo == rhs.mInstanceInfo; }
 
     /**
      * Compares instance info.
      *
-     * @param instance instance to compare.
+     * @param rhs instance to compare.
      * @return bool.
      */
-    bool operator!=(const Instance& instance) const { return !operator==(instance); }
+    bool operator!=(const Instance& rhs) const { return !operator==(rhs); }
 
     /**
      * Compares instance with instance info.
      *
-     * @param info info to compare.
+     * @param rhs info to compare.
      * @return bool.
      */
-    bool operator==(const InstanceInfo& info) const { return mInstanceInfo == info; }
+    bool operator==(const InstanceInfo& rhs) const { return mInstanceInfo == rhs; }
 
     /**
      * Compares instance with instance info.
      *
-     * @param info info to compare.
+     * @param rhs info to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceInfo& info) const { return !operator==(info); }
+    bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
 
     /**
      * Outputs instance to log.

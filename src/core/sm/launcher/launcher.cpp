@@ -158,7 +158,7 @@ Error Launcher::RunInstances(const Array<ServiceInfo>& services, const Array<Lay
     assert(mAllocator.FreeSize() == mAllocator.MaxSize());
 
     auto err
-        = mThread.Run([this, instances = MakeShared<const InstanceInfoStaticArray>(&mAllocator, instances),
+        = mThread.Run([this, instances = MakeShared<const InstanceInfoArray>(&mAllocator, instances),
                           services = MakeShared<const ServiceInfoStaticArray>(&mAllocator, services),
                           layers   = MakeShared<const LayerInfoStaticArray>(&mAllocator, layers), forceRestart](void*) {
               if (auto err = ProcessLayers(*layers); !err.IsNone()) {
@@ -245,7 +245,7 @@ Error Launcher::UpdateRunStatus(const Array<runner::RunStatus>& instances)
 
     LOG_DBG() << "Update run status";
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         auto currentInstance = mCurrentInstances.FindIf(
@@ -324,7 +324,7 @@ Error Launcher::FillCurrentInstance(const Array<InstanceData>& instances)
             continue;
         }
 
-        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mItemID);
+        auto service = GetService(instance.mInstanceInfo.mItemID);
         if (service == mCurrentServices.end()) {
             LOG_ERR() << "Service not found: instanceID=" << instance.mInstanceID;
 
@@ -511,7 +511,7 @@ Error Launcher::ProcessRestartInstances(const Array<InstanceData>& instances)
 
 Error Launcher::SendRunStatus()
 {
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instance : mCurrentInstances) {
         if (instance.GetError().IsNone()) {
@@ -545,14 +545,14 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instance : instances) {
         StaticString<cVersionLen> serviceVersion;
 
-        auto service = GetService(instance.mInstanceInfo.mInstanceIdent.mItemID);
+        auto service = GetService(instance.mInstanceInfo.mItemID);
         if (service == mCurrentServices.end()) {
-            LOG_ERR() << "Service not found: serviceID=" << instance.mInstanceInfo.mInstanceIdent.mItemID;
+            LOG_ERR() << "Service not found: serviceID=" << instance.mInstanceInfo.mItemID;
         } else {
             serviceVersion = service->mVersion;
         }
@@ -567,10 +567,10 @@ Error Launcher::SendOutdatedInstancesStatus(const Array<InstanceData>& instances
             return AOS_ERROR_WRAP(err);
         }
 
-        status->Back().mInstanceIdent = instance.mInstanceInfo.mInstanceIdent;
-        status->Back().mVersion       = serviceVersion;
-        status->Back().mState         = state;
-        status->Back().mError         = instanceErr;
+        static_cast<InstanceIdent&>(status->Back()) = static_cast<const InstanceIdent&>(instance.mInstanceInfo);
+        status->Back().mVersion                     = serviceVersion;
+        status->Back().mState                       = state;
+        status->Back().mError                       = instanceErr;
     }
 
     LOG_DBG() << "Send update status";
@@ -597,7 +597,8 @@ Error Launcher::GetDesiredInstancesData(
 
     for (const auto& instanceInfo : desiredInstancesInfo) {
         auto currentInstance = currentInstances->FindIf([&instanceInfo](const InstanceData& instance) {
-            return instance.mInstanceInfo.mInstanceIdent == instanceInfo.mInstanceIdent;
+            return static_cast<const InstanceIdent&>(instance.mInstanceInfo)
+                == static_cast<const InstanceIdent&>(instanceInfo);
         });
         if (currentInstance == currentInstances->end()) {
             auto [uuid, err] = mUUIDProvider->CreateUUIDv4();
@@ -661,7 +662,8 @@ Error Launcher::CalculateInstances(const Array<InstanceData>& desiredInstancesDa
 {
     for (const auto& desiredInstance : desiredInstancesData) {
         auto currentInstance = mCurrentInstances.FindIf([&desiredInstance](const Instance& instance) {
-            return instance.Info().mInstanceIdent == desiredInstance.mInstanceInfo.mInstanceIdent;
+            return static_cast<const InstanceIdent&>(instance.Info())
+                == static_cast<const InstanceIdent&>(desiredInstance.mInstanceInfo);
         });
 
         if (currentInstance == mCurrentInstances.end()) {
@@ -676,7 +678,7 @@ Error Launcher::CalculateInstances(const Array<InstanceData>& desiredInstancesDa
 
         compareInfo->mPriority = desiredInstance.mInstanceInfo.mPriority;
 
-        auto service = GetService(desiredInstance.mInstanceInfo.mInstanceIdent.mItemID);
+        auto service = GetService(desiredInstance.mInstanceInfo.mItemID);
 
         if ((*compareInfo != desiredInstance.mInstanceInfo) || service == mCurrentServices.end()
             || service->mVersion != currentInstance->GetServiceVersion() || forceRestart) {
@@ -693,7 +695,8 @@ Error Launcher::CalculateInstances(const Array<InstanceData>& desiredInstancesDa
 
     for (const auto& currentInstance : mCurrentInstances) {
         if (desiredInstancesData.FindIf([&currentInstance](const InstanceData& instance) {
-                return instance.mInstanceInfo.mInstanceIdent == currentInstance.Info().mInstanceIdent;
+                return static_cast<const InstanceIdent&>(instance.mInstanceInfo)
+                    == static_cast<const InstanceIdent&>(currentInstance.Info());
             })
             == desiredInstancesData.end()) {
             if (auto err = stopInstances.EmplaceBack(currentInstance.Info(), currentInstance.InstanceID());
@@ -728,7 +731,7 @@ void Launcher::StartInstances(const Array<InstanceData>& instances)
             // Skip already started instances
             if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
                 LOG_WRN() << "Instance already started: instanceID=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent;
+                          << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo);
 
                 continue;
             }
@@ -737,12 +740,13 @@ void Launcher::StartInstances(const Array<InstanceData>& instances)
                     auto err = StartInstance(info);
                     if (!err.IsNone()) {
                         LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
-                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                                  << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo)
+                                  << ", err=" << err;
                     }
                 });
                 !err.IsNone()) {
                 LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                          << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo) << ", err=" << err;
             }
         }
     }
@@ -764,7 +768,7 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
             auto instance = GetInstance(info.mInstanceID);
             if (instance == mCurrentInstances.end()) {
                 LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent;
+                          << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo);
 
                 continue;
             }
@@ -773,12 +777,13 @@ void Launcher::StopInstances(const Array<InstanceData>& instances)
                     auto err = StopInstance(instance->InstanceID());
                     if (!err.IsNone()) {
                         LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
-                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                                  << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo)
+                                  << ", err=" << err;
                     }
                 });
                 !err.IsNone()) {
                 LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                          << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo) << ", err=" << err;
             }
         }
     }
@@ -800,26 +805,28 @@ void Launcher::RestartInstances(const Array<InstanceData>& instances)
                     if (GetInstance(info.mInstanceID) != mCurrentInstances.end()) {
                         if (auto err = StopInstance(info.mInstanceID); !err.IsNone()) {
                             LOG_ERR() << "Can't stop instance: instanceID=" << info.mInstanceID
-                                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                                      << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo)
+                                      << ", err=" << err;
                         }
                     } else {
                         LOG_WRN() << "Instance already stopped: instanceID=" << info.mInstanceID
-                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent;
+                                  << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo);
                     }
 
                     if (GetInstance(info.mInstanceID) == mCurrentInstances.end()) {
                         if (auto err = StartInstance(info); !err.IsNone()) {
                             LOG_ERR() << "Can't start instance: instanceID=" << info.mInstanceID
-                                      << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                                      << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo)
+                                      << ", err=" << err;
                         }
                     } else {
                         LOG_WRN() << "Instance already started: instanceID=" << info.mInstanceID
-                                  << ", ident=" << info.mInstanceInfo.mInstanceIdent;
+                                  << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo);
                     }
                 });
                 !err.IsNone()) {
                 LOG_ERR() << "Can't restart instance: instanceID=" << info.mInstanceID
-                          << ", ident=" << info.mInstanceInfo.mInstanceIdent << ", err=" << err;
+                          << ", ident=" << static_cast<const InstanceIdent&>(info.mInstanceInfo) << ", err=" << err;
             }
         }
     }
@@ -838,7 +845,7 @@ void Launcher::CacheServices(const Array<InstanceData>& instances)
     mCurrentServices.Clear();
 
     for (const auto& instance : instances) {
-        const auto& serviceID = instance.mInstanceInfo.mInstanceIdent.mItemID;
+        const auto& serviceID = instance.mInstanceInfo.mItemID;
 
         if (GetService(serviceID) != mCurrentServices.end()) {
             continue;
@@ -871,7 +878,7 @@ Error Launcher::StartInstance(const InstanceData& info)
             return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
         }
 
-        auto service = GetService(info.mInstanceInfo.mInstanceIdent.mItemID);
+        auto service = GetService(info.mInstanceInfo.mItemID);
         if (service == mCurrentServices.end()) {
             if (auto err
                 = mCurrentInstances.EmplaceBack(info.mInstanceInfo, info.mInstanceID, servicemanager::ServiceData {},
@@ -900,7 +907,7 @@ Error Launcher::StartInstance(const InstanceData& info)
 
         auto envVars = MakeUnique<EnvVarArray>(&mAllocator);
 
-        if (auto err = GetInstanceEnvVars(info.mInstanceInfo.mInstanceIdent, *envVars); !err.IsNone()) {
+        if (auto err = GetInstanceEnvVars(info.mInstanceInfo, *envVars); !err.IsNone()) {
             return err;
         }
 
@@ -1176,7 +1183,7 @@ Error Launcher::GetEnvChangedInstances(Array<InstanceData>& instances) const
     for (auto& instance : mCurrentInstances) {
         auto envVars = MakeUnique<EnvVarArray>(&mAllocator);
 
-        if (auto err = GetInstanceEnvVars(instance.Info().mInstanceIdent, *envVars); !err.IsNone()) {
+        if (auto err = GetInstanceEnvVars(instance.Info(), *envVars); !err.IsNone()) {
             LOG_ERR() << "Can't get instance env vars: instanceID=" << instance.InstanceID() << ", err=" << err;
 
             continue;
@@ -1198,7 +1205,7 @@ Error Launcher::SendEnvChangedInstancesStatus(const Array<InstanceData>& instanc
 {
     LockGuard lock {mMutex};
 
-    auto status = MakeUnique<InstanceStatusStaticArray>(&mAllocator);
+    auto status = MakeUnique<InstanceStatusArray>(&mAllocator);
 
     for (const auto& instanceData : instances) {
         auto instance = GetInstance(instanceData.mInstanceID);

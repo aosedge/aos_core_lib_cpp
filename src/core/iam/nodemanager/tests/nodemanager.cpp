@@ -66,7 +66,7 @@ TEST_F(NodeManagerTest, Init)
     NodeInfoObsolete node0 = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
     NodeInfoObsolete node1 = CreateNodeInfo("node1", NodeStateObsoleteEnum::ePaused);
 
-    EXPECT_CALL(mStorage, GetAllNodeIds(_)).WillOnce(Invoke([&](Array<StaticString<cNodeIDLen>>& dst) {
+    EXPECT_CALL(mStorage, GetAllNodeIds(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& dst) {
         dst.PushBack(node0.mNodeID);
         dst.PushBack(node1.mNodeID);
 
@@ -93,7 +93,7 @@ TEST_F(NodeManagerTest, Init)
 
     ASSERT_TRUE(mManager.Init(mStorage).IsNone());
 
-    StaticArray<StaticString<cNodeIDLen>, 2> ids;
+    StaticArray<StaticString<cIDLen>, 2> ids;
 
     ASSERT_TRUE(mManager.GetAllNodeIds(ids).IsNone());
     EXPECT_THAT(ConvertToStl(ids), ElementsAre(node0.mNodeID, node1.mNodeID));
@@ -117,8 +117,8 @@ TEST_F(NodeManagerTest, SetNodeInfoProvisioned)
 
 TEST_F(NodeManagerTest, SetNodeStateUnprovisioned)
 {
-    StaticString<cNodeIDLen> node0 = "node0";
-    NodeStateObsolete        state = NodeStateObsoleteEnum::eUnprovisioned;
+    StaticString<cIDLen> node0 = "node0";
+    NodeStateObsolete    state = NodeStateObsoleteEnum::eUnprovisioned;
 
     EXPECT_CALL(mStorage, RemoveNodeInfo(node0)).WillOnce(Return(ErrorEnum::eNotFound));
     ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
@@ -134,8 +134,8 @@ TEST_F(NodeManagerTest, SetNodeStateProvisioned)
 
 TEST_F(NodeManagerTest, GetNodeInfoNotFound)
 {
-    StaticString<cNodeIDLen> node0 = "node0";
-    NodeInfoObsolete         nodeInfo;
+    StaticString<cIDLen> node0 = "node0";
+    NodeInfoObsolete     nodeInfo;
 
     ASSERT_EQ(mManager.GetNodeInfo(node0, nodeInfo), ErrorEnum::eNotFound);
 }
@@ -155,8 +155,8 @@ TEST_F(NodeManagerTest, GetNodeInfoOk)
 
 TEST_F(NodeManagerTest, GetAllNodeIds)
 {
-    StaticString<cNodeIDLen> node0 = "node0";
-    StaticString<cNodeIDLen> node1 = "node1";
+    StaticString<cIDLen> node0 = "node0";
+    StaticString<cIDLen> node1 = "node1";
 
     NodeStateObsolete state = NodeStateObsoleteEnum::eProvisioned;
 
@@ -164,7 +164,7 @@ TEST_F(NodeManagerTest, GetAllNodeIds)
     ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
     ASSERT_TRUE(mManager.SetNodeState(node1, state).IsNone());
 
-    StaticArray<StaticString<cNodeIDLen>, 2> ids;
+    StaticArray<StaticString<cIDLen>, 2> ids;
 
     ASSERT_TRUE(mManager.GetAllNodeIds(ids).IsNone());
     EXPECT_THAT(ConvertToStl(ids), ElementsAre(node0, node1));
@@ -172,7 +172,7 @@ TEST_F(NodeManagerTest, GetAllNodeIds)
 
 TEST_F(NodeManagerTest, RemoveNodeInfo)
 {
-    StaticString<cNodeIDLen> node0 = "node0";
+    StaticString<cIDLen> node0 = "node0";
 
     NodeInfoObsolete  nodeInfo;
     NodeStateObsolete state = NodeStateObsoleteEnum::eProvisioned;

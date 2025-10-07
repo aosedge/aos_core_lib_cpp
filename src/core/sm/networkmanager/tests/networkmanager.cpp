@@ -98,7 +98,7 @@ protected:
     StrictMock<InterfaceFactoryMock>                                                      mNetIfFactory;
     StrictMock<RandomMock>                                                                mRandom;
     aos::StaticString<aos::cFilePathLen>                                                  mWorkingDir;
-    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumServiceProviders>  mNetworkInfos;
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners>            mNetworkInfos;
     aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances> mInstanceNetworkInfos;
 };
 

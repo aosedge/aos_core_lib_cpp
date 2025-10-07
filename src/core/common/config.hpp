@@ -93,10 +93,10 @@
 #endif
 
 /**
- * Max number of service providers.
+ * Max number of update item owners.
  */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS
-#define AOS_CONFIG_TYPES_MAX_NUM_SERVICE_PROVIDERS 4
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_OWNERS
+#define AOS_CONFIG_TYPES_MAX_NUM_OWNERS 4
 #endif
 
 /**
@@ -387,17 +387,10 @@
 #endif
 
 /**
- * Node ID len.
+ * Node title len.
  */
-#ifndef AOS_CONFIG_TYPES_NODE_ID_LEN
-#define AOS_CONFIG_TYPES_NODE_ID_LEN 64
-#endif
-
-/**
- * Node name len.
- */
-#ifndef AOS_CONFIG_TYPES_NODE_NAME_LEN
-#define AOS_CONFIG_TYPES_NODE_NAME_LEN 64
+#ifndef AOS_CONFIG_TYPES_NODE_TITLE_LEN
+#define AOS_CONFIG_TYPES_NODE_TITLE_LEN 64
 #endif
 
 /**
@@ -1234,13 +1227,6 @@
  */
 #ifndef AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_TYPE_LEN
 #define AOS_CONFIG_CLOUDPROTOCOL_COMPONENT_TYPE_LEN 64
-#endif
-
-/**
- * Unit config status count.
- */
-#ifndef AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT
-#define AOS_CONFIG_CLOUDPROTOCOL_UNIT_CONFIG_STATUS_COUNT 2
 #endif
 
 /**
