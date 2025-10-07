@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "crypto.hpp"
+#include "itf/asn1.hpp"
 
 namespace aos::crypto::asn1 {
 
