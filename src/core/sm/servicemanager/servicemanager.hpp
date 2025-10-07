@@ -97,9 +97,9 @@ struct ServiceData {
 };
 
 /**
- * Service data static array.
+ * Service data array.
  */
-using ServiceDataStaticArray = StaticArray<ServiceData, cMaxNumServices>;
+using ServiceDataArray = StaticArray<ServiceData, cMaxNumServices>;
 
 /**
  * Service manager storage interface.
@@ -358,7 +358,7 @@ private:
     Timer                              mTimer;
     Mutex                              mMutex;
 
-    StaticAllocator<2 * sizeof(ServiceDataStaticArray) + sizeof(ServiceInfoStaticArray)
+    StaticAllocator<2 * sizeof(ServiceDataArray) + sizeof(ServiceInfoArray)
             + cNumInstallThreads * (sizeof(oci::ImageManifest) + sizeof(ServiceData)),
         cNumInstallThreads * 3>
         mAllocator;

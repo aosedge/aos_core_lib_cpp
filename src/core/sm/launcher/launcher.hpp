@@ -133,7 +133,7 @@ public:
     bool operator!=(const InstanceData& data) const { return !operator==(data); }
 };
 
-using InstanceDataStaticArray = StaticArray<InstanceData, cMaxNumInstances>;
+using InstanceDataArray = StaticArray<InstanceData, cMaxNumInstances>;
 
 /**
  * Launcher storage interface.
@@ -347,12 +347,11 @@ private:
 
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
-    static constexpr auto cAllocatorSize
-        = Max(sizeof(InstanceInfoArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
-                + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-                + sizeof(InstanceStatusArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
-            sizeof(EnvVarArray) + sizeof(InstanceStatusArray) + sizeof(InstanceDataStaticArray)
-                + sizeof(ServiceStatusStaticArray) + +sizeof(LayerStatusStaticArray));
+    static constexpr auto cAllocatorSize = Max(sizeof(InstanceInfoArray) + sizeof(InstanceDataArray) * 3
+            + sizeof(ServiceInfoArray) + sizeof(LayerInfoArray) + sizeof(servicemanager::ServiceDataArray)
+            + sizeof(InstanceStatusArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceDataArray),
+        sizeof(EnvVarArray) + sizeof(InstanceStatusArray) + sizeof(InstanceDataArray) + sizeof(ServiceStatusArray)
+            + sizeof(LayerStatusArray));
 
     void  ShowResourceUsageStats();
     Error ProcessLastInstances();

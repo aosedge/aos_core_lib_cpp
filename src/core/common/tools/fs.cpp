@@ -19,8 +19,8 @@ namespace aos::fs {
 
 namespace {
 
-Mutex                                           sCalculateSizeMutex;
-StaticAllocator<sizeof(DirIteratorStaticArray)> sCalculateSizeAllocator;
+Mutex                                     sCalculateSizeMutex;
+StaticAllocator<sizeof(DirIteratorArray)> sCalculateSizeAllocator;
 
 } // namespace
 
@@ -513,7 +513,7 @@ RetWithError<size_t> CalculateSize(const String& path)
     LockGuard lock {sCalculateSizeMutex};
 
     size_t size         = 0;
-    auto   dirIterators = MakeUnique<DirIteratorStaticArray>(&sCalculateSizeAllocator);
+    auto   dirIterators = MakeUnique<DirIteratorArray>(&sCalculateSizeAllocator);
 
     if (auto err = dirIterators->EmplaceBack(path); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
