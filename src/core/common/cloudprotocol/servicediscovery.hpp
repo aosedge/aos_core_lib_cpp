@@ -7,8 +7,6 @@
 #ifndef AOS_CORE_COMMON_CLOUDPROTOCOL_SERVICEDISCOVERY_HPP_
 #define AOS_CORE_COMMON_CLOUDPROTOCOL_SERVICEDISCOVERY_HPP_
 
-#include <core/common/types/obsolete.hpp>
-
 #include "common.hpp"
 
 namespace aos::cloudprotocol {

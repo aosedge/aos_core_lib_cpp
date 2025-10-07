@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <core/common/types/obsolete.hpp>
-
 #include "semver.hpp"
+
+#include <core/common/types/common.hpp>
 
 namespace aos::semver {
 

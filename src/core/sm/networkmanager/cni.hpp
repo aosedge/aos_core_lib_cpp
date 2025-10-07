@@ -9,7 +9,7 @@
 
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/uuid.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/network.hpp>
 #include <core/sm/config.hpp>
 
 namespace aos::sm::cni {

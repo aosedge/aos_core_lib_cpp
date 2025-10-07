@@ -12,7 +12,7 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/time.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::spaceallocator {
 /**
@@ -190,13 +190,13 @@ struct Partition;
  * Outdated item.
  */
 struct OutdatedItem {
-    StaticString<Max(cLayerDigestLen, cIDLen + cVersionLen + 1)> mID;
-    size_t                                                       mSize;
-    SpaceAllocatorItf*                                           mAllocator {};
-    StaticFunction<cDefaultFunctionMaxSize>                      mFreeCallback;
-    Partition*                                                   mPartition {};
-    ItemRemoverItf*                                              mRemover {};
-    Time                                                         mTimestamp;
+    StaticString<cIDLen>                    mID;
+    size_t                                  mSize;
+    SpaceAllocatorItf*                      mAllocator {};
+    StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
+    Partition*                              mPartition {};
+    ItemRemoverItf*                         mRemover {};
+    Time                                    mTimestamp;
 };
 
 /**
