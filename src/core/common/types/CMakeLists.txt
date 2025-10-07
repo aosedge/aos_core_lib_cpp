@@ -22,6 +22,7 @@ set(HEADERS
     log.hpp
     monitoring.hpp
     obsolete.hpp
+    permissions.hpp
     provisioning.hpp
     state.hpp
     unitconfig.hpp

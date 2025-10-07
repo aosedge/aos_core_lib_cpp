@@ -11,7 +11,7 @@
 #include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/permissions.hpp>
 #include <core/iam/config.hpp>
 
 namespace aos::iam::permhandler {

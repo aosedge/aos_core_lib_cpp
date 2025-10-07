@@ -9,6 +9,7 @@
 
 #include <core/common/tools/map.hpp>
 #include <core/common/types/envvars.hpp>
+#include <core/common/types/permissions.hpp>
 
 #include "common.hpp"
 
