@@ -19,6 +19,7 @@ set(HEADERS
     certificates.hpp
     desiredstatus.hpp
     envvars.hpp
+    instance.hpp
     log.hpp
     monitoring.hpp
     obsolete.hpp
