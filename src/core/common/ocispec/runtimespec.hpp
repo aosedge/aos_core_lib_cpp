@@ -8,7 +8,7 @@
 #define AOS_CORE_COMMON_OCISPEC_RUNTIMESPEC_HPP_
 
 #include <core/common/tools/map.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/envvars.hpp>
 
 #include "common.hpp"
 
@@ -167,7 +167,7 @@ struct Process {
     bool                                                    mTerminal;
     User                                                    mUser;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> mArgs;
-    EnvVarsStaticArray                                      mEnv;
+    EnvVarArray                                             mEnv;
     StaticString<cMaxParamLen>                              mCwd;
     bool                                                    mNoNewPrivileges;
     Optional<LinuxCapabilities>                             mCapabilities;
