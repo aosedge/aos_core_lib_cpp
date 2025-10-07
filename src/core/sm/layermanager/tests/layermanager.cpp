@@ -116,9 +116,9 @@ protected:
         return layer;
     }
 
-    LayerInfoStaticArray CreateAosLayers(const std::vector<std::string>& ids, const std::string& uriPrefix = "http://")
+    LayerInfoArray CreateAosLayers(const std::vector<std::string>& ids, const std::string& uriPrefix = "http://")
     {
-        LayerInfoStaticArray layers;
+        LayerInfoArray layers;
 
         for (const auto& id : ids) {
             layers.PushBack(CreateAosLayer(id.c_str(), uriPrefix));
@@ -296,7 +296,7 @@ TEST_F(LayerManagerTest, ProcessDesiredLayers)
     for (const auto& testCase : testCases) {
 
         auto desiredLayers = CreateAosLayers(testCase.mDesiredLayers);
-        auto layerStatuses = std::make_unique<LayerStatusStaticArray>();
+        auto layerStatuses = std::make_unique<LayerStatusArray>();
 
         auto err = mManager.ProcessDesiredLayers(desiredLayers, *layerStatuses);
         ASSERT_TRUE(err.IsNone()) << err.Message();
@@ -326,7 +326,7 @@ TEST_F(LayerManagerTest, ProcessDesiredLayersOnInvalidLayer)
     InitTest();
 
     const auto desiredLayers = CreateAosLayers({"layer1", "layer2", "layer3"});
-    auto       layerStatuses = std::make_unique<LayerStatusStaticArray>();
+    auto       layerStatuses = std::make_unique<LayerStatusArray>();
 
     ASSERT_TRUE(mManager.ProcessDesiredLayers(desiredLayers, *layerStatuses).IsNone());
 
@@ -357,7 +357,7 @@ TEST_F(LayerManagerTest, RemoveLayer)
     InitTest();
 
     const auto desiredLayers = CreateAosLayers({"layer1", "layer2", "layer3"});
-    auto       layerStatuses = std::make_unique<LayerStatusStaticArray>();
+    auto       layerStatuses = std::make_unique<LayerStatusArray>();
 
     ASSERT_TRUE(mManager.ProcessDesiredLayers(desiredLayers, *layerStatuses).IsNone());
 
@@ -367,7 +367,7 @@ TEST_F(LayerManagerTest, RemoveLayer)
         FAIL() << "Invalid layer status";
     }
 
-    auto layers = std::make_unique<LayerDataStaticArray>();
+    auto layers = std::make_unique<LayerDataArray>();
 
     ASSERT_TRUE(mStorage.GetAllLayers(*layers).IsNone());
     ASSERT_EQ(layers->Size(), desiredLayers.Size());

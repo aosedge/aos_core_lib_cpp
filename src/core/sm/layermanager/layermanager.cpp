@@ -149,7 +149,7 @@ Error LayerManager::ProcessDesiredLayers(const Array<LayerInfo>& desiredLayers, 
 
     LOG_DBG() << "Process desired layers";
 
-    auto layersToInstall = MakeUnique<LayerInfoStaticArray>(&mAllocator, desiredLayers);
+    auto layersToInstall = MakeUnique<LayerInfoArray>(&mAllocator, desiredLayers);
 
     if (auto err = UpdateCachedLayers(layerStatuses, *layersToInstall); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -257,7 +257,7 @@ Error LayerManager::RemoveItem(const String& id)
 
 Error LayerManager::PrepareSpaceForLayers(size_t desiredLayersNum)
 {
-    auto installedLayers = MakeUnique<LayerDataStaticArray>(&mAllocator);
+    auto installedLayers = MakeUnique<LayerDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllLayers(*installedLayers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -288,7 +288,7 @@ Error LayerManager::RemoveDamagedLayerFolders()
 {
     LOG_DBG() << "Remove damaged layer folders";
 
-    auto layers = MakeUnique<LayerDataStaticArray>(&mAllocator);
+    auto layers = MakeUnique<LayerDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllLayers(*layers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -335,7 +335,7 @@ Error LayerManager::SetOutdatedLayers()
 {
     LOG_DBG() << "Set outdated layers";
 
-    auto layers = MakeUnique<LayerDataStaticArray>(&mAllocator);
+    auto layers = MakeUnique<LayerDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllLayers(*layers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -389,7 +389,7 @@ Error LayerManager::RemoveOutdatedLayers()
 {
     LOG_DBG() << "Remove outdated layers";
 
-    auto layers = MakeUnique<LayerDataStaticArray>(&mAllocator);
+    auto layers = MakeUnique<LayerDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllLayers(*layers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -439,7 +439,7 @@ Error LayerManager::UpdateCachedLayers(Array<LayerStatus>& statuses, Array<Layer
 {
     LOG_DBG() << "Update cached layers";
 
-    auto storageLayers = MakeUnique<LayerDataStaticArray>(&mAllocator);
+    auto storageLayers = MakeUnique<LayerDataArray>(&mAllocator);
 
     if (auto err = mStorage->GetAllLayers(*storageLayers); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

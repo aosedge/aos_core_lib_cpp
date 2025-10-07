@@ -310,14 +310,14 @@ public:
     friend Log& operator<<(Log& log, const Instance& instance) { return log << instance.mInstanceID; }
 
 private:
-    using LayersStaticArray = StaticArray<StaticString<cFilePathLen>, cMaxNumLayers + 1>;
+    using LayersArray = StaticArray<StaticString<cFilePathLen>, cMaxNumLayers + 1>;
 
     static constexpr auto cRuntimeDir    = AOS_CONFIG_LAUNCHER_RUNTIME_DIR;
     static constexpr auto cAllocatorSize = sizeof(image::ImageParts) + sizeof(oci::ServiceConfig)
         + sizeof(oci::RuntimeSpec)
         + Max(sizeof(networkmanager::InstanceNetworkParameters), sizeof(monitoring::InstanceMonitorParams),
             sizeof(oci::ImageSpec)
-                + Max(sizeof(EnvVarArray), sizeof(LayersStaticArray) + sizeof(layermanager::LayerData),
+                + Max(sizeof(EnvVarArray), sizeof(LayersArray) + sizeof(layermanager::LayerData),
                     sizeof(Mount) + sizeof(ResourceInfoObsolete),
                     sizeof(Mount) + sizeof(DeviceInfo) + sizeof(StaticArray<oci::LinuxDevice, cMaxNumHostDevices>)));
     static constexpr auto cNumAllocations  = 8;

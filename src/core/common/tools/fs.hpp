@@ -302,7 +302,7 @@ private:
     StaticArray<uint8_t, cReadFileBufferSize> mReadFileBuffer;
 };
 
-using DirIteratorStaticArray = StaticArray<DirIterator, cDirIteratorMaxSize>;
+using DirIteratorArray = StaticArray<DirIterator, cDirIteratorMaxSize>;
 
 /**
  * Appends path to string.
