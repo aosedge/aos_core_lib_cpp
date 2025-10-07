@@ -44,7 +44,7 @@ public:
      * @param[out] ids result node identifiers.
      * @return Error.
      */
-    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
+    virtual Error GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const = 0;
 
     /**
      * Returns info for specified node.

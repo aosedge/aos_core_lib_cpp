@@ -349,10 +349,10 @@ private:
     static constexpr auto cHostFSWhiteoutsDir = "whiteouts";
 
     static constexpr auto cAllocatorSize
-        = Max(sizeof(InstanceInfoStaticArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
+        = Max(sizeof(InstanceInfoArray) + sizeof(InstanceDataStaticArray) * 3 + sizeof(ServiceInfoStaticArray)
                 + sizeof(LayerInfoStaticArray) + sizeof(servicemanager::ServiceDataStaticArray)
-                + sizeof(InstanceStatusStaticArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
-            sizeof(EnvVarArray) + sizeof(InstanceStatusStaticArray) + sizeof(InstanceDataStaticArray)
+                + sizeof(InstanceStatusArray) + sizeof(servicemanager::ServiceData) + sizeof(InstanceData),
+            sizeof(EnvVarArray) + sizeof(InstanceStatusArray) + sizeof(InstanceDataStaticArray)
                 + sizeof(ServiceStatusStaticArray) + +sizeof(LayerStatusStaticArray));
 
     void  ShowResourceUsageStats();

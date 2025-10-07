@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_SMCONTROLLER_ITF_SMSTATUSRECEIVER_HPP_
 #define AOS_CORE_CM_SMCONTROLLER_ITF_SMSTATUSRECEIVER_HPP_
 
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::cm::smcontroller {
 
@@ -16,9 +16,9 @@ namespace aos::cm::smcontroller {
  */
 
 struct SMInfo {
-    StaticString<cNodeIDLen> mNodeID;
-    ResourceInfoStaticArray  mResources;
-    RuntimeInfoStaticArray   mRuntimes;
+    StaticString<cIDLen> mNodeID;
+    ResourceInfoArray    mResources;
+    RuntimeInfoArray     mRuntimes;
 
     /**
      * Compares SM status.

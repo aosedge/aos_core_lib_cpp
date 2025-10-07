@@ -221,7 +221,7 @@ private:
     Error SetOutdatedItems();
     Error RemoveOutdatedItems();
     void  NotifyItemRemovedListeners(const String& id);
-    void  NotifyImageStatusChangedListeners(const cloudprotocol::UpdateImageStatus& status);
+    void  NotifyImageStatusChangedListeners(const ImageStatus& status);
 
     Error PrepareLayerMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);
     Error PrepareServiceMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);

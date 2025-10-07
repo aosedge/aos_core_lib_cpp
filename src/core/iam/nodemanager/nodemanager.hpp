@@ -81,7 +81,7 @@ public:
      * @param ids result node identifiers.
      * @return Error.
      */
-    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
+    virtual Error GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const = 0;
 
     /**
      * Removes node info by its id.
@@ -133,7 +133,7 @@ public:
      * @param ids result node identifiers.
      * @return Error.
      */
-    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
+    virtual Error GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const = 0;
 
     /**
      * Removes node info by its id.
@@ -194,7 +194,7 @@ public:
      * @param ids result node identifiers.
      * @return Error.
      */
-    Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const override;
+    Error GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const override;
 
     /**
      * Removes node info by its id.
@@ -215,7 +215,7 @@ public:
 private:
     static constexpr auto cNodeMaxNum = AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM;
     static constexpr auto cAllocatorSize
-        = sizeof(StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>) + sizeof(NodeInfoObsolete);
+        = sizeof(StaticArray<StaticString<cIDLen>, cNodeMaxNum>) + sizeof(NodeInfoObsolete);
 
     NodeInfoObsolete*       GetNodeFromCache(const String& nodeID);
     const NodeInfoObsolete* GetNodeFromCache(const String& nodeID) const;

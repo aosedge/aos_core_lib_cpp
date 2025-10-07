@@ -27,7 +27,7 @@ public:
      * @param id updated image id.
      * @param status updated image status.
      */
-    virtual void OnImageStatusChanged(const String& id, const cloudprotocol::UpdateImageStatus& status) = 0;
+    virtual void OnImageStatusChanged(const String& id, const ImageStatus& status) = 0;
 
     /**
      * Notifies about update item removal.
