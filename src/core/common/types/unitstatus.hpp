@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_TYPES_UNITSTATUS_HPP_
 #define AOS_CORE_COMMON_TYPES_UNITSTATUS_HPP_
 
-#include "common.hpp"
+#include "instance.hpp"
 #include "unitconfig.hpp"
 
 namespace aos {
