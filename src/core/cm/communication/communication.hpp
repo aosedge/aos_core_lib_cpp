@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_COMMUNICATION_HPP_
-#define AOS_CORE_CM_COMMUNICATION_HPP_
-
-#include <core/common/cloudprotocol/protocol.hpp>
+#ifndef AOS_CORE_CM_COMMUNICATION_COMMUNICATION_HPP_
+#define AOS_CORE_CM_COMMUNICATION_COMMUNICATION_HPP_
 
 namespace aos::cm::communication {
 
@@ -26,7 +24,7 @@ public:
      * @param message received message.
      * @return Error.
      */
-    virtual Error HandleMessage(const cloudprotocol::MessageVariant& message) = 0;
+    virtual Error HandleMessage(const void* message) = 0;
 
     /**
      * Destructor.
@@ -45,7 +43,7 @@ public:
      * @param body cloud message body to send.
      * @return Error.
      */
-    virtual Error SendMessage(const cloudprotocol::MessageVariant& body) = 0;
+    virtual Error SendMessage(const void* body) = 0;
 
     /**
      * Destructor.
@@ -57,4 +55,4 @@ public:
 
 } // namespace aos::cm::communication
 
-#endif
+#endif // AOS_CORE_CM_COMMUNICATION_COMMUNICATION_HPP_
