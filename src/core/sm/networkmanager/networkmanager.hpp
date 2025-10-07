@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_SM_NETWORKMANAGER_NETWORKMANAGER_HPP_
 #define AOS_CORE_SM_NETWORKMANAGER_NETWORKMANAGER_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/rand.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>

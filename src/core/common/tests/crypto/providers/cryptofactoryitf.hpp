@@ -11,7 +11,7 @@
 #include <string>
 
 #include <core/common/config.hpp>
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/crypto.hpp>
 
 namespace aos::crypto {
 

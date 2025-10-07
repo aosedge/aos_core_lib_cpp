@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/crypto/itf/certloader.hpp>
+#include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/os.hpp>
 #include <core/common/tools/uuid.hpp>

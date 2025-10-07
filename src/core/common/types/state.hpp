@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2025 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_TYPES_STATE_HPP_
 #define AOS_CORE_COMMON_TYPES_STATE_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/hash.hpp>
 
 namespace aos {
 

@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_STORAGESTATE_ITF_STORAGE_HPP_
 #define AOS_CORE_CM_STORAGESTATE_ITF_STORAGE_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/hash.hpp>
 
 namespace aos::cm::storagestate {
 

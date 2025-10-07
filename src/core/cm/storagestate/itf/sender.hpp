@@ -7,7 +7,6 @@
 #ifndef AOS_CORE_CM_STORAGESTATE_ITF_SENDER_HPP_
 #define AOS_CORE_CM_STORAGESTATE_ITF_SENDER_HPP_
 
-#include <core/common/crypto/crypto.hpp>
 #include <core/common/types/common.hpp>
 
 namespace aos::cm::storagestate {
