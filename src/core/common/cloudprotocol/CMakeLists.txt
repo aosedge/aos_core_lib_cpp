@@ -14,15 +14,7 @@ set(TARGET_NAME cloudprotocol)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS
-    common.hpp
-    monitoring.hpp
-    protocol.hpp
-    provisioning.hpp
-    servicediscovery.hpp
-    state.hpp
-    unitstatus.hpp
-)
+set(HEADERS common.hpp protocol.hpp provisioning.hpp servicediscovery.hpp state.hpp unitstatus.hpp)
 
 # ######################################################################################################################
 # Target

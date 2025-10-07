@@ -135,7 +135,7 @@ struct NodeInfo {
     Optional<size_t>         mPhysicalRAM;
     OSInfo                   mOSInfo;
     CPUInfoStaticArray       mCPUs;
-    PartitionInfoStaticArray mPartitions;
+    PartitionInfoArray       mPartitions;
     ResourceInfoStaticArray  mResources;
     RuntimeInfoStaticArray   mRuntimes;
     NodeAttributeStaticArray mAttrs;

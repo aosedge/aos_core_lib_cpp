@@ -21,11 +21,11 @@ namespace aos::monitoring {
  * Monitoring data.
  */
 struct MonitoringData {
-    double                   mCPU;
-    size_t                   mRAM;
-    PartitionInfoStaticArray mPartitions;
-    uint64_t                 mDownload;
-    uint64_t                 mUpload;
+    double                     mCPU;
+    size_t                     mRAM;
+    PartitionInfoObsoleteArray mPartitions;
+    uint64_t                   mDownload;
+    uint64_t                   mUpload;
 
     /**
      * Compares monitoring data.
@@ -96,7 +96,7 @@ struct InstanceMonitoringData {
         , mGID(monitoringParams.mGID)
     {
         for (const auto& partition : monitoringParams.mPartitions) {
-            PartitionInfo partitionInfo = {partition.mName, {}, partition.mPath, 0, 0};
+            PartitionInfoObsolete partitionInfo = {partition.mName, {}, partition.mPath, 0, 0};
 
             [[maybe_unused]] auto err = mMonitoringData.mPartitions.PushBack(partitionInfo);
             assert(err.IsNone());

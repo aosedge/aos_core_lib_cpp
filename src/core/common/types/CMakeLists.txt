@@ -20,6 +20,7 @@ set(HEADERS
     desiredstatus.hpp
     envvars.hpp
     log.hpp
+    monitoring.hpp
     obsolete.hpp
     unitconfig.hpp
 )

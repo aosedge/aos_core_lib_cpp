@@ -485,7 +485,7 @@ void ResourceMonitor::NormalizeMonitoringData()
 
         for (const auto& partition : instanceMonitoring.mMonitoringData.mPartitions) {
             if (auto it = nodeMonitoringData.mPartitions.FindIf(
-                    [&partition](const PartitionInfo& p) { return p.mName == partition.mName; });
+                    [&partition](const PartitionInfoObsolete& p) { return p.mName == partition.mName; });
                 it != nodeMonitoringData.mPartitions.end()) {
                 it->mUsedSize = Max(it->mUsedSize, partition.mUsedSize);
             }
