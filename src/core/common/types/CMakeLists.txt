@@ -23,6 +23,7 @@ set(HEADERS
     monitoring.hpp
     obsolete.hpp
     provisioning.hpp
+    state.hpp
     unitconfig.hpp
 )
 
