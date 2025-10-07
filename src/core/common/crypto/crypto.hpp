@@ -8,14 +8,15 @@
 #ifndef AOS_CORE_COMMON_CRYPTO_CRYPTO_HPP_
 #define AOS_CORE_COMMON_CRYPTO_CRYPTO_HPP_
 
+#include <core/common/consts.hpp>
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/optional.hpp>
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/uuid.hpp>
 #include <core/common/tools/variant.hpp>
-#include <core/common/types/common.hpp>
 
 namespace aos::crypto {
 
@@ -137,7 +138,7 @@ constexpr auto cCertChainsCount = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT;
 /**
  * Certificate chain len.
  */
-static constexpr auto cCertChainPEMLen = cCertChainSize * cCertPEMLen;
+constexpr auto cCertChainPEMLen = cCertChainSize * cCertPEMLen;
 
 /**
  * Maximum size of SHA2 digest.

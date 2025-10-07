@@ -9,6 +9,34 @@
 #define AOS_CORE_COMMON_CONFIG_HPP_
 
 /**
+ * URL len.
+ */
+#ifndef AOS_CONFIG_URL_LEN
+#define AOS_CONFIG_URL_LEN 256
+#endif
+
+/**
+ * Max num URLs.
+ */
+#ifndef AOS_CONFIG_MAX_NUM_URLS
+#define AOS_CONFIG_MAX_NUM_URLS 8
+#endif
+
+/**
+ * File/directory path len.
+ */
+#ifndef AOS_CONFIG_FILE_PATH_LEN
+#define AOS_CONFIG_FILE_PATH_LEN 256
+#endif
+
+/**
+ * Max number of concurrent items.
+ */
+#ifndef AOS_CONFIG_MAX_NUM_CONCURRENT_ITEMS
+#define AOS_CONFIG_MAX_NUM_CONCURRENT_ITEMS 4
+#endif
+
+/**
  * Max error message len.
  */
 #ifndef AOS_CONFIG_TOOLS_ERROR_MESSAGE_LEN
@@ -114,13 +142,6 @@
 #endif
 
 /**
- * URL len.
- */
-#ifndef AOS_CONFIG_TYPES_URL_LEN
-#define AOS_CONFIG_TYPES_URL_LEN 256
-#endif
-
-/**
  * Max number of services.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICES
@@ -167,13 +188,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_FS_MOUNT_TYPE_LEN
 #define AOS_CONFIG_TYPES_FS_MOUNT_TYPE_LEN 16
-#endif
-
-/**
- * File/directory path len.
- */
-#ifndef AOS_CONFIG_TYPES_FILE_PATH_LEN
-#define AOS_CONFIG_TYPES_FILE_PATH_LEN 256
 #endif
 
 /**
@@ -580,20 +594,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES
 #define AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES 4
-#endif
-
-/**
- * Max num URLs.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_URLS
-#define AOS_CONFIG_TYPES_MAX_NUM_URLS 8
-#endif
-
-/**
- * Max number of concurrent items.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS
-#define AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS 2
 #endif
 
 /**

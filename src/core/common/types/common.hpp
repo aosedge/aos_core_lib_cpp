@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_TYPES_COMMON_HPP_
 
 #include <core/common/config.hpp>
+#include <core/common/consts.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/optional.hpp>
@@ -76,21 +77,6 @@ constexpr auto cMaxNumPartitionTypes = AOS_CONFIG_TYPES_MAX_NUM_PARTITION_TYPES;
  */
 constexpr auto cResourceNameLen = AOS_CONFIG_TYPES_RESOURCE_NAME_LEN;
 
-/*
- * URL len.
- */
-constexpr auto cURLLen = AOS_CONFIG_TYPES_URL_LEN;
-
-/*
- * Maximum number of URLs.
- */
-constexpr auto cMaxNumURLs = AOS_CONFIG_TYPES_MAX_NUM_URLS;
-
-/*
- * File path len.
- */
-constexpr auto cFilePathLen = AOS_CONFIG_TYPES_FILE_PATH_LEN;
-
 /**
  * Label name len.
  */
@@ -130,11 +116,6 @@ constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
  * CPU variant len.
  */
 constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
-
-/**
- * Max number of concurrent items.
- */
-constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_TYPES_MAX_CONCURRENT_ITEMS;
 
 /**
  * Core component type.
