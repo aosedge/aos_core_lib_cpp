@@ -20,6 +20,7 @@
 #include <core/common/tools/uuid.hpp>
 
 #include "common.hpp"
+#include "envvars.hpp"
 
 namespace aos {
 
@@ -184,28 +185,6 @@ constexpr auto cMaxNumGroups = AOS_CONFIG_TYPES_MAX_NUM_GROUPS;
 constexpr auto cMaxNumFSMounts = AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS;
 
 /**
- * Environment variable name len.
- */
-constexpr auto cEnvVarNameLen = AOS_CONFIG_TYPES_ENV_VAR_NAME_LEN;
-
-/**
- * Environment variable value len.
- */
-constexpr auto cEnvVarValueLen = AOS_CONFIG_TYPES_ENV_VAR_VALUE_LEN;
-
-/**
- * Environment variable len.
- *
- * Consists of name and value plus equal sign.
- */
-constexpr auto cEnvVarLen = cEnvVarNameLen + cEnvVarValueLen + 1;
-
-/**
- * Max number of environment variables.
- */
-constexpr auto cMaxNumEnvVariables = AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES;
-
-/**
  * Max number of hosts.
  */
 constexpr auto cMaxNumHosts = AOS_CONFIG_TYPES_MAX_NUM_HOSTS;
@@ -304,68 +283,6 @@ static constexpr auto cStateLen = AOS_CONFIG_TYPES_STATE_LEN;
  * Max length of JSON.
  */
 constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
-
-/**
- * Instance filter.
- */
-struct InstanceFilter {
-    Optional<StaticString<cIDLen>> mItemID;
-    Optional<StaticString<cIDLen>> mSubjectID;
-    Optional<uint64_t>             mInstance;
-
-    /**
-     * Returns true if instance ident matches filter.
-     *
-     * @param instanceIdent instance ident to match.
-     * @return bool.
-     */
-    bool Match(const InstanceIdent& instanceIdent) const
-    {
-        return (!mItemID.HasValue() || *mItemID == instanceIdent.mItemID)
-            && (!mSubjectID.HasValue() || *mSubjectID == instanceIdent.mSubjectID)
-            && (!mInstance.HasValue() || *mInstance == instanceIdent.mInstance);
-    }
-
-    /**
-     * Compares instance filter.
-     *
-     * @param filter instance filter to compare with.
-     * @return bool.
-     */
-    bool operator==(const InstanceFilter& filter) const
-    {
-        return mItemID == filter.mItemID && mSubjectID == filter.mSubjectID && mInstance == filter.mInstance;
-    }
-
-    /**
-     * Compares instance filter.
-     *
-     * @param filter instance filter to compare with.
-     * @return bool.
-     */
-    bool operator!=(const InstanceFilter& filter) const { return !operator==(filter); }
-
-    /**
-     * Outputs instance filter to log.
-     *
-     * @param log log to output.
-     * @param instanceFilter instance filter.
-     *
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const InstanceFilter& instanceFilter)
-    {
-        StaticString<32> instanceStr = "*";
-
-        if (instanceFilter.mInstance.HasValue()) {
-            instanceStr.Convert(*instanceFilter.mInstance);
-        }
-
-        return log << "{" << (instanceFilter.mItemID.HasValue() ? *instanceFilter.mItemID : "*") << ":"
-                   << (instanceFilter.mSubjectID.HasValue() ? *instanceFilter.mSubjectID : "*") << ":" << instanceStr
-                   << "}";
-    }
-};
 
 /**
  * Firewall rule.
@@ -944,11 +861,6 @@ struct DeviceInfo {
 };
 
 /**
- * Env vars static array.
- */
-using EnvVarsStaticArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
-
-/**
  * Labels static array.
  */
 using LabelsStaticArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
@@ -960,7 +872,7 @@ struct ResourceInfoObsolete {
     StaticString<cResourceNameLen>                          mName;
     StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups> mGroups;
     StaticArray<Mount, cMaxNumFSMounts>                     mMounts;
-    EnvVarsStaticArray                                      mEnv;
+    EnvVarArray                                             mEnv;
     StaticArray<Host, cMaxNumHosts>                         mHosts;
 
     /**
