@@ -71,7 +71,7 @@ endif()
 # Sources
 # ######################################################################################################################
 
-set(SOURCES crypto.cpp cryptohelper.cpp cryptoutils.cpp)
+set(SOURCES asn1.cpp cryptohelper.cpp certloader.cpp)
 
 if(WITH_MBEDTLS)
     list(APPEND SOURCES mbedtls/cryptoprovider.cpp mbedtls/driverwrapper.cpp)
@@ -85,7 +85,19 @@ endif()
 # Headers
 # ######################################################################################################################
 
-set(HEADERS crypto.hpp cryptoprovider.hpp cryptoutils.hpp)
+set(HEADERS
+    certloader.hpp
+    cryptoprovider.hpp
+    cryptohelper.hpp
+    itf/rand.hpp
+    itf/asn1.hpp
+    itf/certloader.hpp
+    itf/crypto.hpp
+    itf/cryptohelper.hpp
+    itf/hash.hpp
+    itf/privkey.hpp
+    itf/x509.hpp
+)
 
 if(WITH_MBEDTLS)
     list(APPEND HEADERS mbedtls/cryptoprovider.hpp mbedtls/driverwrapper.hpp)
