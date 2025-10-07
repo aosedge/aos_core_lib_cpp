@@ -15,7 +15,7 @@ It requires the following interfaces:
 * [aos::cm::storagestate::StorageItf](itf/storage.hpp) - manages metadata about storage/state partitions;
 * [aos::fs::FSPlatformItf](../../common/tools/fs.hpp) - handle filesystem operations;
 * [aos::fs::FSWatcherItf](../../common/tools/fs.hpp) - subscribes to file change events.
-* [aos::crypto::CryptoProviderItf](../../common/crypto/crypto.hpp) - computes state file checksum;
+* [aos::crypto::HasherItf](../../common/crypto/itf/hasher.hpp) - computes state file checksum;
 
 ```mermaid
 classDiagram

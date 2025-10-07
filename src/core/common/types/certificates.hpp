@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_TYPES_CERTIFICATES_HPP_
 #define AOS_CORE_COMMON_TYPES_CERTIFICATES_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/x509.hpp>
 #include <core/common/tools/optional.hpp>
 
 #include "common.hpp"

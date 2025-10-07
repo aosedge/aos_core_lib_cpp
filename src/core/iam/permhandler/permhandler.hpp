@@ -8,7 +8,7 @@
 #ifndef AOS_CORE_IAM_PERMHANDLER_PERMHANDLER_HPP_
 #define AOS_CORE_IAM_PERMHANDLER_PERMHANDLER_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/uuid.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
 #include <core/common/types/permissions.hpp>

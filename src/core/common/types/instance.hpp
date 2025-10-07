@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_TYPES_INSTANCE_HPP_
 #define AOS_CORE_COMMON_TYPES_INSTANCE_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/hash.hpp>
 
 #include "common.hpp"
 #include "network.hpp"

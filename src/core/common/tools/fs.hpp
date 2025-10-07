@@ -10,7 +10,8 @@
 
 #include <dirent.h>
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/consts.hpp>
+#include <core/common/crypto/itf/hash.hpp>
 
 #include "config.hpp"
 #include "noncopyable.hpp"

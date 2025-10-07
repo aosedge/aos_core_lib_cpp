@@ -45,16 +45,16 @@ Error ToRelativePath(const String& base, const String& full, String& result)
  **********************************************************************************************************************/
 
 Error StorageState::Init(const Config& config, StorageItf& storage, SenderItf& sender, fs::FSPlatformItf& fsPlatform,
-    fs::FSWatcherItf& fsWatcher, crypto::CryptoProviderItf& cryptoProvider)
+    fs::FSWatcherItf& fsWatcher, crypto::HasherItf& hasher)
 {
     LOG_INF() << "Initialize storage state";
 
-    mConfig         = config;
-    mStorage        = &storage;
-    mMessageSender  = &sender;
-    mFSPlatform     = &fsPlatform;
-    mFSWatcher      = &fsWatcher;
-    mCryptoProvider = &cryptoProvider;
+    mConfig        = config;
+    mStorage       = &storage;
+    mMessageSender = &sender;
+    mFSPlatform    = &fsPlatform;
+    mFSWatcher     = &fsWatcher;
+    mHasher        = &hasher;
 
     if (auto err = fs::MakeDirAll(mConfig.mStateDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -660,7 +660,7 @@ StaticString<cFilePathLen> StorageState::GetStoragePath(const InstanceIdent& ins
 
 Error StorageState::CalculateChecksum(const String& data, String& checksum)
 {
-    auto [hasher, err] = mCryptoProvider->CreateHash(cHashAlgorithm);
+    auto [hasher, err] = mHasher->CreateHash(cHashAlgorithm);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
