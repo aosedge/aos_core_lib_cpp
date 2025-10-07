@@ -8,7 +8,6 @@
 #define AOS_CORE_CM_SMCONTROLLER_ITF_UPDATEIMAGEPROVIDER_HPP_
 
 #include <core/common/tools/error.hpp>
-#include <core/common/types/obsolete.hpp>
 
 namespace aos::cm::smcontroller {
 

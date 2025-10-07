@@ -16,7 +16,6 @@
 #include <core/common/tools/list.hpp>
 #include <core/common/tools/noncopyable.hpp>
 #include <core/common/types/envvars.hpp>
-#include <core/common/types/obsolete.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/layermanager/layermanager.hpp>
 #include <core/sm/networkmanager/networkmanager.hpp>

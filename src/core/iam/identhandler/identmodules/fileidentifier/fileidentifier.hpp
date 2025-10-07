@@ -8,7 +8,6 @@
 #ifndef AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 #define AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 
-#include <core/common/types/obsolete.hpp>
 #include <core/iam/config.hpp>
 #include <core/iam/identhandler/identhandler.hpp>
 

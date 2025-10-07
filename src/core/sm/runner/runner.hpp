@@ -10,7 +10,7 @@
 
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/noncopyable.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::sm::runner {
 /**

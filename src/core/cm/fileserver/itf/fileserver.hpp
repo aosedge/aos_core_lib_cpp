@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_FILESERVER_HPP_
 #define AOS_CORE_CM_FILESERVER_HPP_
 
-#include <core/common/types/obsolete.hpp>
+#include <core/common/tools/string.hpp>
 
 namespace aos::cm::fileserver {
 

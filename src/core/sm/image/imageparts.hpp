@@ -8,7 +8,6 @@
 #define AOS_CORE_SM_IMAGE_IMAGEPARTS_HPP_
 
 #include <core/common/ocispec/ocispec.hpp>
-#include <core/common/types/obsolete.hpp>
 
 namespace aos::sm::image {
 

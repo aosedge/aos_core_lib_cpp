@@ -12,7 +12,7 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/network.hpp>
 #include <core/sm/config.hpp>
 
 #include "cni.hpp"
