@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2023 Renesas Electronics Corporation.
  * Copyright (C) 2023 EPAM Systems, Inc.
  *
@@ -11,7 +11,7 @@
 #include <cstdint>
 
 #include <core/common/config.hpp>
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/hash.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/error.hpp>
 #include <core/common/tools/log.hpp>
@@ -24,7 +24,7 @@
 
 namespace aos {
 
-/*
+/**
  * Layer digest len.
  */
 constexpr auto cLayerDigestLen = AOS_CONFIG_TYPES_LAYER_DIGEST_LEN;

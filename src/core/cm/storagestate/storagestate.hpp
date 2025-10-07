@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_STORAGESTATE_STORAGESTATE_HPP_
 #define AOS_CORE_CM_STORAGESTATE_STORAGESTATE_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/hash.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
@@ -41,7 +41,7 @@ public:
      * @return Error.
      */
     Error Init(const Config& config, StorageItf& storage, SenderItf& sender, fs::FSPlatformItf& fsPlatform,
-        fs::FSWatcherItf& fsWatcher, crypto::CryptoProviderItf& cryptoProvider);
+        fs::FSWatcherItf& fsWatcher, crypto::HasherItf& hasher);
 
     /**
      * Starts storage state instance.
@@ -200,7 +200,7 @@ private:
     SenderItf*                                                              mMessageSender                  = {};
     fs::FSPlatformItf*                                                      mFSPlatform                     = {};
     fs::FSWatcherItf*                                                       mFSWatcher                      = {};
-    crypto::CryptoProviderItf*                                              mCryptoProvider                 = {};
+    crypto::HasherItf*                                                      mHasher                         = {};
     bool                                                                    mStateAndStorageOnSamePartition = {};
     StaticArray<State, cMaxNumInstances>                                    mStates;
 };

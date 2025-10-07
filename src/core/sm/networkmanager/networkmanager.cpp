@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
 

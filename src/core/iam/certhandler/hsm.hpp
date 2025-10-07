@@ -8,7 +8,7 @@
 #ifndef AOS_CORE_IAM_CERTHANDLER_HSM_HPP_
 #define AOS_CORE_IAM_CERTHANDLER_HSM_HPP_
 
-#include <core/common/crypto/crypto.hpp>
+#include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/iam/config.hpp>
