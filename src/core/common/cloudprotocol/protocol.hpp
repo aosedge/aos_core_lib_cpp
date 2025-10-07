@@ -10,7 +10,6 @@
 #include <core/common/tools/variant.hpp>
 
 #include "common.hpp"
-#include "provisioning.hpp"
 #include "state.hpp"
 #include "unitstatus.hpp"
 
@@ -86,9 +85,7 @@ using MessageType     = EnumStringer<MessageTypeType>;
 /**
  * Cloud message variant type.
  */
-using MessageVariant = Variant<UnitStatus, NewState, StateRequest, StateAcceptance, UpdateState, RenewCertsNotification,
-    IssuedUnitCerts, IssueUnitCerts, InstallUnitCertsConfirmation, StartProvisioningRequest, StartProvisioningResponse,
-    FinishProvisioningRequest, FinishProvisioningResponse, DeprovisioningRequest, DeprovisioningResponse>;
+using MessageVariant = Variant<UnitStatus, NewState, StateRequest, StateAcceptance, UpdateState>;
 
 /**
  * Cloud message header.
