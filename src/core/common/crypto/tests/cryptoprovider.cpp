@@ -6,7 +6,6 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
@@ -295,8 +294,8 @@ TEST_P(CryptoProviderTest, CreateSelfSignedCert)
 
 TEST_P(CryptoProviderTest, CreateCSRUsingECKey)
 {
-    aos::crypto::x509::CSR templ;
-    const char*            subjectName = "CN=Test Subject, O=Org, C=GB";
+    x509::CSR   templ;
+    const char* subjectName = "CN=Test Subject, O=Org, C=GB";
     ASSERT_EQ(mCryptoProvider->ASN1EncodeDN(subjectName, templ.mSubject), aos::ErrorEnum::eNone);
 
     templ.mDNSNames.Resize(2);
@@ -819,7 +818,7 @@ TEST_P(CryptoProviderTest, VerifyRSASignature)
     pubKey.SetValue(static_cast<const RSAPublicKey&>(privKey->GetPublic()));
 
     EXPECT_TRUE(
-        mCryptoProvider->Verify(pubKey, HashEnum::eSHA256, PaddingEnum::ePKCS1v1_5, digest, signature).IsNone());
+        mCryptoProvider->Verify(pubKey, HashEnum::eSHA256, x509::PaddingEnum::ePKCS1v1_5, digest, signature).IsNone());
 }
 
 TEST_P(CryptoProviderTest, VerifyECDSASignature)
@@ -849,12 +848,13 @@ TEST_P(CryptoProviderTest, VerifyECDSASignature)
     Variant<ECDSAPublicKey, RSAPublicKey> pubKey;
     pubKey.SetValue(static_cast<const ECDSAPublicKey&>(privKey->GetPublic()));
 
-    EXPECT_TRUE(mCryptoProvider->Verify(pubKey, HashEnum::eSHA384, PaddingEnum::eNone, digest, signature).IsNone());
+    EXPECT_TRUE(
+        mCryptoProvider->Verify(pubKey, HashEnum::eSHA384, x509::PaddingEnum::eNone, digest, signature).IsNone());
 }
 
 TEST_P(CryptoProviderTest, VerifyCertChain)
 {
-    StaticString<crypto::cCertPEMLen> buff;
+    StaticString<cCertPEMLen>         buff;
     StaticArray<x509::Certificate, 1> rootCerts;
 
     ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/ca.cer", buff).IsNone());
@@ -870,7 +870,7 @@ TEST_P(CryptoProviderTest, VerifyCertChain)
     ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client.cer", buff).IsNone());
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, leafCerts).IsNone());
 
-    VerifyOptions opts;
+    x509::VerifyOptions opts;
     opts.mCurrentTime = Time();
 
     ASSERT_TRUE(mCryptoProvider->Verify(rootCerts, intermCerts, opts, leafCerts[0]).IsNone());
@@ -878,7 +878,7 @@ TEST_P(CryptoProviderTest, VerifyCertChain)
 
 TEST_P(CryptoProviderTest, VerifyCertChainCurTimeExceeds)
 {
-    StaticString<crypto::cCertPEMLen> buff;
+    StaticString<cCertPEMLen>         buff;
     StaticArray<x509::Certificate, 1> rootCerts;
 
     ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/ca.cer", buff).IsNone());
@@ -894,7 +894,7 @@ TEST_P(CryptoProviderTest, VerifyCertChainCurTimeExceeds)
     ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client.cer", buff).IsNone());
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, leafCerts).IsNone());
 
-    VerifyOptions opts;
+    x509::VerifyOptions opts;
     opts.mCurrentTime = Time::Now().Add(Years(2));
 
     ASSERT_FALSE(mCryptoProvider->Verify(rootCerts, intermCerts, opts, leafCerts[0]).IsNone());

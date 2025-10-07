@@ -9,7 +9,7 @@
 
 #include <core/common/config.hpp>
 
-#include "../crypto.hpp"
+#include "../itf/crypto.hpp"
 #include "opensslprovider.hpp"
 
 namespace aos::crypto {
@@ -237,7 +237,7 @@ public:
      * @param signature signature to verify against the digest.
      * @return Error.
      */
-    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
+    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, x509::Padding padding,
         const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
 
     /**
@@ -250,7 +250,7 @@ public:
      * @return Error.
      */
     Error Verify(const Array<x509::Certificate>& rootCerts, const Array<x509::Certificate>& intermCerts,
-        const VerifyOptions& options, const x509::Certificate& cert) override;
+        const x509::VerifyOptions& options, const x509::Certificate& cert) override;
 
     /**
      * Discards an ASN.1 tag-length and invokes reader for its content.

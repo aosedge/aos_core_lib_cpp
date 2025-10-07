@@ -1116,7 +1116,7 @@ Error Sign(const PrivateKeyItf& privKey, X509_REQ* req, OSSL_LIB_CTX* libCtx)
     return ErrorEnum::eNone;
 }
 
-Error SetVerificationOptions(const VerifyOptions& opts, X509_STORE_CTX* store)
+Error SetVerificationOptions(const x509::VerifyOptions& opts, X509_STORE_CTX* store)
 {
     if (!opts.mCurrentTime.IsZero()) {
         auto curTime = DeferRelease(ASN1_UTCTIME_new(), ASN1_TIME_free);
@@ -1879,8 +1879,8 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESDecoder(
     return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
 }
 
-Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
-    const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc,
+    x509::Padding padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
 {
     auto [pkey, err] = GetEvpPublicKey(pubKey, mLibCtx);
     if (!err.IsNone()) {
@@ -1910,9 +1910,9 @@ Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
     auto keyType = EVP_PKEY_base_id(pkey);
     if (keyType == EVP_PKEY_RSA) {
         int opensslPadding = -1;
-        if (padding == PaddingEnum::ePKCS1v1_5) {
+        if (padding == x509::PaddingEnum::ePKCS1v1_5) {
             opensslPadding = RSA_PKCS1_PADDING;
-        } else if (padding == PaddingEnum::ePSS) {
+        } else if (padding == x509::PaddingEnum::ePSS) {
             opensslPadding = RSA_PKCS1_PSS_PADDING;
         } else {
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
@@ -1928,7 +1928,7 @@ Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
         }
     } else if (keyType == EVP_PKEY_EC) {
         // ECDSA doesn't use padding
-        if (padding != PaddingEnum::eNone) {
+        if (padding != x509::PaddingEnum::eNone) {
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
     } else {
@@ -1944,7 +1944,7 @@ Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
 }
 
 Error OpenSSLCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
-    const Array<x509::Certificate>& intermCerts, const VerifyOptions& options, const x509::Certificate& cert)
+    const Array<x509::Certificate>& intermCerts, const x509::VerifyOptions& options, const x509::Certificate& cert)
 {
     if (rootCerts.IsEmpty()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "no root certificates"));
