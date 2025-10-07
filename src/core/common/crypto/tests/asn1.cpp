@@ -10,7 +10,7 @@
 
 namespace aos::crypto::asn1 {
 
-TEST(CryptoTest, ConvertTimeToASN1Str)
+TEST(ASN1Test, ConvertTimeToASN1Str)
 {
     auto t = Time::Unix(1706702400);
 

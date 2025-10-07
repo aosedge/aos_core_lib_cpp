@@ -11,7 +11,7 @@
 #include <core/common/pkcs11/pkcs11.hpp>
 #include <core/common/pkcs11/privatekey.hpp>
 
-#include "itf/certoloader.hpp"
+#include "itf/certloader.hpp"
 #include "itf/crypto.hpp"
 
 namespace aos::crypto {

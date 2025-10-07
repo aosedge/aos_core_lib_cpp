@@ -9,7 +9,7 @@
 
 #include <core/common/config.hpp>
 
-#include "../crypto.hpp"
+#include "../itf/crypto.hpp"
 
 /**
  * Returns OpenSSL error.
