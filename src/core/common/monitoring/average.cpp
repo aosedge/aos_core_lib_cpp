@@ -48,7 +48,7 @@ void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
  * Public
  **********************************************************************************************************************/
 
-Error Average::Init(const PartitionInfoStaticArray& nodeDisks, size_t windowCount)
+Error Average::Init(const PartitionInfoObsoleteArray& nodeDisks, size_t windowCount)
 {
     mWindowCount = windowCount;
     if (mWindowCount == 0) {
@@ -121,7 +121,7 @@ Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringCo
 
     for (const auto& partition : monitoringConfig.mPartitions) {
         if (auto err = averageData->mMonitoringData.mPartitions.PushBack(
-                PartitionInfo {partition.mName, {}, partition.mPath, 0, 0});
+                PartitionInfoObsolete {partition.mName, {}, partition.mPath, 0, 0});
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -175,7 +175,7 @@ Error Average::GetMonitoringData(MonitoringData& data, const MonitoringData& ave
     data.mPartitions.Clear();
 
     for (const auto& disk : averageData.mPartitions) {
-        data.mPartitions.EmplaceBack(PartitionInfo {
+        data.mPartitions.EmplaceBack(PartitionInfoObsolete {
             disk.mName, disk.mTypes, disk.mPath, disk.mTotalSize, GetValue(disk.mUsedSize, mWindowCount)});
     }
 

@@ -423,24 +423,6 @@ using ImageStateEnum = ImageStateType::Enum;
 using ImageState     = EnumStringer<ImageStateType>;
 
 /**
- * Instance state type.
- */
-class InstanceStateType {
-public:
-    enum class Enum { eActivating, eActive, eInactive, eFailed };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {"activating", "active", "inactive", "failed"};
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using InstanceStateEnum = InstanceStateType::Enum;
-using InstanceState     = EnumStringer<InstanceStateType>;
-
-/**
  * Instance info.
  */
 struct InstanceInfo {
@@ -899,7 +881,7 @@ struct ResourceInfoObsolete {
 /**
  * Partition info.
  */
-struct PartitionInfo {
+struct PartitionInfoObsolete {
     StaticString<cPartitionNameLen>                                     mName;
     StaticArray<StaticString<cPartitionTypeLen>, cMaxNumPartitionTypes> mTypes;
     StaticString<cFilePathLen>                                          mPath;
@@ -912,7 +894,7 @@ struct PartitionInfo {
      * @param info partition info to compare with.
      * @return bool.
      */
-    bool operator==(const PartitionInfo& info) const
+    bool operator==(const PartitionInfoObsolete& info) const
     {
         return mName == info.mName && mPath == info.mPath && mTypes == info.mTypes && mTotalSize == info.mTotalSize
             && mUsedSize == info.mUsedSize;
@@ -924,13 +906,13 @@ struct PartitionInfo {
      * @param info partition info to compare with.
      * @return bool.
      */
-    bool operator!=(const PartitionInfo& info) const { return !operator==(info); }
+    bool operator!=(const PartitionInfoObsolete& info) const { return !operator==(info); }
 };
 
 /**
  * Partition info static array.
  */
-using PartitionInfoStaticArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
+using PartitionInfoObsoleteArray = StaticArray<PartitionInfoObsolete, cMaxNumPartitions>;
 
 /**
  * CPU info.
@@ -1078,34 +1060,6 @@ using NodeStateObsoleteEnum = NodeStateObsoleteType::Enum;
 using NodeStateObsolete     = EnumStringer<NodeStateObsoleteType>;
 
 /**
- * Node state.
- */
-class NodeStateType {
-public:
-    enum class Enum {
-        eOffline,
-        eOnline,
-        eError,
-        ePaused,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "offline",
-            "online",
-            "error",
-            "paused",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using NodeStateEnum = NodeStateType::Enum;
-using NodeState     = EnumStringer<NodeStateType>;
-
-/**
  * Node info.
  */
 struct NodeInfoObsolete {
@@ -1115,7 +1069,7 @@ struct NodeInfoObsolete {
     NodeStateObsolete          mState;
     StaticString<cOSTypeLen>   mOSType;
     CPUInfoStaticArray         mCPUs;
-    PartitionInfoStaticArray   mPartitions;
+    PartitionInfoObsoleteArray mPartitions;
     NodeAttributeStaticArray   mAttrs;
     uint64_t                   mMaxDMIPS = 0;
     uint64_t                   mTotalRAM = 0;
@@ -1175,7 +1129,7 @@ struct NodeInfo {
     Optional<size_t>           mPhysicalRAM;
     OSInfo                     mOSInfo;
     CPUInfoStaticArray         mCPUs;
-    PartitionInfoStaticArray   mPartitions;
+    PartitionInfoArray         mPartitions;
     NodeAttributeStaticArray   mAttrs;
     bool                       mProvisioned = false;
     NodeState                  mState;
