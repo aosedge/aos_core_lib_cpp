@@ -19,8 +19,8 @@
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/uuid.hpp>
 
-#include "common.hpp"
 #include "envvars.hpp"
+#include "network.hpp"
 
 namespace aos {
 
