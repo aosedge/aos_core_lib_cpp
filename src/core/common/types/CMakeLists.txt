@@ -14,7 +14,15 @@ set(TARGET_NAME types)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS alerts.hpp certificates.hpp desiredstatus.hpp envvars.hpp obsolete.hpp unitconfig.hpp)
+set(HEADERS
+    alerts.hpp
+    certificates.hpp
+    desiredstatus.hpp
+    envvars.hpp
+    log.hpp
+    obsolete.hpp
+    unitconfig.hpp
+)
 
 # ######################################################################################################################
 # Target

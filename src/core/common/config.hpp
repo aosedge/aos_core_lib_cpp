@@ -618,6 +618,27 @@
 #endif
 
 /**
+ * Log id len.
+ */
+#ifndef AOS_CONFIG_TYPES_LOG_ID_LEN
+#define AOS_CONFIG_TYPES_LOG_ID_LEN 64
+#endif
+
+/**
+ * Log content len.
+ */
+#ifndef AOS_CONFIG_TYPES_LOG_CONTENT_LEN
+#define AOS_CONFIG_TYPES_LOG_CONTENT_LEN 256 * 1024
+#endif
+
+/**
+ * Bearer token len.
+ */
+#ifndef AOS_CONFIG_TYPES_BEARER_TOKEN_LEN
+#define AOS_CONFIG_TYPES_BEARER_TOKEN_LEN 256
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
