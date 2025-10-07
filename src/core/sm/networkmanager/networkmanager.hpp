@@ -695,7 +695,7 @@ private:
     };
 
     using InstanceCache = StaticMap<StaticString<cIDLen>, NetworkData, cMaxNumInstances>;
-    using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumServiceProviders>;
+    using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumOwners>;
 
     static constexpr uint64_t cBurstLen                  = 12800;
     static constexpr auto     cMaxExposedPort            = 2;
@@ -760,9 +760,9 @@ private:
     InterfaceFactoryItf*                                                        mNetIfFactory {};
     StaticString<cFilePathLen>                                                  mCNINetworkCacheDir;
     NetworkCache                                                                mNetworkData;
-    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumServiceProviders>       mNetworkProviders;
+    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                 mNetworkProviders;
     StaticAllocator<sizeof(NetworkInfo)>                                        mNetworkInfoAllocator;
-    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumServiceProviders>)>  mNetworkInfosAllocator;
+    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>            mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
     mutable Mutex mMutex;

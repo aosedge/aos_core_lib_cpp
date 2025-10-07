@@ -146,7 +146,7 @@ struct InstanceMonitoringData {
  * Node monitoring data.
  */
 struct NodeMonitoringData {
-    StaticString<cNodeIDLen>                              mNodeID;
+    StaticString<cIDLen>                                  mNodeID;
     Time                                                  mTimestamp;
     MonitoringData                                        mMonitoringData;
     StaticArray<InstanceMonitoringData, cMaxNumInstances> mServiceInstances;

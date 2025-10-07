@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 
-#include <core/common/cloudprotocol/unitstatus.hpp>
+#include <core/common/types/unitstatus.hpp>
 
 namespace aos::cm::imagemanager {
 
@@ -74,34 +74,6 @@ struct UpdateItemInfo {
      * @return bool.
      */
     bool operator!=(const UpdateItemInfo& other) const { return !operator==(other); }
-};
-
-/**
- * Update item status.
- */
-struct UpdateItemStatus {
-    StaticString<cIDLen>                                               mID;
-    StaticString<cVersionLen>                                          mVersion;
-    StaticArray<cloudprotocol::UpdateImageStatus, cMaxNumUpdateImages> mStatuses;
-
-    /**
-     * Compares update item status.
-     *
-     * @param other update item status to compare with.
-     * @return bool.
-     */
-    bool operator==(const UpdateItemStatus& other) const
-    {
-        return mID == other.mID && mVersion == other.mVersion && mStatuses == other.mStatuses;
-    }
-
-    /**
-     * Compares update item status.
-     *
-     * @param other update item status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const UpdateItemStatus& other) const { return !operator==(other); }
 };
 
 /**

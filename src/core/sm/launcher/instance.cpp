@@ -51,7 +51,7 @@ Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
     , mNodeInfo(nodeInfo)
     , mRuntimeDir(fs::JoinPath(cRuntimeDir, mInstanceID))
 {
-    LOG_DBG() << "Create instance: ident=" << mInstanceInfo.mInstanceIdent << ", instanceID=" << *this
+    LOG_DBG() << "Create instance: ident=" << static_cast<InstanceIdent&>(mInstanceInfo) << ", instanceID=" << *this
               << ", serviceID=" << mService.mServiceID << ", version=" << mService.mVersion;
 }
 
@@ -153,8 +153,7 @@ Error Instance::Stop()
     }
 
     if (mPermissionsRegistered) {
-        if (auto err = mPermHandler.UnregisterInstance(mInstanceInfo.mInstanceIdent);
-            !err.IsNone() && stopErr.IsNone()) {
+        if (auto err = mPermHandler.UnregisterInstance(mInstanceInfo); !err.IsNone() && stopErr.IsNone()) {
             stopErr = err;
         }
 
@@ -192,9 +191,9 @@ void Instance::SetOverrideEnvVars(const Array<StaticString<cEnvVarLen>>& envVars
 
 Error Instance::ToInstanceStatus(InstanceStatus& instanceStatus) const
 {
-    instanceStatus.mInstanceIdent = mInstanceInfo.mInstanceIdent;
-    instanceStatus.mState         = mState;
-    instanceStatus.mError         = mError;
+    static_cast<InstanceIdent&>(instanceStatus) = static_cast<const InstanceIdent&>(mInstanceInfo);
+    instanceStatus.mState                       = mState;
+    instanceStatus.mError                       = mError;
 
     if (auto err = instanceStatus.mVersion.Assign(mService.mVersion); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -238,8 +237,7 @@ Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = envVar.Format("%s=%s", cEnvAosSubjectID, mInstanceInfo.mInstanceIdent.mSubjectID.CStr());
-        !err.IsNone()) {
+    if (auto err = envVar.Format("%s=%s", cEnvAosSubjectID, mInstanceInfo.mSubjectID.CStr()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -247,8 +245,7 @@ Error Instance::CreateAosEnvVars(oci::RuntimeSpec& runtimeSpec)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = envVar.Format("%s=%d", cEnvAosInstanceIndex, mInstanceInfo.mInstanceIdent.mInstance);
-        !err.IsNone()) {
+    if (auto err = envVar.Format("%s=%d", cEnvAosInstanceIndex, mInstanceInfo.mInstance); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -478,7 +475,7 @@ Error Instance::ApplyServiceConfig(const oci::ServiceConfig& serviceConfig, oci:
     }
 
     if (!serviceConfig.mPermissions.IsEmpty()) {
-        auto [secret, err] = mPermHandler.RegisterInstance(mInstanceInfo.mInstanceIdent, serviceConfig.mPermissions);
+        auto [secret, err] = mPermHandler.RegisterInstance(mInstanceInfo, serviceConfig.mPermissions);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -673,7 +670,7 @@ Error Instance::SetupNetwork(const oci::ServiceConfig& serviceConfig)
 
     auto networkParams = MakeUnique<networkmanager::InstanceNetworkParameters>(&sAllocator);
 
-    networkParams->mInstanceIdent      = mInstanceInfo.mInstanceIdent;
+    networkParams->mInstanceIdent      = static_cast<InstanceIdent>(mInstanceInfo);
     networkParams->mHostsFilePath      = fs::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "hosts");
     networkParams->mResolvConfFilePath = fs::JoinPath(mRuntimeDir, cMountPointsDir, "etc", "resolv.conf");
     networkParams->mHosts              = mConfig.mHosts;
@@ -721,7 +718,7 @@ Error Instance::SetupMonitoring()
 
     auto monitoringParms = MakeUnique<monitoring::InstanceMonitorParams>(&sAllocator);
 
-    monitoringParms->mInstanceIdent = mInstanceInfo.mInstanceIdent;
+    monitoringParms->mInstanceIdent = static_cast<InstanceIdent>(mInstanceInfo);
 
     if (!mInstanceInfo.mStatePath.IsEmpty()) {
         monitoringParms->mPartitions.PushBack({cStatePartitionName, GetFullStatePath(mInstanceInfo.mStatePath)});

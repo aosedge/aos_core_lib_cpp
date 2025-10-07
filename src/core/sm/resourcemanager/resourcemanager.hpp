@@ -30,7 +30,7 @@ static constexpr auto cNodeConfigJSONLen = AOS_CONFIG_RESOURCEMANAGER_NODE_CONFI
 struct NodeConfig {
     StaticString<cVersionLen>                                   mVersion;
     StaticString<cNodeTypeLen>                                  mNodeType;
-    StaticString<cNodeIDLen>                                    mNodeID;
+    StaticString<cIDLen>                                        mNodeID;
     Optional<AlertRules>                                        mAlertRules;
     Optional<ResourceRatios>                                    mResourceRatios;
     StaticArray<DeviceInfo, cMaxNumNodeDevices>                 mDevices;

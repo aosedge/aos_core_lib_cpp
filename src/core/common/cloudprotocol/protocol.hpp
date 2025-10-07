@@ -10,7 +10,6 @@
 #include <core/common/tools/variant.hpp>
 
 #include "common.hpp"
-#include "unitstatus.hpp"
 
 namespace aos::cloudprotocol {
 
@@ -84,7 +83,7 @@ using MessageType     = EnumStringer<MessageTypeType>;
 /**
  * Cloud message variant type.
  */
-using MessageVariant = Variant<UnitStatus, void*>;
+using MessageVariant = Variant<void*, void*>;
 
 /**
  * Cloud message header.

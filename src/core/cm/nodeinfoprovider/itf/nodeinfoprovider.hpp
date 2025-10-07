@@ -7,41 +7,13 @@
 #ifndef AOS_CORE_CM_NODEINFOPROVIDER_ITF_NODEINFOPROVIDER_HPP_
 #define AOS_CORE_CM_NODEINFOPROVIDER_ITF_NODEINFOPROVIDER_HPP_
 
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/unitstatus.hpp>
 
 namespace aos::cm::nodeinfoprovider {
 
 /** @addtogroup cm Communication Manager
  *  @{
  */
-
-/**
- * Node info.
- */
-struct NodeInfo : public aos::NodeInfo {
-    ResourceInfoStaticArray mResources;
-    RuntimeInfoStaticArray  mRuntimes;
-
-    /**
-     * Compares node info.
-     *
-     * @param info node info to compare with.
-     * @return bool.
-     */
-    // cppcheck-suppress duplInheritedMember
-    bool operator==(const NodeInfo& info) const
-    {
-        return aos::NodeInfo::operator==(info) && mResources == info.mResources && mRuntimes == info.mRuntimes;
-    }
-    /**
-     * Compares node info.
-     *
-     * @param info node info to compare with.
-     * @return bool.
-     */
-    // cppcheck-suppress duplInheritedMember
-    bool operator!=(const NodeInfo& info) const { return !operator==(info); }
-};
 
 /**
  * Interface for receiving notification about changing node information.
@@ -58,7 +30,7 @@ public:
      *
      * @param info node information.
      */
-    virtual void OnNodeInfoChanged(const NodeInfo& info) = 0;
+    virtual void OnNodeInfoChanged(const UnitNodeInfo& info) = 0;
 };
 
 /**
@@ -77,7 +49,7 @@ public:
      * @param[out] ids result node identifiers.
      * @return Error.
      */
-    virtual Error GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const = 0;
+    virtual Error GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const = 0;
 
     /**
      * Returns info for specified node.
@@ -86,7 +58,7 @@ public:
      * @param[out] nodeInfo result node information.
      * @return Error.
      */
-    virtual Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(const String& nodeID, UnitNodeInfo& nodeInfo) const = 0;
 
     /**
      * Subscribes node info notifications.

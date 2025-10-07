@@ -23,7 +23,7 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
 
     mStorage = &storage;
 
-    auto nodeIDs = MakeUnique<StaticArray<StaticString<cNodeIDLen>, cNodeMaxNum>>(&mAllocator);
+    auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cNodeMaxNum>>(&mAllocator);
 
     auto err = storage.GetAllNodeIds(*nodeIDs);
     if (!err.IsNone()) {
@@ -100,7 +100,7 @@ Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfoObsolete& nodeInfo)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::GetAllNodeIds(Array<StaticString<cNodeIDLen>>& ids) const
+Error NodeManager::GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const
 {
     LockGuard lock {mMutex};
 

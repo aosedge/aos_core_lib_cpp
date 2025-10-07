@@ -9,6 +9,7 @@
 
 #include <core/common/config.hpp>
 #include <core/common/consts.hpp>
+#include <core/common/crypto/crypto.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/optional.hpp>
@@ -90,7 +91,7 @@ constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
 /**
  * Certificate secret size.
  */
-static constexpr auto cCertSecretSize = AOS_CONFIG_TYPES_CERT_SECRET_SIZE;
+constexpr auto cCertSecretSize = AOS_CONFIG_TYPES_CERT_SECRET_SIZE;
 
 /*
  * OS type len.
@@ -116,6 +117,191 @@ constexpr auto cCPUArchLen = AOS_CONFIG_TYPES_CPU_ARCH_LEN;
  * CPU variant len.
  */
 constexpr auto cCPUVariantLen = AOS_CONFIG_TYPES_CPU_VARIANT_LEN;
+
+/*
+ * CPU model name len.
+ */
+constexpr auto cCPUModelNameLen = AOS_CONFIG_TYPES_CPU_MODEL_NAME_LEN;
+
+/*
+ * Max number of CPUs.
+ */
+constexpr auto cMaxNumCPUs = AOS_CONFIG_TYPES_MAX_NUM_CPUS;
+
+/**
+ * Runtime type len.
+ */
+constexpr auto cRuntimeTypeLen = AOS_CONFIG_TYPES_RUNTIME_TYPE_LEN;
+
+/**
+ * Max number of node's resources.
+ */
+constexpr auto cMaxNumNodeResources = AOS_CONFIG_TYPES_MAX_NUM_NODE_RESOURCES;
+
+/**
+ * Max number of runtimes per node.
+ */
+constexpr auto cMaxNumNodeRuntimes = AOS_CONFIG_TYPES_MAX_NUM_NODE_RUNTIMES;
+
+/*
+ * Node attribute name len.
+ */
+constexpr auto cNodeAttributeNameLen = AOS_CONFIG_TYPES_NODE_ATTRIBUTE_NAME_LEN;
+
+/*
+ * Node attribute value len.
+ */
+constexpr auto cNodeAttributeValueLen = AOS_CONFIG_TYPES_NODE_ATTRIBUTE_VALUE_LEN;
+
+/*
+ * Max number of node attributes.
+ */
+constexpr auto cMaxNumNodeAttributes = AOS_CONFIG_TYPES_MAX_NUM_NODE_ATTRIBUTES;
+
+/*
+ * Node title len.
+ */
+constexpr auto cNodeTitleLen = AOS_CONFIG_TYPES_NODE_TITLE_LEN;
+
+/**
+ * IP len.
+ */
+constexpr auto cIPLen = AOS_CONFIG_TYPES_IP_LEN;
+
+/**
+ * Port len.
+ */
+constexpr auto cPortLen = AOS_CONFIG_TYPES_PORT_LEN;
+
+/**
+ * Protocol name len.
+ */
+constexpr auto cProtocolNameLen = AOS_CONFIG_TYPES_PROTOCOL_NAME_LEN;
+
+/**
+ * Max number of DNS servers.
+ */
+constexpr auto cMaxNumDNSServers = AOS_CONFIG_TYPES_MAX_NUM_DNS_SERVERS;
+
+/**
+ * Max number of firewall rules.
+ */
+constexpr auto cMaxNumFirewallRules = AOS_CONFIG_TYPES_MAX_NUM_FIREWALL_RULES;
+
+/**
+ * Host name len.
+ */
+constexpr auto cHostNameLen = AOS_CONFIG_TYPES_HOST_NAME_LEN;
+
+/**
+ * Max subnet len.
+ */
+static constexpr auto cSubnetLen = AOS_CONFIG_TYPES_SUBNET_LEN;
+
+/**
+ * Max MAC len.
+ */
+static constexpr auto cMACLen = AOS_CONFIG_TYPES_MAC_LEN;
+
+/**
+ * Max iptables chain name length.
+ */
+static constexpr auto cIptablesChainNameLen = AOS_CONFIG_TYPES_IPTABLES_CHAIN_LEN;
+
+/**
+ * Max CNI interface name length.
+ */
+static constexpr auto cInterfaceLen = AOS_CONFIG_TYPES_INTERFACE_NAME_LEN;
+
+/**
+ * Max number of exposed ports.
+ */
+static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS;
+
+/**
+ * Max exposed port len.
+ */
+static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
+
+/**
+ * Max length of connection name.
+ */
+static constexpr auto cConnectionNameLen = cIDLen + cExposedPortLen;
+
+/**
+ * Max number of allowed connections.
+ */
+static constexpr auto cMaxNumConnections = AOS_CONFIG_TYPES_MAX_NUM_ALLOWED_CONNECTIONS;
+
+/*
+ * Max number of subjects.
+ */
+constexpr auto cMaxNumSubjects = AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS;
+
+/**
+ * Max number of update item owners.
+ */
+static constexpr auto cMaxNumOwners = AOS_CONFIG_TYPES_MAX_NUM_OWNERS;
+
+/*
+ * Unit model len.
+ */
+constexpr auto cUnitModelLen = AOS_CONFIG_TYPES_UNIT_MODEL_LEN;
+
+/**
+ * Error message len.
+ */
+constexpr auto cErrorMessageLen = AOS_CONFIG_TYPES_ERROR_MESSAGE_LEN;
+
+/**
+ * File chunk size.
+ */
+constexpr auto cFileChunkSize = AOS_CONFIG_TYPES_FILE_CHUNK_SIZE;
+
+/*
+ * File system mount type len.
+ */
+constexpr auto cFSMountTypeLen = AOS_CONFIG_TYPES_FS_MOUNT_TYPE_LEN;
+
+/**
+ * File system mount option len.
+ */
+constexpr auto cFSMountOptionLen = AOS_CONFIG_TYPES_FS_MOUNT_OPTION_LEN;
+
+/**
+ * File system mount max number of options.
+ */
+constexpr auto cFSMountMaxNumOptions = AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNT_OPTIONS;
+
+/**
+ * Max number of file system mounts.
+ */
+constexpr auto cMaxNumFSMounts = AOS_CONFIG_TYPES_MAX_NUM_FS_MOUNTS;
+
+/**
+ * Max number of hosts.
+ */
+constexpr auto cMaxNumHosts = AOS_CONFIG_TYPES_MAX_NUM_HOSTS;
+
+/**
+ * Max number of host devices.
+ */
+constexpr auto cMaxNumHostDevices = AOS_CONFIG_TYPES_MAX_NUM_HOST_DEVICES;
+
+/**
+ * Group name len.
+ */
+constexpr auto cGroupNameLen = AOS_CONFIG_TYPES_GROUP_NAME_LEN;
+
+/**
+ * Max number of groups.
+ */
+constexpr auto cMaxNumGroups = AOS_CONFIG_TYPES_MAX_NUM_GROUPS;
+
+/**
+ * Max length of JSON.
+ */
+constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
 
 /**
  * Core component type.
@@ -208,6 +394,42 @@ using CertTypeEnum = CertTypeType::Enum;
 using CertType     = EnumStringer<CertTypeType>;
 
 /**
+ * Image state type.
+ */
+class ImageStateType {
+public:
+    enum class Enum {
+        eUnknown,
+        eDownloading,
+        ePending,
+        eInstalling,
+        eInstalled,
+        eRemoving,
+        eRemoved,
+        eFailed,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "unknown",
+            "downloading",
+            "pending",
+            "installing",
+            "installed",
+            "removing",
+            "removed",
+            "failed",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using ImageStateEnum = ImageStateType::Enum;
+using ImageState     = EnumStringer<ImageStateType>;
+
+/**
  * Instance state type.
  */
 class InstanceStateType {
@@ -252,6 +474,30 @@ public:
 
 using NodeStateEnum = NodeStateType::Enum;
 using NodeState     = EnumStringer<NodeStateType>;
+
+/**
+ * Node attribute enum.
+ */
+class NodeAttributeType {
+public:
+    enum class Enum {
+        eMainNode,
+        eAosComponents,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "MainNode",
+            "AosComponents",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using NodeAttributeEnum = NodeAttributeType::Enum;
+using NodeAttributeName = EnumStringer<NodeAttributeType>;
 
 /**
  * Instance identification.
@@ -616,6 +862,42 @@ struct ImageInfo : public PlatformInfo {
 };
 
 /**
+ * CPU info.
+ */
+struct CPUInfo {
+    StaticString<cCPUModelNameLen> mModelName;
+    size_t                         mNumCores {};
+    size_t                         mNumThreads {};
+    ArchInfo                       mArchInfo;
+    Optional<size_t>               mMaxDMIPS;
+
+    /**
+     * Compares CPU info.
+     *
+     * @param rhs cpu info to compare with.
+     * @return bool.
+     */
+    bool operator==(const CPUInfo& rhs) const
+    {
+        return mModelName == rhs.mModelName && mNumCores == rhs.mNumCores && mNumThreads == rhs.mNumThreads
+            && mArchInfo == rhs.mArchInfo && mMaxDMIPS == rhs.mMaxDMIPS;
+    }
+
+    /**
+     * Compares CPU info.
+     *
+     * @param rhs cpu info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const CPUInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * CPU info array.
+ */
+using CPUInfoArray = StaticArray<CPUInfo, cMaxNumCPUs>;
+
+/**
  * Partition info.
  */
 struct PartitionInfo {
@@ -648,6 +930,482 @@ struct PartitionInfo {
  * Partition info array.
  */
 using PartitionInfoArray = StaticArray<PartitionInfo, cMaxNumPartitions>;
+
+/**
+ * Resource info.
+ */
+struct ResourceInfo {
+    StaticString<cResourceNameLen> mName;
+    size_t                         mSharedCount {};
+
+    /**
+     * Compares resource info.
+     *
+     * @param rhs resource info to compare with.
+     * @return bool.
+     */
+    bool operator==(const ResourceInfo& rhs) const { return mName == rhs.mName && mSharedCount == rhs.mSharedCount; }
+    /**
+     * Compares resource info.
+     *
+     * @param rhs resource info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ResourceInfo& rhs) const { return !operator==(rhs); }
+};
+
+using ResourceInfoArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+
+/**
+ * Runtime info.
+ */
+struct RuntimeInfo : public PlatformInfo {
+    StaticString<cIDLen>          mRuntimeID;
+    StaticString<cRuntimeTypeLen> mRuntimeType;
+    Optional<size_t>              mMaxDMIPS;
+    Optional<size_t>              mAllowedDMIPS;
+    Optional<size_t>              mTotalRAM;
+    Optional<ssize_t>             mAllowedRAM;
+    size_t                        mMaxInstances {};
+
+    /**
+     * Compares runtime info.
+     *
+     * @param rhs runtime info to compare with.
+     * @return bool.
+     */
+    bool operator==(const RuntimeInfo& rhs) const
+    {
+        return PlatformInfo::operator==(rhs) && mRuntimeID == rhs.mRuntimeID && mRuntimeType == rhs.mRuntimeType
+            && mMaxDMIPS == rhs.mMaxDMIPS && mAllowedDMIPS == rhs.mAllowedDMIPS && mTotalRAM == rhs.mTotalRAM
+            && mAllowedRAM == rhs.mAllowedRAM && mMaxInstances == rhs.mMaxInstances;
+    }
+
+    /**
+     * Compares runtime info.
+     *
+     * @param rhs runtime info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const RuntimeInfo& rhs) const { return !operator==(rhs); }
+};
+
+using RuntimeInfoArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
+
+/**
+ * Node attribute.
+ */
+struct NodeAttribute {
+    StaticString<cNodeAttributeNameLen>  mName;
+    StaticString<cNodeAttributeValueLen> mValue;
+
+    /**
+     * Compares node attributes.
+     *
+     * @param rhs node attributes info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeAttribute& rhs) const { return mName == rhs.mName && mValue == rhs.mValue; }
+
+    /**
+     * Compares node attributes.
+     *
+     * @param rhs node attributes info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeAttribute& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Node attribute array.
+ */
+using NodeAttributeArray = StaticArray<NodeAttribute, cMaxNumNodeAttributes>;
+
+/**
+ * Node info.
+ */
+struct NodeInfo {
+    StaticString<cIDLen>        mNodeID;
+    StaticString<cNodeTypeLen>  mNodeType;
+    StaticString<cNodeTitleLen> mTitle;
+    size_t                      mMaxDMIPS {};
+    size_t                      mTotalRAM {};
+    Optional<size_t>            mPhysicalRAM;
+    OSInfo                      mOSInfo;
+    CPUInfoArray                mCPUs;
+    PartitionInfoArray          mPartitions;
+    NodeAttributeArray          mAttrs;
+    bool                        mProvisioned {};
+    NodeState                   mState;
+    Error                       mError;
+
+    /**
+     * Compares node info.
+     *
+     * @param rhs node info to compare with.
+     * @return bool.
+     */
+    bool operator==(const NodeInfo& rhs) const
+    {
+        return mNodeID == rhs.mNodeID && mNodeType == rhs.mNodeType && mTitle == rhs.mTitle
+            && mMaxDMIPS == rhs.mMaxDMIPS && mTotalRAM == rhs.mTotalRAM && mPhysicalRAM == rhs.mPhysicalRAM
+            && mOSInfo == rhs.mOSInfo && mCPUs == rhs.mCPUs && mPartitions == rhs.mPartitions && mAttrs == rhs.mAttrs
+            && mProvisioned == rhs.mProvisioned && mState == rhs.mState && mError == rhs.mError;
+    }
+
+    /**
+     * Compares node info.
+     *
+     * @param rhs node info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const NodeInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Image status.
+ */
+struct ImageStatus {
+    StaticString<cIDLen> mImageID;
+    ImageState           mState;
+    Error                mError;
+
+    /**
+     * Compares image status.
+     *
+     * @param rhs image status to compare with.
+     * @return bool.
+     */
+    bool operator==(const ImageStatus& rhs) const
+    {
+        return mImageID == rhs.mImageID && mState == rhs.mState && mError == rhs.mError;
+    }
+
+    /**
+     * Compares image status.
+     *
+     * @param rhs image status to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ImageStatus& rhs) const { return !operator==(rhs); }
+};
+
+using ImageStatusArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
+
+/**
+ * Firewall rule.
+ */
+struct FirewallRule {
+    StaticString<cIPLen>           mDstIP;
+    StaticString<cPortLen>         mDstPort;
+    StaticString<cProtocolNameLen> mProto;
+    StaticString<cIPLen>           mSrcIP;
+
+    /**
+     * Compares firewall rule.
+     *
+     * @param rule firewall rule to compare.
+     * @return bool.
+     */
+    bool operator==(const FirewallRule& rule) const
+    {
+        return mDstIP == rule.mDstIP && mDstPort == rule.mDstPort && mProto == rule.mProto && mSrcIP == rule.mSrcIP;
+    }
+
+    /**
+     * Compares firewall rule.
+     *
+     * @param rule firewall rule to compare.
+     * @return bool.
+     */
+    bool operator!=(const FirewallRule& rule) const { return !operator==(rule); }
+};
+
+/**
+ * Networks parameters.
+ */
+struct NetworkParameters {
+    StaticString<cHostNameLen>                                 mNetworkID;
+    StaticString<cSubnetLen>                                   mSubnet;
+    StaticString<cIPLen>                                       mIP;
+    uint64_t                                                   mVlanID = 0;
+    StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers> mDNSServers;
+    StaticArray<FirewallRule, cMaxNumFirewallRules>            mFirewallRules;
+
+    /**
+     * Compares network parameters.
+     *
+     * @param networkParams network parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const NetworkParameters& networkParams) const
+    {
+        return mNetworkID == networkParams.mNetworkID && mSubnet == networkParams.mSubnet && mIP == networkParams.mIP
+            && mVlanID == networkParams.mVlanID && mDNSServers == networkParams.mDNSServers
+            && mFirewallRules == networkParams.mFirewallRules;
+    }
+
+    /**
+     * Compares network parameters.
+     *
+     * @param networkParams network parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const NetworkParameters& networkParams) const { return !operator==(networkParams); }
+};
+
+/**
+ * Instance info data.
+ */
+struct InstanceInfoData {
+    StaticString<cIDLen>       mRuntimeID;
+    uid_t                      mUID {};
+    gid_t                      mGID {};
+    uint64_t                   mPriority {};
+    StaticString<cFilePathLen> mStoragePath;
+    StaticString<cFilePathLen> mStatePath;
+    NetworkParameters          mNetworkParameters;
+
+    /**
+     * Compares instance info data.
+     *
+     * @param rhs data to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceInfoData& rhs) const
+    {
+        return mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mPriority == rhs.mPriority
+            && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
+            && mNetworkParameters == rhs.mNetworkParameters;
+    }
+
+    /**
+     * Compares instance info data.
+     *
+     * @param rhs data to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceInfoData& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Instance info.
+ */
+struct InstanceInfo : public InstanceIdent, public InstanceInfoData {
+    /**
+     * Compares instance info.
+     *
+     * @param rhs info to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceInfo& rhs) const
+    {
+        return InstanceIdent::operator==(rhs) && InstanceInfoData::operator==(rhs);
+    }
+
+    /**
+     * Compares instance info.
+     *
+     * @param rhs info to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Instance info array.
+ */
+using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
+
+/**
+ * Instance status data.
+ */
+struct InstanceStatusData {
+    StaticString<cIDLen>                      mNodeID;
+    StaticString<cIDLen>                      mRuntimeID;
+    StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
+    InstanceState                             mState;
+    Error                                     mError;
+
+    /**
+     * Compares instance status data.
+     *
+     * @param rhs instance status data to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceStatusData& rhs) const
+    {
+        return mStateChecksum == rhs.mStateChecksum && mState == rhs.mState && mNodeID == rhs.mNodeID
+            && mRuntimeID == rhs.mRuntimeID && mError == rhs.mError;
+    }
+
+    /**
+     * Compares instance status data.
+     *
+     * @param rhs instance status data to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceStatusData& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Instance status.
+ */
+struct InstanceStatus : public InstanceIdent, public InstanceStatusData {
+    StaticString<cVersionLen> mVersion;
+
+    /**
+     * Compares instance status.
+     *
+     * @param rhs status to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceStatus& rhs) const
+    {
+        return InstanceIdent::operator==(rhs) && InstanceStatusData::operator==(rhs) && mVersion == rhs.mVersion;
+    }
+
+    /**
+     * Compares instance status.
+     *
+     * @param rhs status to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceStatus& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Instance status array.
+ */
+using InstanceStatusArray = StaticArray<InstanceStatus, cMaxNumInstances>;
+
+/*
+ * Subjects.
+ */
+using SubjectArray = StaticArray<StaticString<cIDLen>, cMaxNumSubjects>;
+
+/**
+ * Instance run parameters.
+ */
+struct RunParameters {
+    Optional<Duration> mStartInterval;
+    Optional<Duration> mRestartInterval;
+    Optional<long>     mStartBurst;
+
+    /**
+     * Compares run parameters.
+     *
+     * @param rhs run parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const RunParameters& rhs) const
+    {
+        return mStartInterval == rhs.mStartInterval && mRestartInterval == rhs.mRestartInterval
+            && mStartBurst == rhs.mStartBurst;
+    }
+
+    /**
+     * Compares run parameters.
+     *
+     * @param rhs run parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const RunParameters& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * File system mount.
+ */
+struct Mount {
+    /**
+     * Creates mount.
+     */
+    Mount() = default;
+
+    /**
+     * Creates mount.
+     *
+     * @param source source.
+     * @param destination destination.
+     * @param type mount type.
+     * @param options mount options separated by comma e.g. "ro,bind".
+     */
+    Mount(const String& source, const String& destination, const String& type, const String& options = "")
+        : mDestination(destination)
+        , mType(type)
+        , mSource(source)
+    {
+        [[maybe_unused]] auto err = options.Split(mOptions, ',');
+        assert(err.IsNone());
+    }
+
+    /**
+     * Compares file system mount.
+     *
+     * @param mount file system mount to compare.
+     * @return bool.
+     */
+    bool operator==(const Mount& mount) const
+    {
+        return mDestination == mount.mDestination && mType == mount.mType && mSource == mount.mSource
+            && mOptions == mount.mOptions;
+    }
+
+    /**
+     * Compares file system mount.
+     *
+     * @param mount file system mount to compare.
+     * @return bool.
+     */
+    bool operator!=(const Mount& mount) const { return !operator==(mount); }
+
+    StaticString<cFilePathLen>                                          mDestination;
+    StaticString<cFSMountTypeLen>                                       mType;
+    StaticString<cFilePathLen>                                          mSource;
+    StaticArray<StaticString<cFSMountOptionLen>, cFSMountMaxNumOptions> mOptions;
+};
+
+/**
+ * Host.
+ */
+struct Host {
+    StaticString<cHostNameLen> mHostname;
+    StaticString<cIPLen>       mIP;
+
+    /**
+     * Default constructor.
+     */
+    Host() = default;
+
+    /**
+     * Constructs host.
+     *
+     * @param ip IP.
+     * @param hostname hostname.
+     */
+    Host(const String& ip, const String& hostname)
+        : mHostname(hostname)
+        , mIP(ip)
+
+    {
+    }
+
+    /**
+     * Compares host.
+     *
+     * @param rhs host to compare.
+     * @return bool.
+     */
+    bool operator==(const Host& rhs) const { return mIP == rhs.mIP && mHostname == rhs.mHostname; }
+
+    /**
+     * Compares host.
+     *
+     * @param rhs host to compare.
+     * @return bool.
+     */
+    bool operator!=(const Host& rhs) const { return !operator==(rhs); }
+};
 
 } // namespace aos
 

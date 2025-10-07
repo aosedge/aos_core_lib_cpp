@@ -113,7 +113,7 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 
         auto& status = statuses.Back();
 
-        status.mID      = item.mID;
+        status.mItemID  = item.mID;
         status.mVersion = item.mVersion;
 
         for (const auto& image : item.mImages) {
@@ -503,7 +503,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
     auto  items = MakeUnique<StaticArray<storage::ItemInfo, cMaxItemVersions>>(&mAllocator);
 
     auto fillStatus = DeferRelease(&err, [&](Error* err) {
-        status.mID      = itemInfo.mID;
+        status.mItemID  = itemInfo.mID;
         status.mVersion = itemInfo.mVersion;
 
         if (err->IsNone() || !status.mStatuses.IsEmpty()) {
@@ -643,7 +643,7 @@ Error ImageManager::UninstallUpdateItem(const String& id, UpdateItemStatus& stat
     Error err;
 
     for (const auto& item : *items) {
-        status.mID      = item.mID;
+        status.mItemID  = item.mID;
         status.mVersion = item.mVersion;
 
         auto setItemStatus = DeferRelease(&err, [&](const Error* err) {
@@ -702,7 +702,7 @@ Error ImageManager::RevertUpdateItem(const String& id, Array<UpdateItemStatus>& 
 
         auto& status = statuses.Back();
 
-        status.mID      = id;
+        status.mItemID  = id;
         status.mVersion = version;
 
         return {&status, ErrorEnum::eNone};
@@ -895,7 +895,7 @@ void ImageManager::NotifyItemRemovedListeners(const String& id)
     }
 }
 
-void ImageManager::NotifyImageStatusChangedListeners(const cloudprotocol::UpdateImageStatus& status)
+void ImageManager::NotifyImageStatusChangedListeners(const ImageStatus& status)
 {
     LOG_DBG() << "Notify image status changed listeners" << Log::Field("imageID", status.mImageID)
               << Log::Field("state", status.mState);

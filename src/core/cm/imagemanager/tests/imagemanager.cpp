@@ -189,7 +189,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     EXPECT_EQ(statuses.Size(), 5) << "Should return 5 statuses";
 
     for (size_t i = 0; i < 5; ++i) {
-        EXPECT_EQ(statuses[i].mID, itemsInfo[i].mID) << "Status ID should match for item " << i;
+        EXPECT_EQ(statuses[i].mItemID, itemsInfo[i].mID) << "Status ID should match for item " << i;
         EXPECT_EQ(statuses[i].mVersion, itemsInfo[i].mVersion) << "Status version should match for item " << i;
         EXPECT_EQ(statuses[i].mStatuses.Size(), 1) << "Should have one image status for item " << i;
         EXPECT_EQ(statuses[i].mStatuses[0].mState, ImageStateEnum::eInstalled)
@@ -301,7 +301,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
     EXPECT_TRUE(installErr.IsNone()) << "InstallUpdateItems should succeed";
 
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eInstalled) << "Image should be installed";
@@ -429,7 +429,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
     EXPECT_TRUE(installErr.IsNone()) << "InstallUpdateItems should succeed";
 
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eInstalled) << "Image should be installed";
@@ -485,7 +485,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SameVersionAlreadyExists)
 
     EXPECT_TRUE(installErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eFailed) << "Image should be failed";
@@ -542,7 +542,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_OlderVersionWrongState)
 
     EXPECT_TRUE(installErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eFailed) << "Image should be failed";
@@ -593,7 +593,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eRuntime));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(imageInfo.mImage.mImageID, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eFailed);
             EXPECT_EQ(status.mError, ErrorEnum::eRuntime);
         }));
@@ -605,7 +605,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
 
     EXPECT_TRUE(installErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eFailed) << "Image should be failed";
@@ -664,7 +664,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
             return ErrorEnum::eNone;
         }));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(imageInfo.mImage.mImageID, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eFailed);
             EXPECT_EQ(status.mError, ErrorEnum::eInvalidChecksum);
         }));
@@ -676,7 +676,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
 
     EXPECT_TRUE(installErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eFailed) << "Image should be failed";
@@ -725,7 +725,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
     EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
             EXPECT_TRUE(status.mError.IsNone());
         }));
@@ -737,7 +737,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
 
     EXPECT_TRUE(uninstallErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, id) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, id) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("1.0.0")) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Image should be removed";
@@ -782,7 +782,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
     EXPECT_CALL(mMockSpaceAllocator, FreeSpace(1024)).WillOnce(Return());
     EXPECT_CALL(mMockStorage, RemoveItem(String(id), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
             EXPECT_TRUE(status.mError.IsNone());
         }));
@@ -795,7 +795,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
 
     EXPECT_TRUE(uninstallErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mID, id) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, id) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("1.0.0")) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Image should be removed";
@@ -862,11 +862,11 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
         .WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
         .Times(2)
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
             EXPECT_TRUE(status.mError.IsNone());
         }))
-        .WillOnce(Invoke([](const String&, const cloudprotocol::UpdateImageStatus& status) {
+        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
             EXPECT_EQ(status.mState, ImageStateEnum::eInstalled);
             EXPECT_TRUE(status.mError.IsNone());
         }));
@@ -880,12 +880,12 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
     EXPECT_TRUE(revertErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 2) << "Should return two statuses";
 
-    EXPECT_EQ(statuses[0].mID, id) << "First status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, id) << "First status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("2.0.0")) << "First status should be active version";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Active version should be removed";
 
-    EXPECT_EQ(statuses[1].mID, id) << "Second status ID should match";
+    EXPECT_EQ(statuses[1].mItemID, id) << "Second status ID should match";
     EXPECT_EQ(statuses[1].mVersion, String("1.0.0")) << "Second status should be cached version";
     EXPECT_EQ(statuses[1].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[1].mStatuses[0].mState, ImageStateEnum::eInstalled) << "Cached version should be installed";
@@ -961,7 +961,7 @@ TEST_F(ImageManagerTest, GetUpdateItemsStatuses_Success)
     EXPECT_EQ(statuses.Size(), 2) << "Should return 2 active items (cached item ignored)";
 
     auto expectedId1 = "11111111-1111-1111-1111-111111111111";
-    EXPECT_EQ(statuses[0].mID, expectedId1) << "First status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, expectedId1) << "First status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("1.0.0")) << "First status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "First item should have one image";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eInstalled) << "First image should be installed";
@@ -970,7 +970,7 @@ TEST_F(ImageManagerTest, GetUpdateItemsStatuses_Success)
     EXPECT_EQ(statuses[0].mStatuses[0].mImageID, expectedImageId1) << "First image ID should match";
 
     auto expectedId2 = "44444444-4444-4444-4444-444444444444";
-    EXPECT_EQ(statuses[1].mID, expectedId2) << "Second status ID should match";
+    EXPECT_EQ(statuses[1].mItemID, expectedId2) << "Second status ID should match";
     EXPECT_EQ(statuses[1].mVersion, String("2.0.0")) << "Second status version should match";
     EXPECT_EQ(statuses[1].mStatuses.Size(), 2) << "Second item should have two images";
 

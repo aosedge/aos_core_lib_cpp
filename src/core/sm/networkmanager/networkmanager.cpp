@@ -71,7 +71,7 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
         return AOS_ERROR_WRAP(err);
     }
 
-    auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumServiceProviders>>(&mNetworkInfosAllocator);
+    auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(&mNetworkInfosAllocator);
 
     if (auto err = mStorage->GetNetworksInfo(*networkInfos); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
