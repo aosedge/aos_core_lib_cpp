@@ -10,8 +10,8 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/crypto/crypto.hpp>
 #include <core/common/crypto/cryptohelper.hpp>
+#include <core/common/crypto/itf/crypto.hpp>
 
 namespace aos::crypto {
 
@@ -54,7 +54,8 @@ public:
     MOCK_METHOD(Error, ASN1DecodeOctetString, (const Array<uint8_t>&, Array<uint8_t>&), (override));
     MOCK_METHOD(Error, ASN1DecodeOID, (const Array<uint8_t>&, Array<uint8_t>&), (override));
     MOCK_METHOD(Error, Verify,
-        ((const Variant<ECDSAPublicKey, RSAPublicKey>&), Hash, Padding, const Array<uint8_t>&, const Array<uint8_t>&),
+        ((const Variant<ECDSAPublicKey, RSAPublicKey>&), Hash, x509::Padding, const Array<uint8_t>&,
+            const Array<uint8_t>&),
         (override));
     MOCK_METHOD(Error, Verify,
         (const Array<Certificate>&, const Array<Certificate>&, const VerifyOptions&, const Certificate&), (override));

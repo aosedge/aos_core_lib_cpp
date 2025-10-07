@@ -10,7 +10,7 @@ set(TARGET_NAME crypto_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES crypto.cpp)
+set(SOURCES asn1.cpp)
 
 if(WITH_MBEDTLS OR WITH_OPENSSL)
     list(APPEND SOURCES cryptohelper.cpp cryptoprovider.cpp cryptoutils.cpp)

@@ -13,6 +13,7 @@ namespace aos::crypto {
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
+
 CryptoHelper::CryptoHelper()
     : mSemaphore(cMaxNumConcurrentItems)
 {
@@ -476,11 +477,11 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
         return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
     }
 
-    Padding padding;
+    x509::Padding padding;
     if (paddingName == "PKCS1V1_5") {
-        padding = PaddingEnum::ePKCS1v1_5;
+        padding = x509::PaddingEnum::ePKCS1v1_5;
     } else if (paddingName == "PSS") {
-        padding = PaddingEnum::ePSS;
+        padding = x509::PaddingEnum::ePSS;
     } else {
         AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "unknown padding for RSA"));
     }
@@ -497,7 +498,7 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
         return err;
     }
 
-    VerifyOptions options;
+    x509::VerifyOptions options;
 
     options.mCurrentTime = signs.mTrustedTimestamp;
     // Assume any key usages.

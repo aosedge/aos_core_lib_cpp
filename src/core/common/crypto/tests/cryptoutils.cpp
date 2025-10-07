@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/crypto/certloader.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
@@ -51,8 +51,8 @@ protected:
         ASSERT_TRUE(err.IsNone());
 
         // read certificates
-        StaticArray<uint8_t, crypto::cCertDERSize> derBlob;
-        crypto::x509::Certificate                  caCert, clientCert;
+        StaticArray<uint8_t, cCertDERSize> derBlob;
+        x509::Certificate                  caCert, clientCert;
 
         ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/ca.cer.der", derBlob).IsNone());
         ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, caCert).IsNone());
@@ -93,11 +93,12 @@ protected:
 
     pkcs11::SlotID                    mSlotID = 0;
     SharedPtr<pkcs11::LibraryContext> mLibrary;
-    crypto::CertLoader                mCertLoader;
+    CertLoader                        mCertLoader;
 
     StaticAllocator<Max(2 * sizeof(pkcs11::PKCS11RSAPrivateKey), sizeof(pkcs11::PKCS11ECDSAPrivateKey),
-        2 * sizeof(crypto::x509::Certificate) + sizeof(crypto::x509::CertificateChain)
-            + 2 * sizeof(pkcs11::PKCS11RSAPrivateKey))>
+                        2 * sizeof(x509::Certificate) + sizeof(x509::CertificateChain)
+                            + 2 * sizeof(pkcs11::PKCS11RSAPrivateKey))
+        + sizeof(CertLoader)>
         mAllocator;
 };
 
@@ -238,8 +239,8 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
                      "path=" SOFTHSM2_LIB "&pin-source="
         + std::string(mPINSource);
 
-    SharedPtr<crypto::x509::CertificateChain> chain;
-    Error                                     error = ErrorEnum::eNone;
+    SharedPtr<x509::CertificateChain> chain;
+    Error                             error = ErrorEnum::eNone;
 
     Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url.c_str());
     ASSERT_TRUE(error.IsNone());
@@ -247,11 +248,11 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
     ASSERT_EQ(chain->Size(), 2);
 
     // check client certificate
-    aos::StaticString<aos::crypto::cCertSubjSize> subject;
+    StaticString<cCertSubjSize> subject;
     ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mSubject, subject).IsNone());
     EXPECT_EQ(std::string(subject.CStr()), std::string("CN=Aos Core"));
 
-    aos::StaticString<aos::crypto::cCertIssuerSize> issuer;
+    StaticString<cCertIssuerSize> issuer;
     ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 
@@ -273,8 +274,8 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChainBadURL)
                      "path=" SOFTHSM2_LIB "&pin-source="
         + std::string(mPINSource);
 
-    SharedPtr<crypto::x509::CertificateChain> chain;
-    Error                                     error = ErrorEnum::eNone;
+    SharedPtr<x509::CertificateChain> chain;
+    Error                             error = ErrorEnum::eNone;
 
     Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url.c_str());
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
@@ -290,8 +291,8 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKey)
                      "path=" SOFTHSM2_LIB "&pin-source="
         + std::string(mPINSource);
 
-    SharedPtr<crypto::PrivateKeyItf> privKey;
-    Error                            error = ErrorEnum::eNone;
+    SharedPtr<PrivateKeyItf> privKey;
+    Error                    error = ErrorEnum::eNone;
 
     Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url.c_str());
     ASSERT_TRUE(error.IsNone());
@@ -308,8 +309,8 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKeyBadURL)
                      "path=" SOFTHSM2_LIB "&pin-source="
         + std::string(mPINSource);
 
-    SharedPtr<crypto::PrivateKeyItf> privKey;
-    Error                            error = ErrorEnum::eNone;
+    SharedPtr<PrivateKeyItf> privKey;
+    Error                    error = ErrorEnum::eNone;
 
     Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url.c_str());
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
@@ -319,8 +320,8 @@ TEST_F(CryptoutilsTest, FindCertificatesFromFile)
 {
     const char* url = "file:" CERTIFICATES_DIR "/client-ca-chain.pem";
 
-    SharedPtr<crypto::x509::CertificateChain> chain;
-    Error                                     error = ErrorEnum::eNone;
+    SharedPtr<x509::CertificateChain> chain;
+    Error                             error = ErrorEnum::eNone;
 
     Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url);
     ASSERT_TRUE(error.IsNone());
@@ -328,11 +329,11 @@ TEST_F(CryptoutilsTest, FindCertificatesFromFile)
     ASSERT_EQ(chain->Size(), 2);
 
     // check client certificate
-    aos::StaticString<aos::crypto::cCertSubjSize> subject;
+    StaticString<cCertSubjSize> subject;
     ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mSubject, subject).IsNone());
     EXPECT_EQ(std::string(subject.CStr()), std::string("CN=Aos Core"));
 
-    aos::StaticString<aos::crypto::cCertIssuerSize> issuer;
+    StaticString<cCertIssuerSize> issuer;
     ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[0].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 

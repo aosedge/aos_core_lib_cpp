@@ -407,7 +407,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     return {ErrorEnum::eNone, remaining};
 }
 
-Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, Padding padding,
+Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, x509::Padding padding,
     const Array<uint8_t>& digest, const Array<uint8_t>& signature)
 {
     mbedtls_rsa_context rsa;
@@ -428,14 +428,14 @@ Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, Pad
     }
 
     // Choose padding mode
-    if (padding == PaddingEnum::ePKCS1v1_5) {
+    if (padding == x509::PaddingEnum::ePKCS1v1_5) {
         ret = mbedtls_rsa_set_padding(&rsa, MBEDTLS_RSA_PKCS_V15, hash);
         if (ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
 
         ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(&rsa, hash, digest.Size(), digest.Get(), signature.Get());
-    } else if (padding == PaddingEnum::ePSS) {
+    } else if (padding == x509::PaddingEnum::ePSS) {
         ret = mbedtls_rsa_set_padding(&rsa, MBEDTLS_RSA_PKCS_V21, hash);
         if (ret != 0) {
             return AOS_ERROR_WRAP(ret);
@@ -1082,8 +1082,8 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESDecoder(
     return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
 }
 
-Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
-    const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc,
+    x509::Padding padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
 {
     if (digest.IsEmpty() || signature.IsEmpty()) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
@@ -1091,8 +1091,8 @@ Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
 
     struct SignatureVerifier : StaticVisitor<Error> {
     public:
-        SignatureVerifier(
-            mbedtls_md_type_t hash, Padding padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+        SignatureVerifier(mbedtls_md_type_t hash, x509::Padding padding, const Array<uint8_t>& digest,
+            const Array<uint8_t>& signature)
             : mHash(hash)
             , mPadding(padding)
             , mDigest(&digest)
@@ -1109,7 +1109,7 @@ Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
 
     private:
         mbedtls_md_type_t     mHash;
-        Padding               mPadding;
+        x509::Padding         mPadding;
         const Array<uint8_t>* mDigest    = nullptr;
         const Array<uint8_t>* mSignature = nullptr;
     };
@@ -1120,7 +1120,7 @@ Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
 }
 
 Error MbedTLSCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
-    const Array<x509::Certificate>& intermCerts, const VerifyOptions& options, const x509::Certificate& cert)
+    const Array<x509::Certificate>& intermCerts, const x509::VerifyOptions& options, const x509::Certificate& cert)
 {
     Time curTime;
     if (!options.mCurrentTime.IsZero()) {
