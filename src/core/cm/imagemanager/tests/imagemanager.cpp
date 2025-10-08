@@ -686,7 +686,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
 TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
 {
     StaticArray<StaticString<cIDLen>, 1> ids;
-    StaticArray<UpdateItemStatus, 1>     statuses;
+    // cppcheck-suppress templateRecursion
+    StaticArray<UpdateItemStatus, 1> statuses;
 
     auto id = "12345678-1234-1234-1234-123456789010";
 
@@ -746,7 +747,8 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
 TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
 {
     StaticArray<StaticString<cIDLen>, 1> ids;
-    StaticArray<UpdateItemStatus, 1>     statuses;
+    // cppcheck-suppress templateRecursion
+    StaticArray<UpdateItemStatus, 1> statuses;
 
     auto id = "12345678-1234-1234-1234-123456789010";
 
