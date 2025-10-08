@@ -121,6 +121,7 @@ private:
         = Max(sizeof(NodeInfoObsolete) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
             sizeof(InstanceMonitoringData) + sizeof(AlertProcessorArray) + sizeof(ResourceIdentifier));
 
+    Error        InitPartitions(const NodeInfoObsolete& nodeInfo);
     String       GetParameterName(const ResourceIdentifier& id) const;
     AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
     AlertVariant CreateInstanceQuotaAlertTemplate(
@@ -152,6 +153,7 @@ private:
 
     NodeMonitoringData                                                        mNodeMonitoringData {};
     StaticMap<StaticString<cIDLen>, InstanceMonitoringData, cMaxNumInstances> mInstanceMonitoringData;
+    PartitionInfoArray                                                        mPartitionInfos;
 
     bool mSendMonitoring {};
 

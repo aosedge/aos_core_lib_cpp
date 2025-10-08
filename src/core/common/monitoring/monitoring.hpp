@@ -11,6 +11,7 @@
 #include <core/common/connectionprovider/connectionprovider.hpp>
 #include <core/common/tools/error.hpp>
 #include <core/common/tools/thread.hpp>
+#include <core/common/types/monitoring.hpp>
 #include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
 
 #include "alertprocessor.hpp"
@@ -18,37 +19,8 @@
 namespace aos::monitoring {
 
 /**
- * Monitoring data.
+ * Partition param.
  */
-struct MonitoringData {
-    double                     mCPU {};
-    size_t                     mRAM {};
-    PartitionInfoObsoleteArray mPartitions;
-    uint64_t                   mDownload {};
-    uint64_t                   mUpload {};
-
-    /**
-     * Compares monitoring data.
-     *
-     * @param data monitoring data to compare with.
-     * @return bool.
-     */
-    bool operator==(const MonitoringData& data) const
-    {
-        return mCPU == data.mCPU && mRAM == data.mRAM && mPartitions == data.mPartitions && mDownload == data.mDownload
-            && mUpload == data.mUpload;
-    }
-
-    /**
-     * Compares monitoring data.
-     *
-     * @param data monitoring data to compare with.
-     * @return bool.
-     */
-    bool operator!=(const MonitoringData& data) const { return !operator==(data); }
-};
-
-// Partition monitoring param.
 struct PartitionParam {
     StaticString<cPartitionNameLen> mName;
     StaticString<cFilePathLen>      mPath;
@@ -58,11 +30,11 @@ struct PartitionParam {
  * Instance resource monitor parameters.
  */
 struct InstanceMonitorParams {
-    InstanceIdent                                  mInstanceIdent;
-    StaticArray<PartitionParam, cMaxNumPartitions> mPartitions;
-    uid_t                                          mUID;
-    gid_t                                          mGID;
-    Optional<AlertRules>                           mAlertRules;
+    InstanceIdent        mInstanceIdent;
+    PartitionInfoArray   mPartitions;
+    uid_t                mUID {};
+    gid_t                mGID {};
+    Optional<AlertRules> mAlertRules;
 };
 
 /**
@@ -91,16 +63,11 @@ struct InstanceMonitoringData {
      */
     explicit InstanceMonitoringData(const InstanceMonitorParams& monitoringParams)
         : mInstanceIdent(monitoringParams.mInstanceIdent)
-        , mMonitoringData({0, 0, {}, 0, 0})
         , mUID(monitoringParams.mUID)
         , mGID(monitoringParams.mGID)
     {
-        for (const auto& partition : monitoringParams.mPartitions) {
-            PartitionInfoObsolete partitionInfo = {partition.mName, {}, partition.mPath, 0, 0};
-
-            [[maybe_unused]] auto err = mMonitoringData.mPartitions.PushBack(partitionInfo);
-            assert(err.IsNone());
-        }
+        [[maybe_unused]] auto err = mPartitions.Assign(monitoringParams.mPartitions);
+        assert(err.IsNone());
     }
 
     /**
@@ -109,15 +76,18 @@ struct InstanceMonitoringData {
      * @param instanceIdent instance ident.
      * @param monitoringData monitoring data.
      */
-    InstanceMonitoringData(const InstanceIdent& instanceIdent, const MonitoringData& monitoringData)
+    InstanceMonitoringData(const InstanceIdent& instanceIdent, const MonitoringData& monitoringData,
+        const Array<PartitionInfo>& partitions)
         : mInstanceIdent(instanceIdent)
         , mMonitoringData(monitoringData)
+        , mPartitions(partitions)
     {
     }
 
     InstanceIdent        mInstanceIdent;
     StaticString<cIDLen> mRuntimeID;
     MonitoringData       mMonitoringData;
+    PartitionInfoArray   mPartitions;
     uid_t                mUID {};
     gid_t                mGID {};
     InstanceState        mState;
@@ -188,10 +158,13 @@ public:
      * Returns node monitoring data.
      *
      * @param nodeID node ident.
+     * @param partitionInfos partition infos.
      * @param[out] monitoringData monitoring data.
      * @return Error.
      */
-    virtual Error GetNodeMonitoringData(const String& nodeID, MonitoringData& monitoringData) = 0;
+    virtual Error GetNodeMonitoringData(
+        const String& nodeID, const Array<PartitionInfo>& partitionInfos, MonitoringData& monitoringData)
+        = 0;
 
     /**
      * Returns instance monitoring data.

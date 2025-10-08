@@ -721,11 +721,12 @@ Error Instance::SetupMonitoring()
     monitoringParms->mInstanceIdent = static_cast<InstanceIdent>(mInstanceInfo);
 
     if (!mInstanceInfo.mStatePath.IsEmpty()) {
-        monitoringParms->mPartitions.PushBack({cStatePartitionName, GetFullStatePath(mInstanceInfo.mStatePath)});
+        monitoringParms->mPartitions.PushBack({cStatePartitionName, {}, GetFullStatePath(mInstanceInfo.mStatePath), 0});
     }
 
     if (!mInstanceInfo.mStoragePath.IsEmpty()) {
-        monitoringParms->mPartitions.PushBack({cStoragePartitionName, GetFullStoragePath(mInstanceInfo.mStoragePath)});
+        monitoringParms->mPartitions.PushBack(
+            {cStoragePartitionName, {}, GetFullStoragePath(mInstanceInfo.mStoragePath), 0});
     }
 
     if (auto err = mResourceMonitor.StartInstanceMonitoring(mInstanceID, *monitoringParms); !err.IsNone()) {
