@@ -23,11 +23,11 @@ public:
     /**
      * Initializes average.
      *
-     * @param nodeDisks node disks info.
+     * @param partitions partitions info.
      * @param windowCount window count.
      * @return Error.
      */
-    Error Init(const PartitionInfoObsoleteArray& nodeDisks, size_t windowCount);
+    Error Init(const Array<PartitionInfo>& partitions, size_t windowCount);
 
     /**
      * Updates average data.
@@ -63,16 +63,18 @@ public:
 
 private:
     struct AverageData {
-        bool           mIsInitialized = false;
-        MonitoringData mMonitoringData;
+        bool               mIsInitialized {};
+        MonitoringData     mMonitoringData;
+        PartitionInfoArray mMonitoredPartitions;
     };
 
     static constexpr auto cAllocatorSize = sizeof(AverageData);
 
+    Error InitPartitionsAverageData(const Array<PartitionInfo>& partitions, AverageData& data) const;
     Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized);
     Error GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const;
 
-    size_t                                                  mWindowCount = 0;
+    size_t                                                  mWindowCount {};
     AverageData                                             mAverageNodeData {};
     StaticMap<InstanceIdent, AverageData, cMaxNumInstances> mAverageInstancesData {};
 

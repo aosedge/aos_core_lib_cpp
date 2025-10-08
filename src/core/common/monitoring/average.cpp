@@ -48,15 +48,18 @@ void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
  * Public
  **********************************************************************************************************************/
 
-Error Average::Init(const PartitionInfoObsoleteArray& nodeDisks, size_t windowCount)
+Error Average::Init(const Array<PartitionInfo>& partitions, size_t windowCount)
 {
     mWindowCount = windowCount;
     if (mWindowCount == 0) {
         mWindowCount = 1;
     }
 
-    mAverageNodeData.mMonitoringData.mPartitions = nodeDisks;
     mAverageInstancesData.Clear();
+
+    if (auto err = InitPartitionsAverageData(partitions, mAverageNodeData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -119,12 +122,8 @@ Error Average::StartInstanceMonitoring(const InstanceMonitorParams& monitoringCo
 
     auto averageData = MakeUnique<AverageData>(&mAllocator);
 
-    for (const auto& partition : monitoringConfig.mPartitions) {
-        if (auto err = averageData->mMonitoringData.mPartitions.PushBack(
-                PartitionInfoObsolete {partition.mName, {}, partition.mPath, 0, 0});
-            !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (auto err = InitPartitionsAverageData(monitoringConfig.mPartitions, *averageData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     if (auto err = mAverageInstancesData.Set(monitoringConfig.mInstanceIdent, *averageData); !err.IsNone()) {
@@ -148,6 +147,29 @@ Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
  * Private
  **********************************************************************************************************************/
 
+Error Average::InitPartitionsAverageData(const Array<PartitionInfo>& partitions, AverageData& data) const
+{
+    if (auto err = data.mMonitoredPartitions.Assign(partitions); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& partition : partitions) {
+        if (auto err = data.mMonitoringData.mPartitions.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto& avgPartition = data.mMonitoringData.mPartitions.Back();
+
+        avgPartition.mUsedSize = 0;
+
+        if (auto err = avgPartition.mName.Assign(partition.mName); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized)
 {
     UpdateValue(data.mCPU, newData.mCPU, mWindowCount, isInitialized);
@@ -156,7 +178,7 @@ Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& 
     UpdateValue(data.mUpload, newData.mUpload, mWindowCount, isInitialized);
 
     if (data.mPartitions.Size() != newData.mPartitions.Size()) {
-        return Error(ErrorEnum::eInvalidArgument, "service instances disk size mismatch");
+        return Error(ErrorEnum::eInvalidArgument, "monitoring data partition size mismatch");
     }
 
     for (size_t i = 0; i < data.mPartitions.Size(); ++i) {
@@ -170,17 +192,20 @@ Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& 
 
 Error Average::GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const
 {
-    data.mCPU = GetValue(averageData.mCPU, mWindowCount);
-    data.mRAM = GetValue(averageData.mRAM, mWindowCount);
+    data.mCPU      = GetValue(averageData.mCPU, mWindowCount);
+    data.mRAM      = GetValue(averageData.mRAM, mWindowCount);
+    data.mDownload = GetValue(averageData.mDownload, mWindowCount);
+    data.mUpload   = GetValue(averageData.mUpload, mWindowCount);
+
     data.mPartitions.Clear();
 
     for (const auto& disk : averageData.mPartitions) {
-        data.mPartitions.EmplaceBack(PartitionInfoObsolete {
-            disk.mName, disk.mTypes, disk.mPath, disk.mTotalSize, GetValue(disk.mUsedSize, mWindowCount)});
-    }
+        if (auto err = data.mPartitions.EmplaceBack(disk); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
-    data.mDownload = GetValue(averageData.mDownload, mWindowCount);
-    data.mUpload   = GetValue(averageData.mUpload, mWindowCount);
+        data.mPartitions.Back().mUsedSize = GetValue(disk.mUsedSize, mWindowCount);
+    }
 
     return ErrorEnum::eNone;
 }
