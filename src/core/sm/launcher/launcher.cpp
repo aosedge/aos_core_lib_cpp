@@ -1089,6 +1089,7 @@ Error Launcher::HandleOfflineTTLs()
     return ErrorEnum::eNone;
 }
 
+// cppcheck-suppress constParameterReference
 Error Launcher::SetEnvVars(const Array<EnvVarsInstanceInfo>& envVarsInfo, Array<EnvVarsInstanceStatus>& statuses)
 {
     (void)statuses;
