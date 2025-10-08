@@ -97,7 +97,7 @@ void Instance::SetError(const Error& err)
     }
 }
 
-void Instance::UpdateMonitoringData(const monitoring::MonitoringData& monitoringData)
+void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
 {
     mMonitoringData = monitoringData;
 }

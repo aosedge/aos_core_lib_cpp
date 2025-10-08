@@ -85,9 +85,9 @@ public:
     /**
      * Returns monitoring data.
      *
-     * @return const monitoring::MonitoringData&.
+     * @return const MonitoringData&.
      */
-    const monitoring::MonitoringData& GetMonitoringData() const { return mMonitoringData; }
+    const MonitoringData& GetMonitoringData() const { return mMonitoringData; }
 
     /**
      * Returns provider identifier.
@@ -139,7 +139,7 @@ public:
      *
      * @param monitoringData monitoring data.
      */
-    void UpdateMonitoringData(const monitoring::MonitoringData& monitoringData);
+    void UpdateMonitoringData(const MonitoringData& monitoringData);
 
     /**
      * Removes instance.
@@ -205,9 +205,9 @@ protected:
     ImageInfoProviderItf& mImageInfoProvider;
 
 private:
-    InstanceStatus             mStatus;
-    monitoring::MonitoringData mMonitoringData;
-    StaticString<cIDLen>       mProviderID;
+    InstanceStatus       mStatus;
+    MonitoringData       mMonitoringData;
+    StaticString<cIDLen> mProviderID;
 
     StaticAllocator<sizeof(oci::ServiceConfig) + sizeof(StaticArray<aos::ImageInfo, cMaxNumUpdateImages>)> mAllocator;
 };

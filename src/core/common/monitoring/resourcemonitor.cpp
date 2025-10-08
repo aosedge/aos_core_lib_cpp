@@ -35,15 +35,18 @@ Error ResourceMonitor::Init(const Config& config, const iam::nodeinfoprovider::N
         return AOS_ERROR_WRAP(err);
     }
 
-    mNodeMonitoringData.mNodeID                     = nodeInfo->mNodeID;
-    mNodeMonitoringData.mMonitoringData.mPartitions = nodeInfo->mPartitions;
-    mMaxDMIPS                                       = nodeInfo->mMaxDMIPS;
-    mMaxMemory                                      = nodeInfo->mTotalRAM;
+    if (auto err = InitPartitions(*nodeInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mNodeMonitoringData.mNodeID = nodeInfo->mNodeID;
+    mMaxDMIPS                   = nodeInfo->mMaxDMIPS;
+    mMaxMemory                  = nodeInfo->mTotalRAM;
 
     assert(mConfig.mPollPeriod > 0);
 
-    if (auto err = mAverage.Init(
-            nodeInfo->mPartitions, mConfig.mAverageWindow.Nanoseconds() / mConfig.mPollPeriod.Nanoseconds());
+    if (auto err
+        = mAverage.Init(mPartitionInfos, mConfig.mAverageWindow.Nanoseconds() / mConfig.mPollPeriod.Nanoseconds());
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -232,6 +235,33 @@ Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringDa
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+Error ResourceMonitor::InitPartitions(const NodeInfoObsolete& nodeInfo)
+{
+    for (const auto& partition : nodeInfo.mPartitions) {
+        if (auto err = mPartitionInfos.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto& partitionInfo = mPartitionInfos.Back();
+
+        partitionInfo.mTotalSize = partition.mTotalSize;
+
+        if (auto err = partitionInfo.mName.Assign(partition.mName); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = partitionInfo.mPath.Assign(partition.mPath); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = partitionInfo.mTypes.Assign(partition.mTypes); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
 
 String ResourceMonitor::GetParameterName(const ResourceIdentifier& id) const
 {
@@ -485,7 +515,7 @@ void ResourceMonitor::NormalizeMonitoringData()
 
         for (const auto& partition : instanceMonitoring.mMonitoringData.mPartitions) {
             if (auto it = nodeMonitoringData.mPartitions.FindIf(
-                    [&partition](const PartitionInfoObsolete& p) { return p.mName == partition.mName; });
+                    [&partition](const auto& p) { return p.mName == partition.mName; });
                 it != nodeMonitoringData.mPartitions.end()) {
                 it->mUsedSize = Max(it->mUsedSize, partition.mUsedSize);
             }
@@ -504,6 +534,7 @@ void ResourceMonitor::ProcessMonitoring()
 
     mNodeMonitoringData.mTimestamp = Time::Now();
 
+    mNodeMonitoringData.mMonitoringData.mPartitions.Clear();
     mNodeMonitoringData.mServiceInstances.Clear();
 
     for (auto& [instanceID, instanceMonitoringData] : mInstanceMonitoringData) {
@@ -522,11 +553,14 @@ void ResourceMonitor::ProcessMonitoring()
             ProcessAlerts(instanceMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, it->mSecond);
         }
 
-        mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData);
+        if (auto err = mNodeMonitoringData.mServiceInstances.PushBack(instanceMonitoringData); !err.IsNone()) {
+            LOG_ERR() << "Failed to add instance monitoring data"
+                      << Log::Field("instanceIdent", instanceMonitoringData.mInstanceIdent) << Log::Field(err);
+        }
     }
 
     if (auto err = mResourceUsageProvider->GetNodeMonitoringData(
-            mNodeMonitoringData.mNodeID, mNodeMonitoringData.mMonitoringData);
+            mNodeMonitoringData.mNodeID, mPartitionInfos, mNodeMonitoringData.mMonitoringData);
         !err.IsNone()) {
         LOG_ERR() << "Failed to get node monitoring data: err=" << err;
     }
@@ -600,14 +634,12 @@ RetWithError<uint64_t> ResourceMonitor::GetCurrentUsage(
 
 RetWithError<uint64_t> ResourceMonitor::GetPartitionTotalSize(const String& name) const
 {
-    auto it = mNodeMonitoringData.mMonitoringData.mPartitions.FindIf(
-        [&name](const auto& partition) { return partition.mName == name; });
-
-    if (it == mNodeMonitoringData.mMonitoringData.mPartitions.end()) {
-        return {0, ErrorEnum::eNotFound};
+    if (auto it = mPartitionInfos.FindIf([&name](const auto& partition) { return partition.mName == name; });
+        it != mPartitionInfos.end()) {
+        return {it->mTotalSize, ErrorEnum::eNone};
     }
 
-    return {it->mTotalSize, ErrorEnum::eNone};
+    return {0, ErrorEnum::eNotFound};
 }
 
 UniquePtr<ResourceIdentifier> ResourceMonitor::CreateResourceIdentifier(ResourceLevel level, ResourceType type,
