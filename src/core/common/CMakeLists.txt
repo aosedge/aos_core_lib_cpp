@@ -64,7 +64,7 @@ add_subdirectory(tools)
 add_subdirectory(types)
 add_subdirectory(version)
 
-if(WITH_TEST)
+if(WITH_TEST_TOOLS)
     add_subdirectory(tests)
 endif()
 
