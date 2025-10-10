@@ -292,4 +292,4 @@ public:
 
 } // namespace aos::sm::cni
 
-#endif // AOS_SM_CNI_HPP_
+#endif

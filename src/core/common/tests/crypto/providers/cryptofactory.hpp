@@ -23,4 +23,4 @@ using DefaultCryptoFactory = OpenSSLCryptoFactory;
 #error "No crypto provider defined. Define WITH_OPENSSL or WITH_MBEDTLS."
 #endif
 
-#endif // CRYPTOFACTORY_HPP_
+#endif
