@@ -254,4 +254,4 @@ private:
 
 } // namespace aos::cm::imagemanager
 
-#endif // AOS_CORE_CM_IMAGEMANAGER_IMAGEMANAGER_HPP_
+#endif

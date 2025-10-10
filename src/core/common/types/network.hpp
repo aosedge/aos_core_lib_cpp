@@ -192,4 +192,4 @@ struct Host {
 
 } // namespace aos
 
-#endif // AOS_CORE_COMMON_TYPES_NETWORK_HPP_
+#endif

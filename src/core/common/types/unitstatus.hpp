@@ -194,4 +194,4 @@ struct UnitStatus {
 
 } // namespace aos
 
-#endif // AOS_CORE_COMMON_TYPES_UNITSTATUS_HPP_
+#endif

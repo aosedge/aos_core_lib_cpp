@@ -73,4 +73,4 @@ struct FunctionServicePermissions {
 
 } // namespace aos
 
-#endif // AOS_CORE_COMMON_TYPES_PERMISSIONS_HPP_
+#endif

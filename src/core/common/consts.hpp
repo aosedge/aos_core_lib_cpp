@@ -33,4 +33,4 @@ constexpr auto cMaxNumConcurrentItems = AOS_CONFIG_MAX_NUM_CONCURRENT_ITEMS;
 
 } // namespace aos
 
-#endif // AOS_CORE_COMMON_CONSTS_HPP_
+#endif

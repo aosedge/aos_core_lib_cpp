@@ -55,4 +55,4 @@ public:
 
 } // namespace aos::cm::communication
 
-#endif // AOS_CORE_CM_COMMUNICATION_COMMUNICATION_HPP_
+#endif
