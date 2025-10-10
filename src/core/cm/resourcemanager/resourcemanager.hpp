@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_CM_RESOURCEMANAGER_HPP_
 #define AOS_CORE_CM_RESOURCEMANAGER_HPP_
 
+#include <core/common/types/unitconfig.hpp>
+
 namespace aos::cm::resourcemanager {
 
 /** @addtogroup cm Communication Manager
