@@ -47,4 +47,4 @@ public:
 
 } // namespace aos::cm::imagemanager
 
-#endif // AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEUNPACKER_HPP_
+#endif

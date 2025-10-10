@@ -97,4 +97,4 @@ struct ServiceDiscoveryResponse {
 
 } // namespace aos::cm::communication
 
-#endif // AOS_CORE_CM_COMMUNICATION_SERVICEDISCOVERY_HPP_
+#endif

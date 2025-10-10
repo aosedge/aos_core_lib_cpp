@@ -40,4 +40,4 @@ public:
 
 } // namespace aos::cm::launcher
 
-#endif // AOS_CORE_CM_LAUNCHER_ITF_STATUSLISTENER_HPP_
+#endif

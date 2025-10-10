@@ -170,4 +170,4 @@ public:
 
 } // namespace aos::cm::imagemanager::storage
 
-#endif // AOS_CORE_CM_IMAGEMANAGER_ITF_STORAGE_HPP_
+#endif

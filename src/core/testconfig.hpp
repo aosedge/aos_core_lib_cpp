@@ -43,4 +43,4 @@
  */
 #define AOS_CONFIG_LAUNCHER_RUNTIME_DIR "/tmp/aos/runtime"
 
-#endif // AOS_CORE_TESTCONFIG_HPP_
+#endif

@@ -141,4 +141,4 @@ using InstanceStatusArray = StaticArray<InstanceStatus, cMaxNumInstances>;
 
 } // namespace aos
 
-#endif // AOS_CORE_COMMON_TYPES_INSTANCE_HPP_
+#endif
