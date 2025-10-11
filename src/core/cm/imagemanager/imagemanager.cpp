@@ -1126,7 +1126,7 @@ Error ImageManager::PrepareURLsAndFileInfo(
 
     fs::FileInfo fileInfo;
 
-    if (auto err = mFileInfoProvider->CreateFileInfo(decryptedFile, fileInfo); !err.IsNone()) {
+    if (auto err = mFileInfoProvider->GetFileInfo(decryptedFile, fileInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

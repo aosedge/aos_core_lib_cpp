@@ -16,6 +16,7 @@ namespace aos::fs {
 class MockFileInfoProvider : public FileInfoProviderItf {
 public:
     MOCK_METHOD(Error, CreateFileInfo, (const String& path, FileInfo& info), (override));
+    MOCK_METHOD(Error, CreateSHA256, (const String& path, Array<uint8_t>& sha256), (override));
 };
 
 } // namespace aos::fs
