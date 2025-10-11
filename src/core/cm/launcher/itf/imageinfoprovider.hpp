@@ -63,6 +63,14 @@ public:
      * @return Error.
      */
     virtual Error GetImageConfig(const String& id, const String& imageID, oci::ImageConfig& config) = 0;
+
+    /**
+     * Returns GID for specified update item.
+     *
+     * @param id update item ID.
+     * @return RetWithError<gid_t>.
+     */
+    virtual RetWithError<gid_t> GetServiceGID(const String& id) = 0;
 };
 
 /** @}*/

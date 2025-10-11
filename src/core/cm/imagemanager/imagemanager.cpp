@@ -37,7 +37,9 @@ RetWithError<StaticString<oci::cMaxDigestLen>> RemovePrefixFromDigest(const Stri
 Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, spaceallocator::SpaceAllocatorItf& tmpSpaceAllocator,
     fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& imageDecrypter,
-    fs::FileInfoProviderItf& fileInfoProvider, ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec)
+    fs::FileInfoProviderItf& fileInfoProvider, ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec,
+    IdentifierRangePool<ImageManager::cGIDRangeBegin, ImageManager::cGIDRangeEnd,
+        ImageManager::cMaxNumLockedIDs>::Validator gidValidator)
 {
     LOG_DBG() << "Init image manager";
 
@@ -51,7 +53,21 @@ Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
     mImageUnpacker     = &imageUnpacker;
     mOCISpec           = &ociSpec;
 
-    return SetOutdatedItems();
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mGIDPool.Init(gidValidator);
+
+    for (const auto& item : *items) {
+        if (auto err = mGIDPool.TryAcquire(static_cast<int>(item.mGID)); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return SetOutdatedItems(*items);
 }
 
 Error ImageManager::Start()
@@ -467,6 +483,29 @@ Error ImageManager::GetImageConfig(const String& id, const String& imageID, oci:
     return ErrorEnum::eNotFound;
 }
 
+RetWithError<gid_t> ImageManager::GetServiceGID(const String& id)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get service GID" << Log::Field("id", id);
+
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxItemVersions>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemVersionsByID(id, *items); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eActive || item.mType != UpdateItemTypeEnum::eService) {
+            continue;
+        }
+
+        return item.mGID;
+    }
+
+    return {0, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+}
+
 Error ImageManager::RemoveItem(const String& id)
 {
     LockGuard lock {mMutex};
@@ -622,6 +661,14 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
     if (err = UpdatePrevVersions(*items); !err.IsNone()) {
         return err;
     }
+
+    size_t GID;
+
+    if (Tie(GID, err) = mGIDPool.Acquire(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    item->mGID = GID;
 
     if (err = mStorage->AddItem(*item); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -879,6 +926,12 @@ Error ImageManager::Remove(const storage::ItemInfo& item)
 
     if (auto err = mStorage->RemoveItem(item.mID, item.mVersion); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (item.mType == UpdateItemTypeEnum::eService && item.mGID != 0) {
+        if (auto err = mGIDPool.Release(item.mGID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     LOG_DBG() << "Item removed" << Log::Field("id", item.mID) << Log::Field("version", item.mVersion);
@@ -1175,15 +1228,11 @@ Error ImageManager::UpdatePrevVersions(const Array<storage::ItemInfo>& items)
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::SetOutdatedItems()
+Error ImageManager::SetOutdatedItems(const Array<storage::ItemInfo>& items)
 {
-    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    LOG_DBG() << "Set outdated items";
 
-    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    for (const auto& item : *items) {
+    for (const auto& item : items) {
         if (item.mState == storage::ItemStateEnum::eCached) {
             if (auto err = mSpaceAllocator->AddOutdatedItem(item.mID, item.mTotalSize, item.mTimestamp);
                 !err.IsNone()) {
