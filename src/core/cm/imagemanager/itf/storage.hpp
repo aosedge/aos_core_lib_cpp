@@ -89,6 +89,7 @@ struct ItemInfo {
     storage::ItemState                          mState;
     StaticString<cFilePathLen>                  mPath;
     size_t                                      mTotalSize {};
+    size_t                                      mGID {};
     Time                                        mTimestamp;
     StaticArray<ImageInfo, cMaxNumUpdateImages> mImages;
 
@@ -101,7 +102,8 @@ struct ItemInfo {
     bool operator==(const ItemInfo& other) const
     {
         return mID == other.mID && mVersion == other.mVersion && mState == other.mState && mPath == other.mPath
-            && mTotalSize == other.mTotalSize && mTimestamp == other.mTimestamp && mImages == other.mImages;
+            && mTotalSize == other.mTotalSize && mGID == other.mGID && mTimestamp == other.mTimestamp
+            && mImages == other.mImages;
     }
 
     /**
