@@ -37,6 +37,11 @@ class ImageManager : public ImageManagerItf,
                      public smcontroller::UpdateImageProviderItf,
                      public launcher::ImageInfoProviderItf,
                      public spaceallocator::ItemRemoverItf {
+private:
+    static constexpr auto cGIDRangeBegin   = 5000;
+    static constexpr auto cGIDRangeEnd     = 10000;
+    static constexpr auto cMaxNumLockedIDs = cGIDRangeEnd - cGIDRangeBegin;
+
 public:
     /**
      * Initializes image manager.
@@ -47,12 +52,14 @@ public:
      * @param fileserver file server.
      * @param imageDecrypter image decrypter.
      * @param fileInfoProvider file info provider.
+     * @param gidValidator GID validator function.
      * @return Error.
      */
     Error Init(const Config& config, storage::StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator,
         spaceallocator::SpaceAllocatorItf& tmpSpaceAllocator, fileserver::FileServerItf& fileserver,
         crypto::CryptoHelperItf& imageDecrypter, fs::FileInfoProviderItf& fileInfoProvider,
-        ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec);
+        ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec,
+        IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedIDs>::Validator gidValidator);
 
     /**
      * Starts image manager.
@@ -181,6 +188,14 @@ public:
     Error GetImageConfig(const String& id, const String& imageID, oci::ImageConfig& config) override;
 
     /**
+     * Returns GID for specified update item.
+     *
+     * @param id update item ID.
+     * @return RetWithError<gid_t>.
+     */
+    virtual RetWithError<gid_t> GetServiceGID(const String& id) override;
+
+    /**
      * Removes item.
      *
      * @param id item id.
@@ -217,7 +232,7 @@ private:
     Error RevertUpdateItem(const String& id, Array<UpdateItemStatus>& statuses);
     Error SetItemStatus(
         const Array<storage::ImageInfo>& itemImages, UpdateItemStatus& status, ImageState state, Error error);
-    Error SetOutdatedItems();
+    Error SetOutdatedItems(const Array<storage::ItemInfo>& items);
     Error RemoveOutdatedItems();
     void  NotifyItemRemovedListeners(const String& id);
     void  NotifyImageStatusChangedListeners(const ImageStatus& status);
@@ -228,14 +243,15 @@ private:
     Error ReadDigestFromTar(
         const String& decryptedFile, const String& inputDigest, storage::ImageInfo& image, const String& tmpPath);
 
-    storage::StorageItf*               mStorage {};
-    spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
-    spaceallocator::SpaceAllocatorItf* mTmpSpaceAllocator {};
-    ImageUnpackerItf*                  mImageUnpacker {};
-    fileserver::FileServerItf*         mFileServer {};
-    crypto::CryptoHelperItf*           mImageDecrypter {};
-    fs::FileInfoProviderItf*           mFileInfoProvider {};
-    oci::OCISpecItf*                   mOCISpec {};
+    storage::StorageItf*                                                mStorage {};
+    spaceallocator::SpaceAllocatorItf*                                  mSpaceAllocator {};
+    spaceallocator::SpaceAllocatorItf*                                  mTmpSpaceAllocator {};
+    ImageUnpackerItf*                                                   mImageUnpacker {};
+    fileserver::FileServerItf*                                          mFileServer {};
+    crypto::CryptoHelperItf*                                            mImageDecrypter {};
+    fs::FileInfoProviderItf*                                            mFileInfoProvider {};
+    oci::OCISpecItf*                                                    mOCISpec {};
+    IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedIDs> mGIDPool;
 
     StaticArray<ImageStatusListenerItf*, cMaxNumListeners> mListeners;
 
