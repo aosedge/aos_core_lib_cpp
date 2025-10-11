@@ -47,7 +47,10 @@ classDiagram
 
 During initialization:
 
+* creates installation directory if it doesn't exist;
+* clears temporary directory;
 * verifies integrity of each item and removes corrupted or not fully installed items;
+* removes orphaned items (directories without corresponding database entries);
 * removes outdated items.
 
 ## Removing outdated items
@@ -72,9 +75,12 @@ This method performs the following actions:
 
 * decrypts update item images and verifies signature;
 * unpacks certain update item types images in order to retrieve metadata or/and modify it and store it in the internal
-  storage. It is required to provide frequently used data to other modules;
-* cached outdate items for revert purpose;
-* if case when installation of any desired update item image fails, error with corresponding update item status is
+  storage. It is required to provide frequently used data to other modules:
+  * for service items: unpacks service images to extract and store service configuration, image configuration, and GID
+    (Group ID) metadata;
+  * for layer items: unpacks layer images to extract and store layer metadata;
+* caches outdated items for revert purpose;
+* in case when installation of any desired update item image fails, error with corresponding update item status is
   returned and all artifacts of this update item version are removed from file system.
 
 This method maintains update item versions as following:
@@ -161,11 +167,16 @@ is returned.
 
 ## aos::cm::smcontroller::UpdateImageProviderItf
 
-## GetUpdateImageInfo
+### GetUpdateImageInfo (by ID and platform)
 
 Returns image info for specified update item ID and platform. The image info contains image version, URL to download,
 size, checksum etc.
 
-## GetLayerImageInfo
+### GetUpdateImageInfo (by item ID and image ID)
 
-Returns image info for specified layer.
+Returns image info for specified update item ID and image ID. This method retrieves the image information from the
+active version of the item. The image info contains image ID, version, URL to download, size, checksum etc.
+
+### GetLayerImageInfo
+
+Returns image info for specified layer digest. The image info contains layer URL to download, size, checksum etc.
