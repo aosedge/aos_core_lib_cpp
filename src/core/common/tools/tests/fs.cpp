@@ -106,6 +106,29 @@ TEST_F(FSTest, DirExist)
     EXPECT_EQ(fs::DirExist(notExistingDir), RetWithError<bool>(false));
 }
 
+TEST_F(FSTest, FileExist)
+{
+    const auto testFile = cBaseTestDir / "file-exist-test.txt";
+
+    // File doesn't exist yet
+    EXPECT_EQ(fs::FileExist(testFile.c_str()), RetWithError<bool>(false));
+
+    // Create file
+    CreateFile(testFile.c_str());
+
+    // File exists
+    EXPECT_EQ(fs::FileExist(testFile.c_str()), RetWithError<bool>(true));
+
+    // Directory should return false (not a regular file)
+    EXPECT_EQ(fs::FileExist(cBaseTestDir.c_str()), RetWithError<bool>(false));
+
+    // Non-existing file
+    const auto notExistingFile = cBaseTestDir / "file-doesnt-exist.txt";
+    EXPECT_EQ(fs::FileExist(notExistingFile.c_str()), RetWithError<bool>(false));
+
+    fs::RemoveAll(testFile.c_str());
+}
+
 TEST_F(FSTest, MakeDir)
 {
     const auto testDir = cBaseTestDir / "make-dir-test";
