@@ -67,6 +67,16 @@ public:
     virtual Error GetUpdateImageInfo(const String& id, const PlatformInfo& platform, UpdateImageInfo& info) = 0;
 
     /**
+     * Returns update image info by image ID.
+     *
+     * @param itemID update item ID.
+     * @param imageID image ID.
+     * @param[out] info update image info.
+     * @return Error.
+     */
+    virtual Error GetUpdateImageInfo(const String& itemID, const String& imageID, UpdateImageInfo& info) = 0;
+
+    /**
      * Returns layer image info.
      *
      * @param digest layer digest.

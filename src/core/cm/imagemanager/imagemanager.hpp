@@ -142,6 +142,16 @@ public:
         const String& id, const PlatformInfo& platform, smcontroller::UpdateImageInfo& info) override;
 
     /**
+     * Returns update image info by image ID.
+     *
+     * @param itemID update item ID.
+     * @param imageID image ID.
+     * @param[out] info update image info.
+     * @return Error.
+     */
+    Error GetUpdateImageInfo(const String& itemID, const String& imageID, smcontroller::UpdateImageInfo& info) override;
+
+    /**
      * Returns layer image info.
      *
      * @param digest layer digest.
