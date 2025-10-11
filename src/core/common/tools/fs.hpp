@@ -265,13 +265,13 @@ public:
     virtual ~FileInfoProviderItf() = default;
 
     /**
-     * Creates file info.
+     * Gets file info.
      *
      * @param path file path.
      * @param[out] info file info.
      * @return Error.
      */
-    virtual Error CreateFileInfo(const String& path, FileInfo& info) = 0;
+    virtual Error GetFileInfo(const String& path, FileInfo& info) = 0;
 };
 
 /**
@@ -288,16 +288,18 @@ public:
     Error Init(crypto::HasherItf& hashProvider);
 
     /**
-     * Creates file info.
+     * Gets file info.
      *
      * @param path file path.
      * @param[out] info file info.
      * @return Error.
      */
-    Error CreateFileInfo(const String& path, FileInfo& info) override;
+    Error GetFileInfo(const String& path, FileInfo& info) override;
 
 private:
     static constexpr auto cReadFileBufferSize = AOS_CONFIG_TYPES_READ_FILE_BUFFER_SIZE;
+
+    Error GetSHA256(const String& path, Array<uint8_t>& sha256);
 
     crypto::HasherItf*                        mHashProvider {};
     StaticArray<uint8_t, cReadFileBufferSize> mReadFileBuffer;

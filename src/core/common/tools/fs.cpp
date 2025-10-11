@@ -102,7 +102,7 @@ Error FileInfoProvider::Init(crypto::HasherItf& hashProvider)
     return ErrorEnum::eNone;
 }
 
-Error FileInfoProvider::CreateFileInfo(const String& path, FileInfo& info)
+Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info)
 {
     auto [size, err] = CalculateSize(path);
     if (!err.IsNone()) {
@@ -111,6 +111,15 @@ Error FileInfoProvider::CreateFileInfo(const String& path, FileInfo& info)
 
     info.mSize = size;
 
+    return GetSHA256(path, info.mSHA256);
+}
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+Error FileInfoProvider::GetSHA256(const String& path, Array<uint8_t>& sha256)
+{
     auto [hasherPtr, errHash] = mHashProvider->CreateHash(crypto::HashEnum::eSHA256);
     if (!errHash.IsNone()) {
         return errHash;
@@ -118,16 +127,16 @@ Error FileInfoProvider::CreateFileInfo(const String& path, FileInfo& info)
 
     mReadFileBuffer.Clear();
 
-    if (err = ReadFile(path, mReadFileBuffer); !err.IsNone()) {
-        return err;
+    if (errHash = ReadFile(path, mReadFileBuffer); !errHash.IsNone()) {
+        return errHash;
     }
 
-    if (err = hasherPtr->Update(mReadFileBuffer); !err.IsNone()) {
-        return err;
+    if (errHash = hasherPtr->Update(mReadFileBuffer); !errHash.IsNone()) {
+        return errHash;
     }
 
-    if (err = hasherPtr->Finalize(info.mSHA256); !err.IsNone()) {
-        return err;
+    if (errHash = hasherPtr->Finalize(sha256); !errHash.IsNone()) {
+        return errHash;
     }
 
     return ErrorEnum::eNone;
