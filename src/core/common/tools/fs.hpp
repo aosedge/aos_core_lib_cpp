@@ -358,6 +358,14 @@ StaticString<cFilePathLen> Dir(const String& path);
 RetWithError<bool> DirExist(const String& path);
 
 /**
+ * Checks if file exists.
+ *
+ * @param path file path.
+ * @return Error
+ */
+RetWithError<bool> FileExist(const String& path);
+
+/**
  * Creates one directory.
  *
  * @param path directory path.
