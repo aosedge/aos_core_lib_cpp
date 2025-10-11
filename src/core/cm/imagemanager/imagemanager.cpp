@@ -313,6 +313,39 @@ Error ImageManager::GetUpdateImageInfo(
     return ErrorEnum::eNotFound;
 }
 
+Error ImageManager::GetUpdateImageInfo(const String& itemID, const String& imageID, smcontroller::UpdateImageInfo& info)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get update image info by image ID" << Log::Field("itemID", itemID) << Log::Field("imageID", imageID);
+
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxItemVersions>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemVersionsByID(itemID, *items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto it = items->FindIf(
+        [&itemID](const storage::ItemInfo& item) { return item.mState == storage::ItemStateEnum::eActive; });
+    if (it == items->end()) {
+        return ErrorEnum::eNotFound;
+    }
+
+    for (const auto& image : it->mImages) {
+        if (image.mImageID == imageID) {
+            info.mImageID = image.mImageID;
+            info.mVersion = it->mVersion;
+            info.mURL     = image.mURL;
+            info.mSHA256  = image.mSHA256;
+            info.mSize    = image.mSize;
+
+            return ErrorEnum::eNone;
+        }
+    }
+
+    return ErrorEnum::eNotFound;
+}
+
 Error ImageManager::GetLayerImageInfo(const String& digest, smcontroller::UpdateImageInfo& info)
 {
     LockGuard lock {mMutex};
