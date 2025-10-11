@@ -53,6 +53,14 @@ Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
     mImageUnpacker     = &imageUnpacker;
     mOCISpec           = &ociSpec;
 
+    if (auto err = fs::MakeDirAll(mConfig.mInstallPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = fs::ClearDir(mConfig.mTmpPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
 
     if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
