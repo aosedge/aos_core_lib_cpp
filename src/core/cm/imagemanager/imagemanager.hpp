@@ -242,10 +242,14 @@ private:
     Error RevertUpdateItem(const String& id, Array<UpdateItemStatus>& statuses);
     Error SetItemStatus(
         const Array<storage::ImageInfo>& itemImages, UpdateItemStatus& status, ImageState state, Error error);
-    Error SetOutdatedItems(const Array<storage::ItemInfo>& items);
-    Error RemoveOutdatedItems();
-    void  NotifyItemRemovedListeners(const String& id);
-    void  NotifyImageStatusChangedListeners(const ImageStatus& status);
+    Error              SetOutdatedItems(const Array<storage::ItemInfo>& items);
+    Error              RemoveOutdatedItems();
+    Error              CleanupOrphanedItems(const Array<storage::ItemInfo>& items);
+    Error              CleanupOrphanedDirectories(const Array<storage::ItemInfo>& items);
+    Error              CleanupOrphanedDatabaseItems(const Array<storage::ItemInfo>& items);
+    RetWithError<bool> VerifyItemIntegrity(const storage::ItemInfo& item);
+    void               NotifyItemRemovedListeners(const String& id);
+    void               NotifyImageStatusChangedListeners(const ImageStatus& status);
 
     Error PrepareLayerMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);
     Error PrepareServiceMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);

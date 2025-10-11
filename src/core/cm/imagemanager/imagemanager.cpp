@@ -75,6 +75,10 @@ Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
         }
     }
 
+    if (auto err = CleanupOrphanedItems(*items); !err.IsNone()) {
+        return err;
+    }
+
     return SetOutdatedItems(*items);
 }
 
@@ -1303,6 +1307,146 @@ Error ImageManager::RemoveOutdatedItems()
     }
 
     return ErrorEnum::eNone;
+}
+
+Error ImageManager::CleanupOrphanedItems(const Array<storage::ItemInfo>& items)
+{
+    LOG_DBG() << "Cleanup orphaned items";
+
+    if (auto err = CleanupOrphanedDirectories(items); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = CleanupOrphanedDatabaseItems(items); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::CleanupOrphanedDirectories(const Array<storage::ItemInfo>& items)
+{
+    LOG_DBG() << "Cleanup orphaned directories";
+
+    auto itemsPath = fs::JoinPath(mConfig.mInstallPath, "items");
+
+    auto [dirExists, err] = fs::DirExist(itemsPath);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!dirExists) {
+        return ErrorEnum::eNone;
+    }
+
+    auto dirIterator = fs::DirIterator(itemsPath);
+
+    while (dirIterator.Next()) {
+        LOG_DBG() << "Found item path" << Log::Field("path", dirIterator->mPath)
+                  << Log::Field("isDir", dirIterator->mIsDir);
+
+        if (!dirIterator->mIsDir) {
+            continue;
+        }
+
+        auto version = dirIterator->mPath;
+
+        auto it = items.FindIf([&version](const storage::ItemInfo& item) { return item.mVersion == version; });
+
+        if (it == items.end()) {
+            auto orphanedPath = fs::JoinPath(itemsPath, version);
+
+            LOG_WRN() << "Removing orphaned item from filesystem" << Log::Field("path", orphanedPath);
+
+            if (err = fs::RemoveAll(orphanedPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove orphaned item" << Log::Field("path", orphanedPath) << Log::Field(err);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::CleanupOrphanedDatabaseItems(const Array<storage::ItemInfo>& items)
+{
+    LOG_DBG() << "Cleanup orphaned database items";
+
+    for (const auto& item : items) {
+        auto [itemDirExists, checkErr] = fs::DirExist(item.mPath);
+        if (!checkErr.IsNone()) {
+            LOG_ERR() << "Failed to check item path" << Log::Field("path", item.mPath) << Log::Field(checkErr);
+
+            continue;
+        }
+
+        bool shouldRemove {};
+
+        if (!itemDirExists) {
+            LOG_WRN() << "Item directory does not exist" << Log::Field("id", item.mID)
+                      << Log::Field("version", item.mVersion) << Log::Field("path", item.mPath);
+
+            shouldRemove = true;
+        } else {
+            auto [isValid, verifyErr] = VerifyItemIntegrity(item);
+            if (!verifyErr.IsNone()) {
+                LOG_ERR() << "Failed to verify item integrity" << Log::Field("id", item.mID)
+                          << Log::Field("version", item.mVersion) << Log::Field(verifyErr);
+            }
+
+            shouldRemove = !isValid || !verifyErr.IsNone();
+        }
+
+        if (shouldRemove) {
+            LOG_WRN() << "Removing corrupted/orphaned item" << Log::Field("id", item.mID)
+                      << Log::Field("version", item.mVersion);
+
+            if (auto removeErr = fs::RemoveAll(item.mPath); !removeErr.IsNone()) {
+                LOG_ERR() << "Failed to remove item directory" << Log::Field("path", item.mPath)
+                          << Log::Field(removeErr);
+            }
+
+            if (auto removeErr = mStorage->RemoveItem(item.mID, item.mVersion); !removeErr.IsNone()) {
+                LOG_ERR() << "Failed to remove item from database" << Log::Field("id", item.mID)
+                          << Log::Field("version", item.mVersion) << Log::Field(removeErr);
+            }
+
+            if (item.mType == UpdateItemTypeEnum::eService && item.mGID != 0) {
+                if (auto releaseErr = mGIDPool.Release(item.mGID); !releaseErr.IsNone()) {
+                    LOG_ERR() << "Failed to release GID" << Log::Field("gid", item.mGID) << Log::Field(releaseErr);
+                }
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<bool> ImageManager::VerifyItemIntegrity(const storage::ItemInfo& item)
+{
+    LOG_DBG() << "Verify item integrity" << Log::Field("id", item.mID) << Log::Field("version", item.mVersion);
+
+    for (const auto& image : item.mImages) {
+        auto [fileExists, fileCheckErr] = fs::FileExist(image.mPath);
+        if (!fileCheckErr.IsNone()) {
+            return {false, AOS_ERROR_WRAP(fileCheckErr)};
+        }
+
+        if (!fileExists) {
+            return {false, ErrorEnum::eNotFound};
+        }
+
+        fs::FileInfo fileInfo;
+
+        if (auto sha256Err = mFileInfoProvider->GetFileInfo(image.mPath, fileInfo); !sha256Err.IsNone()) {
+            return {false, AOS_ERROR_WRAP(sha256Err)};
+        }
+
+        if (fileInfo.mSHA256 != image.mSHA256) {
+            return {false, ErrorEnum::eNotFound};
+        }
+    }
+
+    return {true, ErrorEnum::eNone};
 }
 
 } // namespace aos::cm::imagemanager
