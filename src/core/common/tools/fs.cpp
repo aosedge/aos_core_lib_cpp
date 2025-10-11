@@ -181,6 +181,26 @@ RetWithError<bool> DirExist(const String& path)
     return true;
 }
 
+RetWithError<bool> FileExist(const String& path)
+{
+    struct stat s;
+
+    auto ret = stat(path.CStr(), &s);
+    if (ret != 0) {
+        if (errno == ENOENT) {
+            return false;
+        }
+
+        return {false, errno};
+    }
+
+    if (S_ISREG(s.st_mode)) {
+        return true;
+    }
+
+    return false;
+}
+
 Error MakeDir(const String& path)
 {
     auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
