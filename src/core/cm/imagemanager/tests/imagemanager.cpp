@@ -40,14 +40,12 @@ protected:
         mConfig.mTmpPath       = "/tmp/imagemanager_test/temp";
         mConfig.mUpdateItemTTL = 24 * Time::cHours;
 
-        fs::MakeDirAll(mConfig.mInstallPath);
-        fs::MakeDirAll(mConfig.mTmpPath);
-
         EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
 
         EXPECT_TRUE(mImageManager
                         .Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-                            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec)
+                            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec,
+                            [](size_t) { return true; })
                         .IsNone());
     }
 
@@ -125,7 +123,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, CreateFileInfo(_, _))
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
         .Times(5)
         .WillRepeatedly(DoAll(Invoke([&itemsInfo](const String& path, fs::FileInfo& info) {
             for (const auto& item : itemsInfo) {
@@ -255,7 +253,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, CreateFileInfo(_, _))
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
         .WillOnce(DoAll(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
             info.mSize   = imageInfo.mSize;
             info.mSHA256 = imageInfo.mSHA256;
@@ -350,6 +348,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
             auto& activeItem = items.Back();
 
             activeItem.mID        = itemInfo.mID;
+            activeItem.mType      = UpdateItemTypeEnum::eService;
             activeItem.mVersion   = "2.0.0";
             activeItem.mState     = storage::ItemStateEnum::eActive;
             activeItem.mPath      = "/tmp/active-2.0.0";
@@ -363,6 +362,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
             auto& cachedItem = items.Back();
 
             cachedItem.mID        = itemInfo.mID;
+            cachedItem.mType      = UpdateItemTypeEnum::eService;
             cachedItem.mVersion   = "1.0.0";
             cachedItem.mState     = storage::ItemStateEnum::eCached;
             cachedItem.mPath      = "/tmp/cached-1.0.0";
@@ -379,7 +379,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, CreateFileInfo(_, _))
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
         .WillOnce(DoAll(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
             info.mSize   = imageInfo.mSize;
             info.mSHA256 = imageInfo.mSHA256;
@@ -655,7 +655,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, CreateFileInfo(_, _))
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
         .WillOnce(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
             info.mSize = imageInfo.mSize;
             info.mSHA256.Clear();
@@ -821,6 +821,7 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
 
             auto& activeItem      = items.Back();
             activeItem.mID        = id;
+            activeItem.mType      = UpdateItemTypeEnum::eService;
             activeItem.mVersion   = "2.0.0";
             activeItem.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
             activeItem.mPath      = "/tmp/active-item";
@@ -840,6 +841,7 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
 
             auto& cachedItem      = items.Back();
             cachedItem.mID        = id;
+            cachedItem.mType      = UpdateItemTypeEnum::eService;
             cachedItem.mVersion   = "1.0.0";
             cachedItem.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
             cachedItem.mPath      = "/tmp/cached-item";
@@ -1665,6 +1667,617 @@ TEST_F(ImageManagerTest, GetLayerImageInfo_NotFound_NoMatchingDigest)
     auto err = mImageManager.GetLayerImageInfo(layerDigest.c_str(), info);
 
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(ImageManagerTest, GetServiceGID_Success)
+{
+    auto  itemId      = "service-id-1111-1111-1111-111111111111";
+    gid_t expectedGID = 5001;
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId, expectedGID](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "1.0.0";
+            activeItem.mType    = UpdateItemTypeEnum::eService;
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+            activeItem.mGID     = expectedGID;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto [gid, err] = mImageManager.GetServiceGID(itemId);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(gid, expectedGID) << "Should return correct GID";
+}
+
+TEST_F(ImageManagerTest, GetServiceGID_NotFound_NoActiveItem)
+{
+    auto itemId = "service-id-2222-2222-2222-222222222222";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedItem    = items.Back();
+            cachedItem.mID      = itemId;
+            cachedItem.mVersion = "1.0.0";
+            cachedItem.mType    = UpdateItemTypeEnum::eService;
+            cachedItem.mState   = storage::ItemState(storage::ItemStateEnum::eCached);
+            cachedItem.mGID     = 5002;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto [gid, err] = mImageManager.GetServiceGID(itemId);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Should return eNotFound when item is not active";
+    EXPECT_EQ(gid, 0) << "GID should be 0 on error";
+}
+
+TEST_F(ImageManagerTest, GetServiceGID_NotFound_ItemIsLayer)
+{
+    auto itemId = "layer-id-3333-3333-3333-333333333333";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& layerItem    = items.Back();
+            layerItem.mID      = itemId;
+            layerItem.mVersion = "1.0.0";
+            layerItem.mType    = UpdateItemTypeEnum::eLayer;
+            layerItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+            layerItem.mGID     = 5003;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto [gid, err] = mImageManager.GetServiceGID(itemId);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Should return eNotFound when item is a layer";
+    EXPECT_EQ(gid, 0) << "GID should be 0 on error";
+}
+
+TEST_F(ImageManagerTest, GetServiceGID_NotFound_NoItems)
+{
+    auto itemId = "nonexistent-id-4444-4444-444444444444";
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
+            items.Clear();
+            return ErrorEnum::eNone;
+        }));
+
+    auto [gid, err] = mImageManager.GetServiceGID(itemId);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Should return eNotFound when no items exist";
+    EXPECT_EQ(gid, 0) << "GID should be 0 on error";
+}
+
+TEST_F(ImageManagerTest, GetServiceGID_MultipleItems_ReturnsActiveService)
+{
+    auto  itemId      = "service-id-5555-5555-5555-555555555555";
+    gid_t expectedGID = 5010;
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId, expectedGID](const String&, Array<storage::ItemInfo>& items) -> Error {
+            // Add cached item (should be skipped)
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            auto& cachedItem    = items.Back();
+            cachedItem.mID      = itemId;
+            cachedItem.mVersion = "0.5.0";
+            cachedItem.mType    = UpdateItemTypeEnum::eService;
+            cachedItem.mState   = storage::ItemState(storage::ItemStateEnum::eCached);
+            cachedItem.mGID     = 5009;
+
+            // Add active service item (should be returned)
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "1.0.0";
+            activeItem.mType    = UpdateItemTypeEnum::eService;
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+            activeItem.mGID     = expectedGID;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto [gid, err] = mImageManager.GetServiceGID(itemId);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(gid, expectedGID) << "Should return GID from active service item";
+}
+
+TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesOrphanedDirectories)
+{
+    auto itemsPath = fs::JoinPath(mConfig.mInstallPath, "items");
+    fs::MakeDirAll(itemsPath);
+
+    auto validVersion1Path    = fs::JoinPath(itemsPath, "1.0.0");
+    auto validVersion2Path    = fs::JoinPath(itemsPath, "2.0.0");
+    auto orphanedVersion1Path = fs::JoinPath(itemsPath, "0.5.0");
+    auto orphanedVersion2Path = fs::JoinPath(itemsPath, "3.0.0");
+
+    fs::MakeDirAll(validVersion1Path);
+    fs::MakeDirAll(validVersion2Path);
+    fs::MakeDirAll(orphanedVersion1Path);
+    fs::MakeDirAll(orphanedVersion2Path);
+
+    auto orphanedFile1 = fs::JoinPath(orphanedVersion1Path, "test.tar");
+    auto orphanedFile2 = fs::JoinPath(orphanedVersion2Path, "test.tar");
+
+    fs::WriteStringToFile(orphanedFile1, "test content 1", 0664);
+    fs::WriteStringToFile(orphanedFile2, "test content 2", 0664);
+
+    auto [dir1Exists, err1] = fs::DirExist(validVersion1Path);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_TRUE(dir1Exists);
+
+    auto [dir2Exists, err2] = fs::DirExist(validVersion2Path);
+    ASSERT_TRUE(err2.IsNone());
+    ASSERT_TRUE(dir2Exists);
+
+    auto [orphan1Exists, err3] = fs::DirExist(orphanedVersion1Path);
+    ASSERT_TRUE(err3.IsNone());
+    ASSERT_TRUE(orphan1Exists);
+
+    auto [orphan2Exists, err4] = fs::DirExist(orphanedVersion2Path);
+    ASSERT_TRUE(err4.IsNone());
+    ASSERT_TRUE(orphan2Exists);
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& item1      = items.Back();
+        item1.mID        = "11111111-1111-1111-1111-111111111111";
+        item1.mVersion   = "1.0.0";
+        item1.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+        item1.mPath      = "/tmp/imagemanager_test/install/items/1.0.0";
+        item1.mTotalSize = 1024;
+        item1.mGID       = 5001;
+
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+        auto& item2      = items.Back();
+        item2.mID        = "22222222-2222-2222-2222-222222222222";
+        item2.mVersion   = "2.0.0";
+        item2.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+        item2.mPath      = "/tmp/imagemanager_test/install/items/2.0.0";
+        item2.mTotalSize = 2048;
+        item2.mGID       = 5002;
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto newImageManager = std::make_unique<ImageManager>();
+    auto initErr
+        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
+            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+
+    ASSERT_TRUE(initErr.IsNone()) << "Init should succeed";
+
+    auto [validDir1StillExists, checkErr1] = fs::DirExist(validVersion1Path);
+    EXPECT_TRUE(checkErr1.IsNone());
+    EXPECT_TRUE(validDir1StillExists) << "Valid version 1.0.0 directory should still exist";
+
+    auto [validDir2StillExists, checkErr2] = fs::DirExist(validVersion2Path);
+    EXPECT_TRUE(checkErr2.IsNone());
+    EXPECT_TRUE(validDir2StillExists) << "Valid version 2.0.0 directory should still exist";
+
+    auto [orphan1StillExists, checkErr3] = fs::DirExist(orphanedVersion1Path);
+    EXPECT_TRUE(checkErr3.IsNone());
+    EXPECT_FALSE(orphan1StillExists) << "Orphaned version 0.5.0 directory should be removed";
+
+    auto [orphan2StillExists, checkErr4] = fs::DirExist(orphanedVersion2Path);
+    EXPECT_TRUE(checkErr4.IsNone());
+    EXPECT_FALSE(orphan2StillExists) << "Orphaned version 3.0.0 directory should be removed";
+}
+
+TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesItemsWithMissingDirectory)
+{
+    auto itemId      = "33333333-3333-3333-3333-333333333333";
+    auto itemVersion = "1.0.0";
+    auto itemPath    = fs::JoinPath(mConfig.mInstallPath, "items", itemVersion);
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& item      = items.Back();
+        item.mID        = itemId;
+        item.mVersion   = itemVersion;
+        item.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+        item.mPath      = itemPath;
+        item.mTotalSize = 1024;
+        item.mType      = UpdateItemType(UpdateItemTypeEnum::eService);
+        item.mGID       = 5001;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mMockStorage, RemoveItem(String(itemId), String(itemVersion)))
+        .Times(1)
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto newImageManager = std::make_unique<ImageManager>();
+    auto initErr
+        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
+            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+
+    ASSERT_TRUE(initErr.IsNone()) << "Init should succeed and cleanup orphaned DB item";
+}
+
+TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesItemsWithInvalidChecksum)
+{
+    auto itemId      = "44444444-4444-4444-4444-444444444444";
+    auto itemVersion = "2.0.0";
+    auto itemPath    = fs::JoinPath(mConfig.mInstallPath, "items", itemVersion);
+    auto imagePath   = fs::JoinPath(itemPath, "image.tar");
+
+    fs::MakeDirAll(itemPath);
+    fs::WriteStringToFile(imagePath, "corrupted content", 0664);
+
+    StaticArray<uint8_t, crypto::cSHA256Size> correctSHA256;
+    correctSHA256.PushBack(0x11);
+    correctSHA256.PushBack(0x22);
+    correctSHA256.PushBack(0x33);
+
+    StaticArray<uint8_t, crypto::cSHA256Size> calculatedSHA256;
+    calculatedSHA256.PushBack(0xAA);
+    calculatedSHA256.PushBack(0xBB);
+    calculatedSHA256.PushBack(0xCC);
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& item      = items.Back();
+        item.mID        = itemId;
+        item.mVersion   = itemVersion;
+        item.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+        item.mPath      = itemPath;
+        item.mTotalSize = 1024;
+        item.mType      = UpdateItemType(UpdateItemTypeEnum::eService);
+        item.mGID       = 5003;
+
+        if (auto err = item.mImages.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& image    = item.mImages.Back();
+        image.mImageID = "image-id";
+        image.mPath    = imagePath;
+        image.mSHA256  = correctSHA256;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(String(imagePath), _))
+        .Times(1)
+        .WillOnce(Invoke([&](const String&, fs::FileInfo& info) -> Error {
+            info.mSHA256 = calculatedSHA256;
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mMockStorage, RemoveItem(String(itemId), String(itemVersion)))
+        .Times(1)
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto newImageManager = std::make_unique<ImageManager>();
+    auto initErr
+        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
+            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+
+    ASSERT_TRUE(initErr.IsNone()) << "Init should succeed and cleanup corrupted item";
+
+    auto [dirExists, checkErr] = fs::DirExist(itemPath);
+    EXPECT_TRUE(checkErr.IsNone());
+    EXPECT_FALSE(dirExists) << "Item directory should be removed due to checksum mismatch";
+}
+
+TEST_F(ImageManagerTest, CleanupOrphanedItems_RemoveItemsWithTemporaryErrors)
+{
+    auto itemId      = "55555555-5555-5555-5555-555555555555";
+    auto itemVersion = "3.0.0";
+    auto itemPath    = fs::JoinPath(mConfig.mInstallPath, "items", itemVersion);
+    auto imagePath   = fs::JoinPath(itemPath, "image.tar");
+
+    fs::MakeDirAll(itemPath);
+    fs::WriteStringToFile(imagePath, "valid content", 0664);
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& item      = items.Back();
+        item.mID        = itemId;
+        item.mVersion   = itemVersion;
+        item.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+        item.mPath      = itemPath;
+        item.mTotalSize = 1024;
+        item.mType      = UpdateItemType(UpdateItemTypeEnum::eService);
+        item.mGID       = 5004;
+
+        if (auto err = item.mImages.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& image    = item.mImages.Back();
+        image.mImageID = "image-id";
+        image.mPath    = imagePath;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(String(imagePath), _))
+        .Times(1)
+        .WillOnce(Return(ErrorEnum::eRuntime));
+
+    EXPECT_CALL(mMockStorage, RemoveItem(_, _)).Times(1);
+
+    auto newImageManager = std::make_unique<ImageManager>();
+    auto initErr
+        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
+            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+
+    ASSERT_TRUE(initErr.IsNone()) << "Init should succeed";
+
+    auto [dirExists, checkErr] = fs::DirExist(itemPath);
+    EXPECT_TRUE(checkErr.IsNone());
+    EXPECT_FALSE(dirExists) << "Item directory should NOT be removed due to temporary error";
+}
+
+TEST_F(ImageManagerTest, CleanupOrphanedItems_ValidItemPassesIntegrityCheck)
+{
+    auto itemId      = "66666666-6666-6666-6666-666666666666";
+    auto itemVersion = "4.0.0";
+    auto itemPath    = fs::JoinPath(mConfig.mInstallPath, "items", itemVersion);
+    auto imagePath   = fs::JoinPath(itemPath, "image.tar");
+
+    fs::MakeDirAll(itemPath);
+    fs::WriteStringToFile(imagePath, "valid content", 0664);
+
+    StaticArray<uint8_t, crypto::cSHA256Size> correctSHA256;
+    correctSHA256.PushBack(0xDE);
+    correctSHA256.PushBack(0xAD);
+    correctSHA256.PushBack(0xBE);
+    correctSHA256.PushBack(0xEF);
+
+    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+        if (auto err = items.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& item      = items.Back();
+        item.mID        = itemId;
+        item.mVersion   = itemVersion;
+        item.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+        item.mPath      = itemPath;
+        item.mTotalSize = 1024;
+        item.mType      = UpdateItemType(UpdateItemTypeEnum::eService);
+        item.mGID       = 5005;
+
+        if (auto err = item.mImages.EmplaceBack(); !err.IsNone()) {
+            return err;
+        }
+
+        auto& image    = item.mImages.Back();
+        image.mImageID = "image-id";
+        image.mPath    = imagePath;
+        image.mSHA256  = correctSHA256;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(String(imagePath), _))
+        .Times(1)
+        .WillOnce(Invoke([&](const String&, fs::FileInfo& info) -> Error {
+            info.mSHA256 = correctSHA256;
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mMockStorage, RemoveItem(_, _)).Times(0);
+
+    auto newImageManager = std::make_unique<ImageManager>();
+    auto initErr
+        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
+            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+
+    ASSERT_TRUE(initErr.IsNone()) << "Init should succeed";
+
+    auto [dirExists, checkErr] = fs::DirExist(itemPath);
+    EXPECT_TRUE(checkErr.IsNone());
+    EXPECT_TRUE(dirExists) << "Valid item directory should NOT be removed";
+}
+
+TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_Success)
+{
+    auto itemId  = "item-id-1111-1111-1111-111111111111";
+    auto imageId = "image-id-2222-2222-2222-222222222222";
+
+    smcontroller::UpdateImageInfo info;
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId, &imageId](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "2.5.0";
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image    = activeItem.mImages.Back();
+            image.mImageID = imageId;
+            image.mURL     = "http://example.com/image.tar";
+            image.mSize    = 4096;
+            image.mSHA256.Clear();
+            image.mSHA256.PushBack(0x12);
+            image.mSHA256.PushBack(0x34);
+            image.mSHA256.PushBack(0x56);
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mImageManager.GetUpdateImageInfo(itemId, imageId, info);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(info.mImageID, imageId) << "Should return correct image ID";
+    EXPECT_EQ(info.mVersion, String("2.5.0")) << "Should return correct version";
+    EXPECT_EQ(info.mURL, String("http://example.com/image.tar")) << "Should return correct URL";
+    EXPECT_EQ(info.mSize, 4096) << "Should return correct size";
+    EXPECT_EQ(info.mSHA256.Size(), 3) << "Should return correct SHA256 size";
+    EXPECT_EQ(info.mSHA256[0], 0x12);
+    EXPECT_EQ(info.mSHA256[1], 0x34);
+    EXPECT_EQ(info.mSHA256[2], 0x56);
+}
+
+TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_NotFound_NoActiveItem)
+{
+    auto itemId  = "item-id-3333-3333-3333-333333333333";
+    auto imageId = "image-id-4444-4444-4444-444444444444";
+
+    smcontroller::UpdateImageInfo info;
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedItem    = items.Back();
+            cachedItem.mID      = itemId;
+            cachedItem.mVersion = "1.0.0";
+            cachedItem.mState   = storage::ItemState(storage::ItemStateEnum::eCached);
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mImageManager.GetUpdateImageInfo(itemId, imageId, info);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Should return eNotFound when no active item";
+}
+
+TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_NotFound_NoMatchingImageID)
+{
+    auto itemId       = "item-id-5555-5555-5555-555555555555";
+    auto imageId      = "image-id-6666-6666-6666-666666666666";
+    auto otherImageId = "image-id-7777-7777-7777-777777777777";
+
+    smcontroller::UpdateImageInfo info;
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId, &otherImageId](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "1.5.0";
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image    = activeItem.mImages.Back();
+            image.mImageID = otherImageId;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mImageManager.GetUpdateImageInfo(itemId, imageId, info);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Should return eNotFound when image ID doesn't match";
+}
+
+TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_Success_MultipleImages)
+{
+    auto itemId        = "item-id-8888-8888-8888-888888888888";
+    auto targetImageId = "image-id-9999-9999-9999-999999999999";
+
+    smcontroller::UpdateImageInfo info;
+
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+        .WillOnce(Invoke([&itemId, &targetImageId](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem    = items.Back();
+            activeItem.mID      = itemId;
+            activeItem.mVersion = "3.0.0";
+            activeItem.mState   = storage::ItemState(storage::ItemStateEnum::eActive);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image1    = activeItem.mImages.Back();
+            image1.mImageID = "image-id-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+            image1.mURL     = "http://example.com/image1.tar";
+            image1.mSize    = 1024;
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image2    = activeItem.mImages.Back();
+            image2.mImageID = targetImageId;
+            image2.mURL     = "http://example.com/image2.tar";
+            image2.mSize    = 2048;
+            image2.mSHA256.Clear();
+            image2.mSHA256.PushBack(0xAA);
+            image2.mSHA256.PushBack(0xBB);
+
+            if (auto err = activeItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& image3    = activeItem.mImages.Back();
+            image3.mImageID = "image-id-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+            image3.mURL     = "http://example.com/image3.tar";
+            image3.mSize    = 3072;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mImageManager.GetUpdateImageInfo(itemId, targetImageId, info);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(info.mImageID, targetImageId) << "Should return correct image ID";
+    EXPECT_EQ(info.mVersion, String("3.0.0")) << "Should return correct version";
+    EXPECT_EQ(info.mURL, String("http://example.com/image2.tar")) << "Should return correct URL";
+    EXPECT_EQ(info.mSize, 2048) << "Should return correct size";
+    EXPECT_EQ(info.mSHA256.Size(), 2) << "Should return correct SHA256 size";
+    EXPECT_EQ(info.mSHA256[0], 0xAA);
+    EXPECT_EQ(info.mSHA256[1], 0xBB);
 }
 
 } // namespace aos::cm::imagemanager
