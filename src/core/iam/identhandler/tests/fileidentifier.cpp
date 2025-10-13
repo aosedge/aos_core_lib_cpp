@@ -7,12 +7,13 @@
 
 #include <gtest/gtest.h>
 
+#include <core/common/tests/mocks/identprovidermock.hpp>
 #include <core/common/tools/buffer.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/iam/identhandler/identmodules/fileidentifier/fileidentifier.hpp>
-#include <core/iam/tests/mocks/identhandlermock.hpp>
 
 using namespace aos;
+using namespace aos::iamclient;
 using namespace aos::iam::identhandler;
 using namespace testing;
 
@@ -47,9 +48,8 @@ protected:
     }
 
     // cppcheck-suppress unusedStructMember
-    SubjectsObserverMock mSubjectsObserver;
-
-    FileIdentifier mFileIdentifier;
+    SubjectsListenerMock mSubjectsListener;
+    FileIdentifier       mFileIdentifier;
 };
 
 /***********************************************************************************************************************
@@ -65,37 +65,38 @@ const Config FileIdentifierTest::cDefaultConfig
 
 TEST_F(FileIdentifierTest, ReadSystemIDFails)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
     fs::Remove(cDefaultConfig.systemIDPath);
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_EQ(err.Value(), Error::Enum::eRuntime) << err.Message();
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
+    ASSERT_EQ(err, Error::Enum::eRuntime) << err.Message();
+
     ASSERT_FALSE(err.IsNone()) << err.Message();
 }
 
 TEST_F(FileIdentifierTest, ReadUnitModelFails)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
     fs::Remove(cDefaultConfig.unitModelPath);
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_EQ(err.Value(), Error::Enum::eRuntime) << err.Message();
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
+    ASSERT_EQ(err, Error::Enum::eRuntime) << err.Message();
     ASSERT_FALSE(err.IsNone()) << err.Message();
 }
 
 TEST_F(FileIdentifierTest, ReadSubjectsFails)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
     fs::Remove(cDefaultConfig.subjectsPath);
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
-    ASSERT_EQ(err.Value(), Error::Enum::eNone) << err.Message();
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
+    ASSERT_EQ(err, Error::Enum::eNone) << err.Message();
     ASSERT_TRUE(err.IsNone()) << err.Message();
 }
 
 TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(0);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
 
     StaticString<cIDLen * cMaxNumSubjects> subjects;
     for (size_t i {0}; i < cMaxNumSubjects + 1; ++i) {
@@ -104,14 +105,15 @@ TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
 
     fs::WriteStringToFile(cDefaultConfig.subjectsPath, subjects, 0600);
 
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 }
 
 TEST_F(FileIdentifierTest, GetSystemID)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
+
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
     const auto systemIdResult = mFileIdentifier.GetSystemID();
@@ -122,8 +124,9 @@ TEST_F(FileIdentifierTest, GetSystemID)
 
 TEST_F(FileIdentifierTest, GetUnitModel)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
+
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
     const auto unitModelResult = mFileIdentifier.GetUnitModel();
@@ -134,8 +137,9 @@ TEST_F(FileIdentifierTest, GetUnitModel)
 
 TEST_F(FileIdentifierTest, GetSubjects)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
+
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
     StaticArray<StaticString<cIDLen>, 2> subjects;
@@ -147,8 +151,9 @@ TEST_F(FileIdentifierTest, GetSubjects)
 
 TEST_F(FileIdentifierTest, GetSubjectsNoMemory)
 {
-    EXPECT_CALL(mSubjectsObserver, SubjectsChanged).Times(1);
-    const auto err = mFileIdentifier.Init(cDefaultConfig, mSubjectsObserver);
+    EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
+
+    const auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
     StaticArray<StaticString<cIDLen>, 1> subjects;

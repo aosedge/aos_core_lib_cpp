@@ -6,3 +6,4 @@
 
 #include <core/common/iamclient/itf/certprovider.hpp>
 #include <core/common/iamclient/itf/currentnodeinfoprovider.hpp>
+#include <core/common/iamclient/itf/identprovider.hpp>

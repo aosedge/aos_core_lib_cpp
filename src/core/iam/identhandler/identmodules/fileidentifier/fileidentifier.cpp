@@ -17,10 +17,9 @@ namespace aos::iam::identhandler {
  * Public
  **********************************************************************************************************************/
 
-Error FileIdentifier::Init(const Config& config, SubjectsObserverItf& subjectsObserver)
+Error FileIdentifier::Init(const Config& config)
 {
-    mConfig           = config;
-    mSubjectsObserver = &subjectsObserver;
+    mConfig = config;
     mSubjects.Clear();
 
     auto err = ReadSystemId();
@@ -96,7 +95,9 @@ Error FileIdentifier::ReadSubjects()
         return AOS_ERROR_WRAP(err);
     }
 
-    mSubjectsObserver->SubjectsChanged(mSubjects);
+    if (mSubjectsListener) {
+        mSubjectsListener->SubjectsChanged(mSubjects);
+    }
 
     return ErrorEnum::eNone;
 }
