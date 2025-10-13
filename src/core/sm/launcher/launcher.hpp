@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include <core/common/connectionprovider/connectionprovider.hpp>
+#include <core/common/crypto/itf/uuid.hpp>
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/ocispec/ocispec.hpp>
 #include <core/common/tools/list.hpp>
@@ -265,7 +266,7 @@ public:
     Error Init(const Config& config, iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         servicemanager::ServiceManagerItf& serviceManager, layermanager::LayerManagerItf& layerManager,
         resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
-        iam::permhandler::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
+        iamclient::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
         monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
         InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage,
         crypto::UUIDItf& uuidProvider);
@@ -403,7 +404,7 @@ private:
     InstanceStatusReceiverItf*           mStatusReceiver {};
     layermanager::LayerManagerItf*       mLayerManager {};
     networkmanager::NetworkManagerItf*   mNetworkManager {};
-    iam::permhandler::PermHandlerItf*    mPermHandler {};
+    iamclient::PermHandlerItf*           mPermHandler {};
     monitoring::ResourceMonitorItf*      mResourceMonitor {};
     oci::OCISpecItf*                     mOCIManager {};
     resourcemanager::ResourceManagerItf* mResourceManager {};

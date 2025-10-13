@@ -25,6 +25,8 @@ set(HEADERS
     logprovidermock.hpp
     monitoringmock.hpp
     ocispecmock.hpp
+    permhandlermock.hpp
+    permprovidermock.hpp
     spaceallocatormock.hpp
 )
 

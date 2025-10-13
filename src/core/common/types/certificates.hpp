@@ -57,8 +57,8 @@ struct CertIdent {
  * Node secret.
  */
 struct NodeSecret {
-    StaticString<cIDLen>          mNodeID;
-    StaticString<cCertSecretSize> mSecret;
+    StaticString<cIDLen>     mNodeID;
+    StaticString<cSecretLen> mSecret;
 
     /**
      * Compares node secrets.

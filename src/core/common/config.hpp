@@ -604,10 +604,10 @@
 #endif
 
 /**
- * Certificate secret size.
+ * Secret len.
  */
-#ifndef AOS_CONFIG_TYPES_CERT_SECRET_SIZE
-#define AOS_CONFIG_TYPES_CERT_SECRET_SIZE 64
+#ifndef AOS_CONFIG_TYPES_SECRET_LEN
+#define AOS_CONFIG_TYPES_SECRET_LEN 64
 #endif
 
 /**

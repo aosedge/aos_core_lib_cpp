@@ -9,11 +9,11 @@
 #ifndef AOS_CORE_SM_LAUNCHER_INSTANCE_HPP_
 #define AOS_CORE_SM_LAUNCHER_INSTANCE_HPP_
 
+#include <core/common/iamclient/itf/permhandler.hpp>
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tools/allocator.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/types/instance.hpp>
-#include <core/iam/permhandler/permhandler.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/layermanager/layermanager.hpp>
 #include <core/sm/networkmanager/networkmanager.hpp>
@@ -155,7 +155,7 @@ public:
     Instance(const InstanceInfo& instanceInfo, const String& instanceID, const servicemanager::ServiceData& service,
         const Config& config, servicemanager::ServiceManagerItf& serviceManager,
         layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
-        networkmanager::NetworkManagerItf& networkManager, iam::permhandler::PermHandlerItf& permHandler,
+        networkmanager::NetworkManagerItf& networkManager, iamclient::PermHandlerItf& permHandler,
         runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
         oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfoObsolete& nodeInfo);
 
@@ -381,7 +381,7 @@ private:
     layermanager::LayerManagerItf&       mLayerManager;
     resourcemanager::ResourceManagerItf& mResourceManager;
     networkmanager::NetworkManagerItf&   mNetworkManager;
-    iam::permhandler::PermHandlerItf&    mPermHandler;
+    iamclient::PermHandlerItf&           mPermHandler;
     runner::RunnerItf&                   mRunner;
     RuntimeItf&                          mRuntime;
     monitoring::ResourceMonitorItf&      mResourceMonitor;
