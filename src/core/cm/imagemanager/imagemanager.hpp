@@ -19,8 +19,8 @@
 
 #include "config.hpp"
 #include "itf/imagemanager.hpp"
+#include "itf/imagestatusprovider.hpp"
 #include "itf/imageunpacker.hpp"
-#include "itf/statusnotifier.hpp"
 #include "itf/storage.hpp"
 
 namespace aos::cm::imagemanager {
@@ -33,7 +33,7 @@ namespace aos::cm::imagemanager {
  * Image manager.
  */
 class ImageManager : public ImageManagerItf,
-                     public StatusNotifierItf,
+                     public ImageStatusProviderItf,
                      public smcontroller::UpdateImageProviderItf,
                      public launcher::ImageInfoProviderItf,
                      public spaceallocator::ItemRemoverItf {
@@ -113,7 +113,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    Error SubscribeListener(StatusListenerItf& listener) override;
+    Error SubscribeListener(ImageStatusListenerItf& listener) override;
 
     /**
      * Unsubscribes from status notifications.
@@ -121,7 +121,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    Error UnsubscribeListener(StatusListenerItf& listener) override;
+    Error UnsubscribeListener(ImageStatusListenerItf& listener) override;
 
     /**
      * Returns update image info for desired platform.
@@ -237,7 +237,7 @@ private:
     fs::FileInfoProviderItf*           mFileInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
 
-    StaticArray<StatusListenerItf*, cMaxNumListeners> mListeners;
+    StaticArray<ImageStatusListenerItf*, cMaxNumListeners> mListeners;
 
     Timer  mTimer;
     Config mConfig {};

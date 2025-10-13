@@ -4,11 +4,13 @@ Image manager stores update item images and provide update item image info for o
 
 It implements the following interfaces:
 
-* [aos::cm::imagemanager::ImageMangerItf]() - image manager to manage update items images;
-* [aos::cm::imagemanager::StatusNotifierItf]() - update item status notifier to notify other modules about update items
-  statuses;
-* [aos::cm::launcher::ImageInfoProviderItf]() - update item provider for [launcher]() module;
-* [aos::cm::smcontroller::UpdateImageProviderItf]() - update image provider for [smcontroller]() module.
+* [aos::cm::imagemanager::ImageMangerItf](itf/imagemanager.hpp) - image manager to manage update items images;
+* [aos::cm::imagemanager::ImageStatusProviderItf](itf/imagestatusprovider.hpp) -
+  update image status provider to provide update images statuses;
+* [aos::cm::launcher::ImageInfoProviderItf](../launcher/itf/imageinfoprovider.hpp) - update item provider for
+  [launcher](../launcher/launcher.md) module;
+* [aos::cm::smcontroller::UpdateImageProviderItf](../smcontroller/itf/updateimageprovider.hpp) -
+  update image provider for [smcontroller](../smcontroller/smcontroller.md) module.
 
 It requires the following interfaces:
 
@@ -16,14 +18,14 @@ It requires the following interfaces:
 
 ```mermaid
 classDiagram
-    class ImageManager["aos::cm::imagemanager::ImageManager"] {
+    class ImageManager ["aos::cm::imagemanager::ImageManager"] {
     }
 
-    class ImageManagerItf["aos::cm::imagemanager::ImageMangerItf"] {
+    class ImageManagerItf ["aos::cm::imagemanager::ImageMangerItf"] {
         <<interface>>
     }
 
-    class StatusNotifierItf ["aos::cm::imagemanager::StatusNotifierItf"] {
+    class ImageStatusProviderItf ["aos::cm::imagemanager::ImageStatusProviderItf"] {
         <<interface>>
     }
 
@@ -36,7 +38,7 @@ classDiagram
     }
 
     ImageManager <|.. ImageManagerItf
-    ImageManager <|.. StatusNotifierItf
+    ImageManager <|.. ImageStatusProviderItf
     ImageManager <|.. ImageInfoProviderItf
     ImageManager <|.. UpdateImageProviderItf
 ```
