@@ -31,7 +31,7 @@ Mutex                                                                Instance::s
 Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
     const servicemanager::ServiceData& service, const Config& config, servicemanager::ServiceManagerItf& serviceManager,
     layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
-    networkmanager::NetworkManagerItf& networkmanager, iam::permhandler::PermHandlerItf& permHandler,
+    networkmanager::NetworkManagerItf& networkmanager, iamclient::PermHandlerItf& permHandler,
     runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
     oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfoObsolete& nodeInfo)
     : mInstanceID(instanceID)

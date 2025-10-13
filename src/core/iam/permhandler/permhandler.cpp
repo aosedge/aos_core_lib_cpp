@@ -59,7 +59,8 @@ Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
 
     LOG_DBG() << "Unregister instance: instance=" << instanceIdent;
 
-    if (mInstancesPerms.RemoveIf([&instanceIdent](const auto& item) { return instanceIdent == item.mInstanceIdent; })
+    if (mInstancesPerms.RemoveIf(
+            [&instanceIdent](const auto& item) { return instanceIdent == static_cast<const InstanceIdent&>(item); })
         == 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -79,7 +80,7 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    instanceIdent = instance->mInstanceIdent;
+    instanceIdent = static_cast<const InstanceIdent&>(*instance);
 
     for (const auto& it : instance->mFuncServicePerms) {
         if (it.mName == funcServerID) {
@@ -103,7 +104,7 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
 Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instanceIdent,
     const Array<FunctionServicePermissions>& instancePermissions)
 {
-    const auto err = mInstancesPerms.EmplaceBack(secret, instanceIdent, instancePermissions);
+    const auto err = mInstancesPerms.EmplaceBack(instanceIdent, secret, instancePermissions);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -118,7 +119,8 @@ InstancePermissions* PermHandler::FindBySecret(const String& secret)
 
 InstancePermissions* PermHandler::FindByInstanceIdent(const InstanceIdent& instanceIdent)
 {
-    return mInstancesPerms.FindIf([&instanceIdent](const auto& elem) { return instanceIdent == elem.mInstanceIdent; });
+    return mInstancesPerms.FindIf(
+        [&instanceIdent](const auto& elem) { return instanceIdent == static_cast<const InstanceIdent&>(elem); });
 }
 
 RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()

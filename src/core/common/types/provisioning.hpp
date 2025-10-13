@@ -41,8 +41,8 @@ using CSRInfoArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
  * Start provisioning request.
  */
 struct StartProvisioningRequest {
-    StaticString<cIDLen>          mNodeID;
-    StaticString<cCertSecretSize> mPassword;
+    StaticString<cIDLen>     mNodeID;
+    StaticString<cSecretLen> mPassword;
 
     /**
      * Compares start provisioning request.
@@ -125,9 +125,9 @@ using ProvisioningCertArray = StaticArray<ProvisioningCertData, cCertsPerNodeCou
  * Finish provisioning request message.
  */
 struct FinishProvisioningRequest {
-    StaticString<cIDLen>          mNodeID;
-    ProvisioningCertArray         mCertificates;
-    StaticString<cCertSecretSize> mPassword;
+    StaticString<cIDLen>     mNodeID;
+    ProvisioningCertArray    mCertificates;
+    StaticString<cSecretLen> mPassword;
 
     /**
      * Compares finish provisioning request.
@@ -180,8 +180,8 @@ struct FinishProvisioningResponse {
  * Deprovisioning request message.
  */
 struct DeprovisioningRequest {
-    StaticString<cIDLen>          mNodeID;
-    StaticString<cCertSecretSize> mPassword;
+    StaticString<cIDLen>     mNodeID;
+    StaticString<cSecretLen> mPassword;
 
     /**
      * Compares deprovisioning request.

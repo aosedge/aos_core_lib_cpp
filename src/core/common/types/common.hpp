@@ -89,9 +89,9 @@ constexpr auto cLabelNameLen = AOS_CONFIG_TYPES_LABEL_NAME_LEN;
 constexpr auto cMaxNumNodeLabels = AOS_CONFIG_TYPES_MAX_NUM_NODE_LABELS;
 
 /**
- * Certificate secret size.
+ * Secret len.
  */
-constexpr auto cCertSecretSize = AOS_CONFIG_TYPES_CERT_SECRET_SIZE;
+constexpr auto cSecretLen = AOS_CONFIG_TYPES_SECRET_LEN;
 
 /*
  * OS type len.

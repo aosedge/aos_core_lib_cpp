@@ -10,11 +10,11 @@
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/mocks/connectionprovidermock.hpp>
 #include <core/common/tests/mocks/monitoringmock.hpp>
+#include <core/common/tests/mocks/permhandlermock.hpp>
 #include <core/common/tests/stubs/ocispecstub.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/iam/tests/mocks/nodeinfoprovidermock.hpp>
-#include <core/iam/tests/mocks/permhandlermock.hpp>
 #include <core/sm/launcher/launcher.hpp>
 #include <core/sm/tests/mocks/launchermock.hpp>
 #include <core/sm/tests/mocks/networkmanagermock.hpp>
@@ -24,10 +24,10 @@
 #include <core/sm/tests/stubs/layermanagerstub.hpp>
 #include <core/sm/tests/stubs/servicemanagerstub.hpp>
 
+using namespace aos::iam::nodeinfoprovider;
+using namespace aos::iamclient;
 using namespace aos::monitoring;
 using namespace aos::oci;
-using namespace aos::iam::nodeinfoprovider;
-using namespace aos::iam::permhandler;
 using namespace aos::sm::layermanager;
 using namespace aos::sm::networkmanager;
 using namespace aos::sm::resourcemanager;
