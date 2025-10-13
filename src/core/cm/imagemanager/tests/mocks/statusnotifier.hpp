@@ -9,11 +9,11 @@
 
 #include <gmock/gmock.h>
 
-#include <core/cm/imagemanager/itf/statusnotifier.hpp>
+#include <core/cm/imagemanager/itf/imagestatusprovider.hpp>
 
 namespace aos::cm::imagemanager {
 
-class MockStatusListener : public StatusListenerItf {
+class MockStatusListener : public ImageStatusListenerItf {
 public:
     MOCK_METHOD(void, OnImageStatusChanged, (const String& id, const ImageStatus& status), (override));
     MOCK_METHOD(void, OnUpdateItemRemoved, (const String& id), (override));

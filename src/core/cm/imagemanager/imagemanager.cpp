@@ -230,7 +230,7 @@ Error ImageManager::RevertUpdateItems(const Array<StaticString<cIDLen>>& ids, Ar
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::SubscribeListener(StatusListenerItf& listener)
+Error ImageManager::SubscribeListener(ImageStatusListenerItf& listener)
 {
     LockGuard lock {mMutex};
 
@@ -245,7 +245,7 @@ Error ImageManager::SubscribeListener(StatusListenerItf& listener)
     return AOS_ERROR_WRAP(mListeners.PushBack(&listener));
 }
 
-Error ImageManager::UnsubscribeListener(StatusListenerItf& listener)
+Error ImageManager::UnsubscribeListener(ImageStatusListenerItf& listener)
 {
     LockGuard lock {mMutex};
 
