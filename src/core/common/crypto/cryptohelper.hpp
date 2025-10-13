@@ -7,7 +7,7 @@
 #ifndef AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 #define AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 
-#include <core/iam/certhandler/certprovider.hpp>
+#include <core/common/iamclient/itf/certprovider.hpp>
 
 #include "itf/certloader.hpp"
 #include "itf/crypto.hpp"
@@ -104,8 +104,8 @@ public:
      * @param caCert              root certificate path.
      * @return Error.
      */
-    Error Init(iam::certhandler::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider,
-        CertLoaderItf& certLoader, const String& serviceDiscoveryURL, const String& caCert);
+    Error Init(iamclient::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader,
+        const String& serviceDiscoveryURL, const String& caCert);
 
     /**
      * Retrieves available service discovery URLs.
@@ -159,10 +159,10 @@ private:
 
     static constexpr size_t cReadChunkSize = 1024;
 
-    static constexpr auto cThreadHeapUsage = 2 * sizeof(iam::certhandler::CertInfo)
-        + sizeof(StaticString<cCertSubjSize>) + sizeof(StaticArray<uint8_t, cCertPEMLen>) + sizeof(SignContext)
-        + sizeof(x509::Certificate) + sizeof(StaticArray<uint8_t, cMaxHashSize>)
-        + sizeof(StaticArray<x509::Certificate, cMaxNumCertificates>) + sizeof(StaticArray<uint8_t, cReadChunkSize>);
+    static constexpr auto cThreadHeapUsage = 2 * sizeof(CertInfo) + sizeof(StaticString<cCertSubjSize>)
+        + sizeof(StaticArray<uint8_t, cCertPEMLen>) + sizeof(SignContext) + sizeof(x509::Certificate)
+        + sizeof(StaticArray<uint8_t, cMaxHashSize>) + sizeof(StaticArray<x509::Certificate, cMaxNumCertificates>)
+        + sizeof(StaticArray<uint8_t, cReadChunkSize>);
 
     RetWithError<SharedPtr<x509::CertificateChain>> GetOnlineCert();
     Error                                           SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls);
@@ -197,9 +197,9 @@ private:
     Error DecryptMessage(const EncryptedContentInfo& content, const Array<uint8_t>& symKey, Array<uint8_t>& message);
     Error DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& input, Array<uint8_t>& message);
 
-    iam::certhandler::CertProviderItf* mCertProvider   = nullptr;
-    CryptoProviderItf*                 mCryptoProvider = nullptr;
-    CertLoaderItf*                     mCertLoader     = nullptr;
+    iamclient::CertProviderItf* mCertProvider {};
+    CryptoProviderItf*          mCryptoProvider {};
+    CertLoaderItf*              mCertLoader {};
 
     StaticString<cURLLen>  mServiceDiscoveryURL;
     x509::CertificateChain mCACerts;

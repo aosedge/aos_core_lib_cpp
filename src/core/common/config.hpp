@@ -639,6 +639,13 @@
 #endif
 
 /**
+ * Max length of certificate type.
+ */
+#ifndef AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN
+#define AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN 16
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS

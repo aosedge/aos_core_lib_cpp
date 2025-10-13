@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_IAM_CERTHANDLER_CERTPROVIDER_HPP_
 #define AOS_CORE_IAM_CERTHANDLER_CERTPROVIDER_HPP_
 
+#include <core/common/iamclient/itf/certprovider.hpp>
+
 #include "certhandler.hpp"
 
 namespace aos::iam::certhandler {
@@ -16,50 +18,9 @@ namespace aos::iam::certhandler {
  */
 
 /**
- * Cert provider interface.
- */
-class CertProviderItf {
-public:
-    /**
-     * Returns certificate info.
-     *
-     * @param certType certificate type.
-     * @param issuer issuer name.
-     * @param serial serial number.
-     * @param[out] resCert result certificate.
-     * @returns Error.
-     */
-    virtual Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        certhandler::CertInfo& resCert) const
-        = 0;
-
-    /**
-     * Subscribes certificates receiver.
-     *
-     * @param certType certificate type.
-     * @param certReceiver certificate receiver.
-     * @returns Error.
-     */
-    virtual Error SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver) = 0;
-
-    /**
-     * Unsubscribes certificate receiver.
-     *
-     * @param certReceiver certificate receiver.
-     * @returns Error.
-     */
-    virtual Error UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver) = 0;
-
-    /**
-     * Destroys cert provider.
-     */
-    virtual ~CertProviderItf() = default;
-};
-
-/**
  * Cert provider.
  */
-class CertProvider : public CertProviderItf {
+class CertProvider : public iamclient::CertProviderItf {
 public:
     /**
      * Initializes cert provider.
@@ -79,24 +40,24 @@ public:
      * @returns Error.
      */
     Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        certhandler::CertInfo& resCert) const override;
+        CertInfo& resCert) const override;
 
     /**
      * Subscribes certificates receiver.
      *
      * @param certType certificate type.
-     * @param certReceiver certificate receiver.
+     * @param certListener certificate listener.
      * @returns Error.
      */
-    Error SubscribeCertChanged(const String& certType, certhandler::CertReceiverItf& certReceiver) override;
+    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override;
 
     /**
-     * Unsubscribes certificate receiver.
+     * Unsubscribes certificate listener.
      *
-     * @param certReceiver certificate receiver.
+     * @param certListener certificate listener.
      * @returns Error.
      */
-    Error UnsubscribeCertChanged(certhandler::CertReceiverItf& certReceiver) override;
+    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override;
 
 private:
     certhandler::CertHandlerItf* mCertHandler {};

@@ -154,11 +154,11 @@ Error CertHandler::GetCertificate(
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::SubscribeCertChanged(const String& certType, CertReceiverItf& certReceiver)
+Error CertHandler::SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Subscribe certificate receiver: type=" << certType;
+    LOG_DBG() << "Subscribe certificate listener: type=" << certType;
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -172,7 +172,7 @@ Error CertHandler::SubscribeCertChanged(const String& certType, CertReceiverItf&
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mCertReceiverSubscriptions.EmplaceBack(certType, certInfo, &certReceiver);
+    err = mCertListenerSubscriptions.EmplaceBack(certType, certInfo, &certListener);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -180,12 +180,12 @@ Error CertHandler::SubscribeCertChanged(const String& certType, CertReceiverItf&
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::UnsubscribeCertChanged(CertReceiverItf& certReceiver)
+Error CertHandler::UnsubscribeListener(iamclient::CertListenerItf& certListener)
 {
     LockGuard lock {mMutex};
 
-    if (mCertReceiverSubscriptions.RemoveIf([&certReceiver](const CertReceiverSubscription& subscription) {
-            return subscription.mReceiver == &certReceiver;
+    if (mCertListenerSubscriptions.RemoveIf([&certListener](const CertListenerSubscription& subscription) {
+            return subscription.mCertListener == &certListener;
         })
         == 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
@@ -250,13 +250,13 @@ Error CertHandler::UpdateCerts(CertModule& certModule)
         return AOS_ERROR_WRAP(err);
     }
 
-    for (auto& subscription : mCertReceiverSubscriptions) {
+    for (auto& subscription : mCertListenerSubscriptions) {
         if (subscription.mCertType != certModule.GetCertType()) {
             continue;
         }
 
         if (subscription.mCertInfo != certInfo) {
-            subscription.mReceiver->OnCertChanged(certInfo);
+            subscription.mCertListener->OnCertChanged(certInfo);
             subscription.mCertInfo = certInfo;
         }
     }

@@ -10,17 +10,17 @@
 #include <map>
 #include <string>
 
-#include <core/iam/certhandler/certprovider.hpp>
+#include <core/common/iamclient/itf/certprovider.hpp>
 
 namespace aos::crypto {
 
 /**
  * Stub implementation of CertProviderItf.
  */
-class CertProviderStub : public iam::certhandler::CertProviderItf {
+class CertProviderStub : public iamclient::CertProviderItf {
 public:
     Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
-        iam::certhandler::CertInfo& resCert) const override
+        CertInfo& resCert) const override
     {
         (void)issuer;
         (void)serial;
@@ -34,24 +34,24 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error SubscribeCertChanged(const String& certType, iam::certhandler::CertReceiverItf& certReceiver) override
+    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override
     {
         (void)certType;
-        (void)certReceiver;
+        (void)certListener;
 
         return ErrorEnum::eNone;
     }
 
-    Error UnsubscribeCertChanged(iam::certhandler::CertReceiverItf& certReceiver) override
+    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override
     {
-        (void)certReceiver;
+        (void)certListener;
 
         return ErrorEnum::eNone;
     }
 
     void AddCert(const std::string& certType, const std::string& certName)
     {
-        iam::certhandler::CertInfo certInfo;
+        CertInfo certInfo;
 
         certInfo.mCertURL = ("file://" + FullCertPath(certName)).c_str();
         certInfo.mKeyURL  = ("file://" + FullKeyPath(certName)).c_str();
@@ -70,7 +70,7 @@ private:
         return std::string(CRYPTOHELPER_CERTS_DIR) + "/" + name + ".key";
     }
 
-    std::map<std::string, iam::certhandler::CertInfo> mCerts;
+    std::map<std::string, CertInfo> mCerts;
 };
 
 } // namespace aos::crypto

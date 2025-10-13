@@ -63,7 +63,7 @@ public:
 /**
  * Certificate types.
  */
-using CertTypes = aos::StaticArray<StaticString<certhandler::cCertTypeLen>, certhandler::cIAMCertModulesMaxCount>;
+using CertTypes = aos::StaticArray<StaticString<cCertTypeLen>, certhandler::cIAMCertModulesMaxCount>;
 
 /**
  * ProvisionManager interface.
@@ -104,7 +104,7 @@ public:
      * @param certInfo certificate info.
      * @returns Error.
      */
-    virtual Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo) = 0;
+    virtual Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) = 0;
 
     /**
      * Finishes provisioning.
@@ -176,7 +176,7 @@ public:
      * @param[out] certInfo certificate info.
      * @returns Error.
      */
-    Error ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo) override;
+    Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) override;
 
     /**
      * Finishes provisioning.

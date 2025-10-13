@@ -90,7 +90,6 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
     EXPECT_CALL(mCertHandler, SetOwner).Times(0);
 
     auto err = mProvisionManager.StartProvisioning("password");
-
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
@@ -102,7 +101,6 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
     EXPECT_CALL(mCertHandler, GetModuleConfig).Times(0);
 
     err = mProvisionManager.StartProvisioning("password");
-
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
 
@@ -163,7 +161,6 @@ TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
     EXPECT_CALL(mCallback, OnEncryptDisk).WillOnce(Return(aos::ErrorEnum::eFailed));
 
     err = mProvisionManager.StartProvisioning("password");
-
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
 
@@ -210,19 +207,18 @@ TEST_F(ProvisionManagerTest, FinishProvisioning)
     EXPECT_CALL(mCallback, OnFinishProvisioning).WillOnce(Return(aos::ErrorEnum::eNone));
 
     auto err = mProvisionManager.FinishProvisioning("password");
-
     EXPECT_TRUE(err.IsNone()) << err.Message();
 
     EXPECT_CALL(mCallback, OnFinishProvisioning).WillOnce(Return(aos::ErrorEnum::eFailed));
 
     err = mProvisionManager.FinishProvisioning("password");
-
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
 
 TEST_F(ProvisionManagerTest, CreateKey)
 {
     aos::String generatedCsr {"csr"};
+
     EXPECT_CALL(mCertHandler, CreateKey)
         .Times(1)
         .WillOnce(DoAll(SetArgReferee<3>(generatedCsr), Return(aos::ErrorEnum::eNone)));
@@ -230,7 +226,6 @@ TEST_F(ProvisionManagerTest, CreateKey)
     aos::StaticString<aos::crypto::cCSRPEMLen> csr;
 
     auto err = mProvisionManager.CreateKey("certType", "subject", "password", csr);
-
     EXPECT_TRUE(err.IsNone()) << err.Message();
     EXPECT_EQ(csr, generatedCsr);
 }
@@ -242,7 +237,6 @@ TEST_F(ProvisionManagerTest, CreateKeyFails)
     aos::StaticString<aos::crypto::cCSRPEMLen> csr;
 
     auto err = mProvisionManager.CreateKey("certType", "subject", "password", csr);
-
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
 
@@ -255,7 +249,8 @@ TEST_F(ProvisionManagerTest, ApplyCert)
     int64_t now_sec  = static_cast<int64_t>(time(nullptr));
     int64_t now_nsec = 0;
 
-    aos::iam::certhandler::CertInfo generatedCertInfo;
+    aos::CertInfo generatedCertInfo;
+
     generatedCertInfo.mIssuer  = convertByteArrayToAosArray("issuer", strlen("issuer")),
     generatedCertInfo.mSerial  = convertByteArrayToAosArray("serial", strlen("serial")),
     generatedCertInfo.mCertURL = "certURL", generatedCertInfo.mKeyURL = "keyURL",
@@ -265,9 +260,9 @@ TEST_F(ProvisionManagerTest, ApplyCert)
         .Times(1)
         .WillOnce(DoAll(SetArgReferee<2>(generatedCertInfo), Return(aos::ErrorEnum::eNone)));
 
-    aos::iam::certhandler::CertInfo certInfo;
-    auto                            err = mProvisionManager.ApplyCert("certType", "pemCert", certInfo);
+    aos::CertInfo certInfo;
 
+    auto err = mProvisionManager.ApplyCert("certType", "pemCert", certInfo);
     EXPECT_TRUE(err.IsNone()) << err.Message();
     EXPECT_EQ(certInfo, generatedCertInfo);
 }
@@ -277,12 +272,10 @@ TEST_F(ProvisionManagerTest, Deprovision)
     EXPECT_CALL(mCallback, OnDeprovision).WillOnce(Return(aos::ErrorEnum::eNone));
 
     auto err = mProvisionManager.Deprovision("password");
-
     EXPECT_TRUE(err.IsNone()) << err.Message();
 
     EXPECT_CALL(mCallback, OnDeprovision).WillOnce(Return(aos::ErrorEnum::eFailed));
 
     err = mProvisionManager.Deprovision("password");
-
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
