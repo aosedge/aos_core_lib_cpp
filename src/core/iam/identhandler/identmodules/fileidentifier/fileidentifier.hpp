@@ -9,7 +9,7 @@
 #define AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 
 #include <core/iam/config.hpp>
-#include <core/iam/identhandler/identhandler.hpp>
+#include <core/iam/identhandler/identmodule.hpp>
 
 namespace aos::iam::identhandler {
 
@@ -40,16 +40,29 @@ struct Config {
 /**
  * File identifier.
  */
-class FileIdentifier : public IdentHandlerItf {
+class FileIdentifier : public IdentModuleItf {
 public:
     /**
      * Initializes file identifier.
      *
      * @param config module config.
-     * @param subjectsObserver subject observer.
      * @return Error.
      */
-    Error Init(const Config& config, SubjectsObserverItf& subjectsObserver);
+    Error Init(const Config& config);
+
+    /**
+     * Starts file identifier.
+     *
+     * @return Error.
+     */
+    Error Start() override { return ErrorEnum::eNone; };
+
+    /**
+     * Stops file identifier.
+     *
+     * @return Error.
+     */
+    Error Stop() override { return ErrorEnum::eNone; };
 
     /**
      * Returns System ID.
@@ -74,9 +87,32 @@ public:
     Error GetSubjects(Array<StaticString<cIDLen>>& subjects) override;
 
     /**
-     * Destroys ident handler interface.
+     * Subscribes subjects listener.
+     *
+     * @param subjectsListener subjects listener.
+     * @returns Error.
      */
-    ~FileIdentifier() = default;
+    Error SubscribeListener(iamclient::SubjectsListenerItf& subjectsListener) override
+    {
+        mSubjectsListener = &subjectsListener;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Unsubscribes subjects listener.
+     *
+     * @param subjectsListener subjects listener.
+     * @returns Error.
+     */
+    Error UnsubscribeListener(iamclient::SubjectsListenerItf& subjectsListener) override
+    {
+        (void)subjectsListener;
+
+        mSubjectsListener = nullptr;
+
+        return ErrorEnum::eNone;
+    }
 
 private:
     Error ReadSystemId();
@@ -84,7 +120,7 @@ private:
     Error ReadSubjects();
 
     Config                                             mConfig {};
-    SubjectsObserverItf*                               mSubjectsObserver {};
+    iamclient::SubjectsListenerItf*                    mSubjectsListener {};
     StaticString<cIDLen>                               mSystemId;
     StaticString<cIDLen>                               mUnitModel;
     StaticArray<StaticString<cIDLen>, cMaxNumSubjects> mSubjects;

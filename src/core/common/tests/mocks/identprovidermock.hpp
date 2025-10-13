@@ -10,28 +10,30 @@
 
 #include <gmock/gmock.h>
 
-#include <core/iam/identhandler/identhandler.hpp>
+#include <core/common/iamclient/itf/identprovider.hpp>
 
-namespace aos::iam::identhandler {
+namespace aos::iamclient {
 
 /**
- * Subjects observer mock.
+ * Subjects listener mock.
  */
-class SubjectsObserverMock : public SubjectsObserverItf {
+class SubjectsListenerMock : public SubjectsListenerItf {
 public:
     MOCK_METHOD(Error, SubjectsChanged, (const Array<StaticString<cIDLen>>&), (override));
 };
 
 /**
- * IdentHandler interface mock
+ * IdentProvider interface mock
  */
-class IdentHandlerMock : public IdentHandlerItf {
+class IdentProviderMock : public IdentProviderItf {
 public:
     MOCK_METHOD(RetWithError<StaticString<cIDLen>>, GetSystemID, (), (override));
     MOCK_METHOD(RetWithError<StaticString<cUnitModelLen>>, GetUnitModel, (), (override));
     MOCK_METHOD(Error, GetSubjects, (Array<StaticString<cIDLen>> & subjects), (override));
+    MOCK_METHOD(Error, SubscribeListener, (SubjectsListenerItf & subjectsListener), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (SubjectsListenerItf & subjectsListener), (override));
 };
 
-} // namespace aos::iam::identhandler
+} // namespace aos::iamclient
 
 #endif
