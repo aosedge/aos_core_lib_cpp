@@ -23,6 +23,7 @@ set(HEADERS
     itf/nodeinfoprovider.hpp
     itf/permhandler.hpp
     itf/permprovider.hpp
+    itf/provisioning.hpp
 )
 
 # ######################################################################################################################
