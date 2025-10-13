@@ -8,6 +8,7 @@
 #ifndef AOS_CORE_IAM_CERTHANDLER_CERTHANDLER_HPP_
 #define AOS_CORE_IAM_CERTHANDLER_CERTHANDLER_HPP_
 
+#include <core/common/iamclient/itf/certprovider.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/iam/config.hpp>
 
@@ -23,24 +24,6 @@ namespace aos::iam::certhandler {
  * Max number of certificate modules.
  */
 constexpr auto cIAMCertModulesMaxCount = AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUNT;
-
-/**
- * Certificate receiver interface.
- */
-class CertReceiverItf {
-public:
-    /**
-     * Processes certificate updates.
-     *
-     * @param info certificate info.
-     */
-    virtual void OnCertChanged(const CertInfo& info) = 0;
-
-    /**
-     * Destructor.
-     */
-    virtual ~CertReceiverItf() = default;
-};
 
 /**
  * Certificate handler interface.
@@ -109,21 +92,21 @@ public:
         = 0;
 
     /**
-     * Subscribes certificates receiver.
+     * Subscribes certificates listener.
      *
      * @param certType certificate type.
-     * @param certReceiver certificate receiver.
+     * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error SubscribeCertChanged(const String& certType, CertReceiverItf& certReceiver) = 0;
+    virtual Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) = 0;
 
     /**
-     * Unsubscribes certificate receiver.
+     * Unsubscribes certificate listener.
      *
-     * @param certReceiver certificate receiver.
+     * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error UnsubscribeCertChanged(CertReceiverItf& certReceiver) = 0;
+    virtual Error UnsubscribeListener(iamclient::CertListenerItf& certListener) = 0;
 
     /**
      * Creates a self signed certificate.
@@ -235,18 +218,18 @@ public:
      * Subscribes certificates receiver.
      *
      * @param certType certificate type.
-     * @param certReceiver certificate receiver.
+     * @param certListener certificate listener.
      * @returns Error.
      */
-    Error SubscribeCertChanged(const String& certType, CertReceiverItf& certReceiver) override;
+    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override;
 
     /**
-     * Unsubscribes certificate receiver.
+     * Unsubscribes certificate listener.
      *
-     * @param certReceiver certificate receiver.
+     * @param certListener certificate listener.
      * @returns Error.
      */
-    Error UnsubscribeCertChanged(CertReceiverItf& certReceiver) override;
+    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override;
 
     /**
      * Creates a self signed certificate.
@@ -279,20 +262,20 @@ private:
     mutable Mutex                                     mMutex;
     StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
 
-    struct CertReceiverSubscription {
-        CertReceiverSubscription(const String& certType, const CertInfo& certInfo, CertReceiverItf* receiver)
+    struct CertListenerSubscription {
+        CertListenerSubscription(const String& certType, const CertInfo& certInfo, iamclient::CertListenerItf* listener)
             : mCertType(certType)
             , mCertInfo(certInfo)
-            , mReceiver(receiver)
+            , mCertListener(listener)
         {
         }
 
-        StaticString<cCertTypeLen> mCertType;
-        CertInfo                   mCertInfo;
-        CertReceiverItf*           mReceiver;
+        StaticString<cCertTypeLen>  mCertType;
+        CertInfo                    mCertInfo;
+        iamclient::CertListenerItf* mCertListener {};
     };
 
-    StaticArray<CertReceiverSubscription, cIAMCertSubsMaxCount> mCertReceiverSubscriptions;
+    StaticArray<CertListenerSubscription, cIAMCertSubsMaxCount> mCertListenerSubscriptions;
 };
 
 /** @}*/

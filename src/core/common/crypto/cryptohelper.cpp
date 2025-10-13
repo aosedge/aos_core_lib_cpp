@@ -19,7 +19,7 @@ CryptoHelper::CryptoHelper()
 {
 }
 
-Error CryptoHelper::Init(iam::certhandler::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider,
+Error CryptoHelper::Init(iamclient::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider,
     CertLoaderItf& certLoader, const String& serviceDiscoveryURL, const String& caCert)
 {
     mCertProvider        = &certProvider;
@@ -160,7 +160,7 @@ Error CryptoHelper::DecryptMetadata(const Array<uint8_t>& input, Array<uint8_t>&
 
 RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
 {
-    auto certInfo = MakeUnique<iam::certhandler::CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
     if (auto err = mCertProvider->GetCert(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
@@ -894,7 +894,7 @@ Error CryptoHelper::ParseEncryptedContentInfo(const Array<uint8_t>& data, Encryp
 
 Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint8_t>& symmetricKey)
 {
-    auto certInfo = MakeUnique<iam::certhandler::CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
 
     auto err = mCertProvider->GetCert(cOfflineCert, info.mRID.mIssuer, info.mRID.mSerial, *certInfo);
     if (!err.IsNone()) {

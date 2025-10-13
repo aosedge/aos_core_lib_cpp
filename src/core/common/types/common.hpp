@@ -9,6 +9,7 @@
 
 #include <core/common/config.hpp>
 #include <core/common/consts.hpp>
+#include <core/common/crypto/itf/x509.hpp>
 #include <core/common/tools/enum.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/optional.hpp>
@@ -226,6 +227,11 @@ constexpr auto cMaxNumGroups = AOS_CONFIG_TYPES_MAX_NUM_GROUPS;
  * Max length of JSON.
  */
 constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
+
+/**
+ * Certificate type name length.
+ */
+constexpr auto cCertTypeLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
 
 /**
  * Core component type.
@@ -1100,6 +1106,50 @@ struct Mount {
     StaticString<cFSMountTypeLen>                                       mType;
     StaticString<cFilePathLen>                                          mSource;
     StaticArray<StaticString<cFSMountOptionLen>, cFSMountMaxNumOptions> mOptions;
+};
+
+/**
+ * General certificate information.
+ */
+struct CertInfo {
+    StaticString<cCertTypeLen>                    mCertType;
+    StaticArray<uint8_t, crypto::cCertIssuerSize> mIssuer;
+    StaticArray<uint8_t, crypto::cSerialNumSize>  mSerial;
+    StaticString<cURLLen>                         mCertURL;
+    StaticString<cURLLen>                         mKeyURL;
+    Time                                          mNotAfter;
+
+    /**
+     * Checks whether certificate info is equal the the current one.
+     *
+     * @param certInfo info to compare.
+     * @return bool.
+     */
+    bool operator==(const CertInfo& certInfo) const
+    {
+        return certInfo.mCertURL == mCertURL && certInfo.mIssuer == mIssuer && certInfo.mKeyURL == mKeyURL
+            && certInfo.mNotAfter == mNotAfter && certInfo.mSerial == mSerial;
+    }
+    /**
+     * Checks whether certificate info is equal the the current one.
+     *
+     * @param certInfo info to compare.
+     * @return bool.
+     */
+    bool operator!=(const CertInfo& certInfo) const { return !operator==(certInfo); }
+
+    /**
+     * Prints object to log.
+     *
+     * @param log log to output.
+     * @param certInfo object instance.
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const CertInfo& certInfo)
+    {
+        return log << "{certURL = " << certInfo.mCertURL << ", keyURL = " << certInfo.mKeyURL
+                   << ", notAfter = " << certInfo.mNotAfter << "}";
+    }
 };
 
 } // namespace aos

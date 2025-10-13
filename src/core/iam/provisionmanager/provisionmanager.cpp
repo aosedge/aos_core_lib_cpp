@@ -126,7 +126,7 @@ Error ProvisionManager::CreateKey(const String& certType, const String& subject,
     return AOS_ERROR_WRAP(mCertHandler->CreateKey(certType, subject, password, csr));
 }
 
-Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert, certhandler::CertInfo& certInfo)
+Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo)
 {
     LOG_DBG() << "Apply cert: type=" << certType;
 

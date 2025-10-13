@@ -7,6 +7,7 @@
 
 #include <gmock/gmock.h>
 
+#include <core/common/tests/mocks/certprovidermock.hpp>
 #include <core/iam/certhandler/certprovider.hpp>
 #include <core/iam/tests/mocks/certhandlermock.hpp>
 
@@ -36,9 +37,9 @@ TEST_F(CertProviderTest, GetCert)
         return {reinterpret_cast<const uint8_t*>(data), size};
     };
 
-    int64_t                         nowSec  = static_cast<int64_t>(time(nullptr));
-    int64_t                         nowNSec = 0;
-    aos::iam::certhandler::CertInfo certInfo;
+    int64_t       nowSec  = static_cast<int64_t>(time(nullptr));
+    int64_t       nowNSec = 0;
+    aos::CertInfo certInfo;
 
     certInfo.mIssuer   = convertByteArrayToAosArray("issuer", strlen("issuer"));
     certInfo.mSerial   = convertByteArrayToAosArray("serial", strlen("serial"));
@@ -49,7 +50,7 @@ TEST_F(CertProviderTest, GetCert)
     EXPECT_CALL(mCertHandler, GetCertificate)
         .WillOnce(DoAll(SetArgReferee<3>(certInfo), Return(aos::ErrorEnum::eNone)));
 
-    aos::iam::certhandler::CertInfo result;
+    aos::CertInfo result;
     ASSERT_TRUE(mCertProvider.GetCert("certType", certInfo.mIssuer, certInfo.mSerial, result).IsNone());
     EXPECT_EQ(result, certInfo);
 }
@@ -58,11 +59,11 @@ TEST_F(CertProviderTest, SubscribeCertChanged)
 {
     const aos::String certType = "iam";
 
-    certhandler::CertReceiverMock certReceiver;
+    aos::iamclient::CertListenerMock certListener;
 
-    EXPECT_CALL(mCertHandler, SubscribeCertChanged(certType, _)).WillOnce(Return(aos::ErrorEnum::eNone));
-    ASSERT_TRUE(mCertHandler.SubscribeCertChanged(certType, certReceiver).IsNone());
+    EXPECT_CALL(mCertHandler, SubscribeListener(certType, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ASSERT_TRUE(mCertHandler.SubscribeListener(certType, certListener).IsNone());
 
-    EXPECT_CALL(mCertHandler, UnsubscribeCertChanged(Ref(certReceiver))).WillOnce(Return(aos::ErrorEnum::eNone));
-    ASSERT_TRUE(mCertHandler.UnsubscribeCertChanged(certReceiver).IsNone());
+    EXPECT_CALL(mCertHandler, UnsubscribeListener(Ref(certListener))).WillOnce(Return(aos::ErrorEnum::eNone));
+    ASSERT_TRUE(mCertHandler.UnsubscribeListener(certListener).IsNone());
 }
