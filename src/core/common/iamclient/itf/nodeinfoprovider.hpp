@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
-#define AOS_CORE_CM_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
+#ifndef AOS_CORE_COMMON_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
+#define AOS_CORE_COMMON_IAMCLIENT_ITF_NODEINFOPROVIDER_HPP_
 
 #include <core/common/types/common.hpp>
 
-namespace aos::cm::iamclient {
+namespace aos::iamclient {
 /**
  * Interface for receiving notification about changing node information.
  */
@@ -72,6 +72,6 @@ public:
     virtual Error UnsubscribeListener(NodeInfoListenerItf& listener) = 0;
 };
 
-} // namespace aos::cm::iamclient
+} // namespace aos::iamclient
 
 #endif
