@@ -71,6 +71,29 @@ struct FunctionServicePermissions {
     StaticArray<FunctionPermissions, cFunctionsMaxCount> mPermissions;
 };
 
+/**
+ * Instance permissions.
+ */
+struct InstancePermissions : public InstanceIdent {
+    StaticString<cSecretLen>                                      mSecret;
+    StaticArray<FunctionServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
+
+    /**
+     * Creates instance permissions.
+     *
+     * @param instanceIdent instance ident.
+     * @param secret secret.
+     * @param funcServicePerms functional service permissions.
+     */
+    InstancePermissions(const InstanceIdent& instanceIdent, const String& secret,
+        const Array<FunctionServicePermissions>& funcServicePerms)
+        : InstanceIdent(instanceIdent)
+        , mSecret(secret)
+        , mFuncServicePerms(funcServicePerms)
+    {
+    }
+};
+
 } // namespace aos
 
 #endif

@@ -58,13 +58,6 @@
 #endif
 
 /**
- * Maximum length of permhandler secret.
- */
-#ifndef AOS_CONFIG_PERMHANDLER_SECRET_LEN
-#define AOS_CONFIG_PERMHANDLER_SECRET_LEN 42
-#endif
-
-/**
  * Maximum number of nodes handled by node manager.
  */
 #ifndef AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM

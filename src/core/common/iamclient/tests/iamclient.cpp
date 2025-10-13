@@ -7,3 +7,5 @@
 #include <core/common/iamclient/itf/certprovider.hpp>
 #include <core/common/iamclient/itf/currentnodeinfoprovider.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
+#include <core/common/iamclient/itf/permhandler.hpp>
+#include <core/common/iamclient/itf/permprovider.hpp>

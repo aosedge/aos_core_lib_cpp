@@ -9,9 +9,11 @@
 #define AOS_CORE_IAM_PERMHANDLER_PERMHANDLER_HPP_
 
 #include <core/common/crypto/itf/uuid.hpp>
+#include <core/common/iamclient/itf/permhandler.hpp>
+#include <core/common/iamclient/itf/permprovider.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
-#include <core/common/types/permissions.hpp>
+
 #include <core/iam/config.hpp>
 
 namespace aos::iam::permhandler {
@@ -21,73 +23,9 @@ namespace aos::iam::permhandler {
  */
 
 /**
- * Maximum length of permhandler secret.
- */
-constexpr auto cSecretLen = AOS_CONFIG_PERMHANDLER_SECRET_LEN;
-
-/**
- * Instance permissions.
- */
-struct InstancePermissions {
-    StaticString<cSecretLen>                                      mSecret;
-    InstanceIdent                                                 mInstanceIdent;
-    StaticArray<FunctionServicePermissions, cFuncServiceMaxCount> mFuncServicePerms;
-
-    /**
-     * Creates instance permissions.
-     *
-     * @param secret secret.
-     * @param instanceIdent instance ident.
-     * @param funcServicePerms functional service permissions.
-     */
-    InstancePermissions(const String& secret, const InstanceIdent& instanceIdent,
-        const Array<FunctionServicePermissions>& funcServicePerms)
-        : mSecret(secret)
-        , mInstanceIdent(instanceIdent)
-        , mFuncServicePerms(funcServicePerms)
-    {
-    }
-};
-
-/**
  * Permission handler interface.
  */
-class PermHandlerItf {
-public:
-    /**
-     * Adds new service instance and its permissions into cache.
-     *
-     * @param instanceIdent instance identification.
-     * @param instancePermissions instance permissions.
-     * @returns RetWithError<StaticString<cSecretLen>>.
-     */
-    virtual RetWithError<StaticString<cSecretLen>> RegisterInstance(
-        const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
-        = 0;
-
-    /**
-     * Unregisters instance deletes service instance with permissions from cache.
-     *
-     * @param instanceIdent instance identification.
-     * @returns Error.
-     */
-    virtual Error UnregisterInstance(const InstanceIdent& instanceIdent) = 0;
-
-    /**
-     * Returns instance ident and permissions by secret and functional server ID.
-     *
-     * @param secret secret.
-     * @param funcServerID functional server ID.
-     * @param[out] instanceIdent result instance ident.
-     * @param[out] servicePermissions result service permission.
-     * @returns Error.
-     */
-    virtual Error GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
-        Array<FunctionPermissions>& servicePermissions)
-        = 0;
-
-    virtual ~PermHandlerItf() = default;
-};
+class PermHandlerItf : public iamclient::PermHandlerItf, public iamclient::PermProviderItf { };
 
 /**
  * Permission handler implements PermHandlerItf.
