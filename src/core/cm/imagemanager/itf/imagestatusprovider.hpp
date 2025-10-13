@@ -4,22 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_STATUSLISTENER_HPP_
-#define AOS_CORE_CM_IMAGEMANAGER_ITF_STATUSLISTENER_HPP_
+#ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGESTATUSPROVIDER_HPP_
+#define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGESTATUSPROVIDER_HPP_
 
 #include <core/common/types/common.hpp>
 
 namespace aos::cm::imagemanager {
 
 /**
- * Interface for receiving notification about update items statuses.
+ * Interface for receiving notification about update image statuses.
  */
-class StatusListenerItf {
+class ImageStatusListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~StatusListenerItf() = default;
+    virtual ~ImageStatusListenerItf() = default;
 
     /**
      * Notifies about image status change.
@@ -38,14 +38,14 @@ public:
 };
 
 /**
- * Interface for notifying about update item statuses.
+ * Interface to provide update image statuses.
  */
-class StatusNotifierItf {
+class ImageStatusProviderItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~StatusNotifierItf() = default;
+    virtual ~ImageStatusProviderItf() = default;
 
     /**
      * Subscribes status notifications.
@@ -53,7 +53,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    virtual Error SubscribeListener(StatusListenerItf& listener) = 0;
+    virtual Error SubscribeListener(ImageStatusListenerItf& listener) = 0;
 
     /**
      * Unsubscribes from status notifications.
@@ -61,7 +61,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    virtual Error UnsubscribeListener(StatusListenerItf& listener) = 0;
+    virtual Error UnsubscribeListener(ImageStatusListenerItf& listener) = 0;
 };
 
 } // namespace aos::cm::imagemanager
