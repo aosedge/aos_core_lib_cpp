@@ -11,3 +11,4 @@
 #include <core/common/iamclient/itf/nodeinfoprovider.hpp>
 #include <core/common/iamclient/itf/permhandler.hpp>
 #include <core/common/iamclient/itf/permprovider.hpp>
+#include <core/common/iamclient/itf/provisioning.hpp>
