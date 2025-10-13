@@ -9,11 +9,11 @@
 
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
+#include <core/common/tests/mocks/certprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/iam/certhandler/certhandler.hpp>
 #include <core/iam/certhandler/certmodules/pkcs11/pkcs11.hpp>
-#include <core/iam/tests/mocks/certhandlermock.hpp>
 #include <core/iam/tests/stubs/certhandlerstub.hpp>
 
 namespace aos::iam::certhandler {
@@ -369,13 +369,13 @@ TEST_F(CerthandlerTest, SubscribeCertChanged)
     ASSERT_TRUE(mStorage.GetCertsInfo("iam", storageCerts).IsNone());
     ASSERT_EQ(storageCerts.Size(), 1);
 
-    CertReceiverMock certReceiver;
+    iamclient::CertListenerMock certListener;
 
-    EXPECT_CALL(certReceiver, OnCertChanged(_));
-    ASSERT_TRUE(mCertHandler->SubscribeCertChanged("iam", certReceiver).IsNone());
+    EXPECT_CALL(certListener, OnCertChanged(_));
+    ASSERT_TRUE(mCertHandler->SubscribeListener("iam", certListener).IsNone());
     sleep(1);
     ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
-    ASSERT_TRUE(mCertHandler->UnsubscribeCertChanged(certReceiver).IsNone());
+    ASSERT_TRUE(mCertHandler->UnsubscribeListener(certListener).IsNone());
 }
 
 TEST_F(CerthandlerTest, Clear)

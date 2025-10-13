@@ -9,6 +9,7 @@
 #define AOS_CORE_IAM_CERTHANDLER_HSM_HPP_
 
 #include <core/common/crypto/itf/crypto.hpp>
+#include <core/common/iamclient/itf/certprovider.hpp>
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/iam/config.hpp>
@@ -16,71 +17,9 @@
 namespace aos::iam::certhandler {
 
 /**
- * Certificate type name length.
- */
-constexpr auto cCertTypeLen = AOS_CONFIG_CERTHANDLER_CERT_TYPE_NAME_LEN;
-
-/**
  * Max number of IAM certificates per module.
  */
 constexpr auto cCertsPerModule = AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE;
-
-/**
- * General certificate information.
- */
-struct CertInfo {
-    /**
-     * Certificate issuer.
-     */
-    StaticArray<uint8_t, crypto::cCertIssuerSize> mIssuer;
-    /**
-     * Certificate serial number.
-     */
-    StaticArray<uint8_t, crypto::cSerialNumSize> mSerial;
-    /**
-     * Certificate url.
-     */
-    StaticString<cURLLen> mCertURL;
-    /**
-     * Certificate's private key url.
-     */
-    StaticString<cURLLen> mKeyURL;
-    /**
-     * Certificate expiration time.
-     */
-    Time mNotAfter;
-    /**
-     * Checks whether certificate info is equal the the current one.
-     *
-     * @param certInfo info to compare.
-     * @return bool.
-     */
-    bool operator==(const CertInfo& certInfo) const
-    {
-        return certInfo.mCertURL == mCertURL && certInfo.mIssuer == mIssuer && certInfo.mKeyURL == mKeyURL
-            && certInfo.mNotAfter == mNotAfter && certInfo.mSerial == mSerial;
-    }
-    /**
-     * Checks whether certificate info is equal the the current one.
-     *
-     * @param certInfo info to compare.
-     * @return bool.
-     */
-    bool operator!=(const CertInfo& certInfo) const { return !operator==(certInfo); }
-
-    /**
-     * Prints object to log.
-     *
-     * @param log log to output.
-     * @param certInfo object instance.
-     * @return Log&.
-     */
-    friend Log& operator<<(Log& log, const CertInfo& certInfo)
-    {
-        return log << "{certURL = " << certInfo.mCertURL << ", keyURL = " << certInfo.mKeyURL
-                   << ", notAfter = " << certInfo.mNotAfter << "}";
-    }
-};
 
 /**
  * Platform dependent secure certificate storage.

@@ -9,13 +9,6 @@
 #define AOS_CORE_IAM_CONFIG_HPP_
 
 /**
- * Max length of certificate type.
- */
-#ifndef AOS_CONFIG_CERTHANDLER_CERT_TYPE_NAME_LEN
-#define AOS_CONFIG_CERTHANDLER_CERT_TYPE_NAME_LEN 16
-#endif
-
-/**
  * Max expected number of certificates per IAM certificate module.
  */
 #ifndef AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE

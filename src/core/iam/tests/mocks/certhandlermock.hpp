@@ -25,18 +25,10 @@ public:
     MOCK_METHOD(Error, ApplyCertificate, (const String&, const String&, CertInfo&), (override));
     MOCK_METHOD(
         Error, GetCertificate, (const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo&), (override));
-    MOCK_METHOD(Error, SubscribeCertChanged, (const String&, CertReceiverItf&), (override));
-    MOCK_METHOD(Error, UnsubscribeCertChanged, (CertReceiverItf & certReceiver), (override));
+    MOCK_METHOD(Error, SubscribeListener, (const String&, iamclient::CertListenerItf&), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (iamclient::CertListenerItf & certListener), (override));
     MOCK_METHOD(Error, CreateSelfSignedCert, (const String&, const String&), (override));
     MOCK_METHOD(RetWithError<ModuleConfig>, GetModuleConfig, (const String&), (const, override));
-};
-
-/**
- * Certificate receiver mock.
- */
-class CertReceiverMock : public CertReceiverItf {
-public:
-    MOCK_METHOD(void, OnCertChanged, (const CertInfo& info), (override));
 };
 
 /**

@@ -16,6 +16,7 @@ set(TARGET_NAME mocks)
 
 set(HEADERS
     alertsmock.hpp
+    certprovidermock.hpp
     connectionprovidermock.hpp
     cryptomock.hpp
     downloadermock.hpp
