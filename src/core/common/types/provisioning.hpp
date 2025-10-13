@@ -38,32 +38,6 @@ struct CSRInfo {
 using CSRInfoArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
 
 /**
- * Certificate info.
- */
-struct CertInfo {
-    CertType                               mCertType;
-    StaticString<crypto::cCertChainPEMLen> mCertChain;
-
-    /**
-     * Compares certificate info.
-     *
-     * @param other object to compare with.
-     * @return bool.
-     */
-    bool operator==(const CertInfo& rhs) const { return mCertType == rhs.mCertType && mCertChain == rhs.mCertChain; }
-
-    /**
-     * Compares certificate info.
-     *
-     * @param rhs object to compare with.
-     * @return bool.
-     */
-    bool operator!=(const CertInfo& rhs) const { return !operator==(rhs); }
-};
-
-using CertInfoArray = StaticArray<CertInfo, cCertsPerNodeCount>;
-
-/**
  * Start provisioning request.
  */
 struct StartProvisioningRequest {
@@ -119,11 +93,40 @@ struct StartProvisioningResponse {
 };
 
 /**
+ * Provisioning certificate data.
+ */
+struct ProvisioningCertData {
+    CertType                               mCertType;
+    StaticString<crypto::cCertChainPEMLen> mCertChain;
+
+    /**
+     * Compares provisioning certificate data.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator==(const ProvisioningCertData& rhs) const
+    {
+        return mCertType == rhs.mCertType && mCertChain == rhs.mCertChain;
+    }
+
+    /**
+     * Compares provisioning certificate data.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const ProvisioningCertData& rhs) const { return !operator==(rhs); }
+};
+
+using ProvisioningCertArray = StaticArray<ProvisioningCertData, cCertsPerNodeCount>;
+
+/**
  * Finish provisioning request message.
  */
 struct FinishProvisioningRequest {
     StaticString<cIDLen>          mNodeID;
-    CertInfoArray                 mCertificates;
+    ProvisioningCertArray         mCertificates;
     StaticString<cCertSecretSize> mPassword;
 
     /**
