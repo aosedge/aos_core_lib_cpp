@@ -14,8 +14,14 @@ set(TARGET_NAME iamclient)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/certprovider.hpp itf/currentnodeinfoprovider.hpp itf/identprovider.hpp itf/nodeinfoprovider.hpp
-            itf/permhandler.hpp itf/permprovider.hpp
+set(HEADERS
+    itf/certprovider.hpp
+    itf/currentnodeinfoprovider.hpp
+    itf/identprovider.hpp
+    itf/nodehandler.hpp
+    itf/nodeinfoprovider.hpp
+    itf/permhandler.hpp
+    itf/permprovider.hpp
 )
 
 # ######################################################################################################################
