@@ -15,6 +15,7 @@ set(TARGET_NAME iamclient)
 # ######################################################################################################################
 
 set(HEADERS
+    itf/certhandler.hpp
     itf/certprovider.hpp
     itf/currentnodeinfoprovider.hpp
     itf/identprovider.hpp
