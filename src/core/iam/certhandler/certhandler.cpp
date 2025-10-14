@@ -127,8 +127,8 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& pemCer
     return UpdateCerts(*module);
 }
 
-Error CertHandler::GetCertificate(
-    const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert)
+Error CertHandler::GetCert(
+    const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
 {
     LockGuard lock {mMutex};
 

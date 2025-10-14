@@ -325,8 +325,7 @@ TEST_F(CerthandlerTest, GetCertificate)
 
     CertInfo certInfo;
 
-    ASSERT_TRUE(
-        mCertHandler->GetCertificate("iam", storageCerts[0].mIssuer, storageCerts[0].mSerial, certInfo).IsNone());
+    ASSERT_TRUE(mCertHandler->GetCert("iam", storageCerts[0].mIssuer, storageCerts[0].mSerial, certInfo).IsNone());
     ASSERT_EQ(certInfo, storageCerts[0]);
 }
 
@@ -353,7 +352,7 @@ TEST_F(CerthandlerTest, GetCertificateEmptySerial)
 
     const auto empty = Array<uint8_t>(nullptr, 0);
 
-    ASSERT_TRUE(mCertHandler->GetCertificate("iam", empty, empty, certInfo).IsNone());
+    ASSERT_TRUE(mCertHandler->GetCert("iam", empty, empty, certInfo).IsNone());
     ASSERT_EQ(certInfo, storageCerts[1]);
 }
 

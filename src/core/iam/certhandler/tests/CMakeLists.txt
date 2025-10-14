@@ -10,7 +10,7 @@ set(TARGET_NAME certhandler_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES certhandler.cpp certmodules.cpp certprovider.cpp)
+set(SOURCES certhandler.cpp certmodules.cpp)
 
 # ######################################################################################################################
 # Libraries

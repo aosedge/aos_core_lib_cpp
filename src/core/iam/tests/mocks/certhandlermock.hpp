@@ -23,12 +23,12 @@ public:
     MOCK_METHOD(Error, Clear, (const String&), (override));
     MOCK_METHOD(Error, CreateKey, (const String&, const String&, const String&, String&), (override));
     MOCK_METHOD(Error, ApplyCertificate, (const String&, const String&, CertInfo&), (override));
-    MOCK_METHOD(
-        Error, GetCertificate, (const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo&), (override));
-    MOCK_METHOD(Error, SubscribeListener, (const String&, iamclient::CertListenerItf&), (override));
-    MOCK_METHOD(Error, UnsubscribeListener, (iamclient::CertListenerItf & certListener), (override));
     MOCK_METHOD(Error, CreateSelfSignedCert, (const String&, const String&), (override));
     MOCK_METHOD(RetWithError<ModuleConfig>, GetModuleConfig, (const String&), (const, override));
+    MOCK_METHOD(
+        Error, GetCert, (const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo&), (const override));
+    MOCK_METHOD(Error, SubscribeListener, (const String&, iamclient::CertListenerItf&), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (iamclient::CertListenerItf&), (override));
 };
 
 /**

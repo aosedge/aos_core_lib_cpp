@@ -14,13 +14,13 @@ set(TARGET_NAME certhandler)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES certhandler.cpp certmodule.cpp certprovider.cpp)
+set(SOURCES certhandler.cpp certmodule.cpp)
 
 # ######################################################################################################################
 # Headers
 # ######################################################################################################################
 
-set(HEADERS certhandler.hpp certmodule.hpp certprovider.hpp hsm.hpp)
+set(HEADERS certhandler.hpp certmodule.hpp hsm.hpp)
 
 # ######################################################################################################################
 # Libraries
