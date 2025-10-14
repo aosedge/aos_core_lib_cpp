@@ -28,7 +28,7 @@ constexpr auto cIAMCertModulesMaxCount = AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUN
 /**
  * Certificate handler interface.
  */
-class CertHandlerItf {
+class CertHandlerItf : public iamclient::CertProviderItf {
 public:
     /**
      * Returns IAM cert types.
@@ -77,36 +77,6 @@ public:
      * @returns Error.
      */
     virtual Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) = 0;
-
-    /**
-     * Returns certificate info.
-     *
-     * @param certType certificate type.
-     * @param issuer issuer name.
-     * @param serial serial number.
-     * @param[out] resCert result certificate.
-     * @returns Error.
-     */
-    virtual Error GetCertificate(
-        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert)
-        = 0;
-
-    /**
-     * Subscribes certificates listener.
-     *
-     * @param certType certificate type.
-     * @param certListener certificate listener.
-     * @returns Error.
-     */
-    virtual Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) = 0;
-
-    /**
-     * Unsubscribes certificate listener.
-     *
-     * @param certListener certificate listener.
-     * @returns Error.
-     */
-    virtual Error UnsubscribeListener(iamclient::CertListenerItf& certListener) = 0;
 
     /**
      * Creates a self signed certificate.
@@ -203,35 +173,6 @@ public:
     Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) override;
 
     /**
-     * Returns certificate info.
-     *
-     * @param certType certificate type.
-     * @param issuer issuer name.
-     * @param serial serial number.
-     * @param[out] resCert result certificate.
-     * @returns Error.
-     */
-    Error GetCertificate(
-        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) override;
-
-    /**
-     * Subscribes certificates receiver.
-     *
-     * @param certType certificate type.
-     * @param certListener certificate listener.
-     * @returns Error.
-     */
-    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override;
-
-    /**
-     * Unsubscribes certificate listener.
-     *
-     * @param certListener certificate listener.
-     * @returns Error.
-     */
-    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override;
-
-    /**
      * Creates a self signed certificate.
      *
      * @param certType certificate type.
@@ -247,6 +188,35 @@ public:
      * @return RetWithError<ModuleConfig>
      */
     RetWithError<ModuleConfig> GetModuleConfig(const String& certType) const override;
+
+    /**
+     * Returns certificate info.
+     *
+     * @param certType certificate type.
+     * @param issuer issuer name.
+     * @param serial serial number.
+     * @param[out] resCert result certificate.
+     * @returns Error.
+     */
+    Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+        CertInfo& resCert) const override;
+
+    /**
+     * Subscribes certificates listener.
+     *
+     * @param certType certificate type.
+     * @param certListener certificate listener.
+     * @returns Error.
+     */
+    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override;
+
+    /**
+     * Unsubscribes certificate listener.
+     *
+     * @param certListener certificate listener.
+     * @returns Error.
+     */
+    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override;
 
     /**
      * Destroys certificate handler object instance.
