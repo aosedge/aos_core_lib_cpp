@@ -104,7 +104,7 @@ using UpdateItemStatusArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems>;
  * Unit instance status.
  */
 struct UnitInstanceStatus : public InstanceStatusData, public PlatformInfo {
-    uint64_t mInstance;
+    uint64_t mInstance {};
 
     /**
      * Compares instance status.
@@ -131,7 +131,7 @@ using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus, cMaxNumInstances
 /**
  * Instances statuses.
  */
-struct InstancesStatuses {
+struct UnitInstancesStatuses {
     StaticString<cIDLen>      mItemID;
     StaticString<cIDLen>      mSubjectID;
     StaticString<cVersionLen> mVersion;
@@ -143,7 +143,7 @@ struct InstancesStatuses {
      * @param rhs instances statuses to compare with.
      * @return bool.
      */
-    bool operator==(const InstancesStatuses& rhs) const
+    bool operator==(const UnitInstancesStatuses& rhs) const
     {
         return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mVersion == rhs.mVersion
             && mInstances == rhs.mInstances;
@@ -155,21 +155,21 @@ struct InstancesStatuses {
      * @param rhs instances statuses to compare with.
      * @return bool.
      */
-    bool operator!=(const InstancesStatuses& rhs) const { return !operator==(rhs); }
+    bool operator!=(const UnitInstancesStatuses& rhs) const { return !operator==(rhs); }
 };
 
-using InstancesStatusesArray = StaticArray<InstancesStatuses, cMaxNumUpdateItems>;
+using UnitInstancesStatusesArray = StaticArray<UnitInstancesStatuses, cMaxNumUpdateItems>;
 
 /**
  * Unit status
  */
 struct UnitStatus {
-    bool                              mIsDeltaInfo {};
-    Optional<UnitConfigStatusArray>   mUnitConfig;
-    Optional<UnitNodeInfoArray>       mNodes;
-    Optional<UpdateItemStatusArray>   mUpdateItems;
-    Optional<UnitInstanceStatusArray> mInstances;
-    Optional<SubjectArray>            mUnitSubjects;
+    bool                                 mIsDeltaInfo {};
+    Optional<UnitConfigStatusArray>      mUnitConfig;
+    Optional<UnitNodeInfoArray>          mNodes;
+    Optional<UpdateItemStatusArray>      mUpdateItems;
+    Optional<UnitInstancesStatusesArray> mInstances;
+    Optional<SubjectArray>               mUnitSubjects;
 
     /**
      * Compares unit status.
