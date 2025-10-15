@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_TYPES_PROVISIONING_HPP_
 #define AOS_CORE_COMMON_TYPES_PROVISIONING_HPP_
 
-#include "common.hpp"
+#include "certificates.hpp"
 
 namespace aos {
 
