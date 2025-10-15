@@ -8,6 +8,7 @@
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_STORAGE_HPP_
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
+#include <core/common/crypto/itf/cryptohelper.hpp>
 
 namespace aos::cm::imagemanager::storage {
 
