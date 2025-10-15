@@ -9,6 +9,8 @@
 
 #include <core/common/crypto/itf/hash.hpp>
 
+#include "common.hpp"
+
 namespace aos {
 
 /**
