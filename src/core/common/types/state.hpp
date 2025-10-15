@@ -131,9 +131,8 @@ struct StateAcceptance : public InstanceIdent {
 /**
  * State request.
  */
-struct StateRequest {
-    InstanceIdent mInstanceIdent;
-    bool          mDefault {};
+struct StateRequest : public InstanceIdent {
+    bool mDefault {};
 
     /**
      * Compares state request.
@@ -143,7 +142,7 @@ struct StateRequest {
      */
     bool operator==(const StateRequest& rhs) const
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mDefault == rhs.mDefault;
+        return InstanceIdent::operator==(rhs) && mDefault == rhs.mDefault;
     }
 
     /**
