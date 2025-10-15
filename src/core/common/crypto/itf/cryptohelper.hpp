@@ -9,6 +9,8 @@
 
 #include <core/common/tools/string.hpp>
 
+#include "x509.hpp"
+
 namespace aos::crypto {
 
 /**

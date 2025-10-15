@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 
+#include <core/common/crypto/itf/cryptohelper.hpp>
 #include <core/common/types/unitstatus.hpp>
 
 namespace aos::cm::imagemanager {
