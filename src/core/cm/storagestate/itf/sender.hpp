@@ -37,7 +37,8 @@ public:
      * @param checksum state checksum.
      * @return Error.
      */
-    virtual Error SendNewState(const InstanceIdent& instanceIdent, const String& state, const String& checksum) = 0;
+    virtual Error SendNewState(const InstanceIdent& instanceIdent, const String& state, const Array<uint8_t>& checksum)
+        = 0;
 
     /**
      * Destructor.

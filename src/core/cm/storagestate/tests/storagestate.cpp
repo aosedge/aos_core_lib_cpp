@@ -168,8 +168,8 @@ private:
 class SenderMock : public SenderItf {
 public:
     MOCK_METHOD(Error, SendStateRequest, (const InstanceIdent& instanceIdent, bool isDefault), (override));
-    MOCK_METHOD(Error, SendNewState, (const InstanceIdent& instanceIdent, const String& state, const String& checksum),
-        (override));
+    MOCK_METHOD(Error, SendNewState,
+        (const InstanceIdent& instanceIdent, const String& state, const Array<uint8_t>& checksum), (override));
 };
 
 /***********************************************************************************************************************
@@ -230,17 +230,6 @@ protected:
         }
 
         return ErrorEnum::eNone;
-    }
-
-    Error CalculateChecksum(const std::string& text, String& result)
-    {
-        StaticArray<uint8_t, crypto::cSHA2DigestSize> array;
-
-        if (auto err = CalculateChecksum(std::string(text), array); !err.IsNone()) {
-            return err;
-        }
-
-        return result.ByteArrayToHex(array);
     }
 
     Error AddInstanceIdent(const InstanceIdent& ident, const std::string& stateContent = "test state")
@@ -514,12 +503,12 @@ TEST_F(StorageStateTests, GetInstanceCheckSum)
     err = mStorageState.Start();
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
-    StaticString<crypto::cSHA2DigestSize> storedChecksumStr;
+    StaticArray<uint8_t, crypto::cSHA256Size> storedChecksumBytes;
 
-    err = mStorageState.GetInstanceCheckSum(cInstanceIdent, storedChecksumStr);
+    err = mStorageState.GetInstanceCheckSum(cInstanceIdent, storedChecksumBytes);
     EXPECT_TRUE(err.IsNone()) << "Failed to get instance checksum: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.GetInstanceCheckSum(InstanceIdent {{}, {}, 111}, storedChecksumStr);
+    err = mStorageState.GetInstanceCheckSum(InstanceIdent {{}, {}, 111}, storedChecksumBytes);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Expected not found error, got: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -604,19 +593,26 @@ TEST_F(StorageStateTests, UpdateState)
     err = mStorageState.Start();
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
-    StaticString<crypto::cSHA2DigestSize> checksum;
+    StaticArray<uint8_t, crypto::cSHA256Size> checksumBytes;
 
-    err = CalculateChecksum(newStateContent, checksum);
+    err = CalculateChecksum(newStateContent, checksumBytes);
     EXPECT_TRUE(err.IsNone()) << "Failed to calculate checksum: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.UpdateState(cInstanceIdent, newStateContent, checksum);
+    StaticString<crypto::cSHA256Size * 2> checksumStr;
+
+    err = checksumStr.ByteArrayToHex(checksumBytes);
+    if (!err.IsNone()) {
+        FAIL() << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
+    }
+
+    err = mStorageState.UpdateState(cInstanceIdent, newStateContent, checksumStr);
     EXPECT_TRUE(err.IsNone()) << "Failed to update state: " << tests::utils::ErrorToStr(err);
 
-    EXPECT_TRUE(mStorageStub.Contains([&checksum](const InstanceInfo& info) {
-        return info.mInstanceIdent == cInstanceIdent && info.mStateChecksum == checksum;
+    EXPECT_TRUE(mStorageStub.Contains([&checksumBytes](const InstanceInfo& info) {
+        return info.mInstanceIdent == cInstanceIdent && info.mStateChecksum == checksumBytes;
     })) << "Storage state info should be updated";
 
-    err = mStorageState.UpdateState(InstanceIdent {{}, {}, 111}, newStateContent, checksum);
+    err = mStorageState.UpdateState(InstanceIdent {{}, {}, 111}, newStateContent, checksumStr);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -653,7 +649,8 @@ TEST_F(StorageStateTests, AcceptStateChecksumMismatch)
     err = mStorageState.Start();
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.AcceptState(cInstanceIdent, "invalid checksum", StateResultEnum::eAccepted, "accepted");
+    err = mStorageState.AcceptState(cInstanceIdent, "688787d8ff144c502c7f5cffaafe2cc588d86079f9de88304c26b0cb99ce91c6",
+        StateResultEnum::eAccepted, "accepted");
     EXPECT_TRUE(err.Is(ErrorEnum::eInvalidChecksum))
         << "Accepting state with invalid checksum should fail: " << tests::utils::ErrorToStr(err);
 
@@ -689,7 +686,12 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
 
     EXPECT_CALL(mSenderMock, SendStateRequest(cInstanceIdent, false)).WillOnce(Return(ErrorEnum::eNone));
 
-    err = mStorageState.AcceptState(cInstanceIdent, storageData.mStateChecksum, StateResultEnum::eRejected, "rejected");
+    StaticString<2 * crypto::cSHA256Size> checksumStr;
+
+    err = checksumStr.ByteArrayToHex(storageData.mStateChecksum);
+    EXPECT_TRUE(err.IsNone()) << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
+
+    err = mStorageState.AcceptState(cInstanceIdent, checksumStr, StateResultEnum::eRejected, "rejected");
     EXPECT_TRUE(err.IsNone()) << "Failed to accept state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -700,18 +702,19 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
 
 TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 {
-    const auto                            cSetupParams        = SetupParams {getuid(), getgid(), 2000, 1000};
-    constexpr auto                        cStateContent       = "initial state content";
-    constexpr auto                        cUpdateStateContent = "updated state content";
-    StaticString<cFilePathLen>            storagePath;
-    StaticString<cFilePathLen>            statePath;
-    StaticString<crypto::cSHA2DigestSize> cStateContentChecksum;
-    StaticString<crypto::cSHA2DigestSize> cUpdateStateContentChecksum;
+    const auto                 cSetupParams        = SetupParams {getuid(), getgid(), 2000, 1000};
+    constexpr auto             cStateContent       = "initial state content";
+    constexpr auto             cUpdateStateContent = "updated state content";
+    StaticString<cFilePathLen> storagePath;
+    StaticString<cFilePathLen> statePath;
 
-    auto err = CalculateChecksum(cStateContent, cStateContentChecksum);
+    StaticArray<uint8_t, crypto::cSHA256Size> stateContentChecksum;
+    StaticArray<uint8_t, crypto::cSHA256Size> updateStateContentChecksum;
+
+    auto err = CalculateChecksum(cStateContent, stateContentChecksum);
     EXPECT_TRUE(err.IsNone()) << "Failed to calculate checksum: " << tests::utils::ErrorToStr(err);
 
-    err = CalculateChecksum(cUpdateStateContent, cUpdateStateContentChecksum);
+    err = CalculateChecksum(cUpdateStateContent, updateStateContentChecksum);
     EXPECT_TRUE(err.IsNone()) << "Failed to calculate checksum: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
@@ -740,8 +743,18 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 
     // Update state with initial content
 
-    err = mStorageState.UpdateState(cInstanceIdent, cStateContent, cStateContentChecksum);
+    StaticString<2 * crypto::cSHA256Size> stateContentChecksumStr;
+
+    err = stateContentChecksumStr.ByteArrayToHex(stateContentChecksum);
+    EXPECT_TRUE(err.IsNone()) << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
+
+    err = mStorageState.UpdateState(cInstanceIdent, cStateContent, stateContentChecksumStr);
     EXPECT_TRUE(err.IsNone()) << "Failed to update state: " << tests::utils::ErrorToStr(err);
+
+    StaticString<2 * crypto::cSHA256Size> updateStateContentChecksumStr;
+
+    err = updateStateContentChecksumStr.ByteArrayToHex(updateStateContentChecksum);
+    EXPECT_TRUE(err.IsNone()) << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
 
     // Emulate service mutates its state file
 
@@ -750,9 +763,9 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 
     std::promise<void> stateSentPromise;
 
-    EXPECT_CALL(
-        mSenderMock, SendNewState(cInstanceIdent, String(cUpdateStateContent), String(cUpdateStateContentChecksum)))
-        .WillOnce(Invoke([&stateSentPromise](const InstanceIdent&, const String&, const String&) {
+    EXPECT_CALL(mSenderMock,
+        SendNewState(cInstanceIdent, String(cUpdateStateContent), Array<uint8_t>(updateStateContentChecksum)))
+        .WillOnce(Invoke([&stateSentPromise](const InstanceIdent&, const String&, const Array<uint8_t>&) {
             stateSentPromise.set_value();
             return ErrorEnum::eNone;
         }));
@@ -765,13 +778,13 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
     // New state is accepted
 
     err = mStorageState.AcceptState(
-        cInstanceIdent, cUpdateStateContentChecksum, StateResultEnum::eAccepted, "accepted");
+        cInstanceIdent, updateStateContentChecksumStr, StateResultEnum::eAccepted, "accepted");
     EXPECT_TRUE(err.IsNone()) << "Failed to accept state: " << tests::utils::ErrorToStr(err);
 
     // And the storage stub is updated
 
-    EXPECT_TRUE(mStorageStub.Contains([&cUpdateStateContentChecksum](const InstanceInfo& info) {
-        return info.mInstanceIdent == cInstanceIdent && info.mStateChecksum == cUpdateStateContentChecksum;
+    EXPECT_TRUE(mStorageStub.Contains([&updateStateContentChecksum](const InstanceInfo& info) {
+        return info.mInstanceIdent == cInstanceIdent && info.mStateChecksum == updateStateContentChecksum;
     })) << "Storage state info should be updated with new state checksum";
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));

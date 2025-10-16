@@ -70,7 +70,7 @@ public:
      * @param checkSum[out] checksum.
      * @return Error
      */
-    virtual Error GetInstanceCheckSum(const InstanceIdent& instanceIdent, String& checkSum) = 0;
+    virtual Error GetInstanceCheckSum(const InstanceIdent& instanceIdent, Array<uint8_t>& checkSum) = 0;
 
     /**
      * Returns total state size in bytes.

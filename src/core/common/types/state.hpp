@@ -51,8 +51,8 @@ using StateResult     = EnumStringer<StateResultType>;
  * New state.
  */
 struct NewState : public InstanceIdent {
-    StaticString<crypto::cSHA2DigestSize> mChecksum;
-    StaticString<cStateLen>               mState;
+    StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
+    StaticString<cStateLen>                   mState;
 
     /**
      * Compares new state.
@@ -78,8 +78,8 @@ struct NewState : public InstanceIdent {
  * Update state.
  */
 struct UpdateState : public InstanceIdent {
-    StaticString<crypto::cSHA2DigestSize> mChecksum;
-    StaticString<cStateLen>               mState;
+    StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
+    StaticString<cStateLen>                   mState;
 
     /**
      * Compares update state.
@@ -105,9 +105,9 @@ struct UpdateState : public InstanceIdent {
  * State acceptance.
  */
 struct StateAcceptance : public InstanceIdent {
-    StaticString<crypto::cSHA2DigestSize> mChecksum;
-    StateResult                           mResult;
-    StaticString<cStateReason>            mReason;
+    StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
+    StateResult                               mResult;
+    StaticString<cStateReason>                mReason;
 
     /**
      * Compares state acceptance.
