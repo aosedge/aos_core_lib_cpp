@@ -19,10 +19,10 @@ namespace aos::cm::storagestate {
  * Instance info.
  */
 struct InstanceInfo {
-    InstanceIdent                         mInstanceIdent;
-    size_t                                mStorageQuota {};
-    size_t                                mStateQuota {};
-    StaticString<crypto::cSHA2DigestSize> mStateChecksum;
+    InstanceIdent                             mInstanceIdent;
+    size_t                                    mStorageQuota {};
+    size_t                                    mStateQuota {};
+    StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
 
     /**
      * Compares instance info.

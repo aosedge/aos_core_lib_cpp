@@ -138,7 +138,7 @@ Error StorageState::UpdateState(const InstanceIdent& instanceIdent, const String
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = storageStateInfo->mStateChecksum.Assign(checksum); !err.IsNone()) {
+    if (auto err = checksum.HexToByteArray(storageStateInfo->mStateChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -150,7 +150,7 @@ Error StorageState::UpdateState(const InstanceIdent& instanceIdent, const String
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = it->mChecksum.Assign(checksum); !err.IsNone()) {
+    if (auto err = checksum.HexToByteArray(it->mChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -170,8 +170,13 @@ Error StorageState::AcceptState(
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (it->mChecksum != checksum) {
-        LOG_DBG() << "State checksum mismatch" << Log::Field("checksum", it->mChecksum);
+    StaticArray<uint8_t, crypto::cSHA256Size> checksumArray;
+    if (auto err = checksum.HexToByteArray(checksumArray); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (it->mChecksum != checksumArray) {
+        LOG_DBG() << "State checksum mismatch";
 
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidChecksum);
     }
@@ -279,7 +284,7 @@ Error StorageState::Remove(const InstanceIdent& instanceIdent)
     return ErrorEnum::eNone;
 }
 
-Error StorageState::GetInstanceCheckSum(const InstanceIdent& instanceIdent, String& checkSum)
+Error StorageState::GetInstanceCheckSum(const InstanceIdent& instanceIdent, Array<uint8_t>& checkSum)
 {
     LockGuard lock {mMutex};
 
@@ -369,8 +374,8 @@ Error StorageState::InitStateWatching()
     return ErrorEnum::eNone;
 }
 
-Error StorageState::PrepareState(
-    const InstanceIdent& instanceIdent, const SetupParams& setupParams, const String& checksum, String& statePath)
+Error StorageState::PrepareState(const InstanceIdent& instanceIdent, const SetupParams& setupParams,
+    const Array<uint8_t>& checksum, String& statePath)
 {
     LOG_DBG() << "Prepare state";
 
@@ -471,7 +476,7 @@ Error StorageState::CheckChecksumAndSendUpdateRequest(const State& state)
         return err;
     }
 
-    StaticString<crypto::cSHA2DigestSize> calculatedChecksum;
+    StaticArray<uint8_t, crypto::cSHA256Size> calculatedChecksum;
 
     if (auto err = CalculateChecksum(*stateContent, calculatedChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -567,7 +572,7 @@ Error StorageState::SendNewStateIfFileChanged(State& state)
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticString<crypto::cSHA2DigestSize> checksum;
+    StaticArray<uint8_t, crypto::cSHA256Size> checksum;
 
     if (auto err = CalculateChecksum(*stateContent, checksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -618,13 +623,18 @@ bool StorageState::QuotasAreEqual(const InstanceInfo& lhs, const SetupParams& rh
 
 Error StorageState::ValidateChecksum(const String& text, const String& checksum)
 {
-    StaticString<crypto::cSHA2DigestSize> calculatedChecksum;
+    StaticArray<uint8_t, crypto::cSHA256Size> calculatedChecksum;
 
     if (auto err = CalculateChecksum(text, calculatedChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (calculatedChecksum != checksum) {
+    StaticArray<uint8_t, crypto::cSHA256Size> checksumBytes;
+    if (auto err = checksum.HexToByteArray(checksumBytes); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (calculatedChecksum != checksumBytes) {
         return ErrorEnum::eInvalidChecksum;
     }
 
@@ -658,7 +668,7 @@ StaticString<cFilePathLen> StorageState::GetStoragePath(const InstanceIdent& ins
     return fs::JoinPath(mConfig.mStorageDir, instanceIdent.mItemID, instanceIdent.mSubjectID, instanceStr);
 }
 
-Error StorageState::CalculateChecksum(const String& data, String& checksum)
+Error StorageState::CalculateChecksum(const String& data, Array<uint8_t>& checksum)
 {
     auto [hasher, err] = mHasher->CreateHash(cHashAlgorithm);
     if (!err.IsNone()) {
@@ -670,14 +680,7 @@ Error StorageState::CalculateChecksum(const String& data, String& checksum)
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticArray<uint8_t, crypto::cSHA2DigestSize> checksumBytes;
-
-    err = hasher->Finalize(checksumBytes);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = checksum.ByteArrayToHex(checksumBytes);
+    err = hasher->Finalize(checksum);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
