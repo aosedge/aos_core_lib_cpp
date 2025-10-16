@@ -114,7 +114,7 @@ public:
      * @param checkSum[out] checksum.
      * @return Error
      */
-    Error GetInstanceCheckSum(const InstanceIdent& instanceIdent, String& checkSum) override;
+    Error GetInstanceCheckSum(const InstanceIdent& instanceIdent, Array<uint8_t>& checkSum) override;
 
     /**
      * Returns total state size in bytes.
@@ -161,10 +161,10 @@ private:
         State(State&&)            = default;
         State& operator=(State&&) = default;
 
-        InstanceIdent                         mInstanceIdent;
-        StaticString<cFilePathLen>            mFilePath;
-        size_t                                mQuota = {};
-        StaticString<crypto::cSHA2DigestSize> mChecksum;
+        InstanceIdent                             mInstanceIdent;
+        StaticString<cFilePathLen>                mFilePath;
+        size_t                                    mQuota = {};
+        StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
 
         friend Log& operator<<(Log& log, const State& state)
         {
@@ -175,8 +175,8 @@ private:
 
     void  OnFSEvent(const String& path, const Array<fs::FSEvent>& events) override;
     Error InitStateWatching();
-    Error PrepareState(
-        const InstanceIdent& instanceIdent, const SetupParams& setupParams, const String& checksum, String& statePath);
+    Error PrepareState(const InstanceIdent& instanceIdent, const SetupParams& setupParams,
+        const Array<uint8_t>& checksum, String& statePath);
     Error PrepareStorage(const InstanceIdent& instanceIdent, const SetupParams& setupParams, String& storagePath) const;
     Error CheckChecksumAndSendUpdateRequest(const State& state);
     Error CreateStateFileIfNotExist(const String& path, const SetupParams& params) const;
@@ -190,7 +190,7 @@ private:
     StaticString<cFilePathLen> GetStateDir(const InstanceIdent& instanceIdent) const;
     StaticString<cFilePathLen> GetStateFilePath(const InstanceIdent& instanceIdent) const;
     StaticString<cFilePathLen> GetStoragePath(const InstanceIdent& instanceIdent) const;
-    Error                      CalculateChecksum(const String& data, String& checksum);
+    Error                      CalculateChecksum(const String& data, Array<uint8_t>& checksum);
 
     StaticAllocator<cAllocatorSize>                                         mAllocator;
     ThreadPool<cNumSendNewStateThreads, cMaxNumInstances, 2 * cFilePathLen> mThreadPool;
