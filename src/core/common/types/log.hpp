@@ -22,11 +22,6 @@ constexpr auto cLogIDLen = AOS_CONFIG_TYPES_LOG_ID_LEN;
 constexpr auto cLogContentLen = AOS_CONFIG_TYPES_LOG_CONTENT_LEN;
 
 /**
- * Bearer token len.
- */
-constexpr auto cBearerTokenLen = AOS_CONFIG_TYPES_BEARER_TOKEN_LEN;
-
-/**
  * Log type type.
  */
 class LogTypeType {

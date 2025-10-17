@@ -234,6 +234,11 @@ constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
 constexpr auto cCertTypeLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
 
 /**
+ * Bearer token len.
+ */
+constexpr auto cBearerTokenLen = AOS_CONFIG_TYPES_BEARER_TOKEN_LEN;
+
+/**
  * Core component type.
  */
 class CoreComponentType {
