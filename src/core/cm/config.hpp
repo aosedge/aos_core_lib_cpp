@@ -14,4 +14,11 @@
 #define AOS_CONFIG_IMAGEMANAGER_NUM_COOPERATE_ACTIONS 5
 #endif
 
+/**
+ * Service discovery supported protocols count.
+ */
+#ifndef AOS_CONFIG_CM_SERVICE_DISCOVERY_PROTOCOLS_COUNT
+#define AOS_CONFIG_CM_SERVICE_DISCOVERY_PROTOCOLS_COUNT 1
+#endif
+
 #endif
