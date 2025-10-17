@@ -112,6 +112,20 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Releases all allocated identifiers.
+     *
+     * @return Error.
+     */
+    Error Clear()
+    {
+        LockGuard lock {mMutex};
+
+        mLockedIds.Clear();
+
+        return ErrorEnum::eNone;
+    }
+
 private:
     Mutex                                 mMutex;
     StaticArray<size_t, cMaxNumLockedIDs> mLockedIds;
