@@ -7,14 +7,16 @@
 #ifndef AOS_CORE_CM_COMMUNICATION_SERVICEDISCOVERY_HPP_
 #define AOS_CORE_CM_COMMUNICATION_SERVICEDISCOVERY_HPP_
 
+#include <core/cm/config.hpp>
 #include <core/common/types/common.hpp>
+#include <core/common/types/network.hpp>
 
 namespace aos::cm::communication {
 
 /**
  * Service discovery supported protocols count.
  */
-constexpr auto cServiceDiscoveryProtocolsCount = AOS_CONFIG_CLOUDPROTOCOL_SERVICE_DISCOVERY_PROTOCOLS_COUNT;
+constexpr auto cServiceDiscoveryProtocolsCount = AOS_CONFIG_CM_SERVICE_DISCOVERY_PROTOCOLS_COUNT;
 
 /**
  * Service discovery request.
