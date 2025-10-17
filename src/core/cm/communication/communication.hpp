@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_CM_COMMUNICATION_COMMUNICATION_HPP_
 #define AOS_CORE_CM_COMMUNICATION_COMMUNICATION_HPP_
 
+#include <core/common/tools/error.hpp>
+
 namespace aos::cm::communication {
 
 /** @addtogroup cm Communication Manager
