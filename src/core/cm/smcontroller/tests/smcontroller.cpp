@@ -5,5 +5,7 @@
  */
 
 #include <core/cm/smcontroller/itf/instancestatusreceiver.hpp>
+#include <core/cm/smcontroller/itf/logprovider.hpp>
+#include <core/cm/smcontroller/itf/sender.hpp>
 #include <core/cm/smcontroller/itf/sminforeceiver.hpp>
 #include <core/cm/smcontroller/itf/updateimageprovider.hpp>
