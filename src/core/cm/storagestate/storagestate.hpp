@@ -14,7 +14,7 @@
 
 #include "config.hpp"
 #include "itf/sender.hpp"
-#include "itf/state.hpp"
+#include "itf/statehandler.hpp"
 #include "itf/storage.hpp"
 #include "itf/storagestate.hpp"
 
@@ -27,7 +27,10 @@ namespace aos::cm::storagestate {
 /**
  * Storage state.
  */
-class StorageState : public StateItf, public StorageStateItf, private fs::FSEventSubscriberItf, private NonCopyable {
+class StorageState : public StateHandlerItf,
+                     public StorageStateItf,
+                     private fs::FSEventSubscriberItf,
+                     private NonCopyable {
 public:
     /**
      * Initializes storage state instance.
