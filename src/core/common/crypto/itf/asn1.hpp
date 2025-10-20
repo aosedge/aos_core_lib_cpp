@@ -387,4 +387,4 @@ public:
 
 } // namespace aos::crypto::asn1
 
-#endif // AOS_CORE_COMMON_CRYPTO_ITF_ASN1_HPP_
+#endif

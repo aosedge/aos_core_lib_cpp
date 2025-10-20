@@ -130,4 +130,4 @@ public:
 
 } // namespace aos::crypto
 
-#endif // AOS_CORE_COMMON_CRYPTO_ITF_HASH_HPP_
+#endif

@@ -383,4 +383,4 @@ using CertificateChain = StaticArray<Certificate, cCertChainSize>;
 } // namespace x509
 } // namespace aos::crypto
 
-#endif // AOS_CORE_COMMON_CRYPTO_ITF_X509_HPP_
+#endif
