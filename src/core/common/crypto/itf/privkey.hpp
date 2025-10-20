@@ -269,4 +269,4 @@ private:
 
 } // namespace aos::crypto
 
-#endif // AOS_CORE_COMMON_CRYPTO_ITF_PRIVKEY_HPP_
+#endif

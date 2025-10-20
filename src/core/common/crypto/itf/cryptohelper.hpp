@@ -218,4 +218,4 @@ public:
 
 } // namespace aos::crypto
 
-#endif // AOS_CORE_COMMON_CRYPTO_ITF_CRYPTOHELPER_HPP_
+#endif

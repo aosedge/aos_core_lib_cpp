@@ -35,4 +35,4 @@ public:
 
 } // namespace aos::crypto
 
-#endif // AOS_CORE_COMMON_CRYPTO_CRYPTO_HPP_
+#endif
