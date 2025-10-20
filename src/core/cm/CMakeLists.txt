@@ -29,6 +29,7 @@ set(INSTALL_HEADERS
     aos_core_cm_resourcemanager
     aos_core_cm_smcontroller
     aos_core_cm_storagestate
+    aos_core_cm_updatemanager
 )
 
 set(INSTALL_LIBRARIES aos_core_cm_imagemanager aos_core_cm_storagestate)
@@ -66,6 +67,7 @@ add_subdirectory(nodeinfoprovider)
 add_subdirectory(resourcemanager)
 add_subdirectory(smcontroller)
 add_subdirectory(storagestate)
+add_subdirectory(updatemanager)
 
 if(WITH_TEST)
     add_subdirectory(tests)
