@@ -20,7 +20,7 @@ set(SOURCES storagestate.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/sender.hpp itf/state.hpp itf/storage.hpp itf/storagestate.hpp)
+set(HEADERS itf/sender.hpp itf/statehandler.hpp itf/storage.hpp itf/storagestate.hpp)
 
 # ######################################################################################################################
 # Libraries

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_STORAGESTATE_ITF_STATE_HPP_
-#define AOS_CORE_CM_STORAGESTATE_ITF_STATE_HPP_
+#ifndef AOS_CORE_CM_STORAGESTATE_ITF_STATEHANDLER_HPP_
+#define AOS_CORE_CM_STORAGESTATE_ITF_STATEHANDLER_HPP_
 
 #include <core/common/types/state.hpp>
 
@@ -18,12 +18,12 @@ namespace aos::cm::storagestate {
 /**
  * Interface to manage state.
  */
-class StateItf {
+class StateHandlerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~StateItf() = default;
+    virtual ~StateHandlerItf() = default;
 
     /**
      * Updates storage state with new state.
