@@ -122,30 +122,58 @@ struct NetworkParameters {
     StaticString<cHostNameLen>                                 mNetworkID;
     StaticString<cSubnetLen>                                   mSubnet;
     StaticString<cIPLen>                                       mIP;
-    uint64_t                                                   mVlanID = 0;
+    uint64_t                                                   mVlanID {};
     StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers> mDNSServers;
     StaticArray<FirewallRule, cMaxNumFirewallRules>            mFirewallRules;
 
     /**
      * Compares network parameters.
      *
-     * @param networkParams network parameters to compare.
+     * @param rhs network parameters to compare.
      * @return bool.
      */
-    bool operator==(const NetworkParameters& networkParams) const
+    bool operator==(const NetworkParameters& rhs) const
     {
-        return mNetworkID == networkParams.mNetworkID && mSubnet == networkParams.mSubnet && mIP == networkParams.mIP
-            && mVlanID == networkParams.mVlanID && mDNSServers == networkParams.mDNSServers
-            && mFirewallRules == networkParams.mFirewallRules;
+        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP && mVlanID == rhs.mVlanID
+            && mDNSServers == rhs.mDNSServers && mFirewallRules == rhs.mFirewallRules;
     }
 
     /**
      * Compares network parameters.
      *
-     * @param networkParams network parameters to compare.
+     * @param rhs network parameters to compare.
      * @return bool.
      */
-    bool operator!=(const NetworkParameters& networkParams) const { return !operator==(networkParams); }
+    bool operator!=(const NetworkParameters& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Update network parameters.
+ */
+struct UpdateNetworkParameters {
+    StaticString<cHostNameLen> mNetworkID;
+    StaticString<cSubnetLen>   mSubnet;
+    StaticString<cIPLen>       mIP;
+    uint64_t                   mVlanID {};
+
+    /**
+     * Compares network parameters.
+     *
+     * @param rhs network parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const UpdateNetworkParameters& rhs) const
+    {
+        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP && mVlanID == rhs.mVlanID;
+    }
+
+    /**
+     * Compares network parameters.
+     *
+     * @param rhs network parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const UpdateNetworkParameters& rhs) const { return !operator==(rhs); }
 };
 
 /**
