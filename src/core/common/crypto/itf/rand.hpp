@@ -61,4 +61,4 @@ Error GenerateRandomString(String& result, RandomItf& random)
 
 } // namespace aos::crypto
 
-#endif // AOS_CORE_COMMON_CRYPTO_ITF_RAND_HPP_
+#endif
