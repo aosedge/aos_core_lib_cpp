@@ -5,7 +5,7 @@ Storage state manages service instances storage partitions and state files.
 It implements the following interfaces:
 
 * [aos::fs::FSEventSubscriberItf](../../common/tools/fs.hpp) - handles file change events;
-* [aos::cm::storagestate::StateItf](itf/storagestate.hpp) - handles state mutations.
+* [aos::cm::storagestate::StateHandlerItf](itf/statehandler.hpp) - handles state mutations.
 * [aos::cm::storagestate::StorageStateItf](itf/storagestate.hpp) - manages service instances storage
 partitions and state files.
 
@@ -32,7 +32,7 @@ classDiagram
         <<interface>>
     }
 
-    class StateItf ["aos::cm::storagestate::StateItf"] {
+    class StateHandlerItf ["aos::cm::storagestate::StateHandlerItf"] {
         <<interface>>
     }
 
@@ -56,10 +56,9 @@ classDiagram
         <<interface>>
     }
 
-    StorageState <|.. StateItf
+    StorageState <|.. StateHandlerItf
     StorageState <|.. StorageStateItf
     StorageState <|.. FSEventSubscriberItf
-
 
     StorageState ..> SenderItf
     StorageState ..> StorageItf
