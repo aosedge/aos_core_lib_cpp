@@ -12,32 +12,6 @@
 namespace aos {
 
 /**
- * Unit config state type.
- */
-class UnitConfigStateType {
-public:
-    enum class Enum {
-        eAbsent,
-        eInstalled,
-        eFailed,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "absent",
-            "installed",
-            "failed",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using UnitConfigStateEnum = UnitConfigStateType::Enum;
-using UnitConfigState     = EnumStringer<UnitConfigStateType>;
-
-/**
  * Node config.
  */
 struct NodeConfig {
@@ -98,6 +72,57 @@ struct UnitConfig {
      */
     bool operator!=(const UnitConfig& rhs) const { return !operator==(rhs); }
 };
+
+/**
+ * Unit config state type.
+ */
+class UnitConfigStateType {
+public:
+    enum class Enum {
+        eAbsent,
+        eInstalled,
+        eFailed,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "absent",
+            "installed",
+            "failed",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using UnitConfigStateEnum = UnitConfigStateType::Enum;
+using UnitConfigState     = EnumStringer<UnitConfigStateType>;
+using NodeConfigState     = UnitConfigState;
+
+/**
+ * Unit config status.
+ */
+struct UnitConfigStatus {
+    StaticString<cVersionLen> mVersion;
+    UnitConfigState           mState;
+    Error                     mError;
+
+    /**
+     * Compares unit config status.
+     *
+     * @param rhs unit config status to compare with.
+     * @return bool.
+     */
+    bool operator==(const UnitConfigStatus& rhs) const
+    {
+        return mVersion == rhs.mVersion && mState == rhs.mState && mError == rhs.mError;
+    }
+
+    bool operator!=(const UnitConfigStatus& rhs) const { return !operator==(rhs); }
+};
+
+using NodeConfigStatus = UnitConfigStatus;
 
 } // namespace aos
 

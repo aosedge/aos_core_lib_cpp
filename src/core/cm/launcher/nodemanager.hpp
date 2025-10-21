@@ -28,12 +28,12 @@ public:
      * Initializes node manager.
      *
      * @param nodeInfoProvider node info provider.
-     * @param resourceManager resource manager.
+     * @param nodeConfigProvider node config provider.
      * @param storageState storage state interface.
      * @param runner instance runner interface.
      */
     void Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        resourcemanager::ResourceManagerItf& resourceManager, storagestate::StorageStateItf& storageState,
+        unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         InstanceRunnerItf& runner);
 
     /**
@@ -125,7 +125,7 @@ private:
     size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
 
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider    = nullptr;
-    resourcemanager::ResourceManagerItf*   mResourceManager     = nullptr;
+    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider  = nullptr;
     storagestate::StorageStateItf*         mStorageStateManager = nullptr;
     InstanceRunnerItf*                     mRunner              = nullptr;
 

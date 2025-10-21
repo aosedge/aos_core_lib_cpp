@@ -7,8 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 
-#include <core/cm/resourcemanager/resourcemanager.hpp>
-#include <core/cm/storagestate/storagestate.hpp>
+#include <core/cm/storagestate/itf/storagestate.hpp>
+#include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 
 #include "itf/imageinfoprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
@@ -38,14 +38,14 @@ public:
      * @param nodeInfoProvider interface providing information about all unit nodes.
      * @param runner instance runner interface.
      * @param imageInfoProvider interface that retrieves service information from its image.
-     * @param resourceManager resource manager interface.
+     * @param nodeConfigProvider node config provider interface.
      * @param storageState interface to manage storage and state partitions.
      * @param networkManager interface to manage networks of service instances.
      * @return Error.
      */
     Error Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         InstanceRunnerItf& runner, ImageInfoProviderItf& imageInfoProvider,
-        resourcemanager::ResourceManagerItf& resourceManager, storagestate::StorageStateItf& storageState,
+        unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider);
 
     /**
@@ -124,14 +124,14 @@ private:
     Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) override;
 
     Config                                 mConfig;
-    StorageItf*                            mStorage           = nullptr;
-    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider  = nullptr;
-    InstanceRunnerItf*                     mRunner            = nullptr;
-    ImageInfoProviderItf*                  mImageInfoProvider = nullptr;
-    resourcemanager::ResourceManagerItf*   mResourceManager   = nullptr;
-    storagestate::StorageStateItf*         mStorageState      = nullptr;
-    networkmanager::NetworkManagerItf*     mNetworkManager    = nullptr;
-    MonitoringProviderItf*                 mMonitorProvider   = nullptr;
+    StorageItf*                            mStorage            = nullptr;
+    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider   = nullptr;
+    InstanceRunnerItf*                     mRunner             = nullptr;
+    ImageInfoProviderItf*                  mImageInfoProvider  = nullptr;
+    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider = nullptr;
+    storagestate::StorageStateItf*         mStorageState       = nullptr;
+    networkmanager::NetworkManagerItf*     mNetworkManager     = nullptr;
+    MonitoringProviderItf*                 mMonitorProvider    = nullptr;
 
     InstanceManager mInstanceManager;
     NodeManager     mNodeManager;

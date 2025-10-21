@@ -16,23 +16,23 @@ namespace aos::cm::launcher {
 
 Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     InstanceRunnerItf& runner, ImageInfoProviderItf& imageInfoProvider,
-    resourcemanager::ResourceManagerItf& resourceManager, storagestate::StorageStateItf& storageState,
+    unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider)
 {
     LOG_DBG() << "Init Launcher";
 
-    mConfig            = config;
-    mStorage           = &storage;
-    mNodeInfoProvider  = &nodeInfoProvider;
-    mRunner            = &runner;
-    mImageInfoProvider = &imageInfoProvider;
-    mResourceManager   = &resourceManager;
-    mStorageState      = &storageState;
-    mNetworkManager    = &networkManager;
-    mMonitorProvider   = &monitorProvider;
+    mConfig             = config;
+    mStorage            = &storage;
+    mNodeInfoProvider   = &nodeInfoProvider;
+    mRunner             = &runner;
+    mImageInfoProvider  = &imageInfoProvider;
+    mNodeConfigProvider = &nodeConfigProvider;
+    mStorageState       = &storageState;
+    mNetworkManager     = &networkManager;
+    mMonitorProvider    = &monitorProvider;
 
     mInstanceManager.Init(config, storage, imageInfoProvider, storageState);
-    mNodeManager.Init(*mNodeInfoProvider, *mResourceManager, *mStorageState, *mRunner);
+    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mStorageState, *mRunner);
     mBalancer.Init(mInstanceManager, *mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner, *mNetworkManager);
 
     return ErrorEnum::eNone;

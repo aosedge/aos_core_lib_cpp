@@ -15,10 +15,10 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 Error Node::Init(
-    const UnitNodeInfo& info, resourcemanager::ResourceManagerItf& resourceManager, InstanceRunnerItf& instanceRunner)
+    const UnitNodeInfo& info, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner)
 {
-    mResourceManager = &resourceManager;
-    mInstanceRunner  = &instanceRunner;
+    mNodeConfigProvider = &nodeConfigProvider;
+    mInstanceRunner     = &instanceRunner;
 
     UpdateInfo(info);
 
@@ -149,7 +149,7 @@ bool Node::IsMaxNumInstancesReached(const String& runtimeID)
 
 void Node::UpdateConfig()
 {
-    if (auto err = mResourceManager->GetNodeConfig(mInfo.mNodeID, mInfo.mNodeType, mConfig); !err.IsNone()) {
+    if (auto err = mNodeConfigProvider->GetNodeConfig(mInfo.mNodeID, mInfo.mNodeType, mConfig); !err.IsNone()) {
         LOG_ERR() << "Get node config failed" << Log::Field("nodeID", mInfo.mNodeID) << Log::Field(AOS_ERROR_WRAP(err));
     }
 }

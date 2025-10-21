@@ -17,14 +17,18 @@ It implements the following interfaces:
 
 It requires the following interfaces:
 
-- [aos::cm::nodeinfoprovider::NodeInfoProviderItf]() - gets node information;
-- [aos::cm::launcher::ImageInfoProviderItf]() - obtains image info required to schedule instances such as resource
-requests, required resources, network parameters etc.;
-- [aos::cm::launcher::InstanceRunnerItf]() - runs instances on nodes;
-- [aos::cm::launcher::MonitoringProviderItf]() - gets average instances CPU and RAM consumption;
-- [aos::cm::storagestate::StorageStateItf]() - prepares storage and state for instances;
-- [aos::cm::networkmanager::NetworkManagerItf]() - configures instances notwork;
-- [aos::cm::launcher::NodeEnvVarHandlerItf]() - overrides node instances env vars.
+- [aos::cm::nodeinfoprovider::NodeInfoProviderItf](../nodeinfoprovider/itf/nodeinfoprovider.hpp) -
+  gets node information;
+- [aos::cm::launcher::ImageInfoProviderItf](itf/imageinfoprovider.hpp) - obtains image info required to schedule
+  instances such as resource requests, required resources, network parameters etc.;
+- [aos::cm::launcher::InstanceRunnerItf](itf/instancerunner.hpp) - runs instances on nodes;
+- [aos::cm::launcher::MonitoringProviderItf](itf/monitoringprovider.hpp) - gets average instances CPU and RAM
+  consumption;
+- [aos::cm::storagestate::StorageStateItf](../storagestate/itf/storagestate.hpp) - prepares storage and state for
+  instances;
+- [aos::cm::networkmanager::NetworkManagerItf](../networkmanager/itf/networkmanager.hpp) - configures instances notwork;
+- [aos::cm::unitconfig::NodeConfigProviderItf](../unitconfig/itf/nodeconfigprovider.hpp) - gets node configuration;
+- [aos::cm::launcher::NodeEnvVarHandlerItf](itf/nodeenvvarhandler.hpp) - overrides node instances env vars.
 
 ```mermaid
 classDiagram
@@ -65,11 +69,15 @@ classDiagram
         <<interface>>
     }
 
+    class StorageStateItf ["aos::cm::launcher::StorageStateItf"] {
+        <<interface>>
+    }
+
     class NetworkManagerItf ["aos::cm::launcher::NetworkManagerItf"] {
         <<interface>>
     }
 
-    class StorageStateItf ["aos::cm::launcher::StorageStateItf"] {
+    class NodeConfigProviderItf ["aos::cm::unitconfig::NodeConfigProviderItf"] {
         <<interface>>
     }
 
@@ -87,6 +95,7 @@ classDiagram
     Launcher ..> MonitoringProviderItf
     Launcher ..> StorageStateItf
     Launcher ..> NetworkManagerItf
+    Launcher ..> NodeConfigProviderItf
     Launcher ..> NodeEnvVarHandlerItf
 ```
 
