@@ -8,7 +8,7 @@
 #define AOS_CORE_CM_LAUNCHER_NODE_HPP_
 
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
-#include <core/cm/resourcemanager/resourcemanager.hpp>
+#include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 
 #include "itf/instancerunner.hpp"
 #include "itf/monitoringprovider.hpp"
@@ -30,11 +30,11 @@ public:
      * Initializes the node handler.
      *
      * @param info node information.
-     * @param resourceManager resource manager.
+     * @param nodeConfigProvider node config provider.
      * @param instanceRunner instance runner interface.
      * @return Error.
      */
-    Error Init(const UnitNodeInfo& info, resourcemanager::ResourceManagerItf& resourceManager,
+    Error Init(const UnitNodeInfo& info, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
         InstanceRunnerItf& instanceRunner);
 
     /**
@@ -180,8 +180,8 @@ private:
     size_t* GetPtrToAvailableRAM(const String& runtimeID);
     size_t* GetPtrToMaxNumInstances(const String& runtimeID);
 
-    resourcemanager::ResourceManagerItf* mResourceManager {};
-    InstanceRunnerItf*                   mInstanceRunner {};
+    unitconfig::NodeConfigProviderItf* mNodeConfigProvider {};
+    InstanceRunnerItf*                 mInstanceRunner {};
 
     UnitNodeInfo mInfo {};
     NodeConfig   mConfig {};

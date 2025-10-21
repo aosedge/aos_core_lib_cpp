@@ -4,26 +4,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_RESOURCEMANAGER_HPP_
-#define AOS_CORE_CM_RESOURCEMANAGER_HPP_
+#ifndef AOS_CORE_CM_UNITCONFIG_ITF_NODECONFIGPROVIDER_HPP_
+#define AOS_CORE_CM_UNITCONFIG_ITF_NODECONFIGPROVIDER_HPP_
 
 #include <core/common/types/unitconfig.hpp>
 
-namespace aos::cm::resourcemanager {
+namespace aos::cm::unitconfig {
 
 /** @addtogroup cm Communication Manager
  *  @{
  */
 
 /**
- * Resource manager interface.
+ * Provides node configuration.
  */
-class ResourceManagerItf {
+class NodeConfigProviderItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~ResourceManagerItf() = default;
+    virtual ~NodeConfigProviderItf() = default;
 
     /**
      * Returns node config by either node id or type.
@@ -38,6 +38,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::cm::resourcemanager
+} // namespace aos::cm::unitconfig
 
 #endif

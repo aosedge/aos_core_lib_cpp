@@ -16,11 +16,11 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 void NodeManager::Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    resourcemanager::ResourceManagerItf& resourceManager, storagestate::StorageStateItf& storageState,
+    unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     InstanceRunnerItf& runner)
 {
     mNodeInfoProvider    = &nodeInfoProvider;
-    mResourceManager     = &resourceManager;
+    mNodeConfigProvider  = &nodeConfigProvider;
     mStorageStateManager = &storageState;
     mRunner              = &runner;
 }
@@ -47,7 +47,7 @@ Error NodeManager::Start()
         // add online provisioned node
         mNodes.EmplaceBack();
 
-        if (auto err = mNodes.Back().Init(*nodeInfo, *mResourceManager, *mRunner); !err.IsNone()) {
+        if (auto err = mNodes.Back().Init(*nodeInfo, *mNodeConfigProvider, *mRunner); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -218,7 +218,7 @@ void NodeManager::OnNodeInfoChanged(const UnitNodeInfo& info)
             return;
         }
 
-        if (auto err = mNodes.Back().Init(info, *mResourceManager, *mRunner); !err.IsNone()) {
+        if (auto err = mNodes.Back().Init(info, *mNodeConfigProvider, *mRunner); !err.IsNone()) {
             LOG_ERR() << "Node initialization failed" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }

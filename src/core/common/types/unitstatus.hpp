@@ -17,28 +17,6 @@ namespace aos {
  */
 constexpr auto cUnitConfigStatusCount = 2;
 
-/**
- * Unit config status.
- */
-struct UnitConfigStatus {
-    StaticString<cVersionLen> mVersion;
-    UnitConfigState           mState;
-    Error                     mError;
-
-    /**
-     * Compares unit config status.
-     *
-     * @param rhs unit config status to compare with.
-     * @return bool.
-     */
-    bool operator==(const UnitConfigStatus& rhs) const
-    {
-        return mVersion == rhs.mVersion && mState == rhs.mState && mError == rhs.mError;
-    }
-
-    bool operator!=(const UnitConfigStatus& rhs) const { return !operator==(rhs); }
-};
-
 using UnitConfigStatusArray = StaticArray<UnitConfigStatus, cUnitConfigStatusCount>;
 
 /**

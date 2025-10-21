@@ -26,9 +26,9 @@ set(INSTALL_HEADERS
     aos_core_cm_monitoring
     aos_core_cm_networkmanager
     aos_core_cm_nodeinfoprovider
-    aos_core_cm_resourcemanager
     aos_core_cm_smcontroller
     aos_core_cm_storagestate
+    aos_core_cm_unitconfig
     aos_core_cm_updatemanager
 )
 
@@ -64,9 +64,9 @@ add_subdirectory(launcher)
 add_subdirectory(monitoring)
 add_subdirectory(networkmanager)
 add_subdirectory(nodeinfoprovider)
-add_subdirectory(resourcemanager)
 add_subdirectory(smcontroller)
 add_subdirectory(storagestate)
+add_subdirectory(unitconfig)
 add_subdirectory(updatemanager)
 
 if(WITH_TEST)
