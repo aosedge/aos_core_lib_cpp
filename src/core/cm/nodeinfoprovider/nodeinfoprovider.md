@@ -31,8 +31,9 @@ classDiagram
         <<interface>>
     }
 
-    NodeInfoProvider <|.. NodeInfoProviderItf
-    NodeInfoProvider <|.. SMInfoReceiverItf
+    NodeInfoProvider ..|> NodeInfoProviderItf
+    NodeInfoProvider ..|> SMInfoReceiverItf
+
     NodeInfoProvider ..> IAMNodeInfoProviderItf
 ```
 
