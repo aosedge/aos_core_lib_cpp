@@ -27,8 +27,7 @@ public:
  */
 class IdentProviderMock : public IdentProviderItf {
 public:
-    MOCK_METHOD(RetWithError<StaticString<cIDLen>>, GetSystemID, (), (override));
-    MOCK_METHOD(RetWithError<StaticString<cUnitModelLen>>, GetUnitModel, (), (override));
+    MOCK_METHOD(Error, GetSystemInfo, (SystemInfo&), (override));
     MOCK_METHOD(Error, GetSubjects, (Array<StaticString<cIDLen>> & subjects), (override));
     MOCK_METHOD(Error, SubscribeListener, (SubjectsListenerItf & subjectsListener), (override));
     MOCK_METHOD(Error, UnsubscribeListener, (SubjectsListenerItf & subjectsListener), (override));

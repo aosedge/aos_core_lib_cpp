@@ -41,18 +41,12 @@ public:
     virtual ~IdentProviderItf() = default;
 
     /**
-     * Returns System ID.
+     * Returns System info.
      *
-     * @returns RetWithError<StaticString>.
+     * @param[out] info result system info.
+     * @returns Error.
      */
-    virtual RetWithError<StaticString<cIDLen>> GetSystemID() = 0;
-
-    /**
-     * Returns unit model.
-     *
-     * @returns RetWithError<StaticString>.
-     */
-    virtual RetWithError<StaticString<cIDLen>> GetUnitModel() = 0;
+    virtual Error GetSystemInfo(SystemInfo& info) = 0;
 
     /**
      * Returns subjects.
