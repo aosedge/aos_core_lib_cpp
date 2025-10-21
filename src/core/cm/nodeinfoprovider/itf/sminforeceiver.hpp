@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_SMCONTROLLER_ITF_SMSTATUSRECEIVER_HPP_
-#define AOS_CORE_CM_SMCONTROLLER_ITF_SMSTATUSRECEIVER_HPP_
+#ifndef AOS_CORE_CM_NODEINFOPROVIDER_ITF_SMINFORECEIVER_HPP_
+#define AOS_CORE_CM_NODEINFOPROVIDER_ITF_SMINFORECEIVER_HPP_
 
 #include <core/common/types/common.hpp>
 
-namespace aos::cm::smcontroller {
+namespace aos::cm::nodeinfoprovider {
 
 /** @addtogroup cm Communication Manager
  *  @{
@@ -74,6 +74,6 @@ public:
     virtual Error OnSMInfoReceived(const SMInfo& info) = 0;
 };
 
-} // namespace aos::cm::smcontroller
+} // namespace aos::cm::nodeinfoprovider
 
 #endif

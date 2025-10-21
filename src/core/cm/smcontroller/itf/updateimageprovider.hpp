@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_SMCONTROLLER_ITF_UPDATEIMAGEPROVIDER_HPP_
 #define AOS_CORE_CM_SMCONTROLLER_ITF_UPDATEIMAGEPROVIDER_HPP_
 
-#include <core/common/tools/error.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::cm::smcontroller {
 
