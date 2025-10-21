@@ -157,14 +157,11 @@ public:
     /**
      * Returns node monitoring data.
      *
-     * @param nodeID node ident.
      * @param partitionInfos partition infos.
      * @param[out] monitoringData monitoring data.
      * @return Error.
      */
-    virtual Error GetNodeMonitoringData(
-        const String& nodeID, const Array<PartitionInfo>& partitionInfos, MonitoringData& monitoringData)
-        = 0;
+    virtual Error GetNodeMonitoringData(const Array<PartitionInfo>& partitionInfos, MonitoringData& monitoringData) = 0;
 
     /**
      * Returns instance monitoring data.
