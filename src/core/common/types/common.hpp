@@ -239,6 +239,15 @@ constexpr auto cCertTypeLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
 constexpr auto cBearerTokenLen = AOS_CONFIG_TYPES_BEARER_TOKEN_LEN;
 
 /**
+ * System info.
+ */
+struct SystemInfo {
+    StaticString<cIDLen>        mSystemID;
+    StaticString<cUnitModelLen> mUnitModel;
+    StaticString<cVersionLen>   mVersion;
+};
+
+/**
  * Core component type.
  */
 class CoreComponentType {

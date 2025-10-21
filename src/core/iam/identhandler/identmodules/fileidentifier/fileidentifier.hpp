@@ -65,18 +65,12 @@ public:
     Error Stop() override { return ErrorEnum::eNone; };
 
     /**
-     * Returns System ID.
+     * Returns System info.
      *
-     * @returns RetWithError<StaticString>.
+     * @param[out] info result system info.
+     * @returns Error.
      */
-    RetWithError<StaticString<cIDLen>> GetSystemID() override;
-
-    /**
-     * Returns unit model.
-     *
-     * @returns RetWithError<StaticString>.
-     */
-    RetWithError<StaticString<cUnitModelLen>> GetUnitModel() override;
+    Error GetSystemInfo(SystemInfo& info) override;
 
     /**
      * Returns subjects.
