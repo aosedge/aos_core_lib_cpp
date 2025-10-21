@@ -19,7 +19,7 @@ set(HEADERS config.hpp)
 
 set(INSTALL_HEADERS
     aos_core_common_alerts
-    aos_core_common_connectionprovider
+    aos_core_common_cloudconnection
     aos_core_common_logprovider
     aos_core_common_ocispec
     aos_core_common_spaceallocator
@@ -52,7 +52,7 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_common)
 # ######################################################################################################################
 
 add_subdirectory(alerts)
-add_subdirectory(connectionprovider)
+add_subdirectory(cloudconnection)
 add_subdirectory(crypto)
 add_subdirectory(downloader)
 add_subdirectory(iamclient)

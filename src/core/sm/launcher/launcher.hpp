@@ -10,7 +10,7 @@
 
 #include <assert.h>
 
-#include <core/common/connectionprovider/connectionprovider.hpp>
+#include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/crypto/itf/uuid.hpp>
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/ocispec/ocispec.hpp>
@@ -230,7 +230,7 @@ public:
  */
 class Launcher : public LauncherItf,
                  public runner::RunStatusReceiverItf,
-                 private ConnectionSubscriberItf,
+                 private ConnectionListenerItf,
                  private NonCopyable {
 public:
     /**
@@ -258,7 +258,7 @@ public:
      * @param resourceMonitor resource monitor instance.
      * @param ociManager OCI manager instance.
      * @param statusReceiver status receiver instance.
-     * @param connectionPublisher connection publisher instance.
+     * @param connectionProvider connection provider instance.
      * @param storage storage instance.
      * @param uuidProvider UUID provider instance.
      * @return Error.
@@ -268,7 +268,7 @@ public:
         resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
         iamclient::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
         monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
-        InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage,
+        InstanceStatusReceiverItf& statusReceiver, CloudConnectionItf& cloudConnection, StorageItf& storage,
         crypto::UUIDItf& uuidProvider);
 
     /**
@@ -400,7 +400,7 @@ private:
     }
 
     Config                               mConfig;
-    ConnectionPublisherItf*              mConnectionPublisher {};
+    CloudConnectionItf*                  mCloudConnection {};
     InstanceStatusReceiverItf*           mStatusReceiver {};
     layermanager::LayerManagerItf*       mLayerManager {};
     networkmanager::NetworkManagerItf*   mNetworkManager {};

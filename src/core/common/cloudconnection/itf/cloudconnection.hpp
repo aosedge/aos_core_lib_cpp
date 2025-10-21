@@ -5,21 +5,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_CONNECTIONPROVIDER_HPP_
-#define AOS_CORE_COMMON_CONNECTIONPROVIDER_HPP_
+#ifndef AOS_CORE_COMMON_CLOUDCONNECTION_HPP_
+#define AOS_CORE_COMMON_CLOUDCONNECTION_HPP_
 
 #include <core/common/tools/error.hpp>
 
 namespace aos {
+
 /**
  * Interface for objects that need to respond to connection events.
  */
-class ConnectionSubscriberItf {
+class ConnectionListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~ConnectionSubscriberItf() = default;
+    virtual ~ConnectionListenerItf() = default;
 
     /**
      * Notifies publisher is connected.
@@ -33,25 +34,25 @@ public:
 };
 
 /**
- * Interface for objects that support subscription from ConnectionSubscriberItf objects.
+ * Cloud connection interface.
  */
-class ConnectionPublisherItf {
+class CloudConnectionItf {
 public:
-    virtual ~ConnectionPublisherItf() { }
+    virtual ~CloudConnectionItf() { }
 
     /**
      * Subscribes to cloud connection events.
      *
-     * @param subscriber subscriber reference.
+     * @param listener listener reference.
      */
-    virtual Error Subscribe(ConnectionSubscriberItf& subscriber) = 0;
+    virtual Error Subscribe(ConnectionListenerItf& listener) = 0;
 
     /**
      * Unsubscribes from cloud connection events.
      *
-     * @param subscriber subscriber reference.
+     * @param listener listener reference.
      */
-    virtual void Unsubscribe(ConnectionSubscriberItf& subscriber) = 0;
+    virtual void Unsubscribe(ConnectionListenerItf& listener) = 0;
 };
 
 } // namespace aos

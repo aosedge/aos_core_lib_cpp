@@ -391,20 +391,20 @@ private:
     std::vector<InstanceQuotaAlert> mInstanceQuotaAlerts;
 };
 
-class MockConnectionPublisher : public ConnectionPublisherItf {
+class MockCloudConnection : public CloudConnectionItf {
 public:
-    aos::Error Subscribe(ConnectionSubscriberItf& subscriber) override
+    aos::Error Subscribe(ConnectionListenerItf& listener) override
     {
-        mSubscriber = &subscriber;
+        mListener = &listener;
 
         return ErrorEnum::eNone;
     }
 
-    void Unsubscribe(ConnectionSubscriberItf& subscriber) override
+    void Unsubscribe(ConnectionListenerItf& listener) override
     {
-        EXPECT_TRUE(&subscriber == mSubscriber);
+        EXPECT_TRUE(&listener == mListener);
 
-        mSubscriber = nullptr;
+        mListener = nullptr;
 
         return;
     }
@@ -412,15 +412,15 @@ public:
     void NotifyConnect() const
     {
 
-        EXPECT_TRUE(mSubscriber != nullptr);
+        EXPECT_TRUE(mListener != nullptr);
 
-        mSubscriber->OnConnect();
+        mListener->OnConnect();
 
         return;
     }
 
 private:
-    ConnectionSubscriberItf* mSubscriber {};
+    ConnectionListenerItf* mListener {};
 };
 
 std::unique_ptr<NodeInfoObsolete> CreateNodeInfo(const Array<PartitionInfo>& partitions)
@@ -492,18 +492,18 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
-    auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
+    auto cloudConnection       = std::make_unique<MockCloudConnection>();
 
     auto   monitor = std::make_unique<ResourceMonitor>();
     Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};
 
     EXPECT_TRUE(monitor
                     ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
-                        *connectionPublisher)
+                        *cloudConnection)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
-    connectionPublisher->NotifyConnect();
+    cloudConnection->NotifyConnect();
 
     PartitionInfo instancePartitionInfosData[] = {{"state", {}, "", 0}, {"storage", {}, "", 0}};
     auto          instancePartitionInfos
@@ -567,18 +567,18 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
-    auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
+    auto cloudConnection       = std::make_unique<MockCloudConnection>();
 
     auto   monitor = std::make_unique<ResourceMonitor>();
     Config config {};
 
     EXPECT_TRUE(monitor
                     ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
-                        *connectionPublisher)
+                        *cloudConnection)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
-    connectionPublisher->NotifyConnect();
+    cloudConnection->NotifyConnect();
 
     InstanceIdent instance0Ident {"service0", "subject0", 0};
     PartitionInfo instancePartitionInfosData[] = {{"disk", {}, "", 0}};
@@ -712,17 +712,17 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     auto   resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto   sender                = std::make_unique<MockSender>();
     auto   alertSender           = std::make_unique<AlertSenderStub>();
-    auto   connectionPublisher   = std::make_unique<MockConnectionPublisher>();
+    auto   cloudConnection       = std::make_unique<MockCloudConnection>();
 
     auto monitor = std::make_unique<ResourceMonitor>();
 
     EXPECT_TRUE(monitor
                     ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
-                        *connectionPublisher)
+                        *cloudConnection)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
-    connectionPublisher->NotifyConnect();
+    cloudConnection->NotifyConnect();
 
     auto           instancePartitionsInfos  = Array<PartitionInfo>(&nodePartitionsInfo[2], 2);
     PartitionUsage instancePartitionsData[] = {{"state", 128}, {"storage", 256}};
@@ -854,18 +854,18 @@ TEST_F(MonitoringTest, GetNodeMonitoringDataOnInstanceSpikes)
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
-    auto connectionPublisher   = std::make_unique<MockConnectionPublisher>();
+    auto cloudConnection       = std::make_unique<MockCloudConnection>();
 
     auto   monitor = std::make_unique<ResourceMonitor>();
     Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};
 
     EXPECT_TRUE(monitor
                     ->Init(config, *nodeInfoProvider, *resourceManager, *resourceUsageProvider, *sender, *alertSender,
-                        *connectionPublisher)
+                        *cloudConnection)
                     .IsNone());
     EXPECT_TRUE(monitor->Start().IsNone());
 
-    connectionPublisher->NotifyConnect();
+    cloudConnection->NotifyConnect();
 
     PartitionInfo instancePartitionInfosData[] = {{"states", {}, "", 0}, {"storages", {}, "", 0}};
     auto          instancePartitionInfos

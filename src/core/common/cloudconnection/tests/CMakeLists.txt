@@ -4,34 +4,30 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-# ######################################################################################################################
-# Target name
-# ######################################################################################################################
-
-set(TARGET_NAME mocks)
+set(TARGET_NAME cloudconnection_test)
 
 # ######################################################################################################################
-# Headers
+# Sources
 # ######################################################################################################################
 
-set(HEADERS
-    alertsmock.hpp
-    certprovidermock.hpp
-    cloudconnectionmock.hpp
-    cryptomock.hpp
-    downloadermock.hpp
-    fsmock.hpp
-    identprovidermock.hpp
-    logprovidermock.hpp
-    monitoringmock.hpp
-    ocispecmock.hpp
-    permhandlermock.hpp
-    permprovidermock.hpp
-    spaceallocatormock.hpp
-)
+set(SOURCES cloudconnection.cpp)
+
+# ######################################################################################################################
+# Libraries
+# ######################################################################################################################
+
+set(LIBRARIES GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})
+add_test(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    SOURCES
+    ${SOURCES}
+    LIBRARIES
+    ${LIBRARIES}
+)
