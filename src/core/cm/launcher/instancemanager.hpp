@@ -7,12 +7,12 @@
 #ifndef AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 #define AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 
-#include <core/cm/smcontroller/itf/instancestatusreceiver.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
 
 #include <core/common/tools/timer.hpp>
 
 #include "itf/instancestatusprovider.hpp"
+#include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 
 #include "instance.hpp"

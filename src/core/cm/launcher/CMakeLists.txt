@@ -14,8 +14,14 @@ set(TARGET_NAME launcher)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/imageinfoprovider.hpp itf/instancerunner.hpp itf/instancestatusprovider.hpp itf/launcher.hpp
-            itf/monitoringprovider.hpp itf/storage.hpp
+set(HEADERS
+    itf/imageinfoprovider.hpp
+    itf/instancerunner.hpp
+    itf/instancestatusreceiver.hpp
+    itf/instancestatusprovider.hpp
+    itf/launcher.hpp
+    itf/monitoringprovider.hpp
+    itf/storage.hpp
 )
 
 # ######################################################################################################################
