@@ -30,7 +30,7 @@ struct Config {
  * Resource monitor.
  */
 class ResourceMonitor : public ResourceMonitorItf,
-                        public ConnectionSubscriberItf,
+                        public ConnectionListenerItf,
                         public sm::resourcemanager::NodeConfigReceiverItf,
                         private NonCopyable {
 public:
@@ -43,12 +43,12 @@ public:
      * @param resourceUsageProvider resource usage provider.
      * @param monitorSender monitor sender.
      * @param alertSender alert sender.
-     * @param connectionPublisher connection publisher.
+     * @param cloudConnection cloud connection.
      * @return Error.
      */
     Error Init(const Config& config, const iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         sm::resourcemanager::ResourceManagerItf& resourceManager, ResourceUsageProviderItf& resourceUsageProvider,
-        SenderItf& monitorSender, alerts::SenderItf& alertSender, ConnectionPublisherItf& connectionPublisher);
+        SenderItf& monitorSender, alerts::SenderItf& alertSender, CloudConnectionItf& cloudConnection);
 
     /**
      * Starts monitoring.
@@ -146,7 +146,7 @@ private:
     sm::resourcemanager::ResourceManagerItf* mResourceManager {};
     SenderItf*                               mMonitorSender {};
     alerts::SenderItf*                       mAlertSender = {};
-    ConnectionPublisherItf*                  mConnectionPublisher {};
+    CloudConnectionItf*                      mCloudConnection {};
 
     Average mAverage;
 

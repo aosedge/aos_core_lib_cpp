@@ -34,25 +34,25 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
     resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
     iamclient::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
     monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
-    InstanceStatusReceiverItf& statusReceiver, ConnectionPublisherItf& connectionPublisher, StorageItf& storage,
+    InstanceStatusReceiverItf& statusReceiver, CloudConnectionItf& cloudConnection, StorageItf& storage,
     crypto::UUIDItf& uuidProvider)
 {
     LOG_DBG() << "Init launcher";
 
-    mConfig              = config;
-    mConnectionPublisher = &connectionPublisher;
-    mLayerManager        = &layerManager;
-    mNetworkManager      = &networkManager;
-    mOCIManager          = &ociManager;
-    mPermHandler         = &permHandler;
-    mResourceManager     = &resourceManager;
-    mResourceMonitor     = &resourceMonitor;
-    mRunner              = &runner;
-    mRuntime             = &runtime;
-    mServiceManager      = &serviceManager;
-    mStatusReceiver      = &statusReceiver;
-    mStorage             = &storage;
-    mUUIDProvider        = &uuidProvider;
+    mConfig          = config;
+    mCloudConnection = &cloudConnection;
+    mLayerManager    = &layerManager;
+    mNetworkManager  = &networkManager;
+    mOCIManager      = &ociManager;
+    mPermHandler     = &permHandler;
+    mResourceManager = &resourceManager;
+    mResourceMonitor = &resourceMonitor;
+    mRunner          = &runner;
+    mRuntime         = &runtime;
+    mServiceManager  = &serviceManager;
+    mStatusReceiver  = &statusReceiver;
+    mStorage         = &storage;
+    mUUIDProvider    = &uuidProvider;
 
     Error err;
 
@@ -89,7 +89,7 @@ Error Launcher::Start()
 {
     LOG_DBG() << "Start launcher";
 
-    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
+    if (auto err = mCloudConnection->Subscribe(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -126,7 +126,7 @@ Error Launcher::Stop()
         stopError = err;
     }
 
-    mConnectionPublisher->Unsubscribe(*this);
+    mCloudConnection->Unsubscribe(*this);
 
     if (auto err = mTimer.Stop(); !err.IsNone() && stopError.IsNone()) {
         stopError = AOS_ERROR_WRAP(err);

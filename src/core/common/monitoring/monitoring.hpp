@@ -8,7 +8,7 @@
 #ifndef AOS_CORE_COMMON_MONITORING_MONITORING_HPP_
 #define AOS_CORE_COMMON_MONITORING_MONITORING_HPP_
 
-#include <core/common/connectionprovider/connectionprovider.hpp>
+#include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/tools/error.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>

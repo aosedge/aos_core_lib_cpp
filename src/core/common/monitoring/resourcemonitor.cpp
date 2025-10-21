@@ -18,7 +18,7 @@ namespace aos::monitoring {
 // cppcheck-suppress constParameterReference
 Error ResourceMonitor::Init(const Config& config, const iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     sm::resourcemanager::ResourceManagerItf& resourceManager, ResourceUsageProviderItf& resourceUsageProvider,
-    SenderItf& monitorSender, alerts::SenderItf& alertSender, ConnectionPublisherItf& connectionPublisher)
+    SenderItf& monitorSender, alerts::SenderItf& alertSender, CloudConnectionItf& cloudConnection)
 {
     LOG_DBG() << "Init resource monitor";
 
@@ -27,7 +27,7 @@ Error ResourceMonitor::Init(const Config& config, const iam::nodeinfoprovider::N
     mResourceManager       = &resourceManager;
     mMonitorSender         = &monitorSender;
     mAlertSender           = &alertSender;
-    mConnectionPublisher   = &connectionPublisher;
+    mCloudConnection       = &cloudConnection;
 
     auto nodeInfo = MakeUnique<NodeInfoObsolete>(&mAllocator);
 
@@ -55,7 +55,7 @@ Error ResourceMonitor::Start()
 {
     LOG_DBG() << "Start monitoring";
 
-    if (auto err = mConnectionPublisher->Subscribe(*this); !err.IsNone()) {
+    if (auto err = mCloudConnection->Subscribe(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -87,7 +87,7 @@ Error ResourceMonitor::Stop()
     LOG_DBG() << "Stop monitoring";
 
     mTimer.Stop();
-    mConnectionPublisher->Unsubscribe(*this);
+    mCloudConnection->Unsubscribe(*this);
 
     if (auto err = mResourceManager->UnsubscribeCurrentNodeConfigChange(*this); !err.IsNone()) {
         LOG_ERR() << "Unsubscription on node config change failed" << Log::Field(AOS_ERROR_WRAP(err));

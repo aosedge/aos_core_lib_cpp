@@ -9,26 +9,26 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/connectionprovider/connectionprovider.hpp>
+#include <core/common/cloudconnection/itf/cloudconnection.hpp>
 
 namespace aos {
 
 /**
  * Connection subscriber mock.
  */
-class ConnectionSubscriberMock : public ConnectionSubscriberItf {
+class ConnectionSubscriberMock : public ConnectionListenerItf {
 public:
     MOCK_METHOD(void, OnConnect, (), (override));
     MOCK_METHOD(void, OnDisconnect, (), (override));
 };
 
 /**
- * Connection publisher mock.
+ * Cloud connection mock.
  */
-class ConnectionPublisherMock : public ConnectionPublisherItf {
+class CloudConnectionMock : public CloudConnectionItf {
 public:
-    MOCK_METHOD(Error, Subscribe, (ConnectionSubscriberItf & subscriber), (override));
-    MOCK_METHOD(void, Unsubscribe, (ConnectionSubscriberItf & subscriber), (override));
+    MOCK_METHOD(Error, Subscribe, (ConnectionListenerItf & listener), (override));
+    MOCK_METHOD(void, Unsubscribe, (ConnectionListenerItf & listener), (override));
 };
 
 } // namespace aos
