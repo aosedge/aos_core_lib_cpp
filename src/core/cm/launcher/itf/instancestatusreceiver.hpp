@@ -7,7 +7,6 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSRECEIVER_HPP_
 #define AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSRECEIVER_HPP_
 
-#include <core/common/tools/error.hpp>
 #include <core/common/types/envvars.hpp>
 #include <core/common/types/instance.hpp>
 
