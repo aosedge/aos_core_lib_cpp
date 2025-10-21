@@ -17,10 +17,11 @@ set(TARGET_NAME launcher)
 set(HEADERS
     itf/imageinfoprovider.hpp
     itf/instancerunner.hpp
-    itf/instancestatusreceiver.hpp
     itf/instancestatusprovider.hpp
+    itf/instancestatusreceiver.hpp
     itf/launcher.hpp
     itf/monitoringprovider.hpp
+    itf/sender.hpp
     itf/storage.hpp
 )
 

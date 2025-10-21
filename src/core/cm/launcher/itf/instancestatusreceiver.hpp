@@ -8,6 +8,7 @@
 #define AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSRECEIVER_HPP_
 
 #include <core/common/tools/error.hpp>
+#include <core/common/types/envvars.hpp>
 #include <core/common/types/instance.hpp>
 
 namespace aos::cm::launcher {
@@ -42,6 +43,15 @@ public:
      * @return Error.
      */
     virtual Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) = 0;
+
+    /**
+     * Receives env vars statuses.
+     *
+     * @param nodeID node ID.
+     * @param statuses env vars statuses.
+     * @return Error.
+     */
+    virtual Error OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvVarsInstanceStatus>& statuses) = 0;
 };
 
 } // namespace aos::cm::launcher
