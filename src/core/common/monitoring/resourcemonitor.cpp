@@ -559,8 +559,7 @@ void ResourceMonitor::ProcessMonitoring()
         }
     }
 
-    if (auto err = mResourceUsageProvider->GetNodeMonitoringData(
-            mNodeMonitoringData.mNodeID, mPartitionInfos, mNodeMonitoringData.mMonitoringData);
+    if (auto err = mResourceUsageProvider->GetNodeMonitoringData(mPartitionInfos, mNodeMonitoringData.mMonitoringData);
         !err.IsNone()) {
         LOG_ERR() << "Failed to get node monitoring data: err=" << err;
     }
