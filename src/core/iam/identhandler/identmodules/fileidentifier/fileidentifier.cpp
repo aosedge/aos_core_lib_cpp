@@ -40,14 +40,12 @@ Error FileIdentifier::Init(const Config& config)
     return ErrorEnum::eNone;
 }
 
-RetWithError<StaticString<cIDLen>> FileIdentifier::GetSystemID()
+Error FileIdentifier::GetSystemInfo(SystemInfo& info)
 {
-    return mSystemId;
-}
+    info.mSystemID  = mSystemId;
+    info.mUnitModel = mUnitModel;
 
-RetWithError<StaticString<cUnitModelLen>> FileIdentifier::GetUnitModel()
-{
-    return mUnitModel;
+    return ErrorEnum::eNone;
 }
 
 Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
