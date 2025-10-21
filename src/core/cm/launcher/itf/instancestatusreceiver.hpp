@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_SMCONTROLLER_ITF_INSTANCESTATUSRECEIVER_HPP_
-#define AOS_CORE_CM_SMCONTROLLER_ITF_INSTANCESTATUSRECEIVER_HPP_
+#ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSRECEIVER_HPP_
+#define AOS_CORE_CM_LAUNCHER_ITF_INSTANCESTATUSRECEIVER_HPP_
 
 #include <core/common/tools/error.hpp>
 #include <core/common/types/instance.hpp>
 
-namespace aos::cm::smcontroller {
+namespace aos::cm::launcher {
 
 /** @addtogroup cm Communication Manager
  *  @{
@@ -44,6 +44,6 @@ public:
     virtual Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) = 0;
 };
 
-} // namespace aos::cm::smcontroller
+} // namespace aos::cm::launcher
 
 #endif

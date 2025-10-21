@@ -3,15 +3,16 @@
 Launcher schedules update items instances on corresponding nodes and runtimes based on priorities, resources
 availability etc. The launcher handles two distinct types of instances:
 
-- **Service Instances**: Processes that run inside containers (run/crun) and are managed by systemd
-- **Component Instances**: System entities such as new root filesystems, system partitions, or other system-level components
+- `service instances`: processes that run inside containers (run/crun) and are managed by systemd;
+- `component instances`: system entities such as new root filesystems, system partitions, or other system-level
+  components;
 
 It implements the following interfaces:
 
-- [aos::cm::launcher::LauncherItf]() - main launcher interface to schedule and run instances;
-- [aos::cm::launcher::StatusNotifierItf]() - notifies other modules about instances statuses;
-- [aos::cm::smcontroller::InstanceStatusReceiverItf]() - receives instances statuses from SM controller [smcontroller]()
-module.
+- [aos::cm::launcher::LauncherItf](itf/launcher.hpp) - main launcher interface to schedule and run instances;
+- [aos::cm::launcher::InstanceStatusProviderItf](itf/instancestatusprovider.hpp) - notifies other modules about
+  instances statuses;
+- [aos::cm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - receives instances statuses.
 
 It requires the following interfaces:
 
@@ -34,11 +35,11 @@ classDiagram
         <<interface>>
     }
 
-    class StatusNotifierItf["aos::cm::launcher::StatusNotifierItf"] {
+    class InstanceStatusProviderItf["aos::cm::launcher::InstanceStatusProviderItf"] {
         <<interface>>
     }
 
-    class InstanceStatusReceiverItf["aos::cm::smcontroller::InstanceStatusReceiverItf"] {
+    class InstanceStatusReceiverItf["aos::cm::launcher::InstanceStatusReceiverItf"] {
         <<interface>>
     }
 
@@ -67,7 +68,7 @@ classDiagram
     }
 
     Launcher <|.. LauncherItf
-    Launcher <|.. StatusNotifierItf
+    Launcher <|.. InstanceStatusProviderItf
     Launcher <|.. InstanceStatusReceiverItf
     Launcher ..> NodeInfoProviderItf
     Launcher ..> ImageInfoProviderItf
