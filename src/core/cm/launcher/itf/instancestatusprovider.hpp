@@ -9,8 +9,6 @@
 
 #include <core/common/types/instance.hpp>
 
-#include <core/common/types/instance.hpp>
-
 namespace aos::cm::launcher {
 
 /** @addtogroup cm Communication Manager

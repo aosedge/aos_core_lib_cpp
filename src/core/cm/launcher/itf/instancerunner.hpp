@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
 #define AOS_CORE_CM_LAUNCHER_ITF_INSTANCERUNNER_HPP_
 
+#include <core/common/types/instance.hpp>
+
 namespace aos::cm::launcher {
 
 /** @addtogroup cm Communication Manager
