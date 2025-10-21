@@ -213,11 +213,8 @@ private:
 
 class MockResourceUsageProvider : public ResourceUsageProviderItf {
 public:
-    Error GetNodeMonitoringData(
-        const String& nodeID, const Array<PartitionInfo>& partitionInfos, MonitoringData& monitoringData) override
+    Error GetNodeMonitoringData(const Array<PartitionInfo>& partitionInfos, MonitoringData& monitoringData) override
     {
-        (void)nodeID;
-
         std::unique_lock lock {mMutex};
 
         if (!mCondVar.wait_for(lock, cWaitTimeout, [&] { return !mNodeMonitoringData.empty(); })) {
