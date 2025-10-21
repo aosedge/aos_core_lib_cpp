@@ -14,7 +14,7 @@ set(TARGET_NAME nodeinfoprovider)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/nodeinfoprovider.hpp)
+set(HEADERS itf/nodeinfoprovider.hpp itf/sminforeceiver.hpp)
 
 # ######################################################################################################################
 # Target

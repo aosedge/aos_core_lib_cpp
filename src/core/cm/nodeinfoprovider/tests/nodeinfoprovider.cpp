@@ -5,3 +5,4 @@
  */
 
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
+#include <core/cm/nodeinfoprovider/itf/sminforeceiver.hpp>
