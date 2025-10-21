@@ -12,7 +12,8 @@ It implements the following interfaces:
 - [aos::cm::launcher::LauncherItf](itf/launcher.hpp) - main launcher interface to schedule and run instances;
 - [aos::cm::launcher::InstanceStatusProviderItf](itf/instancestatusprovider.hpp) - notifies other modules about
   instances statuses;
-- [aos::cm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - receives instances statuses.
+- [aos::cm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - receives instances statuses;
+- [aos::cm::launcher::EnvVarHandlerItf](itf/envvarhandler.hpp) - overrides instances env vars.
 
 It requires the following interfaces:
 
@@ -22,7 +23,8 @@ requests, required resources, network parameters etc.;
 - [aos::cm::launcher::InstanceRunnerItf]() - runs instances on nodes;
 - [aos::cm::launcher::MonitoringProviderItf]() - gets average instances CPU and RAM consumption;
 - [aos::cm::storagestate::StorageStateItf]() - prepares storage and state for instances;
-- [aos::cm::networkmanager::NetworkManagerItf]() - configures instances notwork.
+- [aos::cm::networkmanager::NetworkManagerItf]() - configures instances notwork;
+- [aos::cm::launcher::NodeEnvVarHandlerItf]() - overrides node instances env vars.
 
 ```mermaid
 classDiagram
@@ -40,6 +42,10 @@ classDiagram
     }
 
     class InstanceStatusReceiverItf["aos::cm::launcher::InstanceStatusReceiverItf"] {
+        <<interface>>
+    }
+
+    class EnvVarHandlerItf["aos::cm::launcher::EnvVarHandlerItf"] {
         <<interface>>
     }
 
@@ -67,15 +73,21 @@ classDiagram
         <<interface>>
     }
 
+    class NodeEnvVarHandlerItf ["aos::cm::launcher::NodeEnvVarHandlerItf"] {
+        <<interface>>
+    }
+
     Launcher <|.. LauncherItf
     Launcher <|.. InstanceStatusProviderItf
     Launcher <|.. InstanceStatusReceiverItf
+    Launcher <|.. EnvVarHandlerItf
     Launcher ..> NodeInfoProviderItf
     Launcher ..> ImageInfoProviderItf
     Launcher ..> InstanceRunnerItf
     Launcher ..> MonitoringProviderItf
     Launcher ..> StorageStateItf
     Launcher ..> NetworkManagerItf
+    Launcher ..> NodeEnvVarHandlerItf
 ```
 
 ## Initialization
