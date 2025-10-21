@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/crypto/cryptoprovider.hpp>
-#include <core/common/tests/mocks/connectionprovidermock.hpp>
+#include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/mocks/monitoringmock.hpp>
 #include <core/common/tests/mocks/permhandlermock.hpp>
 #include <core/common/tests/stubs/ocispecstub.hpp>
@@ -111,7 +111,7 @@ protected:
         ASSERT_TRUE(mLauncher
                         ->Init(Config {}, mNodeInfoProvider, *mServiceManager, *mLayerManager, mResourceManager,
                             mNetworkManager, mPermHandler, mRunner, mRuntime, mResourceMonitor, *mOCIManager,
-                            *mStatusReceiver, mConnectionPublisher, *mStorage, *mCryptoProvider)
+                            *mStatusReceiver, mCloudConnection, *mStorage, *mCryptoProvider)
                         .IsNone());
 
         ASSERT_TRUE(mLauncher->Start().IsNone());
@@ -157,7 +157,7 @@ protected:
     }
 
     std::unique_ptr<Launcher>                      mLauncher;
-    NiceMock<ConnectionPublisherMock>              mConnectionPublisher;
+    NiceMock<CloudConnectionMock>                  mCloudConnection;
     std::unique_ptr<LayerManagerStub>              mLayerManager;
     NiceMock<NetworkManagerMock>                   mNetworkManager;
     NiceMock<NodeInfoProviderMock>                 mNodeInfoProvider;
