@@ -8,10 +8,10 @@
 #define AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 
 #include <core/cm/resourcemanager/resourcemanager.hpp>
-#include <core/cm/smcontroller/itf/instancestatusreceiver.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
 
 #include "itf/imageinfoprovider.hpp"
+#include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 #include "itf/storage.hpp"
 
@@ -28,7 +28,7 @@ namespace aos::cm::launcher {
 /**
  * Launcher class manages lifecycle of service instances.
  */
-class Launcher : public LauncherItf, public InstanceStatusProviderItf, private smcontroller::InstanceStatusReceiverItf {
+class Launcher : public LauncherItf, public InstanceStatusProviderItf, private InstanceStatusReceiverItf {
 public:
     /**
      * Initializes launcher object instance.
