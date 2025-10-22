@@ -444,6 +444,7 @@ void Balancer::FilterTopPriorityNodes(Map<Node*, StaticArray<const RuntimeInfo*,
 
     using NodeRuntimes = Pair<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>;
 
+    // cppcheck-suppress templateRecursion
     auto topPriorityNode = nodes.Min([](const NodeRuntimes& left, const NodeRuntimes& right) {
         return left.mFirst->GetConfig().mPriority > right.mFirst->GetConfig().mPriority;
     });
