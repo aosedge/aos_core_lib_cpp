@@ -27,3 +27,40 @@ classDiagram
 
     Alerts ..> SenderItf
 ```
+
+## Alerts cache
+
+The alerts module maintains an internal cache used to aggregate alerts, ensuring only unique entries are stored.
+Alerts are considered unique based on their payload, the timestamp is not included in the comparison.
+
+Alerts are sent to the cloud at regular intervals, with the transmission period configured through a parameter.
+
+If the cloud connection is lost, alerts cannot be sent, and the cache continues to grow until it reaches its capacity.
+Once full, new alerts are discarded. As a result, when the connection is restored, the oldest alerts (often the most
+relevant and detailed) are sent to the cloud first.
+
+## aos::cm::alerts::Alerts
+
+### Init
+
+Initializes the alerts object instance.
+
+### Start
+
+Starts the alerts object instance.
+
+### Stop
+
+Stops the alerts object instance.
+
+### OnAlertReceived
+
+Accepts an alert message, stores it in the local cache for the future sending.
+
+### OnConnect
+
+Notifies the alerts object instance that the cloud connection is established.
+
+### OnDisconnect
+
+Notifies the alerts object instance that the cloud connection is lost.
