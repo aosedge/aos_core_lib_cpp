@@ -30,6 +30,26 @@ namespace aos::cm::imagemanager {
  */
 
 /**
+ * GID range start.
+ */
+static constexpr auto cGIDRangeBegin = 5000;
+
+/**
+ * GID range end.
+ */
+static constexpr auto cGIDRangeEnd = 10000;
+
+/**
+ * Max number of locked IDs simultaneously.
+ */
+static constexpr auto cMaxNumLockedGIDs = cMaxNumInstances;
+
+/**
+ * Group ID pool
+ */
+using GIDPool = IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedGIDs>;
+
+/**
  * Image manager.
  */
 class ImageManager : public ImageManagerItf,
@@ -37,11 +57,6 @@ class ImageManager : public ImageManagerItf,
                      public smcontroller::UpdateImageProviderItf,
                      public launcher::ImageInfoProviderItf,
                      public spaceallocator::ItemRemoverItf {
-private:
-    static constexpr auto cGIDRangeBegin   = 5000;
-    static constexpr auto cGIDRangeEnd     = 10000;
-    static constexpr auto cMaxNumLockedIDs = cGIDRangeEnd - cGIDRangeBegin;
-
 public:
     /**
      * Initializes image manager.
@@ -58,8 +73,7 @@ public:
     Error Init(const Config& config, storage::StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator,
         spaceallocator::SpaceAllocatorItf& tmpSpaceAllocator, fileserver::FileServerItf& fileserver,
         crypto::CryptoHelperItf& imageDecrypter, fs::FileInfoProviderItf& fileInfoProvider,
-        ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec,
-        IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedIDs>::Validator gidValidator);
+        ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec, GIDPool::Validator gidValidator);
 
     /**
      * Starts image manager.
@@ -257,15 +271,15 @@ private:
     Error ReadDigestFromTar(
         const String& decryptedFile, const String& inputDigest, storage::ImageInfo& image, const String& tmpPath);
 
-    storage::StorageItf*                                                mStorage {};
-    spaceallocator::SpaceAllocatorItf*                                  mSpaceAllocator {};
-    spaceallocator::SpaceAllocatorItf*                                  mTmpSpaceAllocator {};
-    ImageUnpackerItf*                                                   mImageUnpacker {};
-    fileserver::FileServerItf*                                          mFileServer {};
-    crypto::CryptoHelperItf*                                            mImageDecrypter {};
-    fs::FileInfoProviderItf*                                            mFileInfoProvider {};
-    oci::OCISpecItf*                                                    mOCISpec {};
-    IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedIDs> mGIDPool;
+    storage::StorageItf*               mStorage {};
+    spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
+    spaceallocator::SpaceAllocatorItf* mTmpSpaceAllocator {};
+    ImageUnpackerItf*                  mImageUnpacker {};
+    fileserver::FileServerItf*         mFileServer {};
+    crypto::CryptoHelperItf*           mImageDecrypter {};
+    fs::FileInfoProviderItf*           mFileInfoProvider {};
+    oci::OCISpecItf*                   mOCISpec {};
+    GIDPool                            mGIDPool;
 
     StaticArray<ImageStatusListenerItf*, cMaxNumListeners> mListeners;
 
