@@ -16,7 +16,7 @@ set(SOURCES monitoring.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES GTest::gmock_main)
+set(LIBRARIES aos::core::cm::monitoring aos::core::cm::tests::mocks aos::core::common::tests::utils GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
