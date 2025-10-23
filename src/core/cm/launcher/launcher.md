@@ -17,6 +17,7 @@ It implements the following interfaces:
 
 It requires the following interfaces:
 
+- [aos::cm::launcher::StorageItf](itf/storage.hpp) - stores internal persistent data;
 - [aos::cm::nodeinfoprovider::NodeInfoProviderItf](../nodeinfoprovider/itf/nodeinfoprovider.hpp) -
   gets node information;
 - [aos::cm::launcher::ImageInfoProviderItf](itf/imageinfoprovider.hpp) - obtains image info required to schedule
@@ -53,6 +54,10 @@ classDiagram
         <<interface>>
     }
 
+    class StorageItf["aos::cm::launcher::StorageItf"] {
+        <<interface>>
+    }
+
     class NodeInfoProviderItf["aos::cm::nodeinfoprovider::NodeInfoProviderItf"] {
         <<interface>>
     }
@@ -85,10 +90,12 @@ classDiagram
         <<interface>>
     }
 
-    Launcher <|.. LauncherItf
-    Launcher <|.. InstanceStatusProviderItf
-    Launcher <|.. InstanceStatusReceiverItf
-    Launcher <|.. EnvVarHandlerItf
+    Launcher ..|> LauncherItf
+    Launcher ..|> InstanceStatusProviderItf
+    Launcher ..|> InstanceStatusReceiverItf
+    Launcher ..|> EnvVarHandlerItf
+
+    Launcher ..> StorageItf
     Launcher ..> NodeInfoProviderItf
     Launcher ..> ImageInfoProviderItf
     Launcher ..> InstanceRunnerItf
@@ -235,67 +242,6 @@ allocation, and load balancing.
 ```mermaid
 classDiagram
     %% ========================================
-    %% EXTERNAL INTERFACES
-    %% ========================================
-
-    class StorageItf {
-        <<interface>>
-    }
-
-    class StorageStateItf {
-        <<interface>>
-    }
-
-    class ImageInfoProviderItf {
-        <<interface>>
-    }
-
-    class ResourceManagerItf {
-        <<interface>>
-    }
-
-    class NodeInfoProviderItf {
-        <<interface>>
-    }
-
-    class NodeInfoListenerItf {
-        <<interface>>
-    }
-
-    class InstanceRunnerItf {
-        <<interface>>
-    }
-
-    class InstanceStatusListenerItf {
-        <<interface>>
-    }
-
-    class InstanceStatusReceiverItf {
-        <<interface>>
-    }
-
-    class NetworkManagerItf {
-        <<interface>>
-    }
-
-    class MonitoringProviderItf {
-        <<interface>>
-    }
-
-    class LauncherItf {
-        <<interface>>
-        +RunInstances(instances) Error
-        +Rebalance() Error
-    }
-
-    class InstanceStatusProviderItf {
-        <<interface>>
-        +GetInstancesStatuses(statuses) Error
-        +SubscribeListener(listener) Error
-        +UnsubscribeListener(listener) Error
-    }
-
-    %% ========================================
     %% LAUNCHER
     %% ========================================
 
@@ -308,20 +254,6 @@ classDiagram
         +SubscribeListener(listener) Error
         +UnsubscribeListener(listener) Error
     }
-
-    Launcher ..|> LauncherItf
-    Launcher ..|> InstanceStatusProviderItf
-    Launcher ..|> InstanceStatusReceiverItf
-
-    Launcher ..> StorageItf
-    Launcher ..> StorageStateItf
-    Launcher ..> NodeInfoProviderItf
-    Launcher ..> InstanceRunnerItf
-    Launcher ..> ImageInfoProviderItf
-    Launcher ..> ResourceManagerItf
-    Launcher ..> NetworkManagerItf
-    Launcher ..> MonitoringProviderItf
-    Launcher ..> InstanceStatusListenerItf
 
     %% ========================================
     %% MANAGERS & BALANCER
