@@ -19,7 +19,7 @@ namespace aos::iamclient {
  */
 class SubjectsListenerMock : public SubjectsListenerItf {
 public:
-    MOCK_METHOD(Error, SubjectsChanged, (const Array<StaticString<cIDLen>>&), (override));
+    MOCK_METHOD(void, SubjectsChanged, (const Array<StaticString<cIDLen>>&), (override));
 };
 
 /**
