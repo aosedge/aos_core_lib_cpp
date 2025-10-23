@@ -16,7 +16,7 @@ set(SOURCES alerts.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES GTest::gmock_main)
+set(LIBRARIES aos::core::cm::alerts aos::core::common::tests::utils GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
