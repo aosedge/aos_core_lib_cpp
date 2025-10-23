@@ -547,7 +547,8 @@ void ResourceMonitor::ProcessMonitoring()
             continue;
         }
 
-        instanceMonitoringData.mMonitoringData.mCPU = CPUToDMIPs(instanceMonitoringData.mMonitoringData.mCPU);
+        instanceMonitoringData.mMonitoringData.mCPU       = CPUToDMIPs(instanceMonitoringData.mMonitoringData.mCPU);
+        instanceMonitoringData.mMonitoringData.mTimestamp = mNodeMonitoringData.mTimestamp;
 
         if (auto it = mInstanceAlertProcessors.Find(instanceID); it != mInstanceAlertProcessors.end()) {
             ProcessAlerts(instanceMonitoringData.mMonitoringData, mNodeMonitoringData.mTimestamp, it->mSecond);
