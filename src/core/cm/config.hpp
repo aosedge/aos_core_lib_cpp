@@ -21,4 +21,11 @@
 #define AOS_CONFIG_CM_SERVICE_DISCOVERY_PROTOCOLS_COUNT 1
 #endif
 
+/**
+ * Alerts cache size.
+ */
+#ifndef AOS_CONFIG_CM_ALERTS_CACHE_SIZE
+#define AOS_CONFIG_CM_ALERTS_CACHE_SIZE 32
+#endif
+
 #endif
