@@ -38,8 +38,7 @@ Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, spaceallocator::SpaceAllocatorItf& tmpSpaceAllocator,
     fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& imageDecrypter,
     fs::FileInfoProviderItf& fileInfoProvider, ImageUnpackerItf& imageUnpacker, oci::OCISpecItf& ociSpec,
-    IdentifierRangePool<ImageManager::cGIDRangeBegin, ImageManager::cGIDRangeEnd,
-        ImageManager::cMaxNumLockedIDs>::Validator gidValidator)
+    GIDPool::Validator gidValidator)
 {
     LOG_DBG() << "Init image manager";
 

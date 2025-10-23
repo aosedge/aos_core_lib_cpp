@@ -4,20 +4,29 @@ Image manager stores update item images and provide update item image info for o
 
 It implements the following interfaces:
 
-* [aos::cm::imagemanager::ImageMangerItf](itf/imagemanager.hpp) - image manager to manage update items images;
-* [aos::cm::imagemanager::ImageStatusProviderItf](itf/imagestatusprovider.hpp) -
-  update image status provider to provide update images statuses;
-* [aos::cm::launcher::ImageInfoProviderItf](../launcher/itf/imageinfoprovider.hpp) - update item provider for
-  [launcher](../launcher/launcher.md) module;
-* [aos::cm::smcontroller::UpdateImageProviderItf](../smcontroller/itf/updateimageprovider.hpp) -
-  update image provider for [smcontroller](../smcontroller/smcontroller.md) module.
+* [aos::cm::imagemanager::ImageMangerItf](itf/imagemanager.hpp) - manages update items images;
+* [aos::cm::imagemanager::ImageStatusProviderItf](itf/imagestatusprovider.hpp) - provides update images statuses;
+* [aos::cm::smcontroller::UpdateImageProviderItf](../smcontroller/itf/updateimageprovider.hpp) - provides update image
+  info;
+* [aos::cm::launcher::ImageInfoProviderItf](../launcher/itf/imageinfoprovider.hpp) - provides images metadata;
+* [aos::spaceallocator::ItemRemoverItf](../../common/spaceallocator/spaceallocator.hpp) - remove outdated items.
 
 It requires the following interfaces:
 
-* TODO: add required interfaces.
+* [aos::cm::imagemanager::StorageItf](itf/storage.hpp) - stores internal persistent data;
+* [aos::spaceallocator::SpaceAllocatorItf](../../common/spaceallocator/spaceallocator.hpp) - allocates disk space for
+  calculating required disk size;
+* [aos::cm::fileserver::FileServerItf](../fileserver/itf/fileserver.hpp) - translates local file path's to remote URL's;
+* [aos::crypto::CryptoHelperItf](../../common/crypto/itf/cryptohelper.hpp) - decrypts and verifies update images;
+* [aos::fs::FileInfoProviderItf](../../common/tools/fs.hpp) - gets file info (size, checksum, etc.);
+* [aos::cm::imagemanager::ImageUnpackerItf](itf/imageunpacker.hpp) - unpacks different image types;
+* [aos::ocispec::OCISpecItf](../../common/ocispec/ocispec.hpp) - parses OCI spec files;
+* [aos::cm::imagemanager::GIDPool::Validator](imagemanager.hpp) - validates GID on the platform.
 
 ```mermaid
 classDiagram
+    direction LR
+
     class ImageManager ["aos::cm::imagemanager::ImageManager"] {
     }
 
@@ -37,10 +46,56 @@ classDiagram
         <<interface>>
     }
 
-    ImageManager <|.. ImageManagerItf
-    ImageManager <|.. ImageStatusProviderItf
-    ImageManager <|.. ImageInfoProviderItf
-    ImageManager <|.. UpdateImageProviderItf
+    class ItemRemoverItf ["aos::spaceallocator::ItemRemoverItf"] {
+        <<interface>>
+    }
+
+    class StorageItf ["aos::cm::imagemanager::StorageItf"] {
+        <<interface>>
+    }
+
+    class SpaceAllocatorItf ["aos::spaceallocator::SpaceAllocatorItf"] {
+        <<interface>>
+    }
+
+    class FileServerItf ["aos::cm::fileserver::FileServerItf"] {
+        <<interface>>
+    }
+
+    class CryptoHelperItf ["aos::crypto::CryptoHelperItf"] {
+        <<interface>>
+    }
+
+    class FileInfoProviderItf ["aos::fs::FileInfoProviderItf"] {
+        <<interface>>
+    }
+
+    class ImageUnpackerItf ["aos::cm::imagemanager::ImageUnpackerItf"] {
+        <<interface>>
+    }
+
+    class OCISpecItf ["aos::ocispec::OCISpecItf"] {
+        <<interface>>
+    }
+
+    class GIDPoolValidator ["aos::cm::imagemanager::GIDPool::Validator"] {
+        <<interface>>
+    }
+
+    ImageManager ..|> ImageManagerItf
+    ImageManager ..|> ImageStatusProviderItf
+    ImageManager ..|> ImageInfoProviderItf
+    ImageManager ..|> UpdateImageProviderItf
+    ImageManager ..|> ItemRemoverItf
+
+    ImageManager ..> StorageItf
+    ImageManager ..> SpaceAllocatorItf
+    ImageManager ..> FileServerItf
+    ImageManager ..> CryptoHelperItf
+    ImageManager ..> FileInfoProviderItf
+    ImageManager ..> ImageUnpackerItf
+    ImageManager ..> OCISpecItf
+    ImageManager ..> GIDPoolValidator
 ```
 
 ## Initialization
