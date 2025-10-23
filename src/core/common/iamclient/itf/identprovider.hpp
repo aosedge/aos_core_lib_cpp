@@ -27,7 +27,7 @@ public:
      * @param subjects subject changed messages.
      * @returns Error.
      */
-    virtual Error SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) = 0;
+    virtual void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) = 0;
 };
 
 /**
