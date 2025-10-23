@@ -23,6 +23,7 @@ classDiagram
         <<interface>>
     }
 
-    NetworkManager <|.. NetworkManagerItf
+    NetworkManager ..|> NetworkManagerItf
+
     NetworkManager ..> NodeNetworkItf
 ```
