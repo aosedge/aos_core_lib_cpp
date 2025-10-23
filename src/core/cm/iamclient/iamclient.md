@@ -37,9 +37,9 @@ classDiagram
         <<interface>>
     }
 
-    IAMClient <|.. CertHandlerItf
-    IAMClient <|.. CertProviderItf
-    IAMClient <|.. NodeHandlerItf
-    IAMClient <|.. NodeInfoProviderItf
-    IAMClient <|.. ProvisioningItf
+    IAMClient ..|> CertHandlerItf
+    IAMClient ..|> CertProviderItf
+    IAMClient ..|> NodeHandlerItf
+    IAMClient ..|> NodeInfoProviderItf
+    IAMClient ..|> ProvisioningItf
 ```
