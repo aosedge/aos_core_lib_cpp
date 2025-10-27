@@ -109,14 +109,15 @@ public:
     }
 
 private:
+    static constexpr auto cModelVersionDelimiter = ';';
+
     Error ReadSystemId();
     Error ReadUnitModel();
     Error ReadSubjects();
 
-    Config                                             mConfig {};
+    Config                                             mConfig;
     iamclient::SubjectsListenerItf*                    mSubjectsListener {};
-    StaticString<cIDLen>                               mSystemId;
-    StaticString<cIDLen>                               mUnitModel;
+    SystemInfo                                         mSystemInfo;
     StaticArray<StaticString<cIDLen>, cMaxNumSubjects> mSubjects;
 };
 

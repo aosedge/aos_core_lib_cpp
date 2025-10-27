@@ -7,7 +7,6 @@
 
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/logger.hpp>
-#include <core/common/tools/memory.hpp>
 
 #include "fileidentifier.hpp"
 
@@ -35,6 +34,8 @@ Error FileIdentifier::Init(const Config& config)
     err = ReadSubjects();
     if (!err.IsNone()) {
         LOG_WRN() << "Can't read subjects: err=" << err << ". Empty subjects will be used";
+
+        mSubjects.Clear();
     }
 
     return ErrorEnum::eNone;
@@ -42,8 +43,7 @@ Error FileIdentifier::Init(const Config& config)
 
 Error FileIdentifier::GetSystemInfo(SystemInfo& info)
 {
-    info.mSystemID  = mSystemId;
-    info.mUnitModel = mUnitModel;
+    info = mSystemInfo;
 
     return ErrorEnum::eNone;
 }
@@ -65,16 +65,37 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
 
 Error FileIdentifier::ReadSystemId()
 {
-    const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemId);
+    const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemInfo.mSystemID);
 
     return AOS_ERROR_WRAP(err);
 }
 
 Error FileIdentifier::ReadUnitModel()
 {
-    const auto err = fs::ReadFileToString(mConfig.mUnitModelPath, mUnitModel);
+    StaticString<cUnitModelLen + cVersionLen + 1>                 buffer;
+    StaticArray<StaticString<Max(cUnitModelLen, cVersionLen)>, 2> parts;
 
-    return AOS_ERROR_WRAP(err);
+    if (auto err = fs::ReadFileToString(mConfig.mUnitModelPath, buffer); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = buffer.Split(parts, cModelVersionDelimiter); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (parts.Size() != 2) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
+    if (auto err = mSystemInfo.mUnitModel.Assign(parts[0]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mSystemInfo.mVersion.Assign(parts[1]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error FileIdentifier::ReadSubjects()
