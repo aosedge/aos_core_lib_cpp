@@ -24,17 +24,17 @@ struct Config {
     /**
      * System ID path.
      */
-    StaticString<cFilePathLen> systemIDPath;
+    StaticString<cFilePathLen> mSystemIDPath;
 
     /**
      * Unit model path.
      */
-    StaticString<cFilePathLen> unitModelPath;
+    StaticString<cFilePathLen> mUnitModelPath;
 
     /**
      * Subjects path.
      */
-    StaticString<cFilePathLen> subjectsPath;
+    StaticString<cFilePathLen> mSubjectsPath;
 };
 
 /**

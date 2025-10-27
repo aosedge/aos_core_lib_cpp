@@ -66,7 +66,7 @@ const Config FileIdentifierTest::cDefaultConfig
 TEST_F(FileIdentifierTest, ReadSystemIDFails)
 {
     EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
-    fs::Remove(cDefaultConfig.systemIDPath);
+    fs::Remove(cDefaultConfig.mSystemIDPath);
 
     auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_EQ(err, Error::Enum::eRuntime) << err.Message();
@@ -77,7 +77,7 @@ TEST_F(FileIdentifierTest, ReadSystemIDFails)
 TEST_F(FileIdentifierTest, ReadUnitModelFails)
 {
     EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
-    fs::Remove(cDefaultConfig.unitModelPath);
+    fs::Remove(cDefaultConfig.mUnitModelPath);
 
     auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_EQ(err, Error::Enum::eRuntime) << err.Message();
@@ -87,7 +87,7 @@ TEST_F(FileIdentifierTest, ReadUnitModelFails)
 TEST_F(FileIdentifierTest, ReadSubjectsFails)
 {
     EXPECT_CALL(mSubjectsListener, SubjectsChanged).Times(0);
-    fs::Remove(cDefaultConfig.subjectsPath);
+    fs::Remove(cDefaultConfig.mSubjectsPath);
 
     auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_EQ(err, Error::Enum::eNone) << err.Message();
@@ -103,7 +103,7 @@ TEST_F(FileIdentifierTest, ReadSubjectsContainsMoreElementsThanExpected)
         subjects.Append("subject\n");
     }
 
-    fs::WriteStringToFile(cDefaultConfig.subjectsPath, subjects, 0600);
+    fs::WriteStringToFile(cDefaultConfig.mSubjectsPath, subjects, 0600);
 
     auto err = mFileIdentifier.Init(cDefaultConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
