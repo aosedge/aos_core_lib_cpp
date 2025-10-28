@@ -607,7 +607,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
             imageStatus.mState   = ImageStateEnum::eFailed;
             imageStatus.mError   = *err;
 
-            NotifyImageStatusChangedListeners(imageStatus);
+            NotifyImageStatusChangedListeners(status.mItemID, status.mVersion, imageStatus);
         }
     });
 
@@ -688,7 +688,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
 
             imageStatus.mError = *err;
 
-            NotifyImageStatusChangedListeners(imageStatus);
+            NotifyImageStatusChangedListeners(itemInfo.mID, itemInfo.mVersion, imageStatus);
         });
 
         if (err = item->mImages.EmplaceBack(); !err.IsNone()) {
@@ -856,7 +856,7 @@ Error ImageManager::SetItemStatus(
         imageStatus.mState   = error.IsNone() ? state.GetValue() : ImageStateEnum::eFailed;
         imageStatus.mError   = error;
 
-        NotifyImageStatusChangedListeners(imageStatus);
+        NotifyImageStatusChangedListeners(status.mItemID, status.mVersion, imageStatus);
     }
 
     return ErrorEnum::eNone;
@@ -992,13 +992,15 @@ void ImageManager::NotifyItemRemovedListeners(const String& id)
     }
 }
 
-void ImageManager::NotifyImageStatusChangedListeners(const ImageStatus& status)
+void ImageManager::NotifyImageStatusChangedListeners(
+    const String& itemID, const String& version, const ImageStatus& status)
 {
-    LOG_DBG() << "Notify image status changed listeners" << Log::Field("imageID", status.mImageID)
+    LOG_DBG() << "Notify image status changed listeners" << Log::Field("itemID", itemID)
+              << Log::Field("version", version) << Log::Field("imageID", status.mImageID)
               << Log::Field("state", status.mState);
 
     for (const auto& listener : mListeners) {
-        listener->OnImageStatusChanged(status.mImageID, status);
+        listener->OnImageStatusChanged(itemID, version, status);
     }
 }
 

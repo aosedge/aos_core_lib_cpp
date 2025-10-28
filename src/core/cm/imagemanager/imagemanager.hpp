@@ -261,7 +261,7 @@ private:
     Error              CleanupOrphanedDatabaseItems(const Array<storage::ItemInfo>& items);
     RetWithError<bool> VerifyItemIntegrity(const storage::ItemInfo& item);
     void               NotifyItemRemovedListeners(const String& id);
-    void               NotifyImageStatusChangedListeners(const ImageStatus& status);
+    void NotifyImageStatusChangedListeners(const String& itemID, const String& version, const ImageStatus& status);
 
     Error PrepareLayerMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);
     Error PrepareServiceMetadata(storage::ImageInfo& image, const String& decryptedFile, const String& tmpPath);
