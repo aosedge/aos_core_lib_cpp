@@ -8,7 +8,6 @@
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGEMANAGER_HPP_
 
 #include <core/common/crypto/itf/cryptohelper.hpp>
-#include <core/common/types/unitstatus.hpp>
 
 #include "imagestatusprovider.hpp"
 
@@ -88,14 +87,6 @@ public:
      * Destructor.
      */
     virtual ~ImageManagerItf() = default;
-
-    /**
-     * Retrieves update items statuses.
-     *
-     * @param[out] statuses list of update items statuses.
-     * @return Error.
-     */
-    virtual Error GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses) = 0;
 
     /**
      * Installs update items.

@@ -88,14 +88,6 @@ public:
     Error Stop();
 
     /**
-     * Retrieves update items statuses.
-     *
-     * @param[out] statuses list of update items statuses.
-     * @return Error.
-     */
-    Error GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses) override;
-
-    /**
      *
      * Installs update item.
      *
@@ -125,6 +117,14 @@ public:
      * @return Error.
      */
     Error RevertUpdateItems(const Array<StaticString<cIDLen>>& ids, Array<UpdateItemStatus>& statuses) override;
+
+    /**
+     * Retrieves update items statuses.
+     *
+     * @param[out] statuses list of update items statuses.
+     * @return Error.
+     */
+    Error GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses) override;
 
     /**
      * Subscribes status notifications.

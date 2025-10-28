@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGESTATUSPROVIDER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGESTATUSPROVIDER_HPP_
 
-#include <core/common/types/common.hpp>
+#include <core/common/types/unitstatus.hpp>
 
 namespace aos::cm::imagemanager {
 
@@ -46,6 +46,14 @@ public:
      * Destructor.
      */
     virtual ~ImageStatusProviderItf() = default;
+
+    /**
+     * Retrieves update items statuses.
+     *
+     * @param[out] statuses list of update items statuses.
+     * @return Error.
+     */
+    virtual Error GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses) = 0;
 
     /**
      * Subscribes status notifications.

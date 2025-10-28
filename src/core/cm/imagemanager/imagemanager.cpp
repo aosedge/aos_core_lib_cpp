@@ -117,47 +117,6 @@ Error ImageManager::Stop()
     return mTimer.Stop();
 }
 
-Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
-{
-    LockGuard lock {mMutex};
-
-    LOG_DBG() << "Get update items statuses";
-
-    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
-
-    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    for (const auto& item : *items) {
-        if (item.mState != storage::ItemStateEnum::eActive) {
-            continue;
-        }
-
-        if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        auto& status = statuses.Back();
-
-        status.mItemID  = item.mID;
-        status.mVersion = item.mVersion;
-
-        for (const auto& image : item.mImages) {
-            if (auto err = status.mStatuses.EmplaceBack(); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            auto& imageStatus = status.mStatuses.Back();
-
-            imageStatus.mImageID = image.mImageID;
-            imageStatus.mState   = ImageStateEnum::eInstalled;
-        }
-    }
-
-    return ErrorEnum::eNone;
-}
-
 Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
     Array<UpdateItemStatus>& statuses)
@@ -253,6 +212,47 @@ Error ImageManager::RevertUpdateItems(const Array<StaticString<cIDLen>>& ids, Ar
 
     mActionPool.Wait();
     mActionPool.Shutdown();
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get update items statuses";
+
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+
+    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eActive) {
+            continue;
+        }
+
+        if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto& status = statuses.Back();
+
+        status.mItemID  = item.mID;
+        status.mVersion = item.mVersion;
+
+        for (const auto& image : item.mImages) {
+            if (auto err = status.mStatuses.EmplaceBack(); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            auto& imageStatus = status.mStatuses.Back();
+
+            imageStatus.mImageID = image.mImageID;
+            imageStatus.mState   = ImageStateEnum::eInstalled;
+        }
+    }
 
     return ErrorEnum::eNone;
 }
