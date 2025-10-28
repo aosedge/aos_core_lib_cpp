@@ -32,7 +32,7 @@ public:
      * @param monitoring average monitoring data.
      * @return Error.
      */
-    virtual Error GetAverageMonitoring(const String& nodeID, monitoring::NodeMonitoringData& monitoring) const = 0;
+    virtual Error GetAverageMonitoring(const String& nodeID, aos::monitoring::NodeMonitoringData& monitoring) = 0;
 };
 
 /** @}*/
