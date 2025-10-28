@@ -18,7 +18,7 @@ class NodeInfoStorageMock : public NodeInfoStorageItf {
 public:
     MOCK_METHOD(Error, SetNodeInfo, (const NodeInfoObsolete& info), (override));
     MOCK_METHOD(Error, GetNodeInfo, (const String& nodeID, NodeInfoObsolete& nodeInfo), (const, override));
-    MOCK_METHOD(Error, GetAllNodeIds, (Array<StaticString<cIDLen>> & ids), (const, override));
+    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>> & ids), (const, override));
     MOCK_METHOD(Error, RemoveNodeInfo, (const String& nodeID), (override));
 };
 

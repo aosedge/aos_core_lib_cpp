@@ -55,7 +55,7 @@ received, it updates runtime and resource infos for the corresponding node infoo
 
 ```mermaid
 sequenceDiagram
-    nodeinfoprovider ->> iamclient: GetAllNodeIds
+    nodeinfoprovider ->> iamclient: GetAllNodeIDs
     iamclient -->> nodeinfoprovider: node ID's
 
     nodeinfoprovider ->> iamclient: SubscribeListener
@@ -95,7 +95,7 @@ sequenceDiagram
 
 ## aos::cm::nodeinfoprovider::nodeinfoprovider
 
-### GetAllNodeIds
+### GetAllNodeIDs
 
 Returns all available node ID's.
 

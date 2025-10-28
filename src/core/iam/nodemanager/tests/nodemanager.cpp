@@ -23,7 +23,7 @@ class NodeManagerTest : public Test {
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(mStorage, GetAllNodeIds(_)).WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mStorage, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eNone));
         ASSERT_TRUE(mManager.Init(mStorage).IsNone());
     }
 
@@ -66,7 +66,7 @@ TEST_F(NodeManagerTest, Init)
     NodeInfoObsolete node0 = CreateNodeInfo("node0", NodeStateObsoleteEnum::eProvisioned);
     NodeInfoObsolete node1 = CreateNodeInfo("node1", NodeStateObsoleteEnum::ePaused);
 
-    EXPECT_CALL(mStorage, GetAllNodeIds(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& dst) {
+    EXPECT_CALL(mStorage, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& dst) {
         dst.PushBack(node0.mNodeID);
         dst.PushBack(node1.mNodeID);
 
@@ -95,7 +95,7 @@ TEST_F(NodeManagerTest, Init)
 
     StaticArray<StaticString<cIDLen>, 2> ids;
 
-    ASSERT_TRUE(mManager.GetAllNodeIds(ids).IsNone());
+    ASSERT_TRUE(mManager.GetAllNodeIDs(ids).IsNone());
     EXPECT_THAT(ConvertToStl(ids), ElementsAre(node0.mNodeID, node1.mNodeID));
 }
 
@@ -153,7 +153,7 @@ TEST_F(NodeManagerTest, GetNodeInfoOk)
     EXPECT_EQ(result, info);
 }
 
-TEST_F(NodeManagerTest, GetAllNodeIds)
+TEST_F(NodeManagerTest, GetAllNodeIDs)
 {
     StaticString<cIDLen> node0 = "node0";
     StaticString<cIDLen> node1 = "node1";
@@ -166,7 +166,7 @@ TEST_F(NodeManagerTest, GetAllNodeIds)
 
     StaticArray<StaticString<cIDLen>, 2> ids;
 
-    ASSERT_TRUE(mManager.GetAllNodeIds(ids).IsNone());
+    ASSERT_TRUE(mManager.GetAllNodeIDs(ids).IsNone());
     EXPECT_THAT(ConvertToStl(ids), ElementsAre(node0, node1));
 }
 

@@ -25,7 +25,7 @@ Error NodeManager::Init(NodeInfoStorageItf& storage)
 
     auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cNodeMaxNum>>(&mAllocator);
 
-    auto err = storage.GetAllNodeIds(*nodeIDs);
+    auto err = storage.GetAllNodeIDs(*nodeIDs);
     if (!err.IsNone()) {
         return err;
     }
@@ -100,7 +100,7 @@ Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfoObsolete& nodeInfo)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const
+Error NodeManager::GetAllNodeIDs(Array<StaticString<cIDLen>>& ids) const
 {
     LockGuard lock {mMutex};
 
