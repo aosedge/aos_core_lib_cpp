@@ -10,6 +10,8 @@
 #include <core/common/crypto/itf/cryptohelper.hpp>
 #include <core/common/types/unitstatus.hpp>
 
+#include "imagestatusprovider.hpp"
+
 namespace aos::cm::imagemanager {
 
 /** @addtogroup cm Communication Manager
@@ -80,7 +82,7 @@ struct UpdateItemInfo {
 /**
  * Interface that manages update items images.
  */
-class ImageManagerItf {
+class ImageManagerItf : public ImageStatusProviderItf {
 public:
     /**
      * Destructor.
