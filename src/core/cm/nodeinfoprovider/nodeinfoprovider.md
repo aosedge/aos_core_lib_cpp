@@ -5,12 +5,16 @@ combines and provides combined node information for other CM modules.
 
 It implements the following interfaces:
 
-* [aos::cm::nodeinfoprovider::NodeInfoProviderItf]() - provides combined node info for other modules;
-* [aos::cm::smcontroller::SMInfoReceiverItf]() - receives SM statuses.
+* [aos::cm::nodeinfoprovider::NodeInfoProviderItf](itf/nodeinfoprovider.hpp) - provides combined node info for
+other modules;
+* [aos::cm::smcontroller::SMInfoReceiverItf](itf/sminforeceiver.hpp) - receives SM statuses.
+* [aos::iamclient::NodeInfoListenerItf](../../common/iamclient/itf/nodeinfoprovider.hpp) - listens for IAM node
+info changes.
 
 It requires the following interfaces:
 
-* [aos::cm::iamclient::NodeInfoProviderItf]() - retrieves IAM nodes information.
+* [aos::iamclient::NodeInfoProviderItf](../../common/iamclient/itf/nodeinfoprovider.hpp) -
+retrieves IAM nodes information.
 
 ```mermaid
 classDiagram
@@ -27,12 +31,17 @@ classDiagram
         <<interface>>
     }
 
-    class IAMNodeInfoProviderItf ["aos::cm::iamclient::NodeInfoProviderItf"] {
+    class IAMNodeInfoListenerItf ["aos::iamclient::NodeInfoListenerItf"] {
+        <<interface>>
+    }
+
+    class IAMNodeInfoProviderItf ["aos::iamclient::NodeInfoProviderItf"] {
         <<interface>>
     }
 
     NodeInfoProvider ..|> NodeInfoProviderItf
     NodeInfoProvider ..|> SMInfoReceiverItf
+    NodeInfoProvider ..|> IAMNodeInfoListenerItf
 
     NodeInfoProvider ..> IAMNodeInfoProviderItf
 ```
@@ -42,7 +51,7 @@ classDiagram
 ### Combining node info and SM info
 
 At initialization `nodeinfoprovider` gets all nodes infos from IAM and caches them internally. When new SM info
-received, it updates runtime and resource infos for the corresponding node infoo.
+received, it updates runtime and resource infos for the corresponding node info.
 
 `nodeinfoprovider` may override node state received from IAM node info if this node has SM Aos service:
 
