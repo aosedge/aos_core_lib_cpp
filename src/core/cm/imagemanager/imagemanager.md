@@ -119,10 +119,6 @@ for outdated items (with subsequent removal).
 
 ## aos::cm::imagemanager::ImageMangerItf
 
-### GetUpdateItemsStatuses
-
-Returns currently installed images statuses for each update item. It returns only active update items versions.
-
 ### InstallUpdateItems
 
 Installs update items images in parallel.
@@ -180,7 +176,11 @@ This method performs the following actions:
 * if there is only active version of requested item, it is remove from file system;
 * if there is only cached version of requested item, `not found` error is returned.
 
-## aos::cm::imagemanager::StatusNotifierItf
+## aos::cm::imagemanager::ImageStatusProviderItf
+
+### GetUpdateItemsStatuses
+
+Returns currently installed images statuses for each update item. It returns only active update items versions.
 
 Notifies subscribers about changing update item images statuses.
 
@@ -192,11 +192,11 @@ Subscribes to changing update item statuses.
 
 Unsubscribes from changing update item statuses.
 
-## aos::cm::imagemanager::StatusListenerItf
+## aos::cm::imagemanager::ImageStatusListenerItf
 
 ### OnImageStatusChanged
 
-This method is called for each registered listener image status of update item is changed.
+This method is called for each registered listener when image status of update item is changed.
 
 ### OnUpdateItemRemoved
 
