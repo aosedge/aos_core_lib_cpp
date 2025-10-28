@@ -26,7 +26,7 @@ public:
  */
 class NodeInfoProviderMock : public NodeInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetAllNodeIds, (Array<StaticString<cIDLen>> & ids), (const, override));
+    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>> & ids), (const, override));
     MOCK_METHOD(Error, GetNodeInfo, (const String& nodeID, UnitNodeInfo& nodeInfo), (const, override));
     MOCK_METHOD(Error, SubscribeListener, (NodeInfoListenerItf & listener), (override));
     MOCK_METHOD(Error, UnsubscribeListener, (NodeInfoListenerItf & listener), (override));

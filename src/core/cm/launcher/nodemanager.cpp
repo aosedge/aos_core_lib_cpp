@@ -29,7 +29,7 @@ Error NodeManager::Start()
 {
     auto nodes = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
 
-    if (auto err = mNodeInfoProvider->GetAllNodeIds(*nodes); !err.IsNone()) {
+    if (auto err = mNodeInfoProvider->GetAllNodeIDs(*nodes); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

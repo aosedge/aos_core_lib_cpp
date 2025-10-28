@@ -21,7 +21,7 @@ public:
     MOCK_METHOD(Error, SetNodeInfo, (const NodeInfoObsolete&), (override));
     MOCK_METHOD(Error, SetNodeState, (const String&, NodeStateObsolete), (override));
     MOCK_METHOD(Error, GetNodeInfo, (const String&, NodeInfoObsolete&), (const, override));
-    MOCK_METHOD(Error, GetAllNodeIds, (Array<StaticString<cIDLen>>&), (const, override));
+    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>>&), (const, override));
     MOCK_METHOD(Error, RemoveNodeInfo, (const String&), (override));
     MOCK_METHOD(Error, SubscribeNodeInfoChange, (NodeInfoListenerItf&), (override));
 };
