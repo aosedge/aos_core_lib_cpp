@@ -16,7 +16,9 @@ set(SOURCES nodeinfoprovider.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::cm::nodeinfoprovider GTest::gmock_main)
+set(LIBRARIES aos::core::cm::nodeinfoprovider aos::core::common::tests::utils aos::core::common::tests::stubs
+              aos::core::iam::nodeinfoprovider GTest::gmock_main
+)
 
 # ######################################################################################################################
 # Target

@@ -1,0 +1,84 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+
+#include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
+
+#include "nodeinfocache.hpp"
+
+namespace aos::cm::nodeinfoprovider {
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+NodeInfoCache::NodeInfoCache(const Duration waitTimeout, const NodeInfo& info)
+    : mWaitTimeout(waitTimeout)
+    , mHasSMComponent(iam::nodeinfoprovider::ContainsComponent(info, CoreComponentEnum::eSM))
+{
+    static_cast<NodeInfo&>(mNodeInfo) = info;
+}
+
+void NodeInfoCache::SetNodeInfo(const NodeInfo& info)
+{
+    mHasSMComponent                   = iam::nodeinfoprovider::ContainsComponent(info, CoreComponentEnum::eSM);
+    static_cast<NodeInfo&>(mNodeInfo) = info;
+}
+
+void NodeInfoCache::GetUnitNodeInfo(UnitNodeInfo& info) const
+{
+    info = mNodeInfo;
+
+    if (!mHasSMComponent || mSMReceived) {
+        return;
+    }
+
+    if (const auto state = info.mState; state == NodeStateEnum::eError || state == NodeStateEnum::eOffline) {
+        return;
+    }
+
+    info.mState = Time::Now().Sub(mLastUpdate) > mWaitTimeout ? NodeStateEnum::eError : NodeStateEnum::eOffline;
+}
+
+void NodeInfoCache::OnSMConnected()
+{
+    mSMReceived = false;
+    mLastUpdate = Time::Now();
+}
+
+void NodeInfoCache::OnSMDisconnected()
+{
+    mSMReceived = false;
+    mLastUpdate = Time::Now();
+}
+
+Error NodeInfoCache::OnSMReceived(const SMInfo& info)
+{
+    if (auto err = mNodeInfo.mResources.Assign(info.mResources); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mNodeInfo.mRuntimes.Assign(info.mRuntimes); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mSMReceived = true;
+    mLastUpdate = Time::Now();
+
+    return ErrorEnum::eNone;
+}
+
+bool NodeInfoCache::IsReady() const
+{
+    if (!mHasSMComponent || mSMReceived) {
+        return true;
+    }
+
+    return Time::Now().Sub(mLastUpdate) > mWaitTimeout;
+}
+
+} // namespace aos::cm::nodeinfoprovider
