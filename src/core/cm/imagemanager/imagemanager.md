@@ -82,8 +82,9 @@ classDiagram
         <<interface>>
     }
 
+    ImageManagerItf --|> ImageStatusProviderItf
+
     ImageManager ..|> ImageManagerItf
-    ImageManager ..|> ImageStatusProviderItf
     ImageManager ..|> ImageInfoProviderItf
     ImageManager ..|> UpdateImageProviderItf
     ImageManager ..|> ItemRemoverItf

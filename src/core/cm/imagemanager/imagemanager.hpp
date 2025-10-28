@@ -19,7 +19,6 @@
 
 #include "config.hpp"
 #include "itf/imagemanager.hpp"
-#include "itf/imagestatusprovider.hpp"
 #include "itf/imageunpacker.hpp"
 #include "itf/storage.hpp"
 
@@ -53,7 +52,6 @@ using GIDPool = IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedG
  * Image manager.
  */
 class ImageManager : public ImageManagerItf,
-                     public ImageStatusProviderItf,
                      public smcontroller::UpdateImageProviderItf,
                      public launcher::ImageInfoProviderItf,
                      public spaceallocator::ItemRemoverItf {
