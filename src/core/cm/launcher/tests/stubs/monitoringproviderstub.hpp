@@ -22,7 +22,7 @@ public:
         mData[nodeID] = data;
     }
 
-    Error GetAverageMonitoring(const String& nodeID, monitoring::NodeMonitoringData& monitoring) const override
+    Error GetAverageMonitoring(const String& nodeID, monitoring::NodeMonitoringData& monitoring) override
     {
         auto it = mData.find(nodeID);
         if (it == mData.end()) {
