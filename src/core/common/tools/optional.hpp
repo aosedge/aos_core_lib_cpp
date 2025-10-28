@@ -132,6 +132,7 @@ public:
         if (HasValue()) {
             GetValue().~T();
         }
+
         mHasValue = false;
     }
 
