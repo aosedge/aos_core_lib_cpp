@@ -24,10 +24,11 @@ public:
     /**
      * Notifies about image status change.
      *
-     * @param id updated image id.
-     * @param status updated image status.
+     * @param itemID update item id.
+     * @param version update image version.
+     * @param status update image status.
      */
-    virtual void OnImageStatusChanged(const String& id, const ImageStatus& status) = 0;
+    virtual void OnImageStatusChanged(const String& itemID, const String& version, const ImageStatus& status) = 0;
 
     /**
      * Notifies about update item removal.

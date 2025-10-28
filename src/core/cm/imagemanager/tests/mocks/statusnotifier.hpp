@@ -15,8 +15,8 @@ namespace aos::cm::imagemanager {
 
 class MockStatusListener : public ImageStatusListenerItf {
 public:
-    MOCK_METHOD(void, OnImageStatusChanged, (const String& id, const ImageStatus& status), (override));
-    MOCK_METHOD(void, OnUpdateItemRemoved, (const String& id), (override));
+    MOCK_METHOD(void, OnImageStatusChanged, (const String&, const String&, const ImageStatus&), (override));
+    MOCK_METHOD(void, OnUpdateItemRemoved, (const String&), (override));
 };
 
 } // namespace aos::cm::imagemanager

@@ -592,10 +592,11 @@ TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
     EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eRuntime));
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(imageInfo.mImage.mImageID, _))
-        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
-            EXPECT_EQ(status.mState, ImageStateEnum::eFailed);
-            EXPECT_EQ(status.mError, ErrorEnum::eRuntime);
+    EXPECT_CALL(mMockStatusListener,
+        OnImageStatusChanged(itemInfo.mID, itemInfo.mVersion,
+            ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eRuntime}))
+        .WillOnce(Invoke([&imageInfo](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status, (ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eRuntime}));
         }));
 
     err = mImageManager.SubscribeListener(mMockStatusListener);
@@ -663,10 +664,12 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
 
             return ErrorEnum::eNone;
         }));
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(imageInfo.mImage.mImageID, _))
-        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
-            EXPECT_EQ(status.mState, ImageStateEnum::eFailed);
-            EXPECT_EQ(status.mError, ErrorEnum::eInvalidChecksum);
+    EXPECT_CALL(mMockStatusListener,
+        OnImageStatusChanged(itemInfo.mID, itemInfo.mVersion,
+            ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eInvalidChecksum}))
+        .WillOnce(Invoke([&imageInfo](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status,
+                (ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eInvalidChecksum}));
         }));
 
     err = mImageManager.SubscribeListener(mMockStatusListener);
@@ -689,20 +692,21 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
     // cppcheck-suppress templateRecursion
     StaticArray<UpdateItemStatus, 1> statuses;
 
-    auto id = "12345678-1234-1234-1234-123456789010";
+    constexpr auto cItemID  = "12345678-1234-1234-1234-123456789010";
+    constexpr auto cImageID = "87654321-4321-4321-4321-876543210980";
 
-    auto err = ids.EmplaceBack(id);
+    auto err = ids.EmplaceBack(cItemID);
     ASSERT_TRUE(err.IsNone());
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(id), _))
-        .WillOnce(Invoke([&id](const String&, Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(cItemID), _))
+        .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
             }
 
             auto& activeItem = items.Back();
 
-            activeItem.mID        = id;
+            activeItem.mID        = cItemID;
             activeItem.mVersion   = "1.0.0";
             activeItem.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
             activeItem.mPath      = "/tmp/active-item";
@@ -713,22 +717,21 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
             }
 
             auto& imageItem    = activeItem.mImages.Back();
-            imageItem.mImageID = "87654321-4321-4321-4321-876543210980";
+            imageItem.mImageID = cImageID;
             imageItem.mPath    = "/tmp/active-image";
 
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(
-        mMockStorage, SetItemState(String(id), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
+    EXPECT_CALL(mMockStorage,
+        SetItemState(String(cItemID), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
         .WillOnce(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
-        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
-            EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
-            EXPECT_TRUE(status.mError.IsNone());
+    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _, _))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status, (ImageStatus {cImageID, ImageStateEnum::eRemoved, ErrorEnum::eNone}));
         }));
 
     err = mImageManager.SubscribeListener(mMockStatusListener);
@@ -738,7 +741,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
 
     EXPECT_TRUE(uninstallErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mItemID, id) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, cItemID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("1.0.0")) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Image should be removed";
@@ -750,20 +753,21 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
     // cppcheck-suppress templateRecursion
     StaticArray<UpdateItemStatus, 1> statuses;
 
-    auto id = "12345678-1234-1234-1234-123456789010";
+    constexpr auto cItemID  = "12345678-1234-1234-1234-123456789010";
+    constexpr auto cImageID = "87654321-4321-4321-4321-876543210980";
 
-    auto err = ids.EmplaceBack(id);
+    auto err = ids.EmplaceBack(cItemID);
     ASSERT_TRUE(err.IsNone());
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(id), _))
-        .WillOnce(Invoke([&id](const String&, Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(cItemID), _))
+        .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
             }
 
             auto& cachedItem = items.Back();
 
-            cachedItem.mID        = id;
+            cachedItem.mID        = cItemID;
             cachedItem.mVersion   = "1.0.0";
             cachedItem.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
             cachedItem.mPath      = "/tmp/cached-item";
@@ -774,21 +778,20 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
             }
 
             auto& imageItem    = cachedItem.mImages.Back();
-            imageItem.mImageID = "87654321-4321-4321-4321-876543210980";
+            imageItem.mImageID = cImageID;
             imageItem.mPath    = "/tmp/cached-image";
 
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(id))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(cItemID))).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockSpaceAllocator, FreeSpace(1024)).WillOnce(Return());
-    EXPECT_CALL(mMockStorage, RemoveItem(String(id), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
-        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
-            EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
-            EXPECT_TRUE(status.mError.IsNone());
+    EXPECT_CALL(mMockStorage, RemoveItem(String(cItemID), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _, _))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status, (ImageStatus {cImageID, ImageStateEnum::eRemoved, ErrorEnum::eNone}));
         }));
-    EXPECT_CALL(mMockStatusListener, OnUpdateItemRemoved(String(id))).WillOnce(Return());
+    EXPECT_CALL(mMockStatusListener, OnUpdateItemRemoved(String(cItemID))).WillOnce(Return());
 
     err = mImageManager.SubscribeListener(mMockStatusListener);
     ASSERT_TRUE(err.IsNone());
@@ -797,7 +800,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
 
     EXPECT_TRUE(uninstallErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
-    EXPECT_EQ(statuses[0].mItemID, id) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, cItemID) << "Status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("1.0.0")) << "Status version should match";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Image should be removed";
@@ -808,19 +811,21 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
     StaticArray<StaticString<cIDLen>, 1> ids;
     StaticArray<UpdateItemStatus, 2>     statuses;
 
-    auto id = "12345678-1234-1234-1234-123456789010";
+    constexpr auto cItemID   = "12345678-1234-1234-1234-123456789010";
+    constexpr auto cImageID1 = "87654321-4321-4321-4321-876543210980";
+    constexpr auto cImageID2 = "87654321-4321-4321-4321-876543210981";
 
-    auto err = ids.EmplaceBack(id);
+    auto err = ids.EmplaceBack(cItemID);
     ASSERT_TRUE(err.IsNone());
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(id), _))
-        .WillOnce(Invoke([&id](const String&, Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(cItemID), _))
+        .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
             }
 
             auto& activeItem      = items.Back();
-            activeItem.mID        = id;
+            activeItem.mID        = cItemID;
             activeItem.mType      = UpdateItemTypeEnum::eService;
             activeItem.mVersion   = "2.0.0";
             activeItem.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
@@ -832,7 +837,7 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
             }
 
             auto& activeImageItem    = activeItem.mImages.Back();
-            activeImageItem.mImageID = "87654321-4321-4321-4321-876543210980";
+            activeImageItem.mImageID = cImageID1;
             activeImageItem.mPath    = "/tmp/active-image";
 
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
@@ -840,7 +845,7 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
             }
 
             auto& cachedItem      = items.Back();
-            cachedItem.mID        = id;
+            cachedItem.mID        = cItemID;
             cachedItem.mType      = UpdateItemTypeEnum::eService;
             cachedItem.mVersion   = "1.0.0";
             cachedItem.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
@@ -852,29 +857,27 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
             }
 
             auto& cachedImageItem    = cachedItem.mImages.Back();
-            cachedImageItem.mImageID = "87654321-4321-4321-4321-876543210981";
+            cachedImageItem.mImageID = cImageID2;
             cachedImageItem.mPath    = "/tmp/cached-image";
 
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(id))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(cItemID))).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mMockSpaceAllocator, FreeSpace(2048)).WillOnce(Return());
-    EXPECT_CALL(mMockStorage, RemoveItem(String(id), String("2.0.0"))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(
-        mMockStorage, SetItemState(String(id), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eActive)))
+    EXPECT_CALL(mMockStorage, RemoveItem(String(cItemID), String("2.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mMockStorage,
+        SetItemState(String(cItemID), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eActive)))
         .WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _))
+    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _, _))
         .Times(2)
-        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
-            EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
-            EXPECT_TRUE(status.mError.IsNone());
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status, (ImageStatus {cImageID1, ImageStateEnum::eRemoved, ErrorEnum::eNone}));
         }))
-        .WillOnce(Invoke([](const String&, const ImageStatus& status) {
-            EXPECT_EQ(status.mState, ImageStateEnum::eInstalled);
-            EXPECT_TRUE(status.mError.IsNone());
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status, (ImageStatus {cImageID2, ImageStateEnum::eInstalled, ErrorEnum::eNone}));
         }));
-    EXPECT_CALL(mMockStatusListener, OnUpdateItemRemoved(String(id))).WillOnce(Return());
+    EXPECT_CALL(mMockStatusListener, OnUpdateItemRemoved(String(cItemID))).WillOnce(Return());
 
     err = mImageManager.SubscribeListener(mMockStatusListener);
     ASSERT_TRUE(err.IsNone());
@@ -884,12 +887,12 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
     EXPECT_TRUE(revertErr.Is(ErrorEnum::eNone));
     EXPECT_EQ(statuses.Size(), 2) << "Should return two statuses";
 
-    EXPECT_EQ(statuses[0].mItemID, id) << "First status ID should match";
+    EXPECT_EQ(statuses[0].mItemID, cItemID) << "First status ID should match";
     EXPECT_EQ(statuses[0].mVersion, String("2.0.0")) << "First status should be active version";
     EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Active version should be removed";
 
-    EXPECT_EQ(statuses[1].mItemID, id) << "Second status ID should match";
+    EXPECT_EQ(statuses[1].mItemID, cItemID) << "Second status ID should match";
     EXPECT_EQ(statuses[1].mVersion, String("1.0.0")) << "Second status should be cached version";
     EXPECT_EQ(statuses[1].mStatuses.Size(), 1) << "Should have one image status";
     EXPECT_EQ(statuses[1].mStatuses[0].mState, ImageStateEnum::eInstalled) << "Cached version should be installed";
