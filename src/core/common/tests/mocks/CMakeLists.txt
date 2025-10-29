@@ -20,6 +20,7 @@ set(HEADERS
     cloudconnectionmock.hpp
     cryptomock.hpp
     downloadermock.hpp
+    fileinfoprovidermock.hpp
     fsmock.hpp
     identprovidermock.hpp
     logprovidermock.hpp
