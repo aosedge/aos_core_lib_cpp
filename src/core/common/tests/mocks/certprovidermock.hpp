@@ -25,7 +25,6 @@ public:
 /**
  * Mocks certificate provider.
  */
-
 class CertProviderMock : public CertProviderItf {
 public:
     MOCK_METHOD(

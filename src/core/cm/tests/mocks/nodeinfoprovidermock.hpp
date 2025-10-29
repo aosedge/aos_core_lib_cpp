@@ -14,7 +14,7 @@
 namespace aos::cm::nodeinfoprovider {
 
 /**
- * NodeInfoListenerItf mock.
+ * Node info listener mock.
  */
 class NodeInfoListenerMock : public NodeInfoListenerItf {
 public:
@@ -22,14 +22,14 @@ public:
 };
 
 /**
- * NodeInfoProviderItf mock.
+ * Node info provider mock.
  */
 class NodeInfoProviderMock : public NodeInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>> & ids), (const, override));
-    MOCK_METHOD(Error, GetNodeInfo, (const String& nodeID, UnitNodeInfo& nodeInfo), (const, override));
-    MOCK_METHOD(Error, SubscribeListener, (NodeInfoListenerItf & listener), (override));
-    MOCK_METHOD(Error, UnsubscribeListener, (NodeInfoListenerItf & listener), (override));
+    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>>&), (const, override));
+    MOCK_METHOD(Error, GetNodeInfo, (const String& nodeID, UnitNodeInfo&), (const, override));
+    MOCK_METHOD(Error, SubscribeListener, (NodeInfoListenerItf&), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (NodeInfoListenerItf&), (override));
 };
 
 } // namespace aos::cm::nodeinfoprovider

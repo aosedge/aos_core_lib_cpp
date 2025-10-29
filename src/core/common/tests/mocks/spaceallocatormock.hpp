@@ -13,12 +13,18 @@
 
 namespace aos::spaceallocator {
 
+/**
+ * Item remover mock.
+ */
 class ItemRemoverMock : public ItemRemoverItf {
 public:
     MOCK_METHOD(Error, RemoveItem, (const String& id), (override));
 };
 
-class MockSpace : public SpaceItf {
+/**
+ * Space mock.
+ */
+class SpaceMock : public SpaceItf {
 public:
     MOCK_METHOD(Error, Accept, (), (override));
     MOCK_METHOD(Error, Release, (), (override));
@@ -26,7 +32,10 @@ public:
     MOCK_METHOD(size_t, Size, (), (const, override));
 };
 
-class MockSpaceAllocator : public SpaceAllocatorItf {
+/**
+ * Space allocator mock.
+ */
+class SpaceAllocatorMock : public SpaceAllocatorItf {
 public:
     MOCK_METHOD(RetWithError<UniquePtr<SpaceItf>>, AllocateSpace, (size_t size), (override));
     MOCK_METHOD(void, FreeSpace, (size_t size), (override));

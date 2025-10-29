@@ -13,7 +13,10 @@
 
 namespace aos::fs {
 
-class MockFileInfoProvider : public FileInfoProviderItf {
+/**
+ * File info provider mock.
+ */
+class FileInfoProviderMock : public FileInfoProviderItf {
 public:
     MOCK_METHOD(Error, GetFileInfo, (const String& path, FileInfo& info), (override));
 };

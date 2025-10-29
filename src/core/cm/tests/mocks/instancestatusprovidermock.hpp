@@ -14,7 +14,7 @@
 namespace aos::cm::launcher {
 
 /**
- * InstanceStatusListenerItf mock.
+ * Instance status listener mock.
  */
 class InstanceStatusListenerMock : public InstanceStatusListenerItf {
 public:
@@ -22,13 +22,13 @@ public:
 };
 
 /**
- * InstanceStatusProviderItf mock.
+ * Instance status provider mock.
  */
 class InstanceStatusProviderMock : public InstanceStatusProviderItf {
 public:
-    MOCK_METHOD(Error, GetInstancesStatuses, (Array<InstanceStatus> & statuses), (override));
-    MOCK_METHOD(Error, SubscribeListener, (InstanceStatusListenerItf & listener), (override));
-    MOCK_METHOD(Error, UnsubscribeListener, (InstanceStatusListenerItf & listener), (override));
+    MOCK_METHOD(Error, GetInstancesStatuses, (Array<InstanceStatus>&), (override));
+    MOCK_METHOD(Error, SubscribeListener, (InstanceStatusListenerItf&), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (InstanceStatusListenerItf&), (override));
 };
 
 } // namespace aos::cm::launcher
