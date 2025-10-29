@@ -10,6 +10,7 @@
 #include <core/common/types/common.hpp>
 
 namespace aos::iamclient {
+
 /**
  * Interface for receiving notification about changing node information.
  */
@@ -29,7 +30,7 @@ public:
 };
 
 /**
- * Node infor provider interface.
+ * Node info provider interface.
  */
 class NodeInfoProviderItf {
 public:
