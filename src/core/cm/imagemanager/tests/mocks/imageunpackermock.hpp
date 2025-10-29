@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_IMAGEUNPACKER_HPP_
-#define AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_IMAGEUNPACKER_HPP_
+#ifndef AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_IMAGEUNPACKERMOCK_HPP_
+#define AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_IMAGEUNPACKERMOCK_HPP_
 
 #include <gmock/gmock.h>
 
@@ -13,7 +13,10 @@
 
 namespace aos::cm::imagemanager {
 
-class MockImageUnpacker : public ImageUnpackerItf {
+/**
+ * Image unpacker mock.
+ */
+class ImageUnpackerMock : public ImageUnpackerItf {
 public:
     MOCK_METHOD(
         RetWithError<size_t>, GetUncompressedFileSize, (const String& path, const String& filePath), (override));

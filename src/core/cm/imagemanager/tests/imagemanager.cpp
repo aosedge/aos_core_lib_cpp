@@ -18,9 +18,9 @@
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tests/utils/log.hpp>
 
-#include "mocks/imageunpacker.hpp"
-#include "mocks/statusnotifier.hpp"
-#include "mocks/storage.hpp"
+#include "mocks/imageunpackermock.hpp"
+#include "mocks/statusnotifiermock.hpp"
+#include "mocks/storagemock.hpp"
 
 using namespace testing;
 
@@ -40,11 +40,11 @@ protected:
         mConfig.mTmpPath       = "/tmp/imagemanager_test/temp";
         mConfig.mUpdateItemTTL = 24 * Time::cHours;
 
-        EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
 
         EXPECT_TRUE(mImageManager
-                        .Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-                            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec,
+                        .Init(mConfig, mStorageMock, mSpaceAllocatorMock, mTmpSpaceAllocatorMock, mFileServerMock,
+                            mImageDecrypterMock, mFileInfoProviderMock, mImageUnpackerMock, mOCISpecMock,
                             [](size_t) { return true; })
                         .IsNone());
     }
@@ -58,16 +58,16 @@ protected:
     Config                                         mConfig;
     ImageManager                                   mImageManager;
     StaticAllocator<1024 * 5, 20>                  mAllocator;
-    StrictMock<MockStorage>                        mMockStorage;
-    StrictMock<spaceallocator::MockSpaceAllocator> mMockSpaceAllocator;
-    StrictMock<spaceallocator::MockSpaceAllocator> mMockTmpSpaceAllocator;
-    StrictMock<fileserver::MockFileServer>         mMockFileServer;
-    StrictMock<crypto::CryptoHelperMock>           mMockImageDecrypter;
-    StrictMock<fs::MockFileInfoProvider>           mMockFileInfoProvider;
-    StrictMock<spaceallocator::MockSpace>          mMockSpace;
-    StrictMock<MockStatusListener>                 mMockStatusListener;
-    StrictMock<MockImageUnpacker>                  mMockImageUnpacker;
-    StrictMock<oci::OCISpecMock>                   mMockOCISpec;
+    StrictMock<StorageMock>                        mStorageMock;
+    StrictMock<spaceallocator::SpaceAllocatorMock> mSpaceAllocatorMock;
+    StrictMock<spaceallocator::SpaceAllocatorMock> mTmpSpaceAllocatorMock;
+    StrictMock<fileserver::FileServerMock>         mFileServerMock;
+    StrictMock<crypto::CryptoHelperMock>           mImageDecrypterMock;
+    StrictMock<fs::FileInfoProviderMock>           mFileInfoProviderMock;
+    StrictMock<spaceallocator::SpaceMock>          mSpaceMock;
+    StrictMock<StatusListenerMock>                 mStatusListenerMock;
+    StrictMock<ImageUnpackerMock>                  mImageUnpackerMock;
+    StrictMock<oci::OCISpecMock>                   mOCISpecMock;
 };
 
 /***********************************************************************************************************************
@@ -110,20 +110,20 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
         imageInfo.mSHA256.PushBack(0x03);
     }
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(_, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(_, _))
         .Times(5)
         .WillRepeatedly(DoAll(Invoke([](const String&, Array<storage::ItemInfo>& items) {
             items.Clear();
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockSpaceAllocator, AllocateSpace(_)).Times(5).WillRepeatedly(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).Times(5).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Accept()).WillOnce(Return(ErrorEnum::eNone));
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageDecrypterMock, ValidateSigns(_, _, _, _)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
         .Times(5)
         .WillRepeatedly(DoAll(Invoke([&itemsInfo](const String& path, fs::FileInfo& info) {
             for (const auto& item : itemsInfo) {
@@ -146,22 +146,22 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockFileServer, TranslateFilePathURL(_, _))
+    EXPECT_CALL(mFileServerMock, TranslateFilePathURL(_, _))
         .Times(5)
         .WillRepeatedly(DoAll(Invoke([](const String&, String& outURL) {
             outURL = "http://test-url";
 
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockTmpSpaceAllocator, AllocateSpace(_)).Times(13).WillRepeatedly(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mTmpSpaceAllocatorMock, AllocateSpace(_)).Times(13).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageUnpacker, GetUncompressedFileSize(_, _))
+    EXPECT_CALL(mImageUnpackerMock, GetUncompressedFileSize(_, _))
         .Times(13)
         .WillRepeatedly(Return(RetWithError<size_t>(128)));
-    EXPECT_CALL(mMockImageUnpacker, ExtractFileFromArchive(_, _, _))
+    EXPECT_CALL(mImageUnpackerMock, ExtractFileFromArchive(_, _, _))
         .Times(13)
         .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
             std::ofstream file(outputPath.CStr());
@@ -170,7 +170,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockOCISpec, LoadImageManifest(_, _))
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .Times(4)
         .WillRepeatedly(DoAll(Invoke([](const String&, oci::ImageManifest& manifest) {
             manifest.mConfig.mDigest = "sha256:configDigest";
@@ -179,7 +179,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockStorage, AddItem(_)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, AddItem(_)).Times(5).WillRepeatedly(Return(ErrorEnum::eNone));
 
     auto err = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
 
@@ -229,7 +229,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
     imageInfo.mSHA256.PushBack(0x00);
     imageInfo.mSHA256.PushBack(0x00);
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(itemInfo.mID, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
         // cppcheck-suppress templateRecursion
         .WillOnce(Invoke([&itemInfo](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
@@ -246,39 +246,39 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
 
             return ErrorEnum::eNone;
         }));
-    EXPECT_CALL(mMockSpaceAllocator, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Accept()).WillOnce(Return(ErrorEnum::eNone));
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageDecrypterMock, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
         .WillOnce(DoAll(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
             info.mSize   = imageInfo.mSize;
             info.mSHA256 = imageInfo.mSHA256;
 
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockFileServer, TranslateFilePathURL(_, _)).WillOnce(DoAll(Invoke([](const String&, String& outURL) {
+    EXPECT_CALL(mFileServerMock, TranslateFilePathURL(_, _)).WillOnce(DoAll(Invoke([](const String&, String& outURL) {
         outURL = "http://test-url-2.0.0";
 
         return ErrorEnum::eNone;
     })));
     EXPECT_CALL(
-        mMockStorage, SetItemState(itemInfo.mID, String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
+        mStorageMock, SetItemState(itemInfo.mID, String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
         .WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
     // Metadata parsing expectations for service image
-    EXPECT_CALL(mMockTmpSpaceAllocator, AllocateSpace(_)).Times(3).WillRepeatedly(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mTmpSpaceAllocatorMock, AllocateSpace(_)).Times(3).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageUnpacker, GetUncompressedFileSize(_, _))
+    EXPECT_CALL(mImageUnpackerMock, GetUncompressedFileSize(_, _))
         .Times(3)
         .WillRepeatedly(Return(RetWithError<size_t>(128)));
-    EXPECT_CALL(mMockImageUnpacker, ExtractFileFromArchive(_, _, _))
+    EXPECT_CALL(mImageUnpackerMock, ExtractFileFromArchive(_, _, _))
         .Times(3)
         .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
             std::ofstream file(outputPath.CStr());
@@ -286,14 +286,14 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionCachesPrevious)
             file.close();
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockOCISpec, LoadImageManifest(_, _))
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillOnce(DoAll(Invoke([](const String&, oci::ImageManifest& manifest) {
             manifest.mConfig.mDigest = "sha256:configDigest";
             manifest.mAosService.EmplaceValue();
             manifest.mAosService->mDigest = "sha256:serviceDigest";
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockStorage, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
     auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
     EXPECT_TRUE(installErr.IsNone()) << "InstallUpdateItems should succeed";
@@ -338,7 +338,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
     imageInfo.mSHA256.PushBack(0x00);
     imageInfo.mSHA256.PushBack(0x00);
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(itemInfo.mID, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
         .WillOnce(Invoke([&itemInfo](const String&, Array<storage::ItemInfo>& items) -> Error {
             auto err = items.EmplaceBack();
             if (!err.IsNone()) {
@@ -371,43 +371,43 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockSpaceAllocator, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Accept()).WillOnce(Return(ErrorEnum::eNone));
 
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageDecrypterMock, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
         .WillOnce(DoAll(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
             info.mSize   = imageInfo.mSize;
             info.mSHA256 = imageInfo.mSHA256;
 
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockFileServer, TranslateFilePathURL(_, _)).WillOnce(DoAll(Invoke([](const String&, String& outURL) {
+    EXPECT_CALL(mFileServerMock, TranslateFilePathURL(_, _)).WillOnce(DoAll(Invoke([](const String&, String& outURL) {
         outURL = "http://test-url-3.0.0";
 
         return ErrorEnum::eNone;
     })));
     EXPECT_CALL(
-        mMockStorage, SetItemState(itemInfo.mID, String("2.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
+        mStorageMock, SetItemState(itemInfo.mID, String("2.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
         .WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(itemInfo.mID))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockSpaceAllocator, FreeSpace(1024)).WillOnce(Return());
-    EXPECT_CALL(mMockStorage, RemoveItem(itemInfo.mID, String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String(itemInfo.mID))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(1024)).WillOnce(Return());
+    EXPECT_CALL(mStorageMock, RemoveItem(itemInfo.mID, String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
     // Metadata parsing expectations for service image
-    EXPECT_CALL(mMockTmpSpaceAllocator, AllocateSpace(_)).Times(3).WillRepeatedly(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mTmpSpaceAllocatorMock, AllocateSpace(_)).Times(3).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageUnpacker, GetUncompressedFileSize(_, _))
+    EXPECT_CALL(mImageUnpackerMock, GetUncompressedFileSize(_, _))
         .Times(3)
         .WillRepeatedly(Return(RetWithError<size_t>(128)));
-    EXPECT_CALL(mMockImageUnpacker, ExtractFileFromArchive(_, _, _))
+    EXPECT_CALL(mImageUnpackerMock, ExtractFileFromArchive(_, _, _))
         .Times(3)
         .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
             std::ofstream file(outputPath.CStr());
@@ -415,15 +415,15 @@ TEST_F(ImageManagerTest, InstallUpdateItems_NewVersionRemovesCachedVersion)
             file.close();
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockOCISpec, LoadImageManifest(_, _))
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillOnce(DoAll(Invoke([](const String&, oci::ImageManifest& manifest) {
             manifest.mConfig.mDigest = "sha256:configDigest";
             manifest.mAosService.EmplaceValue();
             manifest.mAosService->mDigest = "sha256:serviceDigest";
             return ErrorEnum::eNone;
         })));
-    EXPECT_CALL(mMockStorage, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
     auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
     EXPECT_TRUE(installErr.IsNone()) << "InstallUpdateItems should succeed";
@@ -464,7 +464,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SameVersionAlreadyExists)
     imageInfo.mSHA256.Clear();
     imageInfo.mSHA256.PushBack(0xFF);
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(itemInfo.mID, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
         .WillOnce(Invoke([&itemInfo](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -521,7 +521,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_OlderVersionWrongState)
     imageInfo.mSHA256.Clear();
     imageInfo.mSHA256.PushBack(0xFF);
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(itemInfo.mID, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
         .WillOnce(Invoke([&itemInfo](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -578,28 +578,28 @@ TEST_F(ImageManagerTest, InstallUpdateItems_DecryptionFailed)
     imageInfo.mSHA256.Clear();
     imageInfo.mSHA256.PushBack(0xFF);
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(itemInfo.mID, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
         .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             items.Clear();
 
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockSpaceAllocator, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
 
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eRuntime));
-    EXPECT_CALL(mMockStatusListener,
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eRuntime));
+    EXPECT_CALL(mStatusListenerMock,
         OnImageStatusChanged(itemInfo.mID, itemInfo.mVersion,
             ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eRuntime}))
         .WillOnce(Invoke([&imageInfo](const String&, const String&, const ImageStatus& status) {
             EXPECT_EQ(status, (ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eRuntime}));
         }));
 
-    err = mImageManager.SubscribeListener(mMockStatusListener);
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
     ASSERT_TRUE(err.IsNone());
 
     auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
@@ -642,21 +642,21 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
     imageInfo.mSHA256.Clear();
     imageInfo.mSHA256.PushBack(0xAA);
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(itemInfo.mID, _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
         .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             items.Clear();
 
             return ErrorEnum::eNone;
         }));
-    EXPECT_CALL(mMockSpaceAllocator, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
-        auto mockSpace = aos::MakeUnique<spaceallocator::MockSpace>(&mAllocator);
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
         EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
 
         return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
     }));
-    EXPECT_CALL(mMockImageDecrypter, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockImageDecrypter, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(_, _))
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageDecrypterMock, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
         .WillOnce(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
             info.mSize = imageInfo.mSize;
             info.mSHA256.Clear();
@@ -664,7 +664,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
 
             return ErrorEnum::eNone;
         }));
-    EXPECT_CALL(mMockStatusListener,
+    EXPECT_CALL(mStatusListenerMock,
         OnImageStatusChanged(itemInfo.mID, itemInfo.mVersion,
             ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eInvalidChecksum}))
         .WillOnce(Invoke([&imageInfo](const String&, const String&, const ImageStatus& status) {
@@ -672,7 +672,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_InvalidHashValidation)
                 (ImageStatus {imageInfo.mImage.mImageID, ImageStateEnum::eFailed, ErrorEnum::eInvalidChecksum}));
         }));
 
-    err = mImageManager.SubscribeListener(mMockStatusListener);
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
     ASSERT_TRUE(err.IsNone());
 
     auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
@@ -698,7 +698,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
     auto err = ids.EmplaceBack(cItemID);
     ASSERT_TRUE(err.IsNone());
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(cItemID), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(cItemID), _))
         .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -723,18 +723,18 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_ActiveToCached)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockStorage,
+    EXPECT_CALL(mStorageMock,
         SetItemState(String(cItemID), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eCached)))
         .WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mMockSpaceAllocator, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _, _))
+    EXPECT_CALL(mStatusListenerMock, OnImageStatusChanged(_, _, _))
         .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
             EXPECT_EQ(status, (ImageStatus {cImageID, ImageStateEnum::eRemoved, ErrorEnum::eNone}));
         }));
 
-    err = mImageManager.SubscribeListener(mMockStatusListener);
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
     ASSERT_TRUE(err.IsNone());
 
     auto uninstallErr = mImageManager.UninstallUpdateItems(ids, statuses);
@@ -759,7 +759,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
     auto err = ids.EmplaceBack(cItemID);
     ASSERT_TRUE(err.IsNone());
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(cItemID), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(cItemID), _))
         .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -784,16 +784,16 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(cItemID))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockSpaceAllocator, FreeSpace(1024)).WillOnce(Return());
-    EXPECT_CALL(mMockStorage, RemoveItem(String(cItemID), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _, _))
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String(cItemID))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(1024)).WillOnce(Return());
+    EXPECT_CALL(mStorageMock, RemoveItem(String(cItemID), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStatusListenerMock, OnImageStatusChanged(_, _, _))
         .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
             EXPECT_EQ(status, (ImageStatus {cImageID, ImageStateEnum::eRemoved, ErrorEnum::eNone}));
         }));
-    EXPECT_CALL(mMockStatusListener, OnUpdateItemRemoved(String(cItemID))).WillOnce(Return());
+    EXPECT_CALL(mStatusListenerMock, OnUpdateItemRemoved(String(cItemID))).WillOnce(Return());
 
-    err = mImageManager.SubscribeListener(mMockStatusListener);
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
     ASSERT_TRUE(err.IsNone());
 
     auto uninstallErr = mImageManager.UninstallUpdateItems(ids, statuses);
@@ -818,7 +818,7 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
     auto err = ids.EmplaceBack(cItemID);
     ASSERT_TRUE(err.IsNone());
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(cItemID), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(cItemID), _))
         .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -863,13 +863,13 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockSpaceAllocator, RestoreOutdatedItem(String(cItemID))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockSpaceAllocator, FreeSpace(2048)).WillOnce(Return());
-    EXPECT_CALL(mMockStorage, RemoveItem(String(cItemID), String("2.0.0"))).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockStorage,
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String(cItemID))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(2048)).WillOnce(Return());
+    EXPECT_CALL(mStorageMock, RemoveItem(String(cItemID), String("2.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock,
         SetItemState(String(cItemID), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eActive)))
         .WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mMockStatusListener, OnImageStatusChanged(_, _, _))
+    EXPECT_CALL(mStatusListenerMock, OnImageStatusChanged(_, _, _))
         .Times(2)
         .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
             EXPECT_EQ(status, (ImageStatus {cImageID1, ImageStateEnum::eRemoved, ErrorEnum::eNone}));
@@ -877,9 +877,9 @@ TEST_F(ImageManagerTest, RevertUpdateItems_ActiveRemovedCachedActivated)
         .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
             EXPECT_EQ(status, (ImageStatus {cImageID2, ImageStateEnum::eInstalled, ErrorEnum::eNone}));
         }));
-    EXPECT_CALL(mMockStatusListener, OnUpdateItemRemoved(String(cItemID))).WillOnce(Return());
+    EXPECT_CALL(mStatusListenerMock, OnUpdateItemRemoved(String(cItemID))).WillOnce(Return());
 
-    err = mImageManager.SubscribeListener(mMockStatusListener);
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
     ASSERT_TRUE(err.IsNone());
 
     auto revertErr = mImageManager.RevertUpdateItems(ids, statuses);
@@ -902,7 +902,7 @@ TEST_F(ImageManagerTest, GetUpdateItemsStatuses_Success)
 {
     StaticArray<UpdateItemStatus, 4> statuses;
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -1002,7 +1002,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfo_Success)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1073,7 +1073,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfo_NotFound_NoActiveItem)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1105,7 +1105,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfo_NotFound_NoPlatformMatch)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1142,7 +1142,7 @@ TEST_F(ImageManagerTest, GetItemVersion_Success)
 {
     auto itemId = "11111111-1111-1111-1111-111111111111";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1181,7 +1181,7 @@ TEST_F(ImageManagerTest, GetItemVersion_NotFound_NoActiveItem)
 {
     auto itemId = "11111111-1111-1111-1111-111111111111";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1210,7 +1210,7 @@ TEST_F(ImageManagerTest, GetItemImages_Success)
 
     StaticArray<ImageInfo, 5> imagesInfos;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1294,7 +1294,7 @@ TEST_F(ImageManagerTest, GetItemImages_NoActiveItems)
 
     StaticArray<ImageInfo, 5> imagesInfos;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1333,7 +1333,7 @@ TEST_F(ImageManagerTest, GetServiceConfig_Success)
     auto itemId  = "99999999-9999-9999-9999-999999999999";
     auto imageId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1383,7 +1383,7 @@ TEST_F(ImageManagerTest, GetServiceConfig_Success)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockOCISpec, ServiceConfigFromJSON(String("service-config-data"), _))
+    EXPECT_CALL(mOCISpecMock, ServiceConfigFromJSON(String("service-config-data"), _))
         .WillOnce(DoAll(Invoke([](const String&, oci::ServiceConfig& svc) {
             svc.mAuthor             = "author";
             svc.mSkipResourceLimits = true;
@@ -1411,7 +1411,7 @@ TEST_F(ImageManagerTest, GetServiceConfig_NotFound_NoMetadata)
     auto itemId  = "99999999-9999-9999-9999-999999999999";
     auto imageId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1442,7 +1442,7 @@ TEST_F(ImageManagerTest, GetImageConfig_Success)
     auto itemId  = "11112222-3333-4444-5555-666677778888";
     auto imageId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1492,7 +1492,7 @@ TEST_F(ImageManagerTest, GetImageConfig_Success)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockOCISpec, ImageSpecFromJSON(String("image-spec-data"), _))
+    EXPECT_CALL(mOCISpecMock, ImageSpecFromJSON(String("image-spec-data"), _))
         .WillOnce(DoAll(Invoke([](const String&, oci::ImageSpec& spec) {
             spec.mConfig.mWorkingDir = "/work";
             auto err                 = spec.mConfig.mEnv.EmplaceBack();
@@ -1522,7 +1522,7 @@ TEST_F(ImageManagerTest, GetImageConfig_NotFound_NoMetadata)
     auto itemId  = "11112222-3333-4444-5555-666677778888";
     auto imageId = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1554,7 +1554,7 @@ TEST_F(ImageManagerTest, GetLayerImageInfo_Success)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -1602,7 +1602,7 @@ TEST_F(ImageManagerTest, GetLayerImageInfo_Success)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mMockOCISpec, ContentDescriptorFromJSON(String("layer-descriptor-data"), _))
+    EXPECT_CALL(mOCISpecMock, ContentDescriptorFromJSON(String("layer-descriptor-data"), _))
         .WillOnce(DoAll(Invoke([&layerDigest](const String&, oci::ContentDescriptor& descriptor) {
             descriptor.mMediaType = "application/vnd.oci.image.layer.v1.tar";
             descriptor.mDigest    = ("sha256:" + layerDigest).c_str();
@@ -1631,7 +1631,7 @@ TEST_F(ImageManagerTest, GetLayerImageInfo_NotFound_NoMatchingDigest)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -1658,7 +1658,7 @@ TEST_F(ImageManagerTest, GetLayerImageInfo_NotFound_NoMatchingDigest)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mMockOCISpec, ContentDescriptorFromJSON(String("different-layer-descriptor-data"), _))
+    EXPECT_CALL(mOCISpecMock, ContentDescriptorFromJSON(String("different-layer-descriptor-data"), _))
         .WillOnce(DoAll(Invoke([](const String&, oci::ContentDescriptor& descriptor) {
             descriptor.mMediaType = "application/vnd.oci.image.layer.v1.tar";
             descriptor.mDigest    = "sha256:differentdigest0000000000";
@@ -1677,7 +1677,7 @@ TEST_F(ImageManagerTest, GetServiceGID_Success)
     auto  itemId      = "service-id-1111-1111-1111-111111111111";
     gid_t expectedGID = 5001;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId, expectedGID](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1703,7 +1703,7 @@ TEST_F(ImageManagerTest, GetServiceGID_NotFound_NoActiveItem)
 {
     auto itemId = "service-id-2222-2222-2222-222222222222";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1729,7 +1729,7 @@ TEST_F(ImageManagerTest, GetServiceGID_NotFound_ItemIsLayer)
 {
     auto itemId = "layer-id-3333-3333-3333-333333333333";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -1755,7 +1755,7 @@ TEST_F(ImageManagerTest, GetServiceGID_NotFound_NoItems)
 {
     auto itemId = "nonexistent-id-4444-4444-444444444444";
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([](const String&, Array<storage::ItemInfo>& items) -> Error {
             items.Clear();
             return ErrorEnum::eNone;
@@ -1772,7 +1772,7 @@ TEST_F(ImageManagerTest, GetServiceGID_MultipleItems_ReturnsActiveService)
     auto  itemId      = "service-id-5555-5555-5555-555555555555";
     gid_t expectedGID = 5010;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId, expectedGID](const String&, Array<storage::ItemInfo>& items) -> Error {
             // Add cached item (should be skipped)
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
@@ -1842,7 +1842,7 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesOrphanedDirectories)
     ASSERT_TRUE(err4.IsNone());
     ASSERT_TRUE(orphan2Exists);
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(1).WillOnce(Invoke([](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -1871,8 +1871,8 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesOrphanedDirectories)
 
     auto newImageManager = std::make_unique<ImageManager>();
     auto initErr
-        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+        = newImageManager->Init(mConfig, mStorageMock, mSpaceAllocatorMock, mTmpSpaceAllocatorMock, mFileServerMock,
+            mImageDecrypterMock, mFileInfoProviderMock, mImageUnpackerMock, mOCISpecMock, [](size_t) { return true; });
 
     ASSERT_TRUE(initErr.IsNone()) << "Init should succeed";
 
@@ -1899,7 +1899,7 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesItemsWithMissingDirectory)
     auto itemVersion = "1.0.0";
     auto itemPath    = fs::JoinPath(mConfig.mInstallPath, "items", itemVersion);
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -1916,14 +1916,14 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesItemsWithMissingDirectory)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mMockStorage, RemoveItem(String(itemId), String(itemVersion)))
+    EXPECT_CALL(mStorageMock, RemoveItem(String(itemId), String(itemVersion)))
         .Times(1)
         .WillOnce(Return(ErrorEnum::eNone));
 
     auto newImageManager = std::make_unique<ImageManager>();
     auto initErr
-        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+        = newImageManager->Init(mConfig, mStorageMock, mSpaceAllocatorMock, mTmpSpaceAllocatorMock, mFileServerMock,
+            mImageDecrypterMock, mFileInfoProviderMock, mImageUnpackerMock, mOCISpecMock, [](size_t) { return true; });
 
     ASSERT_TRUE(initErr.IsNone()) << "Init should succeed and cleanup orphaned DB item";
 }
@@ -1948,7 +1948,7 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesItemsWithInvalidChecksum)
     calculatedSHA256.PushBack(0xBB);
     calculatedSHA256.PushBack(0xCC);
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -1974,21 +1974,21 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemovesItemsWithInvalidChecksum)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(String(imagePath), _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(String(imagePath), _))
         .Times(1)
         .WillOnce(Invoke([&](const String&, fs::FileInfo& info) -> Error {
             info.mSHA256 = calculatedSHA256;
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockStorage, RemoveItem(String(itemId), String(itemVersion)))
+    EXPECT_CALL(mStorageMock, RemoveItem(String(itemId), String(itemVersion)))
         .Times(1)
         .WillOnce(Return(ErrorEnum::eNone));
 
     auto newImageManager = std::make_unique<ImageManager>();
     auto initErr
-        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+        = newImageManager->Init(mConfig, mStorageMock, mSpaceAllocatorMock, mTmpSpaceAllocatorMock, mFileServerMock,
+            mImageDecrypterMock, mFileInfoProviderMock, mImageUnpackerMock, mOCISpecMock, [](size_t) { return true; });
 
     ASSERT_TRUE(initErr.IsNone()) << "Init should succeed and cleanup corrupted item";
 
@@ -2007,7 +2007,7 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemoveItemsWithTemporaryErrors)
     fs::MakeDirAll(itemPath);
     fs::WriteStringToFile(imagePath, "valid content", 0664);
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -2032,16 +2032,16 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_RemoveItemsWithTemporaryErrors)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(String(imagePath), _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(String(imagePath), _))
         .Times(1)
         .WillOnce(Return(ErrorEnum::eRuntime));
 
-    EXPECT_CALL(mMockStorage, RemoveItem(_, _)).Times(1);
+    EXPECT_CALL(mStorageMock, RemoveItem(_, _)).Times(1);
 
     auto newImageManager = std::make_unique<ImageManager>();
     auto initErr
-        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+        = newImageManager->Init(mConfig, mStorageMock, mSpaceAllocatorMock, mTmpSpaceAllocatorMock, mFileServerMock,
+            mImageDecrypterMock, mFileInfoProviderMock, mImageUnpackerMock, mOCISpecMock, [](size_t) { return true; });
 
     ASSERT_TRUE(initErr.IsNone()) << "Init should succeed";
 
@@ -2066,7 +2066,7 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_ValidItemPassesIntegrityCheck)
     correctSHA256.PushBack(0xBE);
     correctSHA256.PushBack(0xEF);
 
-    EXPECT_CALL(mMockStorage, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(1).WillOnce(Invoke([&](Array<storage::ItemInfo>& items) -> Error {
         if (auto err = items.EmplaceBack(); !err.IsNone()) {
             return err;
         }
@@ -2092,19 +2092,19 @@ TEST_F(ImageManagerTest, CleanupOrphanedItems_ValidItemPassesIntegrityCheck)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mMockFileInfoProvider, GetFileInfo(String(imagePath), _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(String(imagePath), _))
         .Times(1)
         .WillOnce(Invoke([&](const String&, fs::FileInfo& info) -> Error {
             info.mSHA256 = correctSHA256;
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mMockStorage, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mStorageMock, RemoveItem(_, _)).Times(0);
 
     auto newImageManager = std::make_unique<ImageManager>();
     auto initErr
-        = newImageManager->Init(mConfig, mMockStorage, mMockSpaceAllocator, mMockTmpSpaceAllocator, mMockFileServer,
-            mMockImageDecrypter, mMockFileInfoProvider, mMockImageUnpacker, mMockOCISpec, [](size_t) { return true; });
+        = newImageManager->Init(mConfig, mStorageMock, mSpaceAllocatorMock, mTmpSpaceAllocatorMock, mFileServerMock,
+            mImageDecrypterMock, mFileInfoProviderMock, mImageUnpackerMock, mOCISpecMock, [](size_t) { return true; });
 
     ASSERT_TRUE(initErr.IsNone()) << "Init should succeed";
 
@@ -2120,7 +2120,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_Success)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId, &imageId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -2167,7 +2167,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_NotFound_NoActiveItem)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -2194,7 +2194,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_NotFound_NoMatchingImageID)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId, &otherImageId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
@@ -2227,7 +2227,7 @@ TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_Success_MultipleImages)
 
     smcontroller::UpdateImageInfo info;
 
-    EXPECT_CALL(mMockStorage, GetItemVersionsByID(String(itemId), _))
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(itemId), _))
         .WillOnce(Invoke([&itemId, &targetImageId](const String&, Array<storage::ItemInfo>& items) -> Error {
             if (auto err = items.EmplaceBack(); !err.IsNone()) {
                 return err;
