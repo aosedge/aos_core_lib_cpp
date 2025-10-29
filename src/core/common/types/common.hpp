@@ -44,9 +44,14 @@ constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
 constexpr auto cMaxNumUpdateItems = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS;
 
 /**
+ * Max number of instances per update item.
+ */
+constexpr auto cMaxNumUpdateItemInstances = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEM_INSTANCES;
+
+/**
  * Max number of instances.
  */
-constexpr auto cMaxNumInstances = AOS_CONFIG_TYPES_MAX_NUM_INSTANCES;
+constexpr auto cMaxNumInstances = cMaxNumUpdateItemInstances * cMaxNumUpdateItems;
 
 /**
  * Node type len.

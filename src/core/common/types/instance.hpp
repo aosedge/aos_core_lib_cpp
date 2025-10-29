@@ -84,6 +84,7 @@ using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 struct InstanceStatusData {
     StaticString<cIDLen>                      mNodeID;
     StaticString<cIDLen>                      mRuntimeID;
+    StaticString<cIDLen>                      mImageID;
     StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
     InstanceState                             mState;
     Error                                     mError;
@@ -96,8 +97,8 @@ struct InstanceStatusData {
      */
     bool operator==(const InstanceStatusData& rhs) const
     {
-        return mStateChecksum == rhs.mStateChecksum && mState == rhs.mState && mNodeID == rhs.mNodeID
-            && mRuntimeID == rhs.mRuntimeID && mError == rhs.mError;
+        return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mImageID == rhs.mImageID
+            && mStateChecksum == rhs.mStateChecksum && mState == rhs.mState && mError == rhs.mError;
     }
 
     /**
