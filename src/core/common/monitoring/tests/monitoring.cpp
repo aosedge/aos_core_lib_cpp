@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/monitoring/resourcemonitor.hpp>
+#include <core/common/tests/stubs/cloudconnectionstub.hpp>
 #include <core/common/tests/utils/log.hpp>
 
 namespace aos::monitoring {
@@ -391,38 +392,6 @@ private:
     std::vector<InstanceQuotaAlert> mInstanceQuotaAlerts;
 };
 
-class MockCloudConnection : public CloudConnectionItf {
-public:
-    aos::Error Subscribe(ConnectionListenerItf& listener) override
-    {
-        mListener = &listener;
-
-        return ErrorEnum::eNone;
-    }
-
-    void Unsubscribe(ConnectionListenerItf& listener) override
-    {
-        EXPECT_TRUE(&listener == mListener);
-
-        mListener = nullptr;
-
-        return;
-    }
-
-    void NotifyConnect() const
-    {
-
-        EXPECT_TRUE(mListener != nullptr);
-
-        mListener->OnConnect();
-
-        return;
-    }
-
-private:
-    ConnectionListenerItf* mListener {};
-};
-
 std::unique_ptr<NodeInfoObsolete> CreateNodeInfo(const Array<PartitionInfo>& partitions)
 {
     auto nodeInfo = std::make_unique<NodeInfoObsolete>();
@@ -492,7 +461,7 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
-    auto cloudConnection       = std::make_unique<MockCloudConnection>();
+    auto cloudConnection       = std::make_unique<CloudConnectionStub>();
 
     auto   monitor = std::make_unique<ResourceMonitor>();
     Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};
@@ -567,7 +536,7 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
-    auto cloudConnection       = std::make_unique<MockCloudConnection>();
+    auto cloudConnection       = std::make_unique<CloudConnectionStub>();
 
     auto   monitor = std::make_unique<ResourceMonitor>();
     Config config {};
@@ -718,7 +687,7 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     auto   resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto   sender                = std::make_unique<MockSender>();
     auto   alertSender           = std::make_unique<AlertSenderStub>();
-    auto   cloudConnection       = std::make_unique<MockCloudConnection>();
+    auto   cloudConnection       = std::make_unique<CloudConnectionStub>();
 
     auto monitor = std::make_unique<ResourceMonitor>();
 
@@ -860,7 +829,7 @@ TEST_F(MonitoringTest, GetNodeMonitoringDataOnInstanceSpikes)
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
     auto sender                = std::make_unique<MockSender>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
-    auto cloudConnection       = std::make_unique<MockCloudConnection>();
+    auto cloudConnection       = std::make_unique<CloudConnectionStub>();
 
     auto   monitor = std::make_unique<ResourceMonitor>();
     Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};

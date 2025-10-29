@@ -14,7 +14,7 @@ set(TARGET_NAME stubs)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS ocispecstub.hpp spaceallocatorstub.hpp)
+set(HEADERS cloudconnectionstub.hpp ocispecstub.hpp spaceallocatorstub.hpp)
 
 # ######################################################################################################################
 # Target
