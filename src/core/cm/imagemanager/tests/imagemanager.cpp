@@ -13,7 +13,7 @@
 #include <core/cm/imagemanager/imagemanager.hpp>
 #include <core/cm/tests/mocks/fileservermock.hpp>
 #include <core/common/tests/mocks/cryptomock.hpp>
-#include <core/common/tests/mocks/fileinfoprovider.hpp>
+#include <core/common/tests/mocks/fileinfoprovidermock.hpp>
 #include <core/common/tests/mocks/ocispecmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tests/utils/log.hpp>
