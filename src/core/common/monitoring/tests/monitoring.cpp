@@ -614,31 +614,37 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
         {{"disk", 400}},
     };
 
-    std::vector<NodeMonitoringData> providedNodeMonitoringData {
-        {"node1", {}, {{}, 0, 600, {}, 300, 300}, {}},
-        {"node1", {}, {{}, 900, 300, {}, 0, 300}, {}},
-        {"node1", {}, {{}, 1200, 200, {}, 200, 0}, {}},
-    };
+    std::vector<NodeMonitoringData> providedNodeMonitoringData;
 
-    std::vector<NodeMonitoringData> averageNodeMonitoringData {
-        {"node1", {}, {{}, 0, 600, {}, 300, 300}, {}},
-        {"node1", {}, {{}, 300, 500, {}, 200, 300}, {}},
-        {"node1", {}, {{}, 600, 400, {}, 200, 200}, {}},
-    };
+    providedNodeMonitoringData.emplace_back(NodeMonitoringData {"node1", {}, {{}, 0, 600, {}, 300, 300}, {}});
+    providedNodeMonitoringData.emplace_back(NodeMonitoringData {"node1", {}, {{}, 900, 300, {}, 0, 300}, {}});
+    providedNodeMonitoringData.emplace_back(NodeMonitoringData {"node1", {}, {{}, 1200, 200, {}, 200, 0}, {}});
 
-    std::vector<Pair<String, InstanceMonitoringData>> providedInstanceMonitoringData {
-        {"instance0", {instance0Ident, {{}, 600, 0, {}, 300, 300}, instancePartitionInfos}},
-        {"instance0", {instance0Ident, {{}, 300, 900, {}, 300, 0}, instancePartitionInfos}},
-        {"instance0", {instance0Ident, {{}, 200, 1200, {}, 0, 200}, instancePartitionInfos}},
-    };
+    std::vector<NodeMonitoringData> averageNodeMonitoringData;
 
-    std::vector<Pair<String, InstanceMonitoringData>> averageInstanceMonitoringData {
-        {"instance0", {instance0Ident, {{}, 600, 0, {}, 300, 300}, instancePartitionInfos}},
-        {"instance0", {instance0Ident, {{}, 500, 300, {}, 300, 200}, instancePartitionInfos}},
-        {"instance0", {instance0Ident, {{}, 400, 600, {}, 200, 200}, instancePartitionInfos}},
-    };
+    averageNodeMonitoringData.emplace_back(NodeMonitoringData {"node1", {}, {{}, 0, 600, {}, 300, 300}, {}});
+    averageNodeMonitoringData.emplace_back(NodeMonitoringData {"node1", {}, {{}, 300, 500, {}, 200, 300}, {}});
+    averageNodeMonitoringData.emplace_back(NodeMonitoringData {"node1", {}, {{}, 600, 400, {}, 200, 200}, {}});
 
-    for (size_t i = 0; i < providedNodeMonitoringData.size(); i++) {
+    std::vector<Pair<String, InstanceMonitoringData>> providedInstanceMonitoringData;
+
+    providedInstanceMonitoringData.emplace_back(
+        "instance0", InstanceMonitoringData {instance0Ident, {{}, 600, 0, {}, 300, 300}, instancePartitionInfos});
+    providedInstanceMonitoringData.emplace_back(
+        "instance0", InstanceMonitoringData {instance0Ident, {{}, 300, 900, {}, 300, 0}, instancePartitionInfos});
+    providedInstanceMonitoringData.emplace_back(
+        "instance0", InstanceMonitoringData {instance0Ident, {{}, 200, 1200, {}, 0, 200}, instancePartitionInfos});
+
+    std::vector<Pair<String, InstanceMonitoringData>> averageInstanceMonitoringData;
+
+    averageInstanceMonitoringData.emplace_back(
+        "instance0", InstanceMonitoringData {instance0Ident, {{}, 600, 0, {}, 300, 300}, instancePartitionInfos});
+    averageInstanceMonitoringData.emplace_back(
+        "instance0", InstanceMonitoringData {instance0Ident, {{}, 500, 300, {}, 300, 200}, instancePartitionInfos});
+    averageInstanceMonitoringData.emplace_back(
+        "instance0", InstanceMonitoringData {instance0Ident, {{}, 400, 600, {}, 200, 200}, instancePartitionInfos});
+
+    for (size_t i = 0; i < 3 /*providedNodeMonitoringData.size()*/; i++) {
         std::cout << "Iteration " << i << std::endl;
 
         auto receivedNodeMonitoringData = std::make_unique<NodeMonitoringData>();
