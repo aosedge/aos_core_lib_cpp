@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_STATUSLISTENER_HPP_
-#define AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_STATUSLISTENER_HPP_
+#ifndef AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_STATUSLISTENERMOCK_HPP_
+#define AOS_CORE_CM_IMAGEMANAGER_TESTS_MOCKS_STATUSLISTENERMOCK_HPP_
 
 #include <gmock/gmock.h>
 
@@ -13,7 +13,10 @@
 
 namespace aos::cm::imagemanager {
 
-class MockStatusListener : public ImageStatusListenerItf {
+/**
+ * Status listener mock.
+ */
+class StatusListenerMock : public ImageStatusListenerItf {
 public:
     MOCK_METHOD(void, OnImageStatusChanged, (const String&, const String&, const ImageStatus&), (override));
     MOCK_METHOD(void, OnUpdateItemRemoved, (const String&), (override));

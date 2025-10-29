@@ -13,7 +13,10 @@
 
 namespace aos::cm::imagemanager {
 
-class MockStorage : public storage::StorageItf {
+/**
+ * Storage mock.
+ */
+class StorageMock : public storage::StorageItf {
 public:
     MOCK_METHOD(Error, SetItemState, (const String& id, const String& version, storage::ItemState state), (override));
     MOCK_METHOD(Error, RemoveItem, (const String& id, const String& version), (override));
