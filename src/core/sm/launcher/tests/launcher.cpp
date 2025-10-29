@@ -196,9 +196,9 @@ TEST_F(LauncherTest, RunInstances)
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service0", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service1", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service2", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service0", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service1", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service2", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
             },
             {},
         },
@@ -216,9 +216,9 @@ TEST_F(LauncherTest, RunInstances)
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service0", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service1", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service2", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service0", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service1", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service2", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
             },
             {},
         },
@@ -236,9 +236,9 @@ TEST_F(LauncherTest, RunInstances)
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service0", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service2", "subject0", 1}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service3", "subject0", 2}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service0", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service2", "subject0", 1}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service3", "subject0", 2}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
             },
             {},
         },
@@ -256,9 +256,9 @@ TEST_F(LauncherTest, RunInstances)
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service0", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "2.0.0"},
-                {{"service2", "subject0", 1}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
-                {{"service3", "subject0", 2}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service0", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "2.0.0"},
+                {{"service2", "subject0", 1}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service3", "subject0", 2}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
             },
             {},
         },
@@ -276,9 +276,11 @@ TEST_F(LauncherTest, RunInstances)
             },
             {},
             std::vector<InstanceStatus> {
-                {{"service0", "subject0", 0}, "", "", {}, InstanceStateEnum::eFailed, ErrorEnum::eNotFound, "1.0.0"},
-                {{"service1", "subject0", 0}, "", "", {}, InstanceStateEnum::eFailed, ErrorEnum::eNotFound, "1.0.0"},
-                {{"service2", "subject0", 0}, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
+                {{"service0", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eFailed, ErrorEnum::eNotFound,
+                    "1.0.0"},
+                {{"service1", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eFailed, ErrorEnum::eNotFound,
+                    "1.0.0"},
+                {{"service2", "subject0", 0}, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"},
             },
             {
                 {InstanceIdent {"service0", "subject0", 0}, ErrorEnum::eNotFound},
@@ -342,7 +344,7 @@ TEST_F(LauncherTest, RunMaxInstances)
         InstanceIdent ident     = {serviceID.c_str(), "subject0", i / cMaxNumServices};
 
         testItem.mInstances.push_back({ident, "", "image1", 0, 0, 0, "", "", {}});
-        testItem.mStatus.push_back({ident, "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"});
+        testItem.mStatus.push_back({ident, "", "", "", {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0"});
     }
 
     for (size_t i = 0; i < static_cast<size_t>(std::min(cMaxNumServices, cMaxNumInstances)); i++) {

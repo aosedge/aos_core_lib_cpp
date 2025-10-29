@@ -81,7 +81,7 @@ using UpdateItemStatusArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems>;
 /**
  * Unit instance status.
  */
-struct UnitInstanceStatus : public InstanceStatusData, public PlatformInfo {
+struct UnitInstanceStatus : public InstanceStatusData {
     uint64_t mInstance {};
 
     /**
@@ -92,7 +92,7 @@ struct UnitInstanceStatus : public InstanceStatusData, public PlatformInfo {
      */
     bool operator==(const UnitInstanceStatus& rhs) const
     {
-        return InstanceStatusData::operator==(rhs) && PlatformInfo::operator==(rhs) && mInstance == rhs.mInstance;
+        return InstanceStatusData::operator==(rhs) && mInstance == rhs.mInstance;
     }
 
     /**
@@ -104,7 +104,7 @@ struct UnitInstanceStatus : public InstanceStatusData, public PlatformInfo {
     bool operator!=(const UnitInstanceStatus& rhs) const { return !operator==(rhs); }
 };
 
-using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus, cMaxNumInstances>;
+using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus, cMaxNumUpdateItemInstances>;
 
 /**
  * Instances statuses.

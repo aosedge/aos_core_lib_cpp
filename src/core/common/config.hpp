@@ -163,10 +163,10 @@
 #endif
 
 /**
- * Max number of instances per unit.
+ * Max number of instances per update item.
  */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_INSTANCES
-#define AOS_CONFIG_TYPES_MAX_NUM_INSTANCES 256
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEM_INSTANCES
+#define AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEM_INSTANCES 16
 #endif
 
 /**
