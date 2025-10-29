@@ -12,6 +12,10 @@
 #include <core/common/tools/fs.hpp>
 
 namespace aos {
+
+/**
+ * FS platform mock.
+ */
 class FSPlatformMock : public fs::FSPlatformItf {
 public:
     MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetMountPoint, (const String& dir), (const, override));
@@ -22,6 +26,9 @@ public:
     MOCK_METHOD(Error, ChangeOwner, (const String& path, uint32_t uid, uint32_t gid), (const, override));
 };
 
+/**
+ * FS watcher mock.
+ */
 class FSWatcherMock : public fs::FSWatcherItf {
 public:
     MOCK_METHOD(Error, Subscribe, (const String& path, fs::FSEventSubscriberItf& subscriber), (override));

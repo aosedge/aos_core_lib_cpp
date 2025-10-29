@@ -13,6 +13,9 @@
 
 namespace aos::alerts {
 
+/**
+ * Alert sender mock.
+ */
 class AlertSenderMock : public SenderItf {
 public:
     MOCK_METHOD(Error, SendAlert, (const AlertVariant&), (override));

@@ -13,9 +13,12 @@
 
 namespace aos::cm::fileserver {
 
-class MockFileServer : public FileServerItf {
+/**
+ * File server mock.
+ */
+class FileServerMock : public FileServerItf {
 public:
-    MOCK_METHOD(Error, TranslateFilePathURL, (const String& filePath, String& outURL), (override));
+    MOCK_METHOD(Error, TranslateFilePathURL, (const String&, String&), (override));
 };
 
 } // namespace aos::cm::fileserver

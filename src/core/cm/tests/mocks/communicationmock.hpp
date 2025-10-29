@@ -18,7 +18,7 @@ namespace aos::cm::communication {
  */
 class CommunicationMock : public CommunicationItf {
 public:
-    MOCK_METHOD(Error, SendMessage, (const void* body), (override));
+    MOCK_METHOD(Error, SendMessage, (const void*), (override));
 };
 
 } // namespace aos::cm::communication
