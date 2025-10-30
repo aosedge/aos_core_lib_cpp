@@ -8,6 +8,7 @@
 #ifndef AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 #define AOS_CORE_IAM_IDENTHANDLER_IDENTMODULES_FILEIDENTIFIER_FILEIDENTIFIER_HPP_
 
+#include <core/common/tools/thread.hpp>
 #include <core/iam/config.hpp>
 #include <core/iam/identhandler/identmodule.hpp>
 
@@ -80,43 +81,16 @@ public:
      */
     Error GetSubjects(Array<StaticString<cIDLen>>& subjects) override;
 
-    /**
-     * Subscribes subjects listener.
-     *
-     * @param subjectsListener subjects listener.
-     * @returns Error.
-     */
-    Error SubscribeListener(iamclient::SubjectsListenerItf& subjectsListener) override
-    {
-        mSubjectsListener = &subjectsListener;
-
-        return ErrorEnum::eNone;
-    }
-
-    /**
-     * Unsubscribes subjects listener.
-     *
-     * @param subjectsListener subjects listener.
-     * @returns Error.
-     */
-    Error UnsubscribeListener(iamclient::SubjectsListenerItf& subjectsListener) override
-    {
-        (void)subjectsListener;
-
-        mSubjectsListener = nullptr;
-
-        return ErrorEnum::eNone;
-    }
-
 private:
     static constexpr auto cModelVersionDelimiter = ';';
+    static constexpr auto cMaxNumSubscribers     = 4;
 
     Error ReadSystemId();
     Error ReadUnitModel();
     Error ReadSubjects();
 
+    Mutex                                              mMutex;
     Config                                             mConfig;
-    iamclient::SubjectsListenerItf*                    mSubjectsListener {};
     SystemInfo                                         mSystemInfo;
     StaticArray<StaticString<cIDLen>, cMaxNumSubjects> mSubjects;
 };
