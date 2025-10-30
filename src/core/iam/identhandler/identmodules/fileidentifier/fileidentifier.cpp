@@ -18,6 +18,8 @@ namespace aos::iam::identhandler {
 
 Error FileIdentifier::Init(const Config& config)
 {
+    LOG_DBG() << "Initialize file identifier";
+
     mConfig = config;
     mSubjects.Clear();
 
@@ -43,6 +45,8 @@ Error FileIdentifier::Init(const Config& config)
 
 Error FileIdentifier::GetSystemInfo(SystemInfo& info)
 {
+    LOG_DBG() << "Get system info";
+
     info = mSystemInfo;
 
     return ErrorEnum::eNone;
@@ -50,6 +54,8 @@ Error FileIdentifier::GetSystemInfo(SystemInfo& info)
 
 Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
 {
+    LOG_DBG() << "Get subjects";
+
     if (subjects.MaxSize() < mSubjects.Size()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -112,10 +118,6 @@ Error FileIdentifier::ReadSubjects()
         mSubjects.Clear();
 
         return AOS_ERROR_WRAP(err);
-    }
-
-    if (mSubjectsListener) {
-        mSubjectsListener->SubjectsChanged(mSubjects);
     }
 
     return ErrorEnum::eNone;
