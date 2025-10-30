@@ -63,6 +63,28 @@ struct InstanceInfo {
      * Cached indicator.
      */
     bool mCached {};
+
+    /**
+     * Compares instance info.
+     *
+     * @param other instance info to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstanceInfo& rhs) const
+    {
+        return mInstanceIdent == rhs.mInstanceIdent && mImageID == rhs.mImageID
+            && mUpdateItemType == rhs.mUpdateItemType && mNodeID == rhs.mNodeID && mPrevNodeID == rhs.mPrevNodeID
+            && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mTimestamp == rhs.mTimestamp
+            && mCached == rhs.mCached;
+    }
+
+    /**
+     * Compares instance info.
+     *
+     * @param rhs instance info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
 };
 
 /**
