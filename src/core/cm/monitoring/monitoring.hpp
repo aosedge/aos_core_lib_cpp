@@ -27,7 +27,7 @@ namespace aos::cm::monitoring {
 class Monitoring : public ReceiverItf,
                    private nodeinfoprovider::NodeInfoListenerItf,
                    private launcher::InstanceStatusListenerItf,
-                   private ConnectionListenerItf {
+                   private cloudconnection::ConnectionListenerItf {
 public:
     /**
      * Initializes monitoring.

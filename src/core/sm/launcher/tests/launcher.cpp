@@ -157,7 +157,7 @@ protected:
     }
 
     std::unique_ptr<Launcher>                      mLauncher;
-    NiceMock<CloudConnectionMock>                  mCloudConnection;
+    NiceMock<cloudconnection::CloudConnectionMock> mCloudConnection;
     std::unique_ptr<LayerManagerStub>              mLayerManager;
     NiceMock<NetworkManagerMock>                   mNetworkManager;
     NiceMock<NodeInfoProviderMock>                 mNodeInfoProvider;

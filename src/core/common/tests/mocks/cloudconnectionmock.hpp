@@ -11,8 +11,7 @@
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 
-namespace aos {
-
+namespace aos::cloudconnection {
 /**
  * Connection subscriber mock.
  */
@@ -31,6 +30,6 @@ public:
     MOCK_METHOD(void, Unsubscribe, (ConnectionListenerItf & listener), (override));
 };
 
-} // namespace aos
+} // namespace aos::cloudconnection
 
 #endif

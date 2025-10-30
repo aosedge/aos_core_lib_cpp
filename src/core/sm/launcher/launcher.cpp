@@ -34,8 +34,8 @@ Error Launcher::Init(const Config& config, iam::nodeinfoprovider::NodeInfoProvid
     resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
     iamclient::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
     monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
-    InstanceStatusReceiverItf& statusReceiver, CloudConnectionItf& cloudConnection, StorageItf& storage,
-    crypto::UUIDItf& uuidProvider)
+    InstanceStatusReceiverItf& statusReceiver, cloudconnection::CloudConnectionItf& cloudConnection,
+    StorageItf& storage, crypto::UUIDItf& uuidProvider)
 {
     LOG_DBG() << "Init launcher";
 
