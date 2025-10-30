@@ -230,7 +230,7 @@ public:
  */
 class Launcher : public LauncherItf,
                  public runner::RunStatusReceiverItf,
-                 private ConnectionListenerItf,
+                 private cloudconnection::ConnectionListenerItf,
                  private NonCopyable {
 public:
     /**
@@ -268,8 +268,8 @@ public:
         resourcemanager::ResourceManagerItf& resourceManager, networkmanager::NetworkManagerItf& networkManager,
         iamclient::PermHandlerItf& permHandler, runner::RunnerItf& runner, RuntimeItf& runtime,
         monitoring::ResourceMonitorItf& resourceMonitor, oci::OCISpecItf& ociManager,
-        InstanceStatusReceiverItf& statusReceiver, CloudConnectionItf& cloudConnection, StorageItf& storage,
-        crypto::UUIDItf& uuidProvider);
+        InstanceStatusReceiverItf& statusReceiver, cloudconnection::CloudConnectionItf& cloudConnection,
+        StorageItf& storage, crypto::UUIDItf& uuidProvider);
 
     /**
      * Starts launcher.
@@ -400,7 +400,7 @@ private:
     }
 
     Config                               mConfig;
-    CloudConnectionItf*                  mCloudConnection {};
+    cloudconnection::CloudConnectionItf* mCloudConnection {};
     InstanceStatusReceiverItf*           mStatusReceiver {};
     layermanager::LayerManagerItf*       mLayerManager {};
     networkmanager::NetworkManagerItf*   mNetworkManager {};

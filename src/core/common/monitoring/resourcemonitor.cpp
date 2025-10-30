@@ -18,7 +18,7 @@ namespace aos::monitoring {
 // cppcheck-suppress constParameterReference
 Error ResourceMonitor::Init(const Config& config, const iam::nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     sm::resourcemanager::ResourceManagerItf& resourceManager, ResourceUsageProviderItf& resourceUsageProvider,
-    SenderItf& monitorSender, alerts::SenderItf& alertSender, CloudConnectionItf& cloudConnection)
+    SenderItf& monitorSender, alerts::SenderItf& alertSender, cloudconnection::CloudConnectionItf& cloudConnection)
 {
     LOG_DBG() << "Init resource monitor";
 

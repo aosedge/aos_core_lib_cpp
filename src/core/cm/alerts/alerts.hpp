@@ -30,7 +30,7 @@ constexpr auto cAlertsCacheSize = AOS_CONFIG_CM_ALERTS_CACHE_SIZE;
 /**
  * Alerts.
  */
-class Alerts : public smcontroller::ReceiverItf, private ConnectionListenerItf {
+class Alerts : public smcontroller::ReceiverItf, private cloudconnection::ConnectionListenerItf {
 public:
     /**
      * Initializes alerts.

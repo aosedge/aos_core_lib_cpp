@@ -10,7 +10,7 @@
 
 #include <core/common/tools/error.hpp>
 
-namespace aos {
+namespace aos::cloudconnection {
 
 /**
  * Interface for objects that need to respond to connection events.
@@ -55,6 +55,6 @@ public:
     virtual void Unsubscribe(ConnectionListenerItf& listener) = 0;
 };
 
-} // namespace aos
+} // namespace aos::cloudconnection
 
 #endif

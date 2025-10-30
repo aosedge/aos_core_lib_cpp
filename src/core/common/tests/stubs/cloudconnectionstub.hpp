@@ -11,7 +11,7 @@
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 
-namespace aos {
+namespace aos::cloudconnection {
 
 /**
  * Cloud connection stub.
@@ -72,6 +72,6 @@ private:
     std::set<ConnectionListenerItf*> mListeners;
 };
 
-} // namespace aos
+} // namespace aos::cloudconnection
 
 #endif
