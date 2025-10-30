@@ -14,9 +14,16 @@
 #include <core/common/tests/stubs/cloudconnectionstub.hpp>
 #include <core/common/tests/utils/log.hpp>
 
+#include "stubs/alertsenderstub.hpp"
+#include "stubs/nodeinfoproviderstub.hpp"
+#include "stubs/resourcemanagerstub.hpp"
+#include "stubs/senderstub.hpp"
+
 namespace aos::monitoring {
 
 using namespace testing;
+
+namespace {
 
 /***********************************************************************************************************************
  * Consts
@@ -25,10 +32,19 @@ using namespace testing;
 static constexpr auto cWaitTimeout = std::chrono::seconds {5};
 
 /***********************************************************************************************************************
- * Static
+ * Types
  **********************************************************************************************************************/
 
-namespace {
+struct AlertData {
+    std::string     mTag;
+    std::string     mParameter;
+    uint64_t        mValue;
+    QuotaAlertState mState;
+};
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
 
 void SetInstancesMonitoringData(
     NodeMonitoringData& nodeMonitoringData, const Array<Pair<String, InstanceMonitoringData>>& instancesData)
@@ -40,31 +56,33 @@ void SetInstancesMonitoringData(
     }
 }
 
-class GetAlertVariantVisitor : public StaticVisitor<void> {
-public:
-    GetAlertVariantVisitor(std::vector<SystemQuotaAlert>& systemAlerts, std::vector<InstanceQuotaAlert>& instanceAlerts)
-        : mSystemAlerts(systemAlerts)
-        , mInstanceAlerts(instanceAlerts)
-    {
+std::unique_ptr<NodeInfoObsolete> CreateNodeInfo(const Array<PartitionInfo>& partitions)
+{
+    auto nodeInfo = std::make_unique<NodeInfoObsolete>();
+
+    nodeInfo->mNodeID   = "node1";
+    nodeInfo->mNodeType = "type1";
+    nodeInfo->mName     = "name1";
+    nodeInfo->mState    = NodeStateObsoleteEnum::eProvisioned;
+    nodeInfo->mOSType   = "linux";
+    nodeInfo->mTotalRAM = 8192;
+    nodeInfo->mMaxDMIPS = 10000;
+
+    for (const auto& partition : partitions) {
+        if (auto err = nodeInfo->mPartitions.EmplaceBack(); !err.IsNone()) {
+            throw std::runtime_error("Failed to add partition to node info");
+        }
+
+        auto& nodePartition = nodeInfo->mPartitions.Back();
+
+        nodePartition.mName      = partition.mName;
+        nodePartition.mPath      = partition.mPath;
+        nodePartition.mTotalSize = partition.mTotalSize;
+        nodePartition.mUsedSize  = 0;
     }
 
-    void Visit(const SystemQuotaAlert& alert) const { mSystemAlerts.push_back(alert); }
-
-    void Visit(const InstanceQuotaAlert& alert) const { mInstanceAlerts.push_back(alert); }
-
-    void Visit(...) const { }
-
-private:
-    std::vector<SystemQuotaAlert>&   mSystemAlerts;
-    std::vector<InstanceQuotaAlert>& mInstanceAlerts;
-};
-
-struct AlertData {
-    std::string     mTag;
-    std::string     mParameter;
-    uint64_t        mValue;
-    QuotaAlertState mState;
-};
+    return nodeInfo;
+}
 
 template <typename T>
 bool operator==(const AlertData& lhs, const T& rhs)
@@ -76,141 +94,6 @@ bool operator==(const AlertData& lhs, const T& rhs)
 /***********************************************************************************************************************
  * Mocks
  **********************************************************************************************************************/
-
-class MockNodeInfoProvider : public iam::nodeinfoprovider::NodeInfoProviderItf {
-public:
-    MockNodeInfoProvider(const NodeInfoObsolete& nodeInfo)
-        : mNodeInfo(nodeInfo)
-    {
-    }
-
-    Error GetNodeInfo(NodeInfoObsolete& nodeInfo) const override
-    {
-        nodeInfo = mNodeInfo;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SetNodeState(const NodeStateObsolete& state) override
-    {
-        (void)state;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SubscribeNodeStateChanged(iam::nodeinfoprovider::NodeStateObserverItf& observer)
-    {
-        (void)observer;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error UnsubscribeNodeStateChanged(iam::nodeinfoprovider::NodeStateObserverItf& observer)
-    {
-        (void)observer;
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    NodeInfoObsolete mNodeInfo {};
-};
-
-class MockResourceManager : public sm::resourcemanager::ResourceManagerItf {
-public:
-    MockResourceManager(Optional<AlertRules> alertRules = {}) { mConfig.mAlertRules = alertRules; }
-
-    RetWithError<StaticString<cVersionLen>> GetNodeConfigVersion() const override { return mConfig.mVersion; }
-
-    Error GetNodeConfig(sm::resourcemanager::NodeConfig& nodeConfig) const override
-    {
-        nodeConfig = mConfig;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetDeviceInfo(const String& deviceName, DeviceInfo& deviceInfo) const override
-    {
-        (void)deviceName;
-        (void)deviceInfo;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetResourceInfo(const String& resourceName, ResourceInfoObsolete& resourceInfo) const override
-    {
-        (void)resourceName;
-        (void)resourceInfo;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error AllocateDevice(const String& deviceName, const String& instanceID) override
-    {
-        (void)deviceName;
-        (void)instanceID;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error ReleaseDevice(const String& deviceName, const String& instanceID) override
-    {
-        (void)deviceName;
-        (void)instanceID;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error ReleaseDevices(const String& instanceID) override
-    {
-        (void)instanceID;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error ResetAllocatedDevices() override { return ErrorEnum::eNone; }
-
-    Error GetDeviceInstances(const String& deviceName, Array<StaticString<cIDLen>>& instanceIDs) const override
-    {
-        (void)deviceName;
-        (void)instanceIDs;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error CheckNodeConfig(const String& version, const String& config) const override
-    {
-        (void)version;
-        (void)config;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error UpdateNodeConfig(const String& version, const String& config) override
-    {
-        (void)version;
-        (void)config;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SubscribeCurrentNodeConfigChange(sm::resourcemanager::NodeConfigReceiverItf& receiver) override
-    {
-        (void)receiver;
-
-        return ErrorEnum::eNone;
-    }
-
-    Error UnsubscribeCurrentNodeConfigChange(sm::resourcemanager::NodeConfigReceiverItf& receiver) override
-    {
-        (void)receiver;
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    sm::resourcemanager::NodeConfig mConfig {};
-};
 
 class MockResourceUsageProvider : public ResourceUsageProviderItf {
 public:
@@ -322,104 +205,6 @@ private:
     std::vector<std::pair<std::string, InstanceMonitoringData>> mInstancesMonitoringData {};
 };
 
-class MockSender : public SenderItf {
-public:
-    Error SendMonitoringData(const NodeMonitoringData& monitoringData) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mMonitoringData.push(monitoringData);
-
-        mCondVar.notify_one();
-
-        return ErrorEnum::eNone;
-    }
-
-    Error WaitMonitoringData(NodeMonitoringData& monitoringData)
-    {
-        std::unique_lock lock {mMutex};
-
-        if (!mCondVar.wait_for(lock, cWaitTimeout, [&] { return !mMonitoringData.empty(); })) {
-            return ErrorEnum::eTimeout;
-        }
-
-        monitoringData = mMonitoringData.front();
-        mMonitoringData.pop();
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    static constexpr auto cWaitTimeout = std::chrono::seconds {5};
-
-    std::mutex                     mMutex;
-    std::condition_variable        mCondVar;
-    std::queue<NodeMonitoringData> mMonitoringData {};
-};
-
-class AlertSenderStub : public alerts::SenderItf {
-public:
-    Error SendAlert(const AlertVariant& alert) override
-    {
-        std::lock_guard lock {mMutex};
-
-        LOG_DBG() << "Send alert: alert=" << alert;
-
-        GetAlertVariantVisitor visitor {mSystemQuotaAlerts, mInstanceQuotaAlerts};
-
-        alert.ApplyVisitor(visitor);
-
-        return ErrorEnum::eNone;
-    }
-
-    std::vector<SystemQuotaAlert> GetSystemQuotaAlerts() const
-    {
-        std::lock_guard lock {mMutex};
-
-        return mSystemQuotaAlerts;
-    }
-
-    std::vector<InstanceQuotaAlert> GetInstanceQuotaAlerts() const
-    {
-        std::lock_guard lock {mMutex};
-
-        return mInstanceQuotaAlerts;
-    }
-
-private:
-    mutable std::mutex              mMutex;
-    std::vector<SystemQuotaAlert>   mSystemQuotaAlerts;
-    std::vector<InstanceQuotaAlert> mInstanceQuotaAlerts;
-};
-
-std::unique_ptr<NodeInfoObsolete> CreateNodeInfo(const Array<PartitionInfo>& partitions)
-{
-    auto nodeInfo = std::make_unique<NodeInfoObsolete>();
-
-    nodeInfo->mNodeID   = "node1";
-    nodeInfo->mNodeType = "type1";
-    nodeInfo->mName     = "name1";
-    nodeInfo->mState    = NodeStateObsoleteEnum::eProvisioned;
-    nodeInfo->mOSType   = "linux";
-    nodeInfo->mTotalRAM = 8192;
-    nodeInfo->mMaxDMIPS = 10000;
-
-    for (const auto& partition : partitions) {
-        if (auto err = nodeInfo->mPartitions.EmplaceBack(); !err.IsNone()) {
-            throw std::runtime_error("Failed to add partition to node info");
-        }
-
-        auto& nodePartition = nodeInfo->mPartitions.Back();
-
-        nodePartition.mName      = partition.mName;
-        nodePartition.mPath      = partition.mPath;
-        nodePartition.mTotalSize = partition.mTotalSize;
-        nodePartition.mUsedSize  = 0;
-    }
-
-    return nodeInfo;
-}
-
 } // namespace
 
 /***********************************************************************************************************************
@@ -456,10 +241,10 @@ TEST_F(MonitoringTest, GetNodeMonitoringData)
                         .IsNone());
     }
 
-    auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(*nodeInfo);
-    auto resourceManager       = std::make_unique<MockResourceManager>(Optional<AlertRules> {alertRules});
+    auto nodeInfoProvider      = std::make_unique<NodeInfoProviderStub>(*nodeInfo);
+    auto resourceManager       = std::make_unique<ResourceManagerStub>(Optional<AlertRules> {alertRules});
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
-    auto sender                = std::make_unique<MockSender>();
+    auto sender                = std::make_unique<SenderStub>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
     auto cloudConnection       = std::make_unique<cloudconnection::CloudConnectionStub>();
 
@@ -531,10 +316,10 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     auto          nodePartitions       = Array<PartitionInfo>(nodePartitionsInfo, ArraySize(nodePartitionsInfo));
     auto          nodeInfo             = CreateNodeInfo(nodePartitions);
 
-    auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(*nodeInfo);
-    auto resourceManager       = std::make_unique<MockResourceManager>();
+    auto nodeInfoProvider      = std::make_unique<NodeInfoProviderStub>(*nodeInfo);
+    auto resourceManager       = std::make_unique<ResourceManagerStub>();
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
-    auto sender                = std::make_unique<MockSender>();
+    auto sender                = std::make_unique<SenderStub>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
     auto cloudConnection       = std::make_unique<cloudconnection::CloudConnectionStub>();
 
@@ -682,10 +467,10 @@ TEST_F(MonitoringTest, QuotaAlertsAreSent)
     }
 
     Config config {100 * Time::cMilliseconds, 100 * Time::cMilliseconds};
-    auto   nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(*nodeInfo);
-    auto   resourceManager       = std::make_unique<MockResourceManager>(Optional<AlertRules> {alertRules});
+    auto   nodeInfoProvider      = std::make_unique<NodeInfoProviderStub>(*nodeInfo);
+    auto   resourceManager       = std::make_unique<ResourceManagerStub>(Optional<AlertRules> {alertRules});
     auto   resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
-    auto   sender                = std::make_unique<MockSender>();
+    auto   sender                = std::make_unique<SenderStub>();
     auto   alertSender           = std::make_unique<AlertSenderStub>();
     auto   cloudConnection       = std::make_unique<cloudconnection::CloudConnectionStub>();
 
@@ -824,10 +609,10 @@ TEST_F(MonitoringTest, GetNodeMonitoringDataOnInstanceSpikes)
     constexpr auto cInstance1Upload = 80;
     constexpr auto cExpectedUpload  = cInstance0Upload + cInstance1Upload;
 
-    auto nodeInfoProvider      = std::make_unique<MockNodeInfoProvider>(*nodeInfo);
-    auto resourceManager       = std::make_unique<MockResourceManager>();
+    auto nodeInfoProvider      = std::make_unique<NodeInfoProviderStub>(*nodeInfo);
+    auto resourceManager       = std::make_unique<ResourceManagerStub>();
     auto resourceUsageProvider = std::make_unique<MockResourceUsageProvider>();
-    auto sender                = std::make_unique<MockSender>();
+    auto sender                = std::make_unique<SenderStub>();
     auto alertSender           = std::make_unique<AlertSenderStub>();
     auto cloudConnection       = std::make_unique<cloudconnection::CloudConnectionStub>();
 
