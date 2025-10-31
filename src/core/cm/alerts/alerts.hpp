@@ -13,7 +13,7 @@
 #include <core/common/tools/timer.hpp>
 #include <core/common/types/alerts.hpp>
 
-#include <core/cm/communication/communication.hpp>
+#include <core/cm/communication/itf/communication.hpp>
 #include <core/cm/config.hpp>
 
 #include "config.hpp"
