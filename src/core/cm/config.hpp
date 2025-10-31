@@ -28,4 +28,11 @@
 #define AOS_CONFIG_CM_ALERTS_CACHE_SIZE 32
 #endif
 
+/**
+ * Node config JSON length.
+ */
+#ifndef AOS_CONFIG_CM_UNITCONFIG_JSON_LEN
+#define AOS_CONFIG_CM_UNITCONFIG_JSON_LEN 4096
+#endif
+
 #endif
