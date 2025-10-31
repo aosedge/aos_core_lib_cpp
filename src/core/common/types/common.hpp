@@ -261,6 +261,7 @@ public:
         eCM,
         eSM,
         eIAM,
+        eNumComponents,
     };
 
     static const Array<const char* const> GetStrings()
@@ -269,6 +270,7 @@ public:
             "CM",
             "SM",
             "IAM",
+            "unknown",
         };
 
         return Array<const char* const>(sTargetTypeStrings, ArraySize(sTargetTypeStrings));

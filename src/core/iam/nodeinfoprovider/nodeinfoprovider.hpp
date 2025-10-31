@@ -57,6 +57,15 @@ static constexpr auto cAosComponentUM = "um";
 bool IsMainNode(const NodeInfoObsolete& nodeInfo);
 
 /**
+ * Checks if the node contains specified component.
+ *
+ * @param nodeInfo node info.
+ * @param component searched component.
+ * @return bool.
+ */
+bool ContainsComponent(const NodeInfo& nodeInfo, const CoreComponent& component);
+
+/**
  * Node state observer interface.
  */
 class NodeStateObserverItf {

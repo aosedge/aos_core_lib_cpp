@@ -46,3 +46,14 @@ TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrueCaseInsensitive)
 
     EXPECT_TRUE(IsMainNode(nodeInfo)) << "Node has main node attribute";
 }
+
+TEST_F(NodeInfoProviderTest, ContainsComponent)
+{
+    aos::NodeInfo nodeInfo;
+
+    nodeInfo.mAttrs.PushBack({cAttrAosComponents, "cm,sm"});
+
+    EXPECT_TRUE(ContainsComponent(nodeInfo, aos::CoreComponentEnum::eCM)) << "Node has component CM";
+    EXPECT_TRUE(ContainsComponent(nodeInfo, aos::CoreComponentEnum::eSM)) << "Node has component SM";
+    EXPECT_FALSE(ContainsComponent(nodeInfo, aos::CoreComponentEnum::eIAM)) << "Node has no component IAM";
+}
