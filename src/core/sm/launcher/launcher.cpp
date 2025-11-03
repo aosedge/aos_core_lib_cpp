@@ -89,7 +89,7 @@ Error Launcher::Start()
 {
     LOG_DBG() << "Start launcher";
 
-    if (auto err = mCloudConnection->Subscribe(*this); !err.IsNone()) {
+    if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -126,7 +126,7 @@ Error Launcher::Stop()
         stopError = err;
     }
 
-    mCloudConnection->Unsubscribe(*this);
+    mCloudConnection->UnsubscribeListener(*this);
 
     if (auto err = mTimer.Stop(); !err.IsNone() && stopError.IsNone()) {
         stopError = AOS_ERROR_WRAP(err);

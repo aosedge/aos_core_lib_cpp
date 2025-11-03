@@ -45,14 +45,14 @@ public:
      *
      * @param listener listener reference.
      */
-    virtual Error Subscribe(ConnectionListenerItf& listener) = 0;
+    virtual Error SubscribeListener(ConnectionListenerItf& listener) = 0;
 
     /**
      * Unsubscribes from cloud connection events.
      *
      * @param listener listener reference.
      */
-    virtual void Unsubscribe(ConnectionListenerItf& listener) = 0;
+    virtual void UnsubscribeListener(ConnectionListenerItf& listener) = 0;
 };
 
 } // namespace aos::cloudconnection
