@@ -117,6 +117,25 @@ struct UnitInstancesStatuses {
     UnitInstanceStatusArray   mInstances;
 
     /**
+     * Creates default instances statuses.
+     */
+    UnitInstancesStatuses() = default;
+
+    /**
+     * Creates instances statuses.
+     *
+     * @param itemID    update item ID.
+     * @param subjectID subject ID.
+     * @param version   update item version.
+     */
+    UnitInstancesStatuses(const String& itemID, const String& subjectID, const String& version)
+        : mItemID(itemID)
+        , mSubjectID(subjectID)
+        , mVersion(version)
+    {
+    }
+
+    /**
      * Compare instances statuses.
      *
      * @param rhs instances statuses to compare with.
