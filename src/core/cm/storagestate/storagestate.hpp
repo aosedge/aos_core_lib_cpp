@@ -145,7 +145,7 @@ private:
     static constexpr auto cHashAlgorithm          = crypto::HashEnum::eSHA3_224;
     static constexpr auto cNumSendNewStateThreads = 1;
     static constexpr auto cInstanceStringLen      = 8;
-    static constexpr auto cAllocatorSize          = sizeof(InstanceInfoArray) + sizeof(StaticString<cStateLen>);
+    static constexpr auto cAllocatorSize          = sizeof(InstanceInfoArray) + sizeof(NewState);
 
     struct State {
         State(const InstanceIdent& instanceIdent, const String& filePath, size_t quota)
