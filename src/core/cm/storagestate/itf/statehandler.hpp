@@ -28,25 +28,18 @@ public:
     /**
      * Updates storage state with new state.
      *
-     * @param instanceIdent instance ident.
-     * @param state state content.
-     * @param checksum state checksum.
+     * @param state update state.
      * @return Error.
      */
-    virtual Error UpdateState(const InstanceIdent& instanceIdent, const String& state, const String& checksum) = 0;
+    virtual Error UpdateState(const UpdateState& state) = 0;
 
     /**
-     * Accepts state from storage.
+     * Accepts state.
      *
-     * @param instanceIdent instance ident.
-     * @param checksum state checksum.
-     * @param result state result.
-     * @param reason reason of the result.
+     * @param state state acceptance.
      * @return Error.
      */
-    virtual Error AcceptState(
-        const InstanceIdent& instanceIdent, const String& checksum, StateResult result, const String& reason)
-        = 0;
+    virtual Error AcceptState(const StateAcceptance& state) = 0;
 };
 
 /** @}*/

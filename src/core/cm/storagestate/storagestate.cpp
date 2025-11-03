@@ -112,33 +112,33 @@ Error StorageState::Stop()
     return mThreadPool.Shutdown();
 }
 
-Error StorageState::UpdateState(const InstanceIdent& instanceIdent, const String& state, const String& checksum)
+Error StorageState::UpdateState(const aos::UpdateState& state)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Update state" << Log::Field("instanceIdent", instanceIdent) << Log::Field("checksum", checksum)
-              << Log::Field("size", state.Size());
+    LOG_DBG() << "Update state" << Log::Field("instanceIdent", static_cast<const InstanceIdent&>(state))
+              << Log::Field("size", state.mState.Size());
 
-    auto it = mStates.FindIf([&instanceIdent](const auto& item) { return item.mInstanceIdent == instanceIdent; });
+    auto it = mStates.FindIf([&state](const auto& item) { return item.mInstanceIdent == state; });
     if (it == mStates.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (state.Size() > it->mQuota) {
+    if (state.mState.Size() > it->mQuota) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "update state exceeds quota"));
     }
 
-    if (auto err = ValidateChecksum(state, checksum); !err.IsNone()) {
+    if (auto err = ValidateChecksum(state.mState, state.mChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto storageStateInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
-    if (auto err = mStorage->GetStorageStateInfo(instanceIdent, *storageStateInfo); !err.IsNone()) {
+    if (auto err = mStorage->GetStorageStateInfo(state, *storageStateInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = checksum.HexToByteArray(storageStateInfo->mStateChecksum); !err.IsNone()) {
+    if (auto err = storageStateInfo->mStateChecksum.Assign(state.mChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -146,48 +146,42 @@ Error StorageState::UpdateState(const InstanceIdent& instanceIdent, const String
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = fs::WriteStringToFile(it->mFilePath, state, S_IRUSR | S_IWUSR); !err.IsNone()) {
+    if (auto err = fs::WriteStringToFile(it->mFilePath, state.mState, S_IRUSR | S_IWUSR); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = checksum.HexToByteArray(it->mChecksum); !err.IsNone()) {
+    if (auto err = it->mChecksum.Assign(state.mChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
 }
 
-Error StorageState::AcceptState(
-    const InstanceIdent& instanceIdent, const String& checksum, StateResult result, const String& reason)
+Error StorageState::AcceptState(const StateAcceptance& state)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "State acceptance" << Log::Field("instanceIdent", instanceIdent) << Log::Field("result", result)
-              << Log::Field("reason", reason) << Log::Field("checksum", checksum);
+    LOG_DBG() << "State acceptance" << Log::Field("instanceIdent", static_cast<const InstanceIdent&>(state))
+              << Log::Field("reason", state.mReason);
 
-    auto it = mStates.FindIf(([&instanceIdent](const auto& item) { return item.mInstanceIdent == instanceIdent; }));
+    auto it = mStates.FindIf(([&state](const auto& item) { return item.mInstanceIdent == state; }));
     if (it == mStates.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    StaticArray<uint8_t, crypto::cSHA256Size> checksumArray;
-    if (auto err = checksum.HexToByteArray(checksumArray); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (it->mChecksum != checksumArray) {
+    if (it->mChecksum != state.mChecksum) {
         LOG_DBG() << "State checksum mismatch";
 
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidChecksum);
     }
 
-    if (result != StateResultEnum::eAccepted) {
-        return mMessageSender->SendStateRequest(instanceIdent, false);
+    if (state.mResult != StateResultEnum::eAccepted) {
+        return mMessageSender->SendStateRequest(state, false);
     }
 
     auto storageStateInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
-    if (auto err = mStorage->GetStorageStateInfo(instanceIdent, *storageStateInfo); !err.IsNone()) {
+    if (auto err = mStorage->GetStorageStateInfo(state, *storageStateInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -621,7 +615,7 @@ bool StorageState::QuotasAreEqual(const InstanceInfo& lhs, const SetupParams& rh
     return lhs.mStorageQuota == rhs.mStorageQuota && lhs.mStateQuota == rhs.mStateQuota;
 }
 
-Error StorageState::ValidateChecksum(const String& text, const String& checksum)
+Error StorageState::ValidateChecksum(const String& text, const Array<uint8_t>& checksum)
 {
     StaticArray<uint8_t, crypto::cSHA256Size> calculatedChecksum;
 
@@ -629,12 +623,7 @@ Error StorageState::ValidateChecksum(const String& text, const String& checksum)
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticArray<uint8_t, crypto::cSHA256Size> checksumBytes;
-    if (auto err = checksum.HexToByteArray(checksumBytes); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (calculatedChecksum != checksumBytes) {
+    if (calculatedChecksum != checksum) {
         return ErrorEnum::eInvalidChecksum;
     }
 
