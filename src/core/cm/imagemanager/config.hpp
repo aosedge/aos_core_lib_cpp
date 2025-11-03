@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_CONFIG_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_CONFIG_HPP_
 
+#include <core/common/tools/string.hpp>
+
 namespace aos::cm::imagemanager {
 
 /**
