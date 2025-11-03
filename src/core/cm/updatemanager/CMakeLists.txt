@@ -14,13 +14,31 @@ set(TARGET_NAME updatemanager)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/sender.hpp itf/updatemanager.hpp)
+set(HEADERS itf/sender.hpp itf/updatemanager.hpp updatemanager.hpp unitstatushandler.hpp)
+
+# ######################################################################################################################
+# Sources
+# ######################################################################################################################
+
+set(SOURCES unitstatushandler.cpp updatemanager.cpp)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})
+add_module(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    STACK_USAGE
+    ${AOS_STACK_USAGE}
+    SOURCES
+    ${SOURCES}
+    HEADERS
+    ${HEADERS}
+    LIBRARIES
+    ${LIBRARIES}
+)
 
 # ######################################################################################################################
 # Tests
