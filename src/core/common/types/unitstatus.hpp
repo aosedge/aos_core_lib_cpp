@@ -76,7 +76,8 @@ struct UpdateItemStatus {
     bool operator!=(const UpdateItemStatus& rhs) const { return !operator==(rhs); }
 };
 
-using UpdateItemStatusArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems>;
+// Multiplying by 2 to account for existing and new versions of update items.
+using UpdateItemStatusArray = StaticArray<UpdateItemStatus, cMaxNumUpdateItems * 2>;
 
 /**
  * Unit instance status.
