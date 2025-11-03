@@ -4,5 +4,5 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <core/cm/communication/communication.hpp>
+#include <core/cm/communication/itf/communication.hpp>
 #include <core/cm/communication/servicediscovery.hpp>
