@@ -13,7 +13,6 @@
 #include <gtest/gtest.h>
 
 #include <core/cm/storagestate/storagestate.hpp>
-#include <core/cm/tests/mocks/communicationmock.hpp>
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/utils/log.hpp>
