@@ -32,10 +32,15 @@ namespace aos::cm::imagemanager {
 
 class ImageManagerTest : public testing::Test {
 protected:
-    void SetUp() override
+    static void SetUpTestSuite()
     {
         tests::utils::InitLog();
 
+        LOG_INF() << "Image manager size" << Log::Field("size", sizeof(ImageManager));
+    }
+
+    void SetUp() override
+    {
         mConfig.mInstallPath   = "/tmp/imagemanager_test/install";
         mConfig.mTmpPath       = "/tmp/imagemanager_test/temp";
         mConfig.mUpdateItemTTL = 24 * Time::cHours;
