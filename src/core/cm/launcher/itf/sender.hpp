@@ -9,7 +9,7 @@
 
 #include <core/common/types/envvars.hpp>
 
-namespace aos::cm::communication {
+namespace aos::cm::launcher {
 
 /** @addtogroup cm Communication Manager
  *  @{
@@ -34,6 +34,6 @@ public:
     virtual Error SendOverrideEnvsStatuses(const OverrideEnvVarsStatuses& statuses) = 0;
 };
 
-} // namespace aos::cm::communication
+} // namespace aos::cm::launcher
 
 #endif
