@@ -23,7 +23,7 @@ public:
      *
      * @param listener listener reference.
      */
-    Error Subscribe(ConnectionListenerItf& listener) override
+    Error SubscribeListener(ConnectionListenerItf& listener) override
     {
         mListeners.insert(&listener);
 
@@ -35,7 +35,7 @@ public:
      *
      * @param listener listener reference.
      */
-    void Unsubscribe(ConnectionListenerItf& listener) override
+    void UnsubscribeListener(ConnectionListenerItf& listener) override
     {
         mListeners.erase(&listener);
 

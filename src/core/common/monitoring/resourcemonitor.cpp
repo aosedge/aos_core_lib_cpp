@@ -58,7 +58,7 @@ Error ResourceMonitor::Start()
 {
     LOG_DBG() << "Start monitoring";
 
-    if (auto err = mCloudConnection->Subscribe(*this); !err.IsNone()) {
+    if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -90,7 +90,7 @@ Error ResourceMonitor::Stop()
     LOG_DBG() << "Stop monitoring";
 
     mTimer.Stop();
-    mCloudConnection->Unsubscribe(*this);
+    mCloudConnection->UnsubscribeListener(*this);
 
     if (auto err = mResourceManager->UnsubscribeCurrentNodeConfigChange(*this); !err.IsNone()) {
         LOG_ERR() << "Unsubscription on node config change failed" << Log::Field(AOS_ERROR_WRAP(err));
