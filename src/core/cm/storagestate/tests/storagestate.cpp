@@ -597,21 +597,22 @@ TEST_F(StorageStateTests, UpdateState)
     err = CalculateChecksum(newStateContent, checksumBytes);
     EXPECT_TRUE(err.IsNone()) << "Failed to calculate checksum: " << tests::utils::ErrorToStr(err);
 
-    StaticString<crypto::cSHA256Size * 2> checksumStr;
+    auto stateUpdate = std::make_unique<UpdateState>();
 
-    err = checksumStr.ByteArrayToHex(checksumBytes);
-    if (!err.IsNone()) {
-        FAIL() << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
-    }
+    static_cast<InstanceIdent&>(*stateUpdate) = cInstanceIdent;
+    stateUpdate->mState                       = newStateContent;
+    stateUpdate->mChecksum                    = checksumBytes;
 
-    err = mStorageState.UpdateState(cInstanceIdent, newStateContent, checksumStr);
+    err = mStorageState.UpdateState(*stateUpdate);
     EXPECT_TRUE(err.IsNone()) << "Failed to update state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_TRUE(mStorageStub.Contains([&checksumBytes](const InstanceInfo& info) {
         return info.mInstanceIdent == cInstanceIdent && info.mStateChecksum == checksumBytes;
     })) << "Storage state info should be updated";
 
-    err = mStorageState.UpdateState(InstanceIdent {{}, {}, 111}, newStateContent, checksumStr);
+    stateUpdate->mInstance += 1;
+
+    err = mStorageState.UpdateState(*stateUpdate);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -628,8 +629,13 @@ TEST_F(StorageStateTests, AcceptStateUnknownInstance)
     err = mStorageState.Start();
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.AcceptState(
-        InstanceIdent {{}, {}, 111}, "some-checksum", StateResultEnum::eAccepted, "accepted");
+    auto stateAccept = std::make_unique<StateAcceptance>();
+
+    static_cast<InstanceIdent&>(*stateAccept) = cInstanceIdent;
+    stateAccept->mResult                      = StateResultEnum::eAccepted;
+    stateAccept->mReason                      = "accepted";
+
+    err = mStorageState.AcceptState(*stateAccept);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
 
     err = mStorageState.Stop();
@@ -648,8 +654,14 @@ TEST_F(StorageStateTests, AcceptStateChecksumMismatch)
     err = mStorageState.Start();
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.AcceptState(cInstanceIdent, "688787d8ff144c502c7f5cffaafe2cc588d86079f9de88304c26b0cb99ce91c6",
-        StateResultEnum::eAccepted, "accepted");
+    auto stateAccept = std::make_unique<StateAcceptance>();
+
+    static_cast<InstanceIdent&>(*stateAccept) = cInstanceIdent;
+    stateAccept->mResult                      = StateResultEnum::eAccepted;
+    stateAccept->mReason                      = "accepted";
+    stateAccept->mChecksum.EmplaceBack(0x00); // Invalid checksum
+
+    err = mStorageState.AcceptState(*stateAccept);
     EXPECT_TRUE(err.Is(ErrorEnum::eInvalidChecksum))
         << "Accepting state with invalid checksum should fail: " << tests::utils::ErrorToStr(err);
 
@@ -685,12 +697,14 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
 
     EXPECT_CALL(mSenderMock, SendStateRequest(cInstanceIdent, false)).WillOnce(Return(ErrorEnum::eNone));
 
-    StaticString<2 * crypto::cSHA256Size> checksumStr;
+    auto stateAccept = std::make_unique<StateAcceptance>();
 
-    err = checksumStr.ByteArrayToHex(storageData.mStateChecksum);
-    EXPECT_TRUE(err.IsNone()) << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
+    static_cast<InstanceIdent&>(*stateAccept) = cInstanceIdent;
+    stateAccept->mResult                      = StateResultEnum::eRejected;
+    stateAccept->mReason                      = "rejected";
+    stateAccept->mChecksum                    = storageData.mStateChecksum;
 
-    err = mStorageState.AcceptState(cInstanceIdent, checksumStr, StateResultEnum::eRejected, "rejected");
+    err = mStorageState.AcceptState(*stateAccept);
     EXPECT_TRUE(err.IsNone()) << "Failed to accept state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -742,18 +756,14 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 
     // Update state with initial content
 
-    StaticString<2 * crypto::cSHA256Size> stateContentChecksumStr;
+    auto updateState = std::make_unique<UpdateState>();
 
-    err = stateContentChecksumStr.ByteArrayToHex(stateContentChecksum);
-    EXPECT_TRUE(err.IsNone()) << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
+    static_cast<InstanceIdent&>(*updateState) = cInstanceIdent;
+    updateState->mState                       = cStateContent;
+    updateState->mChecksum                    = stateContentChecksum;
 
-    err = mStorageState.UpdateState(cInstanceIdent, cStateContent, stateContentChecksumStr);
+    err = mStorageState.UpdateState(*updateState);
     EXPECT_TRUE(err.IsNone()) << "Failed to update state: " << tests::utils::ErrorToStr(err);
-
-    StaticString<2 * crypto::cSHA256Size> updateStateContentChecksumStr;
-
-    err = updateStateContentChecksumStr.ByteArrayToHex(updateStateContentChecksum);
-    EXPECT_TRUE(err.IsNone()) << "Failed to convert checksum to hex: " << tests::utils::ErrorToStr(err);
 
     // Emulate service mutates its state file
 
@@ -776,8 +786,14 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 
     // New state is accepted
 
-    err = mStorageState.AcceptState(
-        cInstanceIdent, updateStateContentChecksumStr, StateResultEnum::eAccepted, "accepted");
+    auto acceptState = std::make_unique<StateAcceptance>();
+
+    static_cast<InstanceIdent&>(*acceptState) = cInstanceIdent;
+    acceptState->mResult                      = StateResultEnum::eAccepted;
+    acceptState->mReason                      = "accepted";
+    acceptState->mChecksum                    = updateStateContentChecksum;
+
+    err = mStorageState.AcceptState(*acceptState);
     EXPECT_TRUE(err.IsNone()) << "Failed to accept state: " << tests::utils::ErrorToStr(err);
 
     // And the storage stub is updated

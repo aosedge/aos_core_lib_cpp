@@ -63,24 +63,18 @@ public:
     /**
      * Updates storage state with new state.
      *
-     * @param instanceIdent instance ident.
-     * @param state state content.
-     * @param checksum state checksum.
+     * @param state update state.
      * @return Error.
      */
-    Error UpdateState(const InstanceIdent& instanceIdent, const String& state, const String& checksum) override;
+    Error UpdateState(const aos::UpdateState& state) override;
 
     /**
-     * Accepts state from storage.
+     * Accepts state.
      *
-     * @param instanceIdent instance ident.
-     * @param checksum state checksum.
-     * @param result state result.
-     * @param reason reason of the result.
+     * @param state state acceptance.
      * @return Error.
      */
-    Error AcceptState(
-        const InstanceIdent& instanceIdent, const String& checksum, StateResult result, const String& reason) override;
+    Error AcceptState(const StateAcceptance& state) override;
 
     /**
      * Setups storage state instance.
@@ -189,7 +183,7 @@ private:
     Error SendNewStateIfFileChanged(State& state);
     Error RemoveFromSystem(const InstanceIdent& instanceIdent);
     bool  QuotasAreEqual(const InstanceInfo& lhs, const SetupParams& rhs) const;
-    Error ValidateChecksum(const String& text, const String& checksum);
+    Error ValidateChecksum(const String& text, const Array<uint8_t>& checksum);
     StaticString<cFilePathLen> GetStateDir(const InstanceIdent& instanceIdent) const;
     StaticString<cFilePathLen> GetStateFilePath(const InstanceIdent& instanceIdent) const;
     StaticString<cFilePathLen> GetStoragePath(const InstanceIdent& instanceIdent) const;
