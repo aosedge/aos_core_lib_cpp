@@ -9,7 +9,7 @@
 
 #include <core/common/types/alerts.hpp>
 
-namespace aos::cm::updatemanager {
+namespace aos::cm::alerts {
 
 /** @addtogroup cm Communication Manager
  *  @{
@@ -36,6 +36,6 @@ public:
 
 /** @}*/
 
-} // namespace aos::cm::updatemanager
+} // namespace aos::cm::alerts
 
 #endif

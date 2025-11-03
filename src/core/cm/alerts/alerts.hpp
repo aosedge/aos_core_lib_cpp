@@ -13,7 +13,6 @@
 #include <core/common/tools/timer.hpp>
 #include <core/common/types/alerts.hpp>
 
-#include <core/cm/communication/communication.hpp>
 #include <core/cm/config.hpp>
 
 #include "config.hpp"
@@ -39,7 +38,7 @@ public:
      * @param sender alerts sender object.
      * @return Error.
      */
-    Error Init(const alerts::Config& config, updatemanager::SenderItf& sender);
+    Error Init(const alerts::Config& config, SenderItf& sender);
 
     /**
      * Starts alerts module.
@@ -83,7 +82,7 @@ private:
 
     StaticAllocator<cAllocatorSize>             mAllocator;
     alerts::Config                              mConfig;
-    updatemanager::SenderItf*                   mSender {};
+    SenderItf*                                  mSender {};
     StaticArray<AlertVariant, cAlertsCacheSize> mAlerts;
     Mutex                                       mMutex;
     Timer                                       mSendTimer;
