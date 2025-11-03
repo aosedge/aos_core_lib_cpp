@@ -27,10 +27,11 @@ set(INSTALL_HEADERS
     aos_core_cm_smcontroller
     aos_core_cm_storagestate
     aos_core_cm_unitconfig
-    aos_core_cm_updatemanager
 )
 
-set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_imagemanager aos_core_cm_monitoring aos_core_cm_storagestate)
+set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_imagemanager aos_core_cm_monitoring aos_core_cm_storagestate
+                      aos_core_cm_updatemanager
+)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_cm_tests_mocks)
