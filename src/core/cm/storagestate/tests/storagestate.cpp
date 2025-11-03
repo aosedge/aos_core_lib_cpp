@@ -166,9 +166,8 @@ private:
 
 class SenderMock : public SenderItf {
 public:
-    MOCK_METHOD(Error, SendStateRequest, (const InstanceIdent& instanceIdent, bool isDefault), (override));
-    MOCK_METHOD(Error, SendNewState,
-        (const InstanceIdent& instanceIdent, const String& state, const Array<uint8_t>& checksum), (override));
+    MOCK_METHOD(Error, SendStateRequest, (const StateRequest& request), (override));
+    MOCK_METHOD(Error, SendNewState, (const NewState& state), (override));
 };
 
 /***********************************************************************************************************************
@@ -462,7 +461,8 @@ TEST_F(StorageStateTests, SetupSameInstance)
         }
 
         if (testParam.mExpectStateRequest) {
-            EXPECT_CALL(mSenderMock, SendStateRequest(cInstanceIdent, false)).WillOnce(Return(ErrorEnum::eNone));
+            EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false}))
+                .WillOnce(Return(ErrorEnum::eNone));
         }
 
         if (testParam.mNewState.has_value()) {
@@ -683,7 +683,7 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
 
     StaticString<cFilePathLen> storagePath, statePath;
 
-    EXPECT_CALL(mSenderMock, SendStateRequest(cInstanceIdent, false)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false})).WillOnce(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
 
@@ -695,7 +695,7 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
     err = mStorageStub.GetStorageStateInfo(cInstanceIdent, storageData);
     EXPECT_TRUE(err.IsNone()) << "Failed to get storage state info: " << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mSenderMock, SendStateRequest(cInstanceIdent, false)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false})).WillOnce(Return(ErrorEnum::eNone));
 
     auto stateAccept = std::make_unique<StateAcceptance>();
 
@@ -747,7 +747,7 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
             return ErrorEnum::eNone;
         }));
     EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mSenderMock, SendStateRequest(cInstanceIdent, false)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false})).WillOnce(Return(ErrorEnum::eNone));
 
     err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
     EXPECT_TRUE(err.IsNone()) << "Failed to setup storage state: " << tests::utils::ErrorToStr(err);
@@ -772,12 +772,16 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 
     std::promise<void> stateSentPromise;
 
-    EXPECT_CALL(mSenderMock,
-        SendNewState(cInstanceIdent, String(cUpdateStateContent), Array<uint8_t>(updateStateContentChecksum)))
-        .WillOnce(Invoke([&stateSentPromise](const InstanceIdent&, const String&, const Array<uint8_t>&) {
-            stateSentPromise.set_value();
-            return ErrorEnum::eNone;
-        }));
+    auto expectedNewState = std::make_unique<NewState>();
+
+    static_cast<InstanceIdent&>(*expectedNewState) = cInstanceIdent;
+    expectedNewState->mState                       = String(cUpdateStateContent);
+    expectedNewState->mChecksum                    = Array<uint8_t>(updateStateContentChecksum);
+
+    EXPECT_CALL(mSenderMock, SendNewState(*expectedNewState)).WillOnce(Invoke([&stateSentPromise](const auto&) {
+        stateSentPromise.set_value();
+        return ErrorEnum::eNone;
+    }));
 
     fsEventSubscriber->OnFSEvent(ToStatePath(cInstanceIdent).c_str(), {});
 

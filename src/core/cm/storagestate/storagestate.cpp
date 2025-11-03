@@ -176,7 +176,12 @@ Error StorageState::AcceptState(const StateAcceptance& state)
     }
 
     if (state.mResult != StateResultEnum::eAccepted) {
-        return mMessageSender->SendStateRequest(state, false);
+        StateRequest request;
+
+        static_cast<InstanceIdent&>(request) = static_cast<const InstanceIdent&>(state);
+        request.mDefault                     = false;
+
+        return mMessageSender->SendStateRequest(request);
     }
 
     auto storageStateInfo = MakeUnique<InstanceInfo>(&mAllocator);
@@ -480,7 +485,12 @@ Error StorageState::CheckChecksumAndSendUpdateRequest(const State& state)
         return ErrorEnum::eNone;
     }
 
-    if (auto err = mMessageSender->SendStateRequest(state.mInstanceIdent, false); !err.IsNone()) {
+    StateRequest request;
+
+    static_cast<InstanceIdent&>(request) = state.mInstanceIdent;
+    request.mDefault                     = false;
+
+    if (auto err = mMessageSender->SendStateRequest(request); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -560,27 +570,27 @@ Error StorageState::SetQuotas(const SetupParams& setupParams)
 
 Error StorageState::SendNewStateIfFileChanged(State& state)
 {
-    auto stateContent = MakeUnique<StaticString<cStateLen>>(&mAllocator);
+    auto newState = MakeUnique<NewState>(&mAllocator);
 
-    if (auto err = fs::ReadFileToString(state.mFilePath, *stateContent); !err.IsNone()) {
+    static_cast<InstanceIdent&>(*newState) = state.mInstanceIdent;
+
+    if (auto err = fs::ReadFileToString(state.mFilePath, newState->mState); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticArray<uint8_t, crypto::cSHA256Size> checksum;
-
-    if (auto err = CalculateChecksum(*stateContent, checksum); !err.IsNone()) {
+    if (auto err = CalculateChecksum(newState->mState, newState->mChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (state.mChecksum == checksum) {
+    if (state.mChecksum == newState->mChecksum) {
         return ErrorEnum::eNone;
     }
 
-    if (auto err = state.mChecksum.Assign(checksum); !err.IsNone()) {
+    if (auto err = state.mChecksum.Assign(newState->mChecksum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mMessageSender->SendNewState(state.mInstanceIdent, *stateContent, state.mChecksum); !err.IsNone()) {
+    if (auto err = mMessageSender->SendNewState(*newState); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

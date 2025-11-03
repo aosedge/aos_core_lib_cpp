@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_STORAGESTATE_ITF_SENDER_HPP_
 #define AOS_CORE_CM_STORAGESTATE_ITF_SENDER_HPP_
 
-#include <core/common/types/common.hpp>
+#include <core/common/types/state.hpp>
 
 namespace aos::cm::storagestate {
 
@@ -23,22 +23,18 @@ public:
     /**
      * Sends state request for the instance.
      *
-     * @param instanceIdent instance ident.
-     * @param isDefault true if default state is requested.
+     * @param request state request.
      * @return Error.
      */
-    virtual Error SendStateRequest(const InstanceIdent& instanceIdent, bool isDefault) = 0;
+    virtual Error SendStateRequest(const StateRequest& request) = 0;
 
     /**
      * Sends instance's new state.
      *
-     * @param instanceIdent instance ident.
      * @param state new state.
-     * @param checksum state checksum.
      * @return Error.
      */
-    virtual Error SendNewState(const InstanceIdent& instanceIdent, const String& state, const Array<uint8_t>& checksum)
-        = 0;
+    virtual Error SendNewState(const NewState& state) = 0;
 
     /**
      * Destructor.
