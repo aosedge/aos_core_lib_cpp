@@ -158,8 +158,8 @@ struct UnitStatus {
      */
     bool operator==(const UnitStatus& rhs) const
     {
-        return mUnitConfig == rhs.mUnitConfig && mNodes == rhs.mNodes && mUnitSubjects == rhs.mUnitSubjects
-            && mUpdateItems == rhs.mUpdateItems;
+        return mIsDeltaInfo == rhs.mIsDeltaInfo && mUnitConfig == rhs.mUnitConfig && mNodes == rhs.mNodes
+            && mUpdateItems == rhs.mUpdateItems && mInstances == rhs.mInstances && mUnitSubjects == rhs.mUnitSubjects;
     }
 
     /**
