@@ -44,7 +44,7 @@ private:
  * Public
  **********************************************************************************************************************/
 
-Error Alerts::Init(const alerts::Config& config, updatemanager::SenderItf& sender)
+Error Alerts::Init(const alerts::Config& config, SenderItf& sender)
 {
     LOG_DBG() << "Initialize alerts";
 

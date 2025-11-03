@@ -23,7 +23,7 @@ namespace aos::cm::alerts {
 
 namespace {
 
-class SenderStub : public updatemanager::SenderItf {
+class SenderStub : public SenderItf {
 public:
     Error SendAlerts(const aos::Alerts& alerts) override
     {
