@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_COMMON_TESTS_STUBS_CLOUDCONNECTIONSTUB_HPP_
 #define AOS_CORE_COMMON_TESTS_STUBS_CLOUDCONNECTIONSTUB_HPP_
 
+#include <mutex>
 #include <set>
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
@@ -25,6 +26,8 @@ public:
      */
     Error SubscribeListener(ConnectionListenerItf& listener) override
     {
+        std::lock_guard<std::mutex> lock {mMutex};
+
         mListeners.insert(&listener);
 
         return ErrorEnum::eNone;
@@ -37,6 +40,8 @@ public:
      */
     void UnsubscribeListener(ConnectionListenerItf& listener) override
     {
+        std::lock_guard<std::mutex> lock {mMutex};
+
         mListeners.erase(&listener);
 
         return;
@@ -45,8 +50,9 @@ public:
     /**
      * Notifies all subscribers cloud connected.
      */
-    void NotifyConnect() const
+    void NotifyConnect()
     {
+        std::lock_guard<std::mutex> lock {mMutex};
 
         for (const auto& mListener : mListeners) {
             mListener->OnConnect();
@@ -58,8 +64,9 @@ public:
     /**
      * Notifies all subscribers cloud disconnected.
      */
-    void NotifyDisconnect() const
+    void NotifyDisconnect()
     {
+        std::lock_guard<std::mutex> lock {mMutex};
 
         for (const auto& mListener : mListeners) {
             mListener->OnDisconnect();
@@ -69,6 +76,7 @@ public:
     }
 
 private:
+    std::mutex                       mMutex;
     std::set<ConnectionListenerItf*> mListeners;
 };
 
