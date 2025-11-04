@@ -38,13 +38,13 @@ public:
      *
      * @param listener listener reference.
      */
-    void UnsubscribeListener(ConnectionListenerItf& listener) override
+    Error UnsubscribeListener(ConnectionListenerItf& listener) override
     {
         std::lock_guard<std::mutex> lock {mMutex};
 
         mListeners.erase(&listener);
 
-        return;
+        return ErrorEnum::eNone;
     }
 
     /**

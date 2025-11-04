@@ -52,7 +52,7 @@ public:
      *
      * @param listener listener reference.
      */
-    virtual void UnsubscribeListener(ConnectionListenerItf& listener) = 0;
+    virtual Error UnsubscribeListener(ConnectionListenerItf& listener) = 0;
 };
 
 } // namespace aos::cloudconnection
