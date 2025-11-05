@@ -60,7 +60,7 @@ Error ImageManager::Init(const Config& config, storage::StorageItf& storage,
         return AOS_ERROR_WRAP(err);
     }
 
-    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumItems>>(&mAllocator);
 
     if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -222,7 +222,7 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 
     LOG_DBG() << "Get update items statuses";
 
-    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumItems>>(&mAllocator);
 
     if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -355,7 +355,7 @@ Error ImageManager::GetLayerImageInfo(const String& digest, smcontroller::Update
 
     LOG_DBG() << "Get layer image info" << Log::Field("digest", digest);
 
-    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumItems>>(&mAllocator);
 
     if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -702,8 +702,10 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo,
         }
     }
 
-    if (err = UpdatePrevVersions(*items); !err.IsNone()) {
-        return err;
+    if (itemInfo.mType != UpdateItemTypeEnum::eLayer) {
+        if (err = UpdatePrevVersions(*items); !err.IsNone()) {
+            return err;
+        }
     }
 
     size_t GID;
@@ -780,12 +782,6 @@ Error ImageManager::RevertUpdateItem(const String& id, Array<UpdateItemStatus>& 
         return AOS_ERROR_WRAP(err);
     }
 
-    auto itActive
-        = items->FindIf([](const storage::ItemInfo& item) { return item.mState == storage::ItemStateEnum::eActive; });
-
-    auto itCached
-        = items->FindIf([](const storage::ItemInfo& item) { return item.mState == storage::ItemStateEnum::eCached; });
-
     auto createStatus = [&](const String& id, const String& version) -> RetWithError<UpdateItemStatus*> {
         if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
             return {nullptr, AOS_ERROR_WRAP(err)};
@@ -799,44 +795,49 @@ Error ImageManager::RevertUpdateItem(const String& id, Array<UpdateItemStatus>& 
         return {&status, ErrorEnum::eNone};
     };
 
-    if (itActive != items->end()) {
-        {
-            auto [status, err] = createStatus(itActive->mID, itActive->mVersion);
-            if (!err.IsNone()) {
-                return err;
-            }
-
-            err = Remove(*itActive);
-
-            if (auto errStatus = SetItemStatus(itActive->mImages, *status, ImageStateEnum::eRemoved, err);
-                !errStatus.IsNone()) {
-                return errStatus;
-            }
-
-            if (!err.IsNone()) {
-                return err;
-            }
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eActive) {
+            continue;
         }
 
-        if (itCached != items->end()) {
-            {
-                auto [status, err] = createStatus(itCached->mID, itCached->mVersion);
-                if (!err.IsNone()) {
-                    return err;
-                }
+        auto [status, err] = createStatus(item.mID, item.mVersion);
 
-                err = SetState(*itCached, storage::ItemStateEnum::eActive);
-
-                if (auto errStatus = SetItemStatus(itCached->mImages, *status, ImageStateEnum::eInstalled, err);
-                    !errStatus.IsNone()) {
-                    return errStatus;
-                }
-
-                return err;
-            }
+        if (!err.IsNone()) {
+            return err;
         }
 
-        return ErrorEnum::eNone;
+        err = Remove(item);
+
+        if (auto errStatus = SetItemStatus(item.mImages, *status, ImageStateEnum::eRemoved, err); !errStatus.IsNone()) {
+            return errStatus;
+        }
+
+        if (!err.IsNone()) {
+            return err;
+        }
+    }
+
+    for (const auto& item : *items) {
+        if (item.mState != storage::ItemStateEnum::eCached) {
+            continue;
+        }
+
+        auto [status, err] = createStatus(item.mID, item.mVersion);
+
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        err = SetState(item, storage::ItemStateEnum::eActive);
+
+        if (auto errStatus = SetItemStatus(item.mImages, *status, ImageStateEnum::eInstalled, err);
+            !errStatus.IsNone()) {
+            return errStatus;
+        }
+
+        if (!err.IsNone()) {
+            return err;
+        }
     }
 
     return ErrorEnum::eNone;
@@ -867,24 +868,52 @@ Error ImageManager::ValidateActiveVersionItem(const UpdateItemInfo& itemInfo, co
     LOG_DBG() << "Validate active version item" << Log::Field("id", itemInfo.mID)
               << Log::Field("version", itemInfo.mVersion);
 
-    auto it = items.FindIf(
-        [&itemInfo](const storage::ItemInfo& item) { return item.mState == storage::ItemStateEnum::eActive; });
+    bool                      foundActive = false;
+    StaticString<cVersionLen> highestActiveVersion;
 
-    if (it == items.end()) {
+    for (const auto& item : items) {
+        if (item.mState != storage::ItemStateEnum::eActive) {
+            continue;
+        }
+
+        foundActive = true;
+
+        auto [versionResult, err] = semver::CompareSemver(itemInfo.mVersion, item.mVersion);
+
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (versionResult == 0) {
+            return ErrorEnum::eAlreadyExist;
+        }
+
+        if (highestActiveVersion.IsEmpty()) {
+            highestActiveVersion = item.mVersion;
+        } else {
+            auto [compareResult, compareErr] = semver::CompareSemver(item.mVersion, highestActiveVersion);
+
+            if (!compareErr.IsNone()) {
+                return AOS_ERROR_WRAP(compareErr);
+            }
+
+            if (compareResult > 0) {
+                highestActiveVersion = item.mVersion;
+            }
+        }
+    }
+
+    if (!foundActive) {
         return ErrorEnum::eNotFound;
     }
 
-    auto [versionResult, err] = semver::CompareSemver(itemInfo.mVersion, it->mVersion);
+    auto [highestCompareResult, highestErr] = semver::CompareSemver(itemInfo.mVersion, highestActiveVersion);
 
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (!highestErr.IsNone()) {
+        return AOS_ERROR_WRAP(highestErr);
     }
 
-    if (versionResult == 0) {
-        return ErrorEnum::eAlreadyExist;
-    }
-
-    if (versionResult < 0) {
+    if (highestCompareResult < 0) {
         return ErrorEnum::eWrongState;
     }
 
@@ -896,31 +925,38 @@ Error ImageManager::ValidateCachedVersionItem(const UpdateItemInfo& itemInfo, co
     LOG_DBG() << "Validate cached version item" << Log::Field("id", itemInfo.mID)
               << Log::Field("version", itemInfo.mVersion);
 
-    auto it = items.FindIf(
-        [&itemInfo](const storage::ItemInfo& item) { return item.mState == storage::ItemStateEnum::eCached; });
+    bool foundCached = false;
 
-    if (it == items.end()) {
+    for (const auto& item : items) {
+        if (item.mState != storage::ItemStateEnum::eCached) {
+            continue;
+        }
+
+        foundCached = true;
+
+        auto [versionResult, err] = semver::CompareSemver(itemInfo.mVersion, item.mVersion);
+
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (versionResult == 0) {
+            if (auto setStateErr = SetState(item, storage::ItemStateEnum::eActive); !setStateErr.IsNone()) {
+                return setStateErr;
+            }
+
+            return ErrorEnum::eAlreadyExist;
+        }
+
+        if (versionResult > 0 && itemInfo.mType != UpdateItemTypeEnum::eLayer) {
+            if (auto removeErr = Remove(item); !removeErr.IsNone()) {
+                return removeErr;
+            }
+        }
+    }
+
+    if (!foundCached) {
         return ErrorEnum::eNotFound;
-    }
-
-    auto [versionResult, err] = semver::CompareSemver(itemInfo.mVersion, it->mVersion);
-
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (versionResult == 0) {
-        if (auto setStateErr = SetState(*it, storage::ItemStateEnum::eActive); !setStateErr.IsNone()) {
-            return setStateErr;
-        }
-
-        return ErrorEnum::eAlreadyExist;
-    }
-
-    if (versionResult > 0) {
-        if (auto removeErr = Remove(*it); !removeErr.IsNone()) {
-            return removeErr;
-        }
     }
 
     return ErrorEnum::eNone;
@@ -1292,7 +1328,7 @@ Error ImageManager::SetOutdatedItems(const Array<storage::ItemInfo>& items)
 
 Error ImageManager::RemoveOutdatedItems()
 {
-    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<storage::ItemInfo, cMaxNumItems>>(&mAllocator);
 
     if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
