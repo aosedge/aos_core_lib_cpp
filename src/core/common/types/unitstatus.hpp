@@ -57,6 +57,23 @@ struct UpdateItemStatus {
     ImageStatusArray          mStatuses;
 
     /**
+     * Creates default update item status.
+     */
+    UpdateItemStatus() = default;
+
+    /**
+     * Creates update item status.
+     *
+     * @param itemID    update item ID.
+     * @param version   update item version.
+     */
+    UpdateItemStatus(const String& itemID, const String& version)
+        : mItemID(itemID)
+        , mVersion(version)
+    {
+    }
+
+    /**
      * Compares update item status.
      *
      * @param rhs update item status to compare with.

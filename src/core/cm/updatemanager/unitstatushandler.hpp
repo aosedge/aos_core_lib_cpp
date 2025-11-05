@@ -12,7 +12,9 @@
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/unitconfig.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
+#include <core/common/tools/timer.hpp>
 
+#include "config.hpp"
 #include "itf/sender.hpp"
 
 namespace aos::cm::updatemanager {
@@ -26,11 +28,13 @@ namespace aos::cm::updatemanager {
  */
 class UnitStatusHandler : private nodeinfoprovider::NodeInfoListenerItf,
                           private imagemanager::ImageStatusListenerItf,
-                          private launcher::InstanceStatusListenerItf {
+                          private launcher::InstanceStatusListenerItf,
+                          private iamclient::SubjectsListenerItf {
 public:
     /**
      * Initializes unit status handler.
      *
+     * @param config update manager configuration.
      * @param identProvider identity provider.
      * @param unitConfig unit config interface.
      * @param nodeInfoProvider node info provider.
@@ -39,7 +43,7 @@ public:
      * @param sender unit status sender.
      * @return Error.
      */
-    Error Init(iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
+    Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         imagemanager::ImageStatusProviderItf&  imageStatusProvider,
         launcher::InstanceStatusProviderItf& instanceStatusProvider, SenderItf& sender);
@@ -65,6 +69,13 @@ public:
      */
     Error SendFullUnitStatus();
 
+    /**
+     * Sets cloud connection status.
+     *
+     * @param isConnected true if cloud connected.
+     */
+    void SetCloudConnected(bool isConnected);
+
 private:
     static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>);
 
@@ -77,6 +88,12 @@ private:
 
     // launcher::InstanceStatusListenerItf implementation
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
+
+    // iamclient::SubjectsListenerItf implementation
+    void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
+
+    void ClearUnitStatus();
+    void StartTimer();
 
     Error SetUnitConfigStatus();
     Error SetNodesInfo();
@@ -95,6 +112,11 @@ private:
     Mutex                           mMutex;
     UnitStatus                      mUnitStatus;
     StaticAllocator<cAllocatorSize> mAllocator;
+    bool                            mCloudConnected {};
+
+    Timer    mTimer;
+    bool     mTimerStarted {};
+    Duration mUnitStatusSendTimeout {};
 };
 
 /** @}*/
