@@ -648,20 +648,58 @@ TEST_P(CryptoProviderTest, SHA256ByChunks)
 
 TEST_P(CryptoProviderTest, RandInt)
 {
-    constexpr uint64_t kMaxValue = 100;
+    constexpr uint64_t cMaxValue           = 100;
+    constexpr int      cNumSamples         = 105;
+    constexpr int      cMinUnique          = 40; // Expect ratio of unique values
+    constexpr int      cMaxConsecutiveSame = 4; // Max allowed consecutive identical values
+    constexpr int      cMaxFirstZeros      = 2; // Max allowed consecutive zeros at start
 
-    for (int i = 0; i < 100; i++) {
-        auto [value, err] = mRandomProvider->RandInt(kMaxValue);
+    std::set<uint64_t> uniqueValues;
+    int                maxConsecutiveSeen = 1;
+    int                consecutiveCount   = 1;
+    uint64_t           previousValue      = 0;
+    int                firstZeroCount     = 0;
+    bool               foundNonZero       = false;
+
+    // Track unique values
+    auto trackUniqueValues = [&](uint64_t value) { uniqueValues.insert(value); };
+
+    // Track consecutive identical values
+    auto trackConsecutiveValues = [&](uint64_t value, int index) {
+        if (index > 0 && value == previousValue) {
+            consecutiveCount++;
+            maxConsecutiveSeen = std::max(maxConsecutiveSeen, consecutiveCount);
+        } else {
+            consecutiveCount = 1;
+        }
+        previousValue = value;
+    };
+
+    // Track consecutive zeros at the beginning
+    auto trackFirstZeros = [&](uint64_t value) {
+        if (!foundNonZero) {
+            if (value == 0) {
+                firstZeroCount++;
+            } else {
+                foundNonZero = true;
+            }
+        }
+    };
+
+    // Generate random numbers and gather statistics
+    for (int i = 0; i < cNumSamples; i++) {
+        auto [value, err] = mRandomProvider->RandInt(cMaxValue);
         ASSERT_TRUE(err.IsNone());
-        ASSERT_LT(value, kMaxValue);
+        ASSERT_LT(value, cMaxValue);
+
+        trackUniqueValues(value);
+        trackConsecutiveValues(value, i);
+        trackFirstZeros(value);
     }
 
-    auto [value1, err1] = mRandomProvider->RandInt(kMaxValue);
-    auto [value2, err2] = mRandomProvider->RandInt(kMaxValue);
-
-    ASSERT_TRUE(err1.IsNone());
-    ASSERT_TRUE(err2.IsNone());
-    ASSERT_NE(value1, value2);
+    EXPECT_GE(uniqueValues.size(), cMinUnique);
+    EXPECT_LT(maxConsecutiveSeen, cMaxConsecutiveSame);
+    EXPECT_LT(firstZeroCount, cMaxFirstZeros);
 }
 
 TEST_P(CryptoProviderTest, RandBuffer)
