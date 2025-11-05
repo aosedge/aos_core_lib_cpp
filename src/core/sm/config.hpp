@@ -58,13 +58,6 @@
 #endif
 
 /**
- * Node config JSON length.
- */
-#ifndef AOS_CONFIG_RESOURCEMANAGER_NODE_CONFIG_JSON_LEN
-#define AOS_CONFIG_RESOURCEMANAGER_NODE_CONFIG_JSON_LEN 4096
-#endif
-
-/**
  * Max number of network manager aliases.
  */
 #ifndef AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES

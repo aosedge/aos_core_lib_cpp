@@ -1159,4 +1159,11 @@
 #define AOS_CONFIG_OCISPEC_USER_NAME_LEN 64
 #endif
 
+/**
+ * Node config JSON length.
+ */
+#ifndef AOS_CONFIG_NODECONFIG_JSON_LEN
+#define AOS_CONFIG_NODECONFIG_JSON_LEN 4096
+#endif
+
 #endif
