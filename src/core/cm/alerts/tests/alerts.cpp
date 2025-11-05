@@ -10,6 +10,7 @@
 #include <numeric>
 #include <sstream>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <core/common/tests/utils/log.hpp>
@@ -22,6 +23,10 @@ using namespace testing;
 namespace aos::cm::alerts {
 
 namespace {
+
+/***********************************************************************************************************************
+ * Stubs
+ **********************************************************************************************************************/
 
 class SenderStub : public SenderItf {
 public:
@@ -63,6 +68,15 @@ private:
     std::mutex               mMutex;
     std::condition_variable  mCondVar;
     std::vector<aos::Alerts> mMessages;
+};
+
+/***********************************************************************************************************************
+ * Mocks
+ **********************************************************************************************************************/
+
+class AlertsListenerMock : public AlertsListenerItf {
+public:
+    MOCK_METHOD(Error, OnAlertReceived, (const AlertVariant& alert), (override));
 };
 
 std::unique_ptr<AlertVariant> CreateSystemAlert(
@@ -280,6 +294,54 @@ TEST_F(AlertsTest, PackagesAreSentOnReconnect)
     }
 
     err = mAlerts->Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(AlertsTest, ListenersAreNotified)
+{
+    AlertsListenerMock coreAndSystemAlertsListener;
+    AlertsListenerMock systemAlertsListener;
+
+    const std::vector<AlertTag> systemAndCoreAlertTags = {
+        AlertTagEnum::eSystemAlert,
+        AlertTagEnum::eCoreAlert,
+    };
+
+    auto err = mAlerts->Init(mConfig, mCommunication);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mAlerts->SubscribeListener(
+        Array<AlertTag>(&systemAndCoreAlertTags.front(), systemAndCoreAlertTags.size()), coreAndSystemAlertsListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mAlerts->SubscribeListener(Array<AlertTag>(&systemAndCoreAlertTags.front(), 1), systemAlertsListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto coreAlert   = CreateCoreAlert(Time::Now(), "node1", "core alert message");
+    auto systemAlert = CreateSystemAlert(Time::Now(), "node1", "system alert message");
+
+    EXPECT_CALL(systemAlertsListener, OnAlertReceived(_)).Times(0);
+    EXPECT_CALL(coreAndSystemAlertsListener, OnAlertReceived(*coreAlert)).Times(1).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mAlerts->OnAlertReceived(*coreAlert);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(systemAlertsListener, OnAlertReceived(*systemAlert)).Times(1).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(coreAndSystemAlertsListener, OnAlertReceived(*systemAlert)).Times(1).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mAlerts->OnAlertReceived(*systemAlert);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mAlerts->UnsubscribeListener(systemAlertsListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(systemAlertsListener, OnAlertReceived(_)).Times(0);
+    EXPECT_CALL(coreAndSystemAlertsListener, OnAlertReceived(*systemAlert)).Times(1).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mAlerts->OnAlertReceived(*systemAlert);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mAlerts->UnsubscribeListener(coreAndSystemAlertsListener);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 

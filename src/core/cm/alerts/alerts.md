@@ -5,6 +5,7 @@ Alerts module receives alerts from SM's, buffers and aggregates them into suitab
 It implements the following interfaces:
 
 * [aos::cm::alerts::ReceiverItf](itf/receiver.hpp) - receives SM's alerts.
+* [aos::cm::alerts::AlertsProviderItf](itf/provider.hpp) - allows other modules to subscribe on alerts.
 
 It requires the following interfaces:
 
@@ -23,7 +24,12 @@ classDiagram
         <<interface>>
     }
 
+    class AlertsProviderItf ["aos::cm::alerts::AlertsProviderItf"] {
+        <<interface>>
+    }
+
     Alerts ..|> ReceiverItf
+    Alerts ..|> AlertsProviderItf
 
     Alerts ..> SenderItf
 ```
@@ -38,6 +44,12 @@ Alerts are sent to the cloud at regular intervals, with the transmission period 
 If the cloud connection is lost, alerts cannot be sent, and the cache continues to grow until it reaches its capacity.
 Once full, new alerts are discarded. As a result, when the connection is restored, the oldest alerts (often the most
 relevant and detailed) are sent to the cloud first.
+
+## Alerts listeners
+
+The alerts module allows other components to subscribe as listeners to receive notifications when
+new alerts are received. Listeners specify which alert tags they are interested in, and are notified only
+about alerts matching those tags.
 
 ## aos::cm::alerts::Alerts
 
@@ -64,3 +76,11 @@ Notifies the alerts object instance that the cloud connection is established.
 ### OnDisconnect
 
 Notifies the alerts object instance that the cloud connection is lost.
+
+### SubscribeListener
+
+Subscribes a listener to receive alerts notifications with specified alert tags.
+
+### UnsubscribeListener
+
+Unsubscribes a listener from receiving alerts notifications.

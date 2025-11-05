@@ -38,6 +38,15 @@ private:
     Time mTime;
 };
 
+class GetAlertTagVisitor : public StaticVisitor<AlertTag> {
+public:
+    template <typename T>
+    Res Visit(const T& alert) const
+    {
+        return alert.mTag;
+    }
+};
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -95,7 +104,9 @@ Error Alerts::OnAlertReceived(const AlertVariant& alert)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Send alert" << Log::Field("alert", alert);
+    LOG_DBG() << "Alert received" << Log::Field("alert", alert);
+
+    NotifyListeners(alert);
 
     if (IsDuplicated(alert)) {
         ++mDuplicatedAlerts;
@@ -130,6 +141,50 @@ void Alerts::OnDisconnect()
     LOG_DBG() << "Publisher disconnected";
 
     mIsConnected = false;
+}
+
+Error Alerts::SubscribeListener(const Array<AlertTag>& tags, AlertsListenerItf& listener)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Subscribe listener" << Log::Field("tagsCount", tags.Size());
+
+    for (const auto& tag : tags) {
+        if (auto err = mListeners.TryEmplace(tag); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto it = mListeners.Find(tag);
+        if (it == mListeners.end()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+        }
+
+        auto& listeners = it->mSecond;
+        if (listeners.Contains(&listener)) {
+            continue;
+        }
+
+        if (auto err = listeners.EmplaceBack(&listener); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Alerts::UnsubscribeListener(AlertsListenerItf& listener)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Unsubscribe listener";
+
+    size_t removed = 0;
+
+    for (auto& [tag, listeners] : mListeners) {
+        removed += listeners.Remove(&listener);
+    }
+
+    return removed > 0 ? ErrorEnum::eNone : ErrorEnum::eNotFound;
 }
 
 /***********************************************************************************************************************
@@ -198,4 +253,18 @@ void Alerts::ShrinkCache(size_t count)
     mAlerts.Erase(mAlerts.begin(), mAlerts.begin() + Min<size_t>(count, mAlerts.Size()));
 }
 
+void Alerts::NotifyListeners(const AlertVariant& alert)
+{
+    const auto tag = alert.ApplyVisitor(GetAlertTagVisitor());
+
+    if (auto it = mListeners.Find(tag); it != mListeners.end()) {
+        for (auto* receiver : it->mSecond) {
+            if (!receiver) {
+                continue;
+            }
+
+            receiver->OnAlertReceived(alert);
+        }
+    }
+}
 } // namespace aos::cm::alerts
