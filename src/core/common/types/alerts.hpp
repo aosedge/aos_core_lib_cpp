@@ -43,6 +43,7 @@ public:
         eInstanceQuotaAlert,
         eDownloadProgressAlert,
         eInstanceAlert,
+        eNumAlertTags,
     };
 
     static const Array<const char* const> GetStrings()
@@ -55,6 +56,7 @@ public:
             "instanceQuotaAlert",
             "downloadProgressAlert",
             "updateItemInstanceAlert",
+            "unknown",
         };
 
         return Array<const char* const>(sAlertTagStrings, ArraySize(sAlertTagStrings));
