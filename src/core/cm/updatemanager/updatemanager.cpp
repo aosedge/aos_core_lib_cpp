@@ -14,17 +14,17 @@ namespace aos::cm::updatemanager {
  * Public
  **********************************************************************************************************************/
 
-Error UpdateManager::Init(iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
-    nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-    launcher::InstanceStatusProviderItf& instanceStatusProvider, cloudconnection::CloudConnectionItf& cloudConnection,
-    SenderItf& sender)
+Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
+    unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    imagemanager::ImageManagerItf& imageManager, launcher::InstanceStatusProviderItf& instanceStatusProvider,
+    cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender)
 {
     LOG_DBG() << "Init update manager";
 
     mCloudConnection = &cloudConnection;
 
     if (auto err = mUnitStatusHandler.Init(
-            identProvider, unitConfig, nodeInfoProvider, imageManager, instanceStatusProvider, sender);
+            config, identProvider, unitConfig, nodeInfoProvider, imageManager, instanceStatusProvider, sender);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -101,12 +101,17 @@ void UpdateManager::OnConnect()
 {
     LockGuard lock {mMutex};
 
+    mUnitStatusHandler.SetCloudConnected(true);
+
     mSendUnitStatus = true;
     mCondVar.NotifyOne();
 }
 
 void UpdateManager::OnDisconnect()
 {
+    LockGuard lock {mMutex};
+
+    mUnitStatusHandler.SetCloudConnected(false);
 }
 
 void UpdateManager::Run()
