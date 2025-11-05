@@ -229,7 +229,8 @@ private:
     static constexpr auto   cNumActionThreads  = AOS_CONFIG_IMAGEMANAGER_NUM_COOPERATE_ACTIONS;
     static constexpr auto   cRemovePeriod      = 24 * Time::cHours;
     static constexpr auto   cMaxNumListeners   = 1;
-    static constexpr size_t cMaxItemVersions   = 2;
+    static constexpr size_t cMaxItemVersions   = cMaxNumUpdateItems;
+    static constexpr size_t cMaxNumItems       = cMaxNumUpdateItems * 2;
     static constexpr auto   cLayerMetadataFile = "layer.json";
     static constexpr auto   cManifestFile      = "manifest.json";
 
@@ -284,14 +285,14 @@ private:
     Timer  mTimer;
     Config mConfig {};
 
-    StaticAllocator<(sizeof(StaticArray<storage::ItemInfo, cMaxNumUpdateItems>) + sizeof(storage::ItemInfo)
+    StaticAllocator<(sizeof(StaticArray<storage::ItemInfo, cMaxNumItems>) + sizeof(storage::ItemInfo)
                         + sizeof(oci::ImageManifest) + sizeof(oci::ImageSpec))
             * cNumActionThreads,
         cNumActionThreads * 3>
         mAllocator;
 
-    ThreadPool<cNumActionThreads, cMaxNumUpdateItems> mActionPool;
-    Mutex                                             mMutex;
+    ThreadPool<cNumActionThreads, cMaxNumItems> mActionPool;
+    Mutex                                       mMutex;
 };
 
 } // namespace aos::cm::imagemanager
