@@ -773,6 +773,7 @@ TEST_F(ImageManagerTest, UninstallUpdateItems_CachedRemoval)
             auto& cachedItem = items.Back();
 
             cachedItem.mID        = cItemID;
+            cachedItem.mType      = UpdateItemTypeEnum::eService;
             cachedItem.mVersion   = "1.0.0";
             cachedItem.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
             cachedItem.mPath      = "/tmp/cached-item";
@@ -2286,6 +2287,448 @@ TEST_F(ImageManagerTest, GetUpdateImageInfoByImageID_Success_MultipleImages)
     EXPECT_EQ(info.mSHA256.Size(), 2) << "Should return correct SHA256 size";
     EXPECT_EQ(info.mSHA256[0], 0xAA);
     EXPECT_EQ(info.mSHA256[1], 0xBB);
+}
+
+TEST_F(ImageManagerTest, InstallUpdateItems_LayerDoesNotCachePrevious)
+{
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
+
+    {
+        auto err = itemsInfo.EmplaceBack();
+        ASSERT_TRUE(err.IsNone());
+    }
+
+    auto& itemInfo = itemsInfo.Back();
+
+    itemInfo.mID      = "12345678-1234-1234-1234-123456789010";
+    itemInfo.mType    = UpdateItemTypeEnum::eLayer;
+    itemInfo.mVersion = "2.0.0";
+
+    auto err = itemInfo.mImages.EmplaceBack();
+    ASSERT_TRUE(err.IsNone());
+
+    auto& imageInfo = itemInfo.mImages.Back();
+
+    imageInfo.mImage.mImageID                = "87654321-4321-4321-4321-876543210980";
+    imageInfo.mImage.mArchInfo.mArchitecture = "x86_64";
+    imageInfo.mImage.mOSInfo.mOS             = "linux";
+    imageInfo.mPath                          = "/tmp/test-layer-2.0.0.tar";
+    imageInfo.mSize                          = 2048;
+    imageInfo.mSHA256.Clear();
+    imageInfo.mSHA256.PushBack(0x02);
+    imageInfo.mSHA256.PushBack(0x00);
+    imageInfo.mSHA256.PushBack(0x00);
+
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
+        .WillOnce(Invoke([&itemInfo](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& existingItem = items.Back();
+
+            existingItem.mID        = itemInfo.mID;
+            existingItem.mType      = UpdateItemTypeEnum::eLayer;
+            existingItem.mVersion   = "1.0.0";
+            existingItem.mState     = storage::ItemStateEnum::eActive;
+            existingItem.mPath      = "/tmp/existing-layer-1.0.0";
+            existingItem.mTotalSize = 1024;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Accept()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageDecrypterMock, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillOnce(DoAll(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
+            info.mSize   = imageInfo.mSize;
+            info.mSHA256 = imageInfo.mSHA256;
+
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mFileServerMock, TranslateFilePathURL(_, _)).WillOnce(DoAll(Invoke([](const String&, String& outURL) {
+        outURL = "http://test-url-layer-2.0.0";
+
+        return ErrorEnum::eNone;
+    })));
+
+    EXPECT_CALL(mTmpSpaceAllocatorMock, AllocateSpace(_)).Times(1).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mImageUnpackerMock, GetUncompressedFileSize(_, _))
+        .Times(1)
+        .WillRepeatedly(Return(RetWithError<size_t>(128)));
+    EXPECT_CALL(mImageUnpackerMock, ExtractFileFromArchive(_, _, _))
+        .Times(1)
+        .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
+            std::ofstream file(outputPath.CStr());
+            file << "{}";
+            file.close();
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+    EXPECT_TRUE(installErr.IsNone()) << "InstallUpdateItems should succeed for layer";
+
+    EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
+    EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
+    EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eInstalled) << "Image should be installed";
+}
+
+TEST_F(ImageManagerTest, InstallUpdateItems_LayerWithMultipleActiveVersions)
+{
+    StaticArray<UpdateItemInfo, 1>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 1>             statuses;
+
+    {
+        auto err = itemsInfo.EmplaceBack();
+        ASSERT_TRUE(err.IsNone());
+    }
+
+    auto& itemInfo = itemsInfo.Back();
+
+    itemInfo.mID      = "12345678-1234-1234-1234-123456789010";
+    itemInfo.mType    = UpdateItemTypeEnum::eLayer;
+    itemInfo.mVersion = "3.0.0";
+
+    auto err = itemInfo.mImages.EmplaceBack();
+    ASSERT_TRUE(err.IsNone());
+
+    auto& imageInfo = itemInfo.mImages.Back();
+
+    imageInfo.mImage.mImageID                = "87654321-4321-4321-4321-876543210980";
+    imageInfo.mImage.mArchInfo.mArchitecture = "x86_64";
+    imageInfo.mImage.mOSInfo.mOS             = "linux";
+    imageInfo.mPath                          = "/tmp/test-layer-3.0.0.tar";
+    imageInfo.mSize                          = 3072;
+    imageInfo.mSHA256.Clear();
+    imageInfo.mSHA256.PushBack(0x03);
+    imageInfo.mSHA256.PushBack(0x00);
+    imageInfo.mSHA256.PushBack(0x00);
+
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(itemInfo.mID, _))
+        .WillOnce(Invoke([&itemInfo](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem1 = items.Back();
+
+            activeItem1.mID        = itemInfo.mID;
+            activeItem1.mType      = UpdateItemTypeEnum::eLayer;
+            activeItem1.mVersion   = "1.0.0";
+            activeItem1.mState     = storage::ItemStateEnum::eActive;
+            activeItem1.mPath      = "/tmp/layer-1.0.0";
+            activeItem1.mTotalSize = 1024;
+
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem2 = items.Back();
+
+            activeItem2.mID        = itemInfo.mID;
+            activeItem2.mType      = UpdateItemTypeEnum::eLayer;
+            activeItem2.mVersion   = "2.0.0";
+            activeItem2.mState     = storage::ItemStateEnum::eActive;
+            activeItem2.mPath      = "/tmp/layer-2.0.0";
+            activeItem2.mTotalSize = 2048;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_)).WillOnce(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Accept()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mImageDecrypterMock, Decrypt(_, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageDecrypterMock, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillOnce(DoAll(Invoke([&imageInfo](const String&, fs::FileInfo& info) {
+            info.mSize   = imageInfo.mSize;
+            info.mSHA256 = imageInfo.mSHA256;
+
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mFileServerMock, TranslateFilePathURL(_, _)).WillOnce(DoAll(Invoke([](const String&, String& outURL) {
+        outURL = "http://test-url-layer-3.0.0";
+
+        return ErrorEnum::eNone;
+    })));
+    EXPECT_CALL(mTmpSpaceAllocatorMock, AllocateSpace(_)).Times(1).WillRepeatedly(Invoke([this](size_t) {
+        auto mockSpace = aos::MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+        EXPECT_CALL(*mockSpace, Release()).WillOnce(Return(ErrorEnum::eNone));
+        return RetWithError<UniquePtr<spaceallocator::SpaceItf>>(std::move(mockSpace));
+    }));
+    EXPECT_CALL(mImageUnpackerMock, GetUncompressedFileSize(_, _))
+        .Times(1)
+        .WillRepeatedly(Return(RetWithError<size_t>(128)));
+    EXPECT_CALL(mImageUnpackerMock, ExtractFileFromArchive(_, _, _))
+        .Times(1)
+        .WillRepeatedly(DoAll(Invoke([](const String&, const String&, const String& outputPath) {
+            std::ofstream file(outputPath.CStr());
+            file << "{}";
+            file.close();
+            return ErrorEnum::eNone;
+        })));
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    auto installErr = mImageManager.InstallUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+    EXPECT_TRUE(installErr.IsNone()) << "InstallUpdateItems should succeed with multiple active layers";
+
+    EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
+    EXPECT_EQ(statuses[0].mItemID, itemInfo.mID) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mVersion, itemInfo.mVersion) << "Status version should match";
+    EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
+    EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eInstalled) << "Image should be installed";
+}
+
+TEST_F(ImageManagerTest, UninstallUpdateItems_CachedLayerRemoved)
+{
+    StaticArray<StaticString<cIDLen>, 1> ids;
+    StaticArray<UpdateItemStatus, 1>     statuses;
+
+    auto id = "12345678-1234-1234-1234-123456789010";
+
+    auto err = ids.EmplaceBack(id);
+    ASSERT_TRUE(err.IsNone());
+
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(id), _))
+        .WillOnce(Invoke([&id](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedItem = items.Back();
+
+            cachedItem.mID        = id;
+            cachedItem.mType      = UpdateItemTypeEnum::eLayer;
+            cachedItem.mVersion   = "1.0.0";
+            cachedItem.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
+            cachedItem.mPath      = "/tmp/cached-layer";
+            cachedItem.mTotalSize = 1024;
+
+            if (auto err = cachedItem.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& imageItem    = cachedItem.mImages.Back();
+            imageItem.mImageID = "87654321-4321-4321-4321-876543210980";
+            imageItem.mPath    = "/tmp/cached-layer-image";
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String(id))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(1024)).WillOnce(Return());
+    EXPECT_CALL(mStorageMock, RemoveItem(String(id), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStatusListenerMock, OnImageStatusChanged(_, _, _))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
+            EXPECT_TRUE(status.mError.IsNone());
+        }));
+    EXPECT_CALL(mStatusListenerMock, OnUpdateItemRemoved(String(id))).WillOnce(Return());
+
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
+    ASSERT_TRUE(err.IsNone());
+
+    auto uninstallErr = mImageManager.UninstallUpdateItems(ids, statuses);
+
+    EXPECT_TRUE(uninstallErr.Is(ErrorEnum::eNone));
+    EXPECT_EQ(statuses.Size(), 1) << "Should return one status";
+    EXPECT_EQ(statuses[0].mItemID, id) << "Status ID should match";
+    EXPECT_EQ(statuses[0].mVersion, String("1.0.0")) << "Status version should match";
+    EXPECT_EQ(statuses[0].mStatuses.Size(), 1) << "Should have one image status";
+    EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved) << "Image should be removed";
+}
+
+TEST_F(ImageManagerTest, RevertUpdateItems_LayersWithMultipleVersions)
+{
+    StaticArray<StaticString<cIDLen>, 1> ids;
+    StaticArray<UpdateItemStatus, 5>     statuses;
+
+    auto id = "12345678-1234-1234-1234-123456789010";
+
+    auto err = ids.EmplaceBack(id);
+    ASSERT_TRUE(err.IsNone());
+
+    EXPECT_CALL(mStorageMock, GetItemVersionsByID(String(id), _))
+        .WillOnce(Invoke([&id](const String&, Array<storage::ItemInfo>& items) -> Error {
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem1      = items.Back();
+            activeItem1.mID        = id;
+            activeItem1.mType      = UpdateItemTypeEnum::eLayer;
+            activeItem1.mVersion   = "3.0.0";
+            activeItem1.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+            activeItem1.mPath      = "/tmp/active-layer-3.0.0";
+            activeItem1.mTotalSize = 3072;
+
+            if (auto err = activeItem1.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeImageItem1    = activeItem1.mImages.Back();
+            activeImageItem1.mImageID = "image-1111-1111-1111-111111111111";
+            activeImageItem1.mPath    = "/tmp/active-layer-image-1";
+
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeItem2      = items.Back();
+            activeItem2.mID        = id;
+            activeItem2.mType      = UpdateItemTypeEnum::eLayer;
+            activeItem2.mVersion   = "4.0.0";
+            activeItem2.mState     = storage::ItemState(storage::ItemStateEnum::eActive);
+            activeItem2.mPath      = "/tmp/active-layer-4.0.0";
+            activeItem2.mTotalSize = 4096;
+
+            if (auto err = activeItem2.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& activeImageItem2    = activeItem2.mImages.Back();
+            activeImageItem2.mImageID = "image-2222-2222-2222-222222222222";
+            activeImageItem2.mPath    = "/tmp/active-layer-image-2";
+
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedItem1      = items.Back();
+            cachedItem1.mID        = id;
+            cachedItem1.mType      = UpdateItemTypeEnum::eLayer;
+            cachedItem1.mVersion   = "1.0.0";
+            cachedItem1.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
+            cachedItem1.mPath      = "/tmp/cached-layer-1.0.0";
+            cachedItem1.mTotalSize = 1024;
+
+            if (auto err = cachedItem1.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedImageItem1    = cachedItem1.mImages.Back();
+            cachedImageItem1.mImageID = "image-3333-3333-3333-333333333333";
+            cachedImageItem1.mPath    = "/tmp/cached-layer-image-1";
+
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedItem2      = items.Back();
+            cachedItem2.mID        = id;
+            cachedItem2.mType      = UpdateItemTypeEnum::eLayer;
+            cachedItem2.mVersion   = "2.0.0";
+            cachedItem2.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
+            cachedItem2.mPath      = "/tmp/cached-layer-2.0.0";
+            cachedItem2.mTotalSize = 2048;
+
+            if (auto err = cachedItem2.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedImageItem2    = cachedItem2.mImages.Back();
+            cachedImageItem2.mImageID = "image-4444-4444-4444-444444444444";
+            cachedImageItem2.mPath    = "/tmp/cached-layer-image-2";
+
+            if (auto err = items.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedItem3      = items.Back();
+            cachedItem3.mID        = id;
+            cachedItem3.mType      = UpdateItemTypeEnum::eLayer;
+            cachedItem3.mVersion   = "2.5.0";
+            cachedItem3.mState     = storage::ItemState(storage::ItemStateEnum::eCached);
+            cachedItem3.mPath      = "/tmp/cached-layer-2.5.0";
+            cachedItem3.mTotalSize = 2560;
+
+            if (auto err = cachedItem3.mImages.EmplaceBack(); !err.IsNone()) {
+                return err;
+            }
+
+            auto& cachedImageItem3    = cachedItem3.mImages.Back();
+            cachedImageItem3.mImageID = "image-5555-5555-5555-555555555555";
+            cachedImageItem3.mPath    = "/tmp/cached-layer-image-3";
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(3072)).WillOnce(Return());
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(4096)).WillOnce(Return());
+    EXPECT_CALL(mStorageMock, RemoveItem(String(id), String("3.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, RemoveItem(String(id), String("4.0.0"))).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String(id))).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(
+        mStorageMock, SetItemState(String(id), String("1.0.0"), storage::ItemState(storage::ItemStateEnum::eActive)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(
+        mStorageMock, SetItemState(String(id), String("2.0.0"), storage::ItemState(storage::ItemStateEnum::eActive)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(
+        mStorageMock, SetItemState(String(id), String("2.5.0"), storage::ItemState(storage::ItemStateEnum::eActive)))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mStatusListenerMock, OnImageStatusChanged(_, _, _))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
+            EXPECT_TRUE(status.mError.IsNone());
+        }))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status.mState, ImageStateEnum::eRemoved);
+            EXPECT_TRUE(status.mError.IsNone());
+        }))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status.mState, ImageStateEnum::eInstalled);
+            EXPECT_TRUE(status.mError.IsNone());
+        }))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status.mState, ImageStateEnum::eInstalled);
+            EXPECT_TRUE(status.mError.IsNone());
+        }))
+        .WillOnce(Invoke([](const String&, const String&, const ImageStatus& status) {
+            EXPECT_EQ(status.mState, ImageStateEnum::eInstalled);
+            EXPECT_TRUE(status.mError.IsNone());
+        }));
+    EXPECT_CALL(mStatusListenerMock, OnUpdateItemRemoved(String(id))).Times(2).WillRepeatedly(Return());
+
+    err = mImageManager.SubscribeListener(mStatusListenerMock);
+    ASSERT_TRUE(err.IsNone());
+
+    auto revertErr = mImageManager.RevertUpdateItems(ids, statuses);
+
+    EXPECT_TRUE(revertErr.Is(ErrorEnum::eNone));
+    EXPECT_EQ(statuses.Size(), 5) << "Should return five statuses (2 removed + 3 activated)";
+
+    EXPECT_EQ(statuses[0].mVersion, String("3.0.0"));
+    EXPECT_EQ(statuses[0].mStatuses[0].mState, ImageStateEnum::eRemoved);
+    EXPECT_EQ(statuses[1].mVersion, String("4.0.0"));
+    EXPECT_EQ(statuses[1].mStatuses[0].mState, ImageStateEnum::eRemoved);
+
+    EXPECT_EQ(statuses[2].mVersion, String("1.0.0"));
+    EXPECT_EQ(statuses[2].mStatuses[0].mState, ImageStateEnum::eInstalled);
+    EXPECT_EQ(statuses[3].mVersion, String("2.0.0"));
+    EXPECT_EQ(statuses[3].mStatuses[0].mState, ImageStateEnum::eInstalled);
+    EXPECT_EQ(statuses[4].mVersion, String("2.5.0"));
+    EXPECT_EQ(statuses[4].mStatuses[0].mState, ImageStateEnum::eInstalled);
 }
 
 } // namespace aos::cm::imagemanager
