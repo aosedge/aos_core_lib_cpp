@@ -9,7 +9,7 @@
 
 #include <core/common/types/alerts.hpp>
 
-namespace aos::cm::smcontroller {
+namespace aos::cm::alerts {
 
 /** @addtogroup cm Communication Manager
  *  @{
@@ -34,6 +34,6 @@ public:
     virtual Error OnAlertReceived(const AlertVariant& alert) = 0;
 };
 
-} // namespace aos::cm::smcontroller
+} // namespace aos::cm::alerts
 
 #endif
