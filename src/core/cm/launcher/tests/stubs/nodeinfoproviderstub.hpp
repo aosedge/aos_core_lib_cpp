@@ -30,7 +30,7 @@ public:
         }
     }
 
-    Error GetAllNodeIds(Array<StaticString<cIDLen>>& ids) const override
+    Error GetAllNodeIDs(Array<StaticString<cIDLen>>& ids) const override
     {
         ids.Clear();
 
