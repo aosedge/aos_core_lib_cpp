@@ -29,26 +29,6 @@ static constexpr auto cAttrAosComponents = "AosComponents";
 static constexpr auto cAttrNodeRunners = "NodeRunners";
 
 /**
- * Aos component cm.
- */
-static constexpr auto cAosComponentCM = "cm";
-
-/**
- * Aos component iam.
- */
-static constexpr auto cAosComponentIAM = "iam";
-
-/**
- * Aos component sm.
- */
-static constexpr auto cAosComponentSM = "sm";
-
-/**
- * Aos component um.
- */
-static constexpr auto cAosComponentUM = "um";
-
-/**
  * Checks if the node is the main node.
  *
  * @param nodeInfo node info.
