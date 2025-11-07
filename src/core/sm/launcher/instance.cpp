@@ -33,7 +33,7 @@ Instance::Instance(const InstanceInfo& instanceInfo, const String& instanceID,
     layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
     networkmanager::NetworkManagerItf& networkmanager, iamclient::PermHandlerItf& permHandler,
     runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
-    oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfoObsolete& nodeInfo)
+    oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo)
     : mInstanceID(instanceID)
     , mInstanceInfo(instanceInfo)
     , mService(service)

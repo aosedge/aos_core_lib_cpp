@@ -20,7 +20,7 @@ constexpr auto cMaxNumNodeComponents = static_cast<size_t>(CoreComponentEnum::eN
  * Public
  **********************************************************************************************************************/
 
-bool IsMainNode(const NodeInfoObsolete& nodeInfo)
+bool IsMainNode(const NodeInfo& nodeInfo)
 {
     return nodeInfo.mAttrs.FindIf([](const auto& attr) {
         return !attr.mName.Compare(cAttrMainNode, String::CaseSensitivity::CaseInsensitive);

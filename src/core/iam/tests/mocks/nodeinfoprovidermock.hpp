@@ -18,7 +18,7 @@ namespace aos::iam::nodeinfoprovider {
  */
 class NodeStateObserverMock : public NodeStateObserverItf {
 public:
-    MOCK_METHOD(Error, OnNodeStateChanged, (const String& nodeID, const NodeStateObsolete& state), (override));
+    MOCK_METHOD(Error, OnNodeStateChanged, (const String& nodeID, const NodeState& state), (override));
 };
 
 /**
@@ -26,8 +26,8 @@ public:
  */
 class NodeInfoProviderMock : public NodeInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetNodeInfo, (NodeInfoObsolete & nodeInfo), (const, override));
-    MOCK_METHOD(Error, SetNodeState, (const NodeStateObsolete& state), (override));
+    MOCK_METHOD(Error, GetNodeInfo, (NodeInfo & nodeInfo), (const, override));
+    MOCK_METHOD(Error, SetNodeState, (const NodeState& state), (override));
     MOCK_METHOD(Error, SubscribeNodeStateChanged, (NodeStateObserverItf & observer), (override));
     MOCK_METHOD(Error, UnsubscribeNodeStateChanged, (NodeStateObserverItf & observer), (override));
 };

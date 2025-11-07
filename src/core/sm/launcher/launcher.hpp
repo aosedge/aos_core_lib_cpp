@@ -430,7 +430,7 @@ private:
     StaticList<Instance, cMaxNumInstances> mCurrentInstances;
     EnvVarsInstanceInfoArray               mCurrentEnvVars;
     StaticString<cFilePathLen>             mHostWhiteoutsDir;
-    NodeInfoObsolete                       mNodeInfo;
+    NodeInfo                               mNodeInfo;
     Time                                   mOnlineTime;
     Timer                                  mTimer;
 };

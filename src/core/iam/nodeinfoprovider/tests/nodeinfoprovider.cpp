@@ -10,7 +10,8 @@
 #include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
 
 using namespace testing;
-using namespace aos::iam::nodeinfoprovider;
+
+namespace aos::iam::nodeinfoprovider {
 
 /***********************************************************************************************************************
  * Suite
@@ -24,14 +25,14 @@ class NodeInfoProviderTest : public testing::Test { };
 
 TEST_F(NodeInfoProviderTest, IsMainNodeReturnsFalseOnEmptyAttrs)
 {
-    aos::NodeInfoObsolete nodeInfo;
+    NodeInfo nodeInfo;
 
     EXPECT_FALSE(IsMainNode(nodeInfo)) << "Node has no main node attribute";
 }
 
 TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrue)
 {
-    aos::NodeInfoObsolete nodeInfo;
+    NodeInfo nodeInfo;
 
     nodeInfo.mAttrs.PushBack({"MainNode", ""});
 
@@ -40,7 +41,7 @@ TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrue)
 
 TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrueCaseInsensitive)
 {
-    aos::NodeInfoObsolete nodeInfo;
+    NodeInfo nodeInfo;
 
     nodeInfo.mAttrs.PushBack({"mainNODE", ""});
 
@@ -49,11 +50,13 @@ TEST_F(NodeInfoProviderTest, IsMainNodeReturnsTrueCaseInsensitive)
 
 TEST_F(NodeInfoProviderTest, ContainsComponent)
 {
-    aos::NodeInfo nodeInfo;
+    NodeInfo nodeInfo;
 
     nodeInfo.mAttrs.PushBack({cAttrAosComponents, "cm,sm"});
 
-    EXPECT_TRUE(ContainsComponent(nodeInfo, aos::CoreComponentEnum::eCM)) << "Node has component CM";
-    EXPECT_TRUE(ContainsComponent(nodeInfo, aos::CoreComponentEnum::eSM)) << "Node has component SM";
-    EXPECT_FALSE(ContainsComponent(nodeInfo, aos::CoreComponentEnum::eIAM)) << "Node has no component IAM";
+    EXPECT_TRUE(ContainsComponent(nodeInfo, CoreComponentEnum::eCM)) << "Node has component CM";
+    EXPECT_TRUE(ContainsComponent(nodeInfo, CoreComponentEnum::eSM)) << "Node has component SM";
+    EXPECT_FALSE(ContainsComponent(nodeInfo, CoreComponentEnum::eIAM)) << "Node has no component IAM";
 }
+
+} // namespace aos::iam::nodeinfoprovider

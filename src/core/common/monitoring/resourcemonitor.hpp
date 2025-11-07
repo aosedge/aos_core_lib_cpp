@@ -118,10 +118,10 @@ public:
 
 private:
     static constexpr auto cAllocatorSize
-        = Max(sizeof(NodeInfoObsolete) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
+        = Max(sizeof(NodeInfo) + sizeof(sm::resourcemanager::NodeConfig) + sizeof(ResourceIdentifier),
             sizeof(InstanceMonitoringData) + sizeof(AlertProcessorArray) + sizeof(ResourceIdentifier));
 
-    Error        InitPartitions(const NodeInfoObsolete& nodeInfo);
+    Error        InitPartitions(const NodeInfo& nodeInfo);
     String       GetParameterName(const ResourceIdentifier& id) const;
     AlertVariant CreateSystemQuotaAlertTemplate(const ResourceIdentifier& resourceIdentifier) const;
     AlertVariant CreateInstanceQuotaAlertTemplate(

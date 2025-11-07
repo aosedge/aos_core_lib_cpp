@@ -29,7 +29,7 @@ Error ResourceMonitor::Init(const Config& config, const iam::nodeinfoprovider::N
     mAlertSender           = &alertSender;
     mCloudConnection       = &cloudConnection;
 
-    auto nodeInfo = MakeUnique<NodeInfoObsolete>(&mAllocator);
+    auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
 
     if (auto err = nodeInfoProvider.GetNodeInfo(*nodeInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -236,7 +236,7 @@ Error ResourceMonitor::GetAverageMonitoringData(NodeMonitoringData& monitoringDa
  * Private
  **********************************************************************************************************************/
 
-Error ResourceMonitor::InitPartitions(const NodeInfoObsolete& nodeInfo)
+Error ResourceMonitor::InitPartitions(const NodeInfo& nodeInfo)
 {
     for (const auto& partition : nodeInfo.mPartitions) {
         if (auto err = mPartitionInfos.EmplaceBack(); !err.IsNone()) {

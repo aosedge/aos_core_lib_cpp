@@ -16,19 +16,19 @@ namespace aos::monitoring {
  */
 class NodeInfoProviderStub : public iam::nodeinfoprovider::NodeInfoProviderItf {
 public:
-    NodeInfoProviderStub(const NodeInfoObsolete& nodeInfo)
+    NodeInfoProviderStub(const NodeInfo& nodeInfo)
         : mNodeInfo(nodeInfo)
     {
     }
 
-    Error GetNodeInfo(NodeInfoObsolete& nodeInfo) const override
+    Error GetNodeInfo(NodeInfo& nodeInfo) const override
     {
         nodeInfo = mNodeInfo;
 
         return ErrorEnum::eNone;
     }
 
-    Error SetNodeState(const NodeStateObsolete& state) override
+    Error SetNodeState(const NodeState& state) override
     {
         (void)state;
 
@@ -50,7 +50,7 @@ public:
     }
 
 private:
-    NodeInfoObsolete mNodeInfo {};
+    NodeInfo mNodeInfo {};
 };
 
 } // namespace aos::monitoring
