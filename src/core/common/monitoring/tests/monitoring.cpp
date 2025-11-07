@@ -56,17 +56,17 @@ void SetInstancesMonitoringData(
     }
 }
 
-std::unique_ptr<NodeInfoObsolete> CreateNodeInfo(const Array<PartitionInfo>& partitions)
+std::unique_ptr<NodeInfo> CreateNodeInfo(const Array<PartitionInfo>& partitions)
 {
-    auto nodeInfo = std::make_unique<NodeInfoObsolete>();
+    auto nodeInfo = std::make_unique<NodeInfo>();
 
-    nodeInfo->mNodeID   = "node1";
-    nodeInfo->mNodeType = "type1";
-    nodeInfo->mName     = "name1";
-    nodeInfo->mState    = NodeStateObsoleteEnum::eProvisioned;
-    nodeInfo->mOSType   = "linux";
-    nodeInfo->mTotalRAM = 8192;
-    nodeInfo->mMaxDMIPS = 10000;
+    nodeInfo->mNodeID     = "node1";
+    nodeInfo->mNodeType   = "type1";
+    nodeInfo->mTitle      = "name1";
+    nodeInfo->mState      = NodeStateEnum::eOnline;
+    nodeInfo->mOSInfo.mOS = "linux";
+    nodeInfo->mTotalRAM   = 8192;
+    nodeInfo->mMaxDMIPS   = 10000;
 
     for (const auto& partition : partitions) {
         if (auto err = nodeInfo->mPartitions.EmplaceBack(); !err.IsNone()) {
@@ -78,7 +78,6 @@ std::unique_ptr<NodeInfoObsolete> CreateNodeInfo(const Array<PartitionInfo>& par
         nodePartition.mName      = partition.mName;
         nodePartition.mPath      = partition.mPath;
         nodePartition.mTotalSize = partition.mTotalSize;
-        nodePartition.mUsedSize  = 0;
     }
 
     return nodeInfo;

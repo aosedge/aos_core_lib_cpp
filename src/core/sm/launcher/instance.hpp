@@ -157,7 +157,7 @@ public:
         layermanager::LayerManagerItf& layerManager, resourcemanager::ResourceManagerItf& resourceManager,
         networkmanager::NetworkManagerItf& networkManager, iamclient::PermHandlerItf& permHandler,
         runner::RunnerItf& runner, RuntimeItf& runtime, monitoring::ResourceMonitorItf& resourceMonitor,
-        oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfoObsolete& nodeInfo);
+        oci::OCISpecItf& ociManager, const String& hostWhiteoutsDir, const NodeInfo& nodeInfo);
 
     /**
      * Starts instance.
@@ -387,7 +387,7 @@ private:
     monitoring::ResourceMonitorItf&      mResourceMonitor;
     oci::OCISpecItf&                     mOCIManager;
     const String&                        mHostWhiteoutsDir;
-    const NodeInfoObsolete&              mNodeInfo;
+    const NodeInfo&                      mNodeInfo;
 
     StaticString<cFilePathLen> mRuntimeDir;
     InstanceState              mState;

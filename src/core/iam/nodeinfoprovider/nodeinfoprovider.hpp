@@ -9,7 +9,7 @@
 #define AOS_CORE_IAM_NODEINFOPROVIDER_NODEINFOPROVIDER_HPP_
 
 #include <core/common/tools/error.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/common.hpp>
 
 namespace aos::iam::nodeinfoprovider {
 
@@ -34,7 +34,7 @@ static constexpr auto cAttrNodeRunners = "NodeRunners";
  * @param nodeInfo node info.
  * @return bool.
  */
-bool IsMainNode(const NodeInfoObsolete& nodeInfo);
+bool IsMainNode(const NodeInfo& nodeInfo);
 
 /**
  * Checks if the node contains specified component.
@@ -57,7 +57,7 @@ public:
      * @param state node state.
      * @return Error.
      */
-    virtual Error OnNodeStateChanged(const String& nodeID, const NodeStateObsolete& state) = 0;
+    virtual Error OnNodeStateChanged(const String& nodeID, const NodeState& state) = 0;
 
     /**
      * Destructor.
@@ -76,7 +76,7 @@ public:
      * @param[out] nodeInfo node info
      * @return Error
      */
-    virtual Error GetNodeInfo(NodeInfoObsolete& nodeInfo) const = 0;
+    virtual Error GetNodeInfo(NodeInfo& nodeInfo) const = 0;
 
     /**
      * Sets the node state.
@@ -84,7 +84,7 @@ public:
      * @param state node state.
      * @return Error.
      */
-    virtual Error SetNodeState(const NodeStateObsolete& state) = 0;
+    virtual Error SetNodeState(const NodeState& state) = 0;
 
     /**
      * Subscribes on node state changed event.
