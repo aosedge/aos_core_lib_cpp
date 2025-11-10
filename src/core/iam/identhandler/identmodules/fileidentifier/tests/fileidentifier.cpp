@@ -66,7 +66,7 @@ protected:
         mConfig.mSubjectsPath  = cSubjectsPath;
     }
 
-    Config mConfig;
+    FileIdentifierConfig mConfig;
 };
 
 /***********************************************************************************************************************
@@ -77,7 +77,7 @@ TEST_F(FileIdentifierTest, InitFailsOnEmptyConfig)
 {
     FileIdentifier identifier;
 
-    const auto err = identifier.Init(Config {});
+    const auto err = identifier.Init(FileIdentifierConfig {});
     ASSERT_FALSE(err.IsNone()) << err.Message();
 }
 
@@ -96,7 +96,7 @@ TEST_F(FileIdentifierTest, InitFailsOnUnitVersionFileError)
             f << fileContents;
         }
 
-        const auto err = identifier.Init(Config {});
+        const auto err = identifier.Init(FileIdentifierConfig {});
         EXPECT_FALSE(err.IsNone()) << tests::utils::ErrorToStr(err);
     }
 }
