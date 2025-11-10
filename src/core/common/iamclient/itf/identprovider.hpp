@@ -22,7 +22,7 @@ public:
     virtual ~SubjectsListenerItf() = default;
 
     /**
-     * Subjects listener interface.
+     * Notifies about subjects change.
      *
      * @param subjects subject changed messages.
      * @returns Error.
