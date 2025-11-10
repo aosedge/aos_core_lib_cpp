@@ -12,31 +12,13 @@
 #include <core/iam/config.hpp>
 #include <core/iam/identhandler/identmodule.hpp>
 
+#include "config.hpp"
+
 namespace aos::iam::identhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
  */
-
-/**
- * FileIdentifier configuration.
- */
-struct Config {
-    /**
-     * System ID path.
-     */
-    StaticString<cFilePathLen> mSystemIDPath;
-
-    /**
-     * Unit model path.
-     */
-    StaticString<cFilePathLen> mUnitModelPath;
-
-    /**
-     * Subjects path.
-     */
-    StaticString<cFilePathLen> mSubjectsPath;
-};
 
 /**
  * File identifier.
@@ -49,7 +31,7 @@ public:
      * @param config module config.
      * @return Error.
      */
-    Error Init(const Config& config);
+    Error Init(const FileIdentifierConfig& config);
 
     /**
      * Starts file identifier.
@@ -90,7 +72,7 @@ private:
     Error ReadSubjects();
 
     Mutex                                              mMutex;
-    Config                                             mConfig;
+    FileIdentifierConfig                               mConfig;
     SystemInfo                                         mSystemInfo;
     StaticArray<StaticString<cIDLen>, cMaxNumSubjects> mSubjects;
 };
