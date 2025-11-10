@@ -62,9 +62,10 @@ public:
      *
      * @param nodeID node identifier.
      * @param state node state.
+     * @param provisioned node provisioned flag.
      * @return Error.
      */
-    virtual Error SetNodeState(const String& nodeID, const NodeState& state) = 0;
+    virtual Error SetNodeState(const String& nodeID, const NodeState& state, bool provisioned) = 0;
 
     /**
      * Returns node info.
@@ -175,9 +176,10 @@ public:
      *
      * @param nodeID node identifier.
      * @param state node state.
+     * @param provisioned node provisioned flag.
      * @return Error.
      */
-    Error SetNodeState(const String& nodeID, const NodeState& state) override;
+    Error SetNodeState(const String& nodeID, const NodeState& state, bool provisioned) override;
 
     /**
      * Returns node info.

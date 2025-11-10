@@ -120,7 +120,7 @@ TEST_F(NodeManagerTest, SetNodeStateOffline)
     NodeStateEnum        state = NodeStateEnum::eOffline;
 
     EXPECT_CALL(mStorage, RemoveNodeInfo(node0)).WillOnce(Return(ErrorEnum::eNotFound));
-    ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
+    ASSERT_TRUE(mManager.SetNodeState(node0, state, false).IsNone());
 }
 
 TEST_F(NodeManagerTest, GetNodeInfoNotFound)
@@ -152,8 +152,8 @@ TEST_F(NodeManagerTest, GetAllNodeIDs)
     NodeStateEnum state = NodeStateEnum::eOnline;
 
     EXPECT_CALL(mStorage, SetNodeInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
-    ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
-    ASSERT_TRUE(mManager.SetNodeState(node1, state).IsNone());
+    ASSERT_TRUE(mManager.SetNodeState(node0, state, true).IsNone());
+    ASSERT_TRUE(mManager.SetNodeState(node1, state, true).IsNone());
 
     StaticArray<StaticString<cIDLen>, 2> ids;
 
@@ -169,7 +169,7 @@ TEST_F(NodeManagerTest, RemoveNodeInfo)
     NodeStateEnum state = NodeStateEnum::eOnline;
 
     EXPECT_CALL(mStorage, SetNodeInfo(Field(&NodeInfo::mNodeID, node0))).WillOnce(Return(ErrorEnum::eNone));
-    ASSERT_TRUE(mManager.SetNodeState(node0, state).IsNone());
+    ASSERT_TRUE(mManager.SetNodeState(node0, state, true).IsNone());
 
     ASSERT_EQ(mManager.GetNodeInfo(node0, nodeInfo), ErrorEnum::eNone);
 
