@@ -28,9 +28,10 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error SetNodeState(const NodeState& state) override
+    Error SetNodeState(const NodeState& state, bool provisioned) override
     {
         (void)state;
+        (void)provisioned;
 
         return ErrorEnum::eNone;
     }

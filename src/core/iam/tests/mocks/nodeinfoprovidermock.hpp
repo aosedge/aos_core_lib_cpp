@@ -27,7 +27,7 @@ public:
 class NodeInfoProviderMock : public NodeInfoProviderItf {
 public:
     MOCK_METHOD(Error, GetNodeInfo, (NodeInfo & nodeInfo), (const, override));
-    MOCK_METHOD(Error, SetNodeState, (const NodeState& state), (override));
+    MOCK_METHOD(Error, SetNodeState, (const NodeState& state, bool provisioned), (override));
     MOCK_METHOD(Error, SubscribeNodeStateChanged, (NodeStateObserverItf & observer), (override));
     MOCK_METHOD(Error, UnsubscribeNodeStateChanged, (NodeStateObserverItf & observer), (override));
 };
