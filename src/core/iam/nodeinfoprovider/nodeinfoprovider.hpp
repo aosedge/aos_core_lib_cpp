@@ -82,9 +82,10 @@ public:
      * Sets the node state.
      *
      * @param state node state.
+     * @param provisioned node provisioned flag.
      * @return Error.
      */
-    virtual Error SetNodeState(const NodeState& state) = 0;
+    virtual Error SetNodeState(const NodeState& state, bool provisioned) = 0;
 
     /**
      * Subscribes on node state changed event.
