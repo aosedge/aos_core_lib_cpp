@@ -73,7 +73,7 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
     const RunInstanceRequest& request, const String& imageID, const String& runtimeID, const Instance& instance,
     aos::InstanceInfo& info)
 {
-    // create instance info, NetworkParameters are added after network updates
+    // create instance info, InstanceNetworkParameters are added after network updates
     static_cast<InstanceIdent&>(info) = instance.GetInfo().mInstanceIdent;
     info.mImageID                     = imageID;
     info.mRuntimeID                   = runtimeID;
@@ -180,7 +180,7 @@ Error Balancer::ScheduleInstance(Instance& instance, const RunInstanceRequest& r
         networkServiceData->mHosts.PushBack(serviceConfig->mHostname.GetValue());
     }
 
-    // create instance info, NetworkParameters will be added after network update
+    // create instance info, InstanceNetworkParameters will be added after network update
     auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
 
     if (auto err = SetupInstanceInfo(
@@ -628,7 +628,7 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                 continue;
             }
 
-            // create instance info, NetworkParameters will be added after network update
+            // create instance info, InstanceNetworkParameters will be added after network update
             auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
 
             if (auto err = SetupInstanceInfo(*serviceConfig, node->GetConfig(), request, imageID,

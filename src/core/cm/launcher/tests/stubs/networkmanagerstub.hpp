@@ -25,7 +25,7 @@ public:
     }
 
     Error PrepareInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& networkID,
-        const String& nodeID, const NetworkServiceData& networkData, NetworkParameters& result) override
+        const String& nodeID, const NetworkServiceData& networkData, InstanceNetworkParameters& result) override
     {
         (void)nodeID;
         (void)networkData;
@@ -34,7 +34,7 @@ public:
 
         mCurrentIP++;
 
-        NetworkParameters params;
+        InstanceNetworkParameters params;
 
         params.mIP     = IPToString(mCurrentIP).c_str();
         params.mSubnet = mSubnet.c_str();

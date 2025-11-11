@@ -57,7 +57,7 @@ public:
      * @return Error.
      */
     virtual Error PrepareInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& networkID,
-        const String& nodeID, const NetworkServiceData& networkData, NetworkParameters& result)
+        const String& nodeID, const NetworkServiceData& networkData, InstanceNetworkParameters& result)
         = 0;
 
     /**

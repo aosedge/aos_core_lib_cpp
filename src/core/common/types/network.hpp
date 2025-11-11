@@ -119,12 +119,10 @@ struct FirewallRule {
  * Networks parameters.
  */
 struct NetworkParameters {
-    StaticString<cHostNameLen>                                 mNetworkID;
-    StaticString<cSubnetLen>                                   mSubnet;
-    StaticString<cIPLen>                                       mIP;
-    uint64_t                                                   mVlanID {};
-    StaticArray<StaticString<cHostNameLen>, cMaxNumDNSServers> mDNSServers;
-    StaticArray<FirewallRule, cMaxNumFirewallRules>            mFirewallRules;
+    StaticString<cHostNameLen> mNetworkID;
+    StaticString<cSubnetLen>   mSubnet;
+    StaticString<cIPLen>       mIP;
+    uint64_t                   mVlanID {};
 
     /**
      * Compares network parameters.
@@ -134,8 +132,7 @@ struct NetworkParameters {
      */
     bool operator==(const NetworkParameters& rhs) const
     {
-        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP && mVlanID == rhs.mVlanID
-            && mDNSServers == rhs.mDNSServers && mFirewallRules == rhs.mFirewallRules;
+        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP && mVlanID == rhs.mVlanID;
     }
 
     /**
@@ -145,6 +142,37 @@ struct NetworkParameters {
      * @return bool.
      */
     bool operator!=(const NetworkParameters& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Instance network parameters.
+ */
+struct InstanceNetworkParameters {
+    StaticString<cHostNameLen>                           mNetworkID;
+    StaticString<cSubnetLen>                             mSubnet;
+    StaticString<cIPLen>                                 mIP;
+    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers> mDNSServers;
+    StaticArray<FirewallRule, cMaxNumFirewallRules>      mFirewallRules;
+
+    /**
+     * Compares instance network parameters.
+     *
+     * @param rhs instance network parameters to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceNetworkParameters& rhs) const
+    {
+        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP
+            && mDNSServers == rhs.mDNSServers && mFirewallRules == rhs.mFirewallRules;
+    }
+
+    /**
+     * Compares instance network parameters.
+     *
+     * @param rhs instance network parameters to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceNetworkParameters& rhs) const { return !operator==(rhs); }
 };
 
 /**
