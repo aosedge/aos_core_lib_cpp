@@ -24,7 +24,7 @@ It requires the following interfaces:
 * [aos::cm::smcontroller::UpdateImageProviderItf](itf/updateimageprovider.hpp) - gets update images info;
 * [aos::cloudconnection::CloudConnectionItf](../../common/cloudconnection/itf/cloudconnection.hpp) - gets
   connection state and sends it to connected SM.
-  
+
 ```mermaid
 classDiagram
     direction LR

@@ -5,7 +5,7 @@ Storage state manages service instances storage partitions and state files.
 It implements the following interfaces:
 
 * [aos::fs::FSEventSubscriberItf](../../common/tools/fs.hpp) - handles file change events;
-* [aos::cm::storagestate::StateHandlerItf](itf/statehandler.hpp) - handles state mutations.
+* [aos::cm::storagestate::StateHandlerItf](itf/statehandler.hpp) - handles state mutations;
 * [aos::cm::storagestate::StorageStateItf](itf/storagestate.hpp) - manages service instances storage
 partitions and state files.
 
@@ -14,8 +14,8 @@ It requires the following interfaces:
 * [aos::cm::storagestate::SenderItf](itf/sender.hpp) - sends storage state messages;
 * [aos::cm::storagestate::StorageItf](itf/storage.hpp) - manages metadata about storage/state partitions;
 * [aos::fs::FSPlatformItf](../../common/tools/fs.hpp) - handle filesystem operations;
-* [aos::fs::FSWatcherItf](../../common/tools/fs.hpp) - subscribes to file change events.
-* [aos::crypto::HasherItf](../../common/crypto/itf/hasher.hpp) - computes state file checksum;
+* [aos::fs::FSWatcherItf](../../common/tools/fs.hpp) - subscribes to file change events;
+* [aos::crypto::HasherItf](../../common/crypto/itf/hasher.hpp) - computes state file checksum.
 
 ```mermaid
 classDiagram
