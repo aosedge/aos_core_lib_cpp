@@ -693,7 +693,7 @@ Error NetworkManager::WriteResolvConfFile(const String& filePath, const Array<St
         return err;
     }
 
-    return writeNameServers(network.mDNSSevers);
+    return writeNameServers(network.mNetworkParameters.mDNSServers);
 }
 
 Error NetworkManager::CreateHostsFile(
@@ -949,7 +949,7 @@ Error NetworkManager::CreateDNSPluginConfig(
     config.mMultiDomain = true;
     config.mDomainName  = networkID;
 
-    for (const auto& dnsServer : network.mDNSSevers) {
+    for (const auto& dnsServer : network.mNetworkParameters.mDNSServers) {
         if (auto err = config.mRemoteServers.PushBack(dnsServer); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

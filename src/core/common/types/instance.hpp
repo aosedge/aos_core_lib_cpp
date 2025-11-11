@@ -25,7 +25,7 @@ struct InstanceInfoData {
     uint64_t                   mPriority {};
     StaticString<cFilePathLen> mStoragePath;
     StaticString<cFilePathLen> mStatePath;
-    NetworkParameters          mNetworkParameters;
+    InstanceNetworkParameters  mNetworkParameters;
 
     /**
      * Compares instance info data.

@@ -66,8 +66,8 @@ protected:
         params.mUploadLimit               = 1000;
         params.mDownloadLimit             = 1000;
 
-        params.mDNSSevers.PushBack("8.8.8.8");
-        params.mDNSSevers.PushBack("8.8.4.4");
+        params.mNetworkParameters.mDNSServers.PushBack("8.8.8.8");
+        params.mNetworkParameters.mDNSServers.PushBack("8.8.4.4");
 
         aos::Host host1 {"10.0.0.1", "host1.example.com"};
         aos::Host host2 {"10.0.0.2", "host2.example.com"};
@@ -320,7 +320,7 @@ TEST_F(NetworkManagerTest, AddInstanceToNetwork_VerifyResolvConfFile)
     EXPECT_THAT(resolvContent, HasSubstr("nameserver\t8.8.8.8"));
     EXPECT_THAT(resolvContent, HasSubstr("nameserver\t8.8.4.4"));
 
-    for (const auto& dns : params.mDNSSevers) {
+    for (const auto& dns : params.mNetworkParameters.mDNSServers) {
         EXPECT_THAT(resolvContent, HasSubstr("nameserver\t" + std::string(dns.CStr())));
     }
 }

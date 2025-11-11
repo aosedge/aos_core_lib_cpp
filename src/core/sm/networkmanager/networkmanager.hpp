@@ -228,18 +228,17 @@ using TrafficPeriod     = EnumStringer<TrafficPeriodType>;
  */
 struct InstanceNetworkParameters {
     InstanceIdent                                                   mInstanceIdent;
-    aos::NetworkParameters                                          mNetworkParameters;
+    aos::InstanceNetworkParameters                                  mNetworkParameters;
     StaticString<cHostNameLen>                                      mHostname;
     StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;
-    uint64_t                                                        mIngressKbit = 0;
-    uint64_t                                                        mEgressKbit  = 0;
+    uint64_t                                                        mIngressKbit {};
+    uint64_t                                                        mEgressKbit {};
     StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
     StaticArray<Host, cMaxNumHosts>                                 mHosts;
-    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>            mDNSSevers;
     StaticString<cFilePathLen>                                      mHostsFilePath;
     StaticString<cFilePathLen>                                      mResolvConfFilePath;
-    uint64_t                                                        mUploadLimit   = 0;
-    uint64_t                                                        mDownloadLimit = 0;
+    uint64_t                                                        mUploadLimit {};
+    uint64_t                                                        mDownloadLimit {};
 
     /**
      * Compares network parameters.
@@ -254,7 +253,7 @@ struct InstanceNetworkParameters {
             && mHostname == instanceNetworkParams.mHostname && mAliases == instanceNetworkParams.mAliases
             && mIngressKbit == instanceNetworkParams.mIngressKbit && mEgressKbit == instanceNetworkParams.mEgressKbit
             && mExposedPorts == instanceNetworkParams.mExposedPorts && mHosts == instanceNetworkParams.mHosts
-            && mDNSSevers == instanceNetworkParams.mDNSSevers && mHostsFilePath == instanceNetworkParams.mHostsFilePath
+            && mHostsFilePath == instanceNetworkParams.mHostsFilePath
             && mResolvConfFilePath == instanceNetworkParams.mResolvConfFilePath
             && mUploadLimit == instanceNetworkParams.mUploadLimit
             && mDownloadLimit == instanceNetworkParams.mDownloadLimit;
