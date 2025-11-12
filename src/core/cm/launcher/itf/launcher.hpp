@@ -69,14 +69,6 @@ public:
      * @return Error.
      */
     virtual Error RunInstances(const Array<RunInstanceRequest>& instances, Array<InstanceStatus>& statuses) = 0;
-
-    /**
-     * Rebalances instances.
-     *
-     * @param[out] statuses instances statuses.
-     * @return Error.
-     */
-    virtual Error Rebalance() = 0;
 };
 
 /** @}*/
