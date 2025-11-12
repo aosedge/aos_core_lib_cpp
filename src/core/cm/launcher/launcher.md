@@ -520,7 +520,8 @@ Currently supported resources include:
 - **Memory**: RAM allocation requirements (primarily for service instances)
 - **State Partitions**: State partitions for service instances
 - **Storage Partitions**: Storage partitions for service instances
-- **Device Resources**: Hardware devices and partitions (primarily for component instances like rootfs, system partitions)
+- **Device Resources**: Hardware devices and partitions (primarily for component instances like rootfs, system
+  partitions)
 
 #### Rebalancing tresholds
 

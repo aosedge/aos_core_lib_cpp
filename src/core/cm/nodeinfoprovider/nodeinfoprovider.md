@@ -7,7 +7,7 @@ It implements the following interfaces:
 
 * [aos::cm::nodeinfoprovider::NodeInfoProviderItf](itf/nodeinfoprovider.hpp) - provides combined node info for
 other modules;
-* [aos::cm::smcontroller::SMInfoReceiverItf](itf/sminforeceiver.hpp) - receives SM statuses.
+* [aos::cm::smcontroller::SMInfoReceiverItf](itf/sminforeceiver.hpp) - receives SM statuses;
 * [aos::iamclient::NodeInfoListenerItf](../../common/iamclient/itf/nodeinfoprovider.hpp) - listens for IAM node
 info changes.
 

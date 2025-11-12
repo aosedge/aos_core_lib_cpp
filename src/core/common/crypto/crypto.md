@@ -4,7 +4,8 @@ This document describes the crypto module in the AOS Core Library, including its
 
 ## Overview
 
-The crypto module provides a comprehensive set of interfaces for cryptographic operations including hashing, encryption, digital signatures, certificate handling, ASN.1 parsing, and random number generation.
+The crypto module provides a comprehensive set of interfaces for cryptographic operations including hashing, encryption,
+digital signatures, certificate handling, ASN.1 parsing, and random number generation.
 
 ### Crypto Module Implementations
 
@@ -23,7 +24,9 @@ The implementation is selected at build time using CMake flags:
 
 ### Default CryptoProvider
 
-The module provides a unified `CryptoProviderItf` that abstracts the underlying implementation. The `DefaultCryptoProvider` alias is used to instantiate the interface with the same name regardless of the build configuration.
+The module provides a unified `CryptoProviderItf` that abstracts the underlying implementation.
+The`DefaultCryptoProvider` alias is used to instantiate the interface with the same name regardless of the build
+configuration.
 
 ## Interface Descriptions
 
@@ -82,7 +85,8 @@ Hash factory interface for creating hash instances.
 
 **Types:**
 
-- `Hash`: Hash algorithm type used to specify which hash function to use. Supported algorithms: `eSHA1`, `eSHA224`, `eSHA256`, `eSHA384`, `eSHA512`, `eSHA512_224`, `eSHA512_256`, `eSHA3_224`, `eSHA3_256`, `eNONE`
+- `Hash`: Hash algorithm type used to specify which hash function to use. Supported algorithms: `eSHA1`, `eSHA224`,
+  `eSHA256`, `eSHA384`, `eSHA512`, `eSHA512_224`, `eSHA512_256`, `eSHA3_224`, `eSHA3_256`, `eNONE`
 
 ### Private/Public Key Interfaces
 
@@ -110,7 +114,8 @@ Private key operations interface for signing and decryption.
 **Types:**
 
 - `SignOptions`: Signature options contain optional hash algorithm to be used
-- `DecryptionOptions`: Decryption options that can be either `PKCS1v15DecryptionOptions` or `OAEPDecryptionOptions` (used with RSA keys only)
+- `DecryptionOptions`: Decryption options that can be either `PKCS1v15DecryptionOptions` or `OAEPDecryptionOptions`
+  (used with RSA keys only)
 
 #### RSAPublicKey
 
@@ -177,7 +182,8 @@ Random number generator interface for generating random data.
 
 ### CertLoaderItf
 
-Interface for loading certificates and private keys from URLs. Currently supports file URLs (file: prefix) and PKCS#11 URLs (pkcs11: prefix).
+Interface for loading certificates and private keys from URLs. Currently supports file URLs (file: prefix) and PKCS#11
+URLs (pkcs11: prefix).
 
 **Methods:**
 
@@ -248,7 +254,9 @@ X.509 certificate provider interface for certificate operations.
 
 This document provided information about all the crypto interfaces available in the AOS Core Library crypto module:
 
-`UUIDItf`, `AESCipherItf`, `AESEncoderDecoderItf`, `HashItf`, `HasherItf`, `PublicKeyItf`, `PrivateKeyItf`, `RSAPublicKey`, `ECDSAPublicKey`, `ProviderItf` (x509), `ASN1HandlerItf`, `ASN1DecoderItf`, `RandomItf`, `CertLoaderItf`, `CryptoHelperItf`
+`UUIDItf`, `AESCipherItf`, `AESEncoderDecoderItf`, `HashItf`, `HasherItf`, `PublicKeyItf`, `PrivateKeyItf`,
+`RSAPublicKey`, `ECDSAPublicKey`, `ProviderItf` (x509), `ASN1HandlerItf`, `ASN1DecoderItf`, `RandomItf`,
+`CertLoaderItf`, `CryptoHelperItf`
 
 ### Example Usage
 
