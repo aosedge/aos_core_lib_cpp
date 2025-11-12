@@ -20,7 +20,16 @@ set(SOURCES networkmanager.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS cni.hpp networkmanager.hpp)
+set(HEADERS
+    networkmanager.hpp
+    itf/cni.hpp
+    itf/interfacefactory.hpp
+    itf/interfacemanager.hpp
+    itf/namespacemanager.hpp
+    itf/networkmanager.hpp
+    itf/storage.hpp
+    itf/trafficmonitor.hpp
+)
 
 # ######################################################################################################################
 # Libraries

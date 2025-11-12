@@ -13,8 +13,16 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/sm/networkmanager/networkmanager.hpp>
 #include <core/sm/tests/mocks/cnimock.hpp>
-#include <core/sm/tests/mocks/networkmanagermock.hpp>
+#include <core/sm/tests/mocks/storagemock.hpp>
+
+#include "mocks/interfacefactorymock.hpp"
+#include "mocks/interfacemanagermock.hpp"
+#include "mocks/namespacemanagermock.hpp"
+#include "mocks/randommock.hpp"
+#include "mocks/trafficmonitormock.hpp"
 
 using namespace aos::sm::networkmanager;
 using namespace aos::sm::cni;
