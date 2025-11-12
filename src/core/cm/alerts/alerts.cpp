@@ -38,15 +38,6 @@ private:
     Time mTime;
 };
 
-class GetAlertTagVisitor : public StaticVisitor<AlertTag> {
-public:
-    template <typename T>
-    Res Visit(const T& alert) const
-    {
-        return alert.mTag;
-    }
-};
-
 } // namespace
 
 /***********************************************************************************************************************
@@ -267,4 +258,5 @@ void Alerts::NotifyListeners(const AlertVariant& alert)
         }
     }
 }
+
 } // namespace aos::cm::alerts

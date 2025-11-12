@@ -392,6 +392,25 @@ struct InstanceQuotaAlert : AlertItem, InstanceIdent {
 };
 
 /**
+ * Visitor to get alert tag.
+ */
+class GetAlertTagVisitor : public StaticVisitor<AlertTag> {
+public:
+    /**
+     * Returns alert tag.
+     *
+     * @tparam T alert type.
+     * @param alert alert.
+     * @return Res.
+     */
+    template <typename T>
+    Res Visit(const T& alert) const
+    {
+        return alert.mTag;
+    }
+};
+
+/**
  * Download state.
  */
 class DownloadStateType {
