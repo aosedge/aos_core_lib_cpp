@@ -130,7 +130,9 @@ Error NodeManager::GetNodesByPriorities(Array<Node*>& nodes)
 
 Node* NodeManager::FindNode(const String& nodeID)
 {
-    return mNodes.FindIf([&nodeID](const Node& node) { return node.GetInfo().mNodeID == nodeID; });
+    auto it = mNodes.FindIf([&nodeID](const Node& node) { return node.GetInfo().mNodeID == nodeID; });
+
+    return it != mNodes.end() ? it : nullptr;
 }
 
 Array<Node>& NodeManager::GetNodes()
