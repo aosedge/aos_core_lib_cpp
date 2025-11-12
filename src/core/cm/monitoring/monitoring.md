@@ -5,16 +5,16 @@ Monitoring module receives monitoring data from SM's, buffers and aggregates the
 It implements the following interfaces:
 
 * [aos::cm::nodeinfoprovider::NodeInfoListenerItf](../nodeinfoprovider/itf/nodeinfoprovider.hpp) - receives
-node info change events.
+node info change events;
 * [aos::cm::launcher::InstanceStatusListenerItf](../launcher/itf/instancestatusprovider.hpp) - receives
-instance status change events.
+instance status change events;
 * [aos::cm::monitoring::ReceiverItf](itf/receiver.hpp) - receives monitoring data.
 
 It requires the following interfaces:
 
-* [aos::cm::monitoring::SenderItf](itf/sender.hpp) - sends aggregated monitoring messages to Aos cloud.
+* [aos::cm::monitoring::SenderItf](itf/sender.hpp) - sends aggregated monitoring messages to Aos cloud;
 * [aos::cm::launcher::InstanceStatusProviderItf](../launcher/itf/instancestatusprovider.hpp) - subscribes
-the monitoring module to instance status changes.
+the monitoring module to instance status changes;
 * [aos::cm::nodeinfoprovider::NodeInfoProviderItf](../nodeinfoprovider/itf/nodeinfoprovider.hpp) - subscribes
 the monitoring module to node info changes.
 
@@ -60,9 +60,9 @@ classDiagram
 The monitoring module maintains an internal cache used to aggregate monitoring data before sending it to the cloud.
 Monitoring data is sent to the cloud at regular intervals, with the transmission period configured through a parameter.
 
-If the cloud connection is lost, monitoring data cannot be sent, and the cache continues to grow until it reaches its capacity.
-Once full, the oldest monitoring data is discarded to allocate space for the new data.
-As a result, when the connection is restored, the most recent monitoring data is sent to the cloud.
+If the cloud connection is lost, monitoring data cannot be sent, and the cache continues to grow until it reaches its
+capacity. Once full, the oldest monitoring data is discarded to allocate space for the new data. As a result, when the
+connection is restored, the most recent monitoring data is sent to the cloud.
 
 ## aos::cm::monitoring::Monitoring
 
