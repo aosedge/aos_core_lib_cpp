@@ -16,7 +16,7 @@
 #include <core/common/types/instance.hpp>
 #include <core/sm/config.hpp>
 #include <core/sm/layermanager/layermanager.hpp>
-#include <core/sm/networkmanager/networkmanager.hpp>
+#include <core/sm/networkmanager/itf/networkmanager.hpp>
 #include <core/sm/resourcemanager/resourcemanager.hpp>
 #include <core/sm/runner/runner.hpp>
 #include <core/sm/servicemanager/servicemanager.hpp>

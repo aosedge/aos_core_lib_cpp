@@ -16,7 +16,7 @@ set(SOURCES networkmanager.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::sm::networkmanager GTest::gmock_main)
+set(LIBRARIES aos::core::sm::networkmanager aos::core::sm::tests::mocks GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
