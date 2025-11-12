@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2024 EPAM Systems, Inc.
+ * Copyright (C) 2025 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_SM_CNI_HPP_
-#define AOS_CORE_SM_CNI_HPP_
+#ifndef AOS_CORE_SM_NETWORKMANAGER_ITF_CNI_HPP_
+#define AOS_CORE_SM_NETWORKMANAGER_ITF_CNI_HPP_
 
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/uuid.hpp>
