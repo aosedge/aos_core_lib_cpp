@@ -17,11 +17,9 @@ set(HEADERS config.hpp)
 # Install targets
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_sm_logprovider aos_core_sm_runner)
+set(INSTALL_HEADERS aos_core_sm_launcher aos_core_sm_logprovider aos_core_sm_runner)
 
-set(INSTALL_LIBRARIES aos_core_sm_image aos_core_sm_launcher aos_core_sm_layermanager aos_core_sm_resourcemanager
-                      aos_core_sm_servicemanager
-)
+set(INSTALL_LIBRARIES aos_core_sm_image aos_core_sm_layermanager aos_core_sm_resourcemanager aos_core_sm_servicemanager)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_sm_tests_mocks aos_core_sm_tests_stubs)
