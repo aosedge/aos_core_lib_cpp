@@ -53,7 +53,7 @@ add_subdirectory(resourcemanager)
 add_subdirectory(runner)
 add_subdirectory(servicemanager)
 
-if(WITH_TEST)
+if(WITH_TEST_TOOLS)
     add_subdirectory(tests)
 endif()
 
