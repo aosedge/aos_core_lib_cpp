@@ -167,46 +167,6 @@ public:
     virtual Error SetTrafficPeriod(TrafficPeriod period) = 0;
 };
 
-/**
- * Link attributes.
- */
-struct LinkAttrs;
-
-/**
- * Link interface.
- */
-class LinkItf {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~LinkItf() = default;
-
-    /**
-     * Gets link attributes.
-     *
-     * @return Link attributes.
-     */
-    virtual const LinkAttrs& GetAttrs() const = 0;
-
-    /**
-     * Gets link type.
-     *
-     * @return Link type.
-     */
-    virtual const char* GetType() const = 0;
-};
-
-/**
- * Address list.
- */
-struct IPAddr;
-
-/**
- * Route info.
- */
-struct RouteInfo;
-
 /** @}*/
 
 } // namespace aos::sm::networkmanager
