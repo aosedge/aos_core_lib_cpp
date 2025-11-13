@@ -45,6 +45,7 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_sm)
 add_subdirectory(logprovider)
 add_subdirectory(networkmanager)
 add_subdirectory(runner)
+add_subdirectory(smclient)
 
 if(WITH_TEST_TOOLS)
     add_subdirectory(tests)
