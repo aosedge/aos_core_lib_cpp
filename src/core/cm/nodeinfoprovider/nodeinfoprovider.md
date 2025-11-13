@@ -102,7 +102,7 @@ sequenceDiagram
     end
 ```
 
-## aos::cm::nodeinfoprovider::nodeinfoprovider
+## aos::cm::nodeinfoprovider::NodeInfoProviderItf
 
 ### GetAllNodeIDs
 
@@ -122,14 +122,14 @@ Unsubscribes from node info change.
 
 ## aos::cm::smcontroller::SMInfoReceiverItf
 
-## OnSMConnected
+### OnSMConnected
 
 This method is called when corresponding SM connects to CM.
 
-## OnSMDisconnected
+### OnSMDisconnected
 
 This method is called when corresponding SM connects to CM.
 
-## OnSMInfoReceived
+### OnSMInfoReceived
 
 This method is called when SM info is received.
