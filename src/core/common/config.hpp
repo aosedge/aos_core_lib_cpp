@@ -163,6 +163,13 @@
 #endif
 
 /**
+ * Max number of blobs.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_BLOBS
+#define AOS_CONFIG_TYPES_MAX_NUM_BLOBS 16
+#endif
+
+/**
  * Max number of instances per update item.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEM_INSTANCES

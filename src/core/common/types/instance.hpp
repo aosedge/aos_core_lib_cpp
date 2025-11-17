@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_TYPES_INSTANCE_HPP_
 
 #include <core/common/crypto/itf/hash.hpp>
+#include <core/common/ocispec/imagespec.hpp>
 
 #include "common.hpp"
 #include "network.hpp"
@@ -84,7 +85,7 @@ using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 struct InstanceStatusData {
     StaticString<cIDLen>                      mNodeID;
     StaticString<cIDLen>                      mRuntimeID;
-    StaticString<cIDLen>                      mImageID;
+    StaticString<oci::cDigestLen>             mManifestDigest;
     StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
     InstanceState                             mState;
     Error                                     mError;
@@ -97,7 +98,7 @@ struct InstanceStatusData {
      */
     bool operator==(const InstanceStatusData& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mImageID == rhs.mImageID
+        return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mManifestDigest == rhs.mManifestDigest
             && mStateChecksum == rhs.mStateChecksum && mState == rhs.mState && mError == rhs.mError;
     }
 

@@ -64,54 +64,23 @@ struct DesiredNodeStateInfo {
 using DesiredNodeStateInfoArray = StaticArray<DesiredNodeStateInfo, cMaxNumNodes>;
 
 /**
- * Update image info.
- */
-struct UpdateImageInfo {
-    ImageInfo                                       mImage;
-    StaticArray<StaticString<cURLLen>, cMaxNumURLs> mURLs;
-    StaticArray<uint8_t, crypto::cSHA256Size>       mSHA256;
-    size_t                                          mSize {};
-    crypto::DecryptInfo                             mDecryptInfo;
-    crypto::SignInfo                                mSignInfo;
-
-    /**
-     * Compares update image info.
-     *
-     * @param rhs object to compare with.
-     * @return bool.
-     */
-    bool operator==(const UpdateImageInfo& rhs) const
-    {
-        return mImage == rhs.mImage && mURLs == rhs.mURLs && mSHA256 == rhs.mSHA256 && mSize == rhs.mSize
-            && mDecryptInfo == rhs.mDecryptInfo && mSignInfo == rhs.mSignInfo;
-    }
-
-    /**
-     * Compares update item info.
-     */
-    bool operator!=(const UpdateImageInfo& rhs) const { return !operator==(rhs); }
-};
-
-using UpdateImageInfoArray = StaticArray<UpdateImageInfo, cMaxNumUpdateImages>;
-
-/**
  * Update item info.
  */
 struct UpdateItemInfo {
-    StaticString<cIDLen>      mItemID;
-    StaticString<cIDLen>      mOwnerID;
-    StaticString<cVersionLen> mVersion;
-    UpdateImageInfoArray      mImages;
+    StaticString<cIDLen>          mItemID;
+    StaticString<cIDLen>          mOwnerID;
+    StaticString<cVersionLen>     mVersion;
+    StaticString<oci::cDigestLen> mIndexDigest;
 
     /**
      * Compares update item info.
      *
-     * @param rhs object to compare with.
      * @return bool.
      */
     bool operator==(const UpdateItemInfo& rhs) const
     {
-        return mItemID == rhs.mItemID && mOwnerID == rhs.mOwnerID && mVersion == rhs.mVersion && mImages == rhs.mImages;
+        return mItemID == rhs.mItemID && mOwnerID == rhs.mOwnerID && mVersion == rhs.mVersion
+            && mIndexDigest == rhs.mIndexDigest;
     }
 
     /**
@@ -133,7 +102,6 @@ using LabelsArray = StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels>;
 struct DesiredInstanceInfo {
     StaticString<cIDLen> mItemID;
     StaticString<cIDLen> mSubjectID;
-    UpdateItemType       mItemType;
     uint64_t             mPriority {};
     size_t               mNumInstances {};
     LabelsArray          mLabels;
@@ -162,6 +130,38 @@ struct DesiredInstanceInfo {
 using DesiredInstanceInfoArray = StaticArray<DesiredInstanceInfo, cMaxNumInstances>;
 
 /**
+ * Blob info.
+ */
+struct BlobInfo {
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> mURLs;
+    StaticArray<uint8_t, crypto::cSHA256Size>       mSHA256;
+    size_t                                          mSize {};
+    crypto::DecryptInfo                             mDecryptInfo;
+    crypto::SignInfo                                mSignInfo;
+
+    /**
+     * Compares blob info.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator==(const BlobInfo& rhs) const
+    {
+        return mURLs == rhs.mURLs && mSHA256 == rhs.mSHA256 && mSize == rhs.mSize && mDecryptInfo == rhs.mDecryptInfo
+            && mSignInfo == rhs.mSignInfo;
+    }
+
+    /**
+     * Compares blob info.
+     */
+    bool operator!=(const BlobInfo& rhs) const { return !operator==(rhs); }
+};
+
+using BlobInfoArray = StaticArray<BlobInfo, cMaxNumBlobs>;
+
+struct Blob { };
+
+/**
  * Desired status.
  */
 struct DesiredStatus {
@@ -169,6 +169,7 @@ struct DesiredStatus {
     Optional<UnitConfig>              mUnitConfig;
     UpdateItemInfoArray               mUpdateItems;
     DesiredInstanceInfoArray          mInstances;
+    BlobInfoArray                     mBlobs;
     crypto::CertificateInfoArray      mCertificates;
     crypto::CertificateChainInfoArray mCertificateChains;
 
@@ -181,7 +182,7 @@ struct DesiredStatus {
     bool operator==(const DesiredStatus& rhs) const
     {
         return mUnitConfig == rhs.mUnitConfig && mNodes == rhs.mNodes && mUpdateItems == rhs.mUpdateItems
-            && mInstances == rhs.mInstances && mCertificates == rhs.mCertificates
+            && mBlobs == rhs.mBlobs && mInstances == rhs.mInstances && mCertificates == rhs.mCertificates
             && mCertificateChains == rhs.mCertificateChains;
     }
 
