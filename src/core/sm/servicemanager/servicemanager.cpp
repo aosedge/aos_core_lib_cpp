@@ -252,8 +252,8 @@ Error ServiceManager::ValidateService(const ServiceData& service)
 {
     LOG_DBG() << "Validate service: serviceID=" << service.mServiceID << ", version=" << service.mVersion;
 
-    Error                            err = ErrorEnum::eNone;
-    StaticString<oci::cMaxDigestLen> manifestDigest;
+    Error                         err = ErrorEnum::eNone;
+    StaticString<oci::cDigestLen> manifestDigest;
 
     if (Tie(manifestDigest, err) = GetManifestChecksum(service.mImagePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -675,7 +675,7 @@ RetWithError<StaticString<ServiceManager::cAllocatorItemLen>> ServiceManager::Fo
     return {id, {}};
 }
 
-RetWithError<StaticString<oci::cMaxDigestLen>> ServiceManager::GetManifestChecksum(const String& servicePath)
+RetWithError<StaticString<oci::cDigestLen>> ServiceManager::GetManifestChecksum(const String& servicePath)
 {
     return mImageHandler->CalculateDigest(fs::JoinPath(servicePath, cImageManifestFile));
 }

@@ -56,9 +56,9 @@ public:
      * Calculates digest for the given path or file.
      *
      * @param path root folder or file.
-     * @return RetWithError<StaticString<cMaxDigestLen>>.
+     * @return RetWithError<StaticString<cDigestLen>>.
      */
-    virtual RetWithError<StaticString<oci::cMaxDigestLen>> CalculateDigest(const String& path) const = 0;
+    virtual RetWithError<StaticString<oci::cDigestLen>> CalculateDigest(const String& path) const = 0;
 
     /**
      * Destructor.

@@ -13,9 +13,9 @@ namespace aos::cm::imagemanager {
 
 namespace {
 
-RetWithError<StaticString<oci::cMaxDigestLen>> RemovePrefixFromDigest(const String& digest)
+RetWithError<StaticString<oci::cDigestLen>> RemovePrefixFromDigest(const String& digest)
 {
-    StaticArray<StaticString<oci::cMaxDigestLen>, 2> digestList;
+    StaticArray<StaticString<oci::cDigestLen>, 2> digestList;
 
     if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
