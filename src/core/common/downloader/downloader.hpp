@@ -22,10 +22,10 @@ public:
      *
      * @param url URL.
      * @param path path to file.
-     * @param imageID image ID.
+     * @param digest file digest.
      * @return Error.
      */
-    virtual Error Download(const String& url, const String& path, const String& imageID = "") = 0;
+    virtual Error Download(const String& url, const String& path, const String& digest = "") = 0;
 
     /**
      * Destroys the Downloader Itf object.
