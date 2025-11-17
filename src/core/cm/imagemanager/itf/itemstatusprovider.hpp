@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGESTATUSPROVIDER_HPP_
-#define AOS_CORE_CM_IMAGEMANAGER_ITF_IMAGESTATUSPROVIDER_HPP_
+#ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_ITEMSTATUSPROVIDER_HPP_
+#define AOS_CORE_CM_IMAGEMANAGER_ITF_ITEMSTATUSPROVIDER_HPP_
 
 #include <core/common/types/unitstatus.hpp>
 
@@ -14,39 +14,37 @@ namespace aos::cm::imagemanager {
 /**
  * Interface for receiving notification about update image statuses.
  */
-class ImageStatusListenerItf {
+class ItemStatusListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~ImageStatusListenerItf() = default;
+    virtual ~ItemStatusListenerItf() = default;
 
     /**
-     * Notifies about image status change.
+     * Notifies about items statuses change.
      *
-     * @param itemID update item id.
-     * @param version update image version.
-     * @param status update image status.
+     * @param statuses update items statuses.
      */
-    virtual void OnImageStatusChanged(const String& itemID, const String& version, const ImageStatus& status) = 0;
+    virtual void OnItemsStatusesChanged(const Array<UpdateItemStatus>& statuses) = 0;
 
     /**
-     * Notifies about update item removal.
+     * Notifies about item removal.
      *
-     * @param id removed update item id.
+     * @param id removed item id.
      */
-    virtual void OnUpdateItemRemoved(const String& id) = 0;
+    virtual void OnItemRemoved(const String& id) = 0;
 };
 
 /**
- * Interface to provide update image statuses.
+ * Interface to provide update item statuses.
  */
-class ImageStatusProviderItf {
+class ItemStatusProviderItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~ImageStatusProviderItf() = default;
+    virtual ~ItemStatusProviderItf() = default;
 
     /**
      * Retrieves update items statuses.
@@ -62,7 +60,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    virtual Error SubscribeListener(ImageStatusListenerItf& listener) = 0;
+    virtual Error SubscribeListener(ItemStatusListenerItf& listener) = 0;
 
     /**
      * Unsubscribes from status notifications.
@@ -70,7 +68,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    virtual Error UnsubscribeListener(ImageStatusListenerItf& listener) = 0;
+    virtual Error UnsubscribeListener(ItemStatusListenerItf& listener) = 0;
 };
 
 } // namespace aos::cm::imagemanager

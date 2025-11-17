@@ -7,83 +7,15 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_STORAGE_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_STORAGE_HPP_
 
-#include <core/cm/imagemanager/itf/imagemanager.hpp>
-#include <core/common/crypto/itf/cryptohelper.hpp>
+#include <core/common/types/desiredstatus.hpp>
 
 namespace aos::cm::imagemanager {
 
 /**
- * Maximum number of metadata entries per image.
- */
-constexpr auto cMaxMetadataCount = 2;
-
-/**
- * Image state type.
- */
-class ItemStateType {
-public:
-    enum class Enum {
-        eActive,
-        eCached,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStateStrings[] = {
-            "active",
-            "cached",
-        };
-
-        return Array<const char* const>(sStateStrings, ArraySize(sStateStrings));
-    };
-};
-
-using ItemStateEnum = ItemStateType::Enum;
-using ItemState     = EnumStringer<ItemStateType>;
-
-/**
- * Image info.
- */
-struct ImageInfo : public aos::ImageInfo {
-    /**
-     * Constructor.
-     */
-    ImageInfo() = default;
-
-    StaticString<cURLLen>                                     mURL;
-    StaticArray<uint8_t, crypto::cSHA256Size>                 mSHA256;
-    size_t                                                    mSize {};
-    StaticString<cFilePathLen>                                mPath;
-    StaticArray<StaticString<cJSONMaxLen>, cMaxMetadataCount> mMetadata;
-
-    /**
-     * Compares image info.
-     *
-     * @param other image info to compare with.
-     * @return bool.
-     */
-    // cppcheck-suppress duplInheritedMember
-    bool operator==(const ImageInfo& other) const
-    {
-        return mURL == other.mURL && mSHA256 == other.mSHA256 && mSize == other.mSize && mPath == other.mPath
-            && mMetadata == other.mMetadata
-            && static_cast<const aos::ImageInfo&>(*this) == static_cast<const aos::ImageInfo&>(other);
-    }
-
-    /**
-     * Compares image info.
-     *
-     * @param other image info to compare with.
-     * @return bool.
-     */
-    // cppcheck-suppress duplInheritedMember
-    bool operator!=(const ImageInfo& other) const { return !operator==(other); }
-};
-
-/**
- * Item info.
+ * Update item info.
  */
 struct ItemInfo {
+<<<<<<< HEAD
     StaticString<cIDLen>                        mID;
     UpdateItemType                              mType;
     StaticString<cVersionLen>                   mVersion;
@@ -93,27 +25,30 @@ struct ItemInfo {
     size_t                                      mGID {};
     Time                                        mTimestamp;
     StaticArray<ImageInfo, cMaxNumUpdateImages> mImages;
+=======
+    StaticString<cIDLen>      mItemID;
+    StaticString<cVersionLen> mVersion;
+    ItemState                 mState;
+>>>>>>> d1d0ef2e (cm: imagemanager: add new image manager design document)
 
     /**
-     * Compares item info.
+     * Compares update item info.
      *
-     * @param other item info to compare with.
+     * @param rhs update item info to compare with.
      * @return bool.
      */
-    bool operator==(const ItemInfo& other) const
+    bool operator==(const ItemInfo& rhs) const
     {
-        return mID == other.mID && mVersion == other.mVersion && mState == other.mState && mPath == other.mPath
-            && mTotalSize == other.mTotalSize && mGID == other.mGID && mTimestamp == other.mTimestamp
-            && mImages == other.mImages;
+        return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mState == rhs.mState;
     }
 
     /**
-     * Compares item info.
+     * Compares update item info.
      *
-     * @param other item info to compare with.
+     * @param rhs update item info to compare with.
      * @return bool.
      */
-    bool operator!=(const ItemInfo& other) const { return !operator==(other); }
+    bool operator!=(const ItemInfo& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -127,14 +62,12 @@ public:
     virtual ~StorageItf() = default;
 
     /**
-     * Sets item state.
+     * Adds item.
      *
-     * @param id ID.
-     * @param Version Version.
-     * @param state Item state.
+     * @param item Item info.
      * @return Error.
      */
-    virtual Error SetItemState(const String& id, const String& Version, ItemState state) = 0;
+    virtual Error AddItem(const ItemInfo& item) = 0;
 
     /**
      * Removes item.
@@ -146,29 +79,22 @@ public:
     virtual Error RemoveItem(const String& id, const String& version) = 0;
 
     /**
+     * Sets item state.
+     *
+     * @param id ID.
+     * @param Version Version.
+     * @param state Item state.
+     * @return Error.
+     */
+    virtual Error SetItemState(const String& id, const String& Version, ItemState state) = 0;
+
+    /**
      * Gets items info.
      *
      * @param items Items info.
      * @return Error.
      */
     virtual Error GetItemsInfo(Array<ItemInfo>& items) = 0;
-
-    /**
-     * Gets item versions by ID.
-     *
-     * @param id ID.
-     * @param items Items info.
-     * @return Error.
-     */
-    virtual Error GetItemVersionsByID(const String& id, Array<ItemInfo>& items) = 0;
-
-    /**
-     * Adds item.
-     *
-     * @param item Item info.
-     * @return Error.
-     */
-    virtual Error AddItem(const ItemInfo& item) = 0;
 };
 
 } // namespace aos::cm::imagemanager
