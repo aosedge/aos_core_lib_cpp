@@ -17,13 +17,13 @@ namespace aos::oci {
 /**
  * Max media type len.
  */
-constexpr auto cMaxMediaTypeLen = AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN;
+constexpr auto cMediaTypeLen = AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN;
 
 /**
  * Max digest len.
  *
  */
-constexpr auto cMaxDigestLen = AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE;
+constexpr auto cDigestLen = AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE;
 
 /**
  * OCI content descriptor.
@@ -49,9 +49,9 @@ struct ContentDescriptor {
     {
     }
 
-    StaticString<cMaxMediaTypeLen> mMediaType;
-    StaticString<cMaxDigestLen>    mDigest;
-    uint64_t                       mSize = 0;
+    StaticString<cMediaTypeLen> mMediaType;
+    StaticString<cDigestLen>    mDigest;
+    uint64_t                    mSize = 0;
 
     /**
      * Compares content descriptor.
@@ -78,7 +78,7 @@ struct ContentDescriptor {
  */
 struct ImageManifest {
     int                                           mSchemaVersion;
-    StaticString<cMaxMediaTypeLen>                mMediaType;
+    StaticString<cMediaTypeLen>                   mMediaType;
     ContentDescriptor                             mConfig;
     StaticArray<ContentDescriptor, cMaxNumLayers> mLayers;
     Optional<ContentDescriptor>                   mAosService;

@@ -52,7 +52,7 @@ struct ServiceData {
     /**
      * Manifest digest.
      */
-    StaticString<oci::cMaxDigestLen> mManifestDigest;
+    StaticString<oci::cDigestLen> mManifestDigest;
 
     /**
      * Timestamp.
@@ -344,9 +344,9 @@ private:
     Error RemoveServiceFromSystem(const ServiceData& service);
     Error InstallService(const ServiceInfo& service);
     Error SetServiceState(const ServiceData& service, ServiceState state);
-    RetWithError<StaticString<cFilePathLen>>       DigestToPath(const String& imagePath, const String& digest);
-    RetWithError<StaticString<cAllocatorItemLen>>  FormatAllocatorItemID(const ServiceData& service);
-    RetWithError<StaticString<oci::cMaxDigestLen>> GetManifestChecksum(const String& servicePath);
+    RetWithError<StaticString<cFilePathLen>>      DigestToPath(const String& imagePath, const String& digest);
+    RetWithError<StaticString<cAllocatorItemLen>> FormatAllocatorItemID(const ServiceData& service);
+    RetWithError<StaticString<oci::cDigestLen>>   GetManifestChecksum(const String& servicePath);
 
     Config                             mConfig {};
     oci::OCISpecItf*                   mOCIManager             = nullptr;

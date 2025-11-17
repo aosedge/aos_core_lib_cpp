@@ -122,9 +122,9 @@ public:
      * Calculates digest for the given path or file.
      *
      * @param path root folder or file.
-     * @return RetWithError<StaticString<cMaxDigestLen>>.
+     * @return RetWithError<StaticString<cDigestLen>>.
      */
-    RetWithError<StaticString<oci::cMaxDigestLen>> CalculateDigest(const String& path) const override
+    RetWithError<StaticString<oci::cDigestLen>> CalculateDigest(const String& path) const override
     {
         LockGuard lock(mMutex);
 

@@ -18,7 +18,7 @@ namespace {
 
 RetWithError<StaticString<cFilePathLen>> DigestToPath(const String& digest)
 {
-    StaticArray<StaticString<oci::cMaxDigestLen>, 2> digestList;
+    StaticArray<StaticString<oci::cDigestLen>, 2> digestList;
 
     if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
