@@ -190,7 +190,7 @@ struct Partition;
  * Outdated item.
  */
 struct OutdatedItem {
-    StaticString<cIDLen>                    mID;
+    StaticString<oci::cDigestLen>           mDigest;
     size_t                                  mSize;
     SpaceAllocatorItf*                      mAllocator {};
     StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
