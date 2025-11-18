@@ -8,125 +8,13 @@
 #ifndef AOS_CORE_IAM_PROVISIONMANAGER_PROVISIONMANAGER_HPP_
 #define AOS_CORE_IAM_PROVISIONMANAGER_PROVISIONMANAGER_HPP_
 
-#include <core/common/tools/error.hpp>
-#include <core/iam/certhandler/certhandler.hpp>
+#include "itf/provisionmanager.hpp"
 
 namespace aos::iam::provisionmanager {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
  */
-
-/**
- * Provision manager callback interface.
- */
-class ProvisionManagerCallbackItf {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~ProvisionManagerCallbackItf() = default;
-
-    /**
-     * Called when provisioning starts.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error OnStartProvisioning(const String& password) = 0;
-
-    /**
-     * Called when provisioning finishes.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error OnFinishProvisioning(const String& password) = 0;
-
-    /**
-     * Called on deprovisioning.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error OnDeprovision(const String& password) = 0;
-
-    /**
-     * Called on disk encryption.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error OnEncryptDisk(const String& password) = 0;
-};
-
-/**
- * Certificate types.
- */
-using CertTypes = aos::StaticArray<StaticString<cCertTypeLen>, certhandler::cIAMCertModulesMaxCount>;
-
-/**
- * ProvisionManager interface.
- */
-class ProvisionManagerItf {
-public:
-    /**
-     * Starts provisioning.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error StartProvisioning(const String& password) = 0;
-
-    /**
-     * Gets certificate types.
-     *
-     * @returns RetWithError<CertTypes>.
-     */
-    virtual RetWithError<CertTypes> GetCertTypes() const = 0;
-
-    /**
-     * Creates key.
-     *
-     * @param certType certificate type.
-     * @param subject subject.
-     * @param password password.
-     * @param csr certificate signing request.
-     * @returns Error.
-     */
-    virtual Error CreateKey(const String& certType, const String& subject, const String& password, String& csr) = 0;
-
-    /**
-     * Applies certificate.
-     *
-     * @param certType certificate type.
-     * @param pemCert certificate in PEM.
-     * @param certInfo certificate info.
-     * @returns Error.
-     */
-    virtual Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) = 0;
-
-    /**
-     * Finishes provisioning.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error FinishProvisioning(const String& password) = 0;
-
-    /**
-     * Deprovisions.
-     *
-     * @param password password.
-     * @returns Error.
-     */
-    virtual Error Deprovision(const String& password) = 0;
-
-    /**
-     * Destroys object instance.
-     */
-    virtual ~ProvisionManagerItf() = default;
-};
 
 /**
  * Provision manager.
