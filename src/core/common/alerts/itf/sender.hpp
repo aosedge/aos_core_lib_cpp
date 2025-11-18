@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_ALERTS_ALERTS_HPP_
-#define AOS_CORE_COMMON_ALERTS_ALERTS_HPP_
+#ifndef AOS_CORE_COMMON_ALERTS_ITF_ALERTS_HPP_
+#define AOS_CORE_COMMON_ALERTS_ITF_ALERTS_HPP_
 
 #include <core/common/types/alerts.hpp>
 
@@ -17,17 +17,17 @@ namespace aos::alerts {
 class SenderItf {
 public:
     /**
+     * Destructor.
+     */
+    virtual ~SenderItf() = default;
+
+    /**
      * Sends alert data.
      *
      * @param alert alert variant.
      * @return Error.
      */
     virtual Error SendAlert(const AlertVariant& alert) = 0;
-
-    /**
-     * Destructor.
-     */
-    virtual ~SenderItf() = default;
 };
 
 } // namespace aos::alerts

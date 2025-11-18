@@ -9,14 +9,14 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/alerts/alerts.hpp>
+#include <core/common/alerts/itf/sender.hpp>
 
 namespace aos::alerts {
 
 /**
  * Alert sender mock.
  */
-class AlertSenderMock : public SenderItf {
+class SenderMock : public SenderItf {
 public:
     MOCK_METHOD(Error, SendAlert, (const AlertVariant&), (override));
 };
