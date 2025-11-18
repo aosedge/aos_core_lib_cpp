@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_SM_LAYERMANAGER_LAYERMANAGER_HPP_
 #define AOS_CORE_SM_LAYERMANAGER_LAYERMANAGER_HPP_
 
-#include <core/common/downloader/downloader.hpp>
+#include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/timer.hpp>
 #include <core/sm/config.hpp>

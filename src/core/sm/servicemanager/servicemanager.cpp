@@ -596,7 +596,7 @@ Error ServiceManager::InstallService(const ServiceInfo& service)
 
     archivePath = fs::JoinPath(mConfig.mDownloadDir, service.mServiceID);
 
-    if (err = mDownloader->Download(service.mURL, archivePath); !err.IsNone()) {
+    if (err = mDownloader->Download("", service.mURL, archivePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
