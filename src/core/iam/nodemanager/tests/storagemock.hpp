@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include <core/iam/nodemanager/nodemanager.hpp>
+#include <core/iam/nodemanager/itf/storage.hpp>
 
 namespace aos::iam::nodemanager {
 
