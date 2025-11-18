@@ -13,99 +13,13 @@
 #include <core/iam/config.hpp>
 
 #include "certmodule.hpp"
+#include "itf/certhandler.hpp"
 
 namespace aos::iam::certhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
  */
-
-/**
- * Max number of certificate modules.
- */
-constexpr auto cIAMCertModulesMaxCount = AOS_CONFIG_CERTHANDLER_MODULES_MAX_COUNT;
-
-/**
- * Certificate handler interface.
- */
-class CertHandlerItf : public iamclient::CertProviderItf {
-public:
-    /**
-     * Returns IAM cert types.
-     *
-     * @param[out] certTypes result certificate types.
-     * @returns Error.
-     */
-    virtual Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const = 0;
-
-    /**
-     * Owns security storage.
-     *
-     * @param certType certificate type.
-     * @param password owner password.
-     * @returns Error.
-     */
-    virtual Error SetOwner(const String& certType, const String& password) = 0;
-
-    /**
-     * Clears security storage.
-     *
-     * @param certType certificate type.
-     * @returns Error.
-     */
-    virtual Error Clear(const String& certType) = 0;
-
-    /**
-     * Creates key pair.
-     *
-     * @param certType certificate type.
-     * @param subjectCommonName common name of the subject.
-     * @param password owner password.
-     * @param[out] pemCSR certificate signing request in PEM.
-     * @returns Error.
-     */
-    virtual Error CreateKey(
-        const String& certType, const String& subjectCommonName, const String& password, String& pemCSR)
-        = 0;
-
-    /**
-     * Applies certificate.
-     *
-     * @param certType certificate type.
-     * @param pemCert certificate in a pem format.
-     * @param[out] info result certificate information.
-     * @returns Error.
-     */
-    virtual Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) = 0;
-
-    /**
-     * Creates a self signed certificate.
-     *
-     * @param certType certificate type.
-     * @param password owner password.
-     * @returns Error.
-     */
-    virtual Error CreateSelfSignedCert(const String& certType, const String& password) = 0;
-
-    /**
-     * Returns module configuration.
-     *
-     * @param certType certificate type.
-     * @returns RetWithError<ModuleConfig>.
-     */
-    virtual RetWithError<ModuleConfig> GetModuleConfig(const String& certType) const = 0;
-
-    /**
-     * Destroys certificate handler interface.
-     */
-    virtual ~CertHandlerItf() = default;
-
-private:
-    CertModule* FindModule(const String& certType) const;
-
-    Mutex                                             mMutex;
-    StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
-};
 
 /**
  * Handles keys and certificates.

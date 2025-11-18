@@ -20,7 +20,7 @@ set(SOURCES certhandler.cpp certmodule.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS certhandler.hpp certmodule.hpp hsm.hpp)
+set(HEADERS itf/certhandler.hpp itf/hsm.hpp itf/storage.hpp certhandler.hpp certmodule.hpp)
 
 # ######################################################################################################################
 # Libraries

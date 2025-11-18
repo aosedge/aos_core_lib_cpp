@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_IAM_CERTHANDLER_HSM_HPP_
-#define AOS_CORE_IAM_CERTHANDLER_HSM_HPP_
+#ifndef AOS_CORE_IAM_CERTHANDLER_ITF_HSM_HPP_
+#define AOS_CORE_IAM_CERTHANDLER_ITF_HSM_HPP_
 
 #include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/iamclient/itf/certprovider.hpp>
