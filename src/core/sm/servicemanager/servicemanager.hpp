@@ -8,7 +8,7 @@
 #ifndef AOS_CORE_SM_SERVICEMANAGER_SERVICEMANAGER_HPP_
 #define AOS_CORE_SM_SERVICEMANAGER_SERVICEMANAGER_HPP_
 
-#include <core/common/downloader/downloader.hpp>
+#include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/ocispec/ocispec.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/allocator.hpp>

@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/downloader/downloader.hpp>
+#include <core/common/downloader/itf/downloader.hpp>
 
 namespace aos::downloader {
 
@@ -19,6 +19,7 @@ namespace aos::downloader {
 class DownloaderMock : public DownloaderItf {
 public:
     MOCK_METHOD(Error, Download, (const String&, const String&, const String&), (override));
+    MOCK_METHOD(Error, Cancel, (const String&), (override));
 };
 
 } // namespace aos::downloader
