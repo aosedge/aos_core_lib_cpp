@@ -9,7 +9,7 @@
 
 #include <gmock/gmock.h>
 
-#include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
+#include <core/iam/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 
 namespace aos::iam::nodeinfoprovider {
 
