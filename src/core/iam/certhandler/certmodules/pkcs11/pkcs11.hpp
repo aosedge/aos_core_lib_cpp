@@ -13,7 +13,7 @@
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/uuid.hpp>
-#include <core/iam/certhandler/hsm.hpp>
+#include <core/iam/certhandler/itf/hsm.hpp>
 #include <core/iam/config.hpp>
 
 namespace aos::iam::certhandler {
