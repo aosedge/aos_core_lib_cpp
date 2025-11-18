@@ -1,11 +1,11 @@
 /*
-\ * Copyright (C) 2025 EPAM Systems, Inc.
+ * Copyright (C) 2025 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_IAM_IDENTHANDLER_IDENTMODULE_HPP_
-#define AOS_CORE_IAM_IDENTHANDLER_IDENTMODULE_HPP_
+#ifndef AOS_CORE_IAM_IDENTHANDLER_ITF_IDENTMODULE_HPP_
+#define AOS_CORE_IAM_IDENTHANDLER_ITF_IDENTMODULE_HPP_
 
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/tools/thread.hpp>

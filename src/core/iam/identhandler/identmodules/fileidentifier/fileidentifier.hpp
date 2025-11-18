@@ -10,7 +10,7 @@
 
 #include <core/common/tools/thread.hpp>
 #include <core/iam/config.hpp>
-#include <core/iam/identhandler/identmodule.hpp>
+#include <core/iam/identhandler/itf/identmodule.hpp>
 
 #include "config.hpp"
 
