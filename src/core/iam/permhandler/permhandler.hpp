@@ -9,23 +9,18 @@
 #define AOS_CORE_IAM_PERMHANDLER_PERMHANDLER_HPP_
 
 #include <core/common/crypto/itf/uuid.hpp>
-#include <core/common/iamclient/itf/permhandler.hpp>
-#include <core/common/iamclient/itf/permprovider.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
 
 #include <core/iam/config.hpp>
+
+#include "itf/permhandler.hpp"
 
 namespace aos::iam::permhandler {
 
 /** @addtogroup iam Identification and Access Manager
  *  @{
  */
-
-/**
- * Permission handler interface.
- */
-class PermHandlerItf : public iamclient::PermHandlerItf, public iamclient::PermProviderItf { };
 
 /**
  * Permission handler implements PermHandlerItf.
