@@ -72,7 +72,7 @@ class AlertProcessorTest : public Test {
 protected:
     void SetUp() override { tests::utils::InitLog(); }
 
-    alerts::AlertSenderMock mAlertSender;
+    alerts::SenderMock mAlertSender;
 };
 
 /***********************************************************************************************************************

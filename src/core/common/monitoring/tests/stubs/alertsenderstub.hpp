@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_MONITORING_TESTS_STUBS_ALERTSENDERSTUB_HPP_
 #define AOS_CORE_COMMON_MONITORING_TESTS_STUBS_ALERTSENDERSTUB_HPP_
 
-#include <core/common/alerts/alerts.hpp>
+#include <core/common/alerts/itf/sender.hpp>
 
 namespace aos::monitoring {
 
