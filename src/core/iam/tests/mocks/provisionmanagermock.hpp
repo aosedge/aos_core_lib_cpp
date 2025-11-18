@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-#include <core/iam/provisionmanager/provisionmanager.hpp>
+#include <core/iam/provisionmanager/itf/provisionmanager.hpp>
 
 namespace aos::iam::provisionmanager {
 

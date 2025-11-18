@@ -20,7 +20,7 @@ set(SOURCES provisionmanager.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS provisionmanager.hpp)
+set(HEADERS itf/provisionmanager.hpp provisionmanager.hpp)
 
 # ######################################################################################################################
 # Target
