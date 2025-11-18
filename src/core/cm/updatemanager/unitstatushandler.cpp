@@ -16,13 +16,13 @@ namespace aos::cm::updatemanager {
 
 Error UnitStatusHandler::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    imagemanager::ImageStatusProviderItf& imageStatusProvider,
+    imagemanager::ItemStatusProviderItf& itemStatusProvider,
     launcher::InstanceStatusProviderItf& instanceStatusProvider, SenderItf& sender)
 {
     mIdentProvider          = &identProvider;
     mUnitConfig             = &unitConfig;
     mNodeInfoProvider       = &nodeInfoProvider;
-    mImageStatusProvider    = &imageStatusProvider;
+    mItemStatusProvider     = &itemStatusProvider;
     mInstanceStatusProvider = &instanceStatusProvider;
     mSender                 = &sender;
     mUnitStatusSendTimeout  = config.mUnitStatusSendTimeout;
@@ -38,7 +38,7 @@ Error UnitStatusHandler::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mImageStatusProvider->SubscribeListener(*this); !err.IsNone()) {
+    if (auto err = mItemStatusProvider->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -61,7 +61,7 @@ Error UnitStatusHandler::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mImageStatusProvider->UnsubscribeListener(*this); !err.IsNone()) {
+    if (auto err = mItemStatusProvider->UnsubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -160,13 +160,12 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
     StartTimer();
 }
 
-void UnitStatusHandler::OnImageStatusChanged(const String& itemID, const String& version, const ImageStatus& status)
+void UnitStatusHandler::OnItemStatusChanged(const UpdateItemStatus& status)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Image status changed" << Log::Field("itemID", itemID) << Log::Field("version", version)
-              << Log::Field("imageID", status.mImageID) << Log::Field("state", status.mState)
-              << Log::Field(status.mError);
+    LOG_INF() << "Item status changed" << Log::Field("itemID", status.mItemID) << Log::Field("version", status.mVersion)
+              << Log::Field("state", status.mState) << Log::Field(status.mError);
 
     if (!mCloudConnected) {
         return;
@@ -176,33 +175,24 @@ void UnitStatusHandler::OnImageStatusChanged(const String& itemID, const String&
         mUnitStatus.mUpdateItems.EmplaceValue();
     }
 
-    auto itemIt = mUnitStatus.mUpdateItems->FindIf([&itemID, &version](const UpdateItemStatus& itemStatus) {
-        return itemStatus.mItemID == itemID && itemStatus.mVersion == version;
+    auto it = mUnitStatus.mUpdateItems->FindIf([&status](const UpdateItemStatus& itemStatus) {
+        return itemStatus.mItemID == status.mItemID && itemStatus.mVersion == status.mVersion;
     });
-    if (itemIt == mUnitStatus.mUpdateItems->end()) {
-        if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(itemID, version); !err.IsNone()) {
+    if (it == mUnitStatus.mUpdateItems->end()) {
+        if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(
+                UpdateItemStatus {status.mItemID, status.mVersion, status.mState, status.mError});
+            !err.IsNone()) {
             LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
             return;
         }
-
-        itemIt = &mUnitStatus.mUpdateItems->Back();
-    }
-
-    auto statusIt = itemIt->mStatuses.FindIf(
-        [&status](const ImageStatus& imageStatus) { return imageStatus.mImageID == status.mImageID; });
-    if (statusIt != itemIt->mStatuses.end()) {
-        *statusIt = status;
     } else {
-        if (auto err = itemIt->mStatuses.EmplaceBack(status); !err.IsNone()) {
-            LOG_ERR() << "Failed to emplace image status" << Log::Field(err);
-            return;
-        }
+        *it = status;
     }
 
     StartTimer();
 }
 
-void UnitStatusHandler::OnUpdateItemRemoved(const String& itemID)
+void UnitStatusHandler::OnItemRemoved(const String& itemID)
 {
     (void)itemID;
 }
@@ -214,7 +204,7 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
     for (const auto& status : statuses) {
         LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
                   << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
-                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("imageID", status.mImageID)
+                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifest", status.mManifestDigest)
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
     }
 
@@ -328,7 +318,7 @@ Error UnitStatusHandler::SetUpdateItemsStatus()
 {
     mUnitStatus.mUpdateItems.EmplaceValue();
 
-    mImageStatusProvider->GetUpdateItemsStatuses(*mUnitStatus.mUpdateItems);
+    mItemStatusProvider->GetUpdateItemsStatuses(*mUnitStatus.mUpdateItems);
 
     return ErrorEnum::eNone;
 }
@@ -397,12 +387,8 @@ void UnitStatusHandler::LogUnitStatus()
     if (mUnitStatus.mUpdateItems.HasValue()) {
         for (const auto& itemStatus : *mUnitStatus.mUpdateItems) {
             LOG_DBG() << "Update item status" << Log::Field("id", itemStatus.mItemID)
-                      << Log::Field("version", itemStatus.mVersion);
-
-            for (const auto& imageStatus : itemStatus.mStatuses) {
-                LOG_DBG() << "Image status" << Log::Field("imageID", imageStatus.mImageID)
-                          << Log::Field("state", imageStatus.mState) << Log::Field(imageStatus.mError);
-            }
+                      << Log::Field("version", itemStatus.mVersion) << Log::Field("state", itemStatus.mState)
+                      << Log::Field(itemStatus.mError);
         }
     }
 
@@ -414,7 +400,7 @@ void UnitStatusHandler::LogUnitStatus()
 
             for (const auto& instanceStatus : instanceStatuses.mInstances) {
                 LOG_DBG() << "Instance status" << Log::Field("instance", instanceStatus.mInstance)
-                          << Log::Field("imageID", instanceStatus.mImageID)
+                          << Log::Field("manifest", instanceStatus.mManifestDigest)
                           << Log::Field("nodeID", instanceStatus.mNodeID)
                           << Log::Field("runtimeID", instanceStatus.mRuntimeID)
                           << Log::Field("state", instanceStatus.mState) << Log::Field(instanceStatus.mError);

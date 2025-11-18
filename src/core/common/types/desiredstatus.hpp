@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_TYPES_DESIREDSTATUS_HPP_
 
 #include <core/common/crypto/cryptohelper.hpp>
+#include <core/common/ocispec/imagespec.hpp>
 
 #include "unitconfig.hpp"
 
@@ -114,8 +115,8 @@ struct DesiredInstanceInfo {
      */
     bool operator==(const DesiredInstanceInfo& rhs) const
     {
-        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mItemType == rhs.mItemType
-            && mPriority == rhs.mPriority && mNumInstances == rhs.mNumInstances && mLabels == rhs.mLabels;
+        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mPriority == rhs.mPriority
+            && mNumInstances == rhs.mNumInstances && mLabels == rhs.mLabels;
     }
 
     /**

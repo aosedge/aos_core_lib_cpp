@@ -20,7 +20,7 @@ set(SOURCES imagemanager.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/imagemanager.hpp itf/imageunpacker.hpp itf/storage.hpp itf/imagestatusprovider.hpp imagemanager.hpp)
+set(HEADERS itf/imagemanager.hpp itf/imageunpacker.hpp itf/storage.hpp itf/itemstatusprovider.hpp imagemanager.hpp)
 
 # ######################################################################################################################
 # Libraries

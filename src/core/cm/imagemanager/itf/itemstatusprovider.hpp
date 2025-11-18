@@ -12,7 +12,7 @@
 namespace aos::cm::imagemanager {
 
 /**
- * Interface for receiving notification about update image statuses.
+ * Interface for receiving notification about update items statuses.
  */
 class ItemStatusListenerItf {
 public:

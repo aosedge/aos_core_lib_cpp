@@ -27,8 +27,8 @@ public:
     MOCK_METHOD(Error, RevertUpdateItems, (const Array<StaticString<cIDLen>>& ids, Array<UpdateItemStatus>& statuses),
         (override));
     MOCK_METHOD(Error, GetUpdateItemsStatuses, (Array<UpdateItemStatus> & statuses), (override));
-    MOCK_METHOD(Error, SubscribeListener, (ImageStatusListenerItf & listener), (override));
-    MOCK_METHOD(Error, UnsubscribeListener, (ImageStatusListenerItf & listener), (override));
+    MOCK_METHOD(Error, SubscribeListener, (ItemStatusListenerItf & listener), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (ItemStatusListenerItf & listener), (override));
 };
 
 } // namespace aos::cm::imagemanager
