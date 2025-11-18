@@ -21,6 +21,7 @@ set(INSTALL_HEADERS
     aos_core_common_alerts
     aos_core_common_cloudconnection
     aos_core_common_downloader
+    aos_core_common_iamclient
     aos_core_common_logprovider
     aos_core_common_ocispec
     aos_core_common_spaceallocator
