@@ -20,7 +20,7 @@ set(SOURCES nodeinfoprovider.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS nodeinfoprovider.hpp)
+set(HEADERS itf/nodeinfoprovider.hpp nodeinfoprovider.hpp)
 
 # ######################################################################################################################
 # Target
