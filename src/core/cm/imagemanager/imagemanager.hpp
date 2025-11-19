@@ -11,7 +11,7 @@
 #include <core/cm/launcher/itf/imageinfoprovider.hpp>
 #include <core/cm/smcontroller/itf/updateimageprovider.hpp>
 #include <core/common/crypto/cryptohelper.hpp>
-#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/identifierpool.hpp>

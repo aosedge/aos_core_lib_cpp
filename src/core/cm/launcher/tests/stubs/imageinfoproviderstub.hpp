@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <core/cm/launcher/itf/imageinfoprovider.hpp>
-#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 
 namespace aos::cm::launcher {
 
