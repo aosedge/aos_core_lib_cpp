@@ -802,11 +802,9 @@
 
 /**
  * Maximum size of SHA1 digest.
- *
- * 128 chars to represent sha512 + 8 chars for algorithm.
  */
 #ifndef AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE
-#define AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE 136
+#define AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE 20
 #endif
 
 /**
@@ -1073,6 +1071,15 @@
  */
 #ifndef AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN
 #define AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN 64
+#endif
+
+/**
+ * Max digest len.
+ *
+ * 128 chars to represent sha512 + 8 chars for algorithm.
+ */
+#ifndef AOS_CONFIG_OCISPEC_DIGEST_LEN
+#define AOS_CONFIG_OCISPEC_DIGEST_LEN 136
 #endif
 
 /**
