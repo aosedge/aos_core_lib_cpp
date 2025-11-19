@@ -14,7 +14,7 @@ set(TARGET_NAME smcontroller)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/logprovider.hpp itf/sender.hpp itf/updateimageprovider.hpp)
+set(HEADERS itf/logprovider.hpp itf/sender.hpp itf/smcontroller.hpp itf/updateimageprovider.hpp)
 
 # ######################################################################################################################
 # Target

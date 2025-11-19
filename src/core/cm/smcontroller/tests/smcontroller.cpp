@@ -6,4 +6,5 @@
 
 #include <core/cm/smcontroller/itf/logprovider.hpp>
 #include <core/cm/smcontroller/itf/sender.hpp>
+#include <core/cm/smcontroller/itf/smcontroller.hpp>
 #include <core/cm/smcontroller/itf/updateimageprovider.hpp>
