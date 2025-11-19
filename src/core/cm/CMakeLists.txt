@@ -18,6 +18,7 @@ set(HEADERS config.hpp)
 
 set(INSTALL_HEADERS
     aos_core_cm_communication
+    aos_core_cm_database
     aos_core_cm_fileserver
     aos_core_cm_iamclient
     aos_core_cm_launcher
@@ -55,6 +56,7 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_cm)
 
 add_subdirectory(alerts)
 add_subdirectory(communication)
+add_subdirectory(database)
 add_subdirectory(fileserver)
 add_subdirectory(iamclient)
 add_subdirectory(launcher)
