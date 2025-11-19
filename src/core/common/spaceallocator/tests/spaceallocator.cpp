@@ -6,9 +6,9 @@
 
 #include <gtest/gtest.h>
 
-#include "aos/common/spaceallocator/spaceallocator.hpp"
-#include "mocks/filesystemmock.hpp"
-#include "mocks/spaceallocatormock.hpp"
+#include <core/common/spaceallocator/spaceallocator.hpp>
+#include <core/common/tests/mocks/fsmock.hpp>
+#include <core/common/tests/mocks/spaceallocatormock.hpp>
 
 using namespace testing;
 

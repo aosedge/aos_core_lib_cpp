@@ -7,124 +7,16 @@
 #ifndef AOS_CORE_COMMON_SPACEALLOCATOR_SPACEALLOCATOR_HPP_
 #define AOS_CORE_COMMON_SPACEALLOCATOR_SPACEALLOCATOR_HPP_
 
+#include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/function.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
-#include <core/common/tools/time.hpp>
-#include <core/common/types/common.hpp>
+
+#include "itf/itemremover.hpp"
+#include "itf/spaceallocator.hpp"
 
 namespace aos::spaceallocator {
-/**
- * Item remover interface.
- */
-class ItemRemoverItf {
-public:
-    /**
-     * Removes item.
-     *
-     * @param id item id.
-     * @return Error.
-     */
-    virtual Error RemoveItem(const String& id) = 0;
-
-    /**
-     * Destructor.
-     */
-    virtual ~ItemRemoverItf() = default;
-};
-
-/**
- * Space interface.
- */
-class SpaceItf {
-public:
-    /**
-     * Accepts space.
-     *
-     * @return Error.
-     */
-    virtual Error Accept() = 0;
-
-    /**
-     * Releases space.
-     *
-     * @return Error.
-     */
-    virtual Error Release() = 0;
-
-    /**
-     * Resizes space.
-     *
-     * @param size new size.
-     * @return Error.
-     */
-    virtual Error Resize(size_t size) = 0;
-
-    /**
-     * Returns space size.
-     *
-     * @return size_t.
-     */
-    virtual size_t Size() const = 0;
-
-    /**
-     * Destructor.
-     */
-    virtual ~SpaceItf() = default;
-};
-
-/**
- * Space allocator interface.
- */
-class SpaceAllocatorItf {
-public:
-    /**
-     * Allocates space.
-     *
-     * @param size size to allocate.
-     * @return RetWithError<UniquePtr<SpaceItf>>.
-     */
-    virtual RetWithError<UniquePtr<SpaceItf>> AllocateSpace(size_t size) = 0;
-
-    /**
-     * Frees space.
-     *
-     * @param size size to free.
-     * @return void.
-     */
-    virtual void FreeSpace(size_t size) = 0;
-
-    /**
-     * Adds outdated item.
-     *
-     * @param id item id.
-     * @param size item size.
-     * @param timestamp item timestamp.
-     * @return Error.
-     */
-    virtual Error AddOutdatedItem(const String& id, size_t size, const Time& timestamp) = 0;
-
-    /**
-     * Restores outdated item.
-     *
-     * @param id item id.
-     * @return Error.
-     */
-    virtual Error RestoreOutdatedItem(const String& id) = 0;
-
-    /**
-     * Allocates done.
-     *
-     * @return Error.
-     */
-    virtual Error AllocateDone() = 0;
-
-    /**
-     * Destructor.
-     */
-    virtual ~SpaceAllocatorItf() = default;
-};
 
 /**
  * Space instance.
@@ -190,7 +82,7 @@ struct Partition;
  * Outdated item.
  */
 struct OutdatedItem {
-    StaticString<cIDLen>                    mID;
+    StaticString<oci::cDigestLen>           mDigest;
     size_t                                  mSize;
     SpaceAllocatorItf*                      mAllocator {};
     StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
@@ -327,7 +219,7 @@ public:
         LockGuard lock {mMutex};
 
         for (auto& outdatedItem : mOutdatedItems) {
-            if (outdatedItem.mID == item.mID) {
+            if (outdatedItem.mDigest == item.mDigest) {
                 outdatedItem = item;
 
                 return ErrorEnum::eNone;
@@ -341,7 +233,7 @@ public:
 
             auto& oldestItem = mOutdatedItems[0];
 
-            if (auto removeErr = oldestItem.mRemover->RemoveItem(oldestItem.mID); !removeErr.IsNone()) {
+            if (auto removeErr = oldestItem.mRemover->RemoveItem(oldestItem.mDigest); !removeErr.IsNone()) {
                 return removeErr;
             }
 
@@ -362,12 +254,12 @@ public:
      * @param id item id.
      * @return void.
      */
-    void RestoreOutdatedItem(const String& id)
+    void RestoreOutdatedItem(const String& digest)
     {
         LockGuard lock {mMutex};
 
         for (size_t i = 0; i < mOutdatedItems.Size(); i++) {
-            if (mOutdatedItems[i].mID == id) {
+            if (mOutdatedItems[i].mDigest == digest) {
                 mOutdatedItems.Erase(mOutdatedItems.begin() + i);
 
                 break;
@@ -407,7 +299,7 @@ private:
         for (; freedSize < size; i++) {
             auto& item = mOutdatedItems[i];
 
-            if (auto err = item.mRemover->RemoveItem(item.mID); !err.IsNone()) {
+            if (auto err = item.mRemover->RemoveItem(item.mDigest); !err.IsNone()) {
                 return {freedSize, err};
             }
 
@@ -576,19 +468,19 @@ public:
     /**
      * Adds outdated item.
      *
-     * @param id item id.
+     * @param digest item digest.
      * @param size item size.
      * @param timestamp item timestamp.
      * @return Error.
      */
-    Error AddOutdatedItem(const String& id, size_t size, const Time& timestamp) override
+    Error AddOutdatedItem(const String& digest, size_t size, const Time& timestamp) override
     {
         if (mRemover == nullptr) {
             return Error(ErrorEnum::eNotFound, "no item remover");
         }
 
         OutdatedItem item;
-        item.mID        = id;
+        item.mDigest    = digest;
         item.mSize      = size;
         item.mPartition = mPartition;
         item.mRemover   = mRemover;
@@ -603,12 +495,12 @@ public:
     /**
      * Restores outdated item.
      *
-     * @param id item id.
+     * @param digest item digest.
      * @return Error.
      */
-    Error RestoreOutdatedItem(const String& id) override
+    Error RestoreOutdatedItem(const String& digest) override
     {
-        mPartition->RestoreOutdatedItem(id);
+        mPartition->RestoreOutdatedItem(digest);
 
         return ErrorEnum::eNone;
     }
@@ -694,7 +586,7 @@ private:
                 continue;
             }
 
-            if (auto err = item.mRemover->RemoveItem(item.mID); !err.IsNone()) {
+            if (auto err = item.mRemover->RemoveItem(item.mDigest); !err.IsNone()) {
                 return {freedSize, err};
             }
 
