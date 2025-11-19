@@ -267,7 +267,7 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntimeForInstance
         = MakeUnique<StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>>(
             &mAllocator);
 
-    if (auto err = SelectRuntimes(config.mRunners, nodes, *nodeRuntimes); !err.IsNone()) {
+    if (auto err = SelectRuntimes(config.mRuntimes, nodes, *nodeRuntimes); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
@@ -313,12 +313,12 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntimeForInstance
     return {result, ErrorEnum::eNone};
 }
 
-Error Balancer::SelectRuntimes(const Array<StaticString<cRunnerNameLen>>& inRunners, Array<Node*>& nodes,
+Error Balancer::SelectRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes,
     Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes)
 {
-    nodes.RemoveIf([&inRunners, this](const Node* node) {
+    nodes.RemoveIf([&inRuntimes, this](const Node* node) {
         for (const auto& runtime : node->GetInfo().mRuntimes) {
-            if (inRunners.Contains(runtime.mRuntimeID)) {
+            if (inRuntimes.Contains(runtime.mRuntimeID)) {
                 return false;
             }
         }
@@ -335,7 +335,7 @@ Error Balancer::SelectRuntimes(const Array<StaticString<cRunnerNameLen>>& inRunn
 
         auto& suitableNodeRuntimes = runtimes.Find(node)->mSecond;
 
-        for (const auto& runner : inRunners) {
+        for (const auto& runner : inRuntimes) {
             auto nodeRuntime = node->GetInfo().mRuntimes.FindIf(
                 [&runner](const RuntimeInfo& runtime) { return runtime.mRuntimeID == runner; });
 

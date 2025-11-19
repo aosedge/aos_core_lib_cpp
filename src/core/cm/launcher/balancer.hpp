@@ -58,14 +58,14 @@ private:
     Error ScheduleInstance(Instance& instance, const RunInstanceRequest& request, const String& imageID);
     Error FilterNodesByStaticResources(
         const oci::ServiceConfig& serviceConfig, const RunInstanceRequest& request, Array<Node*>& nodes);
-    void FilterNodesByRuntimes(const Array<StaticString<cRunnerNameLen>>& inRunners, Array<Node*>& nodes);
+    void FilterNodesByRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes);
     void FilterNodesByLabels(const Array<StaticString<cLabelNameLen>>& labels, Array<Node*>& nodes);
     void FilterNodesByResources(const Array<StaticString<cResourceNameLen>>& resources, Array<Node*>& nodes);
 
     RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntimeForInstance(
         Instance& instance, const oci::ServiceConfig& config, Array<Node*>& nodes);
 
-    Error SelectRuntimes(const Array<StaticString<cRunnerNameLen>>& inRunners, Array<Node*>& nodes,
+    Error SelectRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes,
         Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
     void  FilterByCPU(Instance& instance, const oci::ServiceConfig& serviceConfig,
          Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);

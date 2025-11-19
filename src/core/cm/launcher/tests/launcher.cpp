@@ -258,14 +258,14 @@ AlertRules CreateAlertRules(double cpuRule, double ramRule)
     return rules;
 }
 
-void CreateServiceConfig(oci::ServiceConfig& config, const std::vector<std::string>& runners = {},
+void CreateServiceConfig(oci::ServiceConfig& config, const std::vector<std::string>& runtimes = {},
     const oci::BalancingPolicy& balancingPolicy = oci::BalancingPolicyEnum::eNone,
     const oci::ServiceQuotas& quotas = {}, const oci::RequestedResources& requestedResources = {},
     const Optional<AlertRules>& alertRules = {}, const std::vector<std::string>& allowedConnections = {},
     const std::vector<std::string>& resources = {})
 {
-    for (const auto& runner : runners) {
-        config.mRunners.PushBack(runner.c_str());
+    for (const auto& runtime : runtimes) {
+        config.mRuntimes.PushBack(runtime.c_str());
     }
 
     config.mBalancingPolicy    = balancingPolicy;

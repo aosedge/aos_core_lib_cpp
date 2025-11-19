@@ -121,13 +121,6 @@
 #endif
 
 /**
- * Layer digest len.
- */
-#ifndef AOS_CONFIG_TYPES_LAYER_DIGEST_LEN
-#define AOS_CONFIG_TYPES_LAYER_DIGEST_LEN 128
-#endif
-
-/**
  * Instance ID len.
  */
 #ifndef AOS_CONFIG_TYPES_INSTANCE_ID_LEN
@@ -139,20 +132,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_UNIT_MODEL_LEN
 #define AOS_CONFIG_TYPES_UNIT_MODEL_LEN 40
-#endif
-
-/**
- * Max number of services.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_SERVICES
-#define AOS_CONFIG_TYPES_MAX_NUM_SERVICES 64
-#endif
-
-/**
- * Max number of layers.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_LAYERS
-#define AOS_CONFIG_TYPES_MAX_NUM_LAYERS 64
 #endif
 
 /**
@@ -247,13 +226,6 @@
 #endif
 
 /**
- * Host device name len.
- */
-#ifndef AOS_CONFIG_TYPES_DEVICE_NAME_LEN
-#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 64
-#endif
-
-/**
  * Max number of host devices.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_HOST_DEVICES
@@ -321,13 +293,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_HOSTS
 #define AOS_CONFIG_TYPES_MAX_NUM_HOSTS 4
-#endif
-
-/**
- * Max number of node's devices.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_NODE_DEVICES
-#define AOS_CONFIG_TYPES_MAX_NUM_NODE_DEVICES 8
 #endif
 
 /**
@@ -503,20 +468,6 @@
  */
 #ifndef AOS_CONFIG_TYPES_INTERFACE_NAME_LEN
 #define AOS_CONFIG_TYPES_INTERFACE_NAME_LEN 16
-#endif
-
-/**
- * Max num runners.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_RUNNERS
-#define AOS_CONFIG_TYPES_MAX_NUM_RUNNERS 4
-#endif
-
-/**
- * Runner name max length.
- */
-#ifndef AOS_CONFIG_TYPES_RUNNER_NAME_LEN
-#define AOS_CONFIG_TYPES_RUNNER_NAME_LEN 16
 #endif
 
 /**
@@ -1097,6 +1048,20 @@
 #endif
 
 /**
+ * Max num layers.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS
+#define AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS 16
+#endif
+
+/**
+ * Max num runtimes.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES
+#define AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES 4
+#endif
+
+/**
  * Max spec parameter len.
  */
 #ifndef AOS_CONFIG_OCISPEC_MAX_SPEC_PARAM_LEN
@@ -1150,13 +1115,6 @@
  */
 #ifndef AOS_CONFIG_OCISPEC_AUTHOR_LEN
 #define AOS_CONFIG_OCISPEC_AUTHOR_LEN 64
-#endif
-
-/**
- * Balancing policy len.
- */
-#ifndef AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN
-#define AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN 32
 #endif
 
 /**

@@ -19,16 +19,6 @@
 #define AOS_CONFIG_FILE_PATH_LEN 512
 
 /**
- * Max number of services.
- */
-#define AOS_CONFIG_TYPES_MAX_NUM_SERVICES 8
-
-/**
- * Max number of layers.
- */
-#define AOS_CONFIG_TYPES_MAX_NUM_LAYERS 8
-
-/**
  * Monitoring poll period.
  */
 #define AOS_CONFIG_MONITORING_POLL_PERIOD_SEC 1

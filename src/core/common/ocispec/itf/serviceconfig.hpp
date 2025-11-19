@@ -16,9 +16,9 @@
 namespace aos::oci {
 
 /**
- * Balancing policy len.
+ * Max num runtimes.
  */
-constexpr auto cBalancingPolicyLen = AOS_CONFIG_OCISPEC_BALANCING_POLICY_LEN;
+constexpr auto cMaxNumRunners = AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES;
 
 /**
  * Service quotas.
@@ -90,33 +90,6 @@ struct RequestedResources {
 };
 
 /**
- * Service devices rules.
- */
-struct ServiceDevice {
-    StaticString<cDeviceNameLen>  mDevice;
-    StaticString<cPermissionsLen> mPermissions;
-
-    /**
-     * Compares devices.
-     *
-     * @param rhs service device.
-     * @return bool.
-     */
-    bool operator==(const ServiceDevice& rhs) const
-    {
-        return mDevice == rhs.mDevice && mPermissions == rhs.mPermissions;
-    }
-
-    /**
-     * Compares devices.
-     *
-     * @param rhs service device.
-     * @return bool.
-     */
-    bool operator!=(const ServiceDevice& rhs) const { return !operator==(rhs); }
-};
-
-/**
  * Balancing policy.
  */
 class BalancingPolicyType {
@@ -146,14 +119,13 @@ struct ServiceConfig {
     bool                                                                           mSkipResourceLimits;
     Optional<StaticString<cHostNameLen>>                                           mHostname;
     BalancingPolicy                                                                mBalancingPolicy;
-    StaticArray<StaticString<cRunnerNameLen>, cMaxNumRunners>                      mRunners;
+    StaticArray<StaticString<cRuntimeTypeLen>, cMaxNumRunners>                     mRuntimes;
     RunParameters                                                                  mRunParameters;
     StaticMap<StaticString<cSysctlLen>, StaticString<cSysctlLen>, cSysctlMaxCount> mSysctl;
     Duration                                                                       mOfflineTTL;
     ServiceQuotas                                                                  mQuotas;
     Optional<RequestedResources>                                                   mRequestedResources;
     StaticArray<StaticString<cConnectionNameLen>, cMaxNumConnections>              mAllowedConnections;
-    StaticArray<ServiceDevice, cMaxNumNodeDevices>                                 mDevices;
     StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
     Optional<AlertRules>                                                           mAlertRules;
@@ -167,7 +139,7 @@ struct ServiceConfig {
     bool operator==(const ServiceConfig& rhs) const
     {
         return mCreated == rhs.mCreated && mAuthor == rhs.mAuthor && mSkipResourceLimits == rhs.mSkipResourceLimits
-            && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRunners == rhs.mRunners
+            && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRuntimes == rhs.mRuntimes
             && mRunParameters == rhs.mRunParameters && mSysctl == rhs.mSysctl && mOfflineTTL == rhs.mOfflineTTL
             && mQuotas == rhs.mQuotas && mAllowedConnections == rhs.mAllowedConnections
             && mRequestedResources == rhs.mRequestedResources && mAlertRules == rhs.mAlertRules;

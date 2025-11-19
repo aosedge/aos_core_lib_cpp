@@ -15,7 +15,6 @@
 #include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/thread.hpp>
-#include <core/common/types/obsolete.hpp>
 
 namespace aos::sm::resourcemanager {
 

@@ -23,7 +23,6 @@ set(HEADERS
     log.hpp
     monitoring.hpp
     network.hpp
-    obsolete.hpp
     permissions.hpp
     provisioning.hpp
     state.hpp
