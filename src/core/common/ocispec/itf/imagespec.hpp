@@ -8,7 +8,8 @@
 #define AOS_CORE_COMMON_OCISPEC_IMAGESPEC_HPP_
 
 #include <core/common/tools/optional.hpp>
-#include <core/common/types/obsolete.hpp>
+#include <core/common/types/envvars.hpp>
+#include <core/common/types/network.hpp>
 
 #include "common.hpp"
 
@@ -40,6 +41,11 @@ constexpr auto cDigestLen = AOS_CONFIG_OCISPEC_DIGEST_LEN;
  * Max num manifests.
  */
 constexpr auto cMaxNumManifests = AOS_CONFIG_OCISPEC_MAX_NUM_MANIFESTS;
+
+/**
+ * Max num layers.
+ */
+constexpr auto cMaxNumLayers = AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS;
 
 /**
  * Describes the platform which the image in the manifest runs on.

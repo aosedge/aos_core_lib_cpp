@@ -165,7 +165,7 @@ Error ComponentInstance::GetServiceConfig(const String& imageID, oci::ServiceCon
     static oci::ServiceConfig cDefaultServiceCfg;
 
     config = cDefaultServiceCfg;
-    config.mRunners.PushBack("rootfs");
+    config.mRuntimes.PushBack("rootfs");
 
     return ErrorEnum::eNone;
 }
