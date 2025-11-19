@@ -26,9 +26,8 @@ constexpr auto cMediaTypeLen = AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN;
 
 /**
  * Max digest len.
- *
  */
-constexpr auto cDigestLen = AOS_CONFIG_CRYPTO_SHA1_DIGEST_SIZE;
+constexpr auto cDigestLen = AOS_CONFIG_OCISPEC_DIGEST_LEN;
 
 /**
  * OCI content descriptor.
