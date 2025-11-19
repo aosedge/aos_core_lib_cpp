@@ -16,7 +16,7 @@ namespace aos::cm::updatemanager {
 
 Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    imagemanager::ImageManagerItf& imageManager, launcher::InstanceStatusProviderItf& instanceStatusProvider,
+    imagemanager::ImageManagerItf& imageManager, instancestatusprovider::ProviderItf& instanceStatusProvider,
     cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender)
 {
     LOG_DBG() << "Init update manager";

@@ -23,6 +23,7 @@ set(HEADERS
     fileinfoprovidermock.hpp
     fsmock.hpp
     identprovidermock.hpp
+    instancestatusprovidermock.hpp
     logprovidermock.hpp
     monitoringmock.hpp
     ocispecmock.hpp

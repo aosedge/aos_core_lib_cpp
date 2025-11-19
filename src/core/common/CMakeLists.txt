@@ -22,6 +22,7 @@ set(INSTALL_HEADERS
     aos_core_common_cloudconnection
     aos_core_common_downloader
     aos_core_common_iamclient
+    aos_core_common_instancestatusprovider
     aos_core_common_logprovider
     aos_core_common_ocispec
     aos_core_common_spaceallocator
@@ -58,6 +59,7 @@ add_subdirectory(cloudconnection)
 add_subdirectory(crypto)
 add_subdirectory(downloader)
 add_subdirectory(iamclient)
+add_subdirectory(instancestatusprovider)
 add_subdirectory(logprovider)
 add_subdirectory(monitoring)
 add_subdirectory(nodeconfig)
