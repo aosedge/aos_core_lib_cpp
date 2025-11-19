@@ -24,6 +24,7 @@ set(INSTALL_HEADERS
     aos_core_common_iamclient
     aos_core_common_instancestatusprovider
     aos_core_common_logprovider
+    aos_core_common_nodeconfig
     aos_core_common_ocispec
     aos_core_common_spaceallocator
     aos_core_common_types
