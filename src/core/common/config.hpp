@@ -1074,12 +1074,26 @@
 #endif
 
 /**
+ * Max media type len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_ARTIFACT_TYPE_LEN
+#define AOS_CONFIG_OCISPEC_ARTIFACT_TYPE_LEN 64
+#endif
+
+/**
  * Max digest len.
  *
  * 128 chars to represent sha512 + 8 chars for algorithm.
  */
 #ifndef AOS_CONFIG_OCISPEC_DIGEST_LEN
 #define AOS_CONFIG_OCISPEC_DIGEST_LEN 136
+#endif
+
+/**
+ * Max num manifests.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_NUM_MANIFESTS
+#define AOS_CONFIG_OCISPEC_MAX_NUM_MANIFESTS 8
 #endif
 
 /**

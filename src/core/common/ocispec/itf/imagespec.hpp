@@ -14,6 +14,8 @@
 
 namespace aos::oci {
 
+constexpr auto cSchemeVersion = 2;
+
 /**
  * Scheme version.
  */
@@ -25,15 +27,58 @@ constexpr auto cSchemaVersion = 2;
 constexpr auto cMediaTypeLen = AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN;
 
 /**
+ * Max artifact type len.
+ */
+constexpr auto cArtifactTypeLen = AOS_CONFIG_OCISPEC_ARTIFACT_TYPE_LEN;
+
+/**
  * Max digest len.
  */
 constexpr auto cDigestLen = AOS_CONFIG_OCISPEC_DIGEST_LEN;
 
 /**
+ * Max num manifests.
+ */
+constexpr auto cMaxNumManifests = AOS_CONFIG_OCISPEC_MAX_NUM_MANIFESTS;
+
+/**
+ * Describes the platform which the image in the manifest runs on.
+ */
+struct Platform {
+    StaticString<cCPUArchLen>    mArchitecture;
+    StaticString<cOSTypeLen>     mOS;
+    StaticString<cVersionLen>    mOSVersion;
+    StaticString<cCPUVariantLen> mVariant;
+
+    /**
+     * Compares platform.
+     *
+     * @param rhs platform to compare.
+     * @return bool.
+     */
+    bool operator==(const Platform& rhs) const
+    {
+        return mArchitecture == rhs.mArchitecture && mOS == rhs.mOS && mOSVersion == rhs.mOSVersion
+            && mVariant == rhs.mVariant;
+    }
+
+    /**
+     * Compares platform.
+     *
+     * @param rhs platform to compare.
+     * @return bool.
+     */
+    bool operator!=(const Platform& rhs) const { return !operator==(rhs); }
+};
+
+/**
  * OCI content descriptor.
  */
-
 struct ContentDescriptor {
+    StaticString<cMediaTypeLen> mMediaType;
+    StaticString<cDigestLen>    mDigest;
+    uint64_t                    mSize {};
+
     /**
      * Crates content descriptor.
      */
@@ -52,10 +97,6 @@ struct ContentDescriptor {
         , mSize(size)
     {
     }
-
-    StaticString<cMediaTypeLen> mMediaType;
-    StaticString<cDigestLen>    mDigest;
-    uint64_t                    mSize = 0;
 
     /**
      * Compares content descriptor.
@@ -78,11 +119,29 @@ struct ContentDescriptor {
 };
 
 /**
+ * OCI index file content descriptor.
+ */
+struct IndexContentDescriptor : public ContentDescriptor {
+    Platform mPlatform;
+};
+
+/**
+ * OCI image index.
+ */
+struct ImageIndex {
+    int                                                   mSchemaVersion {cSchemeVersion};
+    StaticString<cMediaTypeLen>                           mMediaType;
+    StaticString<cArtifactTypeLen>                        mArtifactType;
+    StaticArray<IndexContentDescriptor, cMaxNumManifests> mManifests;
+};
+
+/**
  * OCI image manifest.
  */
 struct ImageManifest {
-    int                                           mSchemaVersion {cSchemaVersion};
+    int                                           mSchemaVersion {cSchemeVersion};
     StaticString<cMediaTypeLen>                   mMediaType;
+    StaticString<cArtifactTypeLen>                mArtifactType;
     ContentDescriptor                             mConfig;
     StaticArray<ContentDescriptor, cMaxNumLayers> mLayers;
     Optional<ContentDescriptor>                   mAosService;
@@ -95,8 +154,9 @@ struct ImageManifest {
      */
     bool operator==(const ImageManifest& rhs) const
     {
-        return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType && mConfig == rhs.mConfig
-            && mLayers == rhs.mLayers && mAosService == rhs.mAosService;
+        return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType
+            && mArtifactType == rhs.mArtifactType && mConfig == rhs.mConfig && mLayers == rhs.mLayers
+            && mAosService == rhs.mAosService;
     }
 
     /**
@@ -136,36 +196,6 @@ struct Config {
      * @return bool.
      */
     bool operator!=(const Config& rhs) const { return !operator==(rhs); }
-};
-
-/**
- * Describes the platform which the image in the manifest runs on.
- */
-struct Platform {
-    StaticString<cCPUArchLen>    mArchitecture;
-    StaticString<cOSTypeLen>     mOS;
-    StaticString<cVersionLen>    mOSVersion;
-    StaticString<cCPUVariantLen> mVariant;
-
-    /**
-     * Compares platform.
-     *
-     * @param rhs platform to compare.
-     * @return bool.
-     */
-    bool operator==(const Platform& rhs) const
-    {
-        return mArchitecture == rhs.mArchitecture && mOS == rhs.mOS && mOSVersion == rhs.mOSVersion
-            && mVariant == rhs.mVariant;
-    }
-
-    /**
-     * Compares platform.
-     *
-     * @param rhs platform to compare.
-     * @return bool.
-     */
-    bool operator!=(const Platform& rhs) const { return !operator==(rhs); }
 };
 
 /**
