@@ -20,6 +20,24 @@ namespace aos::oci {
 class OCISpecItf {
 public:
     /**
+     * Loads OCI image index.
+     *
+     * @param path file path.
+     * @param index image index.
+     * @return Error.
+     */
+    virtual Error LoadImageIndex(const String& path, ImageIndex& index) = 0;
+
+    /**
+     * Saves OCI image index.
+     *
+     * @param path file path.
+     * @param index image index.
+     * @return Error.
+     */
+    virtual Error SaveImageIndex(const String& path, const ImageIndex& index) = 0;
+
+    /**
      * Loads OCI image manifest.
      *
      * @param path file path.

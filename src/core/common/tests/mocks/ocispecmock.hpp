@@ -18,6 +18,8 @@ namespace aos::oci {
  */
 class OCISpecMock : public OCISpecItf {
 public:
+    MOCK_METHOD(Error, LoadImageIndex, (const String&, ImageIndex&), (override));
+    MOCK_METHOD(Error, SaveImageIndex, (const String&, const ImageIndex&), (override));
     MOCK_METHOD(Error, LoadImageManifest, (const String&, ImageManifest&), (override));
     MOCK_METHOD(Error, SaveImageManifest, (const String&, const ImageManifest&), (override));
     MOCK_METHOD(Error, LoadImageConfig, (const String&, ImageConfig&), (override));
