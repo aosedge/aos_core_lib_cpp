@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_TYPES_ALERTS_HPP_
 
 #include <core/common/config.hpp>
+#include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/variant.hpp>
 
@@ -430,7 +431,7 @@ struct DownloadAlert : AlertItem {
     {
     }
 
-    StaticString<cIDLen>                     mImageID;
+    StaticString<oci::cDigestLen>            mDigest;
     StaticString<cURLLen>                    mURL;
     size_t                                   mDownloadedBytes {};
     size_t                                   mTotalBytes {};
@@ -446,7 +447,7 @@ struct DownloadAlert : AlertItem {
      */
     bool operator==(const DownloadAlert& rhs) const
     {
-        return AlertItem::operator==(rhs) && mImageID == rhs.mImageID && mURL == rhs.mURL
+        return AlertItem::operator==(rhs) && mDigest == rhs.mDigest && mURL == rhs.mURL
             && mDownloadedBytes == rhs.mDownloadedBytes && mTotalBytes == rhs.mTotalBytes && mState == rhs.mState
             && mReason == rhs.mReason && mError == rhs.mError;
     }
@@ -469,7 +470,7 @@ struct DownloadAlert : AlertItem {
      */
     friend Log& operator<<(Log& log, const DownloadAlert& alert)
     {
-        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mImageID << ":" << alert.mURL << ":"
+        return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mDigest << ":" << alert.mURL << ":"
                    << alert.mDownloadedBytes << ":" << alert.mTotalBytes << ":" << alert.mState << ":"
                    << (alert.mReason.HasValue() ? *alert.mReason : "") << ":" << alert.mError << "}";
     }

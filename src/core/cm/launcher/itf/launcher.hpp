@@ -19,13 +19,13 @@ namespace aos::cm::launcher {
  * Instance info.
  */
 struct RunInstanceRequest {
-    StaticString<cIDLen> mItemID;
-    StaticString<cIDLen> mProviderID;
-    UpdateItemType       mItemType;
-    StaticString<cIDLen> mSubjectID;
-    size_t               mPriority {};
-    size_t               mNumInstances {};
-    LabelsArray          mLabels;
+    StaticString<cIDLen>      mItemID;
+    StaticString<cVersionLen> mVersion;
+    StaticString<cIDLen>      mOwnerID;
+    SubjectInfo               mSubjectInfo;
+    size_t                    mPriority {};
+    size_t                    mNumInstances {};
+    LabelsArray               mLabels;
 
     /**
      * Compares instance info.
@@ -35,9 +35,9 @@ struct RunInstanceRequest {
      */
     bool operator==(const RunInstanceRequest& other) const
     {
-        return mItemID == other.mItemID && mProviderID == other.mProviderID && mItemType == other.mItemType
-            && mSubjectID == other.mSubjectID && mPriority == other.mPriority && mNumInstances == other.mNumInstances
-            && mLabels == other.mLabels;
+        return mItemID == other.mItemID && mOwnerID == other.mOwnerID && mVersion == other.mVersion
+            && mSubjectInfo == other.mSubjectInfo && mPriority == other.mPriority
+            && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
     }
 
     /**

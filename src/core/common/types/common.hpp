@@ -44,6 +44,11 @@ constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
 constexpr auto cMaxNumUpdateItems = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS;
 
 /**
+ * Max number of blobs.
+ */
+constexpr auto cMaxNumBlobs = AOS_CONFIG_TYPES_MAX_NUM_BLOBS;
+
+/**
  * Max number of instances per update item.
  */
 constexpr auto cMaxNumUpdateItemInstances = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEM_INSTANCES;
@@ -345,9 +350,9 @@ using CertTypeEnum = CertTypeType::Enum;
 using CertType     = EnumStringer<CertTypeType>;
 
 /**
- * Image state type.
+ * Item state type.
  */
-class ImageStateType {
+class ItemStateType {
 public:
     enum class Enum {
         eUnknown,
@@ -377,8 +382,8 @@ public:
     };
 };
 
-using ImageStateEnum = ImageStateType::Enum;
-using ImageState     = EnumStringer<ImageStateType>;
+using ItemStateEnum = ItemStateType::Enum;
+using ItemState     = EnumStringer<ItemStateType>;
 
 /**
  * Instance state type.
@@ -449,6 +454,30 @@ public:
 
 using NodeAttributeEnum = NodeAttributeType::Enum;
 using NodeAttributeName = EnumStringer<NodeAttributeType>;
+
+/**
+ * Subject type.
+ */
+class SubjectTypeType {
+public:
+    enum class Enum {
+        eGroup,
+        eUser,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "group",
+            "user",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using SubjectTypeEnum = SubjectTypeType::Enum;
+using SubjectType     = EnumStringer<SubjectTypeType>;
 
 /**
  * Instance identification.
@@ -572,6 +601,35 @@ struct InstanceFilter {
                    << "}";
     }
 };
+
+/**
+ * Subject info.
+ */
+struct SubjectInfo {
+    StaticString<cIDLen> mSubjectID;
+    SubjectType          mSubjectType;
+
+    /**
+     * Compares subject info.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator==(const SubjectInfo& rhs) const
+    {
+        return mSubjectID == rhs.mSubjectID && mSubjectType == rhs.mSubjectType;
+    }
+
+    /**
+     * Compares subject info.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const SubjectInfo& rhs) const { return !operator==(rhs); }
+};
+
+using SubjectInfoArray = StaticArray<SubjectInfo, cMaxNumSubjects>;
 
 /**
  * Alert rule percents.
@@ -794,33 +852,6 @@ struct PlatformInfo {
 };
 
 /**
- * Image info.
- */
-struct ImageInfo : public PlatformInfo {
-    StaticString<cIDLen> mImageID;
-
-    /**
-     * Compares image info.
-     *
-     * @param rhs image info to compare with.
-     * @return bool.
-     */
-    bool operator==(const ImageInfo& rhs) const
-    {
-        return mImageID == rhs.mImageID
-            && static_cast<const PlatformInfo&>(*this) == static_cast<const PlatformInfo&>(rhs);
-    }
-
-    /**
-     * Compares image info.
-     *
-     * @param rhs image info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ImageInfo& rhs) const { return !operator==(rhs); }
-};
-
-/**
  * CPU info.
  */
 struct CPUInfo {
@@ -1020,36 +1051,6 @@ struct NodeInfo {
      */
     bool operator!=(const NodeInfo& rhs) const { return !operator==(rhs); }
 };
-
-/**
- * Image status.
- */
-struct ImageStatus {
-    StaticString<cIDLen> mImageID;
-    ImageState           mState;
-    Error                mError;
-
-    /**
-     * Compares image status.
-     *
-     * @param rhs image status to compare with.
-     * @return bool.
-     */
-    bool operator==(const ImageStatus& rhs) const
-    {
-        return mImageID == rhs.mImageID && mState == rhs.mState && mError == rhs.mError;
-    }
-
-    /**
-     * Compares image status.
-     *
-     * @param rhs image status to compare with.
-     * @return bool.
-     */
-    bool operator!=(const ImageStatus& rhs) const { return !operator==(rhs); }
-};
-
-using ImageStatusArray = StaticArray<ImageStatus, cMaxNumUpdateImages>;
 
 /*
  * Subjects.
