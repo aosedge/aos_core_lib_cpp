@@ -11,40 +11,18 @@
 set(TARGET_NAME monitoring)
 
 # ######################################################################################################################
-# Sources
-# ######################################################################################################################
-
-set(SOURCES alertprocessor.cpp average.cpp resourcemonitor.cpp)
-
-# ######################################################################################################################
 # Headers
 # ######################################################################################################################
 
-set(HEADERS alertprocessor.hpp average.hpp monitoring.hpp resourcemonitor.hpp)
-
-# ######################################################################################################################
-# Libraries
-# ######################################################################################################################
-
-set(LIBRARIES aos::core::common::tools)
+set(HEADERS itf/instanceinfoprovider.hpp itf/instancemonitoringprovider.hpp itf/instanceparamsprovider.hpp
+            itf/monitoring.hpp itf/sender.hpp itf/nodemonitoringprovider.hpp
+)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(
-    TARGET_NAME
-    ${TARGET_NAME}
-    LOG_MODULE
-    STACK_USAGE
-    ${AOS_STACK_USAGE}
-    SOURCES
-    ${SOURCES}
-    HEADERS
-    ${HEADERS}
-    LIBRARIES
-    ${LIBRARIES}
-)
+add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})
 
 # ######################################################################################################################
 # Tests

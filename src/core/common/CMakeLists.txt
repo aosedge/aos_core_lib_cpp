@@ -24,6 +24,7 @@ set(INSTALL_HEADERS
     aos_core_common_iamclient
     aos_core_common_instancestatusprovider
     aos_core_common_logprovider
+    aos_core_common_monitoring
     aos_core_common_nodeconfig
     aos_core_common_ocispec
     aos_core_common_spaceallocator
@@ -31,7 +32,7 @@ set(INSTALL_HEADERS
     aos_core_common_version
 )
 
-set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_monitoring aos_core_common_pkcs11 aos_core_common_tools)
+set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_pkcs11 aos_core_common_tools)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_common_tests_mocks aos_core_common_tests_stubs)

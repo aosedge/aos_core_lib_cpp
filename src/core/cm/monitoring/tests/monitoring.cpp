@@ -140,13 +140,13 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
     nodeMonitoring->mMonitoringData.mCPU = 50.0;
     nodeMonitoring->mMonitoringData.mRAM = 1024 * 4;
 
-    nodeMonitoring->mServiceInstances.EmplaceBack();
-    nodeMonitoring->mServiceInstances[0].mInstanceIdent       = InstanceIdent {"service1", "subject1", 1};
-    nodeMonitoring->mServiceInstances[0].mMonitoringData.mCPU = 20.0;
+    nodeMonitoring->mInstances.EmplaceBack();
+    nodeMonitoring->mInstances[0].mInstanceIdent       = InstanceIdent {"service1", "subject1", 1};
+    nodeMonitoring->mInstances[0].mMonitoringData.mCPU = 20.0;
 
-    nodeMonitoring->mServiceInstances[0].mMonitoringData.mPartitions.EmplaceBack();
-    nodeMonitoring->mServiceInstances[0].mMonitoringData.mPartitions[0].mName     = "partition1";
-    nodeMonitoring->mServiceInstances[0].mMonitoringData.mPartitions[0].mUsedSize = 512.0;
+    nodeMonitoring->mInstances[0].mMonitoringData.mPartitions.EmplaceBack();
+    nodeMonitoring->mInstances[0].mMonitoringData.mPartitions[0].mName     = "partition1";
+    nodeMonitoring->mInstances[0].mMonitoringData.mPartitions[0].mUsedSize = 512.0;
 
     err = mMonitoring.OnMonitoringReceived(*nodeMonitoring);
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);

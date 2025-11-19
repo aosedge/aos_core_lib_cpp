@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_MONITORING_ITF_RECEIVER_HPP_
 #define AOS_CORE_CM_MONITORING_ITF_RECEIVER_HPP_
 
-#include <core/common/monitoring/monitoring.hpp>
+#include <core/common/monitoring/itf/monitoringdata.hpp>
 
 namespace aos::cm::monitoring {
 

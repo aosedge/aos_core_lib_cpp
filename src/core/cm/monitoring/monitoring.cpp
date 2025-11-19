@@ -244,7 +244,7 @@ Error Monitoring::CacheMonitoringData(const aos::monitoring::NodeMonitoringData&
         return err;
     }
 
-    for (const auto& instanceMonitoring : monitoringData.mServiceInstances) {
+    for (const auto& instanceMonitoring : monitoringData.mInstances) {
         if (auto err = FillInstanceMonitoring(instanceMonitoring); !err.IsNone()) {
             return err;
         }
