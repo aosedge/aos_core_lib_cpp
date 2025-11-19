@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_TYPES_INSTANCE_HPP_
 
 #include <core/common/crypto/itf/hash.hpp>
+#include <core/common/ocispec/itf/imagespec.hpp>
 
 #include "common.hpp"
 #include "network.hpp"
@@ -18,14 +19,15 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
-    StaticString<cIDLen>       mImageID;
-    StaticString<cIDLen>       mRuntimeID;
-    uid_t                      mUID {};
-    gid_t                      mGID {};
-    uint64_t                   mPriority {};
-    StaticString<cFilePathLen> mStoragePath;
-    StaticString<cFilePathLen> mStatePath;
-    InstanceNetworkParameters  mNetworkParameters;
+    StaticString<oci::cDigestLen> mManifestDigest;
+    StaticString<cIDLen>          mRuntimeID;
+    SubjectType                   mSubjectType;
+    uid_t                         mUID {};
+    gid_t                         mGID {};
+    uint64_t                      mPriority {};
+    StaticString<cFilePathLen>    mStoragePath;
+    StaticString<cFilePathLen>    mStatePath;
+    InstanceNetworkParameters     mNetworkParameters;
 
     /**
      * Compares instance info data.
@@ -35,7 +37,8 @@ struct InstanceInfoData {
      */
     bool operator==(const InstanceInfoData& rhs) const
     {
-        return mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mPriority == rhs.mPriority
+        return mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID
+            && mSubjectType == rhs.mSubjectType && mGID == rhs.mGID && mUID == rhs.mUID && mPriority == rhs.mPriority
             && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
             && mNetworkParameters == rhs.mNetworkParameters;
     }
@@ -84,7 +87,7 @@ using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
 struct InstanceStatusData {
     StaticString<cIDLen>                      mNodeID;
     StaticString<cIDLen>                      mRuntimeID;
-    StaticString<cIDLen>                      mImageID;
+    StaticString<oci::cDigestLen>             mManifestDigest;
     StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
     InstanceState                             mState;
     Error                                     mError;
@@ -97,7 +100,7 @@ struct InstanceStatusData {
      */
     bool operator==(const InstanceStatusData& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mImageID == rhs.mImageID
+        return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mManifestDigest == rhs.mManifestDigest
             && mStateChecksum == rhs.mStateChecksum && mState == rhs.mState && mError == rhs.mError;
     }
 
