@@ -129,7 +129,7 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::SubscribeListener(InstanceStatusListenerItf& listener)
+Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
     LockGuard lock {mMutex};
 
@@ -140,7 +140,7 @@ Error Launcher::SubscribeListener(InstanceStatusListenerItf& listener)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::UnsubscribeListener(InstanceStatusListenerItf& listener)
+Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
     LockGuard lock {mMutex};
 

@@ -8,10 +8,10 @@
 #define AOS_CORE_CM_UPDATEMANAGER_UNITSTATUSHANDLER_HPP_
 
 #include <core/cm/imagemanager/itf/imagestatusprovider.hpp>
-#include <core/cm/launcher/itf/instancestatusprovider.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/unitconfig.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
+#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/tools/timer.hpp>
 
 #include "config.hpp"
@@ -28,7 +28,7 @@ namespace aos::cm::updatemanager {
  */
 class UnitStatusHandler : private nodeinfoprovider::NodeInfoListenerItf,
                           private imagemanager::ImageStatusListenerItf,
-                          private launcher::InstanceStatusListenerItf,
+                          private instancestatusprovider::ListenerItf,
                           private iamclient::SubjectsListenerItf {
 public:
     /**
@@ -46,7 +46,7 @@ public:
     Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         imagemanager::ImageStatusProviderItf&  imageStatusProvider,
-        launcher::InstanceStatusProviderItf& instanceStatusProvider, SenderItf& sender);
+        instancestatusprovider::ProviderItf& instanceStatusProvider, SenderItf& sender);
 
     /**
      * Starts unit status handler.
@@ -86,7 +86,7 @@ private:
     void OnImageStatusChanged(const String& itemID, const String& version, const ImageStatus& status) override;
     void OnUpdateItemRemoved(const String& itemID) override;
 
-    // launcher::InstanceStatusListenerItf implementation
+    // instancestatusprovider::ListenerItf implementation
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
 
     // iamclient::SubjectsListenerItf implementation
@@ -106,7 +106,7 @@ private:
     unitconfig::UnitConfigItf*             mUnitConfig {};
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     imagemanager::ImageStatusProviderItf*  mImageStatusProvider {};
-    launcher::InstanceStatusProviderItf*   mInstanceStatusProvider {};
+    instancestatusprovider::ProviderItf*   mInstanceStatusProvider {};
     SenderItf*                             mSender {};
 
     Mutex                           mMutex;

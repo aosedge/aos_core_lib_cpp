@@ -10,11 +10,11 @@
 #include <algorithm>
 #include <vector>
 
-#include <core/cm/launcher/itf/instancestatusprovider.hpp>
+#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 
 namespace aos::cm::launcher {
 
-class InstanceStatusProviderStub : public InstanceStatusProviderItf {
+class InstanceStatusProviderStub : public instancestatusprovider::ProviderItf {
 public:
     void Init()
     {
@@ -52,14 +52,14 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error SubscribeListener(InstanceStatusListenerItf& listener) override
+    Error SubscribeListener(instancestatusprovider::ListenerItf& listener) override
     {
         mListeners.push_back(&listener);
 
         return ErrorEnum::eNone;
     }
 
-    Error UnsubscribeListener(InstanceStatusListenerItf& listener) override
+    Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override
     {
         mListeners.erase(std::remove(mListeners.begin(), mListeners.end(), &listener), mListeners.end());
 
@@ -67,8 +67,8 @@ public:
     }
 
 private:
-    std::vector<InstanceStatus>             mStatuses;
-    std::vector<InstanceStatusListenerItf*> mListeners;
+    std::vector<InstanceStatus>                       mStatuses;
+    std::vector<instancestatusprovider::ListenerItf*> mListeners;
 };
 
 } // namespace aos::cm::launcher

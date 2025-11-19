@@ -10,10 +10,10 @@ availability etc. The launcher handles two distinct types of instances:
 It implements the following interfaces:
 
 - [aos::cm::launcher::LauncherItf](itf/launcher.hpp) - main launcher interface to schedule and run instances;
-- [aos::cm::launcher::InstanceStatusProviderItf](itf/instancestatusprovider.hpp) - notifies other modules about
-  instances statuses;
 - [aos::cm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - receives instances statuses;
-- [aos::cm::launcher::EnvVarHandlerItf](itf/envvarhandler.hpp) - overrides instances env vars.
+- [aos::cm::launcher::EnvVarHandlerItf](itf/envvarhandler.hpp) - overrides instances env vars;
+- [aos::instancestatusprovider::ProviderItf](../../common/instancestatusprovider/itf/instancestatusprovider.hpp) -
+  notifies other modules about instances statuses.
 
 It requires the following interfaces:
 
@@ -42,15 +42,15 @@ classDiagram
         <<interface>>
     }
 
-    class InstanceStatusProviderItf["aos::cm::launcher::InstanceStatusProviderItf"] {
-        <<interface>>
-    }
-
     class InstanceStatusReceiverItf["aos::cm::launcher::InstanceStatusReceiverItf"] {
         <<interface>>
     }
 
     class EnvVarHandlerItf["aos::cm::launcher::EnvVarHandlerItf"] {
+        <<interface>>
+    }
+
+    class InstanceStatusProviderItf["aos::instancestatusprovider::ProviderItf"] {
         <<interface>>
     }
 
@@ -91,9 +91,9 @@ classDiagram
     }
 
     Launcher ..|> LauncherItf
-    Launcher ..|> InstanceStatusProviderItf
     Launcher ..|> InstanceStatusReceiverItf
     Launcher ..|> EnvVarHandlerItf
+    Launcher ..|> InstanceStatusProviderItf
 
     Launcher ..> StorageItf
     Launcher ..> NodeInfoProviderItf

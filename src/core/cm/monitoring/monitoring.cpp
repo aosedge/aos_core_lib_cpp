@@ -15,7 +15,7 @@ namespace aos::cm::monitoring {
  **********************************************************************************************************************/
 
 Error Monitoring::Init(const Config& config, SenderItf& sender,
-    launcher::InstanceStatusProviderItf&   instanceStatusProvider,
+    instancestatusprovider::ProviderItf&   instanceStatusProvider,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider)
 {
     LOG_DBG() << "Initialize monitoring" << Log::Field("sendPeriod", config.mSendPeriod);

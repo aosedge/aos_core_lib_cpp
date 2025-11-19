@@ -17,7 +17,7 @@ namespace aos::cm::updatemanager {
 Error UnitStatusHandler::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     imagemanager::ImageStatusProviderItf& imageStatusProvider,
-    launcher::InstanceStatusProviderItf& instanceStatusProvider, SenderItf& sender)
+    instancestatusprovider::ProviderItf& instanceStatusProvider, SenderItf& sender)
 {
     mIdentProvider          = &identProvider;
     mUnitConfig             = &unitConfig;
@@ -111,6 +111,8 @@ Error UnitStatusHandler::SendFullUnitStatus()
     }
 
     ClearUnitStatus();
+
+    mTimer.Stop();
 
     return ErrorEnum::eNone;
 }

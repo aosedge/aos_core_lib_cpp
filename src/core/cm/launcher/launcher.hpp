@@ -28,7 +28,7 @@ namespace aos::cm::launcher {
 /**
  * Launcher class manages lifecycle of service instances.
  */
-class Launcher : public LauncherItf, public InstanceStatusProviderItf, private InstanceStatusReceiverItf {
+class Launcher : public LauncherItf, public instancestatusprovider::ProviderItf, private InstanceStatusReceiverItf {
 public:
     /**
      * Initializes launcher object instance.
@@ -98,7 +98,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    Error SubscribeListener(InstanceStatusListenerItf& listener) override;
+    Error SubscribeListener(instancestatusprovider::ListenerItf& listener) override;
 
     /**
      * Unsubscribes from status notifications.
@@ -106,7 +106,7 @@ public:
      * @param listener status listener.
      * @return Error.
      */
-    Error UnsubscribeListener(InstanceStatusListenerItf& listener) override;
+    Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override;
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 1;
@@ -137,9 +137,9 @@ private:
     InstanceManager mInstanceManager;
     NodeManager     mNodeManager;
 
-    StaticArray<RunInstanceRequest, cMaxNumInstances>                       mRunRequests;
-    StaticArray<InstanceStatusListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
-    Balancer                                                                mBalancer;
+    StaticArray<RunInstanceRequest, cMaxNumInstances>                                 mRunRequests;
+    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
+    Balancer                                                                          mBalancer;
 
     Mutex mMutex;
     StaticAllocator<sizeof(StaticArray<InstanceStatus, cMaxNumInstances>) + sizeof(monitoring::NodeMonitoringData)>

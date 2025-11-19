@@ -8,6 +8,7 @@
 
 #include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/mocks/identprovidermock.hpp>
+#include <core/common/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/time.hpp>
@@ -17,7 +18,6 @@
 #include <core/cm/updatemanager/updatemanager.hpp>
 
 #include "mocks/imagemanagermock.hpp"
-#include "mocks/instancestatusprovidermock.hpp"
 #include "mocks/unitconfigmock.hpp"
 #include "stubs/senderstub.hpp"
 
@@ -182,7 +182,7 @@ protected:
                 return ErrorEnum::eNone;
             }));
         EXPECT_CALL(mInstanceStatusProviderMock, SubscribeListener(_))
-            .WillOnce(Invoke([&](launcher::InstanceStatusListenerItf& listener) {
+            .WillOnce(Invoke([&](instancestatusprovider::ListenerItf& listener) {
                 mInstanceStatusListener = &listener;
 
                 return ErrorEnum::eNone;
@@ -225,7 +225,7 @@ protected:
                 return ErrorEnum::eNone;
             }));
         EXPECT_CALL(mInstanceStatusProviderMock, UnsubscribeListener(_))
-            .WillOnce(Invoke([&](launcher::InstanceStatusListenerItf& listener) {
+            .WillOnce(Invoke([&](instancestatusprovider::ListenerItf& listener) {
                 (void)listener;
 
                 mInstanceStatusListener = nullptr;
@@ -250,14 +250,14 @@ protected:
     NiceMock<unitconfig::UnitConfigMock>             mUnitConfigMock;
     NiceMock<nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProviderMock;
     NiceMock<imagemanager::ImageManagerMock>         mImageManagerMock;
-    NiceMock<launcher::InstanceStatusProviderMock>   mInstanceStatusProviderMock;
+    NiceMock<instancestatusprovider::ProviderMock>   mInstanceStatusProviderMock;
     NiceMock<cloudconnection::CloudConnectionMock>   mCloudConnectionMock;
     SenderStub                                       mSenderStub;
 
     cloudconnection::ConnectionListenerItf* mConnectionListener {};
     nodeinfoprovider::NodeInfoListenerItf*  mNodeInfoListener {};
     imagemanager::ImageStatusListenerItf*   mImageStatusListener {};
-    launcher::InstanceStatusListenerItf*    mInstanceStatusListener {};
+    instancestatusprovider::ListenerItf*    mInstanceStatusListener {};
     iamclient::SubjectsListenerItf*         mSubjectsListener {};
 };
 

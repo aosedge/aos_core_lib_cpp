@@ -9,9 +9,9 @@
 
 #include <core/cm/storagestate/storagestate.hpp>
 
+#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/tools/timer.hpp>
 
-#include "itf/instancestatusprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 

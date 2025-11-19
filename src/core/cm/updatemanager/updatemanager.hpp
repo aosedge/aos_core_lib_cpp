@@ -39,7 +39,7 @@ public:
      */
     Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-        launcher::InstanceStatusProviderItf& instanceStatusProvider,
+        instancestatusprovider::ProviderItf& instanceStatusProvider,
         cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
 
     /**

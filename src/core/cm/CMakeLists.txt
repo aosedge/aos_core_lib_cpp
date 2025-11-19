@@ -29,8 +29,8 @@ set(INSTALL_HEADERS
     aos_core_cm_unitconfig
 )
 
-set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_imagemanager aos_core_cm_monitoring aos_core_cm_storagestate
-                      aos_core_cm_updatemanager
+set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_imagemanager aos_core_cm_launcher aos_core_cm_monitoring
+                      aos_core_cm_storagestate aos_core_cm_updatemanager
 )
 
 if(WITH_TEST)

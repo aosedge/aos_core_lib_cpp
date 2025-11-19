@@ -8,11 +8,11 @@
 #define AOS_CM_MONITORING_MONITORING_HPP_
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
+#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 
-#include <core/cm/launcher/itf/instancestatusprovider.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 
 #include "config.hpp"
@@ -26,7 +26,7 @@ namespace aos::cm::monitoring {
  */
 class Monitoring : public ReceiverItf,
                    private nodeinfoprovider::NodeInfoListenerItf,
-                   private launcher::InstanceStatusListenerItf,
+                   private instancestatusprovider::ListenerItf,
                    private cloudconnection::ConnectionListenerItf {
 public:
     /**
@@ -38,7 +38,7 @@ public:
      * @param nodeInfoProvider node info provider.
      * @return Error.
      */
-    Error Init(const Config& config, SenderItf& sender, launcher::InstanceStatusProviderItf& instanceStatusProvider,
+    Error Init(const Config& config, SenderItf& sender, instancestatusprovider::ProviderItf& instanceStatusProvider,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider);
 
     /**
@@ -95,7 +95,7 @@ private:
 
     Config                                 mConfig;
     SenderItf*                             mSender {};
-    launcher::InstanceStatusProviderItf*   mInstanceStatusProvider {};
+    instancestatusprovider::ProviderItf*   mInstanceStatusProvider {};
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     Mutex                                  mMutex;
     bool                                   mIsRunning {};

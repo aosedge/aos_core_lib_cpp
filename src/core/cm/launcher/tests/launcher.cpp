@@ -67,7 +67,7 @@ constexpr auto cRootfsImageID     = "rootfs";
  * Suite
  **********************************************************************************************************************/
 
-class InstanceStatusListenerStub : public InstanceStatusListenerItf {
+class InstanceStatusListenerStub : public instancestatusprovider::ListenerItf {
 public:
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override { mLastStatuses = statuses; }
     const Array<InstanceStatus>& GetLastStatuses() const { return mLastStatuses; }

@@ -8,12 +8,13 @@
 #define AOS_CORE_CM_LAUNCHER_INSTANCE_HPP_
 
 #include <core/cm/storagestate/storagestate.hpp>
+
+#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tools/identifierpool.hpp>
 #include <core/common/types/unitconfig.hpp>
 
 #include "itf/imageinfoprovider.hpp"
-#include "itf/instancestatusprovider.hpp"
 #include "itf/storage.hpp"
 
 namespace aos::cm::launcher {

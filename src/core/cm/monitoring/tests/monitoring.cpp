@@ -8,11 +8,11 @@
 
 #include <gtest/gtest.h>
 
+#include <core/common/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 
 #include <core/cm/monitoring/monitoring.hpp>
-#include <core/cm/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
 
 using namespace testing;
@@ -121,7 +121,7 @@ protected:
     }
 
     SenderStub                             mSender;
-    launcher::InstanceStatusProviderMock   mInstanceStatusProvider;
+    instancestatusprovider::ProviderMock   mInstanceStatusProvider;
     nodeinfoprovider::NodeInfoProviderMock mNodeInfoProvider;
     Monitoring                             mMonitoring;
 };
