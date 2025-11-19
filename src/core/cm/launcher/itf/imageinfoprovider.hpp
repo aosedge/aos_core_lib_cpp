@@ -8,7 +8,7 @@
 #define AOS_CORE_CM_LAUNCHER_ITF_UPDATEITEMPROVIDER_HPP_
 
 #include <core/cm/networkmanager/itf/networkmanager.hpp>
-#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/error.hpp>
 
 namespace aos::cm::launcher {

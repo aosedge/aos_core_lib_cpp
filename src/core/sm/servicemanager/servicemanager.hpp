@@ -9,7 +9,7 @@
 #define AOS_CORE_SM_SERVICEMANAGER_SERVICEMANAGER_HPP_
 
 #include <core/common/downloader/itf/downloader.hpp>
-#include <core/common/ocispec/ocispec.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tools/allocator.hpp>
 #include <core/common/tools/noncopyable.hpp>
