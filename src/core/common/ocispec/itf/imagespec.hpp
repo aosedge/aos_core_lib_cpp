@@ -15,6 +15,11 @@
 namespace aos::oci {
 
 /**
+ * Scheme version.
+ */
+constexpr auto cSchemaVersion = 2;
+
+/**
  * Max media type len.
  */
 constexpr auto cMediaTypeLen = AOS_CONFIG_OCISPEC_MEDIA_TYPE_LEN;
@@ -56,28 +61,28 @@ struct ContentDescriptor {
     /**
      * Compares content descriptor.
      *
-     * @param descriptor content descriptor to compare.
+     * @param rhs content descriptor to compare.
      * @return bool.
      */
-    bool operator==(const ContentDescriptor& descriptor) const
+    bool operator==(const ContentDescriptor& rhs) const
     {
-        return mMediaType == descriptor.mMediaType && mDigest == descriptor.mDigest && mSize == descriptor.mSize;
+        return mMediaType == rhs.mMediaType && mDigest == rhs.mDigest && mSize == rhs.mSize;
     }
 
     /**
      * Compares content descriptor.
      *
-     * @param descriptor content descriptor to compare.
+     * @param rhs content descriptor to compare.
      * @return bool.
      */
-    bool operator!=(const ContentDescriptor& descriptor) const { return !operator==(descriptor); }
+    bool operator!=(const ContentDescriptor& rhs) const { return !operator==(rhs); }
 };
 
 /**
  * OCI image manifest.
  */
 struct ImageManifest {
-    int                                           mSchemaVersion;
+    int                                           mSchemaVersion {cSchemaVersion};
     StaticString<cMediaTypeLen>                   mMediaType;
     ContentDescriptor                             mConfig;
     StaticArray<ContentDescriptor, cMaxNumLayers> mLayers;
@@ -86,28 +91,28 @@ struct ImageManifest {
     /**
      * Compares image manifest.
      *
-     * @param manifest manifest to compare.
+     * @param rhs manifest to compare.
      * @return bool.
      */
-    bool operator==(const ImageManifest& manifest) const
+    bool operator==(const ImageManifest& rhs) const
     {
-        return mSchemaVersion == manifest.mSchemaVersion && mMediaType == manifest.mMediaType
-            && mConfig == manifest.mConfig && mLayers == manifest.mLayers && mAosService == manifest.mAosService;
+        return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType && mConfig == rhs.mConfig
+            && mLayers == rhs.mLayers && mAosService == rhs.mAosService;
     }
 
     /**
      * Compares image manifest.
      *
-     * @param manifest manifest to compare.
+     * @param rhs manifest to compare.
      * @return bool.
      */
-    bool operator!=(const ImageManifest& manifest) const { return !operator==(manifest); }
+    bool operator!=(const ImageManifest& rhs) const { return !operator==(rhs); }
 };
 
 /**
- * OCI image config.
+ * OCI image config part.
  */
-struct ImageConfig {
+struct Config {
     StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
     StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>      mEnv;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>         mEntryPoint;
@@ -115,24 +120,23 @@ struct ImageConfig {
     StaticString<cFilePathLen>                                      mWorkingDir;
 
     /**
-     * Compares image config.
+     * Compares image config part.
      *
-     * @param config image config to compare.
+     * @param rhs image config part to compare.
      * @return bool.
      */
-    bool operator==(const ImageConfig& config) const
+    bool operator==(const Config& rhs) const
     {
-        return mEnv == config.mEnv && mEntryPoint == config.mEntryPoint && mCmd == config.mCmd
-            && mWorkingDir == config.mWorkingDir;
+        return mEnv == rhs.mEnv && mEntryPoint == rhs.mEntryPoint && mCmd == rhs.mCmd && mWorkingDir == rhs.mWorkingDir;
     }
 
     /**
-     * Compares image config.
+     * Compares image config part.
      *
-     * @param config image config to compare.
+     * @param rhs image config part to compare.
      * @return bool.
      */
-    bool operator!=(const ImageConfig& config) const { return !operator==(config); }
+    bool operator!=(const Config& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -147,47 +151,47 @@ struct Platform {
     /**
      * Compares platform.
      *
-     * @param platform platform to compare.
+     * @param rhs platform to compare.
      * @return bool.
      */
-    bool operator==(const Platform& platform) const
+    bool operator==(const Platform& rhs) const
     {
-        return mArchitecture == platform.mArchitecture && mOS == platform.mOS && mOSVersion == platform.mOSVersion
-            && mVariant == platform.mVariant;
+        return mArchitecture == rhs.mArchitecture && mOS == rhs.mOS && mOSVersion == rhs.mOSVersion
+            && mVariant == rhs.mVariant;
     }
 
     /**
      * Compares platform.
      *
-     * @param platform platform to compare.
+     * @param rhs platform to compare.
      * @return bool.
      */
-    bool operator!=(const Platform& platform) const { return !operator==(platform); }
+    bool operator!=(const Platform& rhs) const { return !operator==(rhs); }
 };
 
 /**
- * OCI image specification.
+ * OCI image config.
  */
-struct ImageSpec : public Platform {
+struct ImageConfig : public Platform {
     Time                     mCreated;
     StaticString<cAuthorLen> mAuthor;
-    ImageConfig              mConfig;
+    Config                   mConfig;
 
     /**
-     * Compares image spec.
+     * Compares image config.
      *
-     * @param spec image spec to compare.
+     * @param rhs image config to compare.
      * @return bool.
      */
-    bool operator==(const ImageSpec& spec) const { return mConfig == spec.mConfig; }
+    bool operator==(const ImageConfig& rhs) const { return mConfig == rhs.mConfig; }
 
     /**
-     * Compares image spec.
+     * Compares image config.
      *
-     * @param spec image spec to compare.
+     * @param rhs image config to compare.
      * @return bool.
      */
-    bool operator!=(const ImageSpec& spec) const { return !operator==(spec); }
+    bool operator!=(const ImageConfig& rhs) const { return !operator==(rhs); }
 };
 
 } // namespace aos::oci

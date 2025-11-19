@@ -28,39 +28,39 @@ protected:
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
+TEST_F(OCISpecTest, CreateExampleRuntimeConfig)
 {
-    auto spec = std::make_shared<RuntimeSpec>();
+    auto runtimeConfig = std::make_shared<RuntimeConfig>();
 
-    LOG_DBG() << "Runtime spec: size=" << sizeof(RuntimeSpec) << " bytes";
+    LOG_DBG() << "Runtime spec: size=" << sizeof(RuntimeConfig) << " bytes";
 
-    auto err = CreateExampleRuntimeSpec(*spec);
+    auto err = CreateExampleRuntimeSpec(*runtimeConfig);
     EXPECT_TRUE(err.IsNone()) << "Error creating example runtime spec: err=" << tests::utils::ErrorToStr(err);
 
-    EXPECT_EQ(spec->mOCIVersion, cVersion);
+    EXPECT_EQ(runtimeConfig->mOCIVersion, cVersion);
 
-    EXPECT_EQ(spec->mRoot->mPath, "rootfs");
-    EXPECT_EQ(spec->mRoot->mReadonly, true);
+    EXPECT_EQ(runtimeConfig->mRoot->mPath, "rootfs");
+    EXPECT_EQ(runtimeConfig->mRoot->mReadonly, true);
 
-    EXPECT_EQ(spec->mProcess->mTerminal, true);
-    EXPECT_EQ(spec->mProcess->mUser.mUID, 0);
-    EXPECT_EQ(spec->mProcess->mUser.mGID, 0);
+    EXPECT_EQ(runtimeConfig->mProcess->mTerminal, true);
+    EXPECT_EQ(runtimeConfig->mProcess->mUser.mUID, 0);
+    EXPECT_EQ(runtimeConfig->mProcess->mUser.mGID, 0);
 
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> args;
 
     args.PushBack("sh");
 
-    EXPECT_EQ(spec->mProcess->mArgs, args);
+    EXPECT_EQ(runtimeConfig->mProcess->mArgs, args);
 
     EnvVarArray env;
 
     env.PushBack("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
     env.PushBack("TERM=xterm");
 
-    EXPECT_EQ(spec->mProcess->mEnv, env);
+    EXPECT_EQ(runtimeConfig->mProcess->mEnv, env);
 
-    EXPECT_EQ(spec->mProcess->mCwd, "/");
-    EXPECT_EQ(spec->mProcess->mNoNewPrivileges, true);
+    EXPECT_EQ(runtimeConfig->mProcess->mCwd, "/");
+    EXPECT_EQ(runtimeConfig->mProcess->mNoNewPrivileges, true);
 
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount> caps;
 
@@ -68,17 +68,17 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     caps.PushBack("CAP_KILL");
     caps.PushBack("CAP_NET_BIND_SERVICE");
 
-    EXPECT_EQ(spec->mProcess->mCapabilities->mBounding, caps);
-    EXPECT_EQ(spec->mProcess->mCapabilities->mPermitted, caps);
-    EXPECT_EQ(spec->mProcess->mCapabilities->mEffective, caps);
+    EXPECT_EQ(runtimeConfig->mProcess->mCapabilities->mBounding, caps);
+    EXPECT_EQ(runtimeConfig->mProcess->mCapabilities->mPermitted, caps);
+    EXPECT_EQ(runtimeConfig->mProcess->mCapabilities->mEffective, caps);
 
     StaticArray<POSIXRlimit, cMaxParamCount> rlimits;
 
     rlimits.PushBack({"RLIMIT_NOFILE", 1024, 1024});
 
-    EXPECT_EQ(spec->mProcess->mRlimits, rlimits);
+    EXPECT_EQ(runtimeConfig->mProcess->mRlimits, rlimits);
 
-    EXPECT_EQ(spec->mHostname, "runc");
+    EXPECT_EQ(runtimeConfig->mHostname, "runc");
 
     StaticArray<Mount, cMaxNumFSMounts> mounts;
 
@@ -90,7 +90,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     mounts.EmplaceBack("sysfs", "/sys", "sysfs", "nosuid,noexec,nodev,ro");
     mounts.EmplaceBack("cgroup", "/sys/fs/cgroup", "cgroup", "nosuid,noexec,nodev,relatime,ro");
 
-    EXPECT_EQ(spec->mMounts, mounts);
+    EXPECT_EQ(runtimeConfig->mMounts, mounts);
 
     StaticArray<StaticString<cFilePathLen>, cMaxParamCount> paths;
 
@@ -105,7 +105,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     paths.PushBack("/proc/scsi");
     paths.PushBack("/sys/firmware");
 
-    EXPECT_EQ(spec->mLinux->mMaskedPaths, paths);
+    EXPECT_EQ(runtimeConfig->mLinux->mMaskedPaths, paths);
 
     paths.Clear();
     paths.PushBack("/proc/bus");
@@ -114,13 +114,13 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     paths.PushBack("/proc/sys");
     paths.PushBack("/proc/sysrq-trigger");
 
-    EXPECT_EQ(spec->mLinux->mReadonlyPaths, paths);
+    EXPECT_EQ(runtimeConfig->mLinux->mReadonlyPaths, paths);
 
     StaticArray<LinuxDeviceCgroup, cMaxNumHostDevices> devs;
 
     devs.EmplaceBack("", "rwm", false);
 
-    EXPECT_EQ(spec->mLinux->mResources->mDevices, devs);
+    EXPECT_EQ(runtimeConfig->mLinux->mResources->mDevices, devs);
 
     StaticArray<LinuxNamespace, cMaxNumNamespaces> namespaces;
 
@@ -131,7 +131,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeSpec)
     namespaces.EmplaceBack(LinuxNamespaceEnum::eMount);
     namespaces.EmplaceBack(LinuxNamespaceEnum::eCgroup);
 
-    EXPECT_EQ(spec->mLinux->mNamespaces, namespaces);
+    EXPECT_EQ(runtimeConfig->mLinux->mNamespaces, namespaces);
 }
 
 } // namespace aos::oci

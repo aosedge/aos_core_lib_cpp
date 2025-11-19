@@ -174,7 +174,7 @@ Error Balancer::ScheduleInstance(Instance& instance, const RunInstanceRequest& r
     // create network params
     auto networkServiceData = MakeUnique<networkmanager::NetworkServiceData>(&mAllocator);
 
-    networkServiceData->mExposedPorts       = imageConfig->mExposedPorts;
+    networkServiceData->mExposedPorts       = imageConfig->mConfig.mExposedPorts;
     networkServiceData->mAllowedConnections = serviceConfig->mAllowedConnections;
     if (serviceConfig->mHostname.HasValue()) {
         networkServiceData->mHosts.PushBack(serviceConfig->mHostname.GetValue());
@@ -614,7 +614,7 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
             // create network params
             auto networkServiceData = MakeUnique<networkmanager::NetworkServiceData>(&mAllocator);
 
-            networkServiceData->mExposedPorts       = imageConfig->mExposedPorts;
+            networkServiceData->mExposedPorts       = imageConfig->mConfig.mExposedPorts;
             networkServiceData->mAllowedConnections = serviceConfig->mAllowedConnections;
             if (serviceConfig->mHostname.HasValue()) {
                 networkServiceData->mHosts.PushBack(serviceConfig->mHostname.GetValue());

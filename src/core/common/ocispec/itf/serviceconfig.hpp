@@ -39,25 +39,25 @@ struct ServiceQuotas {
     /**
      * Compares service quotas.
      *
-     * @param quotas service quotas to compare.
+     * @param rhs service quotas to compare.
      * @return bool.
      */
-    bool operator==(const ServiceQuotas& quotas) const
+    bool operator==(const ServiceQuotas& rhs) const
     {
-        return mCPUDMIPSLimit == quotas.mCPUDMIPSLimit && mRAMLimit == quotas.mRAMLimit
-            && mPIDsLimit == quotas.mPIDsLimit && mNoFileLimit == quotas.mNoFileLimit && mTmpLimit == quotas.mTmpLimit
-            && mStateLimit == quotas.mStateLimit && mStorageLimit == quotas.mStorageLimit
-            && mUploadSpeed == quotas.mUploadSpeed && mDownloadSpeed == quotas.mDownloadSpeed
-            && mUploadLimit == quotas.mUploadLimit && mDownloadLimit == quotas.mDownloadLimit;
+        return mCPUDMIPSLimit == rhs.mCPUDMIPSLimit && mRAMLimit == rhs.mRAMLimit && mPIDsLimit == rhs.mPIDsLimit
+            && mNoFileLimit == rhs.mNoFileLimit && mTmpLimit == rhs.mTmpLimit && mStateLimit == rhs.mStateLimit
+            && mStorageLimit == rhs.mStorageLimit && mUploadSpeed == rhs.mUploadSpeed
+            && mDownloadSpeed == rhs.mDownloadSpeed && mUploadLimit == rhs.mUploadLimit
+            && mDownloadLimit == rhs.mDownloadLimit;
     }
 
     /**
      * Compares service quotas.
      *
-     * @param quotas service quotas to compare.
+     * @param rhs service quotas to compare.
      * @return bool.
      */
-    bool operator!=(const ServiceQuotas& quotas) const { return !operator==(quotas); }
+    bool operator!=(const ServiceQuotas& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -72,22 +72,21 @@ struct RequestedResources {
     /**
      * Compares requested resources.
      *
-     * @param resources requested resources to compare.
+     * @param rhs requested resources to compare.
      * @return bool.
      */
-    bool operator==(const RequestedResources& resources) const
+    bool operator==(const RequestedResources& rhs) const
     {
-        return mCPU == resources.mCPU && mRAM == resources.mRAM && mStorage == resources.mStorage
-            && mState == resources.mState;
+        return mCPU == rhs.mCPU && mRAM == rhs.mRAM && mStorage == rhs.mStorage && mState == rhs.mState;
     }
 
     /**
      * Compares requested resources.
      *
-     * @param resources requested resources to compare.
+     * @param rhs requested resources to compare.
      * @return bool.
      */
-    bool operator!=(const RequestedResources& resources) const { return !operator==(resources); }
+    bool operator!=(const RequestedResources& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -100,21 +99,21 @@ struct ServiceDevice {
     /**
      * Compares devices.
      *
-     * @param device service device.
+     * @param rhs service device.
      * @return bool.
      */
-    bool operator==(const ServiceDevice& device) const
+    bool operator==(const ServiceDevice& rhs) const
     {
-        return mDevice == device.mDevice && mPermissions == device.mPermissions;
+        return mDevice == rhs.mDevice && mPermissions == rhs.mPermissions;
     }
 
     /**
      * Compares devices.
      *
-     * @param device service device.
+     * @param rhs service device.
      * @return bool.
      */
-    bool operator!=(const ServiceDevice& device) const { return !operator==(device); }
+    bool operator!=(const ServiceDevice& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -162,26 +161,25 @@ struct ServiceConfig {
     /**
      * Compares service config.
      *
-     * @param config service config to compare.
+     * @param rhs service config to compare.
      * @return bool.
      */
-    bool operator==(const ServiceConfig& config) const
+    bool operator==(const ServiceConfig& rhs) const
     {
-        return mCreated == config.mCreated && mAuthor == config.mAuthor
-            && mSkipResourceLimits == config.mSkipResourceLimits && mHostname == config.mHostname
-            && mBalancingPolicy == config.mBalancingPolicy && mRunners == config.mRunners
-            && mRunParameters == config.mRunParameters && mSysctl == config.mSysctl && mOfflineTTL == config.mOfflineTTL
-            && mQuotas == config.mQuotas && mAllowedConnections == config.mAllowedConnections
-            && mRequestedResources == config.mRequestedResources && mAlertRules == config.mAlertRules;
+        return mCreated == rhs.mCreated && mAuthor == rhs.mAuthor && mSkipResourceLimits == rhs.mSkipResourceLimits
+            && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRunners == rhs.mRunners
+            && mRunParameters == rhs.mRunParameters && mSysctl == rhs.mSysctl && mOfflineTTL == rhs.mOfflineTTL
+            && mQuotas == rhs.mQuotas && mAllowedConnections == rhs.mAllowedConnections
+            && mRequestedResources == rhs.mRequestedResources && mAlertRules == rhs.mAlertRules;
     }
 
     /**
      * Compares service config.
      *
-     * @param config service config to compare.
+     * @param rhs service config to compare.
      * @return bool.
      */
-    bool operator!=(const ServiceConfig& config) const { return !operator==(config); }
+    bool operator!=(const ServiceConfig& rhs) const { return !operator==(rhs); }
 };
 
 } // namespace aos::oci

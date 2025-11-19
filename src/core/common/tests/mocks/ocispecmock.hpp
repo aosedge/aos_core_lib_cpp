@@ -18,19 +18,14 @@ namespace aos::oci {
  */
 class OCISpecMock : public OCISpecItf {
 public:
-    MOCK_METHOD(Error, ContentDescriptorFromFile, (const String& path, ContentDescriptor& descriptor), (override));
-    MOCK_METHOD(Error, ContentDescriptorFromJSON, (const String& json, ContentDescriptor& descriptor), (override));
-    MOCK_METHOD(Error, SaveContentDescriptor, (const String& path, const ContentDescriptor& descriptor), (override));
-    MOCK_METHOD(Error, LoadImageManifest, (const String& path, ImageManifest& manifest), (override));
-    MOCK_METHOD(Error, SaveImageManifest, (const String& path, const ImageManifest& manifest), (override));
-    MOCK_METHOD(Error, ImageSpecFromFile, (const String& path, ImageSpec& manifest), (override));
-    MOCK_METHOD(Error, ImageSpecFromJSON, (const String& json, ImageSpec& manifest), (override));
-    MOCK_METHOD(Error, SaveImageSpec, (const String& path, const ImageSpec& manifest), (override));
-    MOCK_METHOD(Error, LoadRuntimeSpec, (const String& path, RuntimeSpec& manifest), (override));
-    MOCK_METHOD(Error, SaveRuntimeSpec, (const String& path, const RuntimeSpec& manifest), (override));
-    MOCK_METHOD(Error, ServiceConfigFromFile, (const String& path, ServiceConfig& manifest), (override));
-    MOCK_METHOD(Error, ServiceConfigFromJSON, (const String& json, ServiceConfig& manifest), (override));
-    MOCK_METHOD(Error, SaveServiceConfig, (const String& path, const ServiceConfig& manifest), (override));
+    MOCK_METHOD(Error, LoadImageManifest, (const String&, ImageManifest&), (override));
+    MOCK_METHOD(Error, SaveImageManifest, (const String&, const ImageManifest&), (override));
+    MOCK_METHOD(Error, LoadImageConfig, (const String&, ImageConfig&), (override));
+    MOCK_METHOD(Error, SaveImageConfig, (const String&, const ImageConfig&), (override));
+    MOCK_METHOD(Error, LoadServiceConfig, (const String&, ServiceConfig&), (override));
+    MOCK_METHOD(Error, SaveServiceConfig, (const String&, const ServiceConfig&), (override));
+    MOCK_METHOD(Error, LoadRuntimeConfig, (const String&, RuntimeConfig&), (override));
+    MOCK_METHOD(Error, SaveRuntimeConfig, (const String&, const RuntimeConfig&), (override));
 };
 
 } // namespace aos::oci
