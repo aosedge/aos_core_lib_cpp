@@ -19,7 +19,7 @@ set(HEADERS config.hpp)
 
 set(INSTALL_HEADERS aos_core_sm_logprovider aos_core_sm_runner)
 
-set(INSTALL_LIBRARIES aos_core_sm_image aos_core_sm_layermanager aos_core_sm_resourcemanager aos_core_sm_servicemanager)
+set(INSTALL_LIBRARIES)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_sm_tests_mocks aos_core_sm_tests_stubs)
@@ -42,13 +42,9 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_sm)
 # Subdirectories
 # ######################################################################################################################
 
-add_subdirectory(image)
-add_subdirectory(layermanager)
 add_subdirectory(logprovider)
 add_subdirectory(networkmanager)
-add_subdirectory(resourcemanager)
 add_subdirectory(runner)
-add_subdirectory(servicemanager)
 
 if(WITH_TEST_TOOLS)
     add_subdirectory(tests)
