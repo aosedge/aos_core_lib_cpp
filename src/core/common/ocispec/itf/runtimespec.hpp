@@ -55,18 +55,18 @@ struct Root {
     /**
      * Compares root spec.
      *
-     * @param root root spec to compare.
+     * @param rhs root spec to compare.
      * @return bool.
      */
-    bool operator==(const Root& root) const { return mPath == root.mPath && mReadonly == root.mReadonly; }
+    bool operator==(const Root& rhs) const { return mPath == rhs.mPath && mReadonly == rhs.mReadonly; }
 
     /**
      * Compares root spec.
      *
-     * @param root root spec to compare.
+     * @param rhs root spec to compare.
      * @return bool.
      */
-    bool operator!=(const Root& root) const { return !operator==(root); }
+    bool operator!=(const Root& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -82,22 +82,22 @@ struct User {
     /**
      * Compares user spec.
      *
-     * @param user user spec to compare.
+     * @param rhs user spec to compare.
      * @return bool.
      */
-    bool operator==(const User& user) const
+    bool operator==(const User& rhs) const
     {
-        return mUID == user.mUID && mGID == user.mGID && mUmask == user.mUmask
-            && mAdditionalGIDs == user.mAdditionalGIDs && mUsername == user.mUsername;
+        return mUID == rhs.mUID && mGID == rhs.mGID && mUmask == rhs.mUmask && mAdditionalGIDs == rhs.mAdditionalGIDs
+            && mUsername == rhs.mUsername;
     }
 
     /**
      * Compares user spec.
      *
-     * @param user user spec to compare.
+     * @param rhs user spec to compare.
      * @return bool.
      */
-    bool operator!=(const User& user) const { return !operator==(user); }
+    bool operator!=(const User& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -114,20 +114,19 @@ struct LinuxCapabilities {
     /**
      * Compares LinuxCapabilities spec.
      *
-     * @param capabilities LinuxCapabilities spec to compare.
+     * @param rhs LinuxCapabilities spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxCapabilities& capabilities) const
+    bool operator==(const LinuxCapabilities& rhs) const
     {
-        return mBounding == capabilities.mBounding && mEffective == capabilities.mEffective
-            && mInheritable == capabilities.mInheritable && mPermitted == capabilities.mPermitted
-            && mAmbient == capabilities.mAmbient;
+        return mBounding == rhs.mBounding && mEffective == rhs.mEffective && mInheritable == rhs.mInheritable
+            && mPermitted == rhs.mPermitted && mAmbient == rhs.mAmbient;
     }
 
     /**
      * Compares LinuxCapabilities spec.
      *
-     * @param capabilities LinuxCapabilities spec to compare.
+     * @param rhs LinuxCapabilities spec to compare.
      * @return bool.
      */
     bool operator!=(const LinuxCapabilities& capabilities) const { return !operator==(capabilities); }
@@ -144,21 +143,21 @@ struct POSIXRlimit {
     /**
      * Compares POSIXRlimit spec.
      *
-     * @param rlimit POSIXRlimit spec to compare.
+     * @param rhs POSIXRlimit spec to compare.
      * @return bool.
      */
-    bool operator==(const POSIXRlimit& rlimit) const
+    bool operator==(const POSIXRlimit& rhs) const
     {
-        return mType == rlimit.mType && mHard == rlimit.mHard && mSoft == rlimit.mSoft;
+        return mType == rhs.mType && mHard == rhs.mHard && mSoft == rhs.mSoft;
     }
 
     /**
      * Compares POSIXRlimit spec.
      *
-     * @param rlimit POSIXRlimit spec to compare.
+     * @param rhs POSIXRlimit spec to compare.
      * @return bool.
      */
-    bool operator!=(const POSIXRlimit& rlimit) const { return !operator==(rlimit); }
+    bool operator!=(const POSIXRlimit& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -177,29 +176,35 @@ struct Process {
     /**
      * Compares process spec.
      *
-     * @param process process spec to compare.
+     * @param rhs process spec to compare.
      * @return bool.
      */
-    bool operator==(const Process& process) const
+    bool operator==(const Process& rhs) const
     {
-        return mTerminal == process.mTerminal && mUser == process.mUser && mArgs == process.mArgs
-            && mEnv == process.mEnv && mCwd == process.mCwd && mNoNewPrivileges == process.mNoNewPrivileges
-            && mCapabilities == process.mCapabilities && mRlimits == process.mRlimits;
+        return mTerminal == rhs.mTerminal && mUser == rhs.mUser && mArgs == rhs.mArgs && mEnv == rhs.mEnv
+            && mCwd == rhs.mCwd && mNoNewPrivileges == rhs.mNoNewPrivileges && mCapabilities == rhs.mCapabilities
+            && mRlimits == rhs.mRlimits;
     }
 
     /**
      * Compares process spec.
      *
-     * @param process process spec to compare.
+     * @param rhs process spec to compare.
      * @return bool.
      */
-    bool operator!=(const Process& process) const { return !operator==(process); }
+    bool operator!=(const Process& rhs) const { return !operator==(rhs); }
 };
 
 /**
  * LinuxDeviceCgroup represents a device rule for the devices specified to the device controller.
  */
 struct LinuxDeviceCgroup {
+    bool                          mAllow = false;
+    StaticString<cDeviceTypeLen>  mType;
+    Optional<int64_t>             mMajor;
+    Optional<int64_t>             mMinor;
+    StaticString<cPermissionsLen> mAccess;
+
     /**
      * Creates LinuxDeviceCgroup.
      */
@@ -224,31 +229,25 @@ struct LinuxDeviceCgroup {
     {
     }
 
-    bool                          mAllow = false;
-    StaticString<cDeviceTypeLen>  mType;
-    Optional<int64_t>             mMajor;
-    Optional<int64_t>             mMinor;
-    StaticString<cPermissionsLen> mAccess;
-
     /**
      * Compares LinuxDeviceCgroup spec.
      *
-     * @param deviceCgroup LinuxDeviceCgroup spec to compare.
+     * @param rhs LinuxDeviceCgroup spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxDeviceCgroup& deviceCgroup) const
+    bool operator==(const LinuxDeviceCgroup& rhs) const
     {
-        return mType == deviceCgroup.mType && mAccess == deviceCgroup.mAccess && mAllow == deviceCgroup.mAllow
-            && mMajor == deviceCgroup.mMajor && mMinor == deviceCgroup.mMinor;
+        return mType == rhs.mType && mAccess == rhs.mAccess && mAllow == rhs.mAllow && mMajor == rhs.mMajor
+            && mMinor == rhs.mMinor;
     }
 
     /**
      * Compares LinuxDeviceCgroup spec.
      *
-     * @param deviceCgroup LinuxDeviceCgroup spec to compare.
+     * @param rhs LinuxDeviceCgroup spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxDeviceCgroup& deviceCgroup) const { return !operator==(deviceCgroup); }
+    bool operator!=(const LinuxDeviceCgroup& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -268,24 +267,24 @@ struct LinuxMemory {
     /**
      * Compares LinuxMemory spec.
      *
-     * @param memory LinuxMemory spec to compare.
+     * @param rhs LinuxMemory spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxMemory& memory) const
+    bool operator==(const LinuxMemory& rhs) const
     {
-        return mLimit == memory.mLimit && mReservation == memory.mReservation && mSwap == memory.mSwap
-            && mKernel == memory.mKernel && mKernelTCP == memory.mKernelTCP && mSwappiness == memory.mSwappiness
-            && mDisableOOMKiller == memory.mDisableOOMKiller && mUseHierarchy == memory.mUseHierarchy
-            && mCheckBeforeUpdate == memory.mCheckBeforeUpdate;
+        return mLimit == rhs.mLimit && mReservation == rhs.mReservation && mSwap == rhs.mSwap && mKernel == rhs.mKernel
+            && mKernelTCP == rhs.mKernelTCP && mSwappiness == rhs.mSwappiness
+            && mDisableOOMKiller == rhs.mDisableOOMKiller && mUseHierarchy == rhs.mUseHierarchy
+            && mCheckBeforeUpdate == rhs.mCheckBeforeUpdate;
     }
 
     /**
      * Compares LinuxMemory spec.
      *
-     * @param memory LinuxMemory spec to compare.
+     * @param rhs LinuxMemory spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxMemory& memory) const { return !operator==(memory); }
+    bool operator!=(const LinuxMemory& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -305,23 +304,23 @@ struct LinuxCPU {
     /**
      * Compares LinuxCPU spec.
      *
-     * @param cpu LinuxCPU spec to compare.
+     * @param rhs LinuxCPU spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxCPU& cpu) const
+    bool operator==(const LinuxCPU& rhs) const
     {
-        return mShares == cpu.mShares && mQuota == cpu.mQuota && mBurst == cpu.mBurst && mPeriod == cpu.mPeriod
-            && mRealtimeRuntime == cpu.mRealtimeRuntime && mRealtimePeriod == cpu.mRealtimePeriod && mCpus == cpu.mCpus
-            && mMems == cpu.mMems && mIdle == cpu.mIdle;
+        return mShares == rhs.mShares && mQuota == rhs.mQuota && mBurst == rhs.mBurst && mPeriod == rhs.mPeriod
+            && mRealtimeRuntime == rhs.mRealtimeRuntime && mRealtimePeriod == rhs.mRealtimePeriod && mCpus == rhs.mCpus
+            && mMems == rhs.mMems && mIdle == rhs.mIdle;
     }
 
     /**
      * Compares LinuxCPU spec.
      *
-     * @param cpu LinuxCPU spec to compare.
+     * @param rhs LinuxCPU spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxCPU& cpu) const { return !operator==(cpu); }
+    bool operator!=(const LinuxCPU& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -343,18 +342,18 @@ struct LinuxResources {
     /**
      * Compares LinuxResources spec.
      *
-     * @param resources LinuxResources spec to compare.
+     * @param rhs LinuxResources spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxResources& resources) const { return mDevices == resources.mDevices; }
+    bool operator==(const LinuxResources& rhs) const { return mDevices == rhs.mDevices; }
 
     /**
      * Compares LinuxResources spec.
      *
-     * @param resources LinuxResources spec to compare.
+     * @param rhs LinuxResources spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxResources& resources) const { return !operator==(resources); }
+    bool operator!=(const LinuxResources& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -401,6 +400,9 @@ constexpr auto cMaxNumNamespaces = static_cast<size_t>(LinuxNamespaceEnum::eNumN
  * LinuxNamespace is the configuration for a Linux namespace.
  */
 struct LinuxNamespace {
+    LinuxNamespaceType         mType;
+    StaticString<cMaxParamLen> mPath;
+
     /**
      * Creates LinuxNamespace.
      */
@@ -415,24 +417,21 @@ struct LinuxNamespace {
     {
     }
 
-    LinuxNamespaceType         mType;
-    StaticString<cMaxParamLen> mPath;
+    /**
+     * Compares LinuxNamespace spec.
+     *
+     * @param rhs LinuxNamespace spec to compare.
+     * @return bool.
+     */
+    bool operator==(const LinuxNamespace& rhs) const { return mType == rhs.mType && mPath == rhs.mPath; }
 
     /**
      * Compares LinuxNamespace spec.
      *
-     * @param ns LinuxNamespace spec to compare.
+     * @param rhs LinuxNamespace spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxNamespace& ns) const { return mType == ns.mType && mPath == ns.mPath; }
-
-    /**
-     * Compares LinuxNamespace spec.
-     *
-     * @param ns LinuxNamespace spec to compare.
-     * @return bool.
-     */
-    bool operator!=(const LinuxNamespace& ns) const { return !operator==(ns); }
+    bool operator!=(const LinuxNamespace& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -450,22 +449,22 @@ struct LinuxDevice {
     /**
      * Compares LinuxDevice spec.
      *
-     * @param device LinuxDevice spec to compare.
+     * @param rhs LinuxDevice spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxDevice& device) const
+    bool operator==(const LinuxDevice& rhs) const
     {
-        return mPath == device.mPath && mType == device.mType && mMajor == device.mMajor && mMinor == device.mMinor
-            && mFileMode == device.mFileMode && mUID == device.mUID && mGID == device.mGID;
+        return mPath == rhs.mPath && mType == rhs.mType && mMajor == rhs.mMajor && mMinor == rhs.mMinor
+            && mFileMode == rhs.mFileMode && mUID == rhs.mUID && mGID == rhs.mGID;
     }
 
     /**
      * Compares LinuxDevice spec.
      *
-     * @param device LinuxDevice spec to compare.
+     * @param rhs LinuxDevice spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxDevice& device) const { return !operator==(device); }
+    bool operator!=(const LinuxDevice& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -483,23 +482,23 @@ struct Linux {
     /**
      * Compares Linux spec.
      *
-     * @param linux Linux spec to compare.
+     * @param rhs Linux spec to compare.
      * @return bool.
      */
-    bool operator==(const Linux& linuxSpec) const
+    bool operator==(const Linux& rhs) const
     {
-        return mSysctl == linuxSpec.mSysctl && mResources == linuxSpec.mResources
-            && mCgroupsPath == linuxSpec.mCgroupsPath && mNamespaces == linuxSpec.mNamespaces
-            && mMaskedPaths == linuxSpec.mMaskedPaths && mReadonlyPaths == linuxSpec.mReadonlyPaths;
+        return mSysctl == rhs.mSysctl && mResources == rhs.mResources && mCgroupsPath == rhs.mCgroupsPath
+            && mNamespaces == rhs.mNamespaces && mMaskedPaths == rhs.mMaskedPaths
+            && mReadonlyPaths == rhs.mReadonlyPaths;
     }
 
     /**
      * Compares Linux spec.
      *
-     * @param linux Linux spec to compare.
+     * @param rhs Linux spec to compare.
      * @return bool.
      */
-    bool operator!=(const Linux& linuxSpec) const { return !operator==(linuxSpec); }
+    bool operator!=(const Linux& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -512,21 +511,18 @@ struct VMHypervisor {
     /**
      * Compares VMHypervisor spec.
      *
-     * @param hypervisor VMHypervisor spec to compare.
+     * @param rhs VMHypervisor spec to compare.
      * @return bool.
      */
-    bool operator==(const VMHypervisor& hypervisor) const
-    {
-        return mPath == hypervisor.mPath && mParameters == hypervisor.mParameters;
-    }
+    bool operator==(const VMHypervisor& rhs) const { return mPath == rhs.mPath && mParameters == rhs.mParameters; }
 
     /**
      * Compares VMHypervisor spec.
      *
-     * @param hypervisor VMHypervisor spec to compare.
+     * @param rhs VMHypervisor spec to compare.
      * @return bool.
      */
-    bool operator!=(const VMHypervisor& hypervisor) const { return !operator==(hypervisor); }
+    bool operator!=(const VMHypervisor& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -539,18 +535,18 @@ struct VMKernel {
     /**
      * Compares VMKernel spec.
      *
-     * @param kernel VMKernel spec to compare.
+     * @param rhs VMKernel spec to compare.
      * @return bool.
      */
-    bool operator==(const VMKernel& kernel) const { return mPath == kernel.mPath && mParameters == kernel.mParameters; }
+    bool operator==(const VMKernel& rhs) const { return mPath == rhs.mPath && mParameters == rhs.mParameters; }
 
     /**
      * Compares VMKernel spec.
      *
-     * @param kernel VMKernel spec to compare.
+     * @param rhs VMKernel spec to compare.
      * @return bool.
      */
-    bool operator!=(const VMKernel& kernel) const { return !operator==(kernel); }
+    bool operator!=(const VMKernel& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -564,21 +560,21 @@ struct VMHWConfigIOMEM {
     /**
      * Compares IOMEMs.
      *
-     * @param iomem IOMEM to compare.
+     * @param rhs IOMEM to compare.
      * @return bool.
      */
-    bool operator==(const VMHWConfigIOMEM& iomem) const
+    bool operator==(const VMHWConfigIOMEM& rhs) const
     {
-        return mFirstGFN == iomem.mFirstGFN && mFirstMFN == iomem.mFirstMFN && mNrMFNs == iomem.mNrMFNs;
+        return mFirstGFN == rhs.mFirstGFN && mFirstMFN == rhs.mFirstMFN && mNrMFNs == rhs.mNrMFNs;
     }
 
     /**
      * Compares IOMEMs.
      *
-     * @param iomem IOMEM to compare.
+     * @param rhs IOMEM to compare.
      * @return bool.
      */
-    bool operator!=(const VMHWConfigIOMEM& iomem) const { return !operator==(iomem); }
+    bool operator!=(const VMHWConfigIOMEM& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -595,22 +591,22 @@ struct VMHWConfig {
     /**
      * Compares VMHWConfig spec.
      *
-     * @param hwConfig VMHWConfig spec to compare.
+     * @param rhs VMHWConfig spec to compare.
      * @return bool.
      */
-    bool operator==(const VMHWConfig& hwConfig) const
+    bool operator==(const VMHWConfig& rhs) const
     {
-        return mDeviceTree == hwConfig.mDeviceTree && mVCPUs == hwConfig.mVCPUs && mMemKB == hwConfig.mMemKB
-            && mDTDevs == hwConfig.mDTDevs && mIOMEMs == hwConfig.mIOMEMs && mIRQs == hwConfig.mIRQs;
+        return mDeviceTree == rhs.mDeviceTree && mVCPUs == rhs.mVCPUs && mMemKB == rhs.mMemKB && mDTDevs == rhs.mDTDevs
+            && mIOMEMs == rhs.mIOMEMs && mIRQs == rhs.mIRQs;
     }
 
     /**
      * Compares VMHWConfig spec.
      *
-     * @param hwConfig VMHWConfig spec to compare.
+     * @param rhs VMHWConfig spec to compare.
      * @return bool.
      */
-    bool operator!=(const VMHWConfig& hwConfig) const { return !operator==(hwConfig); }
+    bool operator!=(const VMHWConfig& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -624,27 +620,27 @@ struct VM {
     /**
      * Compares VM spec.
      *
-     * @param vm VM spec to compare.
+     * @param rhs VM spec to compare.
      * @return bool.
      */
-    bool operator==(const VM& vm) const
+    bool operator==(const VM& rhs) const
     {
-        return mHypervisor == vm.mHypervisor && mKernel == vm.mKernel && mHWConfig == vm.mHWConfig;
+        return mHypervisor == rhs.mHypervisor && mKernel == rhs.mKernel && mHWConfig == rhs.mHWConfig;
     }
 
     /**
      * Compares VM spec.
      *
-     * @param vm VM spec to compare.
+     * @param rhs VM spec to compare.
      * @return bool.
      */
-    bool operator!=(const VM& vm) const { return !operator==(vm); }
+    bool operator!=(const VM& rhs) const { return !operator==(rhs); }
 };
 
 /**
- * OCI runtime specification.
+ * OCI runtime config.
  */
-struct RuntimeSpec {
+struct RuntimeConfig {
     StaticString<cVersionLen>           mOCIVersion;
     Optional<Process>                   mProcess;
     Optional<Root>                      mRoot;
@@ -656,22 +652,22 @@ struct RuntimeSpec {
     /**
      * Compares runtime spec.
      *
-     * @param spec runtime spec to compare.
+     * @param rhs runtime spec to compare.
      * @return bool.
      */
-    bool operator==(const RuntimeSpec& spec) const
+    bool operator==(const RuntimeConfig& rhs) const
     {
-        return mOCIVersion == spec.mOCIVersion && mProcess == spec.mProcess && mRoot == spec.mRoot
-            && mHostname == spec.mHostname && mMounts == spec.mMounts && mLinux == spec.mLinux && mVM == spec.mVM;
+        return mOCIVersion == rhs.mOCIVersion && mProcess == rhs.mProcess && mRoot == rhs.mRoot
+            && mHostname == rhs.mHostname && mMounts == rhs.mMounts && mLinux == rhs.mLinux && mVM == rhs.mVM;
     }
 
     /**
      * Compares runtime spec.
      *
-     * @param spec runtime spec to compare.
+     * @param rhs runtime spec to compare.
      * @return bool.
      */
-    bool operator!=(const RuntimeSpec& spec) const { return !operator==(spec); }
+    bool operator!=(const RuntimeConfig& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -680,91 +676,92 @@ struct RuntimeSpec {
  * @param spec runtime spec.
  * @param isCgroup2UnifiedMode adds croup namespace.
  */
-inline Error CreateExampleRuntimeSpec(RuntimeSpec& spec, bool isCgroup2UnifiedMode = true)
+inline Error CreateExampleRuntimeSpec(RuntimeConfig& config, bool isCgroup2UnifiedMode = true)
 {
-    spec.mOCIVersion = cVersion;
+    config.mOCIVersion = cVersion;
 
-    spec.mRoot.EmplaceValue();
+    config.mRoot.EmplaceValue();
 
-    spec.mRoot->mPath     = "rootfs";
-    spec.mRoot->mReadonly = true;
+    config.mRoot->mPath     = "rootfs";
+    config.mRoot->mReadonly = true;
 
-    spec.mProcess.EmplaceValue();
+    config.mProcess.EmplaceValue();
 
-    spec.mProcess->mTerminal = true;
-    spec.mProcess->mUser     = {};
-    spec.mProcess->mArgs.Clear();
-    spec.mProcess->mArgs.PushBack("sh");
-    spec.mProcess->mEnv.Clear();
-    spec.mProcess->mEnv.PushBack("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
-    spec.mProcess->mEnv.PushBack("TERM=xterm");
-    spec.mProcess->mCwd             = "/";
-    spec.mProcess->mNoNewPrivileges = true;
+    config.mProcess->mTerminal = true;
+    config.mProcess->mUser     = {};
+    config.mProcess->mArgs.Clear();
+    config.mProcess->mArgs.PushBack("sh");
+    config.mProcess->mEnv.Clear();
+    config.mProcess->mEnv.PushBack("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+    config.mProcess->mEnv.PushBack("TERM=xterm");
+    config.mProcess->mCwd             = "/";
+    config.mProcess->mNoNewPrivileges = true;
 
-    spec.mProcess->mCapabilities.EmplaceValue();
+    config.mProcess->mCapabilities.EmplaceValue();
 
-    spec.mProcess->mCapabilities->mBounding.Clear();
-    spec.mProcess->mCapabilities->mBounding.PushBack("CAP_AUDIT_WRITE");
-    spec.mProcess->mCapabilities->mBounding.PushBack("CAP_KILL");
-    spec.mProcess->mCapabilities->mBounding.PushBack("CAP_NET_BIND_SERVICE");
-    spec.mProcess->mCapabilities->mPermitted.Clear();
-    spec.mProcess->mCapabilities->mPermitted.PushBack("CAP_AUDIT_WRITE");
-    spec.mProcess->mCapabilities->mPermitted.PushBack("CAP_KILL");
-    spec.mProcess->mCapabilities->mPermitted.PushBack("CAP_NET_BIND_SERVICE");
-    spec.mProcess->mCapabilities->mEffective.Clear();
-    spec.mProcess->mCapabilities->mEffective.PushBack("CAP_AUDIT_WRITE");
-    spec.mProcess->mCapabilities->mEffective.PushBack("CAP_KILL");
-    spec.mProcess->mCapabilities->mEffective.PushBack("CAP_NET_BIND_SERVICE");
+    config.mProcess->mCapabilities->mBounding.Clear();
+    config.mProcess->mCapabilities->mBounding.PushBack("CAP_AUDIT_WRITE");
+    config.mProcess->mCapabilities->mBounding.PushBack("CAP_KILL");
+    config.mProcess->mCapabilities->mBounding.PushBack("CAP_NET_BIND_SERVICE");
+    config.mProcess->mCapabilities->mPermitted.Clear();
+    config.mProcess->mCapabilities->mPermitted.PushBack("CAP_AUDIT_WRITE");
+    config.mProcess->mCapabilities->mPermitted.PushBack("CAP_KILL");
+    config.mProcess->mCapabilities->mPermitted.PushBack("CAP_NET_BIND_SERVICE");
+    config.mProcess->mCapabilities->mEffective.Clear();
+    config.mProcess->mCapabilities->mEffective.PushBack("CAP_AUDIT_WRITE");
+    config.mProcess->mCapabilities->mEffective.PushBack("CAP_KILL");
+    config.mProcess->mCapabilities->mEffective.PushBack("CAP_NET_BIND_SERVICE");
 
-    spec.mProcess->mRlimits.Clear();
-    spec.mProcess->mRlimits.PushBack({"RLIMIT_NOFILE", 1024, 1024});
+    config.mProcess->mRlimits.Clear();
+    config.mProcess->mRlimits.PushBack({"RLIMIT_NOFILE", 1024, 1024});
 
-    spec.mHostname = "runc";
+    config.mHostname = "runc";
 
-    spec.mMounts.Clear();
-    spec.mMounts.EmplaceBack("proc", "/proc", "proc");
-    spec.mMounts.EmplaceBack("tmpfs", "/dev", "tmpfs", "nosuid,strictatime,mode=755,size=65536k");
-    spec.mMounts.EmplaceBack("devpts", "/dev/pts", "devpts", "nosuid,noexec,newinstance,ptmxmode=0666,mode=0620,gid=5");
-    spec.mMounts.EmplaceBack("shm", "/dev/shm", "tmpfs", "nosuid,noexec,nodev,mode=1777,size=65536k");
-    spec.mMounts.EmplaceBack("mqueue", "/dev/mqueue", "mqueue", "nosuid,noexec,nodev");
-    spec.mMounts.EmplaceBack("sysfs", "/sys", "sysfs", "nosuid,noexec,nodev,ro");
-    spec.mMounts.EmplaceBack("cgroup", "/sys/fs/cgroup", "cgroup", "nosuid,noexec,nodev,relatime,ro");
+    config.mMounts.Clear();
+    config.mMounts.EmplaceBack("proc", "/proc", "proc");
+    config.mMounts.EmplaceBack("tmpfs", "/dev", "tmpfs", "nosuid,strictatime,mode=755,size=65536k");
+    config.mMounts.EmplaceBack(
+        "devpts", "/dev/pts", "devpts", "nosuid,noexec,newinstance,ptmxmode=0666,mode=0620,gid=5");
+    config.mMounts.EmplaceBack("shm", "/dev/shm", "tmpfs", "nosuid,noexec,nodev,mode=1777,size=65536k");
+    config.mMounts.EmplaceBack("mqueue", "/dev/mqueue", "mqueue", "nosuid,noexec,nodev");
+    config.mMounts.EmplaceBack("sysfs", "/sys", "sysfs", "nosuid,noexec,nodev,ro");
+    config.mMounts.EmplaceBack("cgroup", "/sys/fs/cgroup", "cgroup", "nosuid,noexec,nodev,relatime,ro");
 
-    spec.mLinux.EmplaceValue();
+    config.mLinux.EmplaceValue();
 
-    spec.mLinux->mMaskedPaths.Clear();
-    spec.mLinux->mMaskedPaths.PushBack("/proc/acpi");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/asound");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/kcore");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/keys");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/latency_stats");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/timer_list");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/timer_stats");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/sched_debug");
-    spec.mLinux->mMaskedPaths.PushBack("/proc/scsi");
-    spec.mLinux->mMaskedPaths.PushBack("/sys/firmware");
+    config.mLinux->mMaskedPaths.Clear();
+    config.mLinux->mMaskedPaths.PushBack("/proc/acpi");
+    config.mLinux->mMaskedPaths.PushBack("/proc/asound");
+    config.mLinux->mMaskedPaths.PushBack("/proc/kcore");
+    config.mLinux->mMaskedPaths.PushBack("/proc/keys");
+    config.mLinux->mMaskedPaths.PushBack("/proc/latency_stats");
+    config.mLinux->mMaskedPaths.PushBack("/proc/timer_list");
+    config.mLinux->mMaskedPaths.PushBack("/proc/timer_stats");
+    config.mLinux->mMaskedPaths.PushBack("/proc/sched_debug");
+    config.mLinux->mMaskedPaths.PushBack("/proc/scsi");
+    config.mLinux->mMaskedPaths.PushBack("/sys/firmware");
 
-    spec.mLinux->mReadonlyPaths.Clear();
-    spec.mLinux->mReadonlyPaths.PushBack("/proc/bus");
-    spec.mLinux->mReadonlyPaths.PushBack("/proc/fs");
-    spec.mLinux->mReadonlyPaths.PushBack("/proc/irq");
-    spec.mLinux->mReadonlyPaths.PushBack("/proc/sys");
-    spec.mLinux->mReadonlyPaths.PushBack("/proc/sysrq-trigger");
+    config.mLinux->mReadonlyPaths.Clear();
+    config.mLinux->mReadonlyPaths.PushBack("/proc/bus");
+    config.mLinux->mReadonlyPaths.PushBack("/proc/fs");
+    config.mLinux->mReadonlyPaths.PushBack("/proc/irq");
+    config.mLinux->mReadonlyPaths.PushBack("/proc/sys");
+    config.mLinux->mReadonlyPaths.PushBack("/proc/sysrq-trigger");
 
-    spec.mLinux->mResources.EmplaceValue();
+    config.mLinux->mResources.EmplaceValue();
 
-    spec.mLinux->mResources->mDevices.Clear();
-    spec.mLinux->mResources->mDevices.EmplaceBack("", "rwm", false);
+    config.mLinux->mResources->mDevices.Clear();
+    config.mLinux->mResources->mDevices.EmplaceBack("", "rwm", false);
 
-    spec.mLinux->mNamespaces.Clear();
-    spec.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::ePID);
-    spec.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eNetwork);
-    spec.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eIPC);
-    spec.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eUTS);
-    spec.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eMount);
+    config.mLinux->mNamespaces.Clear();
+    config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::ePID);
+    config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eNetwork);
+    config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eIPC);
+    config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eUTS);
+    config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eMount);
 
     if (isCgroup2UnifiedMode) {
-        spec.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eCgroup);
+        config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eCgroup);
     }
 
     return ErrorEnum::eNone;
