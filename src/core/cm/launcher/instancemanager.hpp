@@ -10,6 +10,7 @@
 #include <core/cm/storagestate/storagestate.hpp>
 
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
+#include <core/common/monitoring/itf/monitoringdata.hpp>
 #include <core/common/tools/timer.hpp>
 
 #include "itf/instancestatusreceiver.hpp"

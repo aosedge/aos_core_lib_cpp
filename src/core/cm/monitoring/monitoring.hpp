@@ -9,7 +9,6 @@
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
-#include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 

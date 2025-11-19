@@ -178,7 +178,7 @@ void Launcher::UpdateData(bool rebalancing)
         auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
 
         if (auto err = mMonitorProvider->GetAverageMonitoring(nodeID, *nodeMonitoring); !err.IsNone()) {
-            mInstanceManager.UpdateMonitoringData(nodeMonitoring->mServiceInstances);
+            mInstanceManager.UpdateMonitoringData(nodeMonitoring->mInstances);
         }
 
         node.UpdateAvailableResources(*nodeMonitoring, rebalancing);

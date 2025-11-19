@@ -283,7 +283,8 @@ void Node::Convert(const InstanceStatus& src, aos::InstanceInfo& dst)
 size_t Node::GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const
 {
     size_t instanceUsage = 0;
-    for (const auto& instance : monitoringData.mServiceInstances) {
+
+    for (const auto& instance : monitoringData.mInstances) {
         instanceUsage += instance.mMonitoringData.mCPU;
     }
 
@@ -297,7 +298,8 @@ size_t Node::GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringD
 size_t Node::GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringData) const
 {
     size_t instanceUsage = 0;
-    for (const auto& instance : monitoringData.mServiceInstances) {
+
+    for (const auto& instance : monitoringData.mInstances) {
         instanceUsage += instance.mMonitoringData.mRAM;
     }
 

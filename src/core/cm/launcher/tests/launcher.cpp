@@ -215,7 +215,7 @@ void CreateNodeMonitoring(monitoring::NodeMonitoringData& nodeMonitoring, const 
     nodeMonitoring.mMonitoringData.mCPU = totalCPUUsage;
 
     for (const auto& inst : instanceMonitoring) {
-        nodeMonitoring.mServiceInstances.PushBack(inst);
+        nodeMonitoring.mInstances.PushBack(inst);
     }
 }
 
