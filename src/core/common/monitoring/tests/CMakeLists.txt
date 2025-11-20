@@ -16,7 +16,9 @@ set(SOURCES alertprocessor.cpp monitoring.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::common::monitoring aos::core::common::tests::mocks GTest::gmock_main)
+set(LIBRARIES aos::core::common::monitoring aos::core::common::tests::mocks aos::core::common::tests::stubs
+              aos::core::common::tests::utils GTest::gmock_main
+)
 
 # ######################################################################################################################
 # Target
