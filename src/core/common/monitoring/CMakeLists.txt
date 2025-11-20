@@ -20,8 +20,14 @@ set(SOURCES alertprocessor.cpp average.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/instanceinfoprovider.hpp itf/instancemonitoringprovider.hpp itf/instanceparamsprovider.hpp
-            itf/monitoring.hpp itf/sender.hpp itf/nodemonitoringprovider.hpp
+set(HEADERS
+    itf/instanceinfoprovider.hpp
+    itf/instancemonitoringprovider.hpp
+    itf/instanceparamsprovider.hpp
+    itf/monitoring.hpp
+    itf/sender.hpp
+    itf/nodemonitoringprovider.hpp
+    config.hpp
 )
 
 # ######################################################################################################################
