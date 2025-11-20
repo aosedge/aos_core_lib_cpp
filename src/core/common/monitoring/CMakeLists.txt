@@ -14,7 +14,7 @@ set(TARGET_NAME monitoring)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES alertprocessor.cpp average.cpp)
+set(SOURCES alertprocessor.cpp average.cpp monitoring.cpp)
 
 # ######################################################################################################################
 # Headers
@@ -34,7 +34,7 @@ set(HEADERS
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::common::tools)
+set(LIBRARIES aos::core::common::instancestatusprovider aos::core::common::tools)
 
 # ######################################################################################################################
 # Target
