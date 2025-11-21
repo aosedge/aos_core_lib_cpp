@@ -21,7 +21,6 @@ set(INSTALL_HEADERS
     aos_core_cm_database
     aos_core_cm_fileserver
     aos_core_cm_iamclient
-    aos_core_cm_launcher
     aos_core_cm_networkmanager
     aos_core_cm_nodeinfoprovider
     aos_core_cm_smcontroller
@@ -29,9 +28,7 @@ set(INSTALL_HEADERS
     aos_core_cm_unitconfig
 )
 
-set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_launcher aos_core_cm_monitoring aos_core_cm_storagestate
-                      aos_core_cm_updatemanager
-)
+set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_monitoring aos_core_cm_storagestate aos_core_cm_updatemanager)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_cm_tests_mocks)
@@ -59,7 +56,6 @@ add_subdirectory(communication)
 add_subdirectory(database)
 add_subdirectory(fileserver)
 add_subdirectory(iamclient)
-add_subdirectory(launcher)
 add_subdirectory(monitoring)
 add_subdirectory(networkmanager)
 add_subdirectory(nodeinfoprovider)
