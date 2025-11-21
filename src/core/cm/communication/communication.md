@@ -12,7 +12,8 @@ It implements the following interfaces:
 * [aos::cm::storagestate::SenderItf](../storagestate/itf/sender.hpp) - sends instance state request and new state
   notification;
 * [aos::cm::smcontroller::SenderItf](../smcontroller/itf/sender.hpp) - sends log messages;
-* [aos::cm::launcher::SenderItf](../launcher/itf/senderitf.hpp) - sends override env vars statuses.
+* [aos::cm::launcher::SenderItf](../launcher/itf/senderitf.hpp) - sends override env vars statuses;
+* [aos::cm::imagemanager::BlobInfoProviderItf](../imagemanager/itf/blobinfoprovider.hpp) - provides blobs info.
 
 It requires the following interfaces:
 
@@ -59,6 +60,10 @@ classDiagram
         <<interface>>
     }
 
+    class BlobInfoProviderItf["aos::cm::imagemanager::BlobInfoProviderItf"] {
+        <<interface>>
+    }
+
     class UpdateManagerItf["aos::cm::updatemanager::UpdateManagerItf"] {
         <<interface>>
     }
@@ -91,6 +96,7 @@ classDiagram
     Communication ..|> StorageStateSenderItf
     Communication ..|> SMControllerSenderItf
     Communication ..|> LauncherSenderItf
+    Communication ..|> BlobInfoProviderItf
 
     Communication ..> UpdateManagerItf
     Communication ..> StateHandlerItf
