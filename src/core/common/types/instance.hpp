@@ -19,15 +19,15 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
-    StaticString<oci::cDigestLen> mManifestDigest;
-    StaticString<cIDLen>          mRuntimeID;
-    SubjectType                   mSubjectType;
-    uid_t                         mUID {};
-    gid_t                         mGID {};
-    uint64_t                      mPriority {};
-    StaticString<cFilePathLen>    mStoragePath;
-    StaticString<cFilePathLen>    mStatePath;
-    InstanceNetworkParameters     mNetworkParameters;
+    StaticString<oci::cDigestLen>       mManifestDigest;
+    StaticString<cIDLen>                mRuntimeID;
+    SubjectType                         mSubjectType;
+    uid_t                               mUID {};
+    gid_t                               mGID {};
+    uint64_t                            mPriority {};
+    StaticString<cFilePathLen>          mStoragePath;
+    StaticString<cFilePathLen>          mStatePath;
+    Optional<InstanceNetworkParameters> mNetworkParameters;
 
     /**
      * Compares instance info data.
