@@ -18,17 +18,15 @@ namespace aos::cm::imagemanager {
  */
 class ImageManagerMock : public ImageManagerItf {
 public:
-    MOCK_METHOD(Error, InstallUpdateItems,
-        (const Array<UpdateItemInfo>& itemsInfo, const Array<crypto::CertificateInfo>& certificates,
-            const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses),
+    MOCK_METHOD(Error, DownloadUpdateItems,
+        (const Array<UpdateItemInfo>& itemsInfo, const Array<crypto::CertificateInfo>&,
+            const Array<crypto::CertificateChainInfo>&, Array<UpdateItemStatus>&),
         (override));
-    MOCK_METHOD(Error, UninstallUpdateItems,
-        (const Array<StaticString<cIDLen>>& ids, Array<UpdateItemStatus>& statuses), (override));
-    MOCK_METHOD(Error, RevertUpdateItems, (const Array<StaticString<cIDLen>>& ids, Array<UpdateItemStatus>& statuses),
-        (override));
-    MOCK_METHOD(Error, GetUpdateItemsStatuses, (Array<UpdateItemStatus> & statuses), (override));
-    MOCK_METHOD(Error, SubscribeListener, (ImageStatusListenerItf & listener), (override));
-    MOCK_METHOD(Error, UnsubscribeListener, (ImageStatusListenerItf & listener), (override));
+    MOCK_METHOD(Error, InstallUpdateItems, (const Array<UpdateItemInfo>&, Array<UpdateItemStatus>&), (override));
+    MOCK_METHOD(Error, Cancel, (), (override));
+    MOCK_METHOD(Error, GetUpdateItemsStatuses, (Array<UpdateItemStatus>&), (override));
+    MOCK_METHOD(Error, SubscribeListener, (ItemStatusListenerItf&), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (ItemStatusListenerItf&), (override));
 };
 
 } // namespace aos::cm::imagemanager

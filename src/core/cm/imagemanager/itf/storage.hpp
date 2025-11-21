@@ -15,21 +15,9 @@ namespace aos::cm::imagemanager {
  * Update item info.
  */
 struct ItemInfo {
-<<<<<<< HEAD
-    StaticString<cIDLen>                        mID;
-    UpdateItemType                              mType;
-    StaticString<cVersionLen>                   mVersion;
-    ItemState                                   mState;
-    StaticString<cFilePathLen>                  mPath;
-    size_t                                      mTotalSize {};
-    size_t                                      mGID {};
-    Time                                        mTimestamp;
-    StaticArray<ImageInfo, cMaxNumUpdateImages> mImages;
-=======
     StaticString<cIDLen>      mItemID;
     StaticString<cVersionLen> mVersion;
     ItemState                 mState;
->>>>>>> d1d0ef2e (cm: imagemanager: add new image manager design document)
 
     /**
      * Compares update item info.

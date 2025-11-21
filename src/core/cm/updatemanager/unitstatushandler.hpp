@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_UPDATEMANAGER_UNITSTATUSHANDLER_HPP_
 #define AOS_CORE_CM_UPDATEMANAGER_UNITSTATUSHANDLER_HPP_
 
-#include <core/cm/imagemanager/itf/imagestatusprovider.hpp>
+#include <core/cm/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/unitconfig.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
@@ -27,7 +27,7 @@ namespace aos::cm::updatemanager {
  * Unit status handler.
  */
 class UnitStatusHandler : private nodeinfoprovider::NodeInfoListenerItf,
-                          private imagemanager::ImageStatusListenerItf,
+                          private imagemanager::ItemStatusListenerItf,
                           private instancestatusprovider::ListenerItf,
                           private iamclient::SubjectsListenerItf {
 public:
@@ -38,14 +38,14 @@ public:
      * @param identProvider identity provider.
      * @param unitConfig unit config interface.
      * @param nodeInfoProvider node info provider.
-     * @param imageStatusProvider image status provider.
+     * @param itemStatusProvider item status provider.
      * @param instanceStatusProvider instance status provider.
      * @param sender unit status sender.
      * @return Error.
      */
     Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        imagemanager::ImageStatusProviderItf&  imageStatusProvider,
+        imagemanager::ItemStatusProviderItf&   itemStatusProvider,
         instancestatusprovider::ProviderItf& instanceStatusProvider, SenderItf& sender);
 
     /**
@@ -82,9 +82,9 @@ private:
     // nodeinfoprovider::NodeInfoListenerItf implementation
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
-    // imagemanager::ImageStatusListenerItf implementation
-    void OnImageStatusChanged(const String& itemID, const String& version, const ImageStatus& status) override;
-    void OnUpdateItemRemoved(const String& itemID) override;
+    // imagemanager::ItemStatusListenerItf implementation
+    void OnItemsStatusesChanged(const Array<UpdateItemStatus>& statuses) override;
+    void OnItemRemoved(const String& itemID) override;
 
     // instancestatusprovider::ListenerItf implementation
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
@@ -105,7 +105,7 @@ private:
     iamclient::IdentProviderItf*           mIdentProvider {};
     unitconfig::UnitConfigItf*             mUnitConfig {};
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
-    imagemanager::ImageStatusProviderItf*  mImageStatusProvider {};
+    imagemanager::ItemStatusProviderItf*   mItemStatusProvider {};
     instancestatusprovider::ProviderItf*   mInstanceStatusProvider {};
     SenderItf*                             mSender {};
 

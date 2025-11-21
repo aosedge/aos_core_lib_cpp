@@ -76,22 +76,12 @@ void CreateNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& 
     EXPECT_TRUE(err.IsNone());
 }
 
-void CreateUpdateItemStatus(UpdateItemStatus& itemStatus, const String& itemID, const String& version, size_t numImages,
-    const ImageState& state = ImageStateEnum::eInstalled)
+void CreateUpdateItemStatus(UpdateItemStatus& itemStatus, const String& itemID, const String& version,
+    const ItemState& state = ItemStateEnum::eInstalled)
 {
     itemStatus.mItemID  = itemID;
     itemStatus.mVersion = version;
-    itemStatus.mStatuses.Clear();
-
-    for (size_t i = 0; i < numImages; i++) {
-        ImageStatus imageStatus;
-
-        imageStatus.mImageID.Format("image%zu", i + 1);
-        imageStatus.mState = state;
-
-        auto err = itemStatus.mStatuses.PushBack(imageStatus);
-        EXPECT_TRUE(err.IsNone());
-    }
+    itemStatus.mState   = state;
 }
 
 void CreateInstancesStatuses(UnitInstancesStatuses& instancesStatuses, const String& itemID, const String& subjectID,
@@ -105,11 +95,11 @@ void CreateInstancesStatuses(UnitInstancesStatuses& instancesStatuses, const Str
     for (size_t i = 0; i < numInstances; i++) {
         UnitInstanceStatus instanceStatus;
 
-        instanceStatus.mInstance  = i;
-        instanceStatus.mImageID   = "image1";
-        instanceStatus.mNodeID    = "node1";
-        instanceStatus.mRuntimeID = "runtime1";
-        instanceStatus.mState     = state;
+        instanceStatus.mInstance       = i;
+        instanceStatus.mManifestDigest = "digest1";
+        instanceStatus.mNodeID         = "node1";
+        instanceStatus.mRuntimeID      = "runtime1";
+        instanceStatus.mState          = state;
 
         auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
         EXPECT_TRUE(err.IsNone());
@@ -129,15 +119,15 @@ void ClearUnitStatus(UnitStatus& unitStatus)
 void CreateInstanceStatus(InstanceStatus& instanceStatus, const String& itemID, const String& subjectID,
     uint64_t instance, const String& version, const UnitInstanceStatus& unitInstanceStatus)
 {
-    instanceStatus.mItemID    = itemID;
-    instanceStatus.mSubjectID = subjectID;
-    instanceStatus.mInstance  = instance;
-    instanceStatus.mVersion   = version;
-    instanceStatus.mNodeID    = unitInstanceStatus.mNodeID;
-    instanceStatus.mRuntimeID = unitInstanceStatus.mRuntimeID;
-    instanceStatus.mImageID   = unitInstanceStatus.mImageID;
-    instanceStatus.mState     = unitInstanceStatus.mState;
-    instanceStatus.mError     = unitInstanceStatus.mError;
+    instanceStatus.mItemID         = itemID;
+    instanceStatus.mSubjectID      = subjectID;
+    instanceStatus.mInstance       = instance;
+    instanceStatus.mVersion        = version;
+    instanceStatus.mNodeID         = unitInstanceStatus.mNodeID;
+    instanceStatus.mRuntimeID      = unitInstanceStatus.mRuntimeID;
+    instanceStatus.mManifestDigest = unitInstanceStatus.mManifestDigest;
+    instanceStatus.mState          = unitInstanceStatus.mState;
+    instanceStatus.mError          = unitInstanceStatus.mError;
 };
 
 } // namespace
@@ -176,8 +166,8 @@ protected:
                 return ErrorEnum::eNone;
             }));
         EXPECT_CALL(mImageManagerMock, SubscribeListener(_))
-            .WillOnce(Invoke([&](imagemanager::ImageStatusListenerItf& listener) {
-                mImageStatusListener = &listener;
+            .WillOnce(Invoke([&](imagemanager::ItemStatusListenerItf& listener) {
+                mItemStatusListener = &listener;
 
                 return ErrorEnum::eNone;
             }));
@@ -217,10 +207,10 @@ protected:
                 return ErrorEnum::eNone;
             }));
         EXPECT_CALL(mImageManagerMock, UnsubscribeListener(_))
-            .WillOnce(Invoke([&](imagemanager::ImageStatusListenerItf& listener) {
+            .WillOnce(Invoke([&](imagemanager::ItemStatusListenerItf& listener) {
                 (void)listener;
 
-                mImageStatusListener = nullptr;
+                mItemStatusListener = nullptr;
 
                 return ErrorEnum::eNone;
             }));
@@ -256,7 +246,7 @@ protected:
 
     cloudconnection::ConnectionListenerItf* mConnectionListener {};
     nodeinfoprovider::NodeInfoListenerItf*  mNodeInfoListener {};
-    imagemanager::ImageStatusListenerItf*   mImageStatusListener {};
+    imagemanager::ItemStatusListenerItf*    mItemStatusListener {};
     instancestatusprovider::ListenerItf*    mInstanceStatusListener {};
     iamclient::SubjectsListenerItf*         mSubjectsListener {};
 };
@@ -320,8 +310,8 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
     expectedUnitStatus->mUpdateItems.EmplaceValue();
     expectedUnitStatus->mUpdateItems->Resize(2);
 
-    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[0], "item1", "1.0.0", 2);
-    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[1], "item2", "1.0.0", 3);
+    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[0], "item1", "1.0.0");
+    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[1], "item2", "1.0.0");
 
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
@@ -341,14 +331,14 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
                 for (const auto& instanceStatus : instancesStatuses.mInstances) {
                     InstanceStatus status;
 
-                    status.mItemID    = instancesStatuses.mItemID;
-                    status.mSubjectID = instancesStatuses.mSubjectID;
-                    status.mVersion   = instancesStatuses.mVersion;
-                    status.mInstance  = instanceStatus.mInstance;
-                    status.mNodeID    = instanceStatus.mNodeID;
-                    status.mRuntimeID = instanceStatus.mRuntimeID;
-                    status.mImageID   = instanceStatus.mImageID;
-                    status.mState     = instanceStatus.mState;
+                    status.mItemID         = instancesStatuses.mItemID;
+                    status.mSubjectID      = instancesStatuses.mSubjectID;
+                    status.mVersion        = instancesStatuses.mVersion;
+                    status.mInstance       = instanceStatus.mInstance;
+                    status.mNodeID         = instanceStatus.mNodeID;
+                    status.mRuntimeID      = instanceStatus.mRuntimeID;
+                    status.mManifestDigest = instanceStatus.mManifestDigest;
+                    status.mState          = instanceStatus.mState;
 
                     instances.PushBack(status);
                 }
@@ -437,30 +427,20 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
     expectedUnitStatus->mUpdateItems->Resize(2);
 
     CreateUpdateItemStatus(
-        expectedUnitStatus->mUpdateItems.GetValue()[0], "item3", "1.0.0", 3, ImageStateEnum::eInstalling);
+        expectedUnitStatus->mUpdateItems.GetValue()[0], "item3", "1.0.0", ItemStateEnum::eInstalling);
     CreateUpdateItemStatus(
-        expectedUnitStatus->mUpdateItems.GetValue()[1], "item4", "1.0.0", 4, ImageStateEnum::eInstalling);
+        expectedUnitStatus->mUpdateItems.GetValue()[1], "item4", "1.0.0", ItemStateEnum::eInstalling);
 
-    // Notify image statuses changed
+    // Notify items statuses changed
 
-    for (const auto& itemStatus : *expectedUnitStatus->mUpdateItems) {
-        for (const auto& imageStatus : itemStatus.mStatuses) {
-            mImageStatusListener->OnImageStatusChanged(itemStatus.mItemID, itemStatus.mVersion, imageStatus);
-        }
-    }
+    mItemStatusListener->OnItemsStatusesChanged(*expectedUnitStatus->mUpdateItems);
 
-    CreateUpdateItemStatus(
-        expectedUnitStatus->mUpdateItems.GetValue()[0], "item3", "1.0.0", 3, ImageStateEnum::eInstalled);
-    CreateUpdateItemStatus(
-        expectedUnitStatus->mUpdateItems.GetValue()[1], "item4", "1.0.0", 4, ImageStateEnum::eInstalled);
+    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[0], "item3", "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[1], "item4", "1.0.0", ItemStateEnum::eInstalled);
 
-    // Notify image statuses changed
+    // Notify items statuses changed
 
-    for (const auto& itemStatus : *expectedUnitStatus->mUpdateItems) {
-        for (const auto& imageStatus : itemStatus.mStatuses) {
-            mImageStatusListener->OnImageStatusChanged(itemStatus.mItemID, itemStatus.mVersion, imageStatus);
-        }
-    }
+    mItemStatusListener->OnItemsStatusesChanged(*expectedUnitStatus->mUpdateItems);
 
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 
