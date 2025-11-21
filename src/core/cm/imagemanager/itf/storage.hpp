@@ -10,7 +10,7 @@
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
 #include <core/common/crypto/itf/cryptohelper.hpp>
 
-namespace aos::cm::imagemanager::storage {
+namespace aos::cm::imagemanager {
 
 /**
  * Maximum number of metadata entries per image.
@@ -87,7 +87,7 @@ struct ItemInfo {
     StaticString<cIDLen>                        mID;
     UpdateItemType                              mType;
     StaticString<cVersionLen>                   mVersion;
-    storage::ItemState                          mState;
+    ItemState                                   mState;
     StaticString<cFilePathLen>                  mPath;
     size_t                                      mTotalSize {};
     size_t                                      mGID {};
@@ -171,6 +171,6 @@ public:
     virtual Error AddItem(const ItemInfo& item) = 0;
 };
 
-} // namespace aos::cm::imagemanager::storage
+} // namespace aos::cm::imagemanager
 
 #endif
