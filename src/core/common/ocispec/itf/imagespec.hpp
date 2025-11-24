@@ -130,6 +130,25 @@ struct ContentDescriptor {
  */
 struct IndexContentDescriptor : public ContentDescriptor {
     Optional<Platform> mPlatform;
+
+    /**
+     * Compares index content descriptor.
+     *
+     * @param rhs index content descriptor to compare.
+     * @return bool.
+     */
+    bool operator==(const IndexContentDescriptor& rhs) const
+    {
+        return ContentDescriptor::operator==(rhs) && mPlatform == rhs.mPlatform;
+    }
+
+    /**
+     * Compares index content descriptor.
+     *
+     * @param rhs index content descriptor to compare.
+     * @return bool.
+     */
+    bool operator!=(const IndexContentDescriptor& rhs) const { return !operator==(rhs); }
 };
 
 /**
