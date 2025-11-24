@@ -51,10 +51,11 @@ constexpr auto cMaxNumLayers = AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS;
  * Describes the platform which the image in the manifest runs on.
  */
 struct Platform {
-    StaticString<cCPUArchLen>    mArchitecture;
-    StaticString<cOSTypeLen>     mOS;
-    StaticString<cVersionLen>    mOSVersion;
-    StaticString<cCPUVariantLen> mVariant;
+    StaticString<cCPUArchLen>                                  mArchitecture;
+    StaticString<cCPUVariantLen>                               mVariant;
+    StaticString<cOSTypeLen>                                   mOS;
+    StaticString<cVersionLen>                                  mOSVersion;
+    StaticArray<StaticString<cOSFeatureLen>, cOSFeaturesCount> mOSFeatures;
 
     /**
      * Compares platform.
@@ -64,8 +65,8 @@ struct Platform {
      */
     bool operator==(const Platform& rhs) const
     {
-        return mArchitecture == rhs.mArchitecture && mOS == rhs.mOS && mOSVersion == rhs.mOSVersion
-            && mVariant == rhs.mVariant;
+        return mArchitecture == rhs.mArchitecture && mVariant == rhs.mVariant && mOS == rhs.mOS
+            && mOSVersion == rhs.mOSVersion && mOSFeatures == rhs.mOSFeatures;
     }
 
     /**
