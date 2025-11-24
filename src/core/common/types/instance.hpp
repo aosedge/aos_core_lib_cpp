@@ -11,6 +11,7 @@
 #include <core/common/ocispec/itf/imagespec.hpp>
 
 #include "common.hpp"
+#include "monitoring.hpp"
 #include "network.hpp"
 
 namespace aos {
@@ -28,6 +29,7 @@ struct InstanceInfoData {
     StaticString<cFilePathLen>          mStoragePath;
     StaticString<cFilePathLen>          mStatePath;
     Optional<InstanceNetworkParameters> mNetworkParameters;
+    Optional<InstanceMonitoringParams>  mMonitoringParams;
 
     /**
      * Compares instance info data.
@@ -40,7 +42,7 @@ struct InstanceInfoData {
         return mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID
             && mSubjectType == rhs.mSubjectType && mGID == rhs.mGID && mUID == rhs.mUID && mPriority == rhs.mPriority
             && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
-            && mNetworkParameters == rhs.mNetworkParameters;
+            && mNetworkParameters == rhs.mNetworkParameters && mMonitoringParams == rhs.mMonitoringParams;
     }
 
     /**
