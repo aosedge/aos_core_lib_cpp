@@ -129,7 +129,7 @@ struct ContentDescriptor {
  * OCI index file content descriptor.
  */
 struct IndexContentDescriptor : public ContentDescriptor {
-    Platform mPlatform;
+    Optional<Platform> mPlatform;
 };
 
 /**
