@@ -141,8 +141,9 @@ struct ServiceConfig {
         return mCreated == rhs.mCreated && mAuthor == rhs.mAuthor && mSkipResourceLimits == rhs.mSkipResourceLimits
             && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRuntimes == rhs.mRuntimes
             && mRunParameters == rhs.mRunParameters && mSysctl == rhs.mSysctl && mOfflineTTL == rhs.mOfflineTTL
-            && mQuotas == rhs.mQuotas && mAllowedConnections == rhs.mAllowedConnections
-            && mRequestedResources == rhs.mRequestedResources && mAlertRules == rhs.mAlertRules;
+            && mPermissions == rhs.mPermissions && mResources == rhs.mResources && mQuotas == rhs.mQuotas
+            && mAllowedConnections == rhs.mAllowedConnections && mRequestedResources == rhs.mRequestedResources
+            && mAlertRules == rhs.mAlertRules;
     }
 
     /**
