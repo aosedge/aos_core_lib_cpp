@@ -140,6 +140,26 @@ struct ImageIndex {
     StaticString<cMediaTypeLen>                           mMediaType;
     StaticString<cArtifactTypeLen>                        mArtifactType;
     StaticArray<IndexContentDescriptor, cMaxNumManifests> mManifests;
+
+    /**
+     * Compares image index.
+     *
+     * @param rhs index to compare.
+     * @return bool.
+     */
+    bool operator==(const ImageIndex& rhs) const
+    {
+        return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType
+            && mArtifactType == rhs.mArtifactType && mManifests == rhs.mManifests;
+    }
+
+    /**
+     * Compares image index.
+     *
+     * @param rhs index to compare.
+     * @return bool.
+     */
+    bool operator!=(const ImageIndex& rhs) const { return !operator==(rhs); }
 };
 
 /**
