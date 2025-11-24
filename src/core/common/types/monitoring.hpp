@@ -17,6 +17,29 @@ namespace aos {
 static constexpr auto cMonitoringItemsCount = AOS_CONFIG_TYPES_MONITORING_ITEMS_COUNT;
 
 /**
+ * Instance monitoring parameters.
+ */
+struct InstanceMonitoringParams {
+    Optional<AlertRules> mAlertRules;
+
+    /**
+     * Compares instance monitoring parameters.
+     *
+     * @param rhs instance monitoring parameters to compare with.
+     * @return bool.
+     */
+    bool operator==(const InstanceMonitoringParams& rhs) const { return mAlertRules == rhs.mAlertRules; }
+
+    /**
+     * Compares instance monitoring parameters.
+     *
+     * @param rhs instance monitoring parameters to compare with.
+     * @return bool.
+     */
+    bool operator!=(const InstanceMonitoringParams& rhs) const { return !operator==(rhs); }
+};
+
+/**
  * Partition usage.
  */
 struct PartitionUsage {
