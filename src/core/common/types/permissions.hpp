@@ -69,6 +69,25 @@ struct FunctionPermissions {
 struct FunctionServicePermissions {
     StaticString<cFuncServiceLen>                        mName;
     StaticArray<FunctionPermissions, cFunctionsMaxCount> mPermissions;
+
+    /**
+     * Compares function service permissions.
+     *
+     * @param rhs permissions to compare.
+     * @return bool.
+     */
+    bool operator==(const FunctionServicePermissions& rhs) const
+    {
+        return (mName == rhs.mName) && (mPermissions == rhs.mPermissions);
+    }
+
+    /**
+     * Compares function service permissions.
+     *
+     * @param rhs permissions to compare.
+     * @return bool.
+     */
+    bool operator!=(const FunctionServicePermissions& rhs) const { return !operator==(rhs); }
 };
 
 /**
