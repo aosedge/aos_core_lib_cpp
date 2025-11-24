@@ -8,25 +8,9 @@
 #define AOS_CORE_COMMON_MONITORING_ITF_INSTANCEPARAMSPROVIDER_HPP_
 
 #include <core/common/types/common.hpp>
+#include <core/common/types/monitoring.hpp>
 
 namespace aos::monitoring {
-
-/**
- * Partition param.
- */
-struct PartitionParam {
-    StaticString<cPartitionNameLen> mName;
-    StaticString<cFilePathLen>      mPath;
-};
-
-/**
- * Instance monitoring parameters.
- */
-struct InstanceParams {
-    InstanceIdent        mInstanceIdent;
-    PartitionInfoArray   mPartitions;
-    Optional<AlertRules> mAlertRules;
-};
 
 /**
  * Instance info provider interface.
@@ -45,7 +29,9 @@ public:
      * @param[out] params instance monitoring parameters.
      * @return Error eNotSupported if instance monitoring is not supported.
      */
-    virtual Error GetInstanceMonitoringParams(const InstanceIdent& instanceIdent, InstanceParams& params) const = 0;
+    virtual Error GetInstanceMonitoringParams(
+        const InstanceIdent& instanceIdent, Optional<InstanceMonitoringParams>& params) const
+        = 0;
 };
 
 } // namespace aos::monitoring
