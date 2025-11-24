@@ -21,7 +21,7 @@ It requires the following interfaces:
 * [aos::cm::alerts::ReceiverItf](../alerts/itf/receiver.hpp) - sends alerts messages;
 * [aos::cm::monitoring::ReceiverItf](../monitoring/itf/receiver.hpp) - sends instant monitoring messages;
 * [aos::cm::smcontroller::SenderItf](itf/sender.hpp) - sends logs;
-* [aos::cm::smcontroller::UpdateImageProviderItf](itf/updateimageprovider.hpp) - gets update images info;
+* [aos::cm::imagemanager::ItemInfoProviderItf](../imagemanager/itf/iteminfoprovider.hpp) - gets update items info;
 * [aos::cloudconnection::CloudConnectionItf](../../common/cloudconnection/itf/cloudconnection.hpp) - gets
   connection state and sends it to connected SM.
 
@@ -76,7 +76,7 @@ classDiagram
         <<interface>>
     }
 
-    class UpdateImageProviderItf ["aos::cm::smcontroller::UpdateImageProviderItf"] {
+    class ItemInfoProviderItf ["aos::cm::imagemanager::ItemInfoProviderItf"] {
         <<interface>>
     }
 
@@ -96,6 +96,6 @@ classDiagram
     SMController ..> AlertsReceiverItf
     SMController ..> MonitoringReceiverItf
     SMController ..> SenderItf
-    SMController ..> UpdateImageProviderItf
+    SMController ..> ItemInfoProviderItf
     SMController ..> ConnectionProviderItf
 ```
