@@ -26,35 +26,37 @@ public:
      *
      * @param itemID update item ID.
      * @param version update item version.
-     * @return RetWithError<StaticString<oci::cDigestLen>>.
+     * @param[out] digest result item digest.
+     * @return Error.
      */
-    virtual RetWithError<StaticString<oci::cDigestLen>> GetIndexDigest(
-        const String& itemID, const String& version) const
-        = 0;
+    virtual Error GetIndexDigest(const String& itemID, const String& version, String& digest) const = 0;
 
     /**
      * Returns blob path by its digest.
      *
      * @param digest blob digest.
-     * @return RetWithError<StaticString<cFilePathLen>>.
+     * @param[out] path result blob path.
+     * @return Error.
      */
-    virtual RetWithError<StaticString<cFilePathLen>> GetBlobPath(const String& digest) const = 0;
+    virtual Error GetBlobPath(const String& digest, String& path) const = 0;
 
     /**
      * Returns blob URL by its digest.
      *
      * @param digest blob digest.
-     * @return RetWithError<StaticString<cURLLen>>.
+     * @param[out] url result blob URL.
+     * @return Error.
      */
-    virtual RetWithError<StaticString<cURLLen>> GetBlobURL(const String& digest) const = 0;
+    virtual Error GetBlobURL(const String& digest, String& url) const = 0;
 
     /**
      * Returns item current version.
      *
      * @param itemID update item ID.
-     * @return RetWithError<StaticString<cVersionLen>>.
+     * @param[out] version result item version.
+     * @return Error.
      */
-    virtual RetWithError<StaticString<cVersionLen>> GetItemCurrentVersion(const String& itemID) const = 0;
+    virtual Error GetItemCurrentVersion(const String& itemID, String& version) const = 0;
 };
 
 } // namespace aos::cm::imagemanager
