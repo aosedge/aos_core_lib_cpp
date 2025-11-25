@@ -28,6 +28,7 @@ public:
     /**
      * Checks node config.
      *
+     * @param nodeID node ID.
      * @param config node config.
      * @return Error.
      */
@@ -36,6 +37,7 @@ public:
     /**
      * Updates node config.
      *
+     * @param nodeID node ID.
      * @param config node config.
      * @return Error.
      */
@@ -44,6 +46,7 @@ public:
     /**
      * Returns node config status.
      *
+     * @param nodeID node ID.
      * @param[out] status node config status.
      * @return Error.
      */
