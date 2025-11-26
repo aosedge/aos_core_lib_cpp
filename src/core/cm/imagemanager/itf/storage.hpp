@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_STORAGE_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_STORAGE_HPP_
 
+#include <core/common/types/common.hpp>
 #include <core/common/types/desiredstatus.hpp>
 
 namespace aos::cm::imagemanager {
@@ -15,9 +16,10 @@ namespace aos::cm::imagemanager {
  * Update item info.
  */
 struct ItemInfo {
-    StaticString<cIDLen>      mItemID;
-    StaticString<cVersionLen> mVersion;
-    ItemState                 mState;
+    StaticString<cIDLen>          mItemID;
+    StaticString<cVersionLen>     mVersion;
+    StaticString<oci::cDigestLen> mIndexDigest;
+    ItemStateEnum                 mState {};
 
     /**
      * Compares update item info.
@@ -27,7 +29,8 @@ struct ItemInfo {
      */
     bool operator==(const ItemInfo& rhs) const
     {
-        return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mState == rhs.mState;
+        return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mIndexDigest == rhs.mIndexDigest
+            && mState == rhs.mState;
     }
 
     /**
@@ -67,14 +70,24 @@ public:
     virtual Error RemoveItem(const String& id, const String& version) = 0;
 
     /**
-     * Sets item state.
+     * Updates item index digest.
      *
      * @param id ID.
-     * @param Version Version.
+     * @param version Version.
+     * @param indexDigest Index digest.
+     * @return Error.
+     */
+    virtual Error UpdateItemIndexDigest(const String& id, const String& version, const String& indexDigest) = 0;
+
+    /**
+     * Updates item state.
+     *
+     * @param id ID.
+     * @param version Version.
      * @param state Item state.
      * @return Error.
      */
-    virtual Error SetItemState(const String& id, const String& Version, ItemState state) = 0;
+    virtual Error UpdateItemState(const String& id, const String& version, ItemState state) = 0;
 
     /**
      * Gets items info.
