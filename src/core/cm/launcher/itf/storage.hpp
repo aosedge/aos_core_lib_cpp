@@ -87,6 +87,11 @@ struct InstanceInfo {
     bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
 };
 
+struct ItemInfo {
+    StaticString<cIDLen> mID;
+    uid_t                mGID {};
+}
+
 /**
  * Interface for service instance storage.
  */
@@ -137,6 +142,47 @@ public:
      * @return Error.
      */
     virtual Error GetActiveInstances(Array<InstanceInfo>& instances) const = 0;
+
+    /**
+     * Adds a new item to the storage.
+     *
+     * @param info item information.
+     * @return Error.
+     */
+    virtual Error AddItem(const ItemInfo& info) = 0;
+
+    /**
+     * Updates existing item in the storage.
+     *
+     * @param info updated item information.
+     * @return Error.
+     */
+    virtual Error UpdateItem(const ItemInfo& info) = 0;
+
+    /**
+     * Removes item from the storage.
+     *
+     * @param itemID item identifier.
+     * @return Error.
+     */
+    virtual Error RemoveItem(const ItemIdent& itemID) = 0;
+
+    /**
+     * Get information about stored item.
+     *
+     * @param itemID item identifier.
+     * @param[out] info item info.
+     * @return Error.
+     */
+    virtual Error GetItem(const ItemIdent& itemID, ItemInfo& info) const = 0;
+
+    /**
+     * Get all stored items.
+     *
+     * @param[out] items all stored items.
+     * @return Error.
+     */
+    virtual Error GetItemsItems(Array<ItemInfo>& items) const = 0;
 };
 
 /** @}*/
