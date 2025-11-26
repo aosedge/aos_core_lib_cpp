@@ -17,9 +17,9 @@ set(HEADERS config.hpp)
 # Install targets
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_sm_launcher aos_core_sm_logprovider aos_core_sm_runner)
+set(INSTALL_HEADERS aos_core_sm_logprovider aos_core_sm_runner)
 
-set(INSTALL_LIBRARIES)
+set(INSTALL_LIBRARIES aos_core_sm_launcher)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_sm_tests_mocks aos_core_sm_tests_stubs)
