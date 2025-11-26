@@ -17,7 +17,7 @@ set(HEADERS config.hpp)
 # Install targets
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_sm_logprovider aos_core_sm_nodeconfig aos_core_sm_runner)
+set(INSTALL_HEADERS aos_core_sm_logprovider aos_core_sm_nodeconfig aos_core_sm_resourcemanager aos_core_sm_runner)
 
 set(INSTALL_LIBRARIES aos_core_sm_launcher)
 
@@ -46,6 +46,7 @@ add_subdirectory(launcher)
 add_subdirectory(logprovider)
 add_subdirectory(networkmanager)
 add_subdirectory(nodeconfig)
+add_subdirectory(resourcemanager)
 add_subdirectory(runner)
 add_subdirectory(smclient)
 
