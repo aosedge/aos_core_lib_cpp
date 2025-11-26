@@ -59,6 +59,7 @@ public:
         eAlreadyLoggedIn,
         eNotSupported,
         eEOF,
+        eCanceled,
         eNumErrors
     };
 
@@ -304,6 +305,7 @@ private:
             "already logged in",
             "not supported",
             "EOF",
+            "canceled",
         };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
