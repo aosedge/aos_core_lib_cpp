@@ -16,13 +16,14 @@ namespace aos::cm::imagemanager {
 /**
  * Storage mock.
  */
-class StorageMock : public storage::StorageItf {
+class StorageMock : public StorageItf {
 public:
-    MOCK_METHOD(Error, SetItemState, (const String& id, const String& version, storage::ItemState state), (override));
+    MOCK_METHOD(Error, AddItem, (const ItemInfo& item), (override));
     MOCK_METHOD(Error, RemoveItem, (const String& id, const String& version), (override));
-    MOCK_METHOD(Error, GetItemsInfo, (Array<storage::ItemInfo> & items), (override));
-    MOCK_METHOD(Error, GetItemVersionsByID, (const String& id, Array<storage::ItemInfo>& items), (override));
-    MOCK_METHOD(Error, AddItem, (const storage::ItemInfo& item), (override));
+    MOCK_METHOD(
+        Error, UpdateItemIndexDigest, (const String& id, const String& version, const String& indexDigest), (override));
+    MOCK_METHOD(Error, UpdateItemState, (const String& id, const String& version, ItemState state), (override));
+    MOCK_METHOD(Error, GetItemsInfo, (Array<ItemInfo> & items), (override));
 };
 
 } // namespace aos::cm::imagemanager
