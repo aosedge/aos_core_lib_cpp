@@ -29,6 +29,13 @@ public:
     virtual void OnItemsStatusesChanged(const Array<UpdateItemStatus>& statuses) = 0;
 
     /**
+     * Notifies about item added.
+     *
+     * @param id added item id.
+     */
+    virtual void OnItemAdded(const String& id) = 0;
+
+    /**
      * Notifies about item removal.
      *
      * @param id removed item id.

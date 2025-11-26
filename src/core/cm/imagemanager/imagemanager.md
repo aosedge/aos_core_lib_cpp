@@ -77,9 +77,9 @@ classDiagram
     }
 
     ImageManagerItf --|> ItemStatusProviderItf
+    ImageManagerItf --|> ItemInfoProviderItf
 
     ImageManager ..|> ImageManagerItf
-    ImageManager ..|> ItemInfoProviderItf
     ImageManager ..|> ItemRemoverItf
 
     ImageManager ..> StorageItf

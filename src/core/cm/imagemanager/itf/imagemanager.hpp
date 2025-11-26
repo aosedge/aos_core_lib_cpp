@@ -22,7 +22,7 @@ namespace aos::cm::imagemanager {
 /**
  * Interface that manages update items images.
  */
-class ImageManagerItf : public ItemStatusProviderItf {
+class ImageManagerItf : public ItemStatusProviderItf, public ItemInfoProviderItf {
 public:
     /**
      * Destructor.
