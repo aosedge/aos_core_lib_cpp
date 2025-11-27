@@ -14,13 +14,23 @@ set(TARGET_NAME launcher)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES balancer.cpp imageinfoprovider.cpp instance.cpp instancemanager.cpp launcher.cpp node.cpp nodemanager.cpp)
+set(SOURCES
+    balancer.cpp
+    gidpool.cpp
+    imageinfoprovider.cpp
+    instance.cpp
+    instancemanager.cpp
+    launcher.cpp
+    node.cpp
+    nodemanager.cpp
+)
 
 # ######################################################################################################################
 # Headers
 # ######################################################################################################################
 
 set(HEADERS
+    gidpool.hpp
     imageinfoprovider.hpp
     itf/instancerunner.hpp
     itf/instancestatusreceiver.hpp
