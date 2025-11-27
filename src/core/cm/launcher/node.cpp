@@ -154,7 +154,7 @@ void Node::UpdateConfig()
     }
 }
 
-Error Node::ScheduleInstance(const aos::InstanceInfo& instance, const String& providerID,
+Error Node::ScheduleInstance(const aos::InstanceInfo& instance, const String& ownerID,
     const networkmanager::NetworkServiceData& servData, size_t reqCPU, size_t reqRAM,
     const Array<StaticString<cResourceNameLen>>& reqResources)
 {
@@ -162,7 +162,7 @@ Error Node::ScheduleInstance(const aos::InstanceInfo& instance, const String& pr
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mProviderIDs.PushBack(providerID); !err.IsNone()) {
+    if (auto err = mOwnerIDs.PushBack(ownerID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -220,8 +220,8 @@ Error Node::SetupNetworkParams(bool onlyExposedPorts, networkmanager::NetworkMan
             continue;
         }
 
-        auto netErr = netMgr.PrepareInstanceNetworkParameters(mScheduledInstances[i], mProviderIDs[i], mInfo.mNodeID,
-            mNetworkServiceData[i], mScheduledInstances[i].mNetworkParameters);
+        auto netErr = netMgr.PrepareInstanceNetworkParameters(mScheduledInstances[i], mOwnerIDs[i], mInfo.mNodeID,
+            mNetworkServiceData[i], mScheduledInstances[i].mNetworkParameters.GetValue());
         if (!netErr.IsNone()) {
             return AOS_ERROR_WRAP(netErr);
         }

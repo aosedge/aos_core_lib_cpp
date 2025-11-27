@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_CM_LAUNCHER_NODE_HPP_
 #define AOS_CORE_CM_LAUNCHER_NODE_HPP_
 
+#include <core/cm/networkmanager/itf/networkmanager.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 
@@ -168,6 +169,8 @@ public:
 
 private:
     static constexpr auto cMaxNumInstancesPerNode = cMaxNumInstances / cMaxNumNodes;
+    static constexpr auto cAllocatorSize
+        = sizeof(aos::InstanceInfo) + sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>);
 
     void Convert(const InstanceStatus& src, aos::InstanceInfo& dst);
 
@@ -190,7 +193,7 @@ private:
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode> mRunningInstances;
     // cppcheck-suppress templateRecursion
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mScheduledInstances;
-    StaticArray<StaticString<cIDLen>, cMaxNumInstancesPerNode>               mProviderIDs;
+    StaticArray<StaticString<cIDLen>, cMaxNumInstancesPerNode>               mOwnerIDs;
     StaticArray<networkmanager::NetworkServiceData, cMaxNumInstancesPerNode> mNetworkServiceData;
 
     size_t                                          mAvailableCPU {};
@@ -201,8 +204,7 @@ private:
     StaticMap<StaticString<cIDLen>, size_t, cMaxNumNodeRuntimes>            mRuntimeAvailableCPU;
     StaticMap<StaticString<cResourceNameLen>, size_t, cMaxNumNodeResources> mMaxInstances;
 
-    StaticAllocator<sizeof(aos::InstanceInfo) + sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>)>
-        mAllocator;
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 /** @}*/
