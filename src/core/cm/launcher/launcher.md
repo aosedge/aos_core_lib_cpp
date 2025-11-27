@@ -242,7 +242,7 @@ classDiagram
     class Launcher {
         +Start() Error
         +Stop() Error
-        +RunInstances(instances) Error
+        +RunInstances(instances, statuses) Error
         +Rebalance() Error
         +GetInstancesStatuses(statuses) Error
         +SubscribeListener(listener) Error
