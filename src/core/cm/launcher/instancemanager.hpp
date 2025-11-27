@@ -7,13 +7,14 @@
 #ifndef AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 #define AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 
+#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
+#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
-
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/monitoringdata.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/timer.hpp>
 
-#include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 
 #include "instance.hpp"
@@ -23,6 +24,11 @@ namespace aos::cm::launcher {
 /** @addtogroup CM Launcher
  *  @{
  */
+
+/**
+ * @brief ID validator type.
+ */
+using IDValidator = bool (*)(size_t id);
 
 /**
  * Launcher configuration.
@@ -44,9 +50,13 @@ public:
      * @param storage Interface to persistent storage.
      * @param imageInfoProvider Interface for retrieving service information from images.
      * @param storageState Interface for managing storage and state partitions.
+     * @param gidValidator GID validator.
+     * @param uidValidator UID validator.
+     * @return Error.
      */
-    void Init(const Config& config, StorageItf& storage, ImageInfoProviderItf& imageInfoProvider,
-        storagestate::StorageStateItf& storageState);
+    Error Init(const Config& config, StorageItf& storage, storagestate::StorageStateItf& storageState,
+        imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
+        oci::OCISpecItf& ociSpec, IDValidator gidValidator, IDValidator uidValidator);
 
     /**
      * Starts the instance manager.
@@ -89,10 +99,11 @@ public:
      * Adds a new instance to the manager's stash for later submission.
      *
      * @param id instance identifier.
+     * @param updateItemType update item type.
      * @param request run request details.
      * @return Error.
      */
-    Error AddInstanceToStash(const InstanceIdent& id, const RunInstanceRequest& request);
+    Error AddInstanceToStash(const InstanceIdent& id, UpdateItemType updateItemType, const RunInstanceRequest& request);
 
     /**
      * Returns the collection of stashed instances.
@@ -124,6 +135,10 @@ public:
     void UpdateMonitoringData(const Array<monitoring::InstanceMonitoringData>& monitoringData);
 
 private:
+    static constexpr auto cRemovePeriod  = Time::cDay;
+    static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
+        + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo);
+
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
 
@@ -133,21 +148,17 @@ private:
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
-    static constexpr auto cRemovePeriod = Time::cDay;
-
     Config                         mConfig;
-    StorageItf*                    mStorage           = nullptr;
-    storagestate::StorageStateItf* mStorageState      = nullptr;
-    ImageInfoProviderItf*          mImageInfoProvider = nullptr;
+    StorageItf*                    mStorage {};
+    storagestate::StorageStateItf* mStorageState {};
 
-    Timer   mCleanInstancesTimer;
-    Timer   mInitTimer;
-    UIDPool mUIDPool;
+    ImageInfoProvider mImageInfoProvider;
+    Timer             mCleanInstancesTimer;
+    Timer             mInitTimer;
+    UIDPool           mUIDPool;
+    GIDPool           mGIDPool;
 
-    StaticAllocator<Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
-            + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo),
-        cMaxNumInstances>
-        mAllocator;
+    StaticAllocator<cAllocatorSize, cMaxNumInstances> mAllocator;
 
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mStashInstances;
