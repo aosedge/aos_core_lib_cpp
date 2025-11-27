@@ -15,9 +15,11 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    InstanceRunnerItf& runner, ImageInfoProviderItf& imageInfoProvider,
+    InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-    networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider)
+    networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider, IDValidator gidValidator,
+    IDValidator uidValidator)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -25,15 +27,20 @@ Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider
     mStorage            = &storage;
     mNodeInfoProvider   = &nodeInfoProvider;
     mRunner             = &runner;
-    mImageInfoProvider  = &imageInfoProvider;
     mNodeConfigProvider = &nodeConfigProvider;
     mStorageState       = &storageState;
     mNetworkManager     = &networkManager;
     mMonitorProvider    = &monitorProvider;
 
-    mInstanceManager.Init(config, storage, imageInfoProvider, storageState);
+    auto err = mInstanceManager.Init(
+        config, storage, storageState, itemInfoProvider, blobInfoProvider, ociSpec, gidValidator, uidValidator);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mStorageState, *mRunner);
-    mBalancer.Init(mInstanceManager, *mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner, *mNetworkManager);
+    mBalancer.Init(mInstanceManager, itemInfoProvider, blobInfoProvider, ociSpec, mNodeManager, *mMonitorProvider,
+        *mRunner, *mNetworkManager);
 
     return ErrorEnum::eNone;
 }
@@ -74,11 +81,13 @@ Error Launcher::Stop()
     return ErrorEnum::eNone;
 }
 
-Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests)
+Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<InstanceStatus>& statuses)
 {
     LOG_DBG() << "Run instances";
 
     LockGuard lock {mMutex};
+
+    statuses.Clear();
 
     if (auto err = mRunRequests.Assign(requests); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

@@ -7,10 +7,12 @@
 #ifndef AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 
+#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
+#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/itf/storagestate.hpp>
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 
-#include "itf/imageinfoprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 #include "itf/storage.hpp"
@@ -41,12 +43,17 @@ public:
      * @param nodeConfigProvider node config provider interface.
      * @param storageState interface to manage storage and state partitions.
      * @param networkManager interface to manage networks of service instances.
+     * @param monitorProvider monitoring provider.
+     * @param gidValidator GID validator.
+     * @param uidValidator UID validator.
      * @return Error.
      */
     Error Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        InstanceRunnerItf& runner, ImageInfoProviderItf& imageInfoProvider,
+        InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+        imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-        networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider);
+        networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
+        IDValidator gidValidator, IDValidator uidValidator);
 
     /**
      * Starts launcher instance.
@@ -71,7 +78,7 @@ public:
      * @param[out] statuses instances statuses.
      * @return Error.
      */
-    Error RunInstances(const Array<RunInstanceRequest>& instances) override;
+    Error RunInstances(const Array<RunInstanceRequest>& instances, Array<InstanceStatus>& statuses) override;
 
     /**
      * Rebalances instances.
@@ -110,6 +117,8 @@ public:
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 1;
+    static constexpr auto cAllocatorSize
+        = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>) + sizeof(monitoring::NodeMonitoringData);
 
     void SendRunStatus();
 
@@ -125,14 +134,13 @@ private:
     Error OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvVarsInstanceStatus>& statuses) override;
 
     Config                                 mConfig;
-    StorageItf*                            mStorage            = nullptr;
-    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider   = nullptr;
-    InstanceRunnerItf*                     mRunner             = nullptr;
-    ImageInfoProviderItf*                  mImageInfoProvider  = nullptr;
-    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider = nullptr;
-    storagestate::StorageStateItf*         mStorageState       = nullptr;
-    networkmanager::NetworkManagerItf*     mNetworkManager     = nullptr;
-    MonitoringProviderItf*                 mMonitorProvider    = nullptr;
+    StorageItf*                            mStorage {};
+    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
+    InstanceRunnerItf*                     mRunner {};
+    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
+    storagestate::StorageStateItf*         mStorageState {};
+    networkmanager::NetworkManagerItf*     mNetworkManager {};
+    MonitoringProviderItf*                 mMonitorProvider {};
 
     InstanceManager mInstanceManager;
     NodeManager     mNodeManager;
@@ -141,9 +149,8 @@ private:
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
     Balancer                                                                          mBalancer;
 
-    Mutex mMutex;
-    StaticAllocator<sizeof(StaticArray<InstanceStatus, cMaxNumInstances>) + sizeof(monitoring::NodeMonitoringData)>
-        mAllocator;
+    Mutex                           mMutex;
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 /** @}*/
