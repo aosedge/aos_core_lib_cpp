@@ -7,6 +7,7 @@
 #ifndef AOS_CM_LAUNCHER_STORAGE_HPP_
 #define AOS_CM_LAUNCHER_STORAGE_HPP_
 
+#include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/types/common.hpp>
 
 namespace aos::cm::launcher {
@@ -25,9 +26,9 @@ struct InstanceInfo {
     InstanceIdent mInstanceIdent;
 
     /**
-     * Image identifier.
+     * Manifest digest.
      */
-    StaticString<cIDLen> mImageID;
+    StaticString<oci::cDigestLen> mManifestDigest;
 
     /**
      * Instance type.
@@ -55,6 +56,11 @@ struct InstanceInfo {
     uid_t mUID {};
 
     /**
+     * Group ID.
+     */
+    gid_t mGID {};
+
+    /**
      * Timestamp.
      */
     Time mTimestamp;
@@ -72,9 +78,9 @@ struct InstanceInfo {
      */
     bool operator==(const InstanceInfo& rhs) const
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mImageID == rhs.mImageID
+        return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest
             && mUpdateItemType == rhs.mUpdateItemType && mNodeID == rhs.mNodeID && mPrevNodeID == rhs.mPrevNodeID
-            && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mTimestamp == rhs.mTimestamp
+            && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID && mTimestamp == rhs.mTimestamp
             && mCached == rhs.mCached;
     }
 
