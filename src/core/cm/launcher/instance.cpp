@@ -5,6 +5,7 @@
  */
 
 #include <core/common/tools/logger.hpp>
+#include <core/common/tools/memory.hpp>
 
 #include "instance.hpp"
 
@@ -14,10 +15,9 @@ namespace aos::cm::launcher {
  * Instance implementation
  **********************************************************************************************************************/
 
-Instance::Instance(const InstanceInfo& info, StorageItf& storage, ImageInfoProviderItf& imageInfoProvider)
+Instance::Instance(const InstanceInfo& info, StorageItf& storage)
     : mInfo(info)
     , mStorage(storage)
-    , mImageInfoProvider(imageInfoProvider)
 {
     static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent;
     mStatus.mError                       = ErrorEnum::eNone;
@@ -25,18 +25,24 @@ Instance::Instance(const InstanceInfo& info, StorageItf& storage, ImageInfoProvi
     mStatus.mRuntimeID                   = info.mRuntimeID;
 }
 
-bool Instance::IsImageValid()
+bool Instance::IsImageValid(ImageInfoProvider& imageInfoProvider)
 {
-    auto config = MakeShared<oci::ServiceConfig>(&mAllocator);
-    auto images = MakeShared<StaticArray<aos::ImageInfo, cMaxNumUpdateImages>>(&mAllocator);
-
-    if (auto err = mImageInfoProvider.GetItemImages(mInfo.mInstanceIdent.mItemID, *images); !err.IsNone()) {
+    if (mInfo.mManifestDigest.IsEmpty()) {
         return false;
     }
 
-    for (const auto& image : *images) {
-        auto servErr = mImageInfoProvider.GetServiceConfig(mInfo.mInstanceIdent.mItemID, image.mImageID, *config);
-        if (!servErr.IsNone()) {
+    oci::IndexContentDescriptor manifestDescriptor;
+
+    manifestDescriptor.mDigest = mInfo.mManifestDigest;
+
+    auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (auto err = imageInfoProvider.GetImageConfig(manifestDescriptor, *imageConfig); !err.IsNone()) {
+        return false;
+    }
+
+    if (mInfo.mUpdateItemType.GetValue() == UpdateItemTypeEnum::eService) {
+        auto serviceConfig = MakeUnique<oci::ServiceConfig>(&mAllocator);
+        if (auto err = imageInfoProvider.GetServiceConfig(manifestDescriptor, *serviceConfig); !err.IsNone()) {
             return false;
         }
     }
@@ -62,14 +68,15 @@ Error Instance::Schedule(const aos::InstanceInfo& info, const String& nodeID)
     LOG_DBG() << "Schedule instance" << Log::Field("instanceID", static_cast<const InstanceIdent&>(info))
               << Log::Field("nodeID", nodeID);
 
-    mInfo.mInstanceIdent = static_cast<const InstanceIdent&>(info);
-    mInfo.mImageID       = info.mImageID;
-    mInfo.mRuntimeID     = info.mRuntimeID;
-    mInfo.mPrevNodeID    = mInfo.mNodeID;
-    mInfo.mNodeID        = nodeID;
-    mInfo.mUID           = info.mUID;
-    mInfo.mTimestamp     = Time::Now();
-    mInfo.mCached        = false;
+    mInfo.mInstanceIdent  = static_cast<const InstanceIdent&>(info);
+    mInfo.mManifestDigest = info.mManifestDigest;
+    mInfo.mRuntimeID      = info.mRuntimeID;
+    mInfo.mPrevNodeID     = mInfo.mNodeID;
+    mInfo.mNodeID         = nodeID;
+    mInfo.mUID            = info.mUID;
+    mInfo.mGID            = info.mGID;
+    mInfo.mTimestamp      = Time::Now();
+    mInfo.mCached         = false;
 
     static_cast<InstanceIdent&>(mStatus) = static_cast<const InstanceIdent&>(info);
     mStatus.mNodeID                      = nodeID;
@@ -106,9 +113,8 @@ void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
  * ComponentInstance implementation
  **********************************************************************************************************************/
 
-ComponentInstance::ComponentInstance(
-    const InstanceInfo& info, StorageItf& storage, ImageInfoProviderItf& imageInfoProvider)
-    : Instance(info, storage, imageInfoProvider)
+ComponentInstance::ComponentInstance(const InstanceInfo& info, StorageItf& storage)
+    : Instance(info, storage)
 {
 }
 
@@ -158,51 +164,15 @@ size_t ComponentInstance::GetRequestedRAM(const NodeConfig& nodeConfig, const oc
     return 0;
 }
 
-Error ComponentInstance::GetServiceConfig(const String& imageID, oci::ServiceConfig& config)
-{
-    (void)imageID;
-
-    static oci::ServiceConfig cDefaultServiceCfg;
-
-    config = cDefaultServiceCfg;
-    config.mRuntimes.PushBack("rootfs");
-
-    return ErrorEnum::eNone;
-}
-
-Error ComponentInstance::GetImageConfig(const String& imageID, oci::ImageConfig& config)
-{
-    (void)imageID;
-
-    static oci::ImageConfig cDefaultImageCfg;
-
-    config = cDefaultImageCfg;
-
-    return ErrorEnum::eNone;
-}
-
-Error ComponentInstance::GetItemImages(Array<ImageInfo>& imagesInfos)
-{
-    static ImageInfo cDefaultImageInfo;
-
-    cDefaultImageInfo.mImageID = "rootfs";
-
-    imagesInfos.Clear();
-    if (auto err = imagesInfos.PushBack(cDefaultImageInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
 /***********************************************************************************************************************
  * ServiceInstance implementation
  **********************************************************************************************************************/
 
-ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, StorageItf& storage,
-    storagestate::StorageStateItf& storageState, ImageInfoProviderItf& imageInfoProvider)
-    : Instance(info, storage, imageInfoProvider)
+ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
+    storagestate::StorageStateItf& storageState)
+    : Instance(info, storage)
     , mUIDPool(uidPool)
+    , mGIDPool(gidPool)
     , mStorageState(storageState)
 {
 }
@@ -222,6 +192,16 @@ Error ServiceInstance::Init()
         }
     }
 
+    gid_t gid;
+    Error gidErr;
+
+    Tie(gid, gidErr) = mGIDPool.GetGID(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
+    if (!gidErr.IsNone()) {
+        return AOS_ERROR_WRAP(gidErr);
+    }
+
+    mInfo.mGID = gid;
+
     return ErrorEnum::eNone;
 }
 
@@ -238,6 +218,10 @@ Error ServiceInstance::Remove()
     }
 
     if (auto err = mUIDPool.Release(mInfo.mUID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -337,22 +321,6 @@ size_t ServiceInstance::GetReqRAMFromNodeConfig(
     }
 
     return 0;
-}
-
-Error ServiceInstance::GetServiceConfig(const String& imageID, oci::ServiceConfig& config)
-{
-    return mImageInfoProvider.GetServiceConfig(mInfo.mInstanceIdent.mItemID, imageID, config);
-}
-
-Error ServiceInstance::GetImageConfig(const String& imageID, oci::ImageConfig& config)
-{
-    // Service instances get real configuration data from ImageInfoProvider
-    return mImageInfoProvider.GetImageConfig(mInfo.mInstanceIdent.mItemID, imageID, config);
-}
-
-Error ServiceInstance::GetItemImages(Array<ImageInfo>& imagesInfos)
-{
-    return mImageInfoProvider.GetItemImages(mInfo.mInstanceIdent.mItemID, imagesInfos);
 }
 
 } // namespace aos::cm::launcher

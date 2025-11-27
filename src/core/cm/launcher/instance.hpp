@@ -10,12 +10,15 @@
 #include <core/cm/storagestate/storagestate.hpp>
 
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/identifierpool.hpp>
 #include <core/common/types/monitoring.hpp>
 #include <core/common/types/unitconfig.hpp>
 
-#include "itf/imageinfoprovider.hpp"
 #include "itf/storage.hpp"
+
+#include "gidpool.hpp"
+#include "imageinfoprovider.hpp"
 
 namespace aos::cm::launcher {
 
@@ -53,9 +56,8 @@ public:
      *
      * @param info instance information.
      * @param storage interface to persistent storage.
-     * @param imageInfoProvider interface for retrieving service information from image.
      */
-    Instance(const InstanceInfo& info, StorageItf& storage, ImageInfoProviderItf& imageInfoProvider);
+    Instance(const InstanceInfo& info, StorageItf& storage);
 
     /**
      * Destructor.
@@ -95,21 +97,22 @@ public:
      *
      * @return const String&.
      */
-    const String& GetProviderID() const { return mProviderID; }
+    const String& GetOwnerID() const { return mOwnerID; }
 
     /**
      * Sets provider identifier.
      *
      * @param providerID provider identifier.
      */
-    void SetProviderID(const String& providerID) { mProviderID = providerID; }
+    void SetOwnerID(const String& providerID) { mOwnerID = providerID; }
 
     /**
      * Checks whether image is valid.
      *
+     * @param imageInfoProvider interface for retrieving service information from image.
      * @return bool.
      */
-    bool IsImageValid();
+    bool IsImageValid(ImageInfoProvider& imageInfoProvider);
 
     /**
      * Updates instance status.
@@ -174,43 +177,18 @@ public:
      */
     virtual size_t GetRequestedRAM(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) = 0;
 
-    /**
-     * Gets service configuration.
-     *
-     * @param imageID image identifier.
-     * @param config service configuration.
-     * @return Error.
-     */
-    virtual Error GetServiceConfig(const String& imageID, oci::ServiceConfig& config) = 0;
-
-    /**
-     * Gets image configuration.
-     *
-     * @param imageID image identifier.
-     * @param config image configuration.
-     * @return Error.
-     */
-    virtual Error GetImageConfig(const String& imageID, oci::ImageConfig& config) = 0;
-
-    /**
-     * Gets item images.
-     *
-     * @param imagesInfos item images info.
-     * @return Error.
-     */
-    virtual Error GetItemImages(Array<ImageInfo>& imagesInfos) = 0;
-
 protected:
-    InstanceInfo          mInfo;
-    StorageItf&           mStorage;
-    ImageInfoProviderItf& mImageInfoProvider;
+    InstanceInfo mInfo;
+    StorageItf&  mStorage;
 
 private:
+    static constexpr auto cAllocatorSize = sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig);
+
     InstanceStatus       mStatus;
     MonitoringData       mMonitoringData;
-    StaticString<cIDLen> mProviderID;
+    StaticString<cIDLen> mOwnerID;
 
-    StaticAllocator<sizeof(oci::ServiceConfig) + sizeof(StaticArray<aos::ImageInfo, cMaxNumUpdateImages>)> mAllocator;
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 /**
@@ -223,9 +201,8 @@ public:
      *
      * @param info instance information.
      * @param storage interface to persistent storage.
-     * @param imageInfoProvider interface for retrieving service information from image.
      */
-    ComponentInstance(const InstanceInfo& info, StorageItf& storage, ImageInfoProviderItf& imageInfoProvider);
+    ComponentInstance(const InstanceInfo& info, StorageItf& storage);
 
     /**
      * Initializes component instance.
@@ -265,32 +242,6 @@ public:
      * @return size_t.
      */
     size_t GetRequestedRAM(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) override;
-
-    /**
-     * Gets service configuration for component instance.
-     *
-     * @param imageID image identifier.
-     * @param config service configuration.
-     * @return Error.
-     */
-    Error GetServiceConfig(const String& imageID, oci::ServiceConfig& config) override;
-
-    /**
-     * Gets image configuration for component instance.
-     *
-     * @param imageID image identifier.
-     * @param config image configuration.
-     * @return Error.
-     */
-    Error GetImageConfig(const String& imageID, oci::ImageConfig& config) override;
-
-    /**
-     * Gets item images for component instance.
-     *
-     * @param imagesInfos item images info.
-     * @return Error.
-     */
-    Error GetItemImages(Array<ImageInfo>& imagesInfos) override;
 };
 
 /**
@@ -305,10 +256,9 @@ public:
      * @param uidPool pool for managing user identifiers.
      * @param storage interface to persistent storage.
      * @param storageState interface for managing storage and state partitions.
-     * @param imageInfoProvider interface for retrieving service information from image.
      */
-    ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, StorageItf& storage,
-        storagestate::StorageStateItf& storageState, ImageInfoProviderItf& imageInfoProvider);
+    ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
+        storagestate::StorageStateItf& storageState);
 
     /**
      * Initializes service instance.
@@ -349,32 +299,6 @@ public:
      */
     size_t GetRequestedRAM(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) override;
 
-    /**
-     * Gets service configuration for service instance.
-     *
-     * @param imageID image identifier.
-     * @param config service configuration.
-     * @return Error.
-     */
-    Error GetServiceConfig(const String& imageID, oci::ServiceConfig& config) override;
-
-    /**
-     * Gets image configuration for service instance.
-     *
-     * @param imageID image identifier.
-     * @param config image configuration.
-     * @return Error.
-     */
-    Error GetImageConfig(const String& imageID, oci::ImageConfig& config) override;
-
-    /**
-     * Gets item images for service instance.
-     *
-     * @param imagesInfos item images info.
-     * @return Error.
-     */
-    Error GetItemImages(Array<ImageInfo>& imagesInfos) override;
-
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
 
@@ -383,6 +307,7 @@ private:
     size_t GetReqRAMFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
 
     UIDPool&                       mUIDPool;
+    GIDPool&                       mGIDPool;
     storagestate::StorageStateItf& mStorageState;
 };
 
