@@ -14,16 +14,17 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void Balancer::Init(InstanceManager& instanceManager, ImageInfoProviderItf& imageInfoProvider, NodeManager& nodeManager,
+void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec, NodeManager& nodeManager,
     MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner,
     networkmanager::NetworkManagerItf& networkManager)
 {
-    mInstanceManager   = &instanceManager;
-    mImageInfoProvider = &imageInfoProvider;
-    mNodeManager       = &nodeManager;
-    mMonitorProvider   = &monitorProvider;
-    mRunner            = &runner;
-    mNetworkManager    = &networkManager;
+    mInstanceManager = &instanceManager;
+    mImageInfoProvider.Init(itemInfoProvider, blobInfoProvider, ociSpec);
+    mNodeManager     = &nodeManager;
+    mMonitorProvider = &monitorProvider;
+    mRunner          = &runner;
+    mNetworkManager  = &networkManager;
 }
 
 Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, bool rebalancing)
@@ -70,22 +71,20 @@ Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, bool re
  **********************************************************************************************************************/
 
 Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const NodeConfig& nodeConf,
-    const RunInstanceRequest& request, const String& imageID, const String& runtimeID, const Instance& instance,
-    aos::InstanceInfo& info)
+    const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor, const String& runtimeID,
+    const Instance& instance, aos::InstanceInfo& info)
 {
     // create instance info, InstanceNetworkParameters are added after network updates
     static_cast<InstanceIdent&>(info) = instance.GetInfo().mInstanceIdent;
-    info.mImageID                     = imageID;
+    info.mManifestDigest              = imageDescriptor.mDigest;
     info.mRuntimeID                   = runtimeID;
     info.mPriority                    = request.mPriority;
     info.mUID                         = instance.GetInfo().mUID;
+    info.mGID                         = instance.GetInfo().mGID;
+    info.mSubjectType                 = request.mSubjectInfo.mSubjectType;
+    info.mNetworkParameters.EmplaceValue();
 
-    auto [gid, getGIDErr] = mImageInfoProvider->GetServiceGID(info.mItemID);
-    if (!getGIDErr.IsNone() && !getGIDErr.Is(ErrorEnum::eNotSupported)) {
-        return AOS_ERROR_WRAP(getGIDErr);
-    }
-
-    if (auto err = mNodeManager->SetupStateStorage(nodeConf, servConf, gid, info); !err.IsNone()) {
+    if (auto err = mNodeManager->SetupStateStorage(nodeConf, servConf, info.mGID, info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -96,12 +95,22 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
 {
     for (const auto& request : requests) {
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectID, i};
+            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i};
             if (mNodeManager->IsScheduled(instanceIdent)) {
                 continue;
             }
 
-            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request); !err.IsNone()) {
+            auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+
+            if (auto err = mImageInfoProvider.GetImageIndex(instanceIdent.mItemID, request.mVersion, *imageIndex);
+                !err.IsNone()) {
+                LOG_ERR() << "Can't get images" << Log::Field("instance", instanceIdent.mItemID) << Log::Field(err);
+
+                return err;
+            }
+
+            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request.mUpdateItemType, request);
+                !err.IsNone()) {
                 LOG_ERR() << "Can't create new instance" << Log::Field("instance", instanceIdent.mItemID)
                           << Log::Field(err);
 
@@ -109,19 +118,12 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
             }
 
             auto instance = mInstanceManager->FindStashInstance(instanceIdent);
-            auto images   = MakeUnique<StaticArray<ImageInfo, cMaxNumUpdateImages>>(&mAllocator);
-
-            if (auto err = (*instance)->GetItemImages(*images); !err.IsNone()) {
-                LOG_ERR() << "Can't get images" << Log::Field("instance", instanceIdent.mItemID) << Log::Field(err);
-
-                return err;
-            }
 
             bool  isInstanceScheduled = false;
             Error scheduleErr         = ErrorEnum::eNone;
 
-            for (const auto& image : *images) {
-                if (auto err = ScheduleInstance(**instance, request, image.mImageID); err.IsNone()) {
+            for (const auto& manifest : imageIndex->mManifests) {
+                if (auto err = ScheduleInstance(**instance, request, manifest); err.IsNone()) {
                     isInstanceScheduled = true;
 
                     break;
@@ -139,18 +141,19 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
     return ErrorEnum::eNone;
 }
 
-Error Balancer::ScheduleInstance(Instance& instance, const RunInstanceRequest& request, const String& imageID)
+Error Balancer::ScheduleInstance(
+    Instance& instance, const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor)
 {
     auto nodes         = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
     auto serviceConfig = MakeUnique<oci::ServiceConfig>(&mAllocator);
     auto imageConfig   = MakeUnique<oci::ImageConfig>(&mAllocator);
 
     // get configs
-    if (auto err = instance.GetServiceConfig(imageID, *serviceConfig); !err.IsNone()) {
+    if (auto err = mImageInfoProvider.GetServiceConfig(imageDescriptor, *serviceConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = instance.GetImageConfig(imageID, *imageConfig); !err.IsNone()) {
+    if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *imageConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -172,7 +175,7 @@ Error Balancer::ScheduleInstance(Instance& instance, const RunInstanceRequest& r
     const auto& runtime = nodeRuntime.mSecond;
 
     // create network params
-    auto networkServiceData = MakeUnique<networkmanager::NetworkServiceData>(&mAllocator);
+    auto networkServiceData = MakeUnique<aos::cm::networkmanager::NetworkServiceData>(&mAllocator);
 
     networkServiceData->mExposedPorts       = imageConfig->mConfig.mExposedPorts;
     networkServiceData->mAllowedConnections = serviceConfig->mAllowedConnections;
@@ -184,7 +187,7 @@ Error Balancer::ScheduleInstance(Instance& instance, const RunInstanceRequest& r
     auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
 
     if (auto err = SetupInstanceInfo(
-            *serviceConfig, node->GetConfig(), request, imageID, runtime->mRuntimeID, instance, *instanceInfo);
+            *serviceConfig, node->GetConfig(), request, imageDescriptor, runtime->mRuntimeID, instance, *instanceInfo);
         !err.IsNone()) {
         return err;
     }
@@ -195,7 +198,7 @@ Error Balancer::ScheduleInstance(Instance& instance, const RunInstanceRequest& r
     auto reqResources = serviceConfig->mResources;
 
     if (auto err
-        = node->ScheduleInstance(*instanceInfo, request.mProviderID, *networkServiceData, reqCPU, reqRAM, reqResources);
+        = node->ScheduleInstance(*instanceInfo, request.mOwnerID, *networkServiceData, reqCPU, reqRAM, reqResources);
         !err.IsNone()) {
         return err;
     }
@@ -550,7 +553,7 @@ Error Balancer::SetupNetworkForNewInstances()
 
         for (const auto& instance : mInstanceManager->GetStashInstances()) {
             if (nodeID == instance->GetInfo().mNodeID) {
-                if (auto err = providers->PushBack(instance->GetProviderID()); !err.IsNone()) {
+                if (auto err = providers->PushBack(instance->GetOwnerID()); !err.IsNone()) {
                     return AOS_ERROR_WRAP(err);
                 }
             }
@@ -567,12 +570,17 @@ Error Balancer::SetupNetworkForNewInstances()
 Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests)
 {
     for (const auto& request : requests) {
-        auto images        = MakeUnique<StaticArray<ImageInfo, cMaxNumUpdateImages>>(&mAllocator);
+        auto imageIndex    = MakeUnique<oci::ImageIndex>(&mAllocator);
         auto serviceConfig = MakeUnique<oci::ServiceConfig>(&mAllocator);
         auto imageConfig   = MakeUnique<oci::ImageConfig>(&mAllocator);
 
+        if (auto err = mImageInfoProvider.GetImageIndex(request.mItemID, request.mVersion, *imageIndex);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectID, i};
+            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i};
 
             if (!mNodeManager->IsRunning(instanceIdent)) {
                 continue;
@@ -583,35 +591,40 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                 return AOS_ERROR_WRAP(ErrorEnum::eFailed);
             }
 
-            auto imageID = (*instance)->GetInfo().mImageID;
+            auto imageDescriptor
+                = imageIndex->mManifests.FindIf([&instance](const oci::IndexContentDescriptor& descriptor) {
+                      return descriptor.mDigest == (*instance)->GetInfo().mManifestDigest;
+                  });
 
-            // get configs
-            if (auto err = mImageInfoProvider->GetServiceConfig(instanceIdent.mItemID, imageID, *serviceConfig);
-                !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
+            if (!imageDescriptor) {
+                (*instance)->SetError(AOS_ERROR_WRAP(ErrorEnum::eNotFound));
+
+                continue;
+            }
+
+            if (auto err = mImageInfoProvider.GetServiceConfig(*imageDescriptor, *serviceConfig); !err.IsNone()) {
+                (*instance)->SetError(err);
+
+                continue;
             }
 
             if (serviceConfig->mBalancingPolicy != oci::BalancingPolicyEnum::eBalancingDisabled) {
                 continue;
             }
 
-            if (auto err = mImageInfoProvider->GetImageConfig(instanceIdent.mItemID, imageID, *imageConfig);
-                !err.IsNone()) {
+            if (auto err = mImageInfoProvider.GetImageConfig(*imageDescriptor, *imageConfig); !err.IsNone()) {
                 (*instance)->SetError(err);
 
                 continue;
             }
 
-            // stash instance
-            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request); !err.IsNone()) {
-                LOG_ERR() << "Can't create new instance" << Log::Field("instance", instanceIdent.mItemID)
-                          << Log::Field(err);
-                (*instance)->SetError(err);
+            auto addInstanceErr = mInstanceManager->AddInstanceToStash(instanceIdent, request.mUpdateItemType, request);
+            if (!addInstanceErr.IsNone()) {
+                (*instance)->SetError(addInstanceErr);
 
                 continue;
             }
 
-            // create network params
             auto networkServiceData = MakeUnique<networkmanager::NetworkServiceData>(&mAllocator);
 
             networkServiceData->mExposedPorts       = imageConfig->mConfig.mExposedPorts;
@@ -620,42 +633,34 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                 networkServiceData->mHosts.PushBack(serviceConfig->mHostname.GetValue());
             }
 
-            // find node
             auto node = mNodeManager->FindNode((*instance)->GetInfo().mNodeID);
             if (!node) {
                 (*instance)->SetError(AOS_ERROR_WRAP(ErrorEnum::eFailed));
-
                 continue;
             }
 
-            // create instance info, InstanceNetworkParameters will be added after network update
             auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
 
-            if (auto err = SetupInstanceInfo(*serviceConfig, node->GetConfig(), request, imageID,
+            if (auto err = SetupInstanceInfo(*serviceConfig, node->GetConfig(), request, *imageDescriptor,
                     (*instance)->GetInfo().mRuntimeID, **instance, *instanceInfo);
                 !err.IsNone()) {
                 (*instance)->SetError(err);
-
                 continue;
             }
 
-            // calculate requested resources
             auto reqCPU       = GetRequestedCPU(**instance, *node, *serviceConfig);
             auto reqRAM       = GetRequestedRAM(**instance, *node, *serviceConfig);
             auto reqResources = serviceConfig->mResources;
 
-            // schedule instance
             if (auto err = node->ScheduleInstance(
-                    *instanceInfo, request.mProviderID, *networkServiceData, reqCPU, reqRAM, reqResources);
+                    *instanceInfo, request.mSubjectInfo.mSubjectID, *networkServiceData, reqCPU, reqRAM, reqResources);
                 !err.IsNone()) {
                 (*instance)->SetError(err);
-
                 continue;
             }
 
             if (auto err = (*instance)->Schedule(*instanceInfo, node->GetInfo().mNodeID); !err.IsNone()) {
                 (*instance)->SetError(err);
-
                 continue;
             }
         }

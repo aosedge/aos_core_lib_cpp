@@ -7,12 +7,15 @@
 #ifndef AOS_CORE_CM_LAUNCHER_BALANCER_HPP_
 #define AOS_CORE_CM_LAUNCHER_BALANCER_HPP_
 
-#include "instancemanager.hpp"
-#include "nodemanager.hpp"
+#include <core/cm/networkmanager/itf/networkmanager.hpp>
 
-#include "itf/imageinfoprovider.hpp"
 #include "itf/instancerunner.hpp"
 #include "itf/launcher.hpp"
+#include "itf/monitoringprovider.hpp"
+
+#include "imageinfoprovider.hpp"
+#include "instancemanager.hpp"
+#include "nodemanager.hpp"
 
 namespace aos::cm::launcher {
 
@@ -35,7 +38,8 @@ public:
      * @param runner instance runner interface.
      * @param networkManager network manager.
      */
-    void Init(InstanceManager& instanceManager, ImageInfoProviderItf& imageInfoProvider, NodeManager& nodeManager,
+    void Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+        imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec, NodeManager& nodeManager,
         MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner,
         networkmanager::NetworkManagerItf& networkManager);
 
@@ -49,13 +53,20 @@ public:
     Error RunInstances(const Array<RunInstanceRequest>& instances, bool rebalancing);
 
 private:
+    static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)
+        + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig)
+        + sizeof(oci::ImageIndex) + sizeof(aos::cm::networkmanager::NetworkServiceData) + sizeof(aos::InstanceInfo)
+        + sizeof(StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>)
+        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>);
+
     Error SetupInstanceInfo(const oci::ServiceConfig& servConf, const NodeConfig& nodeConf,
-        const RunInstanceRequest& request, const String& imageID, const String& runtimeID, const Instance& instance,
-        aos::InstanceInfo& info);
+        const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor, const String& runtimeID,
+        const Instance& instance, aos::InstanceInfo& info);
 
     Error PerformNodeBalancing(const Array<RunInstanceRequest>& instances);
 
-    Error ScheduleInstance(Instance& instance, const RunInstanceRequest& request, const String& imageID);
+    Error ScheduleInstance(
+        Instance& instance, const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor);
     Error FilterNodesByStaticResources(
         const oci::ServiceConfig& serviceConfig, const RunInstanceRequest& request, Array<Node*>& nodes);
     void FilterNodesByRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes);
@@ -84,19 +95,13 @@ private:
 
     Error PerformPolicyBalancing(const Array<RunInstanceRequest>& instances);
 
-    InstanceManager*                   mInstanceManager   = nullptr;
-    ImageInfoProviderItf*              mImageInfoProvider = nullptr;
-    NodeManager*                       mNodeManager       = nullptr;
-    MonitoringProviderItf*             mMonitorProvider   = nullptr;
-    networkmanager::NetworkManagerItf* mNetworkManager    = nullptr;
-    InstanceRunnerItf*                 mRunner            = nullptr;
-
-    StaticAllocator<sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>) + sizeof(StaticArray<Node*, cMaxNumNodes>)
-        + sizeof(StaticArray<ImageInfo, cMaxNumUpdateImages>) + sizeof(oci::ServiceConfig) * 2
-        + sizeof(oci::ImageConfig) * 2 + sizeof(networkmanager::NetworkServiceData) + sizeof(aos::InstanceInfo)
-        + sizeof(StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>)
-        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>)>
-        mAllocator;
+    ImageInfoProvider                  mImageInfoProvider;
+    InstanceManager*                   mInstanceManager {};
+    NodeManager*                       mNodeManager {};
+    MonitoringProviderItf*             mMonitorProvider {};
+    networkmanager::NetworkManagerItf* mNetworkManager {};
+    InstanceRunnerItf*                 mRunner {};
+    StaticAllocator<cAllocatorSize>    mAllocator;
 };
 
 /** @}*/
