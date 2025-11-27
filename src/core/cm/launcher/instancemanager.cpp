@@ -14,27 +14,28 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void InstanceManager::Init(const Config& config, StorageItf& storage, ImageInfoProviderItf& imageInfoProvider,
-    storagestate::StorageStateItf& storageState)
+Error InstanceManager::Init(const Config& config, StorageItf& storage, storagestate::StorageStateItf& storageState,
+    imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
+    oci::OCISpecItf& ociSpec, IDValidator gidValidator, IDValidator uidValidator)
 {
-    mConfig            = config;
-    mStorage           = &storage;
-    mImageInfoProvider = &imageInfoProvider;
-    mStorageState      = &storageState;
+    mConfig       = config;
+    mStorage      = &storage;
+    mStorageState = &storageState;
+    mImageInfoProvider.Init(itemInfoProvider, blobInfoProvider, ociSpec);
+
+    if (auto err = mUIDPool.Init(uidValidator); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mGIDPool.Init(gidValidator); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error InstanceManager::Start()
 {
-    // Init UID pool
-    auto allUIDsValid = [](size_t id) {
-        (void)id;
-        return true;
-    };
-
-    if (auto err = mUIDPool.Init(allUIDsValid); !err.IsNone()) {
-        return err;
-    }
-
     if (auto err = LoadInstancesFromStorage(); !err.IsNone()) {
         LOG_ERR() << "Can't load instances from storage " << Log::Field(err);
 
@@ -82,6 +83,10 @@ Error InstanceManager::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mGIDPool.Clear(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -106,7 +111,8 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     return (*instance)->UpdateStatus(status);
 }
 
-Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInstanceRequest& request)
+Error InstanceManager::AddInstanceToStash(
+    const InstanceIdent& id, UpdateItemType updateItemType, const RunInstanceRequest& request)
 {
     auto instance = FindStashInstance(id);
     if (instance != nullptr) {
@@ -125,7 +131,7 @@ Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInst
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
     instanceInfo->mInstanceIdent  = id;
-    instanceInfo->mUpdateItemType = request.mItemType;
+    instanceInfo->mUpdateItemType = updateItemType;
     instanceInfo->mTimestamp      = Time::Now();
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
@@ -137,7 +143,7 @@ Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInst
         return createErr;
     }
 
-    newInstance->SetProviderID(request.mProviderID);
+    newInstance->SetOwnerID(request.mOwnerID);
 
     if (auto err = mStashInstances.PushBack(newInstance); !err.IsNone()) {
         return err;
@@ -271,7 +277,7 @@ Error InstanceManager::RemoveOutdatedInstances()
 Error InstanceManager::ClearInstancesWithDeletedImages()
 {
     for (auto instance = mActiveInstances.begin(); instance != mActiveInstances.end();) {
-        if (!(*instance)->IsImageValid()) {
+        if (!(*instance)->IsImageValid(mImageInfoProvider)) {
             LOG_DBG() << "Image invalid for instance: "
                       << Log::Field("instanceID", (*instance)->GetInfo().mInstanceIdent);
 
@@ -286,7 +292,7 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
     }
 
     for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
-        if (!(*instance)->IsImageValid()) {
+        if (!(*instance)->IsImageValid(mImageInfoProvider)) {
             LOG_DBG() << "Image invalid for cached instance: "
                       << Log::Field("instanceID", (*instance)->GetInfo().mInstanceIdent);
 
@@ -309,12 +315,11 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
 
     switch (info.mUpdateItemType.GetValue()) {
     case UpdateItemTypeEnum::eService:
-        newInstance
-            = MakeShared<ServiceInstance>(&mAllocator, info, mUIDPool, *mStorage, *mStorageState, *mImageInfoProvider);
+        newInstance = MakeShared<ServiceInstance>(&mAllocator, info, mUIDPool, mGIDPool, *mStorage, *mStorageState);
         break;
 
     case UpdateItemTypeEnum::eComponent:
-        newInstance = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage, *mImageInfoProvider);
+        newInstance = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage);
         break;
 
     default:
