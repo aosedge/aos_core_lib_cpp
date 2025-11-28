@@ -75,20 +75,19 @@ public:
     /**
      * Adds outdated item.
      *
-     * @param digest item digest.
-     * @param size item size.
+     * @param id item id.
      * @param timestamp item timestamp.
      * @return Error.
      */
-    virtual Error AddOutdatedItem(const String& digest, size_t size, const Time& timestamp) = 0;
+    virtual Error AddOutdatedItem(const String& id, const Time& timestamp) = 0;
 
     /**
      * Restores outdated item.
      *
-     * @param digest item digest.
+     * @param id item id.
      * @return Error.
      */
-    virtual Error RestoreOutdatedItem(const String& digest) = 0;
+    virtual Error RestoreOutdatedItem(const String& id) = 0;
 
     /**
      * Allocates done.

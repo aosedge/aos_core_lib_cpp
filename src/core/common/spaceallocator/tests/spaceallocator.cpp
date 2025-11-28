@@ -166,20 +166,30 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 100, &mRemover).IsNone());
 
     std::vector<std::string> removedFiles;
-    EXPECT_CALL(mRemover, RemoveItem(testing::_)).WillRepeatedly(testing::Invoke([&removedFiles](const String& id) {
-        removedFiles.push_back(id.CStr());
-        return ErrorEnum::eNone;
-    }));
+    EXPECT_CALL(mRemover, RemoveItem(testing::_))
+        .WillRepeatedly(testing::Invoke([&removedFiles, &outdatedFiles](const String& id) {
+            removedFiles.push_back(id.CStr());
+
+            size_t size = 0;
+            for (const auto& file : outdatedFiles) {
+                if (file.name == id) {
+                    size = file.size;
+                    break;
+                }
+            }
+
+            return RetWithError<size_t> {size, ErrorEnum::eNone};
+        }));
 
     for (const auto& file : outdatedFiles) {
-        ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem(file.name, file.size, file.timestamp).IsNone());
+        ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem(file.name, file.timestamp).IsNone());
     }
 
     EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
-        .WillOnce(Return(RetWithError<size_t>(totalOutdatedSize, ErrorEnum::eNone)));
+        .WillRepeatedly(Return(RetWithError<size_t>(totalOutdatedSize, ErrorEnum::eNone)));
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(effectiveTotalSize - totalOutdatedSize, ErrorEnum::eNone)));
+        .WillRepeatedly(Return(RetWithError<size_t>(effectiveTotalSize - totalOutdatedSize, ErrorEnum::eNone)));
 
     auto [space, err] = mSpaceAllocator.AllocateSpace(256 * cKilobyte);
     ASSERT_TRUE(err.IsNone());
@@ -210,7 +220,6 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     auto [space2, err2] = mSpaceAllocator.AllocateSpace(1024 * cKilobyte);
     ASSERT_FALSE(err2.IsNone());
     ASSERT_EQ(space2.Get(), nullptr);
-    EXPECT_TRUE(removedFiles.empty());
 
     ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[0].name).IsNone());
     ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[4].name).IsNone());

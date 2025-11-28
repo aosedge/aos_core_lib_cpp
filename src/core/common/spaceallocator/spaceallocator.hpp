@@ -82,8 +82,7 @@ struct Partition;
  * Outdated item.
  */
 struct OutdatedItem {
-    StaticString<oci::cDigestLen>           mDigest;
-    size_t                                  mSize;
+    StaticString<cIDLen>                    mID;
     SpaceAllocatorItf*                      mAllocator {};
     StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
     Partition*                              mPartition {};
@@ -159,12 +158,20 @@ public:
         }
 
         if (size > mAvailableSize) {
+            if (mOutdatedItems.Size() == 0) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+
             auto [freedSize, err] = RemoveOutdatedItems(size - mAvailableSize);
             if (!err.IsNone()) {
                 return err;
             }
 
             mAvailableSize += freedSize;
+
+            if (size > mAvailableSize) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
         }
 
         mAvailableSize -= size;
@@ -219,7 +226,7 @@ public:
         LockGuard lock {mMutex};
 
         for (auto& outdatedItem : mOutdatedItems) {
-            if (outdatedItem.mDigest == item.mDigest) {
+            if (outdatedItem.mID == item.mID) {
                 outdatedItem = item;
 
                 return ErrorEnum::eNone;
@@ -233,12 +240,13 @@ public:
 
             auto& oldestItem = mOutdatedItems[0];
 
-            if (auto removeErr = oldestItem.mRemover->RemoveItem(oldestItem.mDigest); !removeErr.IsNone()) {
+            auto [size, removeErr] = oldestItem.mRemover->RemoveItem(oldestItem.mID);
+            if (!removeErr.IsNone()) {
                 return removeErr;
             }
 
-            oldestItem.mFreeCallback();
-            mAvailableSize += oldestItem.mSize;
+            oldestItem.mFreeCallback(reinterpret_cast<void*>(size));
+            mAvailableSize += size;
 
             oldestItem = item;
 
@@ -254,12 +262,12 @@ public:
      * @param id item id.
      * @return void.
      */
-    void RestoreOutdatedItem(const String& digest)
+    void RestoreOutdatedItem(const String& id)
     {
         LockGuard lock {mMutex};
 
         for (size_t i = 0; i < mOutdatedItems.Size(); i++) {
-            if (mOutdatedItems[i].mDigest == digest) {
+            if (mOutdatedItems[i].mID == id) {
                 mOutdatedItems.Erase(mOutdatedItems.begin() + i);
 
                 break;
@@ -281,33 +289,26 @@ private:
 
     RetWithError<size_t> RemoveOutdatedItems(size_t size)
     {
-        size_t totalSize = 0;
-
-        for (const auto& item : mOutdatedItems) {
-            totalSize += item.mSize;
-        }
-
-        if (size > totalSize) {
-            return {0, Error(ErrorEnum::eNoMemory, "partition limit exceeded")};
-        }
-
         mOutdatedItems.Sort([](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
 
         size_t freedSize = 0;
         size_t i         = 0;
 
-        for (; freedSize < size; i++) {
+        for (; freedSize < size && i < mOutdatedItems.Size(); i++) {
             auto& item = mOutdatedItems[i];
 
-            if (auto err = item.mRemover->RemoveItem(item.mDigest); !err.IsNone()) {
+            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID);
+            if (!err.IsNone()) {
                 return {freedSize, err};
             }
 
-            item.mFreeCallback();
-            freedSize += item.mSize;
+            item.mFreeCallback(reinterpret_cast<void*>(itemSize));
+            freedSize += itemSize;
         }
 
-        mOutdatedItems.Erase(mOutdatedItems.begin(), mOutdatedItems.begin() + i);
+        if (i > 0) {
+            mOutdatedItems.Erase(mOutdatedItems.begin(), mOutdatedItems.begin() + i);
+        }
 
         return {freedSize, ErrorEnum::eNone};
     }
@@ -468,26 +469,25 @@ public:
     /**
      * Adds outdated item.
      *
-     * @param digest item digest.
-     * @param size item size.
+     * @param id item id.
      * @param timestamp item timestamp.
      * @return Error.
      */
-    Error AddOutdatedItem(const String& digest, size_t size, const Time& timestamp) override
+    Error AddOutdatedItem(const String& id, const Time& timestamp) override
     {
         if (mRemover == nullptr) {
             return Error(ErrorEnum::eNotFound, "no item remover");
         }
 
         OutdatedItem item;
-        item.mDigest    = digest;
-        item.mSize      = size;
+        item.mID        = id;
         item.mPartition = mPartition;
         item.mRemover   = mRemover;
         item.mTimestamp = timestamp;
         item.mAllocator = this;
 
-        item.mFreeCallback = aos::StaticFunction<> {[this, size](void*) { this->Free(size); }};
+        item.mFreeCallback
+            = aos::StaticFunction<> {[this](void* sizePtr) { this->Free(reinterpret_cast<size_t>(sizePtr)); }};
 
         return mPartition->AddOutdatedItem(item);
     }
@@ -495,12 +495,12 @@ public:
     /**
      * Restores outdated item.
      *
-     * @param digest item digest.
+     * @param id item id.
      * @return Error.
      */
-    Error RestoreOutdatedItem(const String& digest) override
+    Error RestoreOutdatedItem(const String& id) override
     {
-        mPartition->RestoreOutdatedItem(digest);
+        mPartition->RestoreOutdatedItem(id);
 
         return ErrorEnum::eNone;
     }
@@ -538,6 +538,17 @@ private:
         }
 
         if (mAllocatedSize + size > mSizeLimit) {
+            size_t outdatedCount = 0;
+            for (const auto& item : mPartition->mOutdatedItems) {
+                if (item.mAllocator == this) {
+                    outdatedCount++;
+                }
+            }
+
+            if (outdatedCount == 0) {
+                return Error(ErrorEnum::eNoMemory, "allocator limit exceeded");
+            }
+
             auto [freedSize, err] = RemoveOutdatedItems(mAllocatedSize + size - mSizeLimit);
             if (!err.IsNone()) {
                 return err;
@@ -547,6 +558,10 @@ private:
                 mAllocatedSize = 0;
             } else {
                 mAllocatedSize -= freedSize;
+            }
+
+            if (mAllocatedSize + size > mSizeLimit) {
+                return Error(ErrorEnum::eNoMemory, "allocator limit exceeded");
             }
         }
 
@@ -558,20 +573,6 @@ private:
 
     RetWithError<size_t> RemoveOutdatedItems(size_t size)
     {
-        size_t totalSize = 0;
-
-        for (const auto& item : mPartition->mOutdatedItems) {
-            if (item.mAllocator != this) {
-                continue;
-            }
-
-            totalSize += item.mSize;
-        }
-
-        if (size > totalSize) {
-            return {0, Error(ErrorEnum::eNoMemory, "partition limit exceeded")};
-        }
-
         mPartition->mOutdatedItems.Sort(
             [](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
 
@@ -586,16 +587,18 @@ private:
                 continue;
             }
 
-            if (auto err = item.mRemover->RemoveItem(item.mDigest); !err.IsNone()) {
+            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID);
+            if (!err.IsNone()) {
                 return {freedSize, err};
             }
 
-            item.mPartition->Free(item.mSize);
-
-            freedSize += item.mSize;
+            item.mPartition->Free(itemSize);
+            freedSize += itemSize;
         }
 
-        mPartition->mOutdatedItems.Erase(mPartition->mOutdatedItems.begin() + i, mPartition->mOutdatedItems.end());
+        if (i < mPartition->mOutdatedItems.Size()) {
+            mPartition->mOutdatedItems.Erase(mPartition->mOutdatedItems.begin() + i, mPartition->mOutdatedItems.end());
+        }
 
         return {freedSize, ErrorEnum::eNone};
     }

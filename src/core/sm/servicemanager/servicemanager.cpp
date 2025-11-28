@@ -95,8 +95,7 @@ Error ServiceManager::Init(const Config& config, oci::OCISpecItf& ociManager, do
             return AOS_ERROR_WRAP(err);
         }
 
-        if (err = mServiceSpaceAllocator->AddOutdatedItem(allocationId, service.mSize, service.mTimestamp);
-            !err.IsNone()) {
+        if (err = mServiceSpaceAllocator->AddOutdatedItem(allocationId, service.mTimestamp); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -292,12 +291,12 @@ Error ServiceManager::RemoveService(const ServiceData& service)
     return ErrorEnum::eNone;
 }
 
-Error ServiceManager::RemoveItem(const String& id)
+RetWithError<size_t> ServiceManager::RemoveItem(const String& id)
 {
     StaticArray<StaticString<Max(cIDLen, cVersionLen)>, 2> splitted;
 
     if (auto err = id.Split(splitted, '_'); !err.IsNone() || splitted.Size() != 2) {
-        return AOS_ERROR_WRAP(Error(err, "unexpected service id format"));
+        return {0, AOS_ERROR_WRAP(Error(err, "unexpected service id format"))};
     }
 
     const auto serviceID = splitted[0];
@@ -309,14 +308,16 @@ Error ServiceManager::RemoveItem(const String& id)
 
     auto it = services->FindIf([&version](const ServiceData& service) { return service.mVersion == version; });
     if (it == services->end()) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
     }
+
+    size_t size = it->mSize;
 
     if (auto err = RemoveServiceFromSystem(*it); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return {0, AOS_ERROR_WRAP(err)};
     }
 
-    return ErrorEnum::eNone;
+    return {size, ErrorEnum::eNone};
 }
 
 /***********************************************************************************************************************
@@ -651,8 +652,7 @@ Error ServiceManager::SetServiceState(const ServiceData& service, ServiceState s
     }
 
     if (state == ServiceStateEnum::eCached) {
-        if (err = mServiceSpaceAllocator->AddOutdatedItem(allocationId, service.mSize, service.mTimestamp);
-            !err.IsNone()) {
+        if (err = mServiceSpaceAllocator->AddOutdatedItem(allocationId, service.mTimestamp); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
