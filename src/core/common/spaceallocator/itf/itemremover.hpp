@@ -20,9 +20,9 @@ public:
      * Removes item.
      *
      * @param id item id.
-     * @return Error.
+     * @return RetWithError<size_t>.
      */
-    virtual Error RemoveItem(const String& id) = 0;
+    virtual RetWithError<size_t> RemoveItem(const String& id) = 0;
 
     /**
      * Destructor.

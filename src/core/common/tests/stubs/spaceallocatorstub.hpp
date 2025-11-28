@@ -98,14 +98,12 @@ public:
      * Adds outdated item.
      *
      * @param id item id.
-     * @param size item size.
      * @param timestamp item timestamp.
      * @return Error.
      */
-    Error AddOutdatedItem(const String& id, size_t size, const Time& timestamp) override
+    Error AddOutdatedItem(const String& id, const Time& timestamp) override
     {
         (void)id;
-        (void)size;
         (void)timestamp;
 
         return ErrorEnum::eNone;

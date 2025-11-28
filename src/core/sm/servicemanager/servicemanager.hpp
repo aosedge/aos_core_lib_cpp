@@ -324,9 +324,9 @@ public:
      * Removes item.
      *
      * @param id item id.
-     * @return Error.
+     * @return RetWithError<size_t>.
      */
-    Error RemoveItem(const String& id) override;
+    RetWithError<size_t> RemoveItem(const String& id) override;
 
 private:
     static constexpr auto cNumInstallThreads  = AOS_CONFIG_SERVICEMANAGER_NUM_COOPERATE_INSTALLS;

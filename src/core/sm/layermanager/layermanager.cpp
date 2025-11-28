@@ -234,21 +234,23 @@ Error LayerManager::RemoveLayer(const LayerData& layer)
     return ErrorEnum::eNone;
 }
 
-Error LayerManager::RemoveItem(const String& id)
+RetWithError<size_t> LayerManager::RemoveItem(const String& id)
 {
     LOG_DBG() << "Remove item: id=" << id;
 
     LayerData layer;
 
     if (auto err = mStorage->GetLayer(id, layer); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return {0, AOS_ERROR_WRAP(err)};
     }
+
+    size_t size = layer.mSize;
 
     if (auto err = RemoveLayerFromSystem(layer); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return {0, AOS_ERROR_WRAP(err)};
     }
 
-    return ErrorEnum::eNone;
+    return {size, ErrorEnum::eNone};
 }
 
 /***********************************************************************************************************************
@@ -346,8 +348,7 @@ Error LayerManager::SetOutdatedLayers()
             continue;
         }
 
-        if (auto err = mLayerSpaceAllocator->AddOutdatedItem(layer.mLayerDigest, layer.mSize, layer.mTimestamp);
-            !err.IsNone()) {
+        if (auto err = mLayerSpaceAllocator->AddOutdatedItem(layer.mLayerDigest, layer.mTimestamp); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -370,8 +371,7 @@ Error LayerManager::SetLayerState(const LayerData& layer, LayerState state)
     }
 
     if (state == LayerStateEnum::eCached) {
-        if (auto err = mLayerSpaceAllocator->AddOutdatedItem(layer.mLayerDigest, layer.mSize, layer.mTimestamp);
-            !err.IsNone()) {
+        if (auto err = mLayerSpaceAllocator->AddOutdatedItem(layer.mLayerDigest, layer.mTimestamp); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
