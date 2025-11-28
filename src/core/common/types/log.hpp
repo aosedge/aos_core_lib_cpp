@@ -12,11 +12,6 @@
 namespace aos {
 
 /**
- * Log id len.
- */
-constexpr auto cLogIDLen = AOS_CONFIG_TYPES_LOG_ID_LEN;
-
-/**
  * Log content len.
  */
 constexpr auto cLogContentLen = AOS_CONFIG_TYPES_LOG_CONTENT_LEN;

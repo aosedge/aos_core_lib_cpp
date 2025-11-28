@@ -569,13 +569,6 @@
 #endif
 
 /**
- * Log id len.
- */
-#ifndef AOS_CONFIG_TYPES_LOG_ID_LEN
-#define AOS_CONFIG_TYPES_LOG_ID_LEN 64
-#endif
-
-/**
  * Log content len.
  */
 #ifndef AOS_CONFIG_TYPES_LOG_CONTENT_LEN
