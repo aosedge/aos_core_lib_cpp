@@ -113,6 +113,23 @@ public:
     }
 
     /**
+     * Calls captured functor with argument.
+     *
+     * @param arg argument to pass to functor.
+     * @return Error.
+     */
+    Error operator()(void* arg)
+    {
+        if (!mCallable) {
+            return ErrorEnum::eRuntime;
+        }
+
+        (*mCallable)(arg);
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Checks if function contains callable.
      */
     explicit operator bool() const { return mCallable != nullptr; }
@@ -127,9 +144,10 @@ protected:
 private:
     class CallableItf {
     public:
-        virtual void   operator()() = 0;
-        virtual size_t Size()       = 0;
-        virtual ~CallableItf()      = default;
+        virtual void   operator()()          = 0;
+        virtual void   operator()(void* arg) = 0;
+        virtual size_t Size()                = 0;
+        virtual ~CallableItf()               = default;
     };
 
     template <typename T>
@@ -143,6 +161,8 @@ private:
         }
 
         void operator()() override { mFunctor(mArg); }
+
+        void operator()(void* arg) override { mFunctor(arg); }
 
         size_t Size() override { return mSize; }
 
