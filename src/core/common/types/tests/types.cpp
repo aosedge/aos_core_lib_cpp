@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/types/alerts.hpp>
+#include <core/common/types/blobs.hpp>
 #include <core/common/types/certificates.hpp>
 #include <core/common/types/desiredstatus.hpp>
 #include <core/common/types/envvars.hpp>

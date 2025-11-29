@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_ITF_BLOBINFOPROVIDER_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_ITF_BLOBINFOPROVIDER_HPP_
 
-#include <core/common/types/desiredstatus.hpp>
+#include <core/common/types/blobs.hpp>
 
 namespace aos::cm::imagemanager {
 
