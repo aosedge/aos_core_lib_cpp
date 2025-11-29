@@ -40,7 +40,7 @@ using CSRInfoArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
 /**
  * Start provisioning request.
  */
-struct StartProvisioningRequest {
+struct StartProvisioningRequest : public Protocol {
     StaticString<cIDLen>     mNodeID;
     StaticString<cSecretLen> mPassword;
 
@@ -52,7 +52,7 @@ struct StartProvisioningRequest {
      */
     bool operator==(const StartProvisioningRequest& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mPassword == rhs.mPassword;
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mPassword == rhs.mPassword;
     }
 
     /**
@@ -67,7 +67,7 @@ struct StartProvisioningRequest {
 /**
  * Start provisioning response.
  */
-struct StartProvisioningResponse {
+struct StartProvisioningResponse : public Protocol {
     StaticString<cIDLen> mNodeID;
     CSRInfoArray         mCSRs;
     Error                mError;
@@ -80,7 +80,7 @@ struct StartProvisioningResponse {
      */
     bool operator==(const StartProvisioningResponse& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mCSRs == rhs.mCSRs && mError == rhs.mError;
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mCSRs == rhs.mCSRs && mError == rhs.mError;
     }
 
     /**
@@ -124,7 +124,7 @@ using ProvisioningCertArray = StaticArray<ProvisioningCertData, cCertsPerNodeCou
 /**
  * Finish provisioning request message.
  */
-struct FinishProvisioningRequest {
+struct FinishProvisioningRequest : public Protocol {
     StaticString<cIDLen>     mNodeID;
     ProvisioningCertArray    mCertificates;
     StaticString<cSecretLen> mPassword;
@@ -137,7 +137,8 @@ struct FinishProvisioningRequest {
      */
     bool operator==(const FinishProvisioningRequest& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mCertificates == rhs.mCertificates && mPassword == rhs.mPassword;
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mCertificates == rhs.mCertificates
+            && mPassword == rhs.mPassword;
     }
 
     /**
@@ -152,7 +153,7 @@ struct FinishProvisioningRequest {
 /**
  * Finish provisioning response message.
  */
-struct FinishProvisioningResponse {
+struct FinishProvisioningResponse : public Protocol {
     StaticString<cIDLen> mNodeID;
     Error                mError;
 
@@ -164,7 +165,7 @@ struct FinishProvisioningResponse {
      */
     bool operator==(const FinishProvisioningResponse& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mError == rhs.mError;
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mError == rhs.mError;
     }
 
     /**
@@ -179,7 +180,7 @@ struct FinishProvisioningResponse {
 /**
  * Deprovisioning request message.
  */
-struct DeprovisioningRequest {
+struct DeprovisioningRequest : public Protocol {
     StaticString<cIDLen>     mNodeID;
     StaticString<cSecretLen> mPassword;
 
@@ -191,7 +192,7 @@ struct DeprovisioningRequest {
      */
     bool operator==(const DeprovisioningRequest& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mPassword == rhs.mPassword;
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mPassword == rhs.mPassword;
     }
 
     /**
@@ -206,7 +207,7 @@ struct DeprovisioningRequest {
 /**
  * Deprovisioning response message.
  */
-struct DeprovisioningResponse {
+struct DeprovisioningResponse : public Protocol {
     StaticString<cIDLen> mNodeID;
     Error                mError;
 
@@ -216,7 +217,10 @@ struct DeprovisioningResponse {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const DeprovisioningResponse& rhs) const { return mNodeID == rhs.mNodeID && mError == rhs.mError; }
+    bool operator==(const DeprovisioningResponse& rhs) const
+    {
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mError == rhs.mError;
+    }
 
     /**
      * Compares deprovisioning response.

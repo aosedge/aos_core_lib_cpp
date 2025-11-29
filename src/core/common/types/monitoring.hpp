@@ -217,7 +217,7 @@ using NodeMonitoringDataArray = StaticArray<NodeMonitoringData, cMaxNumNodes>;
 /**
  * Monitoring message type.
  */
-struct Monitoring {
+struct Monitoring : public Protocol {
     NodeMonitoringDataArray     mNodes;
     InstanceMonitoringDataArray mInstances;
 
@@ -227,7 +227,10 @@ struct Monitoring {
      * @param rhs monitoring message to compare with.
      * @return bool.
      */
-    bool operator==(const Monitoring& rhs) const { return mNodes == rhs.mNodes && mInstances == rhs.mInstances; }
+    bool operator==(const Monitoring& rhs) const
+    {
+        return Protocol::operator==(rhs) && mNodes == rhs.mNodes && mInstances == rhs.mInstances;
+    }
 
     /**
      * Compares monitoring message.

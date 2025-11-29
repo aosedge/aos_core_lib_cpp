@@ -173,7 +173,7 @@ using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumIns
 /**
  * Environment variable override request.
  */
-struct OverrideEnvVarsRequest {
+struct OverrideEnvVarsRequest : public Protocol {
     EnvVarsInstanceInfoArray mItems;
 
     /**
@@ -182,7 +182,10 @@ struct OverrideEnvVarsRequest {
      * @param rhs environment variable override request to compare with.
      * @return bool.
      */
-    bool operator==(const OverrideEnvVarsRequest& rhs) const { return mItems == rhs.mItems; }
+    bool operator==(const OverrideEnvVarsRequest& rhs) const
+    {
+        return Protocol::operator==(rhs) && mItems == rhs.mItems;
+    }
 
     /**
      * Compares environment variable override request.
@@ -196,7 +199,7 @@ struct OverrideEnvVarsRequest {
 /**
  * Environment variable override statuses.
  */
-struct OverrideEnvVarsStatuses {
+struct OverrideEnvVarsStatuses : public Protocol {
     EnvVarsInstanceStatusArray mStatuses;
 
     /**
@@ -205,7 +208,10 @@ struct OverrideEnvVarsStatuses {
      * @param rhs environment variable override statuses to compare with.
      * @return bool.
      */
-    bool operator==(const OverrideEnvVarsStatuses& rhs) const { return mStatuses == rhs.mStatuses; }
+    bool operator==(const OverrideEnvVarsStatuses& rhs) const
+    {
+        return Protocol::operator==(rhs) && mStatuses == rhs.mStatuses;
+    }
 
     /**
      * Compares environment variable override statuses.

@@ -177,8 +177,7 @@ struct LogUploadOptions {
 /**
  * Log request.
  */
-struct RequestLog {
-    StaticString<cLogIDLen>    mLogID;
+struct RequestLog : public Protocol {
     LogType                    mLogType;
     LogFilter                  mFilter;
     Optional<LogUploadOptions> mUploadOptions;
@@ -191,7 +190,7 @@ struct RequestLog {
      */
     bool operator==(const RequestLog& rhs) const
     {
-        return mLogID == rhs.mLogID && mLogType == rhs.mLogType && mFilter == rhs.mFilter
+        return Protocol::operator==(rhs) && mLogType == rhs.mLogType && mFilter == rhs.mFilter
             && mUploadOptions == rhs.mUploadOptions;
     }
 
@@ -207,8 +206,7 @@ struct RequestLog {
 /**
  * Push log.
  */
-struct PushLog {
-    StaticString<cLogIDLen>      mLogID;
+struct PushLog : public Protocol {
     StaticString<cIDLen>         mNodeID;
     uint64_t                     mPartsCount;
     uint64_t                     mPart;
@@ -224,8 +222,8 @@ struct PushLog {
      */
     bool operator==(const PushLog& rhs) const
     {
-        return mNodeID == rhs.mNodeID && mLogID == rhs.mLogID && mPartsCount == rhs.mPartsCount && mPart == rhs.mPart
-            && mContent == rhs.mContent && mStatus == rhs.mStatus && mError == rhs.mError;
+        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mPartsCount == rhs.mPartsCount
+            && mPart == rhs.mPart && mContent == rhs.mContent && mStatus == rhs.mStatus && mError == rhs.mError;
     }
 
     /**

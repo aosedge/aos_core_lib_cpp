@@ -210,7 +210,7 @@ struct IssueCertData : public CertIdent {
 /**
  * Renew certificates notification.
  */
-struct RenewCertsNotification {
+struct RenewCertsNotification : public Protocol {
     StaticArray<RenewCertData, cCertsPerUnitCount> mCertificates;
     UnitSecrets                                    mUnitSecrets;
 
@@ -222,7 +222,7 @@ struct RenewCertsNotification {
      */
     bool operator==(const RenewCertsNotification& rhs) const
     {
-        return mCertificates == rhs.mCertificates && mUnitSecrets == rhs.mUnitSecrets;
+        return Protocol::operator==(rhs) && mCertificates == rhs.mCertificates && mUnitSecrets == rhs.mUnitSecrets;
     }
 
     /**
@@ -237,7 +237,7 @@ struct RenewCertsNotification {
 /**
  * Issued unit certificates.
  */
-struct IssuedUnitCerts {
+struct IssuedUnitCerts : public Protocol {
     StaticArray<IssuedCertData, cCertsPerUnitCount> mCertificates;
 
     /**
@@ -246,7 +246,10 @@ struct IssuedUnitCerts {
      * @param rhs unit certificates to compare with.
      * @return bool.
      */
-    bool operator==(const IssuedUnitCerts& rhs) const { return mCertificates == rhs.mCertificates; }
+    bool operator==(const IssuedUnitCerts& rhs) const
+    {
+        return Protocol::operator==(rhs) && mCertificates == rhs.mCertificates;
+    }
 
     /**
      * Compares issued unit certificates.
@@ -260,7 +263,7 @@ struct IssuedUnitCerts {
 /**
  * Issue unit certificates.
  */
-struct IssueUnitCerts {
+struct IssueUnitCerts : public Protocol {
     StaticArray<IssueCertData, cCertsPerUnitCount> mRequests;
 
     /**
@@ -269,7 +272,7 @@ struct IssueUnitCerts {
      * @param rhs unit certificates to compare with.
      * @return bool.
      */
-    bool operator==(const IssueUnitCerts& rhs) const { return mRequests == rhs.mRequests; }
+    bool operator==(const IssueUnitCerts& rhs) const { return Protocol::operator==(rhs) && mRequests == rhs.mRequests; }
 
     /**
      * Compares issue unit certificates.
@@ -283,7 +286,7 @@ struct IssueUnitCerts {
 /**
  * Install unit certificates confirmation.
  */
-struct InstallUnitCertsConfirmation {
+struct InstallUnitCertsConfirmation : public Protocol {
     StaticArray<InstallCertStatus, cCertsPerUnitCount> mCertificates;
 
     /**
@@ -292,7 +295,10 @@ struct InstallUnitCertsConfirmation {
      * @param rhs certificates confirmation to compare with.
      * @return bool.
      */
-    bool operator==(const InstallUnitCertsConfirmation& rhs) const { return mCertificates == rhs.mCertificates; }
+    bool operator==(const InstallUnitCertsConfirmation& rhs) const
+    {
+        return Protocol::operator==(rhs) && mCertificates == rhs.mCertificates;
+    }
 
     /**
      * Compares install unit certificates confirmation.

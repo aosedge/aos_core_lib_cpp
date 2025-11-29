@@ -162,7 +162,7 @@ using UnitInstancesStatusesArray = StaticArray<UnitInstancesStatuses, cMaxNumUpd
 /**
  * Unit status
  */
-struct UnitStatus {
+struct UnitStatus : public Protocol {
     bool                                 mIsDeltaInfo {};
     Optional<UnitConfigStatusArray>      mUnitConfig;
     Optional<UnitNodeInfoArray>          mNodes;
@@ -178,8 +178,9 @@ struct UnitStatus {
      */
     bool operator==(const UnitStatus& rhs) const
     {
-        return mIsDeltaInfo == rhs.mIsDeltaInfo && mUnitConfig == rhs.mUnitConfig && mNodes == rhs.mNodes
-            && mUpdateItems == rhs.mUpdateItems && mInstances == rhs.mInstances && mUnitSubjects == rhs.mUnitSubjects;
+        return Protocol::operator==(rhs) && mIsDeltaInfo == rhs.mIsDeltaInfo && mUnitConfig == rhs.mUnitConfig
+            && mNodes == rhs.mNodes && mUpdateItems == rhs.mUpdateItems && mInstances == rhs.mInstances
+            && mUnitSubjects == rhs.mUnitSubjects;
     }
 
     /**
