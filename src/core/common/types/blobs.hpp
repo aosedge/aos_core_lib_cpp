@@ -48,7 +48,7 @@ using BlobInfoArray = StaticArray<BlobInfo, cMaxNumBlobs>;
 /**
  * Blob URLs request.
  */
-struct BlobURLsRequest {
+struct BlobURLsRequest : public Protocol {
     StaticArray<StaticString<oci::cDigestLen>, cMaxNumBlobs> mDigests;
 
     /**
@@ -57,7 +57,7 @@ struct BlobURLsRequest {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const BlobURLsRequest& rhs) const { return mDigests == rhs.mDigests; }
+    bool operator==(const BlobURLsRequest& rhs) const { return Protocol::operator==(rhs) && mDigests == rhs.mDigests; }
 
     /**
      * Compares blob URLs request.
@@ -68,7 +68,7 @@ struct BlobURLsRequest {
     bool operator!=(const BlobURLsRequest& rhs) const { return !operator==(rhs); }
 };
 
-struct BlobURLsInfo {
+struct BlobURLsInfo : public Protocol {
     BlobInfoArray mItems;
 
     /**
@@ -77,7 +77,7 @@ struct BlobURLsInfo {
      * @param rhs blob URLs info to compare with.
      * @return bool.
      */
-    bool operator==(const BlobURLsInfo& rhs) const { return mItems == rhs.mItems; }
+    bool operator==(const BlobURLsInfo& rhs) const { return Protocol::operator==(rhs) && mItems == rhs.mItems; }
 
     /**
      * Compares blob URLs info.

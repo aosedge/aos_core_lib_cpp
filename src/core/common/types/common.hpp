@@ -15,6 +15,7 @@
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/time.hpp>
+#include <core/common/tools/uuid.hpp>
 
 namespace aos {
 
@@ -1180,6 +1181,29 @@ struct CertInfo {
         return log << "{certURL = " << certInfo.mCertURL << ", keyURL = " << certInfo.mKeyURL
                    << ", notAfter = " << certInfo.mNotAfter << "}";
     }
+};
+
+/**
+ * Protocol structure. Containing protocol related information.
+ */
+struct Protocol {
+    StaticString<uuid::cUUIDLen> mCorrelationID;
+
+    /**
+     * Compares protocols.
+     *
+     * @param rhs protocol to compare with.
+     * @return bool.
+     */
+    bool operator==(const Protocol& rhs) const { return mCorrelationID == rhs.mCorrelationID; }
+
+    /**
+     * Compares protocols.
+     *
+     * @param rhs protocol to compare with.
+     * @return bool.
+     */
+    bool operator!=(const Protocol& rhs) const { return !operator==(rhs); }
 };
 
 } // namespace aos

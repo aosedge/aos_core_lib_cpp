@@ -534,7 +534,7 @@ using AlertVariantArray = StaticArray<AlertVariant, cAlertItemsCount>;
 /**
  * Alerts message structure.
  */
-struct Alerts {
+struct Alerts : public Protocol {
     AlertVariantArray mItems;
 
     /**
@@ -543,7 +543,7 @@ struct Alerts {
      * @param alerts alerts to compare with.
      * @return bool.
      */
-    bool operator==(const Alerts& alerts) const { return mItems == alerts.mItems; }
+    bool operator==(const Alerts& alerts) const { return Protocol::operator==(alerts) && mItems == alerts.mItems; }
 
     /**
      * Compares alerts.

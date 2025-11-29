@@ -50,7 +50,7 @@ using StateResult     = EnumStringer<StateResultType>;
 /**
  * New state.
  */
-struct NewState : public InstanceIdent {
+struct NewState : public Protocol, public InstanceIdent {
     StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
     StaticString<cStateLen>                   mState;
 
@@ -62,7 +62,8 @@ struct NewState : public InstanceIdent {
      */
     bool operator==(const NewState& rhs) const
     {
-        return InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum && mState == rhs.mState;
+        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum
+            && mState == rhs.mState;
     }
 
     /**
@@ -77,7 +78,7 @@ struct NewState : public InstanceIdent {
 /**
  * Update state.
  */
-struct UpdateState : public InstanceIdent {
+struct UpdateState : public Protocol, public InstanceIdent {
     StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
     StaticString<cStateLen>                   mState;
 
@@ -89,7 +90,8 @@ struct UpdateState : public InstanceIdent {
      */
     bool operator==(const UpdateState& rhs) const
     {
-        return InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum && mState == rhs.mState;
+        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum
+            && mState == rhs.mState;
     }
 
     /**
@@ -104,7 +106,7 @@ struct UpdateState : public InstanceIdent {
 /**
  * State acceptance.
  */
-struct StateAcceptance : public InstanceIdent {
+struct StateAcceptance : public Protocol, public InstanceIdent {
     StaticArray<uint8_t, crypto::cSHA256Size> mChecksum;
     StateResult                               mResult;
     StaticString<cStateReason>                mReason;
@@ -117,8 +119,8 @@ struct StateAcceptance : public InstanceIdent {
      */
     bool operator==(const StateAcceptance& rhs) const
     {
-        return InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum && mResult == rhs.mResult
-            && mReason == rhs.mReason;
+        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum
+            && mResult == rhs.mResult && mReason == rhs.mReason;
     }
 
     /**
@@ -133,7 +135,7 @@ struct StateAcceptance : public InstanceIdent {
 /**
  * State request.
  */
-struct StateRequest : public InstanceIdent {
+struct StateRequest : public Protocol, public InstanceIdent {
     bool mDefault {};
 
     /**
@@ -144,7 +146,7 @@ struct StateRequest : public InstanceIdent {
      */
     bool operator==(const StateRequest& rhs) const
     {
-        return InstanceIdent::operator==(rhs) && mDefault == rhs.mDefault;
+        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mDefault == rhs.mDefault;
     }
 
     /**

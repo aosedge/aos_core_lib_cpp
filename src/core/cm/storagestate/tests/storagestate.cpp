@@ -461,7 +461,7 @@ TEST_F(StorageStateTests, SetupSameInstance)
         }
 
         if (testParam.mExpectStateRequest) {
-            EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false}))
+            EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {"", cInstanceIdent, false}))
                 .WillOnce(Return(ErrorEnum::eNone));
         }
 
@@ -683,7 +683,8 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
 
     StaticString<cFilePathLen> storagePath, statePath;
 
-    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false})).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {"", cInstanceIdent, false}))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
 
@@ -695,7 +696,8 @@ TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
     err = mStorageStub.GetStorageStateInfo(cInstanceIdent, storageData);
     EXPECT_TRUE(err.IsNone()) << "Failed to get storage state info: " << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false})).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {"", cInstanceIdent, false}))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     auto stateAccept = std::make_unique<StateAcceptance>();
 
@@ -747,7 +749,8 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
             return ErrorEnum::eNone;
         }));
     EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {cInstanceIdent, false})).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest(StateRequest {"", cInstanceIdent, false}))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
     EXPECT_TRUE(err.IsNone()) << "Failed to setup storage state: " << tests::utils::ErrorToStr(err);

@@ -133,7 +133,7 @@ using DesiredInstanceInfoArray = StaticArray<DesiredInstanceInfo, cMaxNumInstanc
 /**
  * Desired status.
  */
-struct DesiredStatus {
+struct DesiredStatus : public Protocol {
     DesiredNodeStateInfoArray         mNodes;
     Optional<UnitConfig>              mUnitConfig;
     UpdateItemInfoArray               mUpdateItems;
@@ -150,9 +150,9 @@ struct DesiredStatus {
      */
     bool operator==(const DesiredStatus& rhs) const
     {
-        return mUnitConfig == rhs.mUnitConfig && mNodes == rhs.mNodes && mUpdateItems == rhs.mUpdateItems
-            && mInstances == rhs.mInstances && mCertificates == rhs.mCertificates
-            && mCertificateChains == rhs.mCertificateChains;
+        return Protocol::operator==(rhs) && mNodes == rhs.mNodes && mUnitConfig == rhs.mUnitConfig
+            && mUpdateItems == rhs.mUpdateItems && mInstances == rhs.mInstances && mSubjects == rhs.mSubjects
+            && mCertificates == rhs.mCertificates && mCertificateChains == rhs.mCertificateChains;
     }
 
     /**
