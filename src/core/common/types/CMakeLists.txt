@@ -16,6 +16,7 @@ set(TARGET_NAME types)
 
 set(HEADERS
     alerts.hpp
+    blobs.hpp
     certificates.hpp
     desiredstatus.hpp
     envvars.hpp
