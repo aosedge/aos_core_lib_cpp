@@ -12,4 +12,4 @@ It defines the following interfaces:
 * [aos::iamclient::NodeInfoProviderItf](itf/nodeinfoprovider.hpp) - provides nodes info;
 * [aos::iamclient::PermHandlerItf](itf/permhandler.hpp) - registers/unregisters service instances permissions;
 * [aos::iamclient::PermProviderItf](itf/permprovider.hpp) - provides service instances permissions;
-* [aos::iamclient::ProvisioningItf](itf/provisioning.hpp) - performs new nod provisioning.
+* [aos::iamclient::ProvisioningItf](itf/provisioning.hpp) - performs new node provisioning.
