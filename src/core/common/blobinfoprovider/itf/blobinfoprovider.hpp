@@ -9,34 +9,28 @@
 
 #include <core/common/types/blobs.hpp>
 
-namespace aos::cm::imagemanager {
-
-/** @addtogroup cm Communication Manager
- *  @{
- */
+namespace aos::blobinfoprovider {
 
 /**
  * Interface that provides blob info.
  */
-class BlobInfoProviderItf {
+class ProviderItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~BlobInfoProviderItf() = default;
+    virtual ~ProviderItf() = default;
 
     /**
      * Returns blobs info.
      *
      * @param digests list of blob digests.
-     * @param[out] blobsInfo blobs info.
+     * @param[out] blobsInfos blobs infos.
      * @return Error.
      */
-    virtual Error GetBlobsInfo(const Array<StaticString<oci::cDigestLen>>& digests, Array<BlobInfo>& blobsInfo) = 0;
+    virtual Error GetBlobsInfos(const Array<StaticString<oci::cDigestLen>>& digests, Array<BlobInfo>& blobsInfos) = 0;
 };
 
-/** @}*/
-
-} // namespace aos::cm::imagemanager
+} // namespace aos::blobinfoprovider
 
 #endif
