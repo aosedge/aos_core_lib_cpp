@@ -9,7 +9,6 @@
 
 #include <core/cm/launcher/itf/instancerunner.hpp>
 #include <core/cm/launcher/itf/monitoringprovider.hpp>
-#include <core/cm/launcher/itf/nodeenvvarhandler.hpp>
 #include <core/cm/networkmanager/itf/nodenetwork.hpp>
 #include <core/cm/unitconfig/itf/nodeconfighandler.hpp>
 
@@ -26,7 +25,6 @@ namespace aos::cm::smcontroller {
  */
 class SMControllerItf : public unitconfig::NodeConfigHandlerItf,
                         public launcher::InstanceRunnerItf,
-                        public launcher::NodeEnvVarHandlerItf,
                         public launcher::MonitoringProviderItf,
                         public networkmanager::NodeNetworkItf,
                         public LogProviderItf { };
