@@ -33,18 +33,37 @@ constexpr auto cEnvVarLen = cEnvVarNameLen + cEnvVarValueLen + 1;
  */
 constexpr auto cMaxNumEnvVariables = AOS_CONFIG_TYPES_MAX_NUM_ENV_VARIABLES;
 
+struct EnvVar {
+    StaticString<cEnvVarNameLen>  mName;
+    StaticString<cEnvVarValueLen> mValue;
+
+    /**
+     * Compares environment variable.
+     *
+     * @param rhs environment variable to compare with.
+     * @return bool.
+     */
+    bool operator==(const EnvVar& rhs) const { return mName == rhs.mName && mValue == rhs.mValue; }
+
+    /**
+     * Compares environment variable.
+     *
+     * @param rhs environment variable to compare with.
+     * @return bool.
+     */
+    bool operator!=(const EnvVar& rhs) const { return !operator==(rhs); }
+};
+
 /**
  * Env vars array.
  */
-using EnvVarArray = StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>;
+using EnvVarArray = StaticArray<EnvVar, cMaxNumEnvVariables>;
 
 /**
  * Environment variable info.
  */
-struct EnvVarInfo {
-    StaticString<cEnvVarNameLen>  mName;
-    StaticString<cEnvVarValueLen> mValue;
-    Optional<Time>                mTTL;
+struct EnvVarInfo : public EnvVar {
+    Optional<Time> mTTL;
 
     /**
      * Compares environment variable info.
@@ -52,10 +71,7 @@ struct EnvVarInfo {
      * @param rhs environment variable info to compare with.
      * @return bool.
      */
-    bool operator==(const EnvVarInfo& rhs) const
-    {
-        return mName == rhs.mName && mValue == rhs.mValue && mTTL == rhs.mTTL;
-    }
+    bool operator==(const EnvVarInfo& rhs) const { return EnvVar::operator==(rhs) && mTTL == rhs.mTTL; }
 
     /**
      * Compares environment variable info.

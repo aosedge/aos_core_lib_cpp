@@ -52,7 +52,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeConfig)
 
     EXPECT_EQ(runtimeConfig->mProcess->mArgs, args);
 
-    EnvVarArray env;
+    StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables> env;
 
     env.PushBack("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
     env.PushBack("TERM=xterm");

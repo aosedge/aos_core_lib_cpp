@@ -31,18 +31,20 @@ TEST(CommonTest, Types)
     EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2}) != (InstanceIdent {"service1", "subject1", 2}));
 
     //  comparision
-    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}})
-        == (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}}));
-    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}})
-        != (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}}));
+    EXPECT_TRUE(
+        (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}})
+        == (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}}));
+    EXPECT_FALSE(
+        (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}})
+        != (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}}));
 
     // InstanceStatus comparision
-    EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, InstanceStateEnum::eActive,
-                    ErrorEnum::eNone, "3.0.0"})
-        == (InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, InstanceStateEnum::eActive,
+    EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {},
+                    InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
+        == (InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {}, InstanceStateEnum::eActive,
             ErrorEnum::eNone, "3.0.0"}));
-    EXPECT_FALSE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {},
+    EXPECT_FALSE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {},
                      InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
-        != (InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, InstanceStateEnum::eActive,
+        != (InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {}, InstanceStateEnum::eActive,
             ErrorEnum::eNone, "3.0.0"}));
 }
