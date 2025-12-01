@@ -28,8 +28,7 @@ It requires the following interfaces:
 - [aos::cm::storagestate::StorageStateItf](../storagestate/itf/storagestate.hpp) - prepares storage and state for
   instances;
 - [aos::cm::networkmanager::NetworkManagerItf](../networkmanager/itf/networkmanager.hpp) - configures instances notwork;
-- [aos::cm::unitconfig::NodeConfigProviderItf](../unitconfig/itf/nodeconfigprovider.hpp) - gets node configuration;
-- [aos::cm::launcher::NodeEnvVarHandlerItf](itf/nodeenvvarhandler.hpp) - overrides node instances env vars.
+- [aos::cm::unitconfig::NodeConfigProviderItf](../unitconfig/itf/nodeconfigprovider.hpp) - gets node configuration.
 
 ```mermaid
 classDiagram
@@ -86,10 +85,6 @@ classDiagram
         <<interface>>
     }
 
-    class NodeEnvVarHandlerItf ["aos::cm::launcher::NodeEnvVarHandlerItf"] {
-        <<interface>>
-    }
-
     Launcher ..|> LauncherItf
     Launcher ..|> InstanceStatusReceiverItf
     Launcher ..|> EnvVarHandlerItf
@@ -103,7 +98,6 @@ classDiagram
     Launcher ..> StorageStateItf
     Launcher ..> NetworkManagerItf
     Launcher ..> NodeConfigProviderItf
-    Launcher ..> NodeEnvVarHandlerItf
 ```
 
 ## Initialization

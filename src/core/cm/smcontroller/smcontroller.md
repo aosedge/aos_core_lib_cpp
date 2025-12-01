@@ -6,8 +6,6 @@ It implements the following interfaces:
 
 * [aos::cm::unitconfig::NodeConfigHandlerItf](../unitconfig/itf/nodeconfighandler.hpp) - updates nodes configs;
 * [aos::cm::launcher::InstanceRunnerItf](../launcher/itf/instancerunner.hpp) - starts/stops instances on specified node;
-* [aos::cm::launcher::NodeEnvVarHandlerItf](../launcher/itf/nodeenvvarhandler.hpp) - overrides env vars on specified
-  node;
 * [aos::cm::launcher::MonitoringProviderItf](../launcher/itf/monitoringprovider.hpp) - gets average node and instances
   monitoring data;
 * [aos::cm::networkmanager::NodeNetworkItf](../networkmanager/itf/nodenetwork.hpp) - updates network on specified node;
@@ -37,10 +35,6 @@ classDiagram
     }
 
     class InstanceRunnerItf["aos::cm::launcher::InstanceRunnerItf"] {
-        <<interface>>
-    }
-
-    class NodeEnvVarHandlerItf["aos::cm::launcher::NodeEnvVarHandlerItf"] {
         <<interface>>
     }
 
@@ -86,7 +80,6 @@ classDiagram
 
     SMController ..|> NodeConfigHandlerItf
     SMController ..|> InstanceRunnerItf
-    SMController ..|> NodeEnvVarHandlerItf
     SMController ..|> MonitoringProviderItf
     SMController ..|> NodeNetworkItf
     SMController ..|> LogProviderItf
