@@ -13,7 +13,7 @@ It implements the following interfaces:
   notification;
 * [aos::cm::smcontroller::SenderItf](../smcontroller/itf/sender.hpp) - sends log messages;
 * [aos::cm::launcher::SenderItf](../launcher/itf/senderitf.hpp) - sends override env vars statuses;
-* [aos::cm::imagemanager::BlobInfoProviderItf](../imagemanager/itf/blobinfoprovider.hpp) - provides blobs info.
+* [aos::blobinfoprovider::ProviderItf](../../common/blobinfoprovider/itf/blobinfoprovider.hpp) - provides blobs info.
 
 It requires the following interfaces:
 
@@ -60,7 +60,7 @@ classDiagram
         <<interface>>
     }
 
-    class BlobInfoProviderItf["aos::cm::imagemanager::BlobInfoProviderItf"] {
+    class BlobInfoProviderItf["aos::blobinfoprovider::ProviderItf"] {
         <<interface>>
     }
 

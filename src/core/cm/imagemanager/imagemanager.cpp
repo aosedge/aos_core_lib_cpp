@@ -14,7 +14,7 @@ namespace aos::cm::imagemanager {
  * Public
  **********************************************************************************************************************/
 
-Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProviderItf& blobInfoProvider,
+Error ImageManager::Init(const Config& config, StorageItf& storage, blobinfoprovider::ProviderItf& blobInfoProvider,
     spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
     spaceallocator::SpaceAllocatorItf& installSpaceAllocator, downloader::DownloaderItf& downloader,
     fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& cryptoHelper,
@@ -676,7 +676,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
     }
 
     while (true) {
-        auto err = mBlobInfoProvider->GetBlobsInfo(digests, *blobsInfo);
+        auto err = mBlobInfoProvider->GetBlobsInfos(digests, *blobsInfo);
 
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to get blobs info" << Log::Field("digest", digest) << Log::Field(err);
