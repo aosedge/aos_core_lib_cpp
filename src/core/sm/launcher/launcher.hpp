@@ -16,9 +16,9 @@
 #include <core/sm/smclient/itf/runtimeinfoprovider.hpp>
 
 #include "itf/instancestatusreceiver.hpp"
-#include "itf/instancestatussender.hpp"
 #include "itf/launcher.hpp"
 #include "itf/runtime.hpp"
+#include "itf/sender.hpp"
 #include "itf/storage.hpp"
 
 namespace aos::sm::launcher {
@@ -38,9 +38,13 @@ public:
     /**
      * Initializes launcher.
      *
+     * @param runtimes available runtimes.
+     * @param statusSender sender.
+     * @param storage storage.
+     *
      * @return Error.
      */
-    Error Init(const Array<RuntimeItf*>& runtimes, StorageItf& storage, InstanceStatusSenderItf& statusSender);
+    Error Init(const Array<RuntimeItf*>& runtimes, SenderItf& sender, StorageItf& storage);
 
     /**
      * Starts launcher.
@@ -165,7 +169,7 @@ private:
     StaticArray<InstanceData, cMaxNumInstances>                                            mInstances;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>                      mRuntimes;
     StorageItf*                                                                            mStorage {};
-    InstanceStatusSenderItf*                                                               mStatusSender {};
+    SenderItf*                                                                             mSender {};
     bool                                                                                   mLaunchInProgress {};
 };
 
