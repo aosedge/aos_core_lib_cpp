@@ -10,7 +10,7 @@
 #include <core/common/crypto/itf/hash.hpp>
 #include <core/common/ocispec/itf/imagespec.hpp>
 
-#include "common.hpp"
+#include "envvars.hpp"
 #include "monitoring.hpp"
 #include "network.hpp"
 
@@ -28,6 +28,7 @@ struct InstanceInfoData {
     uint64_t                            mPriority {};
     StaticString<cFilePathLen>          mStoragePath;
     StaticString<cFilePathLen>          mStatePath;
+    EnvVarArray                         mEnvVars;
     Optional<InstanceNetworkParameters> mNetworkParameters;
     Optional<InstanceMonitoringParams>  mMonitoringParams;
 
@@ -91,6 +92,7 @@ struct InstanceStatusData {
     StaticString<cIDLen>                      mRuntimeID;
     StaticString<oci::cDigestLen>             mManifestDigest;
     StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
+    EnvVarStatusArray                         mEnvVarsStatuses;
     InstanceState                             mState;
     Error                                     mError;
 
