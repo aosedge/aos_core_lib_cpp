@@ -10,19 +10,24 @@ It implements the following interfaces:
 
 * [aos::sm::launcher::LauncherItf](itf/launcher.hpp) - implements main launcher functionality to update Aos items;
 * [aos::sm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - to receive instances statuses
-from runtimes;
+  from runtimes;
 * [aos::sm::smclient::RuntimeInfoProviderItf](../smclient/itf/runtimeinfoprovider.hpp) - to provide runtime info.
 * [aos::monitoring::InstanceInfoProviderItf](../../common/monitoring/itf/instanceinfoprovider.hpp) - provides
-instance info: monitoring parameters, monitoring data, instance statuses. Also, it's capable of managing
-instance status events subscription and notifications.
+  instance info: monitoring parameters, monitoring data, instance statuses. Also, it's capable of managing instance
+  status events subscription and notifications and inherits the following interfaces:
+  * [aos::instancestatusprovider::ProviderItf](../../common/instancestatusprovider/itf/instancestatusprovider.hpp) -
+    providers instance statuses;
+  * [aos::monitoring::InstanceParamsProviderItf](../../common/monitoring/itf/instanceparamsprovider.hpp) - provides
+    instance monitoring parameters;
+  * [aos::monitoring::InstanceMonitoringProviderItf](../../common/monitoring/itf/instancemonitoringprovider.hpp) -
+    provides instance monitoring data.
 
 It requires the following interfaces:
 
 * [aos::sm::launcher::RuntimeItf](itf/runtime.hpp) - launch different kind of items on different runtimes, and
-provides instance monitoring data (implements `aos::monitoring::InstanceMonitoringProviderItf` interface);
+  provides instance monitoring data (implements `aos::monitoring::InstanceMonitoringProviderItf` interface);
 * [aos::sm::launcher::StorageItf](itf/storage.hpp) - persistently store current instances;
-* [aos::sm::launcher::InstanceStatusSenderItf](itf/instancestatussender.hpp) - sends node and updated instances
-  statuses;
+* [aos::sm::launcher::SenderItf](itf/sender.hpp) - sends node and updated instances statuses.
 
 ```mermaid
 classDiagram
@@ -47,11 +52,23 @@ classDiagram
         <<interface>>
     }
 
+    class InstanceStatusProviderItf["aos::instancestatusprovider::ProviderItf"] {
+        <<interface>>
+    }
+
+    class InstanceParamsProviderItf["aos::monitoring::InstanceParamsProviderItf"] {
+        <<interface>>
+    }
+
+    class InstanceMonitoringProviderItf["aos::monitoring::InstanceMonitoringProviderItf"] {
+        <<interface>>
+    }
+
     class RuntimeItf ["aos::sm::launcher::RuntimeItf"] {
         <<interface>>
     }
 
-    class InstanceMonitoringProviderItf ["aos::monitoring::InstanceMonitoringProviderItf"] {
+    class SenderItf ["aos::sm::launcher::SenderItf"] {
         <<interface>>
     }
 
@@ -59,21 +76,18 @@ classDiagram
         <<interface>>
     }
 
-    class InstanceStatusSenderItf ["aos::sm::launcher::InstanceStatusSenderItf"] {
-        <<interface>>
-    }
-
     Launcher ..|> LauncherItf
     Launcher ..|> InstanceStatusReceiverItf
     Launcher ..|> RuntimeInfoProviderItf
     Launcher ..|> InstanceInfoProviderItf
+    InstanceInfoProviderItf ..|> InstanceStatusProviderItf
+    InstanceInfoProviderItf ..|> InstanceParamsProviderItf
+    InstanceInfoProviderItf ..|> InstanceMonitoringProviderItf
     RuntimeItf ..|> InstanceMonitoringProviderItf
 
     Launcher "1" --> "*" RuntimeItf
-
-
+    Launcher ..> SenderItf
     Launcher ..> StorageItf
-    Launcher ..> InstanceStatusSenderItf
 ```
 
 ## Initialization

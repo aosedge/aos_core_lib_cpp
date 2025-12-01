@@ -117,7 +117,7 @@ monitoring::InstanceMonitoringData CreateMonitoringData(const InstanceInfo& inst
  * Stubs
  **********************************************************************************************************************/
 
-class StorageItfStub : public StorageItf {
+class StorageStub : public StorageItf {
 public:
     Error Init(const std::vector<InstanceInfo>& data)
     {
@@ -167,22 +167,7 @@ private:
     InstanceInfoArray mData;
 };
 
-/***********************************************************************************************************************
- * Mocks
- **********************************************************************************************************************/
-
-class RuntimeItfMock : public RuntimeItf {
-public:
-    MOCK_METHOD(Error, GetInstanceMonitoringData,
-        (const InstanceIdent& instanceIdent, monitoring::InstanceMonitoringData& monitoringData), (override));
-    MOCK_METHOD(Error, Start, (), (override));
-    MOCK_METHOD(Error, Stop, (), (override));
-    MOCK_METHOD(Error, GetRuntimeInfo, (RuntimeInfo & runtimeInfo), (const, override));
-    MOCK_METHOD(Error, StartInstance, (const InstanceInfo& instance, InstanceStatus& status), (override));
-    MOCK_METHOD(Error, StopInstance, (const InstanceIdent& instance, InstanceStatus& status), (override));
-};
-
-class InstanceStatusSenderItfStub : public InstanceStatusSenderItf {
+class SenderStub : public SenderItf {
 public:
     void SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
     {
@@ -221,7 +206,22 @@ private:
     std::queue<InstanceStatusArray> mStatusesQueue;
 };
 
-class ListenerItfMock : public instancestatusprovider::ListenerItf {
+/***********************************************************************************************************************
+ * Mocks
+ **********************************************************************************************************************/
+
+class RuntimeMock : public RuntimeItf {
+public:
+    MOCK_METHOD(Error, GetInstanceMonitoringData,
+        (const InstanceIdent& instanceIdent, monitoring::InstanceMonitoringData& monitoringData), (override));
+    MOCK_METHOD(Error, Start, (), (override));
+    MOCK_METHOD(Error, Stop, (), (override));
+    MOCK_METHOD(Error, GetRuntimeInfo, (RuntimeInfo & runtimeInfo), (const, override));
+    MOCK_METHOD(Error, StartInstance, (const InstanceInfo& instance, InstanceStatus& status), (override));
+    MOCK_METHOD(Error, StopInstance, (const InstanceIdent& instance, InstanceStatus& status), (override));
+};
+
+class InstanceListenerMock : public instancestatusprovider::ListenerItf {
 public:
     MOCK_METHOD(void, OnInstancesStatusesChanged, (const Array<InstanceStatus>& statuses), (override));
 };
@@ -263,12 +263,12 @@ protected:
 
     Launcher mLauncher;
 
-    RuntimeItfMock              mRuntime0;
-    RuntimeItfMock              mRuntime1;
-    StorageItfStub              mStorage;
-    InstanceStatusSenderItfStub mStatusSender;
-    ListenerItfMock             mStatusListener;
-    InstanceStatusArray         mReceivedStatuses;
+    RuntimeMock          mRuntime0;
+    RuntimeMock          mRuntime1;
+    StorageStub          mStorage;
+    SenderStub           mSender;
+    InstanceListenerMock mStatusListener;
+    InstanceStatusArray  mReceivedStatuses;
 };
 
 /***********************************************************************************************************************
@@ -277,7 +277,7 @@ protected:
 
 TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -303,7 +303,7 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -321,7 +321,7 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
@@ -348,7 +348,7 @@ TEST_F(LauncherTest, UpdateInstances)
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -360,7 +360,7 @@ TEST_F(LauncherTest, UpdateInstances)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
@@ -390,7 +390,7 @@ TEST_F(LauncherTest, UpdateInstances)
     err = mLauncher.UpdateInstances(cStopInstances, cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), cStopInstances.Size() + cStartInstances.Size());
@@ -429,7 +429,7 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
     const Array<InstanceInfo> cStartFirstInstance(&cStartInstanceInfos.front(), 1);
     const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -457,7 +457,7 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 
     launchPromise.set_value();
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
@@ -469,7 +469,7 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 
 TEST_F(LauncherTest, GetInstancesStatusesReturnsEmptyArray)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     auto storedData = std::make_unique<InstanceInfoArray>();
@@ -495,7 +495,7 @@ TEST_F(LauncherTest, GetInstancesStatuses)
     };
     const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance(cStartInstanceInfos[0], _))
@@ -521,7 +521,7 @@ TEST_F(LauncherTest, GetInstancesStatuses)
     err = mLauncher.UpdateInstances({}, cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     auto storedData = std::make_unique<InstanceInfoArray>();
@@ -554,7 +554,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
 
     const Array<InstanceInfo> cStartInstances(&startInstance, 1);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance(startInstance, _))
@@ -575,7 +575,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
     err = mLauncher.UpdateInstances({}, cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     auto storedData = std::make_unique<InstanceInfoArray>();
@@ -607,7 +607,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
     const Array<InstanceInfo> cStartInstances(&cInstanceInfo, 1);
     const auto                cMonitoringData = CreateMonitoringData(cInstanceInfo);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -626,7 +626,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
     err = mLauncher.UpdateInstances({}, cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, GetInstanceMonitoringData(cInstanceInfo, _))
@@ -649,7 +649,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
 
 TEST_F(LauncherTest, GetRuntimesInfos)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -680,7 +680,7 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 
     mStorage.Init({cInstanceInfo});
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mStorage, mStatusSender);
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.SubscribeListener(mStatusListener);
@@ -698,7 +698,7 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
@@ -711,7 +711,7 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 
     mLauncher.OnInstancesStatusesReceived(statuses);
 
-    err = mStatusSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);

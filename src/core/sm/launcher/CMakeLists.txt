@@ -20,9 +20,7 @@ set(SOURCES launcher.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/instancestatusreceiver.hpp itf/instancestatussender.hpp itf/launcher.hpp itf/runtime.hpp
-            itf/storage.hpp
-)
+set(HEADERS itf/instancestatusreceiver.hpp itf/sender.hpp itf/launcher.hpp itf/runtime.hpp itf/storage.hpp)
 
 # ######################################################################################################################
 # Libraries

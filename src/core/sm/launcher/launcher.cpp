@@ -14,7 +14,7 @@ namespace aos::sm::launcher {
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::Init(const Array<RuntimeItf*>& runtimes, StorageItf& storage, InstanceStatusSenderItf& statusSender)
+Error Launcher::Init(const Array<RuntimeItf*>& runtimes, SenderItf& sender, StorageItf& storage)
 {
     LOG_INF() << "Initializing launcher";
 
@@ -24,8 +24,8 @@ Error Launcher::Init(const Array<RuntimeItf*>& runtimes, StorageItf& storage, In
         }
     }
 
-    mStorage      = &storage;
-    mStatusSender = &statusSender;
+    mStorage = &storage;
+    mSender  = &sender;
 
     return ErrorEnum::eNone;
 }
@@ -133,7 +133,7 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
         subscriber->OnInstancesStatusesChanged(statuses);
     }
 
-    mStatusSender->SendUpdateInstancesStatuses(statuses);
+    mSender->SendUpdateInstancesStatuses(statuses);
 
     return ErrorEnum::eNone;
 }
@@ -264,7 +264,7 @@ void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, co
     }
 
     if (!statuses->IsEmpty()) {
-        mStatusSender->SendNodeInstancesStatuses(*statuses);
+        mSender->SendNodeInstancesStatuses(*statuses);
     }
 }
 

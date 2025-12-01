@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_SM_LAUNCHER_ITF_INSTANCESTATUSSENDER_HPP_
-#define AOS_CORE_SM_LAUNCHER_ITF_INSTANCESTATUSSENDER_HPP_
+#ifndef AOS_CORE_SM_LAUNCHER_ITF_SENDER_HPP_
+#define AOS_CORE_SM_LAUNCHER_ITF_SENDER_HPP_
 
 #include <core/common/types/instance.hpp>
 
@@ -18,12 +18,12 @@ namespace aos::sm::launcher {
 /**
  * Instance status sender interface.
  */
-class InstanceStatusSenderItf {
+class SenderItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~InstanceStatusSenderItf() = default;
+    virtual ~SenderItf() = default;
 
     /**
      * Sends node instances statuses.
