@@ -88,6 +88,7 @@ using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
  * Instance status data.
  */
 struct InstanceStatusData {
+    bool                                      mPreinstalled {};
     StaticString<cIDLen>                      mNodeID;
     StaticString<cIDLen>                      mRuntimeID;
     StaticString<oci::cDigestLen>             mManifestDigest;
