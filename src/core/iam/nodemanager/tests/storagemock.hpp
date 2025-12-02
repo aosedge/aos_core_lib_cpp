@@ -14,12 +14,12 @@
 
 namespace aos::iam::nodemanager {
 
-class NodeInfoStorageMock : public NodeInfoStorageItf {
+class StorageMock : public StorageItf {
 public:
-    MOCK_METHOD(Error, SetNodeInfo, (const NodeInfo& info), (override));
-    MOCK_METHOD(Error, GetNodeInfo, (const String& nodeID, NodeInfo& nodeInfo), (const, override));
-    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>> & ids), (const, override));
-    MOCK_METHOD(Error, RemoveNodeInfo, (const String& nodeID), (override));
+    MOCK_METHOD(Error, SetNodeInfo, (const NodeInfo&), (override));
+    MOCK_METHOD(Error, GetNodeInfo, (const String&, NodeInfo&), (const, override));
+    MOCK_METHOD(Error, GetAllNodeIDs, (Array<StaticString<cIDLen>>&), (const, override));
+    MOCK_METHOD(Error, RemoveNodeInfo, (const String&), (override));
 };
 
 } // namespace aos::iam::nodemanager

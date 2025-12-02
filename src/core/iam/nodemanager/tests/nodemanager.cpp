@@ -27,8 +27,8 @@ protected:
         ASSERT_TRUE(mManager.Init(mStorage).IsNone());
     }
 
-    NodeInfoStorageMock mStorage;
-    NodeManager         mManager;
+    StorageMock mStorage;
+    NodeManager mManager;
 };
 
 template <typename T>
