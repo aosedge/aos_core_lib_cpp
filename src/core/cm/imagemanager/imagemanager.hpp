@@ -176,26 +176,25 @@ private:
     Error CleanupDownloadingItems(const Array<UpdateItemInfo>& currentItems, const Array<ItemInfo>& storedItems);
     Error VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
         const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses,
-        Array<StaticString<oci::cDigestLen>>& requestedBlobs);
+        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses);
     Error ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
         const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses,
-        Array<StaticString<oci::cDigestLen>>& requestedBlobs);
-    Error CleanupOrphanedBlobs(const String& dirPath, const Array<StaticString<oci::cDigestLen>>& requestedBlobs);
+        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses);
+    RetWithError<size_t> CleanupOrphanedBlobs();
+    Error RemoveDifferentVersions(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems);
+    Error VerifyBlobsIntegrity(
+        const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses);
+    Error SetItemsToInstalled(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems);
+    Error SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems);
     Error DownloadItem(const UpdateItemInfo& itemInfo, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains,
-        Array<StaticString<oci::cDigestLen>>&      requestedBlobs);
+        const Array<crypto::CertificateChainInfo>& certificateChains);
     Error LoadIndex(const String& digest, const String& downloadPath, const String& installPath,
         const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageIndex& imageIndex,
-        Array<StaticString<oci::cDigestLen>>& requestedBlobs);
+        const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageIndex& imageIndex);
     Error LoadManifest(const String& digest, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageManifest& manifest,
-        Array<StaticString<oci::cDigestLen>>& requestedBlobs);
+        const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageManifest& manifest);
     Error LoadLayers(const Array<oci::ContentDescriptor>& layers, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains,
-        Array<StaticString<oci::cDigestLen>>&      requestedBlobs);
+        const Array<crypto::CertificateChainInfo>& certificateChains);
     Error EnsureBlob(const String& digest, const String& downloadPath, const String& installPath,
         const Array<crypto::CertificateInfo>&      certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains, UniquePtr<spaceallocator::SpaceItf>& space);
@@ -211,6 +210,9 @@ private:
         const Array<crypto::CertificateInfo>&      certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains,
         UniquePtr<spaceallocator::SpaceItf>&       installSpace);
+    Error VerifyItemBlobs(const String& indexDigest);
+    Error VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo);
+    bool  IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items);
     bool  StartAction();
     void  StopAction();
 
@@ -235,8 +237,9 @@ private:
     ConditionalVariable           mCondVar;
     bool                          mCancel {};
     bool                          mInProgress {};
-    StaticAllocator<(sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) + sizeof(oci::ImageIndex)
-        + sizeof(oci::ImageManifest) + sizeof(StaticArray<BlobInfo, 1>))>
+    StaticAllocator<((sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) * 2) + sizeof(oci::ImageIndex)
+        + sizeof(oci::ImageManifest) + sizeof(StaticArray<BlobInfo, 1>)
+        + sizeof(StaticArray<uint8_t, crypto::cSHA256Size>))>
         mAllocator;
 };
 
