@@ -17,16 +17,10 @@ set(HEADERS config.hpp)
 # Install targets
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_iam_identhandler)
+set(INSTALL_HEADERS aos_core_iam_identhandler aos_core_iam_nodeinfoprovider)
 
-set(INSTALL_LIBRARIES
-    aos_core_iam_certhandler
-    aos_core_iam_certmodules_pkcs11
-    aos_core_iam_identmodules_fileidentifier
-    aos_core_iam_nodeinfoprovider
-    aos_core_iam_nodemanager
-    aos_core_iam_permhandler
-    aos_core_iam_provisionmanager
+set(INSTALL_LIBRARIES aos_core_iam_certhandler aos_core_iam_certmodules_pkcs11 aos_core_iam_identmodules_fileidentifier
+                      aos_core_iam_nodemanager aos_core_iam_permhandler aos_core_iam_provisionmanager
 )
 
 if(WITH_TEST)

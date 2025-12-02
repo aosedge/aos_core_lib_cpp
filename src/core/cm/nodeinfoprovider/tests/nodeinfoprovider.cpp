@@ -17,7 +17,6 @@
 #include <core/common/tests/utils/utils.hpp>
 
 #include <core/cm/nodeinfoprovider/nodeinfoprovider.hpp>
-#include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
 
 using namespace testing;
 
@@ -39,7 +38,7 @@ std::unique_ptr<NodeInfo> CreateNodeInfo(
     nodeInfo->mIsConnected = isConnected;
 
     if (hasSMComponent) {
-        nodeInfo->mAttrs.PushBack({iam::nodeinfoprovider::cAttrAosComponents, "sm"});
+        nodeInfo->mAttrs.PushBack({cAttrAosComponents, "sm"});
     }
 
     return nodeInfo;

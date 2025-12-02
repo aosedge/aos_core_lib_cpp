@@ -51,3 +51,39 @@ TEST(CommonTest, Types)
         != (InstanceStatus {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, false, "node0", "runc", "image0",
             {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"}));
 }
+
+TEST(CommonTest, IsMainNodeReturnsFalseOnEmptyAttrs)
+{
+    NodeInfo nodeInfo;
+
+    EXPECT_FALSE(nodeInfo.IsMainNode()) << "Node has no main node attribute";
+}
+
+TEST(CommonTest, IsMainNodeReturnsTrue)
+{
+    NodeInfo nodeInfo;
+
+    nodeInfo.mAttrs.PushBack({"MainNode", ""});
+
+    EXPECT_TRUE(nodeInfo.IsMainNode()) << "Node has main node attribute";
+}
+
+TEST(CommonTest, IsMainNodeReturnsTrueCaseInsensitive)
+{
+    NodeInfo nodeInfo;
+
+    nodeInfo.mAttrs.PushBack({"mainNODE", ""});
+
+    EXPECT_TRUE(nodeInfo.IsMainNode()) << "Node has main node attribute";
+}
+
+TEST(CommonTest, NodeContainsComponent)
+{
+    NodeInfo nodeInfo;
+
+    nodeInfo.mAttrs.PushBack({cAttrAosComponents, "cm,sm"});
+
+    EXPECT_TRUE(nodeInfo.ContainsComponent(CoreComponentEnum::eCM)) << "Node has component CM";
+    EXPECT_TRUE(nodeInfo.ContainsComponent(CoreComponentEnum::eSM)) << "Node has component SM";
+    EXPECT_FALSE(nodeInfo.ContainsComponent(CoreComponentEnum::eIAM)) << "Node has no component IAM";
+}
