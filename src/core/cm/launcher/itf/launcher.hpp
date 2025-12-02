@@ -21,6 +21,7 @@ namespace aos::cm::launcher {
  */
 struct RunInstanceRequest {
     StaticString<cIDLen>      mItemID;
+    UpdateItemType            mUpdateItemType;
     StaticString<cVersionLen> mVersion;
     StaticString<cIDLen>      mOwnerID;
     SubjectInfo               mSubjectInfo;
@@ -36,8 +37,8 @@ struct RunInstanceRequest {
      */
     bool operator==(const RunInstanceRequest& other) const
     {
-        return mItemID == other.mItemID && mOwnerID == other.mOwnerID && mVersion == other.mVersion
-            && mSubjectInfo == other.mSubjectInfo && mPriority == other.mPriority
+        return mItemID == other.mItemID && mUpdateItemType == other.mUpdateItemType && mVersion == other.mVersion
+            && mOwnerID == other.mOwnerID && mSubjectInfo == other.mSubjectInfo && mPriority == other.mPriority
             && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
     }
 
