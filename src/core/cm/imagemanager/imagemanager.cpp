@@ -107,30 +107,25 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         LOG_ERR() << "Failed to cleanup downloading items" << Log::Field(err);
     }
 
-    StaticArray<StaticString<oci::cDigestLen>, cMaxNumBlobs> requestedBlobs;
-
-    if (auto err
-        = VerifyStoredItems(itemsInfo, *storedItems, certificates, certificateChains, statuses, requestedBlobs);
+    if (auto err = VerifyStoredItems(itemsInfo, *storedItems, certificates, certificateChains, statuses);
         !err.IsNone()) {
         LOG_ERR() << "Failed to verify stored items" << Log::Field(err);
 
         return err;
     }
 
-    if (auto err
-        = ProcessDownloadRequest(itemsInfo, *storedItems, certificates, certificateChains, statuses, requestedBlobs);
+    if (auto err = ProcessDownloadRequest(itemsInfo, *storedItems, certificates, certificateChains, statuses);
         !err.IsNone()) {
         LOG_ERR() << "Failed to process download request" << Log::Field(err);
 
         return err;
     }
 
-    if (auto err = CleanupOrphanedBlobs(mBlobsInstallPath, requestedBlobs); !err.IsNone()) {
-        LOG_ERR() << "Failed to cleanup orphaned blobs in install directory" << Log::Field(err);
-    }
-
-    if (auto err = CleanupOrphanedBlobs(mBlobsDownloadPath, requestedBlobs); !err.IsNone()) {
-        LOG_ERR() << "Failed to cleanup orphaned blobs in download directory" << Log::Field(err);
+    auto [cleanupSize, cleanupErr] = CleanupOrphanedBlobs();
+    if (!cleanupErr.IsNone()) {
+        LOG_ERR() << "Failed to cleanup orphaned blobs" << Log::Field(cleanupErr);
+    } else {
+        LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", cleanupSize);
     }
 
     return ErrorEnum::eNone;
@@ -138,8 +133,74 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
 
 Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, Array<UpdateItemStatus>& statuses)
 {
-    (void)itemsInfo;
-    (void)statuses;
+    LOG_DBG() << "Install update items" << Log::Field("count", itemsInfo.Size());
+
+    if (!StartAction()) {
+        return ErrorEnum::eCanceled;
+    }
+
+    auto stopAction = DeferRelease(&mMutex, [this](void*) { StopAction(); });
+
+    if (auto err = statuses.Resize(itemsInfo.Size()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (size_t i = 0; i < itemsInfo.Size(); i++) {
+        statuses[i].mItemID  = itemsInfo[i].mItemID;
+        statuses[i].mVersion = itemsInfo[i].mVersion;
+        statuses[i].mState   = ItemStateEnum::eInstalled;
+        statuses[i].mError   = ErrorEnum::eNone;
+    }
+
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    if (!storedItems) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = RemoveDifferentVersions(itemsInfo, *storedItems); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove different versions" << Log::Field(err);
+    }
+
+    storedItems->Clear();
+
+    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = VerifyBlobsIntegrity(itemsInfo, *storedItems, statuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to verify blobs integrity" << Log::Field(err);
+    }
+
+    storedItems->Clear();
+
+    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = SetItemsToInstalled(itemsInfo, *storedItems); !err.IsNone()) {
+        LOG_ERR() << "Failed to set items to installed" << Log::Field(err);
+    }
+
+    storedItems->Clear();
+
+    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = SetItemsToRemoved(itemsInfo, *storedItems); !err.IsNone()) {
+        LOG_ERR() << "Failed to set items to removed" << Log::Field(err);
+    }
+
+    auto [cleanupSize, cleanupErr] = CleanupOrphanedBlobs();
+    if (!cleanupErr.IsNone()) {
+        LOG_ERR() << "Failed to cleanup orphaned blobs" << Log::Field(cleanupErr);
+    } else {
+        LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", cleanupSize);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -219,13 +280,41 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
     return ErrorEnum::eNone;
 }
 
-RetWithError<size_t> ImageManager::RemoveItem(const String& digest)
+RetWithError<size_t> ImageManager::RemoveItem(const String& id)
 {
-    LOG_DBG() << "Remove item" << Log::Field("digest", digest);
+    LockGuard lock {mMutex};
 
-    (void)digest;
+    LOG_DBG() << "Remove item" << Log::Field("id", id);
 
-    return {0, ErrorEnum::eNone};
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    if (!storedItems) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    auto itemIt = storedItems->FindIf([&id](const auto& item) { return item.mItemID == id; });
+
+    if (itemIt == storedItems->end()) {
+        return {0, ErrorEnum::eNotFound};
+    }
+
+    const auto& itemToRemove = *itemIt;
+
+    if (auto err = mStorage->RemoveItem(itemToRemove.mItemID, itemToRemove.mVersion); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    auto [totalSize, cleanupErr] = CleanupOrphanedBlobs();
+    if (!cleanupErr.IsNone()) {
+        return {0, AOS_ERROR_WRAP(cleanupErr)};
+    }
+
+    LOG_DBG() << "Item removed successfully" << Log::Field("id", id) << Log::Field("totalSize", totalSize);
+
+    return {totalSize, ErrorEnum::eNone};
 }
 
 /***********************************************************************************************************************
@@ -312,6 +401,7 @@ Error ImageManager::CleanupDownloadingItems(
 
             if (!storedItem.mIndexDigest.IsEmpty()) {
                 auto filePath = fs::JoinPath(mBlobsInstallPath, storedItem.mIndexDigest);
+
                 LOG_DBG() << "Remove blob" << Log::Field("path", filePath);
 
                 if (auto err = fs::RemoveAll(filePath); !err.IsNone()) {
@@ -326,7 +416,7 @@ Error ImageManager::CleanupDownloadingItems(
 
 Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
-    Array<UpdateItemStatus>& statuses, Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+    Array<UpdateItemStatus>& statuses)
 {
     LOG_DBG() << "Verify stored items";
 
@@ -344,7 +434,7 @@ Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, co
             LOG_DBG() << "Verify stored item" << Log::Field("id", storedItem.mItemID)
                       << Log::Field("state", ItemState(storedItem.mState));
 
-            if (auto err = DownloadItem(itemInfo, certificates, certificateChains, requestedBlobs); !err.IsNone()) {
+            if (auto err = DownloadItem(itemInfo, certificates, certificateChains); !err.IsNone()) {
                 LOG_ERR() << "Failed to verify/download item" << Log::Field("id", storedItem.mItemID)
                           << Log::Field(err);
 
@@ -378,7 +468,7 @@ Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, co
 
 Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
-    Array<UpdateItemStatus>& statuses, Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+    Array<UpdateItemStatus>& statuses)
 {
     LOG_DBG() << "Process download request";
 
@@ -424,7 +514,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             }
         }
 
-        auto downloadErr = DownloadItem(itemInfo, certificates, certificateChains, requestedBlobs);
+        auto downloadErr = DownloadItem(itemInfo, certificates, certificateChains);
 
         if (!downloadErr.IsNone()) {
             LOG_ERR() << "Failed to download item" << Log::Field("id", itemInfo.mItemID)
@@ -449,7 +539,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
 }
 
 Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<crypto::CertificateInfo>& certificates,
-    const Array<crypto::CertificateChainInfo>& certificateChains, Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+    const Array<crypto::CertificateChainInfo>& certificateChains)
 {
     LOG_DBG() << "Download item" << Log::Field("itemID", itemInfo.mItemID) << Log::Field("version", itemInfo.mVersion)
               << Log::Field("digest", itemInfo.mIndexDigest);
@@ -462,8 +552,8 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = LoadIndex(itemInfo.mIndexDigest, downloadPath, installPath, certificates, certificateChains,
-            *imageIndex, requestedBlobs);
+    if (auto err
+        = LoadIndex(itemInfo.mIndexDigest, downloadPath, installPath, certificates, certificateChains, *imageIndex);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -476,13 +566,12 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
 
-        if (auto err
-            = LoadManifest(manifestDescriptor.mDigest, certificates, certificateChains, *manifest, requestedBlobs);
+        if (auto err = LoadManifest(manifestDescriptor.mDigest, certificates, certificateChains, *manifest);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        if (auto err = LoadLayers(manifest->mLayers, certificates, certificateChains, requestedBlobs); !err.IsNone()) {
+        if (auto err = LoadLayers(manifest->mLayers, certificates, certificateChains); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -495,15 +584,9 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
 
 Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, const String& installPath,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
-    oci::ImageIndex& imageIndex, Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+    oci::ImageIndex& imageIndex)
 {
     LOG_DBG() << "Load index" << Log::Field("digest", digest);
-
-    if (requestedBlobs.FindIf([&digest](const auto& d) { return d == digest; }) == requestedBlobs.end()) {
-        if (auto err = requestedBlobs.PushBack(digest); !err.IsNone()) {
-            LOG_WRN() << "Failed to track requested blob" << Log::Field("digest", digest) << Log::Field(err);
-        }
-    }
 
     Error                               err;
     UniquePtr<spaceallocator::SpaceItf> space;
@@ -539,16 +622,9 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
 }
 
 Error ImageManager::LoadManifest(const String& digest, const Array<crypto::CertificateInfo>& certificates,
-    const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageManifest& manifest,
-    Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+    const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageManifest& manifest)
 {
     LOG_DBG() << "Load manifest" << Log::Field("digest", digest);
-
-    if (requestedBlobs.FindIf([&digest](const auto& d) { return d == digest; }) == requestedBlobs.end()) {
-        if (auto err = requestedBlobs.PushBack(digest); !err.IsNone()) {
-            LOG_WRN() << "Failed to track requested blob" << Log::Field("digest", digest) << Log::Field(err);
-        }
-    }
 
     Error                               err;
     UniquePtr<spaceallocator::SpaceItf> space;
@@ -587,8 +663,7 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
 }
 
 Error ImageManager::LoadLayers(const Array<oci::ContentDescriptor>& layers,
-    const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
-    Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+    const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains)
 {
     LOG_DBG() << "Load layers" << Log::Field("count", layers.Size());
 
@@ -596,13 +671,6 @@ Error ImageManager::LoadLayers(const Array<oci::ContentDescriptor>& layers,
 
     for (const auto& layer : layers) {
         LOG_DBG() << "Load layer" << Log::Field("digest", layer.mDigest);
-
-        if (requestedBlobs.FindIf([&layer](const auto& d) { return d == layer.mDigest; }) == requestedBlobs.end()) {
-            if (auto trackErr = requestedBlobs.PushBack(layer.mDigest); !trackErr.IsNone()) {
-                LOG_WRN() << "Failed to track requested blob" << Log::Field("digest", layer.mDigest)
-                          << Log::Field(trackErr);
-            }
-        }
 
         UniquePtr<spaceallocator::SpaceItf> space;
         auto                                downloadPath = fs::JoinPath(mBlobsDownloadPath, layer.mDigest);
@@ -791,7 +859,12 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
             if (err = WaitForStop(); !err.IsNone()) {
                 auto [newPartialSize, retrySizeErr] = fs::CalculateSize(downloadPath);
                 if (!retrySizeErr.IsNone()) {
-                    return AOS_ERROR_WRAP(retrySizeErr);
+                    LOG_WRN() << "Failed to get partial download size" << Log::Field("path", downloadPath)
+                              << Log::Field(retrySizeErr);
+
+                    downloadingSpace->Release();
+
+                    return err;
                 }
 
                 downloadingSpace->Release();
@@ -926,25 +999,287 @@ void ImageManager::StopAction()
     mCondVar.NotifyAll();
 }
 
-Error ImageManager::CleanupOrphanedBlobs(
-    const String& dirPath, const Array<StaticString<oci::cDigestLen>>& requestedBlobs)
+Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo)
 {
-    LOG_DBG() << "Cleanup orphaned blobs" << Log::Field("path", dirPath);
+    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
+    if (!expectedSHA256) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
-    auto dirIterator = fs::DirIterator(dirPath);
+    if (auto err = digest.HexToByteArray(*expectedSHA256); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (fileInfo.mSHA256 != *expectedSHA256) {
+        return ErrorEnum::eInvalidChecksum;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::VerifyItemBlobs(const String& indexDigest)
+{
+    LOG_DBG() << "Verify item blobs" << Log::Field("indexDigest", indexDigest);
+
+    auto indexPath = fs::JoinPath(mBlobsInstallPath, indexDigest);
+
+    fs::FileInfo indexFileInfo;
+    if (auto err = mFileInfoProvider->GetFileInfo(indexPath, indexFileInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = VerifyBlobChecksum(indexDigest, indexFileInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    if (!imageIndex) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageIndex(indexPath, *imageIndex); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& manifestDescriptor : imageIndex->mManifests) {
+        auto manifestPath = fs::JoinPath(mBlobsInstallPath, manifestDescriptor.mDigest);
+
+        fs::FileInfo manifestFileInfo;
+        if (auto err = mFileInfoProvider->GetFileInfo(manifestPath, manifestFileInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = VerifyBlobChecksum(manifestDescriptor.mDigest, manifestFileInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+        if (!manifest) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = mOCISpec->LoadImageManifest(manifestPath, *manifest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (const auto& layer : manifest->mLayers) {
+            auto layerPath = fs::JoinPath(mBlobsInstallPath, layer.mDigest);
+
+            fs::FileInfo layerFileInfo;
+
+            if (auto err = mFileInfoProvider->GetFileInfo(layerPath, layerFileInfo); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (auto err = VerifyBlobChecksum(layer.mDigest, layerFileInfo); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    LOG_DBG() << "Item blobs verified successfully";
+
+    return ErrorEnum::eNone;
+}
+
+bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items)
+{
+    for (const auto& item : items) {
+        if (item.mIndexDigest == blobDigest) {
+            return true;
+        }
+
+        auto indexPath  = fs::JoinPath(mBlobsInstallPath, item.mIndexDigest);
+        auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+        if (!imageIndex) {
+            continue;
+        }
+
+        if (auto err = mOCISpec->LoadImageIndex(indexPath, *imageIndex); !err.IsNone()) {
+            continue;
+        }
+
+        for (const auto& manifestDescriptor : imageIndex->mManifests) {
+            if (manifestDescriptor.mDigest == blobDigest) {
+                return true;
+            }
+
+            auto manifestPath = fs::JoinPath(mBlobsInstallPath, manifestDescriptor.mDigest);
+            auto manifest     = MakeUnique<oci::ImageManifest>(&mAllocator);
+            if (!manifest) {
+                continue;
+            }
+
+            if (auto err = mOCISpec->LoadImageManifest(manifestPath, *manifest); !err.IsNone()) {
+                continue;
+            }
+
+            for (const auto& layer : manifest->mLayers) {
+                if (layer.mDigest == blobDigest) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
+{
+    LOG_DBG() << "Cleanup orphaned blobs";
+
+    size_t totalSize = 0;
+
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    if (!storedItems) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    auto dirIterator = fs::DirIterator(mBlobsInstallPath);
 
     while (dirIterator.Next()) {
-        auto fileName = dirIterator->mPath;
+        auto blobDigest = dirIterator->mPath;
 
-        auto isRequested = requestedBlobs.FindIf([&fileName](const auto& digest) { return digest == fileName; })
-            != requestedBlobs.end();
+        if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
+            auto filePath = fs::JoinPath(mBlobsInstallPath, blobDigest);
 
-        if (!isRequested) {
-            auto filePath = fs::JoinPath(dirPath, fileName);
-            LOG_DBG() << "Remove orphaned blob" << Log::Field("path", filePath);
+            auto [blobSize, sizeErr] = fs::CalculateSize(filePath);
+            if (!sizeErr.IsNone()) {
+                LOG_WRN() << "Failed to get blob size" << Log::Field("path", filePath) << Log::Field(sizeErr);
+            } else {
+                totalSize += blobSize;
+            }
+
+            LOG_DBG() << "Remove orphaned blob" << Log::Field("path", filePath) << Log::Field("size", blobSize);
 
             if (auto removeErr = fs::RemoveAll(filePath); !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove orphaned blob" << Log::Field(removeErr);
+            }
+        }
+    }
+
+    LOG_DBG() << "Cleanup orphaned blobs completed" << Log::Field("totalSize", totalSize);
+
+    return {totalSize, ErrorEnum::eNone};
+}
+
+Error ImageManager::RemoveDifferentVersions(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems)
+{
+    LOG_DBG() << "Remove different versions";
+
+    for (const auto& storedItem : storedItems) {
+        auto requestedIt
+            = itemsInfo.FindIf([&storedItem](const auto& item) { return item.mItemID == storedItem.mItemID; });
+
+        if (requestedIt != itemsInfo.end()) {
+            if (requestedIt->mVersion != storedItem.mVersion) {
+                LOG_DBG() << "Wiping different version" << Log::Field("itemID", storedItem.mItemID)
+                          << Log::Field("storedVersion", storedItem.mVersion)
+                          << Log::Field("requestedVersion", requestedIt->mVersion);
+
+                if (auto err = mStorage->RemoveItem(storedItem.mItemID, storedItem.mVersion); !err.IsNone()) {
+                    LOG_ERR() << "Failed to remove item from storage" << Log::Field("itemID", storedItem.mItemID)
+                              << Log::Field("version", storedItem.mVersion) << Log::Field(err);
+                }
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::VerifyBlobsIntegrity(
+    const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses)
+{
+    LOG_DBG() << "Verify blobs integrity";
+
+    for (size_t i = 0; i < itemsInfo.Size(); i++) {
+        const auto& itemInfo = itemsInfo[i];
+
+        auto storedIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+            return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion;
+        });
+
+        if (storedIt == storedItems.end()) {
+            LOG_WRN() << "Item not found in storage" << Log::Field("itemID", itemInfo.mItemID)
+                      << Log::Field("version", itemInfo.mVersion);
+
+            statuses[i].mState = ItemStateEnum::eFailed;
+            statuses[i].mError = ErrorEnum::eNotFound;
+
+            continue;
+        }
+
+        if (auto err = VerifyItemBlobs(storedIt->mIndexDigest); !err.IsNone()) {
+            LOG_ERR() << "Item blobs verification failed" << Log::Field("itemID", itemInfo.mItemID)
+                      << Log::Field("version", itemInfo.mVersion) << Log::Field(err);
+
+            statuses[i].mState = ItemStateEnum::eFailed;
+            statuses[i].mError = err;
+
+            if (auto removeErr = mStorage->RemoveItem(storedIt->mItemID, storedIt->mVersion); !removeErr.IsNone()) {
+                LOG_ERR() << "Failed to remove invalid item" << Log::Field(removeErr);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::SetItemsToInstalled(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems)
+{
+    LOG_DBG() << "Set items to installed";
+
+    for (const auto& itemInfo : itemsInfo) {
+        auto storedIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+            return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion;
+        });
+
+        if (storedIt != storedItems.end()) {
+            if (storedIt->mState != ItemStateEnum::eInstalled) {
+                if (auto err
+                    = mStorage->UpdateItemState(storedIt->mItemID, storedIt->mVersion, ItemStateEnum::eInstalled);
+                    !err.IsNone()) {
+                    LOG_ERR() << "Failed to update item state to installed" << Log::Field("itemID", storedIt->mItemID)
+                              << Log::Field("version", storedIt->mVersion) << Log::Field(err);
+                }
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems)
+{
+    LOG_DBG() << "Set items to removed";
+
+    for (const auto& storedItem : storedItems) {
+        auto requestedIt = itemsInfo.FindIf([&storedItem](const auto& item) {
+            return item.mItemID == storedItem.mItemID && item.mVersion == storedItem.mVersion;
+        });
+
+        if (requestedIt == itemsInfo.end() && storedItem.mState != ItemStateEnum::eRemoved) {
+            LOG_DBG() << "Setting item to removed state" << Log::Field("itemID", storedItem.mItemID)
+                      << Log::Field("version", storedItem.mVersion)
+                      << Log::Field("currentState", ItemState(storedItem.mState));
+
+            if (auto err = mStorage->UpdateItemState(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved);
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to update item state to removed" << Log::Field("itemID", storedItem.mItemID)
+                          << Log::Field("version", storedItem.mVersion) << Log::Field(err);
+            }
+
+            auto now = Time::Now();
+
+            if (auto err = mInstallSpaceAllocator->AddOutdatedItem(storedItem.mItemID, now); !err.IsNone()) {
+                LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", storedItem.mItemID)
+                          << Log::Field(err);
             }
         }
     }
