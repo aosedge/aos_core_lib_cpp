@@ -19,8 +19,13 @@ namespace aos::iam::nodemanager {
 /**
  * Node info storage interface.
  */
-class NodeInfoStorageItf {
+class StorageItf {
 public:
+    /**
+     * Destroys object instance.
+     */
+    virtual ~StorageItf() = default;
+
     /**
      * Updates whole information for a node.
      *
@@ -53,11 +58,6 @@ public:
      * @return Error.
      */
     virtual Error RemoveNodeInfo(const String& nodeID) = 0;
-
-    /**
-     * Destroys object instance.
-     */
-    virtual ~NodeInfoStorageItf() = default;
 };
 
 /** @}*/

@@ -15,7 +15,7 @@ namespace aos::iam::nodemanager {
  * Public
  **********************************************************************************************************************/
 
-Error NodeManager::Init(NodeInfoStorageItf& storage)
+Error NodeManager::Init(StorageItf& storage)
 {
     LockGuard lock {mMutex};
 

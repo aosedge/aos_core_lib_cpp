@@ -32,7 +32,7 @@ public:
      * @param storage node info storage.
      * @return Error.
      */
-    Error Init(NodeInfoStorageItf& storage);
+    Error Init(StorageItf& storage);
 
     /**
      * Updates whole information for a node.
@@ -96,7 +96,7 @@ private:
     RetWithError<NodeInfo*> AddNodeInfoToCache();
     void                    NotifyNodeInfoChange(const NodeInfo& nodeInfo);
 
-    NodeInfoStorageItf*                mStorage {};
+    StorageItf*                        mStorage {};
     NodeInfoListenerItf*               mNodeInfoListener {};
     StaticArray<NodeInfo, cNodeMaxNum> mNodeInfoCache;
     mutable Mutex                      mMutex;
