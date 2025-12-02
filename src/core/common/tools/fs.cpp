@@ -541,6 +541,16 @@ RetWithError<size_t> CalculateSize(const String& path)
 {
     LockGuard lock {sCalculateSizeMutex};
 
+    struct stat st;
+
+    if (auto ret = stat(path.CStr(), &st); ret != 0) {
+        return {0, AOS_ERROR_WRAP(Error(errno))};
+    }
+
+    if (S_ISREG(st.st_mode)) {
+        return {static_cast<size_t>(st.st_size)};
+    }
+
     size_t size         = 0;
     auto   dirIterators = MakeUnique<DirIteratorArray>(&sCalculateSizeAllocator);
 
@@ -565,7 +575,6 @@ RetWithError<size_t> CalculateSize(const String& path)
                 break;
             }
 
-            struct stat st;
             if (auto ret = stat(fullPath.CStr(), &st); ret != 0) {
                 return {0, AOS_ERROR_WRAP(Error(ret))};
             }
