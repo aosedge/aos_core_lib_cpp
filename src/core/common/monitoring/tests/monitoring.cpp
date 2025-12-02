@@ -755,7 +755,8 @@ TEST_F(MonitoringTest, InstanceMonitoringAlerts)
     mNodeConfigProvider.SetNodeConfig(mNodeConfig);
 
     const std::vector cMonitoringData = {
-        TestMonitoringData().SysData({}).InstanceData(InstanceIdent {"item1", "subject1", 1},
+        TestMonitoringData().SysData({}).InstanceData(
+            InstanceIdent {"item1", "subject1", 1, UpdateItemTypeEnum::eService},
             InstanceTestData()
                 .CPU(cMaxDMIPS * mInstanceAlertRules.mCPU->mMaxThreshold / 100 + 1)
                 .RAM(cTotalRAM * mInstanceAlertRules.mRAM->mMaxThreshold / 100 + 1)
@@ -765,7 +766,8 @@ TEST_F(MonitoringTest, InstanceMonitoringAlerts)
                 .Partition(cStoragePartition, cStorageTotalSize * cInstanceStorageRule.mMaxThreshold / 100 + 1)
                 .SetTime(Time::Now())),
 
-        TestMonitoringData().SysData({}).InstanceData(InstanceIdent {"item1", "subject1", 1},
+        TestMonitoringData().SysData({}).InstanceData(
+            InstanceIdent {"item1", "subject1", 1, UpdateItemTypeEnum::eService},
             InstanceTestData()
                 .CPU(cMaxDMIPS * mInstanceAlertRules.mCPU->mMaxThreshold / 100 + 1)
                 .RAM(cTotalRAM * mInstanceAlertRules.mRAM->mMaxThreshold / 100 + 1)
@@ -852,7 +854,7 @@ TEST_F(MonitoringTest, SystemMonitoringAccumulatesInstancesMonitoring)
     const std::vector cMonitoringData = {
         TestMonitoringData()
             .SysData({})
-            .InstanceData(InstanceIdent {"item1", "subject1", 1},
+            .InstanceData(InstanceIdent {"item1", "subject1", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData()
                     .CPU(1000)
                     .RAM(2048)
@@ -861,7 +863,7 @@ TEST_F(MonitoringTest, SystemMonitoringAccumulatesInstancesMonitoring)
                     .Partition(cStatesPartition, 101)
                     .Partition(cStoragePartition, 102)
                     .SetTime(Time::Now()))
-            .InstanceData(InstanceIdent {"item2", "subject2", 2},
+            .InstanceData(InstanceIdent {"item2", "subject2", 2, UpdateItemTypeEnum::eService},
                 InstanceTestData()
                     .CPU(1500)
                     .RAM(1024)
@@ -955,34 +957,34 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
     const std::vector cMonitoringData = {
         TestMonitoringData()
             .SysData(SystemTestData().CPU(0).RAM(600).Download(300).Upload(300).Partition(cStatesPartition, 100))
-            .InstanceData(InstanceIdent {"", "", 1},
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData().CPU(600).RAM(0).Download(300).Upload(300).Partition(cStatesPartition, 300)),
 
         TestMonitoringData()
             .SysData(SystemTestData().CPU(900).RAM(300).Download(0).Upload(300).Partition(cStatesPartition, 400))
-            .InstanceData(InstanceIdent {"", "", 1},
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData().CPU(300).RAM(900).Download(300).Upload(0).Partition(cStatesPartition, 0)),
 
         TestMonitoringData()
             .SysData(SystemTestData().CPU(1200).RAM(200).Download(200).Upload(0).Partition(cStatesPartition, 500))
-            .InstanceData(InstanceIdent {"", "", 1},
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData().CPU(200).RAM(1200).Download(0).Upload(200).Partition(cStatesPartition, 800)),
     };
 
     const std::vector cExpectedAverage = {
         TestMonitoringData()
             .SysData(SystemTestData().CPU(0).RAM(600).Download(300).Upload(300).Partition(cStatesPartition, 100))
-            .InstanceData(InstanceIdent {"", "", 1},
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData().CPU(600).RAM(0).Download(300).Upload(300).Partition(cStatesPartition, 300)),
 
         TestMonitoringData()
             .SysData(SystemTestData().CPU(300).RAM(500).Download(200).Upload(300).Partition(cStatesPartition, 200))
-            .InstanceData(InstanceIdent {"", "", 1},
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData().CPU(500).RAM(300).Download(300).Upload(200).Partition(cStatesPartition, 200)),
 
         TestMonitoringData()
             .SysData(SystemTestData().CPU(600).RAM(400).Download(200).Upload(200).Partition(cStatesPartition, 300))
-            .InstanceData(InstanceIdent {"", "", 1},
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
                 InstanceTestData().CPU(400).RAM(600).Download(200).Upload(200).Partition(cStatesPartition, 400)),
     };
 

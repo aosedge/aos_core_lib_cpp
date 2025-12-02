@@ -141,7 +141,8 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
     nodeMonitoring->mMonitoringData.mRAM = 1024 * 4;
 
     nodeMonitoring->mInstances.EmplaceBack();
-    nodeMonitoring->mInstances[0].mInstanceIdent       = InstanceIdent {"service1", "subject1", 1};
+    nodeMonitoring->mInstances[0].mInstanceIdent
+        = InstanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
     nodeMonitoring->mInstances[0].mMonitoringData.mCPU = 20.0;
 
     nodeMonitoring->mInstances[0].mMonitoringData.mPartitions.EmplaceBack();
@@ -165,7 +166,7 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
 
     EXPECT_EQ(monitoring->mInstances.Size(), 1);
 
-    const InstanceIdent instanceIdent {"service1", "subject1", 1};
+    const InstanceIdent instanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
     EXPECT_EQ(static_cast<const InstanceIdent&>(monitoring->mInstances[0]), instanceIdent);
     EXPECT_EQ(monitoring->mInstances[0].mItems.Size(), 1);
 
@@ -224,7 +225,7 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
 
 TEST_F(CMMonitoring, OnInstancesStatusesChanged)
 {
-    const InstanceIdent ident0 {"itemID", "subjectID", 0};
+    const InstanceIdent ident0 {"itemID", "subjectID", 0, UpdateItemTypeEnum::eService};
 
     auto err = mMonitoring.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
