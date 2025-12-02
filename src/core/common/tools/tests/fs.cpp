@@ -462,7 +462,13 @@ TEST_F(FSTest, CalculateSize)
 
     EXPECT_EQ(fs::CalculateSize(walkDirRoot.c_str()), RetWithError<size_t>(3 * 1024 + 2048));
 
-    EXPECT_EQ(fs::CalculateSize("does-not-exists"), RetWithError<size_t>(0));
+    const auto singleFile = walkDirRoot / "single.txt";
+    CreateFile(singleFile.c_str(), std::string(512, 'b').c_str(), 0444);
+    EXPECT_EQ(fs::CalculateSize(singleFile.c_str()), RetWithError<size_t>(512));
+
+    auto [size, err] = fs::CalculateSize("does-not-exists");
+    EXPECT_FALSE(err.IsNone());
+    EXPECT_EQ(size, 0);
 }
 
 TEST_F(FSTest, CalculateNoMemory)
