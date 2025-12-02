@@ -6,8 +6,6 @@
 
 #include <core/common/tools/logger.hpp>
 
-#include <core/iam/nodeinfoprovider/nodeinfoprovider.hpp>
-
 #include "nodeinfocache.hpp"
 
 namespace aos::cm::nodeinfoprovider {
@@ -18,14 +16,14 @@ namespace aos::cm::nodeinfoprovider {
 
 NodeInfoCache::NodeInfoCache(const Duration waitTimeout, const NodeInfo& info)
     : mWaitTimeout(waitTimeout)
-    , mHasSMComponent(iam::nodeinfoprovider::ContainsComponent(info, CoreComponentEnum::eSM))
+    , mHasSMComponent(info.ContainsComponent(CoreComponentEnum::eSM))
 {
     static_cast<NodeInfo&>(mNodeInfo) = info;
 }
 
 void NodeInfoCache::SetNodeInfo(const NodeInfo& info)
 {
-    mHasSMComponent                   = iam::nodeinfoprovider::ContainsComponent(info, CoreComponentEnum::eSM);
+    mHasSMComponent                   = info.ContainsComponent(CoreComponentEnum::eSM);
     static_cast<NodeInfo&>(mNodeInfo) = info;
 }
 

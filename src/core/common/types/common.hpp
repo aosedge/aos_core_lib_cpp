@@ -255,6 +255,16 @@ constexpr auto cCertTypeLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
 constexpr auto cBearerTokenLen = AOS_CONFIG_TYPES_BEARER_TOKEN_LEN;
 
 /**
+ * Main node attribute.
+ */
+static constexpr auto cAttrMainNode = "MainNode";
+
+/**
+ * Aos components attribute.
+ */
+static constexpr auto cAttrAosComponents = "AosComponents";
+
+/**
  * System info.
  */
 struct SystemInfo {
@@ -1056,6 +1066,48 @@ struct NodeInfo {
      * @return bool.
      */
     bool operator!=(const NodeInfo& rhs) const { return !operator==(rhs); }
+
+    /**
+     * Checks whether node is main node.
+     *
+     * @return bool.
+     */
+    bool IsMainNode() const
+    {
+        return mAttrs.FindIf([](const auto& attr) {
+            return !attr.mName.Compare(cAttrMainNode, String::CaseSensitivity::CaseInsensitive);
+        }) != mAttrs.end();
+    }
+
+    /**
+     * Checks whether node contains given component.
+     *
+     * @param component component to check.
+     * @return bool.
+     */
+    bool ContainsComponent(const CoreComponent& component) const
+    {
+        constexpr auto cNodeComponentStrLen  = 8;
+        constexpr auto cMaxNumNodeComponents = static_cast<size_t>(CoreComponentEnum::eNumComponents);
+
+        auto it = mAttrs.FindIf([](const NodeAttribute& attr) {
+            return !attr.mName.Compare(cAttrAosComponents, String::CaseSensitivity::CaseInsensitive);
+        });
+
+        if (it == mAttrs.end()) {
+            return false;
+        }
+
+        StaticArray<StaticString<cNodeComponentStrLen>, cMaxNumNodeComponents> components;
+
+        if (auto err = it->mValue.Split(components, ','); !err.IsNone()) {
+            return false;
+        }
+
+        return components.FindIf([&component](const String& compStr) {
+            return !compStr.Compare(component.ToString(), String::CaseSensitivity::CaseInsensitive);
+        }) != components.end();
+    }
 };
 
 /*
