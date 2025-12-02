@@ -31,7 +31,7 @@ namespace {
 const auto                 cTestDir    = std::filesystem::path("storage_state");
 const auto                 cStorageDir = cTestDir / "storage";
 const auto                 cStateDir   = cTestDir / "state";
-static const InstanceIdent cInstanceIdent {{"itemID"}, {"subjectID"}, 1};
+static const InstanceIdent cInstanceIdent {{"itemID"}, {"subjectID"}, 1, UpdateItemTypeEnum::eService};
 
 /***********************************************************************************************************************
  * Stubs
@@ -507,7 +507,8 @@ TEST_F(StorageStateTests, GetInstanceCheckSum)
     err = mStorageState.GetInstanceCheckSum(cInstanceIdent, storedChecksumBytes);
     EXPECT_TRUE(err.IsNone()) << "Failed to get instance checksum: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.GetInstanceCheckSum(InstanceIdent {{}, {}, 111}, storedChecksumBytes);
+    err = mStorageState.GetInstanceCheckSum(
+        InstanceIdent {{}, {}, 111, UpdateItemTypeEnum::eService}, storedChecksumBytes);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << "Expected not found error, got: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));

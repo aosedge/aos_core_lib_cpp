@@ -594,7 +594,8 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
 
     params = std::make_unique<Optional<InstanceMonitoringParams>>();
 
-    err = mLauncher.GetInstanceMonitoringParams(InstanceIdent {"unknown", "", 999}, *params);
+    err = mLauncher.GetInstanceMonitoringParams(
+        InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *params);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Stop();
@@ -640,7 +641,8 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
 
     EXPECT_EQ(cMonitoringData, *instanceMonitoringData);
 
-    err = mLauncher.GetInstanceMonitoringData(InstanceIdent {"unknown", "", 999}, *instanceMonitoringData);
+    err = mLauncher.GetInstanceMonitoringData(
+        InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *instanceMonitoringData);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Stop();

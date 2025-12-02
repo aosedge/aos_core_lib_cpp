@@ -292,23 +292,15 @@ using CoreComponent     = EnumStringer<CoreComponentType>;
 class UpdateItemTypeType {
 public:
     enum class Enum {
-        eComponent,
         eService,
-        eLayer,
-        eNode,
-        eRuntime,
-        eSubject,
-        eOEM,
+        eComponent,
     };
 
     static const Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
-            "component",
             "service",
-            "layer",
-            "subject",
-            "OEM",
+            "component",
         };
 
         return Array<const char* const>(sStrings, ArraySize(sStrings));
@@ -487,6 +479,7 @@ struct InstanceIdent {
     StaticString<cIDLen> mItemID;
     StaticString<cIDLen> mSubjectID;
     uint64_t             mInstance {};
+    UpdateItemType       mType;
 
     /**
      * Compares instance ident.
@@ -504,7 +497,11 @@ struct InstanceIdent {
             return mSubjectID < rhs.mSubjectID;
         }
 
-        return mInstance < rhs.mInstance;
+        if (mInstance != rhs.mInstance) {
+            return mInstance < rhs.mInstance;
+        }
+
+        return mType.GetValue() < rhs.mType.GetValue();
     }
 
     /**
@@ -515,7 +512,8 @@ struct InstanceIdent {
      */
     bool operator==(const InstanceIdent& rhs) const
     {
-        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mInstance == rhs.mInstance;
+        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mInstance == rhs.mInstance
+            && mType == rhs.mType;
     }
 
     /**

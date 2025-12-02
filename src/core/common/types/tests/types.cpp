@@ -27,24 +27,27 @@ using namespace aos;
 TEST(CommonTest, Types)
 {
     // InstanceIdent comparision
-    EXPECT_TRUE((InstanceIdent {"service1", "subject1", 2}) == (InstanceIdent {"service1", "subject1", 2}));
-    EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2}) != (InstanceIdent {"service1", "subject1", 2}));
+    EXPECT_TRUE((InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService})
+        == (InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService}));
+    EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService})
+        != (InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService}));
 
     //  comparision
-    EXPECT_TRUE(
-        (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}})
-        == (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}}));
-    EXPECT_FALSE(
-        (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}})
-        != (InstanceInfo {{"service1", "subject1", 2}, "image1", "runc", {}, 2, 3, 4, "state", "storage", {}, {}, {}}));
-
+    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3, 4,
+                    "state", "storage", {}, {}, {}})
+        == (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3, 4,
+            "state", "storage", {}, {}, {}}));
+    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3,
+                     4, "state", "storage", {}, {}, {}})
+        != (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3, 4,
+            "state", "storage", {}, {}, {}}));
     // InstanceStatus comparision
-    EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {},
-                    InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
-        == (InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {}, InstanceStateEnum::eActive,
-            ErrorEnum::eNone, "3.0.0"}));
-    EXPECT_FALSE((InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {},
-                     InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
-        != (InstanceStatus {{"service1", "subject1", 2}, "node0", "runc", "image0", {}, {}, InstanceStateEnum::eActive,
-            ErrorEnum::eNone, "3.0.0"}));
+    EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "node0", "runc", "image0",
+                    {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
+        == (InstanceStatus {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "node0", "runc", "image0", {},
+            {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"}));
+    EXPECT_FALSE((InstanceStatus {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "node0", "runc", "image0",
+                     {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
+        != (InstanceStatus {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "node0", "runc", "image0", {},
+            {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"}));
 }
