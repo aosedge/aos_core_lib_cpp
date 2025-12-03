@@ -267,6 +267,7 @@ public:
         eCM,
         eSM,
         eIAM,
+        eMP,
         eNumComponents,
     };
 
@@ -276,6 +277,7 @@ public:
             "CM",
             "SM",
             "IAM",
+            "MP",
             "unknown",
         };
 
