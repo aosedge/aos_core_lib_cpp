@@ -8,6 +8,7 @@
 #define AOS_CORE_SM_LAUNCHER_ITF_LAUNCHER_HPP_
 
 #include <core/common/types/common.hpp>
+#include <core/common/types/instance.hpp>
 
 namespace aos::sm::launcher {
 
