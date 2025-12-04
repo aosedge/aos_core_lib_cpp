@@ -50,7 +50,7 @@ public:
      * @param rebalancing flag indicating rebalancing.
      * @return Error.
      */
-    Error RunInstances(const Array<RunInstanceRequest>& instances, bool rebalancing);
+    Error RunInstances(const Array<RunInstanceRequest>& instances, UniqueLock<Mutex>& lock, bool rebalancing);
 
 private:
     static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)

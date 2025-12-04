@@ -105,7 +105,13 @@ Error Node::SetRunningInstances(const Array<SharedPtr<Instance>>& instances)
 
     for (const auto& instance : instances) {
         if (instance->GetStatus().mNodeID == mInfo.mNodeID) {
-            Convert(instance->GetStatus(), *instanceInfo);
+            // Use GetInfo() to get full InstanceInfo including mManifestDigest
+            // instead of Convert() which only sets InstanceIdent and mRuntimeID
+            const auto& launcherInfo = instance->GetInfo();
+
+            static_cast<InstanceIdent&>(*instanceInfo) = launcherInfo.mInstanceIdent;
+            instanceInfo->mManifestDigest              = launcherInfo.mManifestDigest;
+            instanceInfo->mRuntimeID                   = launcherInfo.mRuntimeID;
 
             if (auto err = mRunningInstances.PushBack(*instanceInfo); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);

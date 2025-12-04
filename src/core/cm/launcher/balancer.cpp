@@ -27,7 +27,7 @@ void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProv
     mNetworkManager  = &networkManager;
 }
 
-Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, bool rebalancing)
+Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, UniqueLock<Mutex>& lock, bool rebalancing)
 {
     auto sortedInstances = MakeUnique<StaticArray<RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
     *sortedInstances     = instances;
@@ -50,17 +50,12 @@ Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, bool re
         return AOS_ERROR_WRAP(err);
     }
 
-    Error firstErr = mInstanceManager->SubmitStash();
+    if (auto err = mInstanceManager->SubmitStash(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-    for (auto& node : mNodeManager->GetNodes()) {
-        if (auto err = node.SendUpdate(); !err.IsNone()) {
-            LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
-                      << Log::Field(err);
-
-            if (firstErr.IsNone()) {
-                firstErr = err;
-            }
-        }
+    if (auto err = mNodeManager->SendUpdate(lock); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -320,7 +315,7 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntimeForInstance
 Error Balancer::SelectRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes,
     Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes)
 {
-    nodes.RemoveIf([&inRuntimes, this](const Node* node) {
+    nodes.RemoveIf([&inRuntimes](const Node* node) {
         for (const auto& runtime : node->GetInfo().mRuntimes) {
             if (inRuntimes.Contains(runtime.mRuntimeID)) {
                 return false;

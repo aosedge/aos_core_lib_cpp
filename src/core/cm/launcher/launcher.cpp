@@ -49,6 +49,8 @@ Error Launcher::Start()
 {
     LOG_DBG() << "Start Launcher";
 
+    LockGuard lock {mMutex};
+
     if (auto err = mInstanceManager.Start(); !err.IsNone()) {
         return err;
     }
@@ -57,11 +59,11 @@ Error Launcher::Start()
         return err;
     }
 
-    if (auto err = mNodeManager.UpdateNodeInstances(mInstanceManager.GetActiveInstances()); !err.IsNone()) {
+    if (auto err = mNodeManager.UpdateNodeInstances("", mInstanceManager.GetActiveInstances()); !err.IsNone()) {
         return err;
     }
 
-    NotifyInstanceStatusListeners();
+    NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
 }
@@ -69,6 +71,8 @@ Error Launcher::Start()
 Error Launcher::Stop()
 {
     LOG_DBG() << "Stop Launcher";
+
+    LockGuard lock {mMutex};
 
     if (auto err = mInstanceManager.Stop(); !err.IsNone()) {
         return err;
@@ -85,7 +89,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 {
     LOG_DBG() << "Run instances";
 
-    LockGuard lock {mMutex};
+    UniqueLock lock {mMutex};
 
     statuses.Clear();
 
@@ -95,11 +99,11 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 
     UpdateData(false);
 
-    if (auto err = mBalancer.RunInstances(mRunRequests, false); !err.IsNone()) {
+    if (auto err = mBalancer.RunInstances(mRunRequests, lock, false); !err.IsNone()) {
         return err;
     }
 
-    NotifyInstanceStatusListeners();
+    NotifyInstanceStatusListeners(statuses);
 
     return ErrorEnum::eNone;
 }
@@ -108,15 +112,15 @@ Error Launcher::Rebalance()
 {
     LOG_DBG() << "Rebalance instances";
 
-    LockGuard lock {mMutex};
+    UniqueLock lock {mMutex};
 
     UpdateData(true);
 
-    if (auto err = mBalancer.RunInstances(mRunRequests, true); !err.IsNone()) {
+    if (auto err = mBalancer.RunInstances(mRunRequests, lock, true); !err.IsNone()) {
         return err;
     }
 
-    NotifyInstanceStatusListeners();
+    NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
 }
@@ -162,12 +166,12 @@ Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listene
  * Private
  **********************************************************************************************************************/
 
-void Launcher::NotifyInstanceStatusListeners()
+void Launcher::NotifyInstanceStatusListeners(Array<InstanceStatus>& statuses)
 {
-    auto statuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    statuses.Clear();
 
     for (const auto& instance : mInstanceManager.GetActiveInstances()) {
-        if (auto err = statuses->PushBack(instance->GetStatus()); !err.IsNone()) {
+        if (auto err = statuses.PushBack(instance->GetStatus()); !err.IsNone()) {
             LOG_ERR() << "Failed to push new instance status" << Log::Field(AOS_ERROR_WRAP(err));
 
             break;
@@ -175,7 +179,7 @@ void Launcher::NotifyInstanceStatusListeners()
     }
 
     for (auto& listener : mInstanceStatusListeners) {
-        listener->OnInstancesStatusesChanged(*statuses);
+        listener->OnInstancesStatusesChanged(statuses);
     }
 }
 
@@ -197,20 +201,23 @@ void Launcher::UpdateData(bool rebalancing)
 
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 {
+    LockGuard lock {mMutex};
+
     if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
         return err;
     }
 
-    NotifyInstanceStatusListeners();
+    NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
 }
 
 Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses)
 {
-    (void)nodeID;
+    LockGuard lock {mMutex};
 
     Error firstErr;
+
     for (const auto& status : statuses) {
         if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
             if (firstErr.IsNone()) {
@@ -219,7 +226,7 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         }
     }
 
-    if (auto err = mNodeManager.UpdateNodeInstances(mInstanceManager.GetActiveInstances()); !err.IsNone()) {
+    if (auto err = mNodeManager.UpdateNodeInstances(nodeID, mInstanceManager.GetActiveInstances()); !err.IsNone()) {
         if (firstErr.IsNone()) {
             firstErr = err;
         }
@@ -229,7 +236,7 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         return firstErr;
     }
 
-    NotifyInstanceStatusListeners();
+    NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
 }

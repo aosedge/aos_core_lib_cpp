@@ -10,9 +10,9 @@
 #include <core/cm/networkmanager/itf/networkmanager.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
+#include <core/common/monitoring/itf/monitoringdata.hpp>
 
 #include "itf/instancerunner.hpp"
-#include "itf/monitoringprovider.hpp"
 
 #include "instance.hpp"
 
