@@ -14,7 +14,7 @@ set(TARGET_NAME resourcemanager)
 # HEADERS
 # ######################################################################################################################
 
-set(HEADERS itf/resourceinfoprovider.hpp)
+set(HEADERS itf/resourceinfoprovider.hpp config.hpp)
 
 # ######################################################################################################################
 # Target
