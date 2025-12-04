@@ -8,12 +8,25 @@
 #define AOS_CORE_SM_RESOURCEMANAGER_ITF_RESOURCEINFOPROVIDER_HPP_
 
 #include <core/common/types/common.hpp>
+#include <core/common/types/envvars.hpp>
+#include <core/common/types/network.hpp>
 
 namespace aos::sm::resourcemanager {
 
 /** @addtogroup sm Service Manager
  *  @{
  */
+
+/**
+ * Resource info structure.
+ */
+struct ResourceInfo : public aos::ResourceInfo {
+    StaticArray<StaticString<cGroupNameLen>, cMaxNumGroups>       mGroups;
+    StaticArray<Mount, cMaxNumFSMounts>                           mMounts;
+    StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>    mEnv;
+    StaticArray<Host, cMaxNumHosts>                               mHosts;
+    StaticArray<StaticString<cDeviceNameLen>, cMaxNumHostDevices> mHostDevices;
+};
 
 /**
  * Resource info provider interface.
