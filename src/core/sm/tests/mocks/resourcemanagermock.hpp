@@ -10,55 +10,16 @@
 
 #include <gmock/gmock.h>
 
-#include <core/sm/resourcemanager/resourcemanager.hpp>
+#include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
 namespace aos::sm::resourcemanager {
 
 /**
- * JSON provider mock.
+ * Resource info provider mock.
  */
-class JSONProviderMock : public JSONProviderItf {
+class ResourceInfoProviderMock : public ResourceInfoProviderItf {
 public:
-    MOCK_METHOD(Error, NodeConfigToJSON, (const NodeConfig&, String&), (const override));
-    MOCK_METHOD(Error, NodeConfigFromJSON, (const String&, NodeConfig&), (const override));
-};
-
-/**
- * Host device manager mock.
- */
-class HostDeviceManagerMock : public HostDeviceManagerItf {
-public:
-    MOCK_METHOD(Error, CheckDevice, (const String&), (const override));
-    MOCK_METHOD(Error, CheckGroup, (const String&), (const override));
-};
-
-/**
- * Node config receiver mock.
- */
-class NodeConfigReceiverMock : public NodeConfigReceiverItf {
-public:
-    MOCK_METHOD(Error, ReceiveNodeConfig, (const NodeConfig&), (override));
-};
-
-/**
- * Resource manager mock.
- */
-
-class ResourceManagerMock : public ResourceManagerItf {
-public:
-    MOCK_METHOD(RetWithError<StaticString<cVersionLen>>, GetNodeConfigVersion, (), (const override));
-    MOCK_METHOD(Error, GetNodeConfig, (NodeConfig&), (const override));
-    MOCK_METHOD(Error, GetDeviceInfo, (const String&, DeviceInfo&), (const override));
-    MOCK_METHOD(Error, GetResourceInfo, (const String&, ResourceInfoObsolete&), (const override));
-    MOCK_METHOD(Error, AllocateDevice, (const String&, const String&), (override));
-    MOCK_METHOD(Error, ReleaseDevice, (const String&, const String&), (override));
-    MOCK_METHOD(Error, ReleaseDevices, (const String&), (override));
-    MOCK_METHOD(Error, ResetAllocatedDevices, (), (override));
-    MOCK_METHOD(Error, GetDeviceInstances, (const String&, Array<StaticString<cIDLen>>&), (const override));
-    MOCK_METHOD(Error, CheckNodeConfig, (const String&, const String&), (const override));
-    MOCK_METHOD(Error, UpdateNodeConfig, (const String&, const String&), (override));
-    MOCK_METHOD(Error, SubscribeCurrentNodeConfigChange, (NodeConfigReceiverItf&), (override));
-    MOCK_METHOD(Error, UnsubscribeCurrentNodeConfigChange, (NodeConfigReceiverItf&), (override));
+    MOCK_METHOD(Error, GetResourcesInfos, (Array<ResourceInfo> & resources), (override));
 };
 
 } // namespace aos::sm::resourcemanager
