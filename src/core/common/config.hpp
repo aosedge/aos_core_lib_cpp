@@ -233,6 +233,13 @@
 #endif
 
 /**
+ * Host device name len.
+ */
+#ifndef AOS_CONFIG_TYPES_DEVICE_NAME_LEN
+#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 64
+#endif
+
+/**
  * Max number of host devices.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_HOST_DEVICES
