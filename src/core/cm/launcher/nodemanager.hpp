@@ -10,6 +10,7 @@
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
 #include <core/common/tools/allocator.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "node.hpp"
 
@@ -56,7 +57,7 @@ public:
      * @param instances instances.
      * @return Error.
      */
-    Error UpdateNodeInstances(const Array<SharedPtr<Instance>>& instances);
+    Error UpdateNodeInstances(const String& nodeID, const Array<SharedPtr<Instance>>& instances);
 
     /**
      * Returns nodes ordered by priorities.
@@ -109,8 +110,17 @@ public:
      */
     bool IsScheduled(const InstanceIdent& instance);
 
+    /**
+     * Synchronous call that sends update instance request and waits for instance statuses from nodes.
+     *
+     * @param timeout timeout.
+     * @return Error.
+     */
+    Error SendUpdate(const Duration& timeout, UniqueLock<Mutex>& lock);
+
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
+    static constexpr auto cStatusUpdateTimeout   = Time::cMinutes * 10;
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo) + sizeof(size_t) * 2;
 
@@ -136,6 +146,9 @@ private:
     SharedPtr<size_t>               mAvailableStorage;
 
     StaticArray<Node, cMaxNumNodes> mNodes;
+
+    StaticArray<StaticString<cIDLen>, cMaxNumNodes> mNodesExpectedToSendStatus;
+    ConditionalVariable                             mStatusUpdateCondVar;
 };
 
 /** @}*/

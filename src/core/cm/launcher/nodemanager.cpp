@@ -94,11 +94,21 @@ Error NodeManager::Stop()
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::UpdateNodeInstances(const Array<SharedPtr<Instance>>& instances)
+Error NodeManager::UpdateNodeInstances(const String& nodeID, const Array<SharedPtr<Instance>>& instances)
 {
     for (auto& node : mNodes) {
+        if (!nodeID.IsEmpty() && node.GetInfo().mNodeID != nodeID) {
+            continue;
+        }
+
         if (auto err = node.SetRunningInstances(instances); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (!nodeID.IsEmpty()) {
+        if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
+            mStatusUpdateCondVar.NotifyAll();
         }
     }
 
@@ -190,6 +200,47 @@ bool NodeManager::IsRunning(const InstanceIdent& id)
 bool NodeManager::IsScheduled(const InstanceIdent& id)
 {
     return mNodes.ContainsIf([&id](const Node& info) { return info.IsScheduled(id); });
+}
+
+Error NodeManager::SendUpdate(UniqueLock<Mutex>& lock)
+{
+    // Lock status update mutex before sending run requests to avoid condition when
+    // node sent status update between sending run requests and waiting for statuses
+
+    // Send run requests to nodes
+    Error firstErr = ErrorEnum::eNone;
+
+    for (auto& node : mNodes) {
+        if (auto err = node.SendUpdate(); !err.IsNone()) {
+            LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
+                      << Log::Field(err);
+
+            if (firstErr.IsNone()) {
+                firstErr = err;
+            }
+        }
+    }
+
+    if (!firstErr.IsNone()) {
+        return firstErr;
+    }
+
+    // Wait for node statuses
+    mNodesExpectedToSendStatus.Clear();
+
+    for (auto& node : mNodes) {
+        if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    auto err
+        = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************

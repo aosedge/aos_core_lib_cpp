@@ -30,7 +30,7 @@ namespace aos::cm::launcher {
 /**
  * Launcher class manages lifecycle of service instances.
  */
-class Launcher : public LauncherItf, public instancestatusprovider::ProviderItf, private InstanceStatusReceiverItf {
+class Launcher : public LauncherItf, public instancestatusprovider::ProviderItf, public InstanceStatusReceiverItf {
 public:
     /**
      * Initializes launcher object instance.
@@ -122,7 +122,7 @@ private:
 
     void SendRunStatus();
 
-    void NotifyInstanceStatusListeners();
+    void NotifyInstanceStatusListeners(Array<InstanceStatus>& statuses);
     void UpdateData(bool rebalancing);
 
     /************************************************************************************************************************
@@ -149,8 +149,9 @@ private:
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
     Balancer                                                                          mBalancer;
 
-    Mutex mMutex;
-    // cppcheck-suppress templateRecursion
+    StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
+
+    Mutex                           mMutex;
     StaticAllocator<cAllocatorSize> mAllocator;
 };
 
