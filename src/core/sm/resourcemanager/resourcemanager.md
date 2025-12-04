@@ -2,18 +2,12 @@
 
 Provides resource info for other modules.
 
-It implements the following interfaces:
+It provides the following interfaces:
 
-* [aos::sm::smclient::ResourceInfoProviderItf](../smclient/itf/resourceinfoprovider.hpp) - provides resources info.
+* [aos::sm::resourcemanager::ResourceInfoProviderItf](itf/resourceinfoprovider.hpp) - provides resources info.
 
-```mermaid
-classDiagram
-    class ResourceManager ["aos::sm:resourcemanager::ResourceManager"] {
-    }
+## aos::sm::resourcemanager::ResourceInfoProviderItf
 
-    class ResourceInfoProvider ["aos::sm::smclient::ResourceInfoProviderItf"] {
-        <<interface>>
-    }
+### GetResourcesInfos
 
-    ResourceManager ..|> ResourceInfoProvider
-```
+Returns resource infos.
