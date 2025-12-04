@@ -15,7 +15,8 @@ It implements the following interfaces:
 It uses the following interfaces:
 
 * [aos::sm::smclient::RuntimeInfoProviderItf](itf/runtimeinfoprovider.hpp) - provides runtimes info;
-* [aos::sm::smclient::ResourceInfoProviderItf](itf/resourceinfoprovider.hpp) - provides resources info;
+* [aos::sm::resourcemanager::ResourceInfoProviderItf](../resourcemanager/itf/resourceinfoprovider.hpp) - provides
+resources info;
 * [aos::sm::nodeconfig::NodeConfigHandlerItf](../nodeconfig/itf/nodeconfighandler.hpp) - updates node config;
 * [aos::sm::launcher::LauncherItf](../launcher/itf/launcher.hpp) - starts/stops update item instances;
 * [aos::sm::logging::LogProviderItf](../logging/itf/logprovider.hpp) - provides systemd and instances logs;
@@ -57,7 +58,7 @@ classDiagram
         <<interface>>
     }
 
-    class ResourceInfoProviderItf ["aos::sm::smclient::ResourceInfoProviderItf"] {
+    class ResourceInfoProviderItf ["aos::sm::resourcemanager::ResourceInfoProviderItf"] {
         <<interface>>
     }
 
