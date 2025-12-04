@@ -3,3 +3,5 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+#include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
