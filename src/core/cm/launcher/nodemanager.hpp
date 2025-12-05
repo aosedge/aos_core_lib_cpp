@@ -111,6 +111,8 @@ public:
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
+    static constexpr auto cAllocatorSize
+        = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo) + sizeof(size_t) * 2;
 
     /**
      * Handler of node info change event.
@@ -124,15 +126,14 @@ private:
     size_t GetReqStateFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
     size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
 
-    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider    = nullptr;
-    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider  = nullptr;
-    storagestate::StorageStateItf*         mStorageStateManager = nullptr;
-    InstanceRunnerItf*                     mRunner              = nullptr;
+    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
+    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
+    storagestate::StorageStateItf*         mStorageStateManager {};
+    InstanceRunnerItf*                     mRunner {};
 
-    StaticAllocator<sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo) + sizeof(size_t) * 2>
-                      mAllocator;
-    SharedPtr<size_t> mAvailableState;
-    SharedPtr<size_t> mAvailableStorage;
+    StaticAllocator<cAllocatorSize> mAllocator;
+    SharedPtr<size_t>               mAvailableState;
+    SharedPtr<size_t>               mAvailableStorage;
 
     StaticArray<Node, cMaxNumNodes> mNodes;
 };
