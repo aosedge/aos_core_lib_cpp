@@ -8,9 +8,14 @@
 #define AOS_CM_LAUNCHER_STUBS_INSTANCERUNNERSTUB_HPP_
 
 #include <map>
+#include <memory>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <core/cm/launcher/itf/instancerunner.hpp>
+#include <core/cm/launcher/itf/instancestatusreceiver.hpp>
+#include <core/common/types/instance.hpp>
 
 namespace aos::cm::launcher {
 
@@ -28,7 +33,11 @@ public:
         bool operator!=(const NodeRunRequest& other) const { return !(*this == other); }
     };
 
-    void Init() { mNodeInstances.clear(); }
+    void Init(InstanceStatusReceiverItf& statusReceiver)
+    {
+        mNodeInstances.clear();
+        mStatusReceiver = &statusReceiver;
+    }
 
     const std::map<std::string, NodeRunRequest>& GetNodeInstances() const { return mNodeInstances; }
 
@@ -59,11 +68,37 @@ public:
             nodeRequest.mStartInstances.push_back(inst);
         }
 
+        // Send node status updates to unblock SendUpdate wait
+        // Must send even if startInstances is empty, otherwise the wait will hang
+        if (mStatusReceiver != nullptr) {
+            auto statuses = std::make_shared<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+            // Convert startInstances to InstanceStatus
+            for (const auto& inst : startInstances) {
+                InstanceStatus status;
+
+                static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);
+                status.mNodeID                      = nodeID;
+                status.mRuntimeID                   = inst.mRuntimeID;
+                status.mState                       = InstanceStateEnum::eActivating;
+                status.mError                       = ErrorEnum::eNone;
+
+                if (auto err = statuses->PushBack(status); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+
+            std::thread([receiver = mStatusReceiver, nodeID, statuses]() mutable {
+                receiver->OnNodeInstancesStatusesReceived(nodeID, *statuses);
+            }).detach();
+        }
+
         return ErrorEnum::eNone;
     }
 
 private:
     std::map<std::string, NodeRunRequest> mNodeInstances {};
+    InstanceStatusReceiverItf*            mStatusReceiver {};
 };
 
 } // namespace aos::cm::launcher
