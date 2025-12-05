@@ -22,7 +22,8 @@ public:
     MOCK_METHOD(Error, RemoveItem, (const String& id, const String& version), (override));
     MOCK_METHOD(
         Error, UpdateItemIndexDigest, (const String& id, const String& version, const String& indexDigest), (override));
-    MOCK_METHOD(Error, UpdateItemState, (const String& id, const String& version, ItemState state), (override));
+    MOCK_METHOD(
+        Error, UpdateItemState, (const String& id, const String& version, ItemState state, Time timestamp), (override));
     MOCK_METHOD(Error, GetItemsInfo, (Array<ItemInfo> & items), (override));
 };
 

@@ -20,6 +20,7 @@
 #include <core/common/tests/utils/log.hpp>
 
 #include "mocks/blobinfoprovidermock.hpp"
+#include "mocks/itemstatuslistenermock.hpp"
 #include "mocks/storagemock.hpp"
 
 using namespace testing;
@@ -41,8 +42,9 @@ protected:
 
     void SetUp() override
     {
-        mConfig.mInstallPath  = "/tmp/imagemanager_test/install";
-        mConfig.mDownloadPath = "/tmp/imagemanager_test/download";
+        mConfig.mInstallPath   = "/tmp/imagemanager_test/install";
+        mConfig.mDownloadPath  = "/tmp/imagemanager_test/download";
+        mConfig.mUpdateItemTTL = Time::cSeconds * 10;
 
         EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
 
@@ -177,8 +179,18 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending)))
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
         .WillOnce(Return(ErrorEnum::eNone));
+
+    ItemStatusListenerMock listener;
+    EXPECT_CALL(listener, OnItemsStatusesChanged(_)).WillOnce(Invoke([&item](const Array<UpdateItemStatus>& statuses) {
+        ASSERT_EQ(statuses.Size(), 1);
+        EXPECT_EQ(statuses[0].mItemID, item.mItemID);
+        EXPECT_EQ(statuses[0].mVersion, item.mVersion);
+        EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+    }));
+
+    EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
 
     auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
 
@@ -187,6 +199,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_EQ(statuses[0].mItemID, item.mItemID);
     EXPECT_EQ(statuses[0].mVersion, item.mVersion);
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+
+    EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 }
 
 TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
@@ -375,7 +389,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending)))
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
         .Times(3)
         .WillRepeatedly(Return(ErrorEnum::eNone));
 
@@ -552,14 +566,24 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _))
-        .WillOnce(Invoke([](const String& id, const String& version, ItemState state) {
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _, _))
+        .WillOnce(Invoke([](const String& id, const String& version, ItemState state, Time) {
             EXPECT_EQ(id, "service1");
             EXPECT_EQ(version, "1.0.0");
             EXPECT_EQ(state, ItemStateEnum::eInstalled);
 
             return ErrorEnum::eNone;
         }));
+
+    ItemStatusListenerMock listener;
+    EXPECT_CALL(listener, OnItemsStatusesChanged(_)).WillOnce(Invoke([](const Array<UpdateItemStatus>& statuses) {
+        ASSERT_EQ(statuses.Size(), 1);
+        EXPECT_EQ(statuses[0].mItemID, "service1");
+        EXPECT_EQ(statuses[0].mVersion, "1.0.0");
+        EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
+    }));
+
+    EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
 
     auto err = mImageManager.InstallUpdateItems(itemsInfo, statuses);
 
@@ -569,6 +593,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
     EXPECT_TRUE(statuses[0].mError.IsNone());
+
+    EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 }
 
 TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
@@ -732,8 +758,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _))
-        .WillOnce(Invoke([](const String& id, const String& version, ItemState state) {
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _, _))
+        .WillOnce(Invoke([](const String& id, const String& version, ItemState state, Time) {
             EXPECT_EQ(id, "service1");
             EXPECT_EQ(version, "2.0.0");
             EXPECT_EQ(state, ItemStateEnum::eInstalled);
@@ -879,15 +905,15 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _))
-        .WillOnce(Invoke([](const String& id, const String& version, ItemState state) {
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _, _))
+        .WillOnce(Invoke([](const String& id, const String& version, ItemState state, Time) {
             EXPECT_EQ(id, "service2");
             EXPECT_EQ(version, "1.0.0");
             EXPECT_EQ(state, ItemStateEnum::eInstalled);
 
             return ErrorEnum::eNone;
         }))
-        .WillOnce(Invoke([](const String& id, const String& version, ItemState state) {
+        .WillOnce(Invoke([](const String& id, const String& version, ItemState state, Time) {
             EXPECT_EQ(id, "service1");
             EXPECT_EQ(version, "1.0.0");
             EXPECT_EQ(state, ItemStateEnum::eRemoved);
@@ -1029,10 +1055,19 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
             return ErrorEnum::eNone;
         }));
 
+    ItemStatusListenerMock listener;
+    EXPECT_CALL(listener, OnItemRemoved(_)).WillOnce(Invoke([](const String& itemID) {
+        EXPECT_EQ(itemID, "service1");
+    }));
+
+    EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
+
     auto [totalSize, err] = mImageManager.RemoveItem("service1");
 
     EXPECT_TRUE(err.IsNone());
     EXPECT_GT(totalSize, 0);
+
+    EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 
     auto [index1Exists, index1Err] = fs::FileExist(index1Path);
     EXPECT_FALSE(index1Exists);
@@ -1051,6 +1086,52 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
 
     auto [layer2Exists, layer2Err] = fs::FileExist(layer2Path);
     EXPECT_TRUE(layer2Exists);
+}
+
+TEST_F(ImageManagerTest, Start_RemovesOutdatedItems)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo item1;
+    item1.mItemID      = "service1";
+    item1.mVersion     = "1.0.0";
+    item1.mIndexDigest = "1111";
+    item1.mState       = ItemStateEnum::eRemoved;
+    item1.mTimestamp   = Time::Now().Add(-(Time::cSeconds * 20));
+    items.PushBack(item1);
+
+    ItemInfo item2;
+    item2.mItemID      = "service2";
+    item2.mVersion     = "2.0.0";
+    item2.mIndexDigest = "2222";
+    item2.mState       = ItemStateEnum::eRemoved;
+    item2.mTimestamp   = Time::Now();
+    items.PushBack(item2);
+
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_))
+        .WillOnce(DoAll(SetArgReferee<0>(items), Return(ErrorEnum::eNone)))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mStorageMock, RemoveItem(_, _)).WillOnce(Invoke([](const String& id, const String& version) {
+        EXPECT_EQ(id, "service1");
+        EXPECT_EQ(version, "1.0.0");
+        return ErrorEnum::eNone;
+    }));
+
+    ItemStatusListenerMock listener;
+    EXPECT_CALL(listener, OnItemRemoved(_)).WillOnce(Invoke([](const String& itemID) {
+        EXPECT_EQ(itemID, "service1");
+    }));
+
+    EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
+
+    EXPECT_CALL(mInstallSpaceAllocatorMock, FreeSpace(_)).Times(1);
+
+    auto err = mImageManager.Start();
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_TRUE(mImageManager.Stop().IsNone());
+    EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 }
 
 } // namespace aos::cm::imagemanager
