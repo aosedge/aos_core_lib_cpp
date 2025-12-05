@@ -20,6 +20,7 @@ struct ItemInfo {
     StaticString<cVersionLen>     mVersion;
     StaticString<oci::cDigestLen> mIndexDigest;
     ItemStateEnum                 mState {};
+    Time                          mTimestamp {};
 
     /**
      * Compares update item info.
@@ -30,7 +31,7 @@ struct ItemInfo {
     bool operator==(const ItemInfo& rhs) const
     {
         return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mIndexDigest == rhs.mIndexDigest
-            && mState == rhs.mState;
+            && mState == rhs.mState && mTimestamp == rhs.mTimestamp;
     }
 
     /**
@@ -85,9 +86,10 @@ public:
      * @param id ID.
      * @param version Version.
      * @param state Item state.
+     * @param timestamp Timestamp (optional).
      * @return Error.
      */
-    virtual Error UpdateItemState(const String& id, const String& version, ItemState state) = 0;
+    virtual Error UpdateItemState(const String& id, const String& version, ItemState state, Time timestamp = {}) = 0;
 
     /**
      * Gets items info.

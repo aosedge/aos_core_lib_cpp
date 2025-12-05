@@ -170,7 +170,9 @@ public:
 private:
     static constexpr auto cMaxNumListeners = 1;
     static constexpr auto cRetryTimeout    = Time::cSeconds * 2;
+    static constexpr auto cRemovePeriod    = 24 * Time::cHours;
 
+    Error RemoveOutdatedItems();
     Error WaitForStop();
     Error AllocateSpaceForPartialDownloads();
     Error CleanupDownloadingItems(const Array<UpdateItemInfo>& currentItems, const Array<ItemInfo>& storedItems);
