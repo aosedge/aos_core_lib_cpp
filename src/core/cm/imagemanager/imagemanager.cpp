@@ -128,6 +128,8 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", cleanupSize);
     }
 
+    NotifyItemsStatusesChanged(statuses);
+
     return ErrorEnum::eNone;
 }
 
@@ -202,6 +204,8 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
         LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", cleanupSize);
     }
 
+    NotifyItemsStatusesChanged(statuses);
+
     return ErrorEnum::eNone;
 }
 
@@ -235,16 +239,28 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 
 Error ImageManager::SubscribeListener(ItemStatusListenerItf& listener)
 {
-    (void)listener;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Subscribe item status listener";
+
+    if (mListeners.Find(&listener) != mListeners.end()) {
+        return ErrorEnum::eAlreadyExist;
+    }
+
+    if (auto err = mListeners.PushBack(&listener); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
 
 Error ImageManager::UnsubscribeListener(ItemStatusListenerItf& listener)
 {
-    (void)listener;
+    LockGuard lock {mMutex};
 
-    return ErrorEnum::eNone;
+    LOG_DBG() << "Unsubscribed item status listener";
+
+    return mListeners.Remove(&listener) != 0 ? ErrorEnum::eNone : ErrorEnum::eNotFound;
 }
 
 Error ImageManager::GetIndexDigest(const String& itemID, const String& version, String& digest) const
@@ -313,6 +329,10 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id)
     }
 
     LOG_DBG() << "Item removed successfully" << Log::Field("id", id) << Log::Field("totalSize", totalSize);
+
+    for (auto* listener : mListeners) {
+        listener->OnItemRemoved(id);
+    }
 
     return {totalSize, ErrorEnum::eNone};
 }
@@ -997,6 +1017,15 @@ void ImageManager::StopAction()
 
     mInProgress = false;
     mCondVar.NotifyAll();
+}
+
+void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses)
+{
+    LockGuard lock {mMutex};
+
+    for (auto* listener : mListeners) {
+        listener->OnItemsStatusesChanged(statuses);
+    }
 }
 
 Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo)
