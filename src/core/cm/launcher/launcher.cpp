@@ -16,7 +16,7 @@ namespace aos::cm::launcher {
 
 Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
+    blobinfoprovider::ProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider, IDValidator gidValidator,
     IDValidator uidValidator)

@@ -7,10 +7,10 @@
 #ifndef AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/itf/storagestate.hpp>
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
+#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 
 #include "itf/instancestatusreceiver.hpp"
@@ -50,7 +50,7 @@ public:
      */
     Error Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
+        blobinfoprovider::ProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
         IDValidator gidValidator, IDValidator uidValidator);

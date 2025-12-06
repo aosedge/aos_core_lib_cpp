@@ -12,8 +12,8 @@
 #include <string>
 #include <vector>
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
+#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 
 namespace aos::cm::imagemanager {
@@ -22,7 +22,7 @@ namespace aos::cm::imagemanager {
  * Test helper that emulates OCI images.
  * Provides ItemInfoProvider, BlobInfoProvider, and OCISpec interfaces.
  */
-class ImageStoreStub : public ItemInfoProviderItf, public BlobInfoProviderItf, public oci::OCISpecItf {
+class ImageStoreStub : public ItemInfoProviderItf, public blobinfoprovider::ProviderItf, public oci::OCISpecItf {
 public:
     void Init()
     {
@@ -110,7 +110,7 @@ public:
     //
     // imagemanager::BlobInfoProviderItf
     //
-    Error GetBlobsInfo(const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&) override
+    Error GetBlobsInfos(const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&) override
     {
         return ErrorEnum::eNone;
     }

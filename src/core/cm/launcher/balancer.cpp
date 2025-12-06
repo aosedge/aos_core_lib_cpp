@@ -15,7 +15,7 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec, NodeManager& nodeManager,
+    blobinfoprovider::ProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec, NodeManager& nodeManager,
     MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner,
     networkmanager::NetworkManagerItf& networkManager)
 {
@@ -95,7 +95,8 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
 {
     for (const auto& request : requests) {
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i};
+            InstanceIdent instanceIdent {
+                request.mItemID, request.mSubjectInfo.mSubjectID, i, UpdateItemTypeEnum::eService};
             if (mNodeManager->IsScheduled(instanceIdent)) {
                 continue;
             }
@@ -580,7 +581,8 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
         }
 
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i};
+            InstanceIdent instanceIdent {
+                request.mItemID, request.mSubjectInfo.mSubjectID, i, UpdateItemTypeEnum::eService};
 
             if (!mNodeManager->IsRunning(instanceIdent)) {
                 continue;

@@ -7,9 +7,9 @@
 #ifndef AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 #define AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
+#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/monitoringdata.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
@@ -55,7 +55,7 @@ public:
      * @return Error.
      */
     Error Init(const Config& config, StorageItf& storage, storagestate::StorageStateItf& storageState,
-        imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
+        imagemanager::ItemInfoProviderItf& itemInfoProvider, blobinfoprovider::ProviderItf& blobInfoProvider,
         oci::OCISpecItf& ociSpec, IDValidator gidValidator, IDValidator uidValidator);
 
     /**

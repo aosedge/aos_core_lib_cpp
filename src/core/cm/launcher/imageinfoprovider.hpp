@@ -7,8 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_IMAGEINFOPROVIDER_HPP_
 #define AOS_CORE_CM_LAUNCHER_IMAGEINFOPROVIDER_HPP_
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
+#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/error.hpp>
@@ -29,7 +29,7 @@ public:
      * @param blobInfoProvider blob info provider.
      * @param ociSpec OCI spec.
      */
-    void Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
+    void Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, blobinfoprovider::ProviderItf& blobInfoProvider,
         oci::OCISpecItf& ociSpec);
 
     /**
@@ -66,7 +66,7 @@ private:
         + sizeof(StaticString<oci::cDigestLen>);
 
     imagemanager::ItemInfoProviderItf* mItemInfoProvider {};
-    imagemanager::BlobInfoProviderItf* mBlobInfoProvider {};
+    blobinfoprovider::ProviderItf*     mBlobInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
 
     StaticAllocator<cAllocatorSize> mAllocator;

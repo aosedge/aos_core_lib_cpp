@@ -15,7 +15,7 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 Error InstanceManager::Init(const Config& config, StorageItf& storage, storagestate::StorageStateItf& storageState,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
+    imagemanager::ItemInfoProviderItf& itemInfoProvider, blobinfoprovider::ProviderItf& blobInfoProvider,
     oci::OCISpecItf& ociSpec, IDValidator gidValidator, IDValidator uidValidator)
 {
     mConfig       = config;

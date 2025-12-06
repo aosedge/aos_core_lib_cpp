@@ -199,7 +199,7 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::st
 
 InstanceIdent CreateInstanceIdent(const std::string& itemID, const std::string& subjectID = "", uint64_t instance = 0)
 {
-    return InstanceIdent {itemID.c_str(), subjectID.c_str(), instance};
+    return InstanceIdent {itemID.c_str(), subjectID.c_str(), instance, UpdateItemTypeEnum::eService};
 }
 
 RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string& subjectID = "", uint64_t priority = 0,
@@ -828,7 +828,8 @@ TEST_F(CMLauncherTest, Components)
 
     // Check run status
     StaticArray<InstanceStatus, cMaxNumInstances> expectedRunStatus;
-    expectedRunStatus.PushBack(CreateInstanceStatus({cComponent1, cSubject1, 0}, cNodeIDRemoteSM1, cRunnerRootfs));
+    expectedRunStatus.PushBack(CreateInstanceStatus(
+        {cComponent1, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDRemoteSM1, cRunnerRootfs));
 
     Array<InstanceStatus> componentStatuses(expectedRunStatus.begin(), expectedRunStatus.Size());
     ExpectInstanceStatusesMatch(instanceStatusListener.GetLastStatuses(), componentStatuses);
@@ -900,12 +901,18 @@ TestDataPtr TestItemNodePriority()
     testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances = runxSMRequests;
 
     // Expected run status
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, 1}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 1}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 0}, cNodeIDRunxSM, cRunnerRunx));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 1}, cNodeIDRunxSM, cRunnerRunx));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService1, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService3, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDRunxSM, cRunnerRunx));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService3, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDRunxSM, cRunnerRunx));
 
     return testData;
 }
@@ -954,15 +961,17 @@ TestDataPtr TestItemLabels()
 
     // Expected run status
     testData->mExpectedRunStatus.PushBack(
-        CreateInstanceStatus({cService1, cSubject1, 0}, cNodeIDRemoteSM1, cRunnerRunc));
+        CreateInstanceStatus({cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDRemoteSM1, cRunnerRunc));
     testData->mExpectedRunStatus.PushBack(
-        CreateInstanceStatus({cService1, cSubject1, 1}, cNodeIDRemoteSM1, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 1}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 0}, "", "",
-        InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 1}, "", "",
-        InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
+        CreateInstanceStatus({cService1, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDRemoteSM1, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 0, UpdateItemTypeEnum::eService},
+        "", "", InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
+    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 1, UpdateItemTypeEnum::eService},
+        "", "", InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
 
     return testData;
 }
@@ -1016,13 +1025,17 @@ TestDataPtr TestItemResources()
 
     // Expected run status
     testData->mExpectedRunStatus.PushBack(
-        CreateInstanceStatus({cService1, cSubject1, 0}, cNodeIDRemoteSM1, cRunnerRunc));
+        CreateInstanceStatus({cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDRemoteSM1, cRunnerRunc));
     testData->mExpectedRunStatus.PushBack(
-        CreateInstanceStatus({cService1, cSubject1, 1}, cNodeIDRemoteSM1, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 1}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 1}, cNodeIDLocalSM, cRunnerRunc));
+        CreateInstanceStatus({cService1, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDRemoteSM1, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService3, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService3, cSubject1, 1, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
 
     return testData;
 }
@@ -1054,10 +1067,12 @@ TestDataPtr TestItemStorageRatio()
 
         if (i < 3) {
             testData->mExpectedRunStatus.PushBack(
-                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)}, cNodeIDLocalSM, cRunnerRunc));
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc));
         } else {
-            testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)},
-                cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
+            testData->mExpectedRunStatus.PushBack(
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
         }
     }
 
@@ -1094,10 +1109,12 @@ TestDataPtr TestItemStateRatio()
 
         if (i < 3) {
             testData->mExpectedRunStatus.PushBack(
-                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)}, cNodeIDLocalSM, cRunnerRunc));
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc));
         } else {
-            testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)},
-                cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
+            testData->mExpectedRunStatus.PushBack(
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
         }
     }
 
@@ -1134,10 +1151,12 @@ TestDataPtr TestItemCpuRatio()
 
         if (i < 3) {
             testData->mExpectedRunStatus.PushBack(
-                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)}, cNodeIDLocalSM, cRunnerRunc));
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc));
         } else {
-            testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)},
-                cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eFailed)));
+            testData->mExpectedRunStatus.PushBack(
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eFailed)));
         }
     }
 
@@ -1174,10 +1193,12 @@ TestDataPtr TestItemRamRatio()
 
         if (i < 3) {
             testData->mExpectedRunStatus.PushBack(
-                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)}, cNodeIDLocalSM, cRunnerRunc));
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc));
         } else {
-            testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i)},
-                cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eFailed)));
+            testData->mExpectedRunStatus.PushBack(
+                CreateInstanceStatus({cService1, cSubject1, static_cast<uint64_t>(i), UpdateItemTypeEnum::eService},
+                    cNodeIDLocalSM, cRunnerRunc, InstanceStateEnum::eFailed, Error(ErrorEnum::eFailed)));
         }
     }
 
@@ -1224,17 +1245,20 @@ TestDataPtr TestItemRebalancing()
         CreateAosInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, "4", 50));
 
     // Expected run status
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService3, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
 
     testData->mExpectedRunRequests.clear();
     testData->mExpectedRunStatus.Clear();
 
     // Monitoring data
     CreateNodeMonitoring(testData->mMonitoring[cNodeIDLocalSM], cNodeIDLocalSM, 1000,
-        {CreateInstanceMonitoring(InstanceIdent {cService1, cSubject1, 0}, 500),
-            CreateInstanceMonitoring(InstanceIdent {cService2, cSubject1, 0}, 500)});
+        {CreateInstanceMonitoring(InstanceIdent {cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, 500),
+            CreateInstanceMonitoring(InstanceIdent {cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, 500)});
 
     return testData;
 }
@@ -1275,17 +1299,20 @@ TestDataPtr TestItemRebalancingPolicy()
         CreateAosInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, "4", 50));
 
     // Expected run status
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService3, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService1, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus({cService2, cSubject1, 0}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService3, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus({cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, cNodeIDLocalSM, cRunnerRunc));
 
     testData->mExpectedRunRequests.clear();
     testData->mExpectedRunStatus.Clear();
 
     // Monitoring data
     CreateNodeMonitoring(testData->mMonitoring[cNodeIDLocalSM], cNodeIDLocalSM, 1000,
-        {CreateInstanceMonitoring(InstanceIdent {cService1, cSubject1, 0}, 500),
-            CreateInstanceMonitoring(InstanceIdent {cService2, cSubject1, 0}, 500)});
+        {CreateInstanceMonitoring(InstanceIdent {cService1, cSubject1, 0, UpdateItemTypeEnum::eService}, 500),
+            CreateInstanceMonitoring(InstanceIdent {cService2, cSubject1, 0, UpdateItemTypeEnum::eService}, 500)});
 
     return testData;
 }
