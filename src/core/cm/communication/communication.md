@@ -22,6 +22,8 @@ It requires the following interfaces:
 * [aos::cm::storagestate::StateHandlerItf](../storagestate/itf/statehandler.hpp) - updates and accepts instance state;
 * [aos::cm::smcontroller::LogProviderItf](../smcontroller/itf/logprovider.hpp) - requests logs;
 * [aos::cm::launcher::EnvVarHandlerItf](../launcher/itf/envvarhandler.hpp) - overrides instances env vars;
+* [aos::common::iamclient::CurrentNodeInfoProviderItf](../../common/iamclient/itf/currentnodeinfoprovider.hpp) -
+  determines main node ID;
 * [aos::common::iamclient::CertHandlerItf](../../common/iamclient/itf/certhandler.hpp) - renews nodes certificates;
 * [aos::common::iamclient::ProvisioningItf](../../common/iamclient/itf/provisioning.hpp) - performs node provisioning.
 
@@ -80,6 +82,10 @@ classDiagram
         <<interface>>
     }
 
+    class CurrentNodeInfoProviderItf ["aos::common::iamclient::CurrentNodeInfoProviderItf"] {
+        <<interface>>
+    }
+
     class CertHandlerItf ["aos::common::iamclient::CertHandlerItf"] {
         <<interface>>
     }
@@ -102,6 +108,7 @@ classDiagram
     Communication ..> StateHandlerItf
     Communication ..> LogProviderItf
     Communication ..> EnvVarHandlerItf
+    Communication ..> CurrentNodeInfoProviderItf
     Communication ..> CertHandlerItf
     Communication ..> ProvisioningItf
 ```

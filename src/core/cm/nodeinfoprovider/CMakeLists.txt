@@ -26,7 +26,7 @@ set(HEADERS itf/nodeinfoprovider.hpp itf/sminforeceiver.hpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::common::iamclient aos::core::common::tools aos::core::iam::nodeinfoprovider)
+set(LIBRARIES aos::core::common::iamclient aos::core::common::tools)
 
 # ######################################################################################################################
 # Target
