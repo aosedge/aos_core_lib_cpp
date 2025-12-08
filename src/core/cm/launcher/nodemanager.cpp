@@ -40,7 +40,7 @@ Error NodeManager::Start()
             return AOS_ERROR_WRAP(err);
         }
 
-        if (!nodeInfo->mProvisioned || nodeInfo->mState != NodeStateEnum::eOnline) {
+        if (nodeInfo->mState != NodeStateEnum::eProvisioned || !nodeInfo->mIsConnected) {
             continue;
         }
 
@@ -200,7 +200,7 @@ void NodeManager::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
-        if (!info.mProvisioned || info.mState != NodeStateEnum::eOnline) {
+        if (info.mState != NodeStateEnum::eProvisioned || !info.mIsConnected) {
             mNodes.Erase(node);
 
             return;
@@ -208,7 +208,7 @@ void NodeManager::OnNodeInfoChanged(const UnitNodeInfo& info)
 
         node->UpdateInfo(info);
     } else {
-        if (!info.mProvisioned || info.mState != NodeStateEnum::eOnline) {
+        if (info.mState != NodeStateEnum::eProvisioned || !info.mIsConnected) {
             return;
         }
 

@@ -409,19 +409,19 @@ using InstanceState     = EnumStringer<InstanceStateType>;
 class NodeStateType {
 public:
     enum class Enum {
-        eOffline,
-        eOnline,
-        eError,
+        eUnprovisioned,
+        eProvisioned,
         ePaused,
+        eError,
     };
 
     static const Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
-            "offline",
-            "online",
-            "error",
+            "unprovisioned",
+            "provisioned",
             "paused",
+            "error",
         };
 
         return Array<const char* const>(sStrings, ArraySize(sStrings));
@@ -1031,8 +1031,8 @@ struct NodeInfo {
     CPUInfoArray                mCPUs;
     PartitionInfoArray          mPartitions;
     NodeAttributeArray          mAttrs;
-    bool                        mProvisioned {};
     NodeState                   mState;
+    bool                        mIsConnected {};
     Error                       mError;
 
     /**
@@ -1046,7 +1046,7 @@ struct NodeInfo {
         return mNodeID == rhs.mNodeID && mNodeType == rhs.mNodeType && mTitle == rhs.mTitle
             && mMaxDMIPS == rhs.mMaxDMIPS && mTotalRAM == rhs.mTotalRAM && mPhysicalRAM == rhs.mPhysicalRAM
             && mOSInfo == rhs.mOSInfo && mCPUs == rhs.mCPUs && mPartitions == rhs.mPartitions && mAttrs == rhs.mAttrs
-            && mProvisioned == rhs.mProvisioned && mState == rhs.mState && mError == rhs.mError;
+            && mState == rhs.mState && mIsConnected == rhs.mIsConnected && mError == rhs.mError;
     }
 
     /**

@@ -499,7 +499,7 @@ RuntimeInfo CreateRuntime(const std::string& runtimeID, size_t maxInstances = 0)
 
 UnitNodeInfo CreateNodeInfo(const std::string& nodeID, size_t maxDMIPS, size_t totalRAM,
     const std::vector<RuntimeInfo>& runtimes = {}, const std::vector<ResourceInfo>& resources = {},
-    bool provisioned = true, NodeState state = NodeStateEnum::eOnline, Error error = ErrorEnum::eNone)
+    NodeState state = NodeStateEnum::eProvisioned, bool isConnected = true, Error error = ErrorEnum::eNone)
 {
     UnitNodeInfo nodeInfo;
 
@@ -520,8 +520,8 @@ UnitNodeInfo CreateNodeInfo(const std::string& nodeID, size_t maxDMIPS, size_t t
         nodeInfo.mResources.PushBack(resource);
     }
 
-    nodeInfo.mProvisioned = provisioned;
     nodeInfo.mState       = state;
+    nodeInfo.mIsConnected = isConnected;
     nodeInfo.mError       = error;
 
     return nodeInfo;
@@ -618,14 +618,14 @@ TEST_F(CMLauncherTest, InitialStatus)
     cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
 
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-        {CreateResource("resource1", 2), CreateResource("resource3", 2)}, true);
+        {CreateResource("resource1", 2), CreateResource("resource3", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
 
     auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-        {CreateResource("resource1", 2), CreateResource("resource2", 2)}, true);
+        {CreateResource("resource1", 2), CreateResource("resource2", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
 
-    auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {}, true);
+    auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
 
     for (const auto& nodeID : nodeIDs) {
@@ -700,14 +700,14 @@ TEST_F(CMLauncherTest, CacheInstances)
     mNodeInfoProvider.Init();
 
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-        {CreateResource("resource1", 2), CreateResource("resource3", 2)}, true);
+        {CreateResource("resource1", 2), CreateResource("resource3", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
 
     auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-        {CreateResource("resource1", 2), CreateResource("resource2", 2)}, true);
+        {CreateResource("resource1", 2), CreateResource("resource2", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
 
-    auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {}, true);
+    auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
 
     for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
@@ -788,11 +788,11 @@ TEST_F(CMLauncherTest, Components)
 
     mNodeInfoProvider.Init();
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-        {CreateResource("resource1", 2), CreateResource("resource3", 2)}, true);
+        {CreateResource("resource1", 2), CreateResource("resource3", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
 
     auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRootfs, 1)},
-        {CreateResource("resource1", 2), CreateResource("resource2", 2)}, true);
+        {CreateResource("resource1", 2), CreateResource("resource2", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
 
     for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
@@ -1362,17 +1362,17 @@ TEST_F(CMLauncherTest, Balancing)
 
         mNodeInfoProvider.Init();
         auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-            {CreateResource("resource1", 2), CreateResource("resource3", 2)}, true);
+            {CreateResource("resource1", 2), CreateResource("resource3", 2)});
         mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
 
         auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRunc)},
-            {CreateResource("resource1", 2), CreateResource("resource2", 2)}, true);
+            {CreateResource("resource1", 2), CreateResource("resource2", 2)});
         mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
 
-        auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {}, true);
+        auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
         mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
 
-        auto nodeInfoRunxSM = CreateNodeInfo(cNodeIDRunxSM, 1000, 1024, {CreateRuntime(cRunnerRunx)}, {}, true);
+        auto nodeInfoRunxSM = CreateNodeInfo(cNodeIDRunxSM, 1000, 1024, {CreateRuntime(cRunnerRunx)}, {});
         mNodeInfoProvider.AddNodeInfo(cNodeIDRunxSM, nodeInfoRunxSM);
 
         mImageStore.Init();

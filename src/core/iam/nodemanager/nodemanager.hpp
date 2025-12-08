@@ -47,10 +47,10 @@ public:
      *
      * @param nodeID node identifier.
      * @param state node state.
-     * @param provisioned node provisioned flag.
+     * @param isConnected node connected flag.
      * @return Error.
      */
-    Error SetNodeState(const String& nodeID, const NodeState& state, bool provisioned) override;
+    Error SetNodeState(const String& nodeID, const NodeState& state, bool isConnected) override;
 
     /**
      * Returns node info.

@@ -105,7 +105,11 @@ void Monitoring::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    NodeStateInfo stateInfo {Time::Now(), info.mProvisioned, info.mState};
+    NodeStateInfo stateInfo {
+        Time::Now(),
+        info.mState,
+        info.mIsConnected,
+    };
 
     LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
 
@@ -128,7 +132,7 @@ void Monitoring::OnNodeInfoChanged(const UnitNodeInfo& info)
         return;
     }
 
-    if (it->mStates.Back().mProvisioned == stateInfo.mProvisioned && it->mStates.Back().mState == stateInfo.mState) {
+    if (it->mStates.Back().mState == stateInfo.mState && it->mStates.Back().mIsConnected == stateInfo.mIsConnected) {
         return;
     }
 

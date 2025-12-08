@@ -37,13 +37,14 @@ std::vector<T> ConvertToStl(const Array<T>& arr)
     return std::vector<T>(arr.begin(), arr.end());
 }
 
-NodeInfo CreateNodeInfo(const String& id, aos::NodeStateEnum state, bool provisioned = true)
+NodeInfo CreateNodeInfo(
+    const String& id, aos::NodeStateEnum state = NodeStateEnum::eProvisioned, bool isConnected = true)
 {
     NodeInfo info;
 
     info.mNodeID      = id;
     info.mState       = state;
-    info.mProvisioned = provisioned;
+    info.mIsConnected = isConnected;
 
     return info;
 }
@@ -64,7 +65,7 @@ public:
 
 TEST_F(NodeManagerTest, Init)
 {
-    NodeInfo node0 = CreateNodeInfo("node0", NodeStateEnum::eOnline);
+    NodeInfo node0 = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
     NodeInfo node1 = CreateNodeInfo("node1", NodeStateEnum::ePaused);
 
     EXPECT_CALL(mStorage, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& dst) {
@@ -100,7 +101,7 @@ TEST_F(NodeManagerTest, Init)
 
 TEST_F(NodeManagerTest, SetNodeInfoUnprovisioned)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eOffline, false);
+    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eUnprovisioned, false);
 
     EXPECT_CALL(mStorage, RemoveNodeInfo(info.mNodeID)).WillOnce(Return(ErrorEnum::eNotFound));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
@@ -108,19 +109,18 @@ TEST_F(NodeManagerTest, SetNodeInfoUnprovisioned)
 
 TEST_F(NodeManagerTest, SetNodeInfoOnline)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eOnline);
+    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
 
     EXPECT_CALL(mStorage, SetNodeInfo(info)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
 }
 
-TEST_F(NodeManagerTest, SetNodeStateOffline)
+TEST_F(NodeManagerTest, SetNodeInfoOffline)
 {
-    StaticString<cIDLen> node0 = "node0";
-    NodeStateEnum        state = NodeStateEnum::eOffline;
+    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eProvisioned);
 
-    EXPECT_CALL(mStorage, RemoveNodeInfo(node0)).WillOnce(Return(ErrorEnum::eNotFound));
-    ASSERT_TRUE(mManager.SetNodeState(node0, state, false).IsNone());
+    EXPECT_CALL(mStorage, SetNodeInfo(info)).WillOnce(Return(ErrorEnum::eNone));
+    ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
 }
 
 TEST_F(NodeManagerTest, GetNodeInfoNotFound)
@@ -133,7 +133,7 @@ TEST_F(NodeManagerTest, GetNodeInfoNotFound)
 
 TEST_F(NodeManagerTest, GetNodeInfoOk)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eOnline);
+    NodeInfo info = CreateNodeInfo("node0");
 
     EXPECT_CALL(mStorage, SetNodeInfo(info)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeInfo(info).IsNone());
@@ -149,7 +149,7 @@ TEST_F(NodeManagerTest, GetAllNodeIDs)
     StaticString<cIDLen> node0 = "node0";
     StaticString<cIDLen> node1 = "node1";
 
-    NodeStateEnum state = NodeStateEnum::eOnline;
+    NodeStateEnum state = NodeStateEnum::eProvisioned;
 
     EXPECT_CALL(mStorage, SetNodeInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeState(node0, state, true).IsNone());
@@ -166,7 +166,7 @@ TEST_F(NodeManagerTest, RemoveNodeInfo)
     StaticString<cIDLen> node0 = "node0";
 
     NodeInfo      nodeInfo;
-    NodeStateEnum state = NodeStateEnum::eOnline;
+    NodeStateEnum state = NodeStateEnum::eProvisioned;
 
     EXPECT_CALL(mStorage, SetNodeInfo(Field(&NodeInfo::mNodeID, node0))).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(mManager.SetNodeState(node0, state, true).IsNone());
@@ -180,7 +180,7 @@ TEST_F(NodeManagerTest, RemoveNodeInfo)
 
 TEST_F(NodeManagerTest, NotifyNodeInfoChangeOnSetNodeInfo)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eOnline);
+    NodeInfo info = CreateNodeInfo("node0");
 
     NodeInfoListenerMock listener;
 
@@ -194,7 +194,7 @@ TEST_F(NodeManagerTest, NotifyNodeInfoChangeOnSetNodeInfo)
 
 TEST_F(NodeManagerTest, NotifyNodeRemoved)
 {
-    NodeInfo info = CreateNodeInfo("node0", NodeStateEnum::eOnline);
+    NodeInfo info = CreateNodeInfo("node0");
 
     NodeInfoListenerMock listener;
 

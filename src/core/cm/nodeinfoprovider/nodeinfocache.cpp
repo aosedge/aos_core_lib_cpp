@@ -37,11 +37,16 @@ void NodeInfoCache::GetUnitNodeInfo(UnitNodeInfo& info) const
         return;
     }
 
-    if (const auto state = info.mState; state == NodeStateEnum::eError || state == NodeStateEnum::eOffline) {
+    if (info.mState == NodeStateEnum::eError || !info.mIsConnected) {
         return;
     }
 
-    info.mState = Time::Now().Sub(mLastUpdate) > mWaitTimeout ? NodeStateEnum::eError : NodeStateEnum::eOffline;
+    if (Time::Now().Sub(mLastUpdate) > mWaitTimeout) {
+        info.mState = NodeStateEnum::eError;
+        info.mError = Error(ErrorEnum::eTimeout, "SM connection timeout");
+    } else {
+        info.mIsConnected = false;
+    }
 }
 
 void NodeInfoCache::OnSMConnected()

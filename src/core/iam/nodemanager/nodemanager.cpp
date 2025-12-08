@@ -62,17 +62,17 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
     return UpdateNodeInfo(info);
 }
 
-Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state, bool provisioned)
+Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state, bool isConnected)
 {
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Set node state" << Log::Field("nodeID", nodeID) << Log::Field("state", state)
-              << Log::Field("provisioned", provisioned);
+              << Log::Field("isConnected", isConnected);
 
     auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
 
     if (const auto* cachedInfo = GetNodeFromCache(nodeID); cachedInfo != nullptr) {
-        if (cachedInfo->mState == state && cachedInfo->mProvisioned == provisioned) {
+        if (cachedInfo->mState == state && cachedInfo->mIsConnected == isConnected) {
             return ErrorEnum::eNone;
         }
 
@@ -81,7 +81,7 @@ Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state, bo
 
     nodeInfo->mNodeID      = nodeID;
     nodeInfo->mState       = state;
-    nodeInfo->mProvisioned = provisioned;
+    nodeInfo->mIsConnected = isConnected;
 
     return UpdateNodeInfo(*nodeInfo);
 }
@@ -198,7 +198,7 @@ Error NodeManager::UpdateNodeInfo(const NodeInfo& info)
 {
     Error err = ErrorEnum::eNone;
 
-    if (!info.mProvisioned) {
+    if (info.mState == NodeStateEnum::eUnprovisioned) {
         err = mStorage->RemoveNodeInfo(info.mNodeID);
         if (err.Is(ErrorEnum::eNotFound)) {
             err = ErrorEnum::eNone;
