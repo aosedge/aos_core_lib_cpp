@@ -7,10 +7,10 @@
 #define AOS_CORE_SM_SMCLIENT_ITF_SMCLIENT_HPP_
 
 #include <core/common/alerts/itf/sender.hpp>
-#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/logging/itf/sender.hpp>
 #include <core/common/monitoring/itf/sender.hpp>
+#include <core/sm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/sm/launcher/itf/sender.hpp>
 
 namespace aos::sm::smclient {
@@ -26,7 +26,7 @@ class SMClientItf : public alerts::SenderItf,
                     public monitoring::SenderItf,
                     public logging::SenderItf,
                     public launcher::SenderItf,
-                    public blobinfoprovider::ProviderItf,
+                    public imagemanager::BlobInfoProviderItf,
                     public cloudconnection::CloudConnectionItf {
 public:
     /**
