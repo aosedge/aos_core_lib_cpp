@@ -311,6 +311,12 @@ public:
     enum class Enum {
         eService,
         eComponent,
+        eLayer,
+        eSubject,
+        eOEM,
+        eSP,
+        eNode,
+        eRuntime,
     };
 
     static const Array<const char* const> GetStrings()
@@ -318,6 +324,12 @@ public:
         static const char* const sStrings[] = {
             "service",
             "component",
+            "layer",
+            "subject",
+            "oem",
+            "sp",
+            "node",
+            "runtime",
         };
 
         return Array<const char* const>(sStrings, ArraySize(sStrings));
