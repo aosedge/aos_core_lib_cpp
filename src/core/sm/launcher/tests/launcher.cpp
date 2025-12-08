@@ -219,6 +219,7 @@ public:
     MOCK_METHOD(Error, GetRuntimeInfo, (RuntimeInfo & runtimeInfo), (const, override));
     MOCK_METHOD(Error, StartInstance, (const InstanceInfo& instance, InstanceStatus& status), (override));
     MOCK_METHOD(Error, StopInstance, (const InstanceIdent& instance, InstanceStatus& status), (override));
+    MOCK_METHOD(Error, Reboot, (), (override));
 };
 
 class InstanceListenerMock : public instancestatusprovider::ListenerItf {
@@ -727,6 +728,85 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 
     err = mLauncher.UnsubscribeListener(mStatusListener);
     ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
+{
+    const auto cInstanceInfo   = CreateInstanceInfo(0, "runtime0");
+    const auto cInstanceStatus = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eActive);
+
+    mStorage.Init({cInstanceInfo});
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        auto err = mLauncher.RebootRequired("runtime0");
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mRuntime0, Reboot()).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+
+    EXPECT_EQ(mReceivedStatuses[0], cInstanceStatus);
+
+    const auto statuses = Array<InstanceStatus>(&cInstanceStatus, 1);
+
+    mLauncher.OnInstancesStatusesReceived(statuses);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0], cInstanceStatus);
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RebootRuntime)
+{
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.SubscribeListener(mStatusListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::promise<void> rebootPromise;
+
+    EXPECT_CALL(mRuntime0, Reboot()).WillOnce(Invoke([&](void) {
+        rebootPromise.set_value();
+        return ErrorEnum::eNone;
+    }));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.RebootRequired("runtime0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.RebootRequired("unknown_runtime");
+    ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(rebootPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
+        == std::future_status::ready);
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.UnsubscribeListener(mStatusListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
 } // namespace aos::sm::launcher

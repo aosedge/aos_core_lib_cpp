@@ -64,6 +64,13 @@ public:
      * @return Error.
      */
     virtual Error StopInstance(const InstanceIdent& instance, InstanceStatus& status) = 0;
+
+    /**
+     * Reboots runtime.
+     *
+     * @return Error.
+     */
+    virtual Error Reboot() = 0;
 };
 
 /**
