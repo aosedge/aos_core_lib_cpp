@@ -13,11 +13,11 @@
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/instance.hpp>
 #include <core/sm/config.hpp>
-#include <core/sm/smclient/itf/runtimeinfoprovider.hpp>
 
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 #include "itf/runtime.hpp"
+#include "itf/runtimeinfoprovider.hpp"
 #include "itf/sender.hpp"
 #include "itf/storage.hpp"
 
@@ -32,7 +32,7 @@ namespace aos::sm::launcher {
  */
 class Launcher : public LauncherItf,
                  public InstanceStatusReceiverItf,
-                 public smclient::RuntimeInfoProviderItf,
+                 public RuntimeInfoProviderItf,
                  public monitoring::InstanceInfoProviderItf {
 public:
     /**

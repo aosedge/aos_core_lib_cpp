@@ -11,7 +11,7 @@ It implements the following interfaces:
 * [aos::sm::launcher::LauncherItf](itf/launcher.hpp) - implements main launcher functionality to update Aos items;
 * [aos::sm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - to receive instances statuses
   from runtimes;
-* [aos::sm::smclient::RuntimeInfoProviderItf](../smclient/itf/runtimeinfoprovider.hpp) - to provide runtime info.
+* [aos::sm::launcher::RuntimeInfoProviderItf](itf/runtimeinfoprovider.hpp) - to provide runtime info.
 * [aos::monitoring::InstanceInfoProviderItf](../../common/monitoring/itf/instanceinfoprovider.hpp) - provides
   instance info: monitoring parameters, monitoring data, instance statuses. Also, it's capable of managing instance
   status events subscription and notifications and inherits the following interfaces:
@@ -44,7 +44,7 @@ classDiagram
         <<interface>>
     }
 
-    class RuntimeInfoProviderItf ["aos::sm::smclient::RuntimeInfoProviderItf"] {
+    class RuntimeInfoProviderItf ["aos::sm::launcher::RuntimeInfoProviderItf"] {
         <<interface>>
     }
 
