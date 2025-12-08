@@ -75,13 +75,13 @@ private:
     std::vector<aos::Monitoring> mMessages;
 };
 
-std::unique_ptr<UnitNodeInfo> CreateUnitNodeInfo(const String& nodeID, bool provisioned, NodeStateEnum state)
+std::unique_ptr<UnitNodeInfo> CreateUnitNodeInfo(const String& nodeID, NodeState state, bool isConnected)
 {
     auto unitNodeInfo = std::make_unique<UnitNodeInfo>();
 
     unitNodeInfo->mNodeID      = nodeID;
-    unitNodeInfo->mProvisioned = provisioned;
     unitNodeInfo->mState       = state;
+    unitNodeInfo->mIsConnected = isConnected;
 
     return unitNodeInfo;
 }
@@ -185,10 +185,12 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
     auto err = mMonitoring.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    std::array nodeInfos = {CreateUnitNodeInfo("node1", false, NodeStateEnum::eOffline),
-        CreateUnitNodeInfo("node1", true, NodeStateEnum::eOnline),
-        CreateUnitNodeInfo("node2", false, NodeStateEnum::eOffline),
-        CreateUnitNodeInfo("node2", true, NodeStateEnum::eOnline)};
+    std::array nodeInfos = {
+        CreateUnitNodeInfo("node1", NodeStateEnum::eUnprovisioned, false),
+        CreateUnitNodeInfo("node1", NodeStateEnum::eProvisioned, true),
+        CreateUnitNodeInfo("node2", NodeStateEnum::eUnprovisioned, false),
+        CreateUnitNodeInfo("node2", NodeStateEnum::eProvisioned, true),
+    };
 
     for (const auto& nodeInfo : nodeInfos) {
         mMonitoring.OnNodeInfoChanged(*nodeInfo);
@@ -204,20 +206,20 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
     EXPECT_EQ(monitoring->mNodes[0].mNodeID, "node1");
 
     EXPECT_EQ(monitoring->mNodes[0].mStates.Size(), 2);
-    EXPECT_EQ(monitoring->mNodes[0].mStates[0].mProvisioned, false);
-    EXPECT_EQ(monitoring->mNodes[0].mStates[0].mState.GetValue(), NodeStateEnum::eOffline);
+    EXPECT_EQ(monitoring->mNodes[0].mStates[0].mState.GetValue(), NodeStateEnum::eUnprovisioned);
+    EXPECT_EQ(monitoring->mNodes[0].mStates[0].mIsConnected, false);
 
-    EXPECT_EQ(monitoring->mNodes[0].mStates[1].mProvisioned, true);
-    EXPECT_EQ(monitoring->mNodes[0].mStates[1].mState.GetValue(), NodeStateEnum::eOnline);
+    EXPECT_EQ(monitoring->mNodes[0].mStates[1].mState.GetValue(), NodeStateEnum::eProvisioned);
+    EXPECT_EQ(monitoring->mNodes[0].mStates[1].mIsConnected, true);
 
     EXPECT_EQ(monitoring->mNodes[1].mNodeID, "node2");
     EXPECT_EQ(monitoring->mNodes[1].mStates.Size(), 2);
 
-    EXPECT_EQ(monitoring->mNodes[1].mStates[0].mProvisioned, false);
-    EXPECT_EQ(monitoring->mNodes[1].mStates[0].mState.GetValue(), NodeStateEnum::eOffline);
+    EXPECT_EQ(monitoring->mNodes[1].mStates[0].mIsConnected, false);
+    EXPECT_EQ(monitoring->mNodes[1].mStates[0].mState.GetValue(), NodeStateEnum::eUnprovisioned);
 
-    EXPECT_EQ(monitoring->mNodes[1].mStates[1].mProvisioned, true);
-    EXPECT_EQ(monitoring->mNodes[1].mStates[1].mState.GetValue(), NodeStateEnum::eOnline);
+    EXPECT_EQ(monitoring->mNodes[1].mStates[1].mIsConnected, true);
+    EXPECT_EQ(monitoring->mNodes[1].mStates[1].mState.GetValue(), NodeStateEnum::eProvisioned);
 
     err = mMonitoring.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);

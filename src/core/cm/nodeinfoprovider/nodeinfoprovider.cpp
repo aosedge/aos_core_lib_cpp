@@ -207,7 +207,8 @@ void NodeInfoProvider::OnNodeInfoChanged(const NodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
+    LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID) << Log::Field("state", info.mState)
+              << Log::Field("isConnected", info.mIsConnected) << Log::Field(info.mError);
 
     auto it = mCache.FindIf([&info](const auto& nodeInfo) { return nodeInfo.GetNodeID() == info.mNodeID; });
     if (it == mCache.end()) {

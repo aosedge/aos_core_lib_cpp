@@ -159,8 +159,8 @@ using InstanceMonitoringDataArray = StaticArray<InstanceMonitoringData, cMaxNumI
  */
 struct NodeStateInfo {
     Time      mTimestamp {};
-    bool      mProvisioned {};
     NodeState mState;
+    bool      mIsConnected {};
 
     /**
      * Compares node state info.
@@ -170,7 +170,7 @@ struct NodeStateInfo {
      */
     bool operator==(const NodeStateInfo& rhs) const
     {
-        return mTimestamp == rhs.mTimestamp && mProvisioned == rhs.mProvisioned && mState == rhs.mState;
+        return mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsConnected == rhs.mIsConnected;
     }
 
     /**

@@ -156,7 +156,7 @@ void UnitConfig::OnNodeInfoChanged(const UnitNodeInfo& info)
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Node info received" << Log::Field("nodeID", info.mNodeID) << Log::Field("nodeType", info.mNodeType)
-              << Log::Field("state", info.mState) << Log::Field("provisioned", info.mProvisioned)
+              << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
               << Log::Field(info.mError);
 
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled) {

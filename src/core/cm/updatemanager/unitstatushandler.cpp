@@ -137,7 +137,7 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
     LockGuard lock {mMutex};
 
     LOG_INF() << "Node info changed" << Log::Field("id", info.mNodeID) << Log::Field("type", info.mNodeType)
-              << Log::Field("provisioned", info.mProvisioned) << Log::Field("state", info.mState)
+              << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
               << Log::Field(info.mError);
 
     if (!mCloudConnected) {
@@ -384,7 +384,7 @@ void UnitStatusHandler::LogUnitStatus()
     if (mUnitStatus.mNodes.HasValue()) {
         for (const auto& nodeInfo : mUnitStatus.mNodes.GetValue()) {
             LOG_DBG() << "Node info" << Log::Field("id", nodeInfo.mNodeID) << Log::Field("type", nodeInfo.mNodeType)
-                      << Log::Field("provisioned", nodeInfo.mProvisioned) << Log::Field("state", nodeInfo.mState)
+                      << Log::Field("isConnected", nodeInfo.mIsConnected) << Log::Field("state", nodeInfo.mState)
                       << Log::Field(nodeInfo.mError);
         }
     }

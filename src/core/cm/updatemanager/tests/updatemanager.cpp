@@ -38,12 +38,12 @@ static constexpr Duration cUnitStatusSendTimeout = 500 * Time::cMilliseconds;
  **********************************************************************************************************************/
 
 void CreateNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& nodeType,
-    const NodeState& state = NodeStateEnum::eOnline)
+    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
 {
     nodeInfo.mNodeID      = nodeID;
     nodeInfo.mNodeType    = nodeType;
     nodeInfo.mState       = state;
-    nodeInfo.mProvisioned = true;
+    nodeInfo.mIsConnected = isConnected;
 
     ResourceInfo resourceInfo1;
 
@@ -411,7 +411,8 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
         mNodeInfoListener->OnNodeInfoChanged(nodeInfo);
     }
 
-    CreateNodeInfo(expectedUnitStatus->mNodes.GetValue()[0], nodeIDs[0], nodeTypes[0], NodeStateEnum::eOffline);
+    CreateNodeInfo(
+        expectedUnitStatus->mNodes.GetValue()[0], nodeIDs[0], nodeTypes[0], NodeStateEnum::eProvisioned, false);
 
     mNodeInfoListener->OnNodeInfoChanged(expectedUnitStatus->mNodes.GetValue()[0]);
 
