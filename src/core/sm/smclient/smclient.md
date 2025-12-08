@@ -8,7 +8,7 @@ It implements the following interfaces:
 * [aos::monitoring::SenderItf](../../common/monitoring/itf/sender.hpp) - sends monitoring to CM;
 * [aos::logging::SenderItf](../../common/logging/itf/sender.hpp) - sends system and instances logs to CM;
 * [aos::sm::launcher::SenderItf](../launcher/itf/sender.hpp) - sends update items statuses to CM;
-* [aos::blobinfoprovider::ProviderItf](../../common/blobinfoprovider/itf/blobinfoprovider.hpp) - provides blobs info;
+* [aos::sm::imagemanager::BlobInfoProviderItf](../imagemanager/itf/blobinfoprovider.hpp) - provides blobs info;
 * [aos::cloudconnection::CloudConnectionItf](../../common/cloudconnection/itf/cloudconnection.hpp) - provides cloud
   connection status.
 
@@ -45,7 +45,7 @@ classDiagram
         <<interface>>
     }
 
-    class BlobInfoProviderI ["aos::blobinfoprovider::ProviderItf"] {
+    class BlobInfoProviderI ["aos::sm::imagemanager::BlobInfoProviderItf"] {
         <<interface>>
     }
 
