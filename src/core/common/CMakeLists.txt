@@ -19,7 +19,6 @@ set(HEADERS config.hpp)
 
 set(INSTALL_HEADERS
     aos_core_common_alerts
-    aos_core_common_blobinfoprovider
     aos_core_common_cloudconnection
     aos_core_common_downloader
     aos_core_common_logging
@@ -57,7 +56,6 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_common)
 # ######################################################################################################################
 
 add_subdirectory(alerts)
-add_subdirectory(blobinfoprovider)
 add_subdirectory(cloudconnection)
 add_subdirectory(crypto)
 add_subdirectory(downloader)

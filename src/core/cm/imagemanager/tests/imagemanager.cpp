@@ -110,7 +110,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
             info.mDigest = "abc123";
@@ -213,7 +213,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
             info.mDigest = "abc123";
@@ -308,7 +308,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mStorageMock, AddItem(_)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
         .WillRepeatedly(Invoke([](const auto& digests, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
             info.mDigest = digests[0];
@@ -408,7 +408,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_BlobInfoFailed)
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _)).WillRepeatedly(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _)).WillRepeatedly(Return(ErrorEnum::eNotFound));
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
 
@@ -442,7 +442,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
         .WillRepeatedly(Invoke([](const auto& digests, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
             info.mDigest = digests[0];

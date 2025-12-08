@@ -9,16 +9,17 @@
 
 #include <gmock/gmock.h>
 
-#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
+#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 
 namespace aos::cm::imagemanager {
 
 /**
  * Blob info provider mock.
  */
-class BlobInfoProviderMock : public blobinfoprovider::ProviderItf {
+class BlobInfoProviderMock : public BlobInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetBlobsInfos, (const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&), (override));
+    MOCK_METHOD(Error, GetBlobsInfo, (const Array<StaticString<oci::cDigestLen>>& digests, Array<BlobInfo>& blobsInfo),
+        (override));
 };
 
 } // namespace aos::cm::imagemanager

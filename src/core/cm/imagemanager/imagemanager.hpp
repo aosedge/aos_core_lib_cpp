@@ -8,7 +8,6 @@
 #define AOS_CORE_CM_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
 #include <core/cm/fileserver/itf/fileserver.hpp>
-#include <core/common/blobinfoprovider/itf/blobinfoprovider.hpp>
 #include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
@@ -19,6 +18,7 @@
 #include <core/common/tools/timer.hpp>
 
 #include "config.hpp"
+#include "itf/blobinfoprovider.hpp"
 #include "itf/imagemanager.hpp"
 #include "itf/iteminfoprovider.hpp"
 #include "itf/storage.hpp"
@@ -49,7 +49,7 @@ public:
      * @param ociSpec parses OCI spec files.
      * @return Error.
      */
-    Error Init(const Config& config, StorageItf& storage, blobinfoprovider::ProviderItf& blobInfoProvider,
+    Error Init(const Config& config, StorageItf& storage, BlobInfoProviderItf& blobInfoProvider,
         spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
         spaceallocator::SpaceAllocatorItf& installSpaceAllocator, downloader::DownloaderItf& downloader,
         fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& cryptoHelper,
@@ -217,7 +217,7 @@ private:
     void  StopAction();
 
     StorageItf*                        mStorage {};
-    blobinfoprovider::ProviderItf*     mBlobInfoProvider {};
+    BlobInfoProviderItf*               mBlobInfoProvider {};
     spaceallocator::SpaceAllocatorItf* mDownloadingSpaceAllocator {};
     spaceallocator::SpaceAllocatorItf* mInstallSpaceAllocator {};
     downloader::DownloaderItf*         mDownloader {};
