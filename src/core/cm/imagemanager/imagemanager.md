@@ -12,7 +12,7 @@ It implements the following interfaces:
 It requires the following interfaces:
 
 * [aos::cm::imagemanager::StorageItf](itf/storage.hpp) - stores internal persistent data;
-* [aos::blobinfoprovider::ProviderItf](../../common/blobinfoprovider/itf/blobinfoprovider.hpp) - retrieves blobs info;
+* [aos::cm::imagemanager::BlobInfoProviderItf](itf/blobinfoprovider.hpp) - retrieves blobs info;
 * [aos::spaceallocator::SpaceAllocatorItf](../../common/spaceallocator/spaceallocator.hpp) - allocates disk space for
   calculating required disk size;
 * [aos::cm::fileserver::FileServerItf](../fileserver/itf/fileserver.hpp) - translates local file path's to remote URL's;
@@ -48,7 +48,7 @@ classDiagram
         <<interface>>
     }
 
-    class BlobInfoProviderItf ["aos::blobinfoprovider::ProviderItf"] {
+    class BlobInfoProviderItf ["aos::cm::imagemanager::BlobInfoProviderItf"] {
         <<interface>>
     }
 
