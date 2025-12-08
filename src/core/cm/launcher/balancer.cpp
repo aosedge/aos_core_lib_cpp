@@ -95,7 +95,8 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
 {
     for (const auto& request : requests) {
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i};
+            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
+
             if (mNodeManager->IsScheduled(instanceIdent)) {
                 continue;
             }
@@ -580,7 +581,7 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
         }
 
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i};
+            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
 
             if (!mNodeManager->IsRunning(instanceIdent)) {
                 continue;
