@@ -14,7 +14,7 @@ It implements the following interfaces:
 
 It uses the following interfaces:
 
-* [aos::sm::smclient::RuntimeInfoProviderItf](itf/runtimeinfoprovider.hpp) - provides runtimes info;
+* [aos::sm::launcher::RuntimeInfoProviderItf](../launcher/itf/runtimeinfoprovider.hpp) - provides runtimes info;
 * [aos::sm::resourcemanager::ResourceInfoProviderItf](../resourcemanager/itf/resourceinfoprovider.hpp) - provides
 resources info;
 * [aos::sm::nodeconfig::NodeConfigHandlerItf](../nodeconfig/itf/nodeconfighandler.hpp) - updates node config;
@@ -54,7 +54,7 @@ classDiagram
         <<interface>>
     }
 
-    class RuntimeInfoProviderItf ["aos::sm::smclient::RuntimeInfoProviderItf"] {
+    class RuntimeInfoProviderItf ["aos::sm::launcher::RuntimeInfoProviderItf"] {
         <<interface>>
     }
 
