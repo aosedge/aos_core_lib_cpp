@@ -63,6 +63,12 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    mIsRunning = true;
+
+    if (auto err = mRebootThread.Run([this](void*) { RunRebootThread(); }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     lock.Unlock();
 
     if (auto err = UpdateInstances({}, *storedInstances); !err.IsNone()) {
@@ -86,9 +92,14 @@ Error Launcher::Stop()
                 return AOS_ERROR_WRAP(err);
             }
         }
+
+        mIsRunning = false;
+
+        mCondVar.NotifyAll();
     }
 
     mThread.Join();
+    mRebootThread.Join();
 
     return ErrorEnum::eNone;
 }
@@ -134,6 +145,30 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
     }
 
     mSender->SendUpdateInstancesStatuses(statuses);
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::RebootRequired(const String& runtimeID)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Reboot required notification received" << Log::Field("runtimeID", runtimeID);
+
+    auto it = mRuntimes.FindIf([&runtimeID](const auto& pair) { return pair.mSecond == runtimeID; });
+    if (it == mRuntimes.end()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
+    }
+
+    if (mRebootQueue.Contains(it->mFirst)) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mRebootQueue.EmplaceBack(it->mFirst); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -243,6 +278,32 @@ Error Launcher::GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+void Launcher::RunRebootThread()
+{
+    while (true) {
+        decltype(mRebootQueue) runtimesToReboot;
+
+        {
+            UniqueLock lock {mMutex};
+
+            mCondVar.Wait(lock, [this]() { return !mIsRunning || (!mLaunchInProgress && !mRebootQueue.IsEmpty()); });
+
+            if (!mIsRunning) {
+                return;
+            }
+
+            runtimesToReboot = mRebootQueue;
+            mRebootQueue.Clear();
+        }
+
+        for (auto* runtime : runtimesToReboot) {
+            if (auto err = runtime->Reboot(); !err.IsNone()) {
+                LOG_ERR() << "Reboot runtime failed" << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+    }
+}
 
 void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
 {

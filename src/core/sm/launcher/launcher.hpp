@@ -79,6 +79,14 @@ public:
     Error OnInstancesStatusesReceived(const Array<InstanceStatus>& statuses) override;
 
     /**
+     * Notifies that runtime requires reboot.
+     *
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    Error RebootRequired(const String& runtimeID) override;
+
+    /**
      * Returns current statuses of running instances.
      *
      * @param[out] statuses instances statuses.
@@ -144,6 +152,7 @@ private:
         InstanceStatus mStatus;
     };
 
+    void  RunRebootThread();
     void  UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses);
     void  StartInstances(const Array<InstanceInfo>& startInstances);
@@ -163,14 +172,17 @@ private:
     mutable StaticAllocator<cAllocatorSize>                                                mAllocator;
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers>                  mSubscribers;
     Thread<cThreadTaskSize, cThreadStackSize>                                              mThread;
+    Thread<cThreadTaskSize, cThreadStackSize>                                              mRebootThread;
     ThreadPool<cNumLaunchThreads, cMaxNumInstances * 2, cThreadTaskSize, cThreadStackSize> mLaunchPool;
     mutable Mutex                                                                          mMutex;
     mutable ConditionalVariable                                                            mCondVar;
     StaticArray<InstanceData, cMaxNumInstances>                                            mInstances;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>                      mRuntimes;
+    StaticArray<RuntimeItf*, cMaxNumNodeRuntimes>                                          mRebootQueue;
     StorageItf*                                                                            mStorage {};
     SenderItf*                                                                             mSender {};
     bool                                                                                   mLaunchInProgress {};
+    bool                                                                                   mIsRunning {};
 };
 
 } // namespace aos::sm::launcher

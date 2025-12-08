@@ -171,6 +171,10 @@ Launcher processes instances in parallel using a thread pool.
 
 Receive instances statuses.
 
+### RebootRequired
+
+Marks runtime for reboot. Reboot will be performed after current launch is completed.
+
 ## aos::sm::launcher::InstanceStatusSenderItf
 
 ### SendNodeInstancesStatuses

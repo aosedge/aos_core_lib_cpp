@@ -32,6 +32,14 @@ public:
      * @return Error.
      */
     virtual Error OnInstancesStatusesReceived(const Array<InstanceStatus>& statuses) = 0;
+
+    /**
+     * Notifies that runtime requires reboot.
+     *
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    virtual Error RebootRequired(const String& runtimeID) = 0;
 };
 
 } // namespace aos::sm::launcher
