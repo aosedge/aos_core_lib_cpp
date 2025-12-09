@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_SM_IMAGEMANAGER_ITF_BLOBINFOPROVIDER_HPP_
 #define AOS_CORE_SM_IMAGEMANAGER_ITF_BLOBINFOPROVIDER_HPP_
 
+#include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/types/common.hpp>
 
 namespace aos::sm::imagemanager {
