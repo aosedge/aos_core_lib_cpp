@@ -280,12 +280,6 @@ bool Node::IsScheduled(const InstanceIdent& id) const
  * Private
  **********************************************************************************************************************/
 
-void Node::Convert(const InstanceStatus& src, aos::InstanceInfo& dst)
-{
-    static_cast<InstanceIdent&>(dst) = static_cast<const InstanceIdent&>(src);
-    dst.mRuntimeID                   = src.mRuntimeID;
-}
-
 size_t Node::GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const
 {
     size_t instanceUsage = 0;
