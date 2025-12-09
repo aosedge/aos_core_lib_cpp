@@ -172,8 +172,6 @@ private:
     static constexpr auto cAllocatorSize
         = sizeof(aos::InstanceInfo) + sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>);
 
-    void Convert(const InstanceStatus& src, aos::InstanceInfo& dst);
-
     // Returns CPU usage without Aos service instances.
     size_t GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const;
     // Returns CPU usage without Aos service instances.
