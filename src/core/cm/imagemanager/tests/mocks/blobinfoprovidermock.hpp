@@ -18,8 +18,7 @@ namespace aos::cm::imagemanager {
  */
 class BlobInfoProviderMock : public BlobInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetBlobsInfo, (const Array<StaticString<oci::cDigestLen>>& digests, Array<BlobInfo>& blobsInfo),
-        (override));
+    MOCK_METHOD(Error, GetBlobsInfos, (const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&), (override));
 };
 
 } // namespace aos::cm::imagemanager
