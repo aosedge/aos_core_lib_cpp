@@ -110,7 +110,7 @@ public:
     //
     // imagemanager::BlobInfoProviderItf
     //
-    Error GetBlobsInfo(const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&) override
+    Error GetBlobsInfos(const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&) override
     {
         return ErrorEnum::eNone;
     }

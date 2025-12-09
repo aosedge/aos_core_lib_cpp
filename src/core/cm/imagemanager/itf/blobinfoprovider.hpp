@@ -29,10 +29,10 @@ public:
      * Returns blobs info.
      *
      * @param digests list of blob digests.
-     * @param[out] blobsInfo blobs info.
+     * @param[out] blobsInfo blobs infos.
      * @return Error.
      */
-    virtual Error GetBlobsInfo(const Array<StaticString<oci::cDigestLen>>& digests, Array<BlobInfo>& blobsInfo) = 0;
+    virtual Error GetBlobsInfos(const Array<StaticString<oci::cDigestLen>>& digests, Array<BlobInfo>& blobsInfo) = 0;
 };
 
 /** @}*/
