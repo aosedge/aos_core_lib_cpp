@@ -23,7 +23,7 @@ Error NodeManager::Init(StorageItf& storage)
 
     mStorage = &storage;
 
-    auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cNodeMaxNum>>(&mAllocator);
+    auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
 
     auto err = storage.GetAllNodeIDs(*nodeIDs);
     if (!err.IsNone()) {
@@ -51,44 +51,75 @@ Error NodeManager::SetNodeInfo(const NodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Set node info: nodeID=" << info.mNodeID << ", state=" << info.mState;
+    LOG_DBG() << "Set node info" << Log::Field("nodeID", info.mNodeID) << Log::Field("state", info.mState)
+              << Log::Field("connected", info.mIsConnected);
 
-    const auto* cachedInfo = GetNodeFromCache(info.mNodeID);
-
-    if (cachedInfo != nullptr && *cachedInfo == info) {
-        return ErrorEnum::eNone;
+    if (auto err = UpdateStorage(info); !err.IsNone()) {
+        return err;
     }
 
-    return UpdateNodeInfo(info);
+    if (auto err = UpdateCache(info); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
 }
 
-Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state, bool isConnected)
+Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Set node state" << Log::Field("nodeID", nodeID) << Log::Field("state", state)
-              << Log::Field("isConnected", isConnected);
+    LOG_DBG() << "Set node state" << Log::Field("nodeID", nodeID) << Log::Field("state", state);
+
+    const auto* cachedInfo = GetNodeFromCache(nodeID);
+    if (!cachedInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
 
     auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
 
-    if (const auto* cachedInfo = GetNodeFromCache(nodeID); cachedInfo != nullptr) {
-        if (cachedInfo->mState == state && cachedInfo->mIsConnected == isConnected) {
-            return ErrorEnum::eNone;
-        }
+    *nodeInfo        = *cachedInfo;
+    nodeInfo->mState = state;
 
-        *nodeInfo = *cachedInfo;
+    if (auto err = UpdateStorage(*nodeInfo); !err.IsNone()) {
+        return err;
     }
 
-    nodeInfo->mNodeID      = nodeID;
-    nodeInfo->mState       = state;
+    if (auto err = UpdateCache(*nodeInfo); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NodeManager::SetNodeConnected(const String& nodeID, bool isConnected)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Set node connected" << Log::Field("nodeID", nodeID) << Log::Field("connected", isConnected);
+
+    const auto* cachedInfo = GetNodeFromCache(nodeID);
+    if (!cachedInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+
+    *nodeInfo              = *cachedInfo;
     nodeInfo->mIsConnected = isConnected;
 
-    return UpdateNodeInfo(*nodeInfo);
+    if (auto err = UpdateCache(*nodeInfo); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error NodeManager::GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const
 {
     LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get node info" << Log::Field("nodeID", nodeID);
 
     auto cachedInfo = GetNodeFromCache(nodeID);
 
@@ -105,6 +136,8 @@ Error NodeManager::GetAllNodeIDs(Array<StaticString<cIDLen>>& ids) const
 {
     LockGuard lock {mMutex};
 
+    LOG_DBG() << "Get all node IDs";
+
     for (const auto& nodeInfo : mNodeInfoCache) {
         auto err = ids.PushBack(nodeInfo.mNodeID);
         if (!err.IsNone()) {
@@ -115,39 +148,28 @@ Error NodeManager::GetAllNodeIDs(Array<StaticString<cIDLen>>& ids) const
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::RemoveNodeInfo(const String& nodeID)
+Error NodeManager::SubscribeListener(iamclient::NodeInfoListenerItf& listener)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Remove node info: nodeID=" << nodeID;
+    LOG_DBG() << "Subscribe node info listener";
 
-    auto cachedInfo = GetNodeFromCache(nodeID);
-    if (cachedInfo == nullptr) {
-        // Cache contains all the entries, so if not found => just return error.
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
-    }
-
-    auto err = mStorage->RemoveNodeInfo(nodeID);
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    mNodeInfoCache.Erase(cachedInfo);
-
-    if (mNodeInfoListener) {
-        mNodeInfoListener->OnNodeRemoved(nodeID);
+    if (auto err = mListeners.PushBack(&listener); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::SubscribeNodeInfoChange(NodeInfoListenerItf& listener)
+Error NodeManager::UnsubscribeListener(iamclient::NodeInfoListenerItf& listener)
 {
     LockGuard lock {mMutex};
 
-    mNodeInfoListener = &listener;
+    LOG_DBG() << "Unsubscribe node info listener";
 
-    return ErrorEnum::eNone;
+    auto count = mListeners.Remove(&listener);
+
+    return count == 0 ? AOS_ERROR_WRAP(ErrorEnum::eNotFound) : ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************
@@ -156,10 +178,9 @@ Error NodeManager::SubscribeNodeInfoChange(NodeInfoListenerItf& listener)
 
 NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
 {
-    for (auto& nodeInfo : mNodeInfoCache) {
-        if (nodeInfo.mNodeID == nodeID) {
-            return &nodeInfo;
-        }
+    auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
+    if (it != mNodeInfoCache.end()) {
+        return it;
     }
 
     return nullptr;
@@ -172,61 +193,74 @@ const NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID) const
 
 Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
 {
-    bool isAdded = false;
-
     auto cachedInfo = GetNodeFromCache(nodeInfo.mNodeID);
+    if (cachedInfo && *cachedInfo == nodeInfo) {
+        return ErrorEnum::eNone;
+    }
+
     if (cachedInfo == nullptr) {
         Error err = ErrorEnum::eNone;
 
-        Tie(cachedInfo, err) = AddNodeInfoToCache();
+        Tie(cachedInfo, err) = AddNodeInfoToCache(nodeInfo);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
-
-        isAdded = true;
+    } else {
+        *cachedInfo = nodeInfo;
     }
 
-    if (isAdded || *cachedInfo != nodeInfo) {
-        *cachedInfo = nodeInfo;
-        NotifyNodeInfoChange(nodeInfo);
+    NotifyNodeInfoChange(nodeInfo);
+
+    return ErrorEnum::eNone;
+}
+
+Error NodeManager::UpdateStorage(const NodeInfo& info)
+{
+    auto        storageInfo = MakeUnique<NodeInfo>(&mAllocator);
+    const auto* cachedInfo  = GetNodeFromCache(info.mNodeID);
+
+    *storageInfo = info;
+
+    if (cachedInfo) {
+        // compare without mIsConnected field
+        storageInfo->mIsConnected = cachedInfo->mIsConnected;
+
+        if (*storageInfo == *cachedInfo) {
+            return ErrorEnum::eNone;
+        }
+    }
+
+    // Do not store connection state
+    storageInfo->mIsConnected = false;
+
+    if (info.mState == NodeStateEnum::eUnprovisioned) {
+        if (auto err = mStorage->RemoveNodeInfo(info.mNodeID); !err.Is(ErrorEnum::eNotFound) && !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mStorage->SetNodeInfo(*storageInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::UpdateNodeInfo(const NodeInfo& info)
+RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache(const NodeInfo& info)
 {
-    Error err = ErrorEnum::eNone;
-
-    if (info.mState == NodeStateEnum::eUnprovisioned) {
-        err = mStorage->RemoveNodeInfo(info.mNodeID);
-        if (err.Is(ErrorEnum::eNotFound)) {
-            err = ErrorEnum::eNone;
-        }
-    } else {
-        err = mStorage->SetNodeInfo(info);
-    }
-
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return UpdateCache(info);
-}
-
-RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache()
-{
-    if (auto err = mNodeInfoCache.EmplaceBack(); !err.IsNone()) {
+    if (auto err = mNodeInfoCache.EmplaceBack(info); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
-    return {&mNodeInfoCache.Back(), ErrorEnum::eNone};
+    return &mNodeInfoCache.Back();
 }
 
 void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo)
 {
-    if (mNodeInfoListener) {
-        mNodeInfoListener->OnNodeInfoChange(nodeInfo);
+    for (auto& listener : mListeners) {
+        listener->OnNodeInfoChanged(nodeInfo);
     }
 }
 

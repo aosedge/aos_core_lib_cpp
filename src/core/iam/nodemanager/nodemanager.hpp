@@ -43,63 +43,72 @@ public:
     Error SetNodeInfo(const NodeInfo& info) override;
 
     /**
-     * Updates state for a node.
+     * Updates node state.
      *
      * @param nodeID node identifier.
      * @param state node state.
-     * @param isConnected node connected flag.
      * @return Error.
      */
-    Error SetNodeState(const String& nodeID, const NodeState& state, bool isConnected) override;
+    Error SetNodeState(const String& nodeID, const NodeState& state) override;
 
     /**
-     * Returns node info.
+     * Sets node connected state.
      *
      * @param nodeID node identifier.
-     * @param[out] nodeInfo result node identifier.
+     * @param isConnected connected state.
      * @return Error.
      */
-    Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const override;
+    Error SetNodeConnected(const String& nodeID, bool isConnected) override;
 
     /**
-     * Returns ids for all the node in the manager.
+     * Returns ids for all the nodes of the unit.
      *
-     * @param ids result node identifiers.
+     * @param[out] ids result node identifiers.
      * @return Error.
      */
     Error GetAllNodeIDs(Array<StaticString<cIDLen>>& ids) const override;
 
     /**
-     * Removes node info by its id.
+     * Returns info for specified node.
      *
      * @param nodeID node identifier.
+     * @param[out] nodeInfo result node information.
      * @return Error.
      */
-    Error RemoveNodeInfo(const String& nodeID) override;
+    Error GetNodeInfo(const String& nodeID, NodeInfo& nodeInfo) const override;
 
     /**
-     * Subscribes listener for node info updates.
+     * Subscribes node info notifications.
      *
-     * @param listener listener to subscribe.
+     * @param listener node info listener.
      * @return Error.
      */
-    Error SubscribeNodeInfoChange(NodeInfoListenerItf& listener) override;
+    Error SubscribeListener(iamclient::NodeInfoListenerItf& listener) override;
+
+    /**
+     * Unsubscribes from node info notifications.
+     *
+     * @param listener node info listener.
+     * @return Error.
+     */
+    Error UnsubscribeListener(iamclient::NodeInfoListenerItf& listener) override;
 
 private:
-    static constexpr auto cNodeMaxNum    = AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM;
-    static constexpr auto cAllocatorSize = sizeof(StaticArray<StaticString<cIDLen>, cNodeMaxNum>) + sizeof(NodeInfo);
+    static constexpr auto cAllocatorSize
+        = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + 2 * sizeof(NodeInfo);
+    static constexpr auto cMaxNumListeners = 1;
 
     NodeInfo*               GetNodeFromCache(const String& nodeID);
     const NodeInfo*         GetNodeFromCache(const String& nodeID) const;
-    Error                   UpdateNodeInfo(const NodeInfo& info);
+    Error                   UpdateStorage(const NodeInfo& info);
     Error                   UpdateCache(const NodeInfo& nodeInfo);
-    RetWithError<NodeInfo*> AddNodeInfoToCache();
+    RetWithError<NodeInfo*> AddNodeInfoToCache(const NodeInfo& info);
     void                    NotifyNodeInfoChange(const NodeInfo& nodeInfo);
 
-    StorageItf*                        mStorage {};
-    NodeInfoListenerItf*               mNodeInfoListener {};
-    StaticArray<NodeInfo, cNodeMaxNum> mNodeInfoCache;
-    mutable Mutex                      mMutex;
+    StorageItf*                                                    mStorage {};
+    StaticArray<iamclient::NodeInfoListenerItf*, cMaxNumListeners> mListeners;
+    StaticArray<NodeInfo, cMaxNumNodes>                            mNodeInfoCache;
+    mutable Mutex                                                  mMutex;
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };

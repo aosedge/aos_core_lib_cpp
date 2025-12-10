@@ -57,11 +57,4 @@
 #define AOS_CONFIG_CERTMODULE_PKCS11_TEE_LOGIN_TYPE_LEN 8
 #endif
 
-/**
- * Maximum number of nodes handled by node manager.
- */
-#ifndef AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM
-#define AOS_CONFIG_NODEMANAGER_NODE_MAX_NUM 4
-#endif
-
 #endif
