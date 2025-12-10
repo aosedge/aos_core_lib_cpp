@@ -199,7 +199,8 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
 }
 
 InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::string& nodeID,
-    const std::string& runtimeID, InstanceState state = InstanceStateEnum::eActivating, const Error& error = Error())
+    const std::string& runtimeID, InstanceState state = InstanceStateEnum::eFailed,
+    const Error& error = ErrorEnum::eTimeout)
 {
     InstanceStatus result;
 
@@ -1331,8 +1332,7 @@ TestDataPtr TestItemRebalancing()
     rebalancingRemoteSM2Requests.mStartInstances.push_back(
         CreateAosInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, "4", 50));
 
-    // Expected run status (sorted by priority desc, then itemID asc: service1(100), service2(50), service3(50))
-    // Initial state after RunInstances() (before rebalancing): service1 and service2 on localSM, service3 on remoteSM1
+    // Expected run status
     testData->mExpectedRunStatus.PushBack(
         CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc));
     testData->mExpectedRunStatus.PushBack(
@@ -1391,12 +1391,14 @@ TestDataPtr TestItemRebalancingPolicy()
     // remoteSM1: starts service3 (stays there, no stops since service3 has BalancingDisabled)
     auto& policyRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
     policyRemoteSM1Requests.mStartInstances.push_back(
+        CreateAosInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, "3", 50));
+    policyRemoteSM1Requests.mStopInstances.push_back(
         CreateAosInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, "4", 50));
 
-    // remoteSM2: starts service2, no stops
+    // remoteSM2: starts service3, no stops
     auto& policyRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
     policyRemoteSM2Requests.mStartInstances.push_back(
-        CreateAosInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, "3", 50));
+        CreateAosInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, "4", 50));
 
     // Expected run status (sorted by priority desc, then itemID asc: service1(100), service2(50), service3(50))
     // Initial state after RunInstances() (before rebalancing): service1 and service2 on localSM, service3 on remoteSM1
