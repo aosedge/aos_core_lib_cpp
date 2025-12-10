@@ -13,15 +13,19 @@ It implements the following interfaces:
 
 It requires the following interfaces:
 
-* [aos::cm::nodeinfoprovider::SMInfoReceiverItf](../nodeinfoprovider/itf/sminforeceiver.hpp) - sends SM info message;
-* [aos::cm::launcher::InstanceStatusReceiverItf](../launcher/itf/instancestatusreceiver.hpp) - sends instances statuses
-  and override env vars statuses;
-* [aos::cm::alerts::ReceiverItf](../alerts/itf/receiver.hpp) - sends alerts messages;
-* [aos::cm::monitoring::ReceiverItf](../monitoring/itf/receiver.hpp) - sends instant monitoring messages;
+* [aos::cloudconnection::CloudConnectionItf](../../common/cloudconnection/itf/cloudconnection.hpp) - subscribes to cloud
+  connection events and sends connection state to connected SM;
+* [aos::iamclient::CertProviderItf](../../common/iamclient/itf/certprovider.hpp) - provides certificates;
+* [aos::crypto::CertLoaderItf](../../common/crypto/itf/certloader.hpp) - loads certificates;
+* [aos::crypto::x509::ProviderItf](../../common/crypto/itf/x509provider.hpp) - provides crypto operations;
+* [aos::cm::imagemanager::BlobInfoProviderItf](../imagemanager/itf/blobinfoprovider.hpp) - provides blob info;
+* [aos::cm::alerts::ReceiverItf](../alerts/itf/receiver.hpp) - receives alerts;
 * [aos::cm::smcontroller::SenderItf](itf/sender.hpp) - sends logs;
-* [aos::cm::imagemanager::ItemInfoProviderItf](../imagemanager/itf/iteminfoprovider.hpp) - gets update items info;
-* [aos::cloudconnection::CloudConnectionItf](../../common/cloudconnection/itf/cloudconnection.hpp) - gets
-  connection state and sends it to connected SM.
+* [aos::cm::launcher::SenderItf](../launcher/itf/sender.hpp) - sends env vars statuses;
+* [aos::cm::monitoring::ReceiverItf](../monitoring/itf/receiver.hpp) - receives monitoring data;
+* [aos::cm::launcher::InstanceStatusReceiverItf](../launcher/itf/instancestatusreceiver.hpp) - receives instances
+  statuses;
+* [aos::cm::nodeinfoprovider::SMInfoReceiverItf](../nodeinfoprovider/itf/sminforeceiver.hpp) - receives SM info.
 
 ```mermaid
 classDiagram
@@ -50,11 +54,23 @@ classDiagram
         <<interface>>
     }
 
-    class SMInfoReceiverItf["aos::cm::nodeinfoprovider::SMInfoReceiverItf"] {
+    class CloudConnectionItf ["aos::cloudconnection::CloudConnectionItf"] {
         <<interface>>
     }
 
-    class InstanceStatusReceiverItf["aos::cm::launcher::InstanceStatusReceiverItf"] {
+    class CertProviderItf ["aos::iamclient::CertProviderItf"] {
+        <<interface>>
+    }
+
+    class CertLoaderItf ["aos::crypto::CertLoaderItf"] {
+        <<interface>>
+    }
+
+    class CryptoProviderItf ["aos::crypto::x509::ProviderItf"] {
+        <<interface>>
+    }
+
+    class BlobInfoProviderItf ["aos::cm::imagemanager::BlobInfoProviderItf"] {
         <<interface>>
     }
 
@@ -62,19 +78,23 @@ classDiagram
         <<interface>>
     }
 
+    class LogSenderItf ["aos::cm::smcontroller::SenderItf"] {
+        <<interface>>
+    }
+
+    class EnvVarsStatusSenderItf ["aos::cm::launcher::SenderItf"] {
+        <<interface>>
+    }
+
     class MonitoringReceiverItf["aos::cm::monitoring::ReceiverItf"] {
         <<interface>>
     }
 
-    class SenderItf ["aos::cm::smcontroller::SenderItf"] {
+    class InstanceStatusReceiverItf["aos::cm::launcher::InstanceStatusReceiverItf"] {
         <<interface>>
     }
 
-    class ItemInfoProviderItf ["aos::cm::imagemanager::ItemInfoProviderItf"] {
-        <<interface>>
-    }
-
-    class CloudConnectionItf ["aos::cloudconnection::CloudConnectionItf"] {
+    class SMInfoReceiverItf["aos::cm::nodeinfoprovider::SMInfoReceiverItf"] {
         <<interface>>
     }
 
@@ -84,11 +104,15 @@ classDiagram
     SMController ..|> NodeNetworkItf
     SMController ..|> LogProviderItf
 
-    SMController ..> SMInfoReceiverItf
-    SMController ..> InstanceStatusReceiverItf
+    SMController ..> CloudConnectionItf
+    SMController ..> CertProviderItf
+    SMController ..> CertLoaderItf
+    SMController ..> CryptoProviderItf
+    SMController ..> BlobInfoProviderItf
     SMController ..> AlertsReceiverItf
+    SMController ..> LogSenderItf
+    SMController ..> EnvVarsStatusSenderItf
     SMController ..> MonitoringReceiverItf
-    SMController ..> SenderItf
-    SMController ..> ItemInfoProviderItf
-    SMController ..> ConnectionProviderItf
+    SMController ..> InstanceStatusReceiverItf
+    SMController ..> SMInfoReceiverItf
 ```
