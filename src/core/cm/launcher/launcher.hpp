@@ -149,7 +149,8 @@ private:
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
     Balancer                                                                          mBalancer;
 
-    Mutex                           mMutex;
+    Mutex mMutex;
+    // cppcheck-suppress templateRecursion
     StaticAllocator<cAllocatorSize> mAllocator;
 };
 
