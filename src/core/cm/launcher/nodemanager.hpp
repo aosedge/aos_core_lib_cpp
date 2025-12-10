@@ -23,7 +23,7 @@ namespace aos::cm::launcher {
 /**
  * Auxiliary to communicate with nodes on the unit.
  */
-class NodeManager : public nodeinfoprovider::NodeInfoListenerItf {
+class NodeManager {
 public:
     /**
      * Initializes node manager.
@@ -116,18 +116,20 @@ public:
      * @param timeout timeout.
      * @return Error.
      */
-    Error SendUpdate(const Duration& timeout, UniqueLock<Mutex>& lock);
+    Error SendUpdate(UniqueLock<Mutex>& lock);
+
+    /**
+     * Updates nodes.
+     *
+     * @param info node information.
+     */
+    void UpdateNode(const UnitNodeInfo& info);
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
     static constexpr auto cStatusUpdateTimeout   = Time::cMinutes * 10;
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo) + sizeof(size_t) * 2;
-
-    /**
-     * Handler of node info change event.
-     */
-    void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
     size_t GetReqStateSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const;
     size_t GetReqStorageSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const;

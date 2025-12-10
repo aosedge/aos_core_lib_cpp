@@ -30,7 +30,10 @@ namespace aos::cm::launcher {
 /**
  * Launcher class manages lifecycle of service instances.
  */
-class Launcher : public LauncherItf, public instancestatusprovider::ProviderItf, public InstanceStatusReceiverItf {
+class Launcher : public LauncherItf,
+                 public instancestatusprovider::ProviderItf,
+                 public InstanceStatusReceiverItf,
+                 private nodeinfoprovider::NodeInfoListenerItf {
 public:
     /**
      * Initializes launcher object instance.
@@ -132,6 +135,12 @@ private:
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
     Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) override;
     Error OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvVarsInstanceStatus>& statuses) override;
+
+    /************************************************************************************************************************
+     * nodeinfoprovider::NodeInfoListenerItf implementation
+     ***********************************************************************************************************************/
+
+    void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
     Config                                 mConfig;
     StorageItf*                            mStorage {};

@@ -52,10 +52,6 @@ Error NodeManager::Start()
         }
     }
 
-    if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     if (mStorageStateManager->IsSamePartition()) {
         mAvailableState = mAvailableStorage = MakeShared<size_t>(&mAllocator, 0);
     } else {
@@ -82,10 +78,6 @@ Error NodeManager::Start()
 
 Error NodeManager::Stop()
 {
-    if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     mNodes.Clear();
 
     mAvailableState.Reset();
@@ -243,11 +235,7 @@ Error NodeManager::SendUpdate(UniqueLock<Mutex>& lock)
     return ErrorEnum::eNone;
 }
 
-/***********************************************************************************************************************
- * Private
- **********************************************************************************************************************/
-
-void NodeManager::OnNodeInfoChanged(const UnitNodeInfo& info)
+void NodeManager::UpdateNode(const UnitNodeInfo& info)
 {
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
@@ -274,6 +262,10 @@ void NodeManager::OnNodeInfoChanged(const UnitNodeInfo& info)
         }
     }
 }
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
 
 size_t NodeManager::GetReqStateSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const
 {

@@ -62,6 +62,9 @@ Error Launcher::Start()
     if (auto err = mNodeManager.UpdateNodeInstances("", mInstanceManager.GetActiveInstances()); !err.IsNone()) {
         return err;
     }
+    if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     NotifyInstanceStatusListeners(mInstanceStatuses);
 
@@ -73,6 +76,10 @@ Error Launcher::Stop()
     LOG_DBG() << "Stop Launcher";
 
     LockGuard lock {mMutex};
+
+    if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (auto err = mInstanceManager.Stop(); !err.IsNone()) {
         return err;
@@ -247,6 +254,13 @@ Error Launcher::OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvV
     (void)statuses;
 
     return ErrorEnum::eNone;
+}
+
+void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
+{
+    LockGuard lock {mMutex};
+
+    mNodeManager.UpdateNode(info);
 }
 
 } // namespace aos::cm::launcher
