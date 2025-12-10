@@ -237,6 +237,13 @@ Error NodeManager::SendUpdate(UniqueLock<Mutex>& lock)
 
 void NodeManager::UpdateNode(const UnitNodeInfo& info)
 {
+    // don't wait for instanse status for unprovisioned nodes only(offline/online doesnt matter)
+    if (info.mState != NodeStateEnum::eProvisioned) {
+        if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
+            mStatusUpdateCondVar.NotifyAll();
+        }
+    }
+
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
         if (info.mState != NodeStateEnum::eProvisioned || !info.mIsConnected) {
