@@ -11,7 +11,7 @@
 
 namespace aos::sm::imagemanager {
 
-/** @addtogroup cm Communication Manager
+/** @addtogroup sm Service Manager
  *  @{
  */
 
