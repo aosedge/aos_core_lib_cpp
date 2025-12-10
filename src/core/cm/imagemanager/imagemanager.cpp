@@ -336,8 +336,29 @@ Error ImageManager::GetBlobURL(const String& digest, String& url) const
 
 Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version) const
 {
-    (void)itemID;
-    (void)version;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get item current version" << Log::Field("itemID", itemID);
+
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(&mAllocator);
+    if (!items) {
+        return ErrorEnum::eNoMemory;
+    }
+
+    if (auto err = mStorage->GetItemInfos(itemID, *items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto it = items->FindIf([&](const auto& item) { return item.mState == ItemStateEnum::ePending; });
+    if (it == items->end()) {
+        it = items->FindIf([&](const auto& item) { return item.mState == ItemStateEnum::eInstalled; });
+    }
+
+    if (it == items->end()) {
+        return ErrorEnum::eNotFound;
+    }
+
+    version = it->mVersion;
 
     return ErrorEnum::eNone;
 }
