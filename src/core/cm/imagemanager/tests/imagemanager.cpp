@@ -500,6 +500,236 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
     downloadThread.join();
 }
 
+TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
+{
+    StaticArray<UpdateItemInfo, 5>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 5>             statuses;
+
+    UpdateItemInfo item;
+    item.mItemID      = "service1";
+    item.mVersion     = "2.0.0";
+    item.mIndexDigest = "abc123";
+    itemsInfo.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
+        ItemInfo oldItem;
+        oldItem.mItemID      = "service1";
+        oldItem.mVersion     = "1.0.0";
+        oldItem.mIndexDigest = "old123";
+        oldItem.mState       = ItemStateEnum::ePending;
+        items.PushBack(oldItem);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mStorageMock, RemoveItem(_, _))
+        .Times(2)
+        .WillRepeatedly(Invoke([](const String& itemID, const String& version) {
+            EXPECT_EQ(itemID, "service1");
+            EXPECT_EQ(version, "1.0.0");
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Invoke([](const ItemInfo& item) {
+        EXPECT_EQ(item.mItemID, "service1");
+        EXPECT_EQ(item.mVersion, "2.0.0");
+        EXPECT_EQ(item.mState, ItemStateEnum::eDownloading);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
+        .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
+            BlobInfo info;
+            info.mDigest = "abc123";
+            info.mSize   = 1024;
+            info.mURLs.PushBack("http://test.com/blob");
+
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mSHA256.PushBack(static_cast<uint8_t>(i));
+            }
+
+            blobsInfo.PushBack(info);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
+    EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
+        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+            auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+            EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
+            EXPECT_CALL(*space, Release()).Times(AtLeast(0));
+
+            return {std::move(space), ErrorEnum::eNone};
+        }));
+
+    EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
+        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+            auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+            EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
+            EXPECT_CALL(*space, Release()).Times(AtLeast(0));
+
+            return {std::move(space), ErrorEnum::eNone};
+        }));
+
+    EXPECT_CALL(mDownloaderMock, Download(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
+        oci::IndexContentDescriptor manifest;
+        manifest.mDigest = "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
+        index.mManifests.PushBack(manifest);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            oci::ContentDescriptor layer;
+            layer.mDigest = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            manifest.mLayers.PushBack(layer);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
+        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+            info.mSHA256.PushBack(static_cast<uint8_t>(i));
+        }
+
+        info.mSize = 1024;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+
+    EXPECT_TRUE(err.IsNone());
+    ASSERT_EQ(statuses.Size(), 1);
+    EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mVersion, "2.0.0");
+    EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+}
+
+TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
+{
+    StaticArray<UpdateItemInfo, 5>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 5>             statuses;
+
+    UpdateItemInfo item;
+    item.mItemID      = "service1";
+    item.mVersion     = "2.0.0";
+    item.mIndexDigest = "abc123";
+    itemsInfo.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
+        ItemInfo oldItem;
+        oldItem.mItemID      = "service1";
+        oldItem.mVersion     = "1.0.0";
+        oldItem.mIndexDigest = "old123";
+        oldItem.mState       = ItemStateEnum::eFailed;
+        items.PushBack(oldItem);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mStorageMock, RemoveItem(_, _)).WillOnce(Invoke([](const String& itemID, const String& version) {
+        EXPECT_EQ(itemID, "service1");
+        EXPECT_EQ(version, "1.0.0");
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
+        .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
+            BlobInfo info;
+            info.mDigest = "abc123";
+            info.mSize   = 1024;
+            info.mURLs.PushBack("http://test.com/blob");
+
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mSHA256.PushBack(static_cast<uint8_t>(i));
+            }
+
+            blobsInfo.PushBack(info);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
+    EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
+        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+            auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+            EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
+            EXPECT_CALL(*space, Release()).Times(AtLeast(0));
+
+            return {std::move(space), ErrorEnum::eNone};
+        }));
+
+    EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
+        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+            auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+            EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
+            EXPECT_CALL(*space, Release()).Times(AtLeast(0));
+
+            return {std::move(space), ErrorEnum::eNone};
+        }));
+
+    EXPECT_CALL(mDownloaderMock, Download(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
+        oci::IndexContentDescriptor manifest;
+        manifest.mDigest = "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
+        index.mManifests.PushBack(manifest);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            oci::ContentDescriptor layer;
+            layer.mDigest = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            manifest.mLayers.PushBack(layer);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
+        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+            info.mSHA256.PushBack(static_cast<uint8_t>(i));
+        }
+
+        info.mSize = 1024;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+
+    EXPECT_TRUE(err.IsNone());
+    ASSERT_EQ(statuses.Size(), 1);
+    EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+}
+
 TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 {
     StaticArray<UpdateItemInfo, 5>   itemsInfo;
@@ -945,7 +1175,7 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
             item1.mItemID      = "service1";
             item1.mVersion     = "1.0.0";
             item1.mIndexDigest = "1111";
-            item1.mState       = ItemStateEnum::eInstalled;
+            item1.mState       = ItemStateEnum::eRemoved;
             items.PushBack(item1);
 
             ItemInfo item2;
@@ -1132,6 +1362,203 @@ TEST_F(ImageManagerTest, Start_RemovesOutdatedItems)
     EXPECT_TRUE(err.IsNone());
     EXPECT_TRUE(mImageManager.Stop().IsNone());
     EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
+}
+
+TEST_F(ImageManagerTest, GetIndexDigest_Success)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo item;
+    item.mItemID      = "service1";
+    item.mVersion     = "1.0.0";
+    item.mIndexDigest = "abc123";
+    item.mState       = ItemStateEnum::eRemoved;
+    items.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+
+    StaticString<oci::cDigestLen> digest;
+    auto                          err = mImageManager.GetIndexDigest("service1", "1.0.0", digest);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(digest, "abc123");
+}
+
+TEST_F(ImageManagerTest, GetIndexDigest_NotFound)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+
+    StaticString<oci::cDigestLen> digest;
+    auto                          err = mImageManager.GetIndexDigest("nonexistent", "1.0.0", digest);
+
+    EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
+}
+
+TEST_F(ImageManagerTest, GetIndexDigest_WrongState)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo item;
+    item.mItemID      = "service1";
+    item.mVersion     = "1.0.0";
+    item.mIndexDigest = "abc123";
+    item.mState       = ItemStateEnum::eDownloading;
+    items.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+
+    StaticString<oci::cDigestLen> digest;
+    auto                          err = mImageManager.GetIndexDigest("service1", "1.0.0", digest);
+
+    EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
+}
+
+TEST_F(ImageManagerTest, GetBlobPath_Success)
+{
+    StaticString<cFilePathLen> blobPath;
+    blobPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/testdigest");
+
+    std::ofstream file(blobPath.CStr());
+    file << "test content";
+    file.close();
+
+    StaticString<cFilePathLen> path;
+    auto                       err = mImageManager.GetBlobPath("testdigest", path);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(path, blobPath);
+}
+
+TEST_F(ImageManagerTest, GetBlobPath_NotFound)
+{
+    StaticString<cFilePathLen> path;
+    auto                       err = mImageManager.GetBlobPath("nonexistent", path);
+
+    EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
+}
+
+TEST_F(ImageManagerTest, GetBlobURL_Success)
+{
+    StaticString<cFilePathLen> blobPath;
+    blobPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/testdigest");
+
+    std::ofstream file(blobPath.CStr());
+    file << "test content";
+    file.close();
+
+    EXPECT_CALL(mFileServerMock, TranslateFilePathURL(_, _))
+        .WillOnce(DoAll(SetArgReferee<1>("http://localhost/blobs/testdigest"), Return(ErrorEnum::eNone)));
+
+    StaticString<cURLLen> url;
+    auto                  err = mImageManager.GetBlobURL("testdigest", url);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(url, "http://localhost/blobs/testdigest");
+}
+
+TEST_F(ImageManagerTest, GetBlobURL_NotFound)
+{
+    StaticString<cURLLen> url;
+    auto                  err = mImageManager.GetBlobURL("nonexistent", url);
+
+    EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
+}
+
+TEST_F(ImageManagerTest, GetItemCurrentVersion_PendingPriority)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo installed;
+    installed.mItemID  = "service1";
+    installed.mVersion = "1.0.0";
+    installed.mState   = ItemStateEnum::eInstalled;
+    items.PushBack(installed);
+
+    ItemInfo pending;
+    pending.mItemID  = "service1";
+    pending.mVersion = "2.0.0";
+    pending.mState   = ItemStateEnum::ePending;
+    items.PushBack(pending);
+
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+
+    StaticString<cVersionLen> version;
+    auto                      err = mImageManager.GetItemCurrentVersion("service1", version);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(version, "2.0.0");
+}
+
+TEST_F(ImageManagerTest, GetItemCurrentVersion_InstalledFallback)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo item;
+    item.mItemID  = "service1";
+    item.mVersion = "1.0.0";
+    item.mState   = ItemStateEnum::eInstalled;
+    items.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+
+    StaticString<cVersionLen> version;
+    auto                      err = mImageManager.GetItemCurrentVersion("service1", version);
+
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_EQ(version, "1.0.0");
+}
+
+TEST_F(ImageManagerTest, GetItemCurrentVersion_NotFound)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo item;
+    item.mItemID  = "service1";
+    item.mVersion = "1.0.0";
+    item.mState   = ItemStateEnum::eRemoved;
+    items.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+
+    StaticString<cVersionLen> version;
+    auto                      err = mImageManager.GetItemCurrentVersion("service1", version);
+
+    EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
+}
+
+TEST_F(ImageManagerTest, GetUpdateItemsStatuses_Success)
+{
+    StaticArray<ItemInfo, 5> items;
+
+    ItemInfo item1;
+    item1.mItemID  = "service1";
+    item1.mVersion = "1.0.0";
+    item1.mState   = ItemStateEnum::eInstalled;
+    items.PushBack(item1);
+
+    ItemInfo item2;
+    item2.mItemID  = "service2";
+    item2.mVersion = "2.0.0";
+    item2.mState   = ItemStateEnum::ePending;
+    items.PushBack(item2);
+
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillOnce(DoAll(SetArgReferee<0>(items), Return(ErrorEnum::eNone)));
+
+    StaticArray<UpdateItemStatus, 5> statuses;
+    auto                             err = mImageManager.GetUpdateItemsStatuses(statuses);
+
+    EXPECT_TRUE(err.IsNone());
+    ASSERT_EQ(statuses.Size(), 2);
+
+    EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mVersion, "1.0.0");
+    EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
+
+    EXPECT_EQ(statuses[1].mItemID, "service2");
+    EXPECT_EQ(statuses[1].mVersion, "2.0.0");
+    EXPECT_EQ(statuses[1].mState, ItemStateEnum::ePending);
 }
 
 } // namespace aos::cm::imagemanager
