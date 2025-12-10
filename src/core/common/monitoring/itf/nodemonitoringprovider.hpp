@@ -24,7 +24,6 @@ public:
     /**
      * Returns node monitoring data.
      *
-     * @param partitionInfos partition infos.
      * @param[out] monitoringData monitoring data.
      * @return Error.
      */
