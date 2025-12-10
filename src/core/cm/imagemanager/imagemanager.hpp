@@ -168,9 +168,10 @@ public:
     RetWithError<size_t> RemoveItem(const String& id) override;
 
 private:
-    static constexpr auto cMaxNumListeners = 1;
-    static constexpr auto cRetryTimeout    = Time::cSeconds * 2;
-    static constexpr auto cRemovePeriod    = 24 * Time::cHours;
+    static constexpr auto cMaxNumListeners    = 1;
+    static constexpr auto cMaxNumItemVersions = 2;
+    static constexpr auto cRetryTimeout       = Time::cSeconds * 2;
+    static constexpr auto cRemovePeriod       = 24 * Time::cHours;
 
     Error RemoveOutdatedItems();
     Error WaitForStop();
@@ -232,7 +233,7 @@ private:
     StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
 
     Timer                         mTimer;
-    Mutex                         mMutex;
+    mutable Mutex                 mMutex;
     Config                        mConfig {};
     StaticString<cFilePathLen>    mBlobsDownloadPath {};
     StaticString<cFilePathLen>    mBlobsInstallPath {};
@@ -240,7 +241,7 @@ private:
     ConditionalVariable           mCondVar;
     bool                          mCancel {};
     bool                          mInProgress {};
-    StaticAllocator<((sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) * 2) + sizeof(oci::ImageIndex)
+    mutable StaticAllocator<((sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) * 2) + sizeof(oci::ImageIndex)
         + sizeof(oci::ImageManifest) + sizeof(StaticArray<BlobInfo, 1>)
         + sizeof(StaticArray<uint8_t, crypto::cSHA256Size>))>
         mAllocator;
