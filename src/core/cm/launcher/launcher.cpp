@@ -106,8 +106,12 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 
     UpdateData(false);
 
-    if (auto err = mBalancer.RunInstances(mRunRequests, lock, false); !err.IsNone()) {
-        return err;
+    auto runErr = mBalancer.RunInstances(mRunRequests, lock, false);
+
+    FailActivatingInstances();
+
+    if (!runErr.IsNone()) {
+        return AOS_ERROR_WRAP(runErr);
     }
 
     NotifyInstanceStatusListeners(statuses);
@@ -123,8 +127,12 @@ Error Launcher::Rebalance()
 
     UpdateData(true);
 
-    if (auto err = mBalancer.RunInstances(mRunRequests, lock, true); !err.IsNone()) {
-        return err;
+    auto runErr = mBalancer.RunInstances(mRunRequests, lock, false);
+
+    FailActivatingInstances();
+
+    if (!runErr.IsNone()) {
+        return AOS_ERROR_WRAP(runErr);
     }
 
     NotifyInstanceStatusListeners(mInstanceStatuses);
@@ -203,6 +211,15 @@ void Launcher::UpdateData(bool rebalancing)
 
         node.UpdateAvailableResources(*nodeMonitoring, rebalancing);
         node.UpdateConfig();
+    }
+}
+
+void Launcher::FailActivatingInstances()
+{
+    for (auto& instance : mInstanceManager.GetActiveInstances()) {
+        if (instance->GetStatus().mState == InstanceStateEnum::eActivating) {
+            instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout));
+        }
     }
 }
 

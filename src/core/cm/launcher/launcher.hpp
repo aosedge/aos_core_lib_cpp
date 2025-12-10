@@ -127,6 +127,7 @@ private:
 
     void NotifyInstanceStatusListeners(Array<InstanceStatus>& statuses);
     void UpdateData(bool rebalancing);
+    void FailActivatingInstances();
 
     /************************************************************************************************************************
      * smcontroller::InstanceStatusReceiverItf implementation
