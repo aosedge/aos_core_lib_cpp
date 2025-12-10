@@ -312,10 +312,18 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
 
 Error ImageManager::GetBlobPath(const String& digest, String& path) const
 {
-    (void)digest;
-    (void)path;
+    LockGuard lock {mMutex};
 
-    return ErrorEnum::eNone;
+    LOG_DBG() << "Get blob path" << Log::Field("digest", digest);
+
+    path = fs::JoinPath(mBlobsInstallPath, digest);
+
+    auto [exists, err] = fs::FileExist(path);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return exists ? ErrorEnum::eNone : ErrorEnum::eNotFound;
 }
 
 Error ImageManager::GetBlobURL(const String& digest, String& url) const
