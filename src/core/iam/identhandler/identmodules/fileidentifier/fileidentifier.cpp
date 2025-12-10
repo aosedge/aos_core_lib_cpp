@@ -12,6 +12,16 @@
 
 namespace aos::iam::identhandler {
 
+namespace {
+
+/***********************************************************************************************************************
+ * Consts
+ **********************************************************************************************************************/
+
+constexpr auto cWhiteSpaces = "\n\t ";
+
+} // namespace
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -45,7 +55,8 @@ Error FileIdentifier::Init(const FileIdentifierConfig& config)
 
 Error FileIdentifier::GetSystemInfo(SystemInfo& info)
 {
-    LOG_DBG() << "Get system info";
+    LOG_DBG() << "Get system info" << Log::Field("systemID", mSystemInfo.mSystemID)
+              << Log::Field("unitModel", mSystemInfo.mUnitModel) << Log::Field("version", mSystemInfo.mVersion);
 
     info = mSystemInfo;
 
@@ -72,6 +83,8 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
 Error FileIdentifier::ReadSystemId()
 {
     const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemInfo.mSystemID);
+
+    mSystemInfo.mSystemID.Trim(cWhiteSpaces);
 
     return AOS_ERROR_WRAP(err);
 }
@@ -100,6 +113,9 @@ Error FileIdentifier::ReadUnitModel()
     if (auto err = mSystemInfo.mVersion.Assign(parts[1]); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    mSystemInfo.mUnitModel.Trim(cWhiteSpaces);
+    mSystemInfo.mVersion.Trim(cWhiteSpaces);
 
     return ErrorEnum::eNone;
 }
