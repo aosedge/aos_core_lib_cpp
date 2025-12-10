@@ -285,9 +285,27 @@ Error ImageManager::UnsubscribeListener(ItemStatusListenerItf& listener)
 
 Error ImageManager::GetIndexDigest(const String& itemID, const String& version, String& digest) const
 {
-    (void)itemID;
-    (void)version;
-    (void)digest;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get index digest" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(&mAllocator);
+    if (!items) {
+        return ErrorEnum::eNoMemory;
+    }
+
+    if (auto err = mStorage->GetItemInfos(itemID, *items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto it = items->FindIf(
+        [&](const auto& item) { return item.mVersion == version && item.mState != ItemStateEnum::eDownloading; });
+
+    if (it == items->end()) {
+        return ErrorEnum::eNotFound;
+    }
+
+    digest = it->mIndexDigest;
 
     return ErrorEnum::eNone;
 }
