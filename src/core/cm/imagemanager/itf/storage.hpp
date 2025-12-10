@@ -19,7 +19,7 @@ struct ItemInfo {
     StaticString<cIDLen>          mItemID;
     StaticString<cVersionLen>     mVersion;
     StaticString<oci::cDigestLen> mIndexDigest;
-    ItemStateEnum                 mState {};
+    ItemState                     mState {};
     Time                          mTimestamp {};
 
     /**
