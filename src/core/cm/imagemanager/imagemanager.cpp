@@ -252,7 +252,31 @@ Error ImageManager::Cancel()
 
 Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 {
-    (void)statuses;
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get update items statuses";
+
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    if (!items) {
+        return ErrorEnum::eNoMemory;
+    }
+
+    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        UpdateItemStatus status;
+
+        status.mItemID  = item.mItemID;
+        status.mVersion = item.mVersion;
+        status.mState   = item.mState;
+        status.mError   = ErrorEnum::eNone;
+
+        if (auto err = statuses.PushBack(status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     return ErrorEnum::eNone;
 }
