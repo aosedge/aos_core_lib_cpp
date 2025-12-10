@@ -58,6 +58,15 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
         return AOS_ERROR_WRAP(err);
     }
 
+    RegisterOutdatedItems(*items);
+
+    auto [cleanupSize, cleanupErr] = CleanupOrphanedBlobs();
+    if (!cleanupErr.IsNone()) {
+        LOG_ERR() << "Failed to cleanup orphaned blobs" << Log::Field(cleanupErr);
+    } else {
+        LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", cleanupSize);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -1180,6 +1189,17 @@ void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& sta
 
     for (auto* listener : mListeners) {
         listener->OnItemsStatusesChanged(statuses);
+    }
+}
+
+void ImageManager::RegisterOutdatedItems(const Array<ItemInfo>& items)
+{
+    for (const auto& item : items) {
+        if (item.mState == ItemStateEnum::eRemoved) {
+            if (auto err = mInstallSpaceAllocator->AddOutdatedItem(item.mItemID, item.mTimestamp); !err.IsNone()) {
+                LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", item.mItemID) << Log::Field(err);
+            }
+        }
     }
 }
 

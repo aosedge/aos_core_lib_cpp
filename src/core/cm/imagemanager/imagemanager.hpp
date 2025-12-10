@@ -217,6 +217,7 @@ private:
     Error VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo);
     bool  IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items);
     void  NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses);
+    void  RegisterOutdatedItems(const Array<ItemInfo>& items);
     bool  StartAction();
     void  StopAction();
 
