@@ -24,7 +24,7 @@ namespace aos::sm::smclient {
  */
 class SMClientItf : public alerts::SenderItf,
                     public monitoring::SenderItf,
-                    public logging::SenderItf,
+                    public aos::logging::SenderItf,
                     public launcher::SenderItf,
                     public imagemanager::BlobInfoProviderItf,
                     public cloudconnection::CloudConnectionItf {
