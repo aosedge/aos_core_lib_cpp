@@ -192,3 +192,15 @@ Implements main launcher functionality to start and stop node instances.
 ### UpdateInstances
 
 Start and stop node instances.
+
+## aos::sm::launcher::RebooterItf
+
+### Reboot
+
+Reboots the system.
+
+## aos::sm::launcher::UpdateCheckerItf
+
+### Check
+
+Checks if update succeeded.
