@@ -177,7 +177,6 @@ uint32_t GenerateUID()
 
 InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci::cDigestLen> manifestDigest = {},
     const String& runtimeID = "1.0.0", const String& nodeID = "",
-    UpdateItemType updateItemType = UpdateItemTypeEnum::eService,
     InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {},
     bool cached = false)
 {
@@ -187,7 +186,6 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
 
     result.mInstanceIdent  = instance;
     result.mManifestDigest = manifestDigest;
-    result.mUpdateItemType = updateItemType;
     result.mRuntimeID      = runtimeID;
     result.mNodeID         = nodeID;
     result.mPrevNodeID     = nodeID;
@@ -604,14 +602,13 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     // Add outdated TTL.
     ASSERT_TRUE(mStorage
                     .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1), manifestService1, "1.0.0", "",
-                        UpdateItemTypeEnum::eService, InstanceStateEnum::eInactive, 5000,
-                        Time::Now().Add(-25 * Time::cHours), true))
+                        InstanceStateEnum::eInactive, 5000, Time::Now().Add(-25 * Time::cHours), true))
                     .IsNone());
 
     // Add instance with current timestamp.
     ASSERT_TRUE(mStorage
                     .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService2), manifestService2, "1.0.0", "",
-                        UpdateItemTypeEnum::eService, InstanceStateEnum::eInactive, 5001, Time::Now(), true))
+                        InstanceStateEnum::eInactive, 5001, Time::Now(), true))
                     .IsNone());
 
     mInstanceRunner.Init(mLauncher);

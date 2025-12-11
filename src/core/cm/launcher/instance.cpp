@@ -40,7 +40,7 @@ bool Instance::IsImageValid(ImageInfoProvider& imageInfoProvider)
         return false;
     }
 
-    if (mInfo.mUpdateItemType.GetValue() == UpdateItemTypeEnum::eService) {
+    if (mInfo.mInstanceIdent.mType.GetValue() == UpdateItemTypeEnum::eService) {
         auto serviceConfig = MakeUnique<oci::ServiceConfig>(&mAllocator);
         if (auto err = imageInfoProvider.GetServiceConfig(manifestDescriptor, *serviceConfig); !err.IsNone()) {
             return false;

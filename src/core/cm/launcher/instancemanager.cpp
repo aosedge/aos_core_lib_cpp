@@ -111,8 +111,7 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     return (*instance)->UpdateStatus(status);
 }
 
-Error InstanceManager::AddInstanceToStash(
-    const InstanceIdent& id, UpdateItemType updateItemType, const RunInstanceRequest& request)
+Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInstanceRequest& request)
 {
     auto instance = FindStashInstance(id);
     if (instance != nullptr) {
@@ -130,9 +129,8 @@ Error InstanceManager::AddInstanceToStash(
 
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
-    instanceInfo->mInstanceIdent  = id;
-    instanceInfo->mUpdateItemType = updateItemType;
-    instanceInfo->mTimestamp      = Time::Now();
+    instanceInfo->mInstanceIdent = id;
+    instanceInfo->mTimestamp     = Time::Now();
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -313,7 +311,7 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
 {
     SharedPtr<Instance> newInstance;
 
-    switch (info.mUpdateItemType.GetValue()) {
+    switch (info.mInstanceIdent.mType.GetValue()) {
     case UpdateItemTypeEnum::eService:
         newInstance = MakeShared<ServiceInstance>(&mAllocator, info, mUIDPool, mGIDPool, *mStorage, *mStorageState);
         break;
