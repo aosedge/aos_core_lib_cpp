@@ -423,7 +423,8 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id)
         return {0, AOS_ERROR_WRAP(err)};
     }
 
-    auto itemIt = storedItems->FindIf([&id](const auto& item) { return item.mItemID == id; });
+    auto itemIt = storedItems->FindIf(
+        [&id](const auto& item) { return item.mItemID == id && item.mState == ItemStateEnum::eRemoved; });
 
     if (itemIt == storedItems->end()) {
         return {0, ErrorEnum::eNotFound};
