@@ -16,6 +16,9 @@
 
 #include <core/sm/launcher/launcher.hpp>
 
+#include <core/sm/launcher/itf/rebooter.hpp>
+#include <core/sm/launcher/itf/updatechecker.hpp>
+
 using namespace testing;
 
 namespace aos {
