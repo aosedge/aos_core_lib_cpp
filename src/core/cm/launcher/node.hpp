@@ -188,8 +188,7 @@ private:
     NodeConfig   mConfig {};
     bool         mNeedBalancing {};
 
-    StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode> mRunningInstances;
-    // cppcheck-suppress templateRecursion
+    StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mRunningInstances;
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mScheduledInstances;
     StaticArray<StaticString<cIDLen>, cMaxNumInstancesPerNode>               mOwnerIDs;
     StaticArray<networkmanager::NetworkServiceData, cMaxNumInstancesPerNode> mNetworkServiceData;
