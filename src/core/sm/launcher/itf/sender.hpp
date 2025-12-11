@@ -29,15 +29,17 @@ public:
      * Sends node instances statuses.
      *
      * @param statuses instances statuses.
+     * @return Error.
      */
-    virtual void SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) = 0;
+    virtual Error SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) = 0;
 
     /**
      * Sends update instances statuses.
      *
      * @param statuses instances statuses.
+     * @return Error.
      */
-    virtual void SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) = 0;
+    virtual Error SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) = 0;
 };
 
 /** @}*/
