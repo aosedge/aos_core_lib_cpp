@@ -25,6 +25,7 @@ public:
     MOCK_METHOD(
         Error, UpdateItemState, (const String& id, const String& version, ItemState state, Time timestamp), (override));
     MOCK_METHOD(Error, GetItemsInfo, (Array<ItemInfo> & items), (override));
+    MOCK_METHOD(Error, GetItemInfos, (const String& itemID, Array<ItemInfo>& items), (override));
 };
 
 } // namespace aos::cm::imagemanager
