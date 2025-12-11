@@ -172,20 +172,24 @@ private:
 
 class SenderStub : public SenderItf {
 public:
-    void SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
+    Error SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
     {
         std::lock_guard lock {mMutex};
 
         mStatusesQueue.push(statuses);
         mCondVar.notify_one();
+
+        return ErrorEnum::eNone;
     }
 
-    void SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
+    Error SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
     {
         std::lock_guard lock {mMutex};
 
         mStatusesQueue.push(statuses);
         mCondVar.notify_one();
+
+        return ErrorEnum::eNone;
     }
 
     Error WaitStatuses(Array<InstanceStatus>& statuses, Duration timeout)

@@ -144,9 +144,7 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
         subscriber->OnInstancesStatusesChanged(statuses);
     }
 
-    mSender->SendUpdateInstancesStatuses(statuses);
-
-    return ErrorEnum::eNone;
+    return mSender->SendUpdateInstancesStatuses(statuses);
 }
 
 Error Launcher::RebootRequired(const String& runtimeID)
@@ -325,7 +323,9 @@ void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, co
     }
 
     if (!statuses->IsEmpty()) {
-        mSender->SendNodeInstancesStatuses(*statuses);
+        if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
+            LOG_ERR() << "Failed to send node instances statuses" << Log::Field(err);
+        }
     }
 }
 
