@@ -105,8 +105,7 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
                 return err;
             }
 
-            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request.mUpdateItemType, request);
-                !err.IsNone()) {
+            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request); !err.IsNone()) {
                 LOG_ERR() << "Can't create new instance" << Log::Field("instance", instanceIdent.mItemID)
                           << Log::Field(err);
 
@@ -614,7 +613,7 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                 continue;
             }
 
-            auto addInstanceErr = mInstanceManager->AddInstanceToStash(instanceIdent, request.mUpdateItemType, request);
+            auto addInstanceErr = mInstanceManager->AddInstanceToStash(instanceIdent, request);
             if (!addInstanceErr.IsNone()) {
                 (*instance)->SetError(addInstanceErr);
 

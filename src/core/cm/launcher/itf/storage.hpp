@@ -31,11 +31,6 @@ struct InstanceInfo {
     StaticString<oci::cDigestLen> mManifestDigest;
 
     /**
-     * Instance type.
-     */
-    UpdateItemType mUpdateItemType;
-
-    /**
      * ID of the node hosting the instance.
      */
     StaticString<cIDLen> mNodeID;
@@ -78,10 +73,9 @@ struct InstanceInfo {
      */
     bool operator==(const InstanceInfo& rhs) const
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest
-            && mUpdateItemType == rhs.mUpdateItemType && mNodeID == rhs.mNodeID && mPrevNodeID == rhs.mPrevNodeID
-            && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID && mTimestamp == rhs.mTimestamp
-            && mCached == rhs.mCached;
+        return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
+            && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
+            && mTimestamp == rhs.mTimestamp && mCached == rhs.mCached;
     }
 
     /**

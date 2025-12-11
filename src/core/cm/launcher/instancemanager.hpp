@@ -99,11 +99,10 @@ public:
      * Adds a new instance to the manager's stash for later submission.
      *
      * @param id instance identifier.
-     * @param updateItemType update item type.
-     * @param request run request details.
+     * @param request run instance request.
      * @return Error.
      */
-    Error AddInstanceToStash(const InstanceIdent& id, UpdateItemType updateItemType, const RunInstanceRequest& request);
+    Error AddInstanceToStash(const InstanceIdent& id, const RunInstanceRequest& request);
 
     /**
      * Returns the collection of stashed instances.
