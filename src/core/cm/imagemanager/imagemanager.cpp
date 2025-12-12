@@ -672,19 +672,28 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             continue;
         }
 
-        auto existingItemIt = storedItems.FindIf([&itemInfo](const auto& stored) {
-            return stored.mItemID == itemInfo.mItemID
+        auto oldVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+            return stored.mItemID == itemInfo.mItemID && stored.mVersion != itemInfo.mVersion
+                && (stored.mState == ItemStateEnum::ePending || stored.mState == ItemStateEnum::eFailed
+                    || stored.mState == ItemStateEnum::eDownloading);
+        });
+
+        if (oldVersionIt != storedItems.end()) {
+            LOG_DBG() << "Removing old version" << Log::Field("id", oldVersionIt->mItemID)
+                      << Log::Field("version", oldVersionIt->mVersion);
+
+            if (auto removeErr = mStorage->RemoveItem(oldVersionIt->mItemID, oldVersionIt->mVersion);
+                !removeErr.IsNone()) {
+                LOG_ERR() << "Failed to remove old version" << Log::Field(removeErr);
+            }
+        }
+
+        auto sameVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+            return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion
                 && (stored.mState == ItemStateEnum::eDownloading || stored.mState == ItemStateEnum::eFailed);
         });
 
-        if (existingItemIt != storedItems.end()) {
-            if (existingItemIt->mVersion != itemInfo.mVersion) {
-                if (auto removeErr = mStorage->RemoveItem(existingItemIt->mItemID, existingItemIt->mVersion);
-                    !removeErr.IsNone()) {
-                    LOG_ERR() << "Failed to remove old item" << Log::Field(removeErr);
-                }
-            }
-        } else {
+        if (sameVersionIt == storedItems.end()) {
             ItemInfo newItem;
             newItem.mItemID      = itemInfo.mItemID;
             newItem.mVersion     = itemInfo.mVersion;
