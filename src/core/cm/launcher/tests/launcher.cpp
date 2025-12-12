@@ -13,6 +13,7 @@
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 
+#include "stubs/alertsproviderstub.hpp"
 #include "stubs/imagestorestub.hpp"
 #include "stubs/instancerunnerstub.hpp"
 #include "stubs/instancestatusproviderstub.hpp"
@@ -143,6 +144,7 @@ protected:
     }
 
     // Stub objects
+    alerts::AlertsProviderStub             mAlertsProvider;
     imagemanager::ImageStoreStub           mImageStore;
     networkmanager::NetworkManagerStub     mNetworkManager;
     nodeinfoprovider::NodeInfoProviderStub mNodeInfoProvider;
@@ -563,7 +565,8 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
     // Init launcher
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, ValidateGID, ValidateUID)
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -616,7 +619,8 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     // Init launcher
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, ValidateGID, ValidateUID)
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -686,7 +690,8 @@ TEST_F(CMLauncherTest, InitialStatus)
     // Init launcher
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, ValidateGID, ValidateUID)
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        ValidateGID, ValidateUID)
                     .IsNone());
 
     // Start launcher
@@ -756,7 +761,8 @@ TEST_F(CMLauncherTest, CacheInstances)
     // Init launcher
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, ValidateGID, ValidateUID)
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -840,7 +846,8 @@ TEST_F(CMLauncherTest, Components)
     // Init launcher
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, ValidateGID, ValidateUID)
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1489,11 +1496,11 @@ TEST_F(CMLauncherTest, Balancing)
         mInstanceRunner.Init(mLauncher);
 
         // Init launcher
-        ASSERT_TRUE(
-            mLauncher
-                .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
-                    mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, ValidateGID, ValidateUID)
-                .IsNone());
+        ASSERT_TRUE(mLauncher
+                        .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
+                            mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                            ValidateGID, ValidateUID)
+                        .IsNone());
 
         InstanceStatusListenerStub instanceStatusListener;
         mLauncher.SubscribeListener(instanceStatusListener);
@@ -1513,7 +1520,7 @@ TEST_F(CMLauncherTest, Balancing)
                 mMonitoringProvider.SetAverageMonitoring(nodeID.c_str(), monitoring);
             }
 
-            ASSERT_TRUE(mLauncher.Rebalance().IsNone());
+            mAlertsProvider.TriggerSystemQuotaAlert();
         }
         ASSERT_TRUE(mLauncher.Stop().IsNone());
 
