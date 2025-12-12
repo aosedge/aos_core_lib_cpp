@@ -11,6 +11,22 @@
 namespace aos::cm::launcher {
 
 /***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+class ShouldRebalanceVisitor : public StaticVisitor<bool> {
+public:
+    Res Visit(const SystemQuotaAlert& alert) const { return alert.mState == QuotaAlertStateEnum::eFall; }
+
+    template <typename T>
+    Res Visit(const T& alert) const
+    {
+        (void)alert;
+        return false;
+    }
+};
+
+/***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
@@ -18,8 +34,8 @@ Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider
     InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
     imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-    networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider, IDValidator gidValidator,
-    IDValidator uidValidator)
+    networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
+    alerts::AlertsProviderItf& alertsProvider, IDValidator gidValidator, IDValidator uidValidator)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -31,6 +47,7 @@ Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider
     mStorageState       = &storageState;
     mNetworkManager     = &networkManager;
     mMonitorProvider    = &monitorProvider;
+    mAlertsProvider     = &alertsProvider;
 
     auto err = mInstanceManager.Init(
         config, storage, storageState, itemInfoProvider, blobInfoProvider, ociSpec, gidValidator, uidValidator);
@@ -66,6 +83,14 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    StaticArray<AlertTag, 1> alertTags;
+
+    alertTags.PushBack(AlertTagEnum::eSystemQuotaAlert);
+
+    if (auto err = mAlertsProvider->SubscribeListener(alertTags, *this); !err.IsNone()) {
+        return err;
+    }
+
     NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
@@ -76,6 +101,10 @@ Error Launcher::Stop()
     LOG_DBG() << "Stop Launcher";
 
     LockGuard lock {mMutex};
+
+    if (auto err = mAlertsProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -115,27 +144,6 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     }
 
     NotifyInstanceStatusListeners(statuses);
-
-    return ErrorEnum::eNone;
-}
-
-Error Launcher::Rebalance()
-{
-    LOG_DBG() << "Rebalance instances";
-
-    UniqueLock lock {mMutex};
-
-    UpdateData(true);
-
-    auto runErr = mBalancer.RunInstances(mRunRequests, lock, false);
-
-    FailActivatingInstances();
-
-    if (!runErr.IsNone()) {
-        return AOS_ERROR_WRAP(runErr);
-    }
-
-    NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
 }
@@ -223,6 +231,27 @@ void Launcher::FailActivatingInstances()
     }
 }
 
+Error Launcher::Rebalance()
+{
+    LOG_DBG() << "Rebalance instances";
+
+    UniqueLock lock {mMutex};
+
+    UpdateData(true);
+
+    auto runErr = mBalancer.RunInstances(mRunRequests, lock, false);
+
+    FailActivatingInstances();
+
+    if (!runErr.IsNone()) {
+        return AOS_ERROR_WRAP(runErr);
+    }
+
+    NotifyInstanceStatusListeners(mInstanceStatuses);
+
+    return ErrorEnum::eNone;
+}
+
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 {
     LockGuard lock {mMutex};
@@ -277,7 +306,24 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    mNodeManager.UpdateNode(info);
+    LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
+
+    if (mNodeManager.UpdateNode(info)) {
+        if (auto err = Rebalance(); !err.IsNone()) {
+            LOG_ERR() << "Rebalance" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+}
+
+Error Launcher::OnAlertReceived(const AlertVariant& alert)
+{
+    LOG_DBG() << "Alert received" << Log::Field("alert", alert.ApplyVisitor(GetAlertTagVisitor()));
+
+    if (!alert.ApplyVisitor(ShouldRebalanceVisitor())) {
+        return ErrorEnum::eNone;
+    }
+
+    return Rebalance();
 }
 
 } // namespace aos::cm::launcher

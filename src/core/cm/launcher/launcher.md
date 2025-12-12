@@ -269,7 +269,7 @@ classDiagram
         +Start() Error
         +Stop() Error
         +UpdateNodeInstances() Error
-        +GetNodesByPriorities(nodes) Error
+        +GetConnectedNodes(nodes) Error
         +FindNode(nodeID) Node*
         +GetNodes() Array
         +SetupStateStorage() Error

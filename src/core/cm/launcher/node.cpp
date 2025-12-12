@@ -90,11 +90,18 @@ void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monito
               << Log::Field("CPU", mAvailableCPU);
 }
 
-void Node::UpdateInfo(const UnitNodeInfo& info)
+bool Node::UpdateInfo(const UnitNodeInfo& info)
 {
-    mInfo = info;
+    // Ignore connection status.
+    mInfo.mIsConnected = info.mIsConnected;
 
-    UpdateConfig();
+    bool nodeChanged = mInfo != info;
+    if (nodeChanged) {
+        mInfo = info;
+        UpdateConfig();
+    }
+
+    return nodeChanged;
 }
 
 Error Node::SetRunningInstances(const Array<SharedPtr<Instance>>& instances)

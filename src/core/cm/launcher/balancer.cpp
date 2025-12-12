@@ -153,7 +153,7 @@ Error Balancer::ScheduleInstance(
     }
 
     // select node & runtime
-    if (auto err = mNodeManager->GetNodesByPriorities(*nodes); !err.IsNone()) {
+    if (auto err = mNodeManager->GetConnectedNodes(*nodes); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
