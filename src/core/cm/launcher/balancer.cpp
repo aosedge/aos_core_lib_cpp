@@ -143,7 +143,7 @@ Error Balancer::ScheduleInstance(
     auto serviceConfig = MakeUnique<oci::ServiceConfig>(&mAllocator);
     auto imageConfig   = MakeUnique<oci::ImageConfig>(&mAllocator);
 
-    // get configs
+    // Get service and image configs.
     if (auto err = mImageInfoProvider.GetServiceConfig(imageDescriptor, *serviceConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -152,7 +152,7 @@ Error Balancer::ScheduleInstance(
         return AOS_ERROR_WRAP(err);
     }
 
-    // select node & runtime
+    // Select node runtimes.
     if (auto err = mNodeManager->GetConnectedNodes(*nodes); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -161,7 +161,7 @@ Error Balancer::ScheduleInstance(
         return err;
     }
 
-    auto [nodeRuntime, selectErr] = SelectRuntimeForInstance(instance, *serviceConfig, *nodes);
+    auto [nodeRuntime, selectErr] = SelectRuntimeForInstance(instance, *serviceConfig, *imageConfig, *nodes);
     if (!selectErr.IsNone()) {
         return selectErr;
     }
@@ -169,7 +169,7 @@ Error Balancer::ScheduleInstance(
     auto&       node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
-    // create network params
+    // Create network params.
     auto networkServiceData = MakeUnique<aos::cm::networkmanager::NetworkServiceData>(&mAllocator);
 
     networkServiceData->mExposedPorts       = imageConfig->mConfig.mExposedPorts;
@@ -178,7 +178,7 @@ Error Balancer::ScheduleInstance(
         networkServiceData->mHosts.PushBack(serviceConfig->mHostname.GetValue());
     }
 
-    // create instance info, InstanceNetworkParameters will be added after network update
+    // Create instance info, InstanceNetworkParameters will be added after network update.
     auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
 
     if (auto err = SetupInstanceInfo(
@@ -187,7 +187,7 @@ Error Balancer::ScheduleInstance(
         return err;
     }
 
-    // schedule instance
+    // Schedule instance.
     auto reqCPU       = GetRequestedCPU(instance, *node, *serviceConfig);
     auto reqRAM       = GetRequestedRAM(instance, *node, *serviceConfig);
     auto reqResources = serviceConfig->mResources;
@@ -258,23 +258,23 @@ void Balancer::FilterNodesByResources(const Array<StaticString<cResourceNameLen>
     });
 }
 
-RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntimeForInstance(
-    Instance& instance, const oci::ServiceConfig& config, Array<Node*>& nodes)
+RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntimeForInstance(Instance& instance,
+    const oci::ServiceConfig& serviceConfig, const oci::ImageConfig& imageConfig, Array<Node*>& nodes)
 {
     auto nodeRuntimes
         = MakeUnique<StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>>(
             &mAllocator);
 
-    if (auto err = SelectRuntimes(config.mRuntimes, nodes, *nodeRuntimes); !err.IsNone()) {
+    if (auto err = FilterRuntimes(imageConfig, serviceConfig, nodes, *nodeRuntimes); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
-    FilterByCPU(instance, config, *nodeRuntimes);
+    FilterByCPU(instance, serviceConfig, *nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
         return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested CPU"))};
     }
 
-    FilterByRAM(instance, config, *nodeRuntimes);
+    FilterByRAM(instance, serviceConfig, *nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
         return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
     }
@@ -311,21 +311,9 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntimeForInstance
     return {result, ErrorEnum::eNone};
 }
 
-Error Balancer::SelectRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes,
-    Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes)
+Error Balancer::FilterRuntimes(const oci::ImageConfig& imageConfig, const oci::ServiceConfig& serviceConfig,
+    Array<Node*>& nodes, Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes)
 {
-    nodes.RemoveIf([&inRuntimes](const Node* node) {
-        for (const auto& runtime : node->GetInfo().mRuntimes) {
-            if (inRuntimes.Contains(runtime.mRuntimeID)) {
-                return false;
-            }
-        }
-
-        return true;
-    });
-
-    runtimes.Clear();
-
     for (auto node : nodes) {
         if (auto err = runtimes.Emplace(node); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -333,15 +321,53 @@ Error Balancer::SelectRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRun
 
         auto& suitableNodeRuntimes = runtimes.Find(node)->mSecond;
 
-        for (const auto& runner : inRuntimes) {
-            auto nodeRuntime = node->GetInfo().mRuntimes.FindIf(
-                [&runner](const RuntimeInfo& runtime) { return runtime.mRuntimeID == runner; });
+        for (const auto& nodeRuntime : node->GetInfo().mRuntimes) {
+            // Required params: runtime type, OS, architecture
+            if (!serviceConfig.mRuntimes.Contains(nodeRuntime.mRuntimeType)) {
+                continue;
+            }
 
-            if (nodeRuntime) {
-                suitableNodeRuntimes.PushBack(nodeRuntime);
+            if (nodeRuntime.mOSInfo.mOS != imageConfig.mOS
+                || nodeRuntime.mArchInfo.mArchitecture != imageConfig.mArchitecture) {
+                continue;
+            }
+
+            // Optional params: architecture variant, OS version, OS features
+            if (!imageConfig.mVariant.IsEmpty()) {
+                if (nodeRuntime.mArchInfo.mVariant != imageConfig.mVariant) {
+                    continue;
+                }
+            }
+
+            if (!imageConfig.mOSVersion.IsEmpty()) {
+                if (nodeRuntime.mOSInfo.mVersion != imageConfig.mOSVersion) {
+                    continue;
+                }
+            }
+
+            if (!imageConfig.mOSFeatures.IsEmpty()) {
+                bool allFeaturesExist = true;
+
+                for (const auto& imageFeature : imageConfig.mOSFeatures) {
+                    bool exists = nodeRuntime.mOSInfo.mFeatures.Contains(imageFeature);
+                    if (!exists) {
+                        allFeaturesExist = false;
+                        break;
+                    }
+                }
+
+                if (!allFeaturesExist) {
+                    continue;
+                }
+            }
+
+            // Add runtime
+            if (auto err = suitableNodeRuntimes.PushBack(&nodeRuntime); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
             }
         }
 
+        // Remove node if no suitable runtimes
         if (suitableNodeRuntimes.IsEmpty()) {
             runtimes.Remove(node);
         }
