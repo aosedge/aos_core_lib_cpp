@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 
+#include <core/cm/alerts/itf/provider.hpp>
 #include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/itf/storagestate.hpp>
@@ -33,7 +34,8 @@ namespace aos::cm::launcher {
 class Launcher : public LauncherItf,
                  public instancestatusprovider::ProviderItf,
                  public InstanceStatusReceiverItf,
-                 private nodeinfoprovider::NodeInfoListenerItf {
+                 private nodeinfoprovider::NodeInfoListenerItf,
+                 private alerts::AlertsListenerItf {
 public:
     /**
      * Initializes launcher object instance.
@@ -47,6 +49,7 @@ public:
      * @param storageState interface to manage storage and state partitions.
      * @param networkManager interface to manage networks of service instances.
      * @param monitorProvider monitoring provider.
+     * @param alertsProvider alerts provider.
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @return Error.
@@ -56,7 +59,7 @@ public:
         imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
-        IDValidator gidValidator, IDValidator uidValidator);
+        alerts::AlertsProviderItf& alertsProvider, IDValidator gidValidator, IDValidator uidValidator);
 
     /**
      * Starts launcher instance.
@@ -70,9 +73,9 @@ public:
      */
     Error Stop();
 
-    /************************************************************************************************************************
-     * LauncherItf implementation
-     ***********************************************************************************************************************/
+    //
+    // LauncherItf implementation
+    //
 
     /**
      * Schedules and run instances.
@@ -83,16 +86,9 @@ public:
      */
     Error RunInstances(const Array<RunInstanceRequest>& instances, Array<InstanceStatus>& statuses) override;
 
-    /**
-     * Rebalances instances.
-     *
-     * @return Error.
-     */
-    Error Rebalance() override;
-
-    /************************************************************************************************************************
-     * InstanceStatusProviderItf implementation
-     ***********************************************************************************************************************/
+    //
+    // InstanceStatusProviderItf implementation
+    //
 
     /**
      * Returns current statuses of running instances.
@@ -129,19 +125,27 @@ private:
     void UpdateData(bool rebalancing);
     void FailActivatingInstances();
 
-    /************************************************************************************************************************
-     * smcontroller::InstanceStatusReceiverItf implementation
-     ***********************************************************************************************************************/
+    Error Rebalance();
+
+    //
+    // InstanceStatusReceiverItf implementation
+    //
 
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
     Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) override;
     Error OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvVarsInstanceStatus>& statuses) override;
 
-    /************************************************************************************************************************
-     * nodeinfoprovider::NodeInfoListenerItf implementation
-     ***********************************************************************************************************************/
+    //
+    // nodeinfoprovider::NodeInfoListenerItf implementation
+    //
 
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
+
+    //
+    // alerts::AlertsListenerItf implementation
+    //
+
+    Error OnAlertReceived(const AlertVariant& alert) override;
 
     Config                                 mConfig;
     StorageItf*                            mStorage {};
@@ -151,6 +155,7 @@ private:
     storagestate::StorageStateItf*         mStorageState {};
     networkmanager::NetworkManagerItf*     mNetworkManager {};
     MonitoringProviderItf*                 mMonitorProvider {};
+    alerts::AlertsProviderItf*             mAlertsProvider {};
 
     InstanceManager mInstanceManager;
     NodeManager     mNodeManager;

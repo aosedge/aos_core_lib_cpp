@@ -107,7 +107,7 @@ Error NodeManager::UpdateNodeInstances(const String& nodeID, const Array<SharedP
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::GetNodesByPriorities(Array<Node*>& nodes)
+Error NodeManager::GetConnectedNodes(Array<Node*>& nodes)
 {
     nodes.Clear();
 
@@ -237,9 +237,9 @@ Error NodeManager::SendUpdate(UniqueLock<Mutex>& lock)
     return ErrorEnum::eNone;
 }
 
-void NodeManager::UpdateNode(const UnitNodeInfo& info)
+bool NodeManager::UpdateNode(const UnitNodeInfo& info)
 {
-    // don't wait for instanse status for unprovisioned nodes only(offline/online doesnt matter)
+    // Don't wait for instanse status for unprovisioned nodes only(offline/online doesnt matter)
     if (info.mState != NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
             mStatusUpdateCondVar.NotifyAll();
@@ -248,27 +248,31 @@ void NodeManager::UpdateNode(const UnitNodeInfo& info)
 
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
-        if (info.mState != NodeStateEnum::eProvisioned || !info.mIsConnected) {
+        if (info.mState != NodeStateEnum::eProvisioned) {
             mNodes.Erase(node);
 
-            return;
+            return true;
         }
 
-        node->UpdateInfo(info);
+        return node->UpdateInfo(info);
     } else {
-        if (info.mState != NodeStateEnum::eProvisioned || !info.mIsConnected) {
-            return;
+        if (info.mState != NodeStateEnum::eProvisioned) {
+            return false;
         }
 
         if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
             LOG_ERR() << "Can't add new node" << Log::Field(AOS_ERROR_WRAP(err));
 
-            return;
+            return false;
         }
 
         if (auto err = mNodes.Back().Init(info, *mNodeConfigProvider, *mRunner); !err.IsNone()) {
             LOG_ERR() << "Node initialization failed" << Log::Field(AOS_ERROR_WRAP(err));
+
+            return false;
         }
+
+        return true;
     }
 }
 

@@ -69,8 +69,9 @@ public:
      * Updates node information.
      *
      * @param info node information.
+     * @return bool.
      */
-    void UpdateInfo(const UnitNodeInfo& info);
+    bool UpdateInfo(const UnitNodeInfo& info);
 
     /**
      * Updates running instance list.

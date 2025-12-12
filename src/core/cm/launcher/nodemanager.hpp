@@ -60,12 +60,12 @@ public:
     Error UpdateNodeInstances(const String& nodeID, const Array<SharedPtr<Instance>>& instances);
 
     /**
-     * Returns nodes ordered by priorities.
+     * Returns connected nodes ordered by priorities.
      *
      * @param nodes output array of nodes.
      * @return Error.
      */
-    Error GetNodesByPriorities(Array<Node*>& nodes);
+    Error GetConnectedNodes(Array<Node*>& nodes);
 
     /**
      * Finds node by identifier.
@@ -122,8 +122,9 @@ public:
      * Updates nodes.
      *
      * @param info node information.
+     * @return bool.
      */
-    void UpdateNode(const UnitNodeInfo& info);
+    bool UpdateNode(const UnitNodeInfo& info);
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
