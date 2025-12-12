@@ -73,11 +73,11 @@ private:
     void FilterNodesByLabels(const Array<StaticString<cLabelNameLen>>& labels, Array<Node*>& nodes);
     void FilterNodesByResources(const Array<StaticString<cResourceNameLen>>& resources, Array<Node*>& nodes);
 
-    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntimeForInstance(
-        Instance& instance, const oci::ServiceConfig& config, Array<Node*>& nodes);
+    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntimeForInstance(Instance& instance,
+        const oci::ServiceConfig& serviceConfig, const oci::ImageConfig& imageConfig, Array<Node*>& nodes);
 
-    Error SelectRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes,
-        Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
+    Error FilterRuntimes(const oci::ImageConfig& imageConfig, const oci::ServiceConfig& serviceConfig,
+        Array<Node*>& nodes, Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
     void  FilterByCPU(Instance& instance, const oci::ServiceConfig& serviceConfig,
          Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
     void  FilterByRAM(Instance& instance, const oci::ServiceConfig& serviceConfig,
