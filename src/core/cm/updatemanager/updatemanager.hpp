@@ -8,7 +8,6 @@
 #define AOS_CORE_CM_UPDATEMANAGER_UPDATEMANAGER_HPP_
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
-#include <core/common/cloudconnection/itf/cloudconnection.hpp>
 
 #include "itf/updatemanager.hpp"
 #include "unitstatushandler.hpp"
@@ -22,7 +21,7 @@ namespace aos::cm::updatemanager {
 /**
  * Update manager.
  */
-class UpdateManager : public UpdateManagerItf, private cloudconnection::ConnectionListenerItf {
+class UpdateManager : public UpdateManagerItf {
 public:
     /**
      * Initializes update manager.
@@ -65,22 +64,7 @@ public:
     Error ProcessDesiredStatus(const DesiredStatus& desiredStatus) override;
 
 private:
-    // cloudconnection::ConnectionListenerItf implementation
-    void OnConnect() override;
-    void OnDisconnect() override;
-
-    void Run();
-
-    cloudconnection::CloudConnectionItf* mCloudConnection {};
-
     UnitStatusHandler mUnitStatusHandler;
-
-    Mutex               mMutex;
-    ConditionalVariable mCondVar;
-    Thread<>            mThread;
-
-    bool mIsRunning {};
-    bool mSendUnitStatus {};
 };
 
 /** @}*/
