@@ -10,6 +10,7 @@
 #include <core/cm/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/unitconfig.hpp>
+#include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/tools/timer.hpp>
@@ -29,7 +30,8 @@ namespace aos::cm::updatemanager {
 class UnitStatusHandler : private nodeinfoprovider::NodeInfoListenerItf,
                           private imagemanager::ItemStatusListenerItf,
                           private instancestatusprovider::ListenerItf,
-                          private iamclient::SubjectsListenerItf {
+                          private iamclient::SubjectsListenerItf,
+                          private cloudconnection::ConnectionListenerItf {
 public:
     /**
      * Initializes unit status handler.
@@ -40,13 +42,15 @@ public:
      * @param nodeInfoProvider node info provider.
      * @param itemStatusProvider item status provider.
      * @param instanceStatusProvider instance status provider.
+     * @param cloudConnection cloud connection.
      * @param sender unit status sender.
      * @return Error.
      */
     Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         imagemanager::ItemStatusProviderItf&   itemStatusProvider,
-        instancestatusprovider::ProviderItf& instanceStatusProvider, SenderItf& sender);
+        instancestatusprovider::ProviderItf&   instanceStatusProvider,
+        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
 
     /**
      * Starts unit status handler.
@@ -69,13 +73,6 @@ public:
      */
     Error SendFullUnitStatus();
 
-    /**
-     * Sets cloud connection status.
-     *
-     * @param isConnected true if cloud connected.
-     */
-    void SetCloudConnected(bool isConnected);
-
 private:
     static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>);
 
@@ -92,6 +89,10 @@ private:
     // iamclient::SubjectsListenerItf implementation
     void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
 
+    // cloudconnection::ConnectionListenerItf implementation
+    void OnConnect() override;
+    void OnDisconnect() override;
+
     void ClearUnitStatus();
     void StartTimer();
 
@@ -107,6 +108,7 @@ private:
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     imagemanager::ItemStatusProviderItf*   mItemStatusProvider {};
     instancestatusprovider::ProviderItf*   mInstanceStatusProvider {};
+    cloudconnection::CloudConnectionItf*   mCloudConnection {};
     SenderItf*                             mSender {};
 
     Mutex                           mMutex;

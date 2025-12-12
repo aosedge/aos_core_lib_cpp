@@ -17,13 +17,15 @@ namespace aos::cm::updatemanager {
 Error UnitStatusHandler::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     imagemanager::ItemStatusProviderItf& itemStatusProvider,
-    instancestatusprovider::ProviderItf& instanceStatusProvider, SenderItf& sender)
+    instancestatusprovider::ProviderItf& instanceStatusProvider, cloudconnection::CloudConnectionItf& cloudConnection,
+    SenderItf& sender)
 {
     mIdentProvider          = &identProvider;
     mUnitConfig             = &unitConfig;
     mNodeInfoProvider       = &nodeInfoProvider;
     mItemStatusProvider     = &itemStatusProvider;
     mInstanceStatusProvider = &instanceStatusProvider;
+    mCloudConnection        = &cloudConnection;
     mSender                 = &sender;
     mUnitStatusSendTimeout  = config.mUnitStatusSendTimeout;
 
@@ -50,6 +52,10 @@ Error UnitStatusHandler::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -73,12 +79,20 @@ Error UnitStatusHandler::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mCloudConnection->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
 Error UnitStatusHandler::SendFullUnitStatus()
 {
     LockGuard lock {mMutex};
+
+    if (!mCloudConnected) {
+        return ErrorEnum::eNone;
+    }
 
     LOG_DBG() << "Send full unit status";
 
@@ -115,17 +129,6 @@ Error UnitStatusHandler::SendFullUnitStatus()
     mTimer.Stop();
 
     return ErrorEnum::eNone;
-}
-
-void UnitStatusHandler::SetCloudConnected(bool isConnected)
-{
-    LockGuard lock {mMutex};
-
-    mCloudConnected = isConnected;
-
-    if (!mCloudConnected) {
-        mTimer.Stop();
-    }
 }
 
 /***********************************************************************************************************************
@@ -283,6 +286,25 @@ void UnitStatusHandler::SubjectsChanged(const Array<StaticString<cIDLen>>& subje
     }
 
     StartTimer();
+}
+
+void UnitStatusHandler::OnConnect()
+{
+    {
+        LockGuard lock {mMutex};
+
+        mCloudConnected = true;
+    }
+
+    SendFullUnitStatus();
+}
+
+void UnitStatusHandler::OnDisconnect()
+{
+    LockGuard lock {mMutex};
+
+    mCloudConnected = false;
+    mTimer.Stop();
 }
 
 Error UnitStatusHandler::SetUnitConfigStatus()
