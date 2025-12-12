@@ -18,6 +18,7 @@
 #include <core/cm/updatemanager/updatemanager.hpp>
 
 #include "mocks/imagemanagermock.hpp"
+#include "mocks/launchermock.hpp"
 #include "mocks/unitconfigmock.hpp"
 #include "stubs/senderstub.hpp"
 
@@ -150,7 +151,7 @@ protected:
         Config config {cUnitStatusSendTimeout};
 
         auto err = mUpdateManager.Init(config, mIdentProviderMock, mUnitConfigMock, mNodeInfoProviderMock,
-            mImageManagerMock, mInstanceStatusProviderMock, mCloudConnectionMock, mSenderStub);
+            mImageManagerMock, mLauncherMock, mCloudConnectionMock, mSenderStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize update manager: " << tests::utils::ErrorToStr(err);
 
         EXPECT_CALL(mCloudConnectionMock, SubscribeListener(_))
@@ -171,7 +172,7 @@ protected:
 
                 return ErrorEnum::eNone;
             }));
-        EXPECT_CALL(mInstanceStatusProviderMock, SubscribeListener(_))
+        EXPECT_CALL(mLauncherMock, SubscribeListener(_))
             .WillOnce(Invoke([&](instancestatusprovider::ListenerItf& listener) {
                 mInstanceStatusListener = &listener;
 
@@ -214,7 +215,7 @@ protected:
 
                 return ErrorEnum::eNone;
             }));
-        EXPECT_CALL(mInstanceStatusProviderMock, UnsubscribeListener(_))
+        EXPECT_CALL(mLauncherMock, UnsubscribeListener(_))
             .WillOnce(Invoke([&](instancestatusprovider::ListenerItf& listener) {
                 (void)listener;
 
@@ -240,7 +241,7 @@ protected:
     NiceMock<unitconfig::UnitConfigMock>             mUnitConfigMock;
     NiceMock<nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProviderMock;
     NiceMock<imagemanager::ImageManagerMock>         mImageManagerMock;
-    NiceMock<instancestatusprovider::ProviderMock>   mInstanceStatusProviderMock;
+    NiceMock<launcher::LauncherMock>                 mLauncherMock;
     NiceMock<cloudconnection::CloudConnectionMock>   mCloudConnectionMock;
     SenderStub                                       mSenderStub;
 
@@ -325,27 +326,26 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
     CreateInstancesStatuses(expectedUnitStatus->mInstances.GetValue()[1], "item2", "subject1", "1.0.0", 1);
     CreateInstancesStatuses(expectedUnitStatus->mInstances.GetValue()[2], "item2", "subject2", "1.0.0", 3);
 
-    EXPECT_CALL(mInstanceStatusProviderMock, GetInstancesStatuses(_))
-        .WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
-            for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
-                for (const auto& instanceStatus : instancesStatuses.mInstances) {
-                    InstanceStatus status;
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
+        for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
+            for (const auto& instanceStatus : instancesStatuses.mInstances) {
+                InstanceStatus status;
 
-                    status.mItemID         = instancesStatuses.mItemID;
-                    status.mSubjectID      = instancesStatuses.mSubjectID;
-                    status.mVersion        = instancesStatuses.mVersion;
-                    status.mInstance       = instanceStatus.mInstance;
-                    status.mNodeID         = instanceStatus.mNodeID;
-                    status.mRuntimeID      = instanceStatus.mRuntimeID;
-                    status.mManifestDigest = instanceStatus.mManifestDigest;
-                    status.mState          = instanceStatus.mState;
+                status.mItemID         = instancesStatuses.mItemID;
+                status.mSubjectID      = instancesStatuses.mSubjectID;
+                status.mVersion        = instancesStatuses.mVersion;
+                status.mInstance       = instanceStatus.mInstance;
+                status.mNodeID         = instanceStatus.mNodeID;
+                status.mRuntimeID      = instanceStatus.mRuntimeID;
+                status.mManifestDigest = instanceStatus.mManifestDigest;
+                status.mState          = instanceStatus.mState;
 
-                    instances.PushBack(status);
-                }
+                instances.PushBack(status);
             }
+        }
 
-            return ErrorEnum::eNone;
-        }));
+        return ErrorEnum::eNone;
+    }));
 
     // Set subjects
 

@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 
+#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/types/desiredstatus.hpp>
 #include <core/common/types/instance.hpp>
 
@@ -54,7 +55,7 @@ struct RunInstanceRequest {
 /**
  * Instance launcher interface.
  */
-class LauncherItf {
+class LauncherItf : public instancestatusprovider::ProviderItf {
 public:
     /**
      * Destructor.

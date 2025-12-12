@@ -41,15 +41,15 @@ classDiagram
         <<interface>>
     }
 
+    class InstanceStatusProviderItf["aos::instancestatusprovider::ProviderItf"] {
+        <<interface>>
+    }
+
     class InstanceStatusReceiverItf["aos::cm::launcher::InstanceStatusReceiverItf"] {
         <<interface>>
     }
 
     class EnvVarHandlerItf["aos::cm::launcher::EnvVarHandlerItf"] {
-        <<interface>>
-    }
-
-    class InstanceStatusProviderItf["aos::instancestatusprovider::ProviderItf"] {
         <<interface>>
     }
 
@@ -85,10 +85,11 @@ classDiagram
         <<interface>>
     }
 
+    LauncherItf ..|> InstanceStatusProviderItf
+
     Launcher ..|> LauncherItf
     Launcher ..|> InstanceStatusReceiverItf
     Launcher ..|> EnvVarHandlerItf
-    Launcher ..|> InstanceStatusProviderItf
 
     Launcher ..> StorageItf
     Launcher ..> NodeInfoProviderItf
