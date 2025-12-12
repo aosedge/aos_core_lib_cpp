@@ -9,6 +9,7 @@
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
 
+#include "desiredstatushandler.hpp"
 #include "itf/updatemanager.hpp"
 #include "unitstatushandler.hpp"
 
@@ -31,15 +32,14 @@ public:
      * @param unitConfig unit config interface.
      * @param nodeInfoProvider node info provider.
      * @param imageManager image manager.
-     * @param instanceStatusProvider instance status provider.
+     * @param launcher launcher interface.
      * @param cloudConnection cloud connection.
      * @param sender unit status sender.
      * @return Error.
      */
     Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-        instancestatusprovider::ProviderItf& instanceStatusProvider,
-        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
+        launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
 
     /**
      * Starts update manager.

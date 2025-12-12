@@ -32,7 +32,6 @@ namespace aos::cm::launcher {
  * Launcher class manages lifecycle of service instances.
  */
 class Launcher : public LauncherItf,
-                 public instancestatusprovider::ProviderItf,
                  public InstanceStatusReceiverItf,
                  private nodeinfoprovider::NodeInfoListenerItf,
                  private alerts::AlertsListenerItf {
