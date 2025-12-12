@@ -1387,19 +1387,22 @@ Error ImageManager::RemoveDifferentVersions(const Array<UpdateItemInfo>& itemsIn
     LOG_DBG() << "Remove different versions";
 
     for (const auto& storedItem : storedItems) {
-        auto requestedIt
-            = itemsInfo.FindIf([&storedItem](const auto& item) { return item.mItemID == storedItem.mItemID; });
+        if (storedItem.mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        auto requestedIt = itemsInfo.FindIf([&storedItem](const auto& item) {
+            return item.mItemID == storedItem.mItemID && item.mVersion != storedItem.mVersion;
+        });
 
         if (requestedIt != itemsInfo.end()) {
-            if (requestedIt->mVersion != storedItem.mVersion) {
-                LOG_DBG() << "Wiping different version" << Log::Field("itemID", storedItem.mItemID)
-                          << Log::Field("storedVersion", storedItem.mVersion)
-                          << Log::Field("requestedVersion", requestedIt->mVersion);
+            LOG_DBG() << "Wiping different version" << Log::Field("itemID", storedItem.mItemID)
+                      << Log::Field("storedVersion", storedItem.mVersion)
+                      << Log::Field("requestedVersion", requestedIt->mVersion);
 
-                if (auto err = mStorage->RemoveItem(storedItem.mItemID, storedItem.mVersion); !err.IsNone()) {
-                    LOG_ERR() << "Failed to remove item from storage" << Log::Field("itemID", storedItem.mItemID)
-                              << Log::Field("version", storedItem.mVersion) << Log::Field(err);
-                }
+            if (auto err = mStorage->RemoveItem(storedItem.mItemID, storedItem.mVersion); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove item from storage" << Log::Field("itemID", storedItem.mItemID)
+                          << Log::Field("version", storedItem.mVersion) << Log::Field(err);
             }
         }
     }
