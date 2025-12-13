@@ -16,7 +16,7 @@ set(SOURCES nodeconfig.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES GTest::gmock_main)
+set(LIBRARIES GTest::gmock_main aos::core::sm::nodeconfig aos::core::common::tests::utils)
 
 # ######################################################################################################################
 # Target
