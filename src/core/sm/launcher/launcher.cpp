@@ -32,8 +32,6 @@ Error Launcher::Init(const Array<RuntimeItf*>& runtimes, SenderItf& sender, Stor
 
 Error Launcher::Start()
 {
-    UniqueLock lock {mMutex};
-
     LOG_INF() << "Start launcher";
 
     for (auto& it : mRuntimes) {
@@ -41,6 +39,8 @@ Error Launcher::Start()
             return AOS_ERROR_WRAP(err);
         }
     }
+
+    UniqueLock lock {mMutex};
 
     for (auto& it : mRuntimes) {
         RuntimeInfo runtimeInfo;
