@@ -9,9 +9,9 @@
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
 
-#include "desiredstatushandler.hpp"
 #include "itf/updatemanager.hpp"
-#include "unitstatushandler.hpp"
+
+#include "desiredstatushandler.hpp"
 
 namespace aos::cm::updatemanager {
 
@@ -64,7 +64,8 @@ public:
     Error ProcessDesiredStatus(const DesiredStatus& desiredStatus) override;
 
 private:
-    UnitStatusHandler mUnitStatusHandler;
+    DesiredStatusHandler mDesiredStatusHandler;
+    UnitStatusHandler    mUnitStatusHandler;
 };
 
 /** @}*/

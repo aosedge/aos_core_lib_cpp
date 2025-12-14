@@ -14,13 +14,13 @@ set(TARGET_NAME updatemanager)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/sender.hpp itf/updatemanager.hpp updatemanager.hpp unitstatushandler.hpp)
+set(HEADERS itf/sender.hpp itf/updatemanager.hpp desiredstatushandler.hpp unitstatushandler.hpp updatemanager.hpp)
 
 # ######################################################################################################################
 # Sources
 # ######################################################################################################################
 
-set(SOURCES unitstatushandler.cpp updatemanager.cpp)
+set(SOURCES desiredstatushandler.cpp unitstatushandler.cpp updatemanager.cpp)
 
 # ######################################################################################################################
 # Target

@@ -21,6 +21,10 @@ Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& ide
 {
     LOG_DBG() << "Init update manager";
 
+    if (auto err = mDesiredStatusHandler.Init(mUnitStatusHandler); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mUnitStatusHandler.Init(
             config, identProvider, unitConfig, nodeInfoProvider, imageManager, launcher, cloudConnection, sender);
         !err.IsNone()) {
@@ -34,6 +38,10 @@ Error UpdateManager::Start()
 {
     LOG_DBG() << "Start update manager";
 
+    if (auto err = mDesiredStatusHandler.Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mUnitStatusHandler.Start(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -45,6 +53,10 @@ Error UpdateManager::Stop()
 {
     Error err;
 
+    if (auto desiredStatusErr = mDesiredStatusHandler.Stop(); !desiredStatusErr.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(desiredStatusErr);
+    }
+
     if (auto unitStatusErr = mUnitStatusHandler.Stop(); !unitStatusErr.IsNone() && err.IsNone()) {
         err = AOS_ERROR_WRAP(unitStatusErr);
     }
@@ -54,7 +66,9 @@ Error UpdateManager::Stop()
 
 Error UpdateManager::ProcessDesiredStatus(const DesiredStatus& desiredStatus)
 {
-    (void)desiredStatus;
+    if (auto err = mDesiredStatusHandler.ProcessDesiredStatus(desiredStatus); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }

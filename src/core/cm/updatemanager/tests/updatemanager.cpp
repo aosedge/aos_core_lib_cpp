@@ -117,6 +117,18 @@ void ClearUnitStatus(UnitStatus& unitStatus)
     unitStatus.mUnitSubjects.Reset();
 };
 
+void EmptyUnitStatus(UnitStatus& unitStatus)
+{
+    ClearUnitStatus(unitStatus);
+
+    unitStatus.mUnitConfig.EmplaceValue();
+    unitStatus.mUnitConfig->EmplaceBack();
+    unitStatus.mNodes.EmplaceValue();
+    unitStatus.mUpdateItems.EmplaceValue();
+    unitStatus.mInstances.EmplaceValue();
+    unitStatus.mUnitSubjects.EmplaceValue();
+};
+
 void CreateInstanceStatus(InstanceStatus& instanceStatus, const String& itemID, const String& subjectID,
     uint64_t instance, const String& version, const UnitInstanceStatus& unitInstanceStatus)
 {
@@ -369,12 +381,7 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
 {
     auto expectedUnitStatus = std::make_unique<UnitStatus>();
 
-    expectedUnitStatus->mUnitConfig.EmplaceValue();
-    expectedUnitStatus->mUnitConfig->EmplaceBack();
-    expectedUnitStatus->mNodes.EmplaceValue();
-    expectedUnitStatus->mUpdateItems.EmplaceValue();
-    expectedUnitStatus->mInstances.EmplaceValue();
-    expectedUnitStatus->mUnitSubjects.EmplaceValue();
+    EmptyUnitStatus(*expectedUnitStatus);
 
     // Notify cloud connection established
 
@@ -526,6 +533,24 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 
     ClearUnitStatus(*expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, ProcessEmptyDesiredStatus)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 }
 
 } // namespace aos::cm::updatemanager

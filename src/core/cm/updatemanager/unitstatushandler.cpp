@@ -29,12 +29,16 @@ Error UnitStatusHandler::Init(const Config& config, iamclient::IdentProviderItf&
     mSender                 = &sender;
     mUnitStatusSendTimeout  = config.mUnitStatusSendTimeout;
 
+    LOG_DBG() << "Init unit status handler";
+
     return ErrorEnum::eNone;
 }
 
 Error UnitStatusHandler::Start()
 {
     LockGuard lock {mMutex};
+
+    LOG_DBG() << "Start unit status handler";
 
     if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -62,6 +66,8 @@ Error UnitStatusHandler::Start()
 Error UnitStatusHandler::Stop()
 {
     LockGuard lock {mMutex};
+
+    LOG_DBG() << "Stop unit status handler";
 
     if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -94,7 +100,7 @@ Error UnitStatusHandler::SendFullUnitStatus()
         return ErrorEnum::eNone;
     }
 
-    LOG_DBG() << "Send full unit status";
+    LOG_INF() << "Send full unit status";
 
     mUnitStatus.mIsDeltaInfo = false;
 
