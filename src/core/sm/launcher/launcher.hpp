@@ -178,7 +178,7 @@ private:
     mutable ConditionalVariable                                                            mCondVar;
     StaticArray<InstanceData, cMaxNumInstances>                                            mInstances;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>                      mRuntimes;
-    StaticArray<RuntimeItf*, cMaxNumNodeRuntimes>                                          mRebootQueue;
+    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                                 mRebootQueue;
     StorageItf*                                                                            mStorage {};
     SenderItf*                                                                             mSender {};
     bool                                                                                   mLaunchInProgress {};
