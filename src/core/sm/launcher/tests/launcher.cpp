@@ -804,7 +804,7 @@ TEST_F(LauncherTest, RebootRuntime)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.RebootRequired("unknown_runtime");
-    ASSERT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+    ASSERT_TRUE(err.Is(ErrorEnum::eNone)) << tests::utils::ErrorToStr(err);
 
     EXPECT_TRUE(rebootPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
         == std::future_status::ready);

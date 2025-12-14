@@ -153,16 +153,11 @@ Error Launcher::RebootRequired(const String& runtimeID)
 
     LOG_DBG() << "Reboot required notification received" << Log::Field("runtimeID", runtimeID);
 
-    auto it = mRuntimes.FindIf([&runtimeID](const auto& pair) { return pair.mSecond == runtimeID; });
-    if (it == mRuntimes.end()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
-    }
-
-    if (mRebootQueue.Contains(it->mFirst)) {
+    if (mRebootQueue.Contains(runtimeID)) {
         return ErrorEnum::eNone;
     }
 
-    if (auto err = mRebootQueue.EmplaceBack(it->mFirst); !err.IsNone()) {
+    if (auto err = mRebootQueue.EmplaceBack(runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -280,7 +275,7 @@ Error Launcher::GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const
 void Launcher::RunRebootThread()
 {
     while (true) {
-        decltype(mRebootQueue) runtimesToReboot;
+        StaticArray<RuntimeItf*, cMaxNumNodeRuntimes> runtimesToReboot;
 
         {
             UniqueLock lock {mMutex};
@@ -291,7 +286,19 @@ void Launcher::RunRebootThread()
                 return;
             }
 
-            runtimesToReboot = mRebootQueue;
+            for (const auto& runtimeID : mRebootQueue) {
+                auto* runtime = mRuntimes.FindIf([&runtimeID](const auto& pair) { return pair.mSecond == runtimeID; });
+                if (runtime == mRuntimes.end()) {
+                    LOG_ERR() << "Runtime for reboot not found" << Log::Field("runtimeID", runtimeID);
+
+                    continue;
+                }
+
+                if (auto err = runtimesToReboot.EmplaceBack(runtime->mFirst); !err.IsNone()) {
+                    LOG_ERR() << "Failed to add runtime to reboot list" << Log::Field(AOS_ERROR_WRAP(err));
+                }
+            }
+
             mRebootQueue.Clear();
         }
 
