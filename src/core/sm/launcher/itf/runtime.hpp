@@ -74,26 +74,6 @@ public:
     virtual Error Reboot() = 0;
 };
 
-/**
- * Runtime factory interface.
- */
-class RuntimeFactoryItf {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~RuntimeFactoryItf() = default;
-
-    /**
-     * Creates runtime of the specified type.
-     *
-     * @param runtimeType runtime type.
-     * @param[out] runtime created runtime.
-     * @return Error.
-     */
-    virtual Error CreateRuntime(const String& runtimeType, RuntimeItf& runtime) = 0;
-};
-
 /** @} */
 
 } // namespace aos::sm::launcher
