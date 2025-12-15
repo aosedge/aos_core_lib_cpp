@@ -76,7 +76,7 @@ Error Launcher::Start()
         return err;
     }
 
-    if (auto err = mNodeManager.UpdateNodeInstances("", mInstanceManager.GetActiveInstances()); !err.IsNone()) {
+    if (auto err = mNodeManager.LoadSentInstances(mInstanceManager.GetActiveInstances()); !err.IsNone()) {
         return err;
     }
     if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
@@ -267,10 +267,13 @@ Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 
 Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses)
 {
+    LOG_INF() << "Node instances statuses received" << Log::Field("nodeID", nodeID);
+
     LockGuard lock {mMutex};
 
     Error firstErr;
 
+    // Update instance manager.
     for (const auto& status : statuses) {
         if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
             if (firstErr.IsNone()) {

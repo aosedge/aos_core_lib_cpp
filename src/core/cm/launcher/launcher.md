@@ -333,7 +333,7 @@ classDiagram
         +GetAvailableRAM() size_t
         +ScheduleInstance() Error
         +SetupNetworkParams() Error
-        +SendUpdate() Error
+        +SendScheduledInstances() Error
         +IsRunning(instance) bool
         +IsScheduled(instance) bool
     }

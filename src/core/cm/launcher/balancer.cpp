@@ -54,7 +54,7 @@ Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, UniqueL
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mNodeManager->SendUpdate(lock); !err.IsNone()) {
+    if (auto err = mNodeManager->SendScheduledInstances(lock); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

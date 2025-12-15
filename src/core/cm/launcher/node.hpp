@@ -74,12 +74,12 @@ public:
     bool UpdateInfo(const UnitNodeInfo& info);
 
     /**
-     * Updates running instance list.
+     * Loads sent instances from storage.
      *
-     * @param instances array of instances.
+     * @param instances list of sent instances.
      * @return Error.
      */
-    Error SetRunningInstances(const Array<SharedPtr<Instance>>& instances);
+    Error LoadSentInstances(const Array<SharedPtr<Instance>>& instances);
 
     /**
      * Returns available CPU.
@@ -133,11 +133,11 @@ public:
     Error SetupNetworkParams(bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr);
 
     /**
-     * Sends update.
+     * Sends scheduled instances to node.
+    Error SendScheduledInstances();
      *
      * @return Error.
      */
-    Error SendUpdate();
 
     /**
      * Checks whether instance is running.
@@ -189,7 +189,7 @@ private:
     NodeConfig   mConfig {};
     bool         mNeedBalancing {};
 
-    StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mRunningInstances;
+    StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mSentInstances;
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mScheduledInstances;
     StaticArray<StaticString<cIDLen>, cMaxNumInstancesPerNode>               mOwnerIDs;
     StaticArray<networkmanager::NetworkServiceData, cMaxNumInstancesPerNode> mNetworkServiceData;

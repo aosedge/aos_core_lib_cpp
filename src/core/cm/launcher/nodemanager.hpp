@@ -52,12 +52,12 @@ public:
     Error Stop();
 
     /**
-     * Updates instances for all nodes.
+     * Loads instances from storage.
      *
-     * @param instances instances.
+     * @param instances list of sent instances.
      * @return Error.
      */
-    Error UpdateNodeInstances(const String& nodeID, const Array<SharedPtr<Instance>>& instances);
+    Error LoadSentInstances(const Array<SharedPtr<Instance>>& instances);
 
     /**
      * Returns connected nodes ordered by priorities.
@@ -111,7 +111,12 @@ public:
     bool IsScheduled(const InstanceIdent& instance);
 
     /**
-     * Synchronous call that sends update instance request and waits for instance statuses from nodes.
+     * Sends scheduled instances to nodes and waits for instance statuses from them.
+     *
+     * @param lock mutex lock.
+     * @return Error.
+     */
+    Error SendScheduledInstances(UniqueLock<Mutex>& lock);
      *
      * @param timeout timeout.
      * @return Error.
@@ -124,7 +129,7 @@ public:
      * @param info node information.
      * @return bool.
      */
-    bool UpdateNode(const UnitNodeInfo& info);
+    bool UpdateNodeInfo(const UnitNodeInfo& info);
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
