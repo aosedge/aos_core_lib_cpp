@@ -9,6 +9,7 @@
 #include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/mocks/identprovidermock.hpp>
 #include <core/common/tests/mocks/instancestatusprovidermock.hpp>
+#include <core/common/tests/mocks/nodehandlermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/time.hpp>
@@ -38,7 +39,7 @@ static constexpr Duration cUnitStatusSendTimeout = 500 * Time::cMilliseconds;
  * Static
  **********************************************************************************************************************/
 
-void CreateNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& nodeType,
+void SetNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& nodeType,
     const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
 {
     nodeInfo.mNodeID      = nodeID;
@@ -77,6 +78,27 @@ void CreateNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& 
     EXPECT_TRUE(err.IsNone());
 }
 
+void CreateNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& nodeType,
+    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
+{
+    if (!unitStatus.mNodes.HasValue()) {
+        unitStatus.mNodes.EmplaceValue();
+    }
+
+    unitStatus.mNodes->EmplaceBack();
+
+    SetNodeInfo(unitStatus.mNodes->Back(), nodeID, nodeType, state, isConnected);
+}
+
+void ChangeNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& nodeType,
+    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
+{
+    auto it = unitStatus.mNodes->FindIf([&nodeID](const UnitNodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
+    EXPECT_NE(it, unitStatus.mNodes->end());
+
+    SetNodeInfo(*it, nodeID, nodeType, state, isConnected);
+}
+
 void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
     const ItemState& state = ItemStateEnum::eInstalled)
 {
@@ -84,9 +106,9 @@ void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const 
         unitStatus.mUpdateItems.EmplaceValue();
     }
 
-    unitStatus.mUpdateItems.GetValue().EmplaceBack();
+    unitStatus.mUpdateItems->EmplaceBack();
 
-    auto& itemStatus = unitStatus.mUpdateItems.GetValue().Back();
+    auto& itemStatus = unitStatus.mUpdateItems->Back();
 
     itemStatus.mItemID  = itemID;
     itemStatus.mVersion = version;
@@ -96,10 +118,10 @@ void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const 
 void ChangeUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
     const ItemState& state = ItemStateEnum::eInstalled)
 {
-    auto it = unitStatus.mUpdateItems.GetValue().FindIf([&itemID, &version](const UpdateItemStatus& itemStatus) {
+    auto it = unitStatus.mUpdateItems->FindIf([&itemID, &version](const UpdateItemStatus& itemStatus) {
         return itemStatus.mItemID == itemID && itemStatus.mVersion == version;
     });
-    EXPECT_NE(it, unitStatus.mUpdateItems.GetValue().end());
+    EXPECT_NE(it, unitStatus.mUpdateItems->end());
 
     it->mState = state;
 }
@@ -112,9 +134,9 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
         unitStatus.mInstances.EmplaceValue();
     }
 
-    unitStatus.mInstances.GetValue().EmplaceBack();
+    unitStatus.mInstances->EmplaceBack();
 
-    auto& instancesStatuses = unitStatus.mInstances.GetValue().Back();
+    auto& instancesStatuses = unitStatus.mInstances->Back();
 
     instancesStatuses.mItemID    = itemID;
     instancesStatuses.mSubjectID = subjectID;
@@ -137,12 +159,12 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
 void ChangeInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const String& subjectID,
     const String& version, size_t numInstances, const InstanceState& state = InstanceStateEnum::eActive)
 {
-    auto it = unitStatus.mInstances.GetValue().FindIf(
+    auto it = unitStatus.mInstances->FindIf(
         [&itemID, &subjectID, &version](const UnitInstancesStatuses& instancesStatuses) {
             return instancesStatuses.mItemID == itemID && instancesStatuses.mSubjectID == subjectID
                 && instancesStatuses.mVersion == version;
         });
-    EXPECT_NE(it, unitStatus.mInstances.GetValue().end());
+    EXPECT_NE(it, unitStatus.mInstances->end());
 
     auto& instancesStatuses = *it;
 
@@ -160,6 +182,16 @@ void ChangeInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
         auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
         EXPECT_TRUE(err.IsNone());
     }
+}
+
+void CreateUnitConfigStatus(UnitStatus& unitStatus, const String& version,
+    const UnitConfigState& state = UnitConfigStateEnum::eInstalled, Error err = ErrorEnum::eNone)
+{
+    if (!unitStatus.mUnitConfig.HasValue()) {
+        unitStatus.mUnitConfig.EmplaceValue();
+    }
+
+    unitStatus.mUnitConfig->EmplaceBack(UnitConfigStatus {version, state, err});
 }
 
 void ClearUnitStatus(UnitStatus& unitStatus)
@@ -227,8 +259,8 @@ protected:
     {
         Config config {cUnitStatusSendTimeout};
 
-        auto err = mUpdateManager.Init(config, mIdentProviderMock, mUnitConfigMock, mNodeInfoProviderMock,
-            mImageManagerMock, mLauncherMock, mCloudConnectionMock, mSenderStub);
+        auto err = mUpdateManager.Init(config, mIdentProviderMock, mNodeHandlerMock, mUnitConfigMock,
+            mNodeInfoProviderMock, mImageManagerMock, mLauncherMock, mCloudConnectionMock, mSenderStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize update manager: " << tests::utils::ErrorToStr(err);
 
         EXPECT_CALL(mCloudConnectionMock, SubscribeListener(_))
@@ -315,6 +347,7 @@ protected:
 
     UpdateManager                                    mUpdateManager;
     NiceMock<iamclient::IdentProviderMock>           mIdentProviderMock;
+    NiceMock<iamclient::NodeHandlerMock>             mNodeHandlerMock;
     NiceMock<unitconfig::UnitConfigMock>             mUnitConfigMock;
     NiceMock<nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProviderMock;
     NiceMock<imagemanager::ImageManagerMock>         mImageManagerMock;
@@ -341,9 +374,7 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
 
     // Set unit config status
 
-    expectedUnitStatus->mUnitConfig.EmplaceValue();
-    expectedUnitStatus->mUnitConfig->EmplaceBack(
-        UnitConfigStatus {"1.0.0", UnitConfigStateEnum::eInstalled, ErrorEnum::eNone});
+    CreateUnitConfigStatus(*expectedUnitStatus, "1.0.0");
 
     EXPECT_CALL(mUnitConfigMock, GetUnitConfigStatus(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
@@ -363,8 +394,7 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
     expectedUnitStatus->mNodes.EmplaceValue();
 
     for (size_t i = 0; i < nodeIDs.Size(); i++) {
-        expectedUnitStatus->mNodes->EmplaceBack();
-        CreateNodeInfo(expectedUnitStatus->mNodes->Back(), nodeIDs[i], nodeTypes[i]);
+        CreateNodeInfo(*expectedUnitStatus, nodeIDs[i], nodeTypes[i]);
     }
 
     EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_))
@@ -464,11 +494,8 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
     nodeTypes.EmplaceBack("nodeType3");
     nodeTypes.EmplaceBack("nodeType4");
 
-    expectedUnitStatus->mNodes.EmplaceValue();
-
     for (size_t i = 0; i < nodeIDs.Size(); i++) {
-        expectedUnitStatus->mNodes->EmplaceBack();
-        CreateNodeInfo(expectedUnitStatus->mNodes->Back(), nodeIDs[i], nodeTypes[i]);
+        CreateNodeInfo(*expectedUnitStatus, nodeIDs[i], nodeTypes[i]);
     }
 
     // Notify node info changed
@@ -477,8 +504,7 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
         mNodeInfoListener->OnNodeInfoChanged(nodeInfo);
     }
 
-    CreateNodeInfo(
-        expectedUnitStatus->mNodes.GetValue()[0], nodeIDs[0], nodeTypes[0], NodeStateEnum::eProvisioned, false);
+    ChangeNodeInfo(*expectedUnitStatus, nodeIDs[0], nodeTypes[0], NodeStateEnum::eProvisioned, false);
 
     mNodeInfoListener->OnNodeInfoChanged(expectedUnitStatus->mNodes.GetValue()[0]);
 
@@ -614,15 +640,64 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
     mConnectionListener->OnConnect();
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 
+    // Set desired node states
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::ePaused});
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node2", DesiredNodeStateEnum::eProvisioned});
+
+    // Set desired unit config
+
+    desiredStatus->mUnitConfig.EmplaceValue(UnitConfig {"2.0.0", "1.0.0", {}});
+
+    // Set desired update items
+
     CreateUpdateItemInfo(*desiredStatus, "item1", "1.0.0");
     CreateUpdateItemInfo(*desiredStatus, "item2", "1.0.0");
     CreateUpdateItemInfo(*desiredStatus, "item3", "1.0.0");
+
+    // Set expected node infos
+
+    CreateNodeInfo(*expectedUnitStatus, "node1", "type1", NodeStateEnum::ePaused, true);
+    CreateNodeInfo(*expectedUnitStatus, "node2", "type2", NodeStateEnum::eProvisioned, true);
+
+    // Set expected unit config status
+
+    expectedUnitStatus->mUnitConfig.EmplaceValue();
+
+    CreateUnitConfigStatus(*expectedUnitStatus, "2.0.0");
+
+    // Set expected update items status
 
     CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eInstalled);
     CreateUpdateItemStatus(*expectedUnitStatus, "item2", "1.0.0", ItemStateEnum::eInstalled);
     CreateUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalled);
 
+    EXPECT_CALL(mNodeHandlerMock, PauseNode(String("node1"))).Times(1);
+    EXPECT_CALL(mNodeHandlerMock, ResumeNode(String("node2"))).Times(1);
+    EXPECT_CALL(mUnitConfigMock, CheckUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
+    EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
     EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
+
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& nodeIDs) {
+        nodeIDs.EmplaceBack("node1");
+        nodeIDs.EmplaceBack("node2");
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mNodeInfoProviderMock, GetNodeInfo(_, _))
+        .WillRepeatedly(Invoke([&](const String& nodeID, UnitNodeInfo& nodeInfo) {
+            auto it
+                = expectedUnitStatus->mNodes->FindIf([&](const UnitNodeInfo& info) { return info.mNodeID == nodeID; });
+            if (it == expectedUnitStatus->mNodes->end()) {
+                return ErrorEnum::eNotFound;
+            }
+
+            nodeInfo = *it;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mUnitConfigMock, GetUnitConfigStatus(_))
+        .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
 

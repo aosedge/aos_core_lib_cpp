@@ -26,6 +26,7 @@ set(HEADERS
     instancestatusprovidermock.hpp
     logprovidermock.hpp
     monitoringmock.hpp
+    nodehandlermock.hpp
     nodeinfoprovidermock.hpp
     ocispecmock.hpp
     permhandlermock.hpp
