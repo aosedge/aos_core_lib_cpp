@@ -217,6 +217,7 @@ private:
     Error VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo);
     bool  IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items);
     void  NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses);
+    void  NotifyItemStatusChanged(const String& itemID, const String& version, ItemStateEnum state, const Error& error);
     void  RegisterOutdatedItems(const Array<ItemInfo>& items);
     bool  StartAction();
     void  StopAction();
@@ -239,6 +240,8 @@ private:
     StaticString<cFilePathLen>    mBlobsDownloadPath {};
     StaticString<cFilePathLen>    mBlobsInstallPath {};
     StaticString<oci::cDigestLen> mCurrentDownloadDigest {};
+    StaticString<cIDLen>          mCurrentItemID {};
+    StaticString<cVersionLen>     mCurrentItemVersion {};
     ConditionalVariable           mCondVar;
     bool                          mCancel {};
     bool                          mInProgress {};

@@ -183,12 +183,15 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
         .WillOnce(Return(ErrorEnum::eNone));
 
     ItemStatusListenerMock listener;
-    EXPECT_CALL(listener, OnItemsStatusesChanged(_)).WillOnce(Invoke([&item](const Array<UpdateItemStatus>& statuses) {
-        ASSERT_EQ(statuses.Size(), 1);
-        EXPECT_EQ(statuses[0].mItemID, item.mItemID);
-        EXPECT_EQ(statuses[0].mVersion, item.mVersion);
-        EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
-    }));
+    ItemStateEnum          lastState = ItemStateEnum::eDownloading;
+    EXPECT_CALL(listener, OnItemsStatusesChanged(_))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Invoke([&item, &lastState](const Array<UpdateItemStatus>& statuses) {
+            ASSERT_EQ(statuses.Size(), 1);
+            EXPECT_EQ(statuses[0].mItemID, item.mItemID);
+            EXPECT_EQ(statuses[0].mVersion, item.mVersion);
+            lastState = statuses[0].mState;
+        }));
 
     EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
 
@@ -199,6 +202,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_EQ(statuses[0].mItemID, item.mItemID);
     EXPECT_EQ(statuses[0].mVersion, item.mVersion);
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+    EXPECT_EQ(lastState, ItemStateEnum::ePending);
 
     EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 }
@@ -426,6 +430,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_BlobInfoFailed)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
 
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _, _)).Times(AtLeast(0));
+
     std::thread downloadThread([&]() {
         auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
         EXPECT_EQ(err, ErrorEnum::eCanceled);
@@ -486,6 +492,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
     EXPECT_CALL(mDownloaderMock, Download(_, _, _)).WillRepeatedly(Return(ErrorEnum::eRuntime));
 
     EXPECT_CALL(mDownloaderMock, Cancel(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, _, _)).Times(AtLeast(0));
 
     std::thread downloadThread([&]() {
         auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
@@ -806,12 +814,15 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
         }));
 
     ItemStatusListenerMock listener;
-    EXPECT_CALL(listener, OnItemsStatusesChanged(_)).WillOnce(Invoke([](const Array<UpdateItemStatus>& statuses) {
-        ASSERT_EQ(statuses.Size(), 1);
-        EXPECT_EQ(statuses[0].mItemID, "service1");
-        EXPECT_EQ(statuses[0].mVersion, "1.0.0");
-        EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
-    }));
+    ItemStateEnum          lastState = ItemStateEnum::ePending;
+    EXPECT_CALL(listener, OnItemsStatusesChanged(_))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Invoke([&lastState](const Array<UpdateItemStatus>& statuses) {
+            ASSERT_EQ(statuses.Size(), 1);
+            EXPECT_EQ(statuses[0].mItemID, "service1");
+            EXPECT_EQ(statuses[0].mVersion, "1.0.0");
+            lastState = statuses[0].mState;
+        }));
 
     EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
 
@@ -823,6 +834,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
     EXPECT_TRUE(statuses[0].mError.IsNone());
+    EXPECT_EQ(lastState, ItemStateEnum::eInstalled);
 
     EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 }
