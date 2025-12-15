@@ -7,8 +7,10 @@
 #ifndef AOS_CM_LAUNCHER_STUBS_INSTANCERUNNERSTUB_HPP_
 #define AOS_CM_LAUNCHER_STUBS_INSTANCERUNNERSTUB_HPP_
 
+#include <gmock/gmock.h>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -33,23 +35,31 @@ public:
         bool operator!=(const NodeRunRequest& other) const { return !(*this == other); }
     };
 
-    void Init(InstanceStatusReceiverItf& statusReceiver)
+    void Init(InstanceStatusReceiverItf& statusReceiver, bool autoUpdateStatuses = true)
     {
         mNodeInstances.clear();
-        mStatusReceiver = &statusReceiver;
+        mInstanceStatuses.clear();
+        mAutoUpdateStatuses = autoUpdateStatuses;
+        mStatusReceiver     = &statusReceiver;
     }
 
     const std::map<std::string, NodeRunRequest>& GetNodeInstances() const { return mNodeInstances; }
 
-    const NodeRunRequest* GetNodeInstances(const String& nodeID) const
+    void SetAutoUpdateStatuses(bool enable)
     {
-        auto it = mNodeInstances.find(nodeID.CStr());
-        if (it != mNodeInstances.end()) {
-            return &it->second;
-        }
+        std::lock_guard lock {mMutex};
 
-        return nullptr;
+        mAutoUpdateStatuses = enable;
     }
+
+    void SetInstanceStatuses(const std::vector<InstanceStatus>& statuses)
+    {
+        std::lock_guard lock {mMutex};
+
+        mInstanceStatuses = statuses;
+    }
+
+    MOCK_METHOD(void, OnRunRequest, ());
 
     // InstanceRunnerItf
     Error UpdateInstances(const String& nodeID, const Array<aos::InstanceInfo>& stopInstances,
@@ -68,28 +78,37 @@ public:
             nodeRequest.mStartInstances.push_back(inst);
         }
 
-        // Send node status updates to unblock SendUpdate wait
-        // Must send even if startInstances is empty, otherwise the wait will hang
         if (mStatusReceiver != nullptr) {
-            auto statuses = std::make_shared<StaticArray<InstanceStatus, cMaxNumInstances>>();
+            std::shared_ptr<std::vector<InstanceStatus>> statuses;
 
-            // Convert startInstances to InstanceStatus
-            for (const auto& inst : startInstances) {
-                InstanceStatus status;
+            {
+                std::lock_guard lock {mMutex};
 
-                static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);
-                status.mNodeID                      = nodeID;
-                status.mRuntimeID                   = inst.mRuntimeID;
-                status.mState                       = InstanceStateEnum::eActivating;
-                status.mError                       = ErrorEnum::eNone;
+                if (mAutoUpdateStatuses) {
+                    mInstanceStatuses.clear();
+                    mInstanceStatuses.reserve(startInstances.Size());
 
-                if (auto err = statuses->PushBack(status); !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
+                    for (const auto& inst : startInstances) {
+                        InstanceStatus status;
+
+                        static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);
+                        status.mNodeID                      = nodeID;
+                        status.mRuntimeID                   = inst.mRuntimeID;
+                        status.mState                       = InstanceStateEnum::eActivating;
+                        status.mError                       = ErrorEnum::eNone;
+
+                        mInstanceStatuses.push_back(status);
+                    }
                 }
+
+                statuses = std::make_shared<std::vector<InstanceStatus>>(mInstanceStatuses);
             }
 
+            OnRunRequest();
+
             std::thread([receiver = mStatusReceiver, nodeID, statuses]() mutable {
-                receiver->OnNodeInstancesStatusesReceived(nodeID, *statuses);
+                Array<InstanceStatus> arr(statuses->data(), statuses->size());
+                receiver->OnNodeInstancesStatusesReceived(nodeID, arr);
             }).detach();
         }
 
@@ -97,8 +116,13 @@ public:
     }
 
 private:
+    mutable std::mutex mMutex;
+
     std::map<std::string, NodeRunRequest> mNodeInstances {};
     InstanceStatusReceiverItf*            mStatusReceiver {};
+
+    bool                        mAutoUpdateStatuses {true};
+    std::vector<InstanceStatus> mInstanceStatuses {};
 };
 
 } // namespace aos::cm::launcher

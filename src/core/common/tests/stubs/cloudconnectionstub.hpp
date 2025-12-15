@@ -26,7 +26,7 @@ public:
      */
     Error SubscribeListener(ConnectionListenerItf& listener) override
     {
-        std::lock_guard<std::mutex> lock {mMutex};
+        std::lock_guard lock {mMutex};
 
         mListeners.insert(&listener);
 
@@ -40,7 +40,7 @@ public:
      */
     Error UnsubscribeListener(ConnectionListenerItf& listener) override
     {
-        std::lock_guard<std::mutex> lock {mMutex};
+        std::lock_guard lock {mMutex};
 
         mListeners.erase(&listener);
 
@@ -52,7 +52,7 @@ public:
      */
     void NotifyConnect()
     {
-        std::lock_guard<std::mutex> lock {mMutex};
+        std::lock_guard lock {mMutex};
 
         for (const auto& mListener : mListeners) {
             mListener->OnConnect();
@@ -66,7 +66,7 @@ public:
      */
     void NotifyDisconnect()
     {
-        std::lock_guard<std::mutex> lock {mMutex};
+        std::lock_guard lock {mMutex};
 
         for (const auto& mListener : mListeners) {
             mListener->OnDisconnect();
