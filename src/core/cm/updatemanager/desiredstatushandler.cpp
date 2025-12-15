@@ -14,10 +14,13 @@ namespace aos::cm::updatemanager {
  * Public
  **********************************************************************************************************************/
 
-Error DesiredStatusHandler::Init(UnitStatusHandler& unitStatusHandler, imagemanager::ImageManagerItf& imageManager)
+Error DesiredStatusHandler::Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
+    imagemanager::ImageManagerItf& imageManager, UnitStatusHandler& unitStatusHandler)
 {
     LOG_DBG() << "Init desired status handler";
 
+    mNodeHandler       = &nodeHandler;
+    mUnitConfig        = &unitConfig;
     mUnitStatusHandler = &unitStatusHandler;
     mImageManager      = &imageManager;
 
@@ -129,7 +132,7 @@ void DesiredStatusHandler::Run()
                     break;
 
                 case UpdateStateEnum::eInstalling:
-                    stateAction = nullptr;
+                    stateAction = &DesiredStatusHandler::InstallDesiredStatus;
                     nextState   = UpdateStateEnum::eLaunching;
 
                     break;
@@ -230,6 +233,41 @@ Error DesiredStatusHandler::DownloadUpdateItems()
         if (itemStatus.mState == ItemStateEnum::eFailed) {
             LOG_ERR() << "Failed to download update item" << Log::Field("id", itemStatus.mItemID)
                       << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error DesiredStatusHandler::InstallDesiredStatus()
+{
+    LOG_DBG() << "Install desired status";
+
+    for (const auto& node : mCurrentDesiredStatus.mNodes) {
+        LOG_DBG() << "Set node state" << Log::Field("id", node.mNodeID) << Log::Field("state", node.mState);
+
+        if (node.mState == DesiredNodeStateEnum::ePaused) {
+            if (auto err = mNodeHandler->PauseNode(node.mNodeID); !err.IsNone()) {
+                LOG_ERR() << "Failed to set node state" << Log::Field("id", node.mNodeID) << Log::Field(err);
+            }
+        } else {
+            if (auto err = mNodeHandler->ResumeNode(node.mNodeID); !err.IsNone()) {
+                LOG_ERR() << "Failed to set node state" << Log::Field("id", node.mNodeID) << Log::Field(err);
+            }
+        }
+    }
+
+    if (mCurrentDesiredStatus.mUnitConfig.HasValue()) {
+        LOG_DBG() << "Update unit config" << Log::Field("version", mCurrentDesiredStatus.mUnitConfig->mVersion);
+
+        auto err = mUnitConfig->CheckUnitConfig(mCurrentDesiredStatus.mUnitConfig.GetValue());
+
+        if (err.IsNone()) {
+            err = mUnitConfig->UpdateUnitConfig(mCurrentDesiredStatus.mUnitConfig.GetValue());
+        }
+
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to update unit config" << Log::Field(err);
         }
     }
 

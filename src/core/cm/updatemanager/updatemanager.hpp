@@ -29,6 +29,7 @@ public:
      *
      * @param config update manager configuration.
      * @param identProvider identity provider.
+     * @param nodeHandler node handler.
      * @param unitConfig unit config interface.
      * @param nodeInfoProvider node info provider.
      * @param imageManager image manager.
@@ -37,9 +38,10 @@ public:
      * @param sender unit status sender.
      * @return Error.
      */
-    Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
-        nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-        launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
+    Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, iamclient::NodeHandlerItf& nodeHandler,
+        unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+        imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
+        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
 
     /**
      * Starts update manager.

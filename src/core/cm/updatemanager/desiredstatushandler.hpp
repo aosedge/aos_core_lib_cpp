@@ -9,6 +9,7 @@
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
 #include <core/cm/launcher/itf/launcher.hpp>
+#include <core/common/iamclient/itf/nodehandler.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/desiredstatus.hpp>
@@ -61,11 +62,14 @@ public:
     /**
      * Initializes desired status handler.
      *
-     * @param unitStatusHandler unit status handler.
+     * @param nodeHandler node handler.
+     * @param unitConfig unit config interface.
      * @param imageManager image manager.
+     * @param unitStatusHandler unit status handler.
      * @return Error.
      */
-    Error Init(UnitStatusHandler& unitStatusHandler, imagemanager::ImageManagerItf& imageManager);
+    Error Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
+        imagemanager::ImageManagerItf& imageManager, UnitStatusHandler& unitStatusHandler);
 
     /**
      * Starts desired status handler.
@@ -96,9 +100,12 @@ private:
     void  LogDesiredStatus(const DesiredStatus& desiredStatus);
     void  SetState(UpdateState state);
     Error DownloadUpdateItems();
+    Error InstallDesiredStatus();
 
-    UnitStatusHandler*             mUnitStatusHandler {};
+    iamclient::NodeHandlerItf*     mNodeHandler {};
+    unitconfig::UnitConfigItf*     mUnitConfig {};
     imagemanager::ImageManagerItf* mImageManager {};
+    UnitStatusHandler*             mUnitStatusHandler {};
 
     Mutex               mMutex;
     ConditionalVariable mCondVar;
