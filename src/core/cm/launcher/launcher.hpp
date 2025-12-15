@@ -127,6 +127,8 @@ private:
 
     Error Rebalance(UniqueLock<Mutex>& lock);
 
+    void MonitorNodes();
+
     //
     // InstanceStatusReceiverItf implementation
     //
@@ -165,6 +167,12 @@ private:
     Balancer                                                                          mBalancer;
 
     StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
+
+    Thread<>                                        mThread;
+    ConditionalVariable                             mMonitorNodesCondVar;
+    StaticArray<StaticString<cIDLen>, cMaxNumNodes> mUpdatedNodes;
+    bool                                            mIsRunning {};
+    bool                                            mDisableNodeMonitor {};
 
     Mutex                           mMutex;
     StaticAllocator<cAllocatorSize> mAllocator;

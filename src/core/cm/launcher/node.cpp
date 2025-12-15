@@ -122,6 +122,15 @@ Error Node::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
     return ErrorEnum::eNone;
 }
 
+Error Node::UpdateRunningInstances(const Array<InstanceStatus>& instances)
+{
+    if (auto err = mRunningInstances.Assign(instances); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 size_t Node::GetAvailableCPU()
 {
     return mAvailableCPU;
@@ -265,6 +274,50 @@ Error Node::SendScheduledInstances()
     mScheduledInstances.Clear();
 
     return ErrorEnum::eNone;
+}
+
+RetWithError<bool> Node::ResendInstances()
+{
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>>(&mAllocator);
+
+    for (const auto& instance : mRunningInstances) {
+        auto isRunningInstanceSent = mSentInstances.ContainsIf([&instance](const aos::InstanceInfo& item) {
+            return static_cast<const InstanceIdent&>(instance) == static_cast<const InstanceIdent&>(item)
+                && instance.mRuntimeID == item.mRuntimeID;
+        });
+
+        if (!isRunningInstanceSent) {
+            if (auto err = stopInstances->EmplaceBack(); !err.IsNone()) {
+                return {false, AOS_ERROR_WRAP(err)};
+            }
+
+            static_cast<InstanceIdent&>(stopInstances->Back()) = static_cast<const InstanceIdent&>(instance);
+            stopInstances->Back().mRuntimeID                   = instance.mRuntimeID;
+        }
+    }
+
+    // Instance list didn't change, skip update.
+    if (stopInstances->IsEmpty() && mSentInstances.Size() == mRunningInstances.Size()) {
+        return {false, ErrorEnum::eNone};
+    }
+
+    // Send request to node.
+    if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, mSentInstances); !err.IsNone()) {
+        return {false, AOS_ERROR_WRAP(err)};
+    }
+
+    // Reset running instances to sent, in order to not duplicate requests.
+    mRunningInstances.Clear();
+
+    for (const auto& instance : mSentInstances) {
+        if (auto err = mRunningInstances.EmplaceBack(); !err.IsNone()) {
+            return {false, AOS_ERROR_WRAP(err)};
+        }
+        static_cast<InstanceIdent&>(mRunningInstances.Back()) = static_cast<const InstanceIdent&>(instance);
+        mRunningInstances.Back().mRuntimeID                   = instance.mRuntimeID;
+    }
+
+    return {true, ErrorEnum::eNone};
 }
 
 bool Node::IsRunning(const InstanceIdent& id) const

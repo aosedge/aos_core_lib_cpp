@@ -83,25 +83,37 @@ Error NodeManager::Stop()
     mAvailableState.Reset();
     mAvailableStorage.Reset();
 
+    // Unlock waiting run requests.
+    mNodesExpectedToSendStatus.Clear();
+    mStatusUpdateCondVar.NotifyAll();
+
     return ErrorEnum::eNone;
 }
 
 Error NodeManager::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
 {
     for (auto& node : mNodes) {
-        if (!nodeID.IsEmpty() && node.GetInfo().mNodeID != nodeID) {
-            continue;
-        }
-
-        if (auto err = node.SetRunningInstances(instances); !err.IsNone()) {
+        if (auto err = node.LoadSentInstances(instances); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    if (!nodeID.IsEmpty()) {
-        if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
-        }
+    return ErrorEnum::eNone;
+}
+
+Error NodeManager::UpdateRunnigInstances(const String& nodeID, const Array<InstanceStatus>& statuses)
+{
+    auto node = FindNode(nodeID);
+    if (node == nullptr) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "node not found"));
+    }
+
+    if (auto err = node->UpdateRunningInstances(statuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
+        mStatusUpdateCondVar.NotifyAll();
     }
 
     return ErrorEnum::eNone;
@@ -222,6 +234,49 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock)
         if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+    }
+
+    auto err
+        = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes)
+{
+    Error firstErr = ErrorEnum::eNone;
+
+    mNodesExpectedToSendStatus.Clear();
+
+    for (auto& node : mNodes) {
+        if (!updatedNodes.Contains(node.GetInfo().mNodeID)) {
+            continue;
+        }
+
+        auto [isRequestSent, sendErr] = node.ResendInstances();
+        if (!sendErr.IsNone()) {
+            LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
+                      << Log::Field(sendErr);
+
+            if (firstErr.IsNone()) {
+                firstErr = sendErr;
+            }
+        }
+
+        if (isRequestSent) {
+            if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
+                if (firstErr.IsNone()) {
+                    firstErr = AOS_ERROR_WRAP(err);
+                }
+            }
+        }
+    }
+
+    if (!firstErr.IsNone()) {
+        return firstErr;
     }
 
     auto err

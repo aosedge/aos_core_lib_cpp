@@ -60,6 +60,15 @@ public:
     Error LoadSentInstances(const Array<SharedPtr<Instance>>& instances);
 
     /**
+     * Updates list of running instances for a node.
+     *
+     * @param nodeID node identifier.
+     * @param statuses list of running instance statuses.
+     * @return Error.
+     */
+    Error UpdateRunnigInstances(const String& nodeID, const Array<InstanceStatus>& statuses);
+
+    /**
      * Returns connected nodes ordered by priorities.
      *
      * @param nodes output array of nodes.
@@ -117,11 +126,15 @@ public:
      * @return Error.
      */
     Error SendScheduledInstances(UniqueLock<Mutex>& lock);
+
+    /**
+     * Resends instances to nodes and waits for instance statuses from them.
      *
-     * @param timeout timeout.
+     * @param lock mutex lock.
+     * @param updatedNodes updated nodes.
      * @return Error.
      */
-    Error SendUpdate(UniqueLock<Mutex>& lock);
+    Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes);
 
     /**
      * Updates nodes.
