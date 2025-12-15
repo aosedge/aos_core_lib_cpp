@@ -658,6 +658,7 @@ TEST_F(UpdateManagerTest, ProcessEmptyDesiredStatus)
 
     EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
     EXPECT_CALL(mLauncherMock, RunInstances(Array<launcher::RunInstanceRequest>(), _)).Times(1);
+    EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
@@ -741,6 +742,7 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
     EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
     EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
     EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
+    EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
 
     EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& nodeIDs) {
         nodeIDs.EmplaceBack("node1");

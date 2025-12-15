@@ -106,6 +106,7 @@ private:
     Error DownloadUpdateItems();
     Error InstallDesiredStatus();
     Error LaunchInstances();
+    Error FinalizeUpdate();
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};
