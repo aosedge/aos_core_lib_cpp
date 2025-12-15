@@ -145,7 +145,7 @@ void DesiredStatusHandler::Run()
                     break;
 
                 case UpdateStateEnum::eFinalizing:
-                    stateAction = nullptr;
+                    stateAction = &DesiredStatusHandler::FinalizeUpdate;
                     nextState   = UpdateStateEnum::eNone;
 
                     break;
@@ -325,6 +325,27 @@ Error DesiredStatusHandler::LaunchInstances()
             LOG_ERR() << "Failed to launch instance"
                       << Log::Field("item", static_cast<const InstanceIdent&>(instanceStatus))
                       << Log::Field("err", instanceStatus.mError);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error DesiredStatusHandler::FinalizeUpdate()
+{
+    auto itemsStatuses = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+
+    LOG_DBG() << "Install update items" << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
+
+    if (auto err = mImageManager->InstallUpdateItems(mCurrentDesiredStatus.mUpdateItems, *itemsStatuses);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemStatus : *itemsStatuses) {
+        if (itemStatus.mState == ItemStateEnum::eFailed) {
+            LOG_ERR() << "Failed to install update item" << Log::Field("id", itemStatus.mItemID)
+                      << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
         }
     }
 
