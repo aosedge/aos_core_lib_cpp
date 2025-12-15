@@ -125,7 +125,7 @@ private:
     void UpdateData(bool rebalancing);
     void FailActivatingInstances();
 
-    Error Rebalance();
+    Error Rebalance(UniqueLock<Mutex>& lock);
 
     //
     // InstanceStatusReceiverItf implementation
