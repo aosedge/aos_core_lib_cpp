@@ -77,20 +77,75 @@ void CreateNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& 
     EXPECT_TRUE(err.IsNone());
 }
 
-void CreateUpdateItemStatus(UpdateItemStatus& itemStatus, const String& itemID, const String& version,
+void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
     const ItemState& state = ItemStateEnum::eInstalled)
 {
+    if (!unitStatus.mUpdateItems.HasValue()) {
+        unitStatus.mUpdateItems.EmplaceValue();
+    }
+
+    unitStatus.mUpdateItems.GetValue().EmplaceBack();
+
+    auto& itemStatus = unitStatus.mUpdateItems.GetValue().Back();
+
     itemStatus.mItemID  = itemID;
     itemStatus.mVersion = version;
     itemStatus.mState   = state;
 }
 
-void CreateInstancesStatuses(UnitInstancesStatuses& instancesStatuses, const String& itemID, const String& subjectID,
+void ChangeUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
+    const ItemState& state = ItemStateEnum::eInstalled)
+{
+    auto it = unitStatus.mUpdateItems.GetValue().FindIf([&itemID, &version](const UpdateItemStatus& itemStatus) {
+        return itemStatus.mItemID == itemID && itemStatus.mVersion == version;
+    });
+    EXPECT_NE(it, unitStatus.mUpdateItems.GetValue().end());
+
+    it->mState = state;
+}
+
+void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const String& subjectID,
     const String& version, size_t numInstances, const InstanceState& state = InstanceStateEnum::eActive)
 {
+
+    if (!unitStatus.mInstances.HasValue()) {
+        unitStatus.mInstances.EmplaceValue();
+    }
+
+    unitStatus.mInstances.GetValue().EmplaceBack();
+
+    auto& instancesStatuses = unitStatus.mInstances.GetValue().Back();
+
     instancesStatuses.mItemID    = itemID;
     instancesStatuses.mSubjectID = subjectID;
     instancesStatuses.mVersion   = version;
+
+    for (size_t i = 0; i < numInstances; i++) {
+        UnitInstanceStatus instanceStatus;
+
+        instanceStatus.mInstance       = i;
+        instanceStatus.mManifestDigest = "digest1";
+        instanceStatus.mNodeID         = "node1";
+        instanceStatus.mRuntimeID      = "runtime1";
+        instanceStatus.mState          = state;
+
+        auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
+        EXPECT_TRUE(err.IsNone());
+    }
+}
+
+void ChangeInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const String& subjectID,
+    const String& version, size_t numInstances, const InstanceState& state = InstanceStateEnum::eActive)
+{
+    auto it = unitStatus.mInstances.GetValue().FindIf(
+        [&itemID, &subjectID, &version](const UnitInstancesStatuses& instancesStatuses) {
+            return instancesStatuses.mItemID == itemID && instancesStatuses.mSubjectID == subjectID
+                && instancesStatuses.mVersion == version;
+        });
+    EXPECT_NE(it, unitStatus.mInstances.GetValue().end());
+
+    auto& instancesStatuses = *it;
+
     instancesStatuses.mInstances.Clear();
 
     for (size_t i = 0; i < numInstances; i++) {
@@ -142,6 +197,16 @@ void CreateInstanceStatus(InstanceStatus& instanceStatus, const String& itemID, 
     instanceStatus.mState          = unitInstanceStatus.mState;
     instanceStatus.mError          = unitInstanceStatus.mError;
 };
+
+void CreateUpdateItemInfo(DesiredStatus& desiredStatus, const String& itemID, const String& version)
+{
+    desiredStatus.mUpdateItems.EmplaceBack();
+
+    auto& itemInfo = desiredStatus.mUpdateItems.Back();
+
+    itemInfo.mItemID  = itemID;
+    itemInfo.mVersion = version;
+}
 
 } // namespace
 
@@ -320,23 +385,17 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
 
     // Set update items
 
-    expectedUnitStatus->mUpdateItems.EmplaceValue();
-    expectedUnitStatus->mUpdateItems->Resize(2);
-
-    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[0], "item1", "1.0.0");
-    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[1], "item2", "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item2", "1.0.0");
 
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
 
     // Set instances statuses
 
-    expectedUnitStatus->mInstances.EmplaceValue();
-    expectedUnitStatus->mInstances->Resize(3);
-
-    CreateInstancesStatuses(expectedUnitStatus->mInstances.GetValue()[0], "item1", "subject1", "1.0.0", 2);
-    CreateInstancesStatuses(expectedUnitStatus->mInstances.GetValue()[1], "item2", "subject1", "1.0.0", 1);
-    CreateInstancesStatuses(expectedUnitStatus->mInstances.GetValue()[2], "item2", "subject2", "1.0.0", 3);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject1", "1.0.0", 1);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject2", "1.0.0", 3);
 
     EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
         for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
@@ -431,20 +490,15 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
 
     expectedUnitStatus->mIsDeltaInfo = true;
 
-    expectedUnitStatus->mUpdateItems.EmplaceValue();
-    expectedUnitStatus->mUpdateItems->Resize(2);
-
-    CreateUpdateItemStatus(
-        expectedUnitStatus->mUpdateItems.GetValue()[0], "item3", "1.0.0", ItemStateEnum::eInstalling);
-    CreateUpdateItemStatus(
-        expectedUnitStatus->mUpdateItems.GetValue()[1], "item4", "1.0.0", ItemStateEnum::eInstalling);
+    CreateUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalling);
+    CreateUpdateItemStatus(*expectedUnitStatus, "item4", "1.0.0", ItemStateEnum::eInstalling);
 
     // Notify items statuses changed
 
     mItemStatusListener->OnItemsStatusesChanged(*expectedUnitStatus->mUpdateItems);
 
-    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[0], "item3", "1.0.0", ItemStateEnum::eInstalled);
-    CreateUpdateItemStatus(expectedUnitStatus->mUpdateItems.GetValue()[1], "item4", "1.0.0", ItemStateEnum::eInstalled);
+    ChangeUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalled);
+    ChangeUpdateItemStatus(*expectedUnitStatus, "item4", "1.0.0", ItemStateEnum::eInstalled);
 
     // Notify items statuses changed
 
@@ -458,13 +512,8 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
 
     expectedUnitStatus->mIsDeltaInfo = true;
 
-    expectedUnitStatus->mInstances.EmplaceValue();
-    expectedUnitStatus->mInstances->Resize(2);
-
-    CreateInstancesStatuses(
-        expectedUnitStatus->mInstances.GetValue()[0], "item1", "subject1", "1.0.0", 4, InstanceStateEnum::eActivating);
-    CreateInstancesStatuses(
-        expectedUnitStatus->mInstances.GetValue()[1], "item2", "subject1", "1.0.0", 3, InstanceStateEnum::eActivating);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 4, InstanceStateEnum::eActivating);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject1", "1.0.0", 3, InstanceStateEnum::eActivating);
 
     auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
 
@@ -482,10 +531,8 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
 
     mInstanceStatusListener->OnInstancesStatusesChanged(*statuses);
 
-    CreateInstancesStatuses(
-        expectedUnitStatus->mInstances.GetValue()[0], "item1", "subject1", "1.0.0", 4, InstanceStateEnum::eActive);
-    CreateInstancesStatuses(
-        expectedUnitStatus->mInstances.GetValue()[1], "item2", "subject1", "1.0.0", 3, InstanceStateEnum::eActive);
+    ChangeInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 4, InstanceStateEnum::eActive);
+    ChangeInstancesStatuses(*expectedUnitStatus, "item2", "subject1", "1.0.0", 3, InstanceStateEnum::eActive);
 
     statuses->Clear();
 
@@ -546,6 +593,38 @@ TEST_F(UpdateManagerTest, ProcessEmptyDesiredStatus)
 
     mConnectionListener->OnConnect();
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item2", "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item3", "1.0.0");
+
+    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(*expectedUnitStatus, "item2", "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalled);
+
+    EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
+    EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
+        .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
