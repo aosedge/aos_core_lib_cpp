@@ -21,7 +21,7 @@ Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& ide
 {
     LOG_DBG() << "Init update manager";
 
-    if (auto err = mDesiredStatusHandler.Init(nodeHandler, unitConfig, imageManager, mUnitStatusHandler);
+    if (auto err = mDesiredStatusHandler.Init(nodeHandler, unitConfig, imageManager, launcher, mUnitStatusHandler);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

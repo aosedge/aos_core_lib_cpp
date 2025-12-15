@@ -65,11 +65,13 @@ public:
      * @param nodeHandler node handler.
      * @param unitConfig unit config interface.
      * @param imageManager image manager.
+     * @param launcher launcher interface.
      * @param unitStatusHandler unit status handler.
      * @return Error.
      */
     Error Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
-        imagemanager::ImageManagerItf& imageManager, UnitStatusHandler& unitStatusHandler);
+        imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
+        UnitStatusHandler& unitStatusHandler);
 
     /**
      * Starts desired status handler.
@@ -94,17 +96,21 @@ public:
     Error ProcessDesiredStatus(const DesiredStatus& desiredStatus);
 
 private:
-    static constexpr auto cAllocatorSize = sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>);
+    static constexpr auto cAllocatorSize = Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
+        sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>)
+            + sizeof(StaticArray<InstanceStatus, cMaxNumInstances>));
 
     void  Run();
     void  LogDesiredStatus(const DesiredStatus& desiredStatus);
     void  SetState(UpdateState state);
     Error DownloadUpdateItems();
     Error InstallDesiredStatus();
+    Error LaunchInstances();
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};
     imagemanager::ImageManagerItf* mImageManager {};
+    launcher::LauncherItf*         mLauncher {};
     UnitStatusHandler*             mUnitStatusHandler {};
 
     Mutex               mMutex;
