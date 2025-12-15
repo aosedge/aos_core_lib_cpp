@@ -307,12 +307,12 @@ Error Launcher::OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvV
 
 void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
-    LockGuard lock {mMutex};
-
     LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
 
-    if (mNodeManager.UpdateNode(info)) {
-        if (auto err = Rebalance(); !err.IsNone()) {
+    UniqueLock lock {mMutex};
+
+    if (mNodeManager.UpdateNodeInfo(info)) {
+        if (auto err = Rebalance(lock); !err.IsNone()) {
             LOG_ERR() << "Rebalance" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
@@ -322,11 +322,13 @@ Error Launcher::OnAlertReceived(const AlertVariant& alert)
 {
     LOG_DBG() << "Alert received" << Log::Field("alert", alert.ApplyVisitor(GetAlertTagVisitor()));
 
+    UniqueLock lock {mMutex};
+
     if (!alert.ApplyVisitor(ShouldRebalanceVisitor())) {
         return ErrorEnum::eNone;
     }
 
-    return Rebalance();
+    return Rebalance(lock);
 }
 
 } // namespace aos::cm::launcher
