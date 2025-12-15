@@ -69,6 +69,7 @@ using DesiredNodeStateInfoArray = StaticArray<DesiredNodeStateInfo, cMaxNumNodes
  */
 struct UpdateItemInfo {
     StaticString<cIDLen>          mItemID;
+    UpdateItemType                mType;
     StaticString<cVersionLen>     mVersion;
     StaticString<cIDLen>          mOwnerID;
     StaticString<oci::cDigestLen> mIndexDigest;
@@ -81,7 +82,7 @@ struct UpdateItemInfo {
     bool operator==(const UpdateItemInfo& rhs) const
     {
         return mItemID == rhs.mItemID && mOwnerID == rhs.mOwnerID && mVersion == rhs.mVersion
-            && mIndexDigest == rhs.mIndexDigest;
+            && mIndexDigest == rhs.mIndexDigest && mType == rhs.mType;
     }
 
     /**
