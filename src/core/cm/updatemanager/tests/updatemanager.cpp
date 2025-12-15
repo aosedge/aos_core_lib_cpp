@@ -230,14 +230,50 @@ void CreateInstanceStatus(InstanceStatus& instanceStatus, const String& itemID, 
     instanceStatus.mError          = unitInstanceStatus.mError;
 };
 
-void CreateUpdateItemInfo(DesiredStatus& desiredStatus, const String& itemID, const String& version)
+void CreateUpdateItemInfo(
+    DesiredStatus& desiredStatus, const String& itemID, UpdateItemType updateItemType, const String& version)
 {
     desiredStatus.mUpdateItems.EmplaceBack();
 
     auto& itemInfo = desiredStatus.mUpdateItems.Back();
 
     itemInfo.mItemID  = itemID;
+    itemInfo.mType    = updateItemType;
     itemInfo.mVersion = version;
+}
+
+void CreateRunRequest(const DesiredStatus& desiredStatus, Array<launcher::RunInstanceRequest>& runRequest)
+{
+    for (const auto& desiredInstance : desiredStatus.mInstances) {
+        launcher::RunInstanceRequest request {};
+
+        {
+            auto it = desiredStatus.mUpdateItems.FindIf(
+                [&desiredInstance](const UpdateItemInfo& item) { return item.mItemID == desiredInstance.mItemID; });
+            EXPECT_NE(it, desiredStatus.mUpdateItems.end());
+
+            request.mVersion        = it->mVersion;
+            request.mOwnerID        = it->mOwnerID;
+            request.mUpdateItemType = it->mType;
+        }
+
+        {
+            auto it = desiredStatus.mSubjects.FindIf([&desiredInstance](const SubjectInfo& subject) {
+                return subject.mSubjectID == desiredInstance.mSubjectID;
+            });
+            EXPECT_NE(it, desiredStatus.mSubjects.end());
+
+            request.mSubjectInfo = *it;
+        }
+
+        request.mItemID       = desiredInstance.mItemID;
+        request.mPriority     = desiredInstance.mPriority;
+        request.mNumInstances = desiredInstance.mNumInstances;
+        request.mLabels       = desiredInstance.mLabels;
+
+        auto err = runRequest.PushBack(request);
+        EXPECT_TRUE(err.IsNone());
+    }
 }
 
 } // namespace
@@ -621,6 +657,7 @@ TEST_F(UpdateManagerTest, ProcessEmptyDesiredStatus)
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 
     EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
+    EXPECT_CALL(mLauncherMock, RunInstances(Array<launcher::RunInstanceRequest>(), _)).Times(1);
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
@@ -651,9 +688,29 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 
     // Set desired update items
 
-    CreateUpdateItemInfo(*desiredStatus, "item1", "1.0.0");
-    CreateUpdateItemInfo(*desiredStatus, "item2", "1.0.0");
-    CreateUpdateItemInfo(*desiredStatus, "item3", "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item3", UpdateItemTypeEnum::eService, "1.0.0");
+
+    // Set desired instances
+
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item2", "subject2", 1, 2, {}});
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item3", "subject3", 2, 3, {}});
+
+    // Set desired unit subjects
+
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject2", SubjectTypeEnum::eGroup});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject3", SubjectTypeEnum::eGroup});
+
+    // Create launcher run request
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    printf("Run request size: %zu\n", runRequest->Size());
 
     // Set expected node infos
 
@@ -672,11 +729,18 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
     CreateUpdateItemStatus(*expectedUnitStatus, "item2", "1.0.0", ItemStateEnum::eInstalled);
     CreateUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalled);
 
+    // Set expected instances statuses
+
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 1);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject2", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item3", "subject3", "1.0.0", 3);
+
     EXPECT_CALL(mNodeHandlerMock, PauseNode(String("node1"))).Times(1);
     EXPECT_CALL(mNodeHandlerMock, ResumeNode(String("node2"))).Times(1);
     EXPECT_CALL(mUnitConfigMock, CheckUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
     EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
     EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
 
     EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& nodeIDs) {
         nodeIDs.EmplaceBack("node1");
@@ -700,6 +764,26 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
+        for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
+            for (const auto& instanceStatus : instancesStatuses.mInstances) {
+                InstanceStatus status;
+
+                status.mItemID         = instancesStatuses.mItemID;
+                status.mSubjectID      = instancesStatuses.mSubjectID;
+                status.mVersion        = instancesStatuses.mVersion;
+                status.mInstance       = instanceStatus.mInstance;
+                status.mNodeID         = instanceStatus.mNodeID;
+                status.mRuntimeID      = instanceStatus.mRuntimeID;
+                status.mManifestDigest = instanceStatus.mManifestDigest;
+                status.mState          = instanceStatus.mState;
+
+                instances.PushBack(status);
+            }
+        }
+
+        return ErrorEnum::eNone;
+    }));
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);

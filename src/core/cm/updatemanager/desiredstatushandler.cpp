@@ -15,13 +15,14 @@ namespace aos::cm::updatemanager {
  **********************************************************************************************************************/
 
 Error DesiredStatusHandler::Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
-    imagemanager::ImageManagerItf& imageManager, UnitStatusHandler& unitStatusHandler)
+    imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher, UnitStatusHandler& unitStatusHandler)
 {
     LOG_DBG() << "Init desired status handler";
 
     mNodeHandler       = &nodeHandler;
     mUnitConfig        = &unitConfig;
     mUnitStatusHandler = &unitStatusHandler;
+    mLauncher          = &launcher;
     mImageManager      = &imageManager;
 
     return ErrorEnum::eNone;
@@ -138,7 +139,7 @@ void DesiredStatusHandler::Run()
                     break;
 
                 case UpdateStateEnum::eLaunching:
-                    stateAction = nullptr;
+                    stateAction = &DesiredStatusHandler::LaunchInstances;
                     nextState   = UpdateStateEnum::eFinalizing;
 
                     break;
@@ -268,6 +269,62 @@ Error DesiredStatusHandler::InstallDesiredStatus()
 
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to update unit config" << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error DesiredStatusHandler::LaunchInstances()
+{
+    auto runRequest        = MakeUnique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
+    auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+
+    LOG_DBG() << "Launch instances" << Log::Field("count", mCurrentDesiredStatus.mInstances.Size());
+
+    for (const auto& desiredInstance : mCurrentDesiredStatus.mInstances) {
+        launcher::RunInstanceRequest request {};
+
+        if (auto it = mCurrentDesiredStatus.mUpdateItems.FindIf(
+                [&desiredInstance](const UpdateItemInfo& item) { return item.mItemID == desiredInstance.mItemID; });
+            it != mCurrentDesiredStatus.mUpdateItems.end()) {
+            request.mVersion        = it->mVersion;
+            request.mOwnerID        = it->mOwnerID;
+            request.mUpdateItemType = it->mType;
+        } else {
+            LOG_ERR() << "Update item for instance not found" << Log::Field("itemID", desiredInstance.mItemID);
+        }
+
+        if (auto it = mCurrentDesiredStatus.mSubjects.FindIf([&desiredInstance](const SubjectInfo& subject) {
+                return subject.mSubjectID == desiredInstance.mSubjectID;
+            });
+            it != mCurrentDesiredStatus.mSubjects.end()) {
+            request.mSubjectInfo = *it;
+        } else {
+            request.mSubjectInfo.mSubjectID = desiredInstance.mSubjectID;
+
+            LOG_ERR() << "Subject for instance not found" << Log::Field("subjectID", desiredInstance.mSubjectID);
+        }
+
+        request.mItemID       = desiredInstance.mItemID;
+        request.mPriority     = desiredInstance.mPriority;
+        request.mNumInstances = desiredInstance.mNumInstances;
+        request.mLabels       = desiredInstance.mLabels;
+
+        if (auto err = runRequest->EmplaceBack(request); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (auto err = mLauncher->RunInstances(*runRequest, *instancesStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& instanceStatus : *instancesStatuses) {
+        if (instanceStatus.mState == InstanceStateEnum::eFailed) {
+            LOG_ERR() << "Failed to launch instance"
+                      << Log::Field("item", static_cast<const InstanceIdent&>(instanceStatus))
+                      << Log::Field("err", instanceStatus.mError);
         }
     }
 
