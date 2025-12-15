@@ -107,6 +107,7 @@ private:
     Error InstallDesiredStatus();
     Error LaunchInstances();
     Error FinalizeUpdate();
+    Error CancelDownload();
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};

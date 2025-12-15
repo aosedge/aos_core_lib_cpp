@@ -38,6 +38,8 @@ Error DesiredStatusHandler::Start()
         return ErrorEnum::eWrongState;
     }
 
+    CancelDownload();
+
     mIsRunning = true;
 
     if (auto err = mThread.Run([this](void*) { Run(); }); !err.IsNone()) {
@@ -347,6 +349,21 @@ Error DesiredStatusHandler::FinalizeUpdate()
             LOG_ERR() << "Failed to install update item" << Log::Field("id", itemStatus.mItemID)
                       << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
         }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error DesiredStatusHandler::CancelDownload()
+{
+    LOG_DBG() << "Cancel download";
+
+    StaticArray<UpdateItemStatus, 1> statuses;
+
+    if (auto err = mImageManager->DownloadUpdateItems(
+            Array<UpdateItemInfo>(), Array<crypto::CertificateInfo>(), Array<crypto::CertificateChainInfo>(), statuses);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
