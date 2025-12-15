@@ -563,8 +563,8 @@ struct InstanceIdent {
      */
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
-        return log << "{" << instanceIdent.mItemID << ":" << instanceIdent.mSubjectID << ":" << instanceIdent.mInstance
-                   << "}";
+        return log << "{" << instanceIdent.mType << ":" << instanceIdent.mItemID << ":" << instanceIdent.mSubjectID
+                   << ":" << instanceIdent.mInstance << "}";
     }
 };
 
