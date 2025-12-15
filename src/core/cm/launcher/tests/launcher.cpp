@@ -4,9 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <chrono>
+#include <condition_variable>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <core/cm/launcher/launcher.hpp>
@@ -72,29 +76,37 @@ class InstanceStatusListenerStub : public instancestatusprovider::ListenerItf {
 public:
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override
     {
-        LockGuard lock {mMutex};
+        std::lock_guard lock {mMutex};
 
         *mLastStatuses = statuses;
+        ++mNotifyCount;
+
+        LOG_DBG() << "Instance statuses received" << Log::Field("count", mNotifyCount);
+
+        mNotifyCondVar.notify_all();
     }
 
     const Array<InstanceStatus>& GetLastStatuses() const
     {
-        LockGuard lock {mMutex};
+        std::lock_guard lock {mMutex};
 
         return *mLastStatuses;
     }
 
-    void Clear()
+    bool WaitForNotifyCount(size_t expectedCount, std::chrono::milliseconds timeout) const
     {
-        LockGuard lock {mMutex};
+        std::unique_lock<std::mutex> lock {mMutex};
 
-        mLastStatuses->Clear();
+        return mNotifyCondVar.wait_for(lock, timeout, [&]() { return mNotifyCount >= expectedCount; });
     }
 
 private:
-    mutable Mutex                                                  mMutex;
     std::unique_ptr<StaticArray<InstanceStatus, cMaxNumInstances>> mLastStatuses
         = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    mutable std::mutex              mMutex;
+    mutable std::condition_variable mNotifyCondVar;
+    size_t                          mNotifyCount {};
 };
 
 class CMLauncherTest : public testing::Test {
@@ -148,7 +160,7 @@ protected:
     imagemanager::ImageStoreStub           mImageStore;
     networkmanager::NetworkManagerStub     mNetworkManager;
     nodeinfoprovider::NodeInfoProviderStub mNodeInfoProvider;
-    launcher::InstanceRunnerStub           mInstanceRunner;
+    NiceMock<launcher::InstanceRunnerStub> mInstanceRunner;
     launcher::InstanceStatusProviderStub   mInstanceStatusProvider;
     launcher::MonitoringProviderStub       mMonitoringProvider;
     resourcemanager::ResourceManagerStub   mResourceManager;
@@ -285,21 +297,12 @@ aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::stri
     return result;
 }
 
-aos::InstanceInfo CreateAosStopInstanceInfo(
-    const InstanceIdent& id, const std::string& imageID, const std::string& runtimeID)
+aos::InstanceInfo CreateAosStopInstanceInfo(const InstanceIdent& id, const std::string& runtimeID)
 {
     aos::InstanceInfo result;
 
     static_cast<InstanceIdent&>(result) = id;
-
-    StaticString<cIDLen> itemID;
-    itemID = id.mItemID;
-
-    StaticString<cIDLen> image;
-    image = imageID.c_str();
-
-    result.mManifestDigest = imagemanager::ImageStoreStub::BuildManifestDigest(itemID, image);
-    result.mRuntimeID      = runtimeID.c_str();
+    result.mRuntimeID                   = runtimeID.c_str();
 
     return result;
 }
@@ -708,10 +711,10 @@ TEST_F(CMLauncherTest, CacheInstances)
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
 
     for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
-        NodeConfig nodeConfig;
+        auto nodeConfig = std::make_unique<NodeConfig>();
 
-        CreateNodeConfig(nodeConfig, nodeID);
-        mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, nodeConfig);
+        CreateNodeConfig(*nodeConfig, nodeID);
+        mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, *nodeConfig);
     }
 
     // Set up configs
@@ -1286,19 +1289,19 @@ TestDataPtr TestItemRebalancing()
     // During rebalancing: service2 moves from localSM to remoteSM1, service3 moves from remoteSM1 to remoteSM2
 
     // localSM: starts service1, stops service2 (which was initially scheduled there)
-    // stopInstances come from mRunningInstances which now have mManifestDigest from GetInfo()
+    // stopInstances come from mSentInstances which now have mManifestDigest from GetInfo()
     auto& rebalancingLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM];
     rebalancingLocalRequests.mStartInstances.push_back(CreateAosInstanceInfo(
         CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, "5", 100));
     rebalancingLocalRequests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc));
+        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cRunnerRunc));
 
     // remoteSM1: starts service2, stops service3 (which was initially scheduled there)
     auto& rebalancingRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
     rebalancingRemoteSM1Requests.mStartInstances.push_back(CreateAosInstanceInfo(
         CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, "6", 50));
     rebalancingRemoteSM1Requests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc));
+        CreateAosStopInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cRunnerRunc));
 
     // remoteSM2: starts service3, no stops
     auto& rebalancingRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
@@ -1355,19 +1358,19 @@ TestDataPtr TestItemRebalancingPolicy()
     // During rebalancing: service2 moves from localSM to remoteSM2
 
     // localSM: starts service1, stops service2 (which was initially scheduled there)
-    // stopInstances come from mRunningInstances which now have mManifestDigest from GetInfo()
+    // stopInstances come from mSentInstances which now have mManifestDigest from GetInfo()
     auto& policyLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM];
     policyLocalRequests.mStartInstances.push_back(CreateAosInstanceInfo(
         CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, "5", 100));
     policyLocalRequests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc));
+        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cRunnerRunc));
 
     // remoteSM1: starts service3 (stays there, no stops since service3 has BalancingDisabled)
     auto& policyRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
     policyRemoteSM1Requests.mStartInstances.push_back(CreateAosInstanceInfo(
         CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, "6", 50));
     policyRemoteSM1Requests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc));
+        CreateAosStopInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cRunnerRunc));
 
     // remoteSM2: starts service3, no stops
     auto& policyRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
@@ -1536,10 +1539,10 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
 
     for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
-        NodeConfig nodeConfig;
+        auto nodeConfig = std::make_unique<NodeConfig>();
 
-        CreateNodeConfig(nodeConfig, nodeID);
-        mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, nodeConfig);
+        CreateNodeConfig(*nodeConfig, nodeID);
+        mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, *nodeConfig);
     }
 
     // Service1 requires arm32/linux - rejected (no arm32 runtime)
@@ -1605,6 +1608,85 @@ TEST_F(CMLauncherTest, PlatformFiltering)
         CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDRemoteSM2, cRunnerRunc));
 
     ASSERT_EQ(instanceStatusListener.GetLastStatuses(), *expectedRunStatus);
+}
+
+TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
+{
+    using namespace std::chrono_literals;
+
+    Config cfg;
+    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    // Service config
+    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
+    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher, false);
+
+    // First request: send empty statuses (auto-update disabled => empty statuses).
+    // After first request is prepared, enable auto-update so the next request sends correct statuses from
+    // startInstances.
+    EXPECT_CALL(mInstanceRunner, OnRunRequest()).Times(2).WillRepeatedly([&]() {
+        mInstanceRunner.SetAutoUpdateStatuses(true);
+    });
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        ValidateGID, ValidateUID)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    // Run a single instance on a single node.
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    // Expect 3 status notifications:
+    // - 1st: from OnNodeInstancesStatusesReceived() for the initial (wrong/empty) node status update
+    // - 2nd: from Launcher::RunInstances() completion notification
+    // - 3rd: from OnNodeInstancesStatusesReceived() after resend with correct statuses
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2000ms));
+
+    // Stop launcher.
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+
+    // Verify latest instance statuses are correct (after resend).
+    std::vector<InstanceStatus> expectedStatuses = {
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            InstanceStateEnum::eActivating, ErrorEnum::eNone),
+    };
+
+    ASSERT_EQ(instanceStatusListener.GetLastStatuses(),
+        Array<InstanceStatus>(expectedStatuses.data(), expectedStatuses.size()));
 }
 
 } // namespace aos::cm::launcher
