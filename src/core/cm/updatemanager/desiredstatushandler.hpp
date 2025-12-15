@@ -7,7 +7,9 @@
 #ifndef AOS_CORE_CM_UPDATEMANAGER_DESIREDSTATUSHANDLER_HPP_
 #define AOS_CORE_CM_UPDATEMANAGER_DESIREDSTATUSHANDLER_HPP_
 
+#include <core/cm/imagemanager/itf/imagemanager.hpp>
 #include <core/cm/launcher/itf/launcher.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/desiredstatus.hpp>
 
@@ -60,9 +62,10 @@ public:
      * Initializes desired status handler.
      *
      * @param unitStatusHandler unit status handler.
+     * @param imageManager image manager.
      * @return Error.
      */
-    Error Init(UnitStatusHandler& unitStatusHandler);
+    Error Init(UnitStatusHandler& unitStatusHandler, imagemanager::ImageManagerItf& imageManager);
 
     /**
      * Starts desired status handler.
@@ -87,11 +90,15 @@ public:
     Error ProcessDesiredStatus(const DesiredStatus& desiredStatus);
 
 private:
-    void Run();
-    void LogDesiredStatus(const DesiredStatus& desiredStatus);
-    void SetState(UpdateState state);
+    static constexpr auto cAllocatorSize = sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>);
 
-    UnitStatusHandler* mUnitStatusHandler {};
+    void  Run();
+    void  LogDesiredStatus(const DesiredStatus& desiredStatus);
+    void  SetState(UpdateState state);
+    Error DownloadUpdateItems();
+
+    UnitStatusHandler*             mUnitStatusHandler {};
+    imagemanager::ImageManagerItf* mImageManager {};
 
     Mutex               mMutex;
     ConditionalVariable mCondVar;
@@ -102,6 +109,8 @@ private:
     bool        mIsRunning {};
     bool        mHasPendingDesiredStatus {};
     UpdateState mUpdateState {};
+
+    StaticAllocator<cAllocatorSize> mAllocator {};
 };
 
 /** @}*/

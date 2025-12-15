@@ -14,11 +14,12 @@ namespace aos::cm::updatemanager {
  * Public
  **********************************************************************************************************************/
 
-Error DesiredStatusHandler::Init(UnitStatusHandler& unitStatusHandler)
+Error DesiredStatusHandler::Init(UnitStatusHandler& unitStatusHandler, imagemanager::ImageManagerItf& imageManager)
 {
     LOG_DBG() << "Init desired status handler";
 
     mUnitStatusHandler = &unitStatusHandler;
+    mImageManager      = &imageManager;
 
     return ErrorEnum::eNone;
 }
@@ -116,7 +117,7 @@ void DesiredStatusHandler::Run()
 
                 switch (mUpdateState.GetValue()) {
                 case UpdateStateEnum::eDownloading:
-                    stateAction = nullptr;
+                    stateAction = &DesiredStatusHandler::DownloadUpdateItems;
                     nextState   = UpdateStateEnum::ePending;
 
                     break;
@@ -211,6 +212,28 @@ void DesiredStatusHandler::SetState(UpdateState state)
     LOG_DBG() << "Update state changed" << Log::Field("state", state);
 
     mUpdateState = state;
+}
+
+Error DesiredStatusHandler::DownloadUpdateItems()
+{
+    auto itemsStatuses = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+
+    LOG_DBG() << "Download update items" << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
+
+    if (auto err = mImageManager->DownloadUpdateItems(mCurrentDesiredStatus.mUpdateItems,
+            mCurrentDesiredStatus.mCertificates, mCurrentDesiredStatus.mCertificateChains, *itemsStatuses);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemStatus : *itemsStatuses) {
+        if (itemStatus.mState == ItemStateEnum::eFailed) {
+            LOG_ERR() << "Failed to download update item" << Log::Field("id", itemStatus.mItemID)
+                      << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::cm::updatemanager
