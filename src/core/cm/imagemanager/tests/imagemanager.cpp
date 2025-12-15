@@ -549,7 +549,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
             info.mDigest = "abc123";
@@ -661,7 +661,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
             info.mDigest = "abc123";
