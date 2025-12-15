@@ -71,16 +71,6 @@ public:
     virtual Error RemoveItem(const String& id, const String& version) = 0;
 
     /**
-     * Updates item index digest.
-     *
-     * @param id ID.
-     * @param version Version.
-     * @param indexDigest Index digest.
-     * @return Error.
-     */
-    virtual Error UpdateItemIndexDigest(const String& id, const String& version, const String& indexDigest) = 0;
-
-    /**
      * Updates item state.
      *
      * @param id ID.
