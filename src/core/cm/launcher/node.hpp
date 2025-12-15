@@ -82,6 +82,14 @@ public:
     Error LoadSentInstances(const Array<SharedPtr<Instance>>& instances);
 
     /**
+     * Updates running instances.
+     *
+     * @param statuses array of running instance statuses.
+     * @return Error.
+     */
+    Error UpdateRunningInstances(const Array<InstanceStatus>& statuses);
+
+    /**
      * Returns available CPU.
      *
      * @return size_t.
@@ -134,10 +142,17 @@ public:
 
     /**
      * Sends scheduled instances to node.
-    Error SendScheduledInstances();
      *
      * @return Error.
      */
+    Error SendScheduledInstances();
+
+    /**
+     * Resends instances to node.
+     *
+     * @return Error.
+     */
+    RetWithError<bool> ResendInstances();
 
     /**
      * Checks whether instance is running.
@@ -191,6 +206,7 @@ private:
 
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mSentInstances;
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mScheduledInstances;
+    StaticArray<InstanceStatus, cMaxNumInstancesPerNode>                     mRunningInstances;
     StaticArray<StaticString<cIDLen>, cMaxNumInstancesPerNode>               mOwnerIDs;
     StaticArray<networkmanager::NetworkServiceData, cMaxNumInstancesPerNode> mNetworkServiceData;
 

@@ -68,6 +68,10 @@ Error Launcher::Start()
 
     LockGuard lock {mMutex};
 
+    mIsRunning          = true;
+    mDisableNodeMonitor = false;
+    mUpdatedNodes.Clear();
+
     if (auto err = mInstanceManager.Start(); !err.IsNone()) {
         return err;
     }
@@ -91,6 +95,10 @@ Error Launcher::Start()
         return err;
     }
 
+    if (auto err = mThread.Run([this](void*) { MonitorNodes(); }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     NotifyInstanceStatusListeners(mInstanceStatuses);
 
     return ErrorEnum::eNone;
@@ -100,7 +108,7 @@ Error Launcher::Stop()
 {
     LOG_DBG() << "Stop Launcher";
 
-    LockGuard lock {mMutex};
+    UniqueLock lock {mMutex};
 
     if (auto err = mAlertsProvider->UnsubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -118,6 +126,18 @@ Error Launcher::Stop()
         return err;
     }
 
+    // Finish monitoring thread.
+    mUpdatedNodes.Clear();
+    mIsRunning          = false;
+    mDisableNodeMonitor = false;
+    mMonitorNodesCondVar.NotifyAll();
+
+    lock.Unlock();
+
+    if (auto err = mThread.Join(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -126,6 +146,13 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     LOG_DBG() << "Run instances";
 
     UniqueLock lock {mMutex};
+
+    // Disable node monitoring for the duration of running instances.
+    mDisableNodeMonitor       = true;
+    auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
+        self->mDisableNodeMonitor = false;
+        self->mMonitorNodesCondVar.NotifyAll();
+    });
 
     statuses.Clear();
 
@@ -231,11 +258,16 @@ void Launcher::FailActivatingInstances()
     }
 }
 
-Error Launcher::Rebalance()
+Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
 {
     LOG_DBG() << "Rebalance instances";
 
-    UniqueLock lock {mMutex};
+    // Disable node monitoring for the duration of rebalancing.
+    mDisableNodeMonitor       = true;
+    auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
+        self->mDisableNodeMonitor = false;
+        self->mMonitorNodesCondVar.NotifyAll();
+    });
 
     UpdateData(true);
 
@@ -252,8 +284,30 @@ Error Launcher::Rebalance()
     return ErrorEnum::eNone;
 }
 
+void Launcher::MonitorNodes()
+{
+    while (true) {
+        UniqueLock lock {mMutex};
+
+        mMonitorNodesCondVar.Wait(
+            lock, [this]() { return (!mUpdatedNodes.IsEmpty() || !mIsRunning) && !mDisableNodeMonitor; });
+
+        if (!mIsRunning) {
+            return;
+        }
+
+        if (auto err = mNodeManager.ResendInstances(lock, mUpdatedNodes); !err.IsNone()) {
+            LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+
+        mUpdatedNodes.Clear();
+    }
+}
+
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 {
+    LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status));
+
     LockGuard lock {mMutex};
 
     if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
@@ -282,7 +336,8 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         }
     }
 
-    if (auto err = mNodeManager.UpdateNodeInstances(nodeID, mInstanceManager.GetActiveInstances()); !err.IsNone()) {
+    // Update node manager.
+    if (auto err = mNodeManager.UpdateRunnigInstances(nodeID, statuses); !err.IsNone()) {
         if (firstErr.IsNone()) {
             firstErr = err;
         }
@@ -293,6 +348,13 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
     }
 
     NotifyInstanceStatusListeners(mInstanceStatuses);
+
+    // Notify nodes monitor.
+    if (auto err = mUpdatedNodes.PushBack(nodeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mMonitorNodesCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
