@@ -86,7 +86,7 @@ Error NodeManager::Stop()
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::UpdateNodeInstances(const String& nodeID, const Array<SharedPtr<Instance>>& instances)
+Error NodeManager::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
 {
     for (auto& node : mNodes) {
         if (!nodeID.IsEmpty() && node.GetInfo().mNodeID != nodeID) {
@@ -196,16 +196,12 @@ bool NodeManager::IsScheduled(const InstanceIdent& id)
     return mNodes.ContainsIf([&id](const Node& info) { return info.IsScheduled(id); });
 }
 
-Error NodeManager::SendUpdate(UniqueLock<Mutex>& lock)
+Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock)
 {
-    // Lock status update mutex before sending run requests to avoid condition when
-    // node sent status update between sending run requests and waiting for statuses
-
-    // Send run requests to nodes
     Error firstErr = ErrorEnum::eNone;
 
     for (auto& node : mNodes) {
-        if (auto err = node.SendUpdate(); !err.IsNone()) {
+        if (auto err = node.SendScheduledInstances(); !err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
                       << Log::Field(err);
 
@@ -237,9 +233,9 @@ Error NodeManager::SendUpdate(UniqueLock<Mutex>& lock)
     return ErrorEnum::eNone;
 }
 
-bool NodeManager::UpdateNode(const UnitNodeInfo& info)
+bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 {
-    // Don't wait for instanse status for unprovisioned nodes only(offline/online doesnt matter)
+    // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
     if (info.mState != NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
             mStatusUpdateCondVar.NotifyAll();
