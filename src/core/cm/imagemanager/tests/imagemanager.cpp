@@ -105,7 +105,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
@@ -115,7 +115,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "abc123";
+            info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
 
@@ -151,7 +151,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
+        manifest.mDigest = "sha256:fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -160,7 +160,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -217,7 +217,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Invoke([&](Array<ItemInfo>& items) {
@@ -234,7 +234,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "abc123";
+            info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
 
@@ -283,7 +283,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
+        manifest.mDigest = "sha256:fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -292,7 +292,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -318,7 +318,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
         UpdateItemInfo item;
         item.mItemID      = ("service" + std::to_string(i)).c_str();
         item.mVersion     = "1.0.0";
-        item.mIndexDigest = ("digest" + std::to_string(i)).c_str();
+        item.mIndexDigest = ("sha256:digest" + std::to_string(i)).c_str();
         itemsInfo.PushBack(item);
     }
 
@@ -365,7 +365,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "manifest";
+        manifest.mDigest = "sha256:manifest";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -374,7 +374,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "layer";
+            layer.mDigest = "sha256:layer";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -419,7 +419,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_BlobInfoFailed)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillOnce(Return(ErrorEnum::eNone));
@@ -455,7 +455,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillOnce(Return(ErrorEnum::eNone));
@@ -518,14 +518,14 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "2.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
         ItemInfo oldItem;
         oldItem.mItemID      = "service1";
         oldItem.mVersion     = "1.0.0";
-        oldItem.mIndexDigest = "old123";
+        oldItem.mIndexDigest = "sha256:old123";
         oldItem.mState       = ItemStateEnum::ePending;
         items.PushBack(oldItem);
 
@@ -552,7 +552,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "abc123";
+            info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
 
@@ -588,7 +588,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
+        manifest.mDigest = "sha256:fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -597,7 +597,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -638,14 +638,14 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "2.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
         ItemInfo oldItem;
         oldItem.mItemID      = "service1";
         oldItem.mVersion     = "1.0.0";
-        oldItem.mIndexDigest = "old123";
+        oldItem.mIndexDigest = "sha256:old123";
         oldItem.mState       = ItemStateEnum::eFailed;
         items.PushBack(oldItem);
 
@@ -664,7 +664,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "abc123";
+            info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
 
@@ -700,7 +700,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
+        manifest.mDigest = "sha256:fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -709,7 +709,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -746,21 +746,23 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "1111";
+    item.mIndexDigest = "sha256:1111";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(5).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
         ItemInfo storedItem;
         storedItem.mItemID      = "service1";
         storedItem.mVersion     = "1.0.0";
-        storedItem.mIndexDigest = "1111";
+        storedItem.mIndexDigest = "sha256:1111";
         storedItem.mState       = ItemStateEnum::ePending;
         items.PushBack(storedItem);
 
         return ErrorEnum::eNone;
     }));
 
-    auto blobsDir     = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
+
     auto indexPath    = fs::JoinPath(blobsDir, "1111");
     auto manifestPath = fs::JoinPath(blobsDir, "2222");
     auto layerPath    = fs::JoinPath(blobsDir, "3333");
@@ -789,7 +791,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "2222";
+        manifest.mDigest = "sha256:2222";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -798,7 +800,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "3333";
+            layer.mDigest = "sha256:3333";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -847,7 +849,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_))
@@ -856,7 +858,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
             ItemInfo storedItem;
             storedItem.mItemID      = "service1";
             storedItem.mVersion     = "1.0.0";
-            storedItem.mIndexDigest = "abc123";
+            storedItem.mIndexDigest = "sha256:abc123";
             storedItem.mState       = ItemStateEnum::ePending;
             items.PushBack(storedItem);
 
@@ -866,7 +868,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
             ItemInfo storedItem;
             storedItem.mItemID      = "service1";
             storedItem.mVersion     = "1.0.0";
-            storedItem.mIndexDigest = "abc123";
+            storedItem.mIndexDigest = "sha256:abc123";
             storedItem.mState       = ItemStateEnum::ePending;
             items.PushBack(storedItem);
 
@@ -903,7 +905,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
     UpdateItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "2.0.0";
-    item.mIndexDigest = "4444";
+    item.mIndexDigest = "sha256:4444";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_))
@@ -912,7 +914,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
             ItemInfo oldItem;
             oldItem.mItemID      = "service1";
             oldItem.mVersion     = "1.0.0";
-            oldItem.mIndexDigest = "1111";
+            oldItem.mIndexDigest = "sha256:1111";
             oldItem.mState       = ItemStateEnum::eInstalled;
             items.PushBack(oldItem);
 
@@ -922,7 +924,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
             ItemInfo newItem;
             newItem.mItemID      = "service1";
             newItem.mVersion     = "2.0.0";
-            newItem.mIndexDigest = "4444";
+            newItem.mIndexDigest = "sha256:4444";
             newItem.mState       = ItemStateEnum::ePending;
             items.PushBack(newItem);
 
@@ -932,7 +934,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
             ItemInfo newItem;
             newItem.mItemID      = "service1";
             newItem.mVersion     = "2.0.0";
-            newItem.mIndexDigest = "4444";
+            newItem.mIndexDigest = "sha256:4444";
             newItem.mState       = ItemStateEnum::ePending;
             items.PushBack(newItem);
 
@@ -942,7 +944,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
             ItemInfo newItem;
             newItem.mItemID      = "service1";
             newItem.mVersion     = "2.0.0";
-            newItem.mIndexDigest = "4444";
+            newItem.mIndexDigest = "sha256:4444";
             newItem.mState       = ItemStateEnum::eInstalled;
             items.PushBack(newItem);
 
@@ -956,7 +958,9 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
         return ErrorEnum::eNone;
     }));
 
-    auto blobsDir     = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
+
     auto indexPath    = fs::JoinPath(blobsDir, "4444");
     auto manifestPath = fs::JoinPath(blobsDir, "5555");
     auto layerPath    = fs::JoinPath(blobsDir, "6666");
@@ -985,7 +989,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "5555";
+        manifest.mDigest = "sha256:5555";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -994,7 +998,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "6666";
+            layer.mDigest = "sha256:6666";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -1027,7 +1031,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
 
     item.mItemID      = "service2";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "aaaa";
+    item.mIndexDigest = "sha256:aaaa";
     itemsInfo.PushBack(item);
 
     EXPECT_CALL(mStorageMock, GetItemsInfo(_))
@@ -1036,14 +1040,14 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
             ItemInfo item1;
             item1.mItemID      = "service1";
             item1.mVersion     = "1.0.0";
-            item1.mIndexDigest = "1111";
+            item1.mIndexDigest = "sha256:1111";
             item1.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item1);
 
             ItemInfo item2;
             item2.mItemID      = "service2";
             item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "aaaa";
+            item2.mIndexDigest = "sha256:aaaa";
             item2.mState       = ItemStateEnum::ePending;
 
             items.PushBack(item2);
@@ -1054,14 +1058,14 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
             ItemInfo item1;
             item1.mItemID      = "service1";
             item1.mVersion     = "1.0.0";
-            item1.mIndexDigest = "1111";
+            item1.mIndexDigest = "sha256:1111";
             item1.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item1);
 
             ItemInfo item2;
             item2.mItemID      = "service2";
             item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "aaaa";
+            item2.mIndexDigest = "sha256:aaaa";
             item2.mState       = ItemStateEnum::ePending;
             items.PushBack(item2);
 
@@ -1071,14 +1075,14 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
             ItemInfo item1;
             item1.mItemID      = "service1";
             item1.mVersion     = "1.0.0";
-            item1.mIndexDigest = "1111";
+            item1.mIndexDigest = "sha256:1111";
             item1.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item1);
 
             ItemInfo item2;
             item2.mItemID      = "service2";
             item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "aaaa";
+            item2.mIndexDigest = "sha256:aaaa";
             item2.mState       = ItemStateEnum::ePending;
             items.PushBack(item2);
 
@@ -1088,14 +1092,14 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
             ItemInfo item1;
             item1.mItemID      = "service1";
             item1.mVersion     = "1.0.0";
-            item1.mIndexDigest = "1111";
+            item1.mIndexDigest = "sha256:1111";
             item1.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item1);
 
             ItemInfo item2;
             item2.mItemID      = "service2";
             item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "aaaa";
+            item2.mIndexDigest = "sha256:aaaa";
             item2.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item2);
 
@@ -1103,7 +1107,9 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
         }))
         .WillOnce(Invoke([](Array<ItemInfo>&) { return ErrorEnum::eNone; }));
 
-    auto blobsDir         = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
+
     auto service2Index    = fs::JoinPath(blobsDir, "aaaa");
     auto service2Manifest = fs::JoinPath(blobsDir, "bbbb");
     auto service2Layer    = fs::JoinPath(blobsDir, "cccc");
@@ -1132,7 +1138,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "bbbb";
+        manifest.mDigest = "sha256:bbbb";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -1141,7 +1147,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
             oci::ContentDescriptor layer;
-            layer.mDigest = "cccc";
+            layer.mDigest = "sha256:cccc";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -1186,14 +1192,14 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
             ItemInfo item1;
             item1.mItemID      = "service1";
             item1.mVersion     = "1.0.0";
-            item1.mIndexDigest = "1111";
+            item1.mIndexDigest = "sha256:1111";
             item1.mState       = ItemStateEnum::eRemoved;
             items.PushBack(item1);
 
             ItemInfo item2;
             item2.mItemID      = "service2";
             item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "4444";
+            item2.mIndexDigest = "sha256:4444";
             item2.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item2);
 
@@ -1203,7 +1209,7 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
             ItemInfo item2;
             item2.mItemID      = "service2";
             item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "4444";
+            item2.mIndexDigest = "sha256:4444";
             item2.mState       = ItemStateEnum::eInstalled;
             items.PushBack(item2);
 
@@ -1218,6 +1224,7 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
     }));
 
     auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
 
     auto index1Path    = fs::JoinPath(blobsDir, "1111");
     auto manifest1Path = fs::JoinPath(blobsDir, "2222");
@@ -1264,13 +1271,13 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
             auto [pos1, err1] = path.FindSubstr(0, "1111");
             if (err1.IsNone()) {
                 oci::IndexContentDescriptor manifest;
-                manifest.mDigest = "2222";
+                manifest.mDigest = "sha256:2222";
                 index.mManifests.PushBack(manifest);
             } else {
                 auto [pos2, err2] = path.FindSubstr(0, "4444");
                 if (err2.IsNone()) {
                     oci::IndexContentDescriptor manifest;
-                    manifest.mDigest = "5555";
+                    manifest.mDigest = "sha256:5555";
                     index.mManifests.PushBack(manifest);
                 }
             }
@@ -1283,14 +1290,14 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
             if (err1.IsNone()) {
                 oci::ContentDescriptor layer;
 
-                layer.mDigest = "3333";
+                layer.mDigest = "sha256:3333";
                 manifest.mLayers.PushBack(layer);
             } else {
                 auto [pos2, err2] = path.FindSubstr(0, "5555");
                 if (err2.IsNone()) {
                     oci::ContentDescriptor layer;
 
-                    layer.mDigest = "6666";
+                    layer.mDigest = "sha256:6666";
                     manifest.mLayers.PushBack(layer);
                 }
             }
@@ -1337,7 +1344,7 @@ TEST_F(ImageManagerTest, Start_RemovesOutdatedItems)
     ItemInfo item1;
     item1.mItemID      = "service1";
     item1.mVersion     = "1.0.0";
-    item1.mIndexDigest = "1111";
+    item1.mIndexDigest = "sha256:1111";
     item1.mState       = ItemStateEnum::eRemoved;
     item1.mTimestamp   = Time::Now().Add(-(Time::cSeconds * 20));
     items.PushBack(item1);
@@ -1345,7 +1352,7 @@ TEST_F(ImageManagerTest, Start_RemovesOutdatedItems)
     ItemInfo item2;
     item2.mItemID      = "service2";
     item2.mVersion     = "2.0.0";
-    item2.mIndexDigest = "2222";
+    item2.mIndexDigest = "sha256:2222";
     item2.mState       = ItemStateEnum::eRemoved;
     item2.mTimestamp   = Time::Now();
     items.PushBack(item2);
@@ -1383,7 +1390,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_Success)
     ItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     item.mState       = ItemStateEnum::eRemoved;
     items.PushBack(item);
 
@@ -1393,7 +1400,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_Success)
     auto                          err = mImageManager.GetIndexDigest("service1", "1.0.0", digest);
 
     EXPECT_TRUE(err.IsNone());
-    EXPECT_EQ(digest, "abc123");
+    EXPECT_EQ(digest, "sha256:abc123");
 }
 
 TEST_F(ImageManagerTest, GetIndexDigest_NotFound)
@@ -1415,7 +1422,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_WrongState)
     ItemInfo item;
     item.mItemID      = "service1";
     item.mVersion     = "1.0.0";
-    item.mIndexDigest = "abc123";
+    item.mIndexDigest = "sha256:abc123";
     item.mState       = ItemStateEnum::eDownloading;
     items.PushBack(item);
 
@@ -1429,15 +1436,18 @@ TEST_F(ImageManagerTest, GetIndexDigest_WrongState)
 
 TEST_F(ImageManagerTest, GetBlobPath_Success)
 {
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
+
     StaticString<cFilePathLen> blobPath;
-    blobPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/testdigest");
+    blobPath = fs::JoinPath(blobsDir, "testdigest");
 
     std::ofstream file(blobPath.CStr());
     file << "test content";
     file.close();
 
     StaticString<cFilePathLen> path;
-    auto                       err = mImageManager.GetBlobPath("testdigest", path);
+    auto                       err = mImageManager.GetBlobPath("sha256:testdigest", path);
 
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(path, blobPath);
@@ -1446,15 +1456,18 @@ TEST_F(ImageManagerTest, GetBlobPath_Success)
 TEST_F(ImageManagerTest, GetBlobPath_NotFound)
 {
     StaticString<cFilePathLen> path;
-    auto                       err = mImageManager.GetBlobPath("nonexistent", path);
+    auto                       err = mImageManager.GetBlobPath("sha256:nonexistent", path);
 
     EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
 }
 
 TEST_F(ImageManagerTest, GetBlobURL_Success)
 {
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
+
     StaticString<cFilePathLen> blobPath;
-    blobPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/testdigest");
+    blobPath = fs::JoinPath(blobsDir, "testdigest");
 
     std::ofstream file(blobPath.CStr());
     file << "test content";
@@ -1464,7 +1477,7 @@ TEST_F(ImageManagerTest, GetBlobURL_Success)
         .WillOnce(DoAll(SetArgReferee<1>("http://localhost/blobs/testdigest"), Return(ErrorEnum::eNone)));
 
     StaticString<cURLLen> url;
-    auto                  err = mImageManager.GetBlobURL("testdigest", url);
+    auto                  err = mImageManager.GetBlobURL("sha256:testdigest", url);
 
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(url, "http://localhost/blobs/testdigest");
@@ -1473,7 +1486,7 @@ TEST_F(ImageManagerTest, GetBlobURL_Success)
 TEST_F(ImageManagerTest, GetBlobURL_NotFound)
 {
     StaticString<cURLLen> url;
-    auto                  err = mImageManager.GetBlobURL("nonexistent", url);
+    auto                  err = mImageManager.GetBlobURL("sha256:nonexistent", url);
 
     EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
 }

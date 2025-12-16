@@ -172,6 +172,7 @@ private:
     static constexpr auto cMaxNumItemVersions = 2;
     static constexpr auto cRetryTimeout       = Time::cSeconds * 2;
     static constexpr auto cRemovePeriod       = 24 * Time::cHours;
+    static constexpr auto cDigestAlgorithmLen = 16;
 
     Error RemoveOutdatedItems();
     Error WaitForStop();
@@ -221,6 +222,7 @@ private:
     void  RegisterOutdatedItems(const Array<ItemInfo>& items);
     bool  StartAction();
     void  StopAction();
+    Error GetBlobFilePath(const String& basePath, const String& digest, StaticString<cFilePathLen>& path) const;
 
     StorageItf*                        mStorage {};
     BlobInfoProviderItf*               mBlobInfoProvider {};
