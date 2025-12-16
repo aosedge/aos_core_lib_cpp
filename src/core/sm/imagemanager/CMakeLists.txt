@@ -1,68 +1,55 @@
 #
-# Copyright (C) 2023 Renesas Electronics Corporation.
-# Copyright (C) 2023 EPAM Systems, Inc.
+# Copyright (C) 2025 EPAM Systems, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET_NAME sm)
+# ######################################################################################################################
+# Target name
+# ######################################################################################################################
+
+set(TARGET_NAME imagemanager)
+
+# ######################################################################################################################
+# Sources
+# ######################################################################################################################
+
+set(SOURCES imagemanager.cpp)
 
 # ######################################################################################################################
 # Headers
 # ######################################################################################################################
 
-set(HEADERS config.hpp)
+set(HEADERS itf/blobinfoprovider.hpp itf/imagemanager.hpp itf/iteminfoprovider.hpp config.hpp imagemanager.hpp)
 
 # ######################################################################################################################
-# Install targets
+# Libraries
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_sm_logging aos_core_sm_nodeconfig aos_core_sm_resourcemanager aos_core_sm_runner)
-
-set(INSTALL_LIBRARIES aos_core_sm_imagemanager aos_core_sm_launcher)
-
-if(WITH_TEST)
-    list(APPEND INSTALL_HEADERS aos_core_sm_tests_mocks aos_core_sm_tests_stubs)
-endif()
+set(LIBRARIES aos::core::common::tools)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS} OBJECTS ${INSTALL_LIBRARIES})
+add_module(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    STACK_USAGE
+    ${AOS_STACK_USAGE}
+    SOURCES
+    ${SOURCES}
+    HEADERS
+    ${HEADERS}
+    LIBRARIES
+    ${LIBRARIES}
+)
 
 # ######################################################################################################################
-# Target properties
+# Tests
 # ######################################################################################################################
 
-set(TARGET_NAMESPACE ${TARGET_NAMESPACE}::sm)
-set(TARGET_PREFIX ${TARGET_PREFIX}_sm)
-
-# ######################################################################################################################
-# Subdirectories
-# ######################################################################################################################
-
-add_subdirectory(imagemanager)
-add_subdirectory(launcher)
-add_subdirectory(logging)
-add_subdirectory(networkmanager)
-add_subdirectory(nodeconfig)
-add_subdirectory(resourcemanager)
-add_subdirectory(runner)
-add_subdirectory(smclient)
-
-if(WITH_TEST_TOOLS)
+if(WITH_TEST)
     add_subdirectory(tests)
 endif()
-
-# ######################################################################################################################
-# Install
-# ######################################################################################################################
-
-install(TARGETS ${TARGET} ARCHIVE FILE_SET HEADERS DESTINATION include/aos)
-
-install(
-    TARGETS ${INSTALL_HEADERS} ${INSTALL_LIBRARIES} FILE_SET HEADERS
-    DESTINATION include/aos
-    ARCHIVE EXCLUDE_FROM_ALL
-)
