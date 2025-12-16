@@ -42,13 +42,13 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
         return AOS_ERROR_WRAP(err);
     }
 
-    mBlobsInstallPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    mBlobsInstallPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/");
 
     if (auto err = fs::MakeDirAll(mBlobsInstallPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mBlobsDownloadPath = fs::JoinPath(mConfig.mDownloadPath, "/blobs/sha256/");
+    mBlobsDownloadPath = fs::JoinPath(mConfig.mDownloadPath, "/blobs/");
 
     if (auto err = fs::MakeDirAll(mBlobsDownloadPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -345,7 +345,12 @@ Error ImageManager::GetBlobPath(const String& digest, String& path) const
 
     LOG_DBG() << "Get blob path" << Log::Field("digest", digest);
 
-    path = fs::JoinPath(mBlobsInstallPath, digest);
+    StaticString<cFilePathLen> blobPath;
+    if (auto err = GetBlobFilePath(mBlobsInstallPath, digest, blobPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    path = blobPath;
 
     auto [exists, err] = fs::FileExist(path);
     if (!err.IsNone()) {
@@ -361,7 +366,10 @@ Error ImageManager::GetBlobURL(const String& digest, String& url) const
 
     LOG_DBG() << "Get blob URL" << Log::Field("digest", digest);
 
-    auto blobPath = fs::JoinPath(mBlobsInstallPath, digest);
+    StaticString<cFilePathLen> blobPath;
+    if (auto err = GetBlobFilePath(mBlobsInstallPath, digest, blobPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto [exists, existErr] = fs::FileExist(blobPath);
     if (!existErr.IsNone()) {
@@ -518,38 +526,45 @@ Error ImageManager::AllocateSpaceForPartialDownloads()
 {
     LOG_DBG() << "Allocate space for partial downloads" << Log::Field("path", mBlobsDownloadPath);
 
-    auto dirIterator = fs::DirIterator(mBlobsDownloadPath);
+    auto algorithmDirIterator = fs::DirIterator(mBlobsDownloadPath);
 
-    while (dirIterator.Next()) {
-        auto fileName = dirIterator->mPath;
-        auto filePath = fs::JoinPath(mBlobsDownloadPath, fileName);
+    while (algorithmDirIterator.Next()) {
+        auto algorithm    = algorithmDirIterator->mPath;
+        auto algorithmDir = fs::JoinPath(mBlobsDownloadPath, algorithm);
 
-        auto [fileSize, sizeErr] = fs::CalculateSize(filePath);
-        if (!sizeErr.IsNone()) {
-            LOG_WRN() << "Failed to get size for partial download" << Log::Field("path", filePath)
-                      << Log::Field(sizeErr);
+        auto fileIterator = fs::DirIterator(algorithmDir);
 
-            continue;
+        while (fileIterator.Next()) {
+            auto fileName = fileIterator->mPath;
+            auto filePath = fs::JoinPath(algorithmDir, fileName);
+
+            auto [fileSize, sizeErr] = fs::CalculateSize(filePath);
+            if (!sizeErr.IsNone()) {
+                LOG_WRN() << "Failed to get size for partial download" << Log::Field("path", filePath)
+                          << Log::Field(sizeErr);
+
+                continue;
+            }
+
+            if (fileSize == 0) {
+                continue;
+            }
+
+            UniquePtr<spaceallocator::SpaceItf> space;
+            Error                               err;
+
+            if (Tie(space, err) = mDownloadingSpaceAllocator->AllocateSpace(fileSize); !err.IsNone()) {
+                LOG_ERR() << "Failed to allocate space for partial download" << Log::Field("path", filePath)
+                          << Log::Field("size", fileSize) << Log::Field(err);
+
+                return AOS_ERROR_WRAP(err);
+            }
+
+            space->Accept();
+
+            LOG_DBG() << "Allocated space for partial download" << Log::Field("path", filePath)
+                      << Log::Field("size", fileSize);
         }
-
-        if (fileSize == 0) {
-            continue;
-        }
-
-        UniquePtr<spaceallocator::SpaceItf> space;
-        Error                               err;
-
-        if (Tie(space, err) = mDownloadingSpaceAllocator->AllocateSpace(fileSize); !err.IsNone()) {
-            LOG_ERR() << "Failed to allocate space for partial download" << Log::Field("path", filePath)
-                      << Log::Field("size", fileSize) << Log::Field(err);
-
-            return AOS_ERROR_WRAP(err);
-        }
-
-        space->Accept();
-
-        LOG_DBG() << "Allocated space for partial download" << Log::Field("path", filePath)
-                  << Log::Field("size", fileSize);
     }
 
     return ErrorEnum::eNone;
@@ -580,12 +595,15 @@ Error ImageManager::CleanupDownloadingItems(
             }
 
             if (!storedItem.mIndexDigest.IsEmpty()) {
-                auto filePath = fs::JoinPath(mBlobsInstallPath, storedItem.mIndexDigest);
+                StaticString<cFilePathLen> filePath;
+                if (auto err = GetBlobFilePath(mBlobsInstallPath, storedItem.mIndexDigest, filePath); !err.IsNone()) {
+                    LOG_ERR() << "Failed to get blob file path" << Log::Field(err);
+                } else {
+                    LOG_DBG() << "Remove blob" << Log::Field("path", filePath);
 
-                LOG_DBG() << "Remove blob" << Log::Field("path", filePath);
-
-                if (auto err = fs::RemoveAll(filePath); !err.IsNone()) {
-                    LOG_ERR() << "Failed to remove blob" << Log::Field("path", filePath) << Log::Field(err);
+                    if (err = fs::RemoveAll(filePath); !err.IsNone()) {
+                        LOG_ERR() << "Failed to remove blob" << Log::Field("path", filePath) << Log::Field(err);
+                    }
                 }
             }
         }
@@ -746,8 +764,15 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
         mCurrentItemVersion.Clear();
     });
 
-    auto downloadPath = fs::JoinPath(mBlobsDownloadPath, itemInfo.mIndexDigest);
-    auto installPath  = fs::JoinPath(mBlobsInstallPath, itemInfo.mIndexDigest);
+    StaticString<cFilePathLen> downloadPath;
+    if (auto err = GetBlobFilePath(mBlobsDownloadPath, itemInfo.mIndexDigest, downloadPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<cFilePathLen> installPath;
+    if (auto err = GetBlobFilePath(mBlobsInstallPath, itemInfo.mIndexDigest, installPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
     if (!imageIndex) {
@@ -831,8 +856,15 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
     Error                               err;
     UniquePtr<spaceallocator::SpaceItf> space;
 
-    auto downloadPath = fs::JoinPath(mBlobsDownloadPath, digest);
-    auto installPath  = fs::JoinPath(mBlobsInstallPath, digest);
+    StaticString<cFilePathLen> downloadPath;
+    if (err = GetBlobFilePath(mBlobsDownloadPath, digest, downloadPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<cFilePathLen> installPath;
+    if (err = GetBlobFilePath(mBlobsInstallPath, digest, installPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
         if (space && !err->IsNone()) {
@@ -875,8 +907,16 @@ Error ImageManager::LoadLayers(const Array<oci::ContentDescriptor>& layers,
         LOG_DBG() << "Load layer" << Log::Field("digest", layer.mDigest);
 
         UniquePtr<spaceallocator::SpaceItf> space;
-        auto                                downloadPath = fs::JoinPath(mBlobsDownloadPath, layer.mDigest);
-        auto                                installPath  = fs::JoinPath(mBlobsInstallPath, layer.mDigest);
+
+        StaticString<cFilePathLen> downloadPath;
+        if (err = GetBlobFilePath(mBlobsDownloadPath, layer.mDigest, downloadPath); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        StaticString<cFilePathLen> installPath;
+        if (err = GetBlobFilePath(mBlobsInstallPath, layer.mDigest, installPath); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
         auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
             if (space && !err->IsNone()) {
@@ -1240,12 +1280,23 @@ void ImageManager::RegisterOutdatedItems(const Array<ItemInfo>& items)
 
 Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo)
 {
+    auto [colonPos, findErr] = digest.FindSubstr(0, ":");
+    if (!findErr.IsNone()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
+    StaticString<oci::cDigestLen> hash;
+    if (auto err = hash.Insert(hash.end(), digest.CStr() + colonPos + 1, digest.CStr() + digest.Size());
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
     if (!expectedSHA256) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = digest.HexToByteArray(*expectedSHA256); !err.IsNone()) {
+    if (auto err = hash.HexToByteArray(*expectedSHA256); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1260,7 +1311,10 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
 {
     LOG_DBG() << "Verify item blobs" << Log::Field("indexDigest", indexDigest);
 
-    auto indexPath = fs::JoinPath(mBlobsInstallPath, indexDigest);
+    StaticString<cFilePathLen> indexPath;
+    if (auto err = GetBlobFilePath(mBlobsInstallPath, indexDigest, indexPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     fs::FileInfo indexFileInfo;
     if (auto err = mFileInfoProvider->GetFileInfo(indexPath, indexFileInfo); !err.IsNone()) {
@@ -1281,7 +1335,10 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
     }
 
     for (const auto& manifestDescriptor : imageIndex->mManifests) {
-        auto manifestPath = fs::JoinPath(mBlobsInstallPath, manifestDescriptor.mDigest);
+        StaticString<cFilePathLen> manifestPath;
+        if (auto err = GetBlobFilePath(mBlobsInstallPath, manifestDescriptor.mDigest, manifestPath); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
         fs::FileInfo manifestFileInfo;
         if (auto err = mFileInfoProvider->GetFileInfo(manifestPath, manifestFileInfo); !err.IsNone()) {
@@ -1302,7 +1359,10 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
         }
 
         for (const auto& layer : manifest->mLayers) {
-            auto layerPath = fs::JoinPath(mBlobsInstallPath, layer.mDigest);
+            StaticString<cFilePathLen> layerPath;
+            if (auto err = GetBlobFilePath(mBlobsInstallPath, layer.mDigest, layerPath); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
 
             fs::FileInfo layerFileInfo;
 
@@ -1328,7 +1388,11 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
             return true;
         }
 
-        auto indexPath  = fs::JoinPath(mBlobsInstallPath, item.mIndexDigest);
+        StaticString<cFilePathLen> indexPath;
+        if (auto err = GetBlobFilePath(mBlobsInstallPath, item.mIndexDigest, indexPath); !err.IsNone()) {
+            continue;
+        }
+
         auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
         if (!imageIndex) {
             continue;
@@ -1343,8 +1407,13 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
                 return true;
             }
 
-            auto manifestPath = fs::JoinPath(mBlobsInstallPath, manifestDescriptor.mDigest);
-            auto manifest     = MakeUnique<oci::ImageManifest>(&mAllocator);
+            StaticString<cFilePathLen> manifestPath;
+            if (auto err = GetBlobFilePath(mBlobsInstallPath, manifestDescriptor.mDigest, manifestPath);
+                !err.IsNone()) {
+                continue;
+            }
+
+            auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
             if (!manifest) {
                 continue;
             }
@@ -1379,25 +1448,35 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
         return {0, AOS_ERROR_WRAP(err)};
     }
 
-    auto dirIterator = fs::DirIterator(mBlobsInstallPath);
+    auto algorithmDirIterator = fs::DirIterator(mBlobsInstallPath);
 
-    while (dirIterator.Next()) {
-        auto blobDigest = dirIterator->mPath;
+    while (algorithmDirIterator.Next()) {
+        auto algorithm    = algorithmDirIterator->mPath;
+        auto algorithmDir = fs::JoinPath(mBlobsInstallPath, algorithm);
 
-        if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
-            auto filePath = fs::JoinPath(mBlobsInstallPath, blobDigest);
+        auto blobIterator = fs::DirIterator(algorithmDir);
 
-            auto [blobSize, sizeErr] = fs::CalculateSize(filePath);
-            if (!sizeErr.IsNone()) {
-                LOG_WRN() << "Failed to get blob size" << Log::Field("path", filePath) << Log::Field(sizeErr);
-            } else {
-                totalSize += blobSize;
-            }
+        while (blobIterator.Next()) {
+            auto hash = blobIterator->mPath;
 
-            LOG_DBG() << "Remove orphaned blob" << Log::Field("path", filePath) << Log::Field("size", blobSize);
+            StaticString<oci::cDigestLen> blobDigest;
+            blobDigest.Append(algorithm).Append(":").Append(hash);
 
-            if (auto removeErr = fs::RemoveAll(filePath); !removeErr.IsNone()) {
-                LOG_ERR() << "Failed to remove orphaned blob" << Log::Field(removeErr);
+            if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
+                auto filePath = fs::JoinPath(algorithmDir, hash);
+
+                auto [blobSize, sizeErr] = fs::CalculateSize(filePath);
+                if (!sizeErr.IsNone()) {
+                    LOG_WRN() << "Failed to get blob size" << Log::Field("path", filePath) << Log::Field(sizeErr);
+                } else {
+                    totalSize += blobSize;
+                }
+
+                LOG_DBG() << "Remove orphaned blob" << Log::Field("path", filePath) << Log::Field("size", blobSize);
+
+                if (auto removeErr = fs::RemoveAll(filePath); !removeErr.IsNone()) {
+                    LOG_ERR() << "Failed to remove orphaned blob" << Log::Field(removeErr);
+                }
             }
         }
     }
@@ -1535,6 +1614,31 @@ Error ImageManager::SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, co
             NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
         }
     }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::GetBlobFilePath(
+    const String& basePath, const String& digest, StaticString<cFilePathLen>& path) const
+{
+    auto [colonPos, findErr] = digest.FindSubstr(0, ":");
+    if (!findErr.IsNone()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
+    StaticString<cDigestAlgorithmLen> algorithm;
+    if (auto err = algorithm.Insert(algorithm.end(), digest.CStr(), digest.CStr() + colonPos); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<oci::cDigestLen> hash;
+    if (auto err = hash.Insert(hash.end(), digest.CStr() + colonPos + 1, digest.CStr() + digest.Size());
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    path = fs::JoinPath(basePath, algorithm);
+    path = fs::JoinPath(path, hash);
 
     return ErrorEnum::eNone;
 }
