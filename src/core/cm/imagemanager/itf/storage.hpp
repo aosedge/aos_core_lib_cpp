@@ -90,13 +90,13 @@ public:
     virtual Error GetItemsInfo(Array<ItemInfo>& items) = 0;
 
     /**
-     * Gets item info by ID.
+     * Gets items info by ID.
      *
      * @param itemID Item ID.
      * @param items Items info.
      * @return Error.
      */
-    virtual Error GetItemInfos(const String& itemID, Array<ItemInfo>& items) = 0;
+    virtual Error GetItemsInfos(const String& itemID, Array<ItemInfo>& items) = 0;
 };
 
 } // namespace aos::cm::imagemanager
