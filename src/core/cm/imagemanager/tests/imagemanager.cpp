@@ -1387,7 +1387,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_Success)
     item.mState       = ItemStateEnum::eRemoved;
     items.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mStorageMock, GetItemsInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
 
     StaticString<oci::cDigestLen> digest;
     auto                          err = mImageManager.GetIndexDigest("service1", "1.0.0", digest);
@@ -1400,7 +1400,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_NotFound)
 {
     StaticArray<ItemInfo, 5> items;
 
-    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mStorageMock, GetItemsInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
 
     StaticString<oci::cDigestLen> digest;
     auto                          err = mImageManager.GetIndexDigest("nonexistent", "1.0.0", digest);
@@ -1419,7 +1419,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_WrongState)
     item.mState       = ItemStateEnum::eDownloading;
     items.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mStorageMock, GetItemsInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
 
     StaticString<oci::cDigestLen> digest;
     auto                          err = mImageManager.GetIndexDigest("service1", "1.0.0", digest);
@@ -1494,7 +1494,7 @@ TEST_F(ImageManagerTest, GetItemCurrentVersion_PendingPriority)
     pending.mState   = ItemStateEnum::ePending;
     items.PushBack(pending);
 
-    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mStorageMock, GetItemsInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
 
     StaticString<cVersionLen> version;
     auto                      err = mImageManager.GetItemCurrentVersion("service1", version);
@@ -1513,7 +1513,7 @@ TEST_F(ImageManagerTest, GetItemCurrentVersion_InstalledFallback)
     item.mState   = ItemStateEnum::eInstalled;
     items.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mStorageMock, GetItemsInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
 
     StaticString<cVersionLen> version;
     auto                      err = mImageManager.GetItemCurrentVersion("service1", version);
@@ -1532,7 +1532,7 @@ TEST_F(ImageManagerTest, GetItemCurrentVersion_NotFound)
     item.mState   = ItemStateEnum::eRemoved;
     items.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mStorageMock, GetItemsInfos(_, _)).WillOnce(DoAll(SetArgReferee<1>(items), Return(ErrorEnum::eNone)));
 
     StaticString<cVersionLen> version;
     auto                      err = mImageManager.GetItemCurrentVersion("service1", version);

@@ -323,7 +323,7 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
         return ErrorEnum::eNoMemory;
     }
 
-    if (auto err = mStorage->GetItemInfos(itemID, *items); !err.IsNone()) {
+    if (auto err = mStorage->GetItemsInfos(itemID, *items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -386,7 +386,7 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
         return ErrorEnum::eNoMemory;
     }
 
-    if (auto err = mStorage->GetItemInfos(itemID, *items); !err.IsNone()) {
+    if (auto err = mStorage->GetItemsInfos(itemID, *items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
