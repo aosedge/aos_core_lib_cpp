@@ -7,7 +7,12 @@
 #ifndef AOS_CORE_SM_IMAGEMANAGER_IMAGEMANAGER_HPP_
 #define AOS_CORE_SM_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
+#include <core/common/downloader/itf/downloader.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
+#include <core/common/spaceallocator/itf/spaceallocator.hpp>
+
 #include "config.hpp"
+#include "itf/blobinfoprovider.hpp"
 #include "itf/imagemanager.hpp"
 #include "itf/iteminfoprovider.hpp"
 
@@ -26,9 +31,16 @@ public:
      * Initializes image manager.
      *
      * @param config image manager config.
+     * @param blobInfoProvider blob info provider.
+     * @param spaceAllocator space allocator.
+     * @param downloader downloader.
+     * @param fileInfoProvider file info provider.
+     * @param ociSpec OCI spec interface.
      * @return Error.
      */
-    Error Init(const Config& config);
+    Error Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
+        spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
+        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec);
 
     /**
      * Returns all installed update items statuses.
@@ -74,10 +86,25 @@ public:
     Error GetLayerPath(const String& digest, String& path) const override;
 
 private:
-    static constexpr auto cBlobsFolder  = "blobs";
-    static constexpr auto cLayersFolder = "layers";
+    static constexpr auto cBlobsFolder   = "blobs";
+    static constexpr auto cLayersFolder  = "layers";
+    static constexpr auto cAllocatorSize = cMaxNumConcurrentItems * sizeof(oci::ImageManifest);
 
-    Config mConfig;
+    Error CreateBlobPath(const String& digest, String& path) const;
+    Error ValidateBlob(const String& path, const String& digest) const;
+    Error DownloadBlob(const String& path, const String& digest, size_t size);
+    Error InstallBlob(const oci::ContentDescriptor& descriptor);
+    Error GetBlobURL(const String& digest, String& url) const;
+    void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
+
+    Config                             mConfig;
+    BlobInfoProviderItf*               mBlobInfoProvider {};
+    spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
+    downloader::DownloaderItf*         mDownloader {};
+    fs::FileInfoProviderItf*           mFileInfoProvider {};
+    oci::OCISpecItf*                   mOCISpec {};
+
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 /** @}*/
