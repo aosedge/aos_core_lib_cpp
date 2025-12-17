@@ -44,7 +44,7 @@ private:
  * Public
  **********************************************************************************************************************/
 
-Error Alerts::Init(const alerts::Config& config, SenderItf& sender)
+Error Alerts::Init(const alerts::Config& config, cm::alerts::SenderItf& sender)
 {
     LOG_DBG() << "Initialize alerts";
 
@@ -97,23 +97,7 @@ Error Alerts::OnAlertReceived(const AlertVariant& alert)
 
     LOG_DBG() << "Alert received" << Log::Field("alert", alert);
 
-    NotifyListeners(alert);
-
-    if (IsDuplicated(alert)) {
-        ++mDuplicatedAlerts;
-
-        return ErrorEnum::eNone;
-    }
-
-    if (auto err = mAlerts.EmplaceBack(alert); !err.IsNone()) {
-        ++mSkippedAlerts;
-
-        if (!err.Is(ErrorEnum::eNoMemory)) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    return ErrorEnum::eNone;
+    return HandleAlert(alert);
 }
 
 void Alerts::OnConnect()
@@ -132,6 +116,15 @@ void Alerts::OnDisconnect()
     LOG_DBG() << "Publisher disconnected";
 
     mIsConnected = false;
+}
+
+Error Alerts::SendAlert(const AlertVariant& alert)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Send alert" << Log::Field("alert", alert);
+
+    return HandleAlert(alert);
 }
 
 Error Alerts::SubscribeListener(const Array<AlertTag>& tags, AlertsListenerItf& listener)
@@ -181,6 +174,27 @@ Error Alerts::UnsubscribeListener(AlertsListenerItf& listener)
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+Error Alerts::HandleAlert(const AlertVariant& alert)
+{
+    NotifyListeners(alert);
+
+    if (IsDuplicated(alert)) {
+        ++mDuplicatedAlerts;
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mAlerts.EmplaceBack(alert); !err.IsNone()) {
+        ++mSkippedAlerts;
+
+        if (!err.Is(ErrorEnum::eNoMemory)) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
 
 Error Alerts::SendAlerts()
 {
