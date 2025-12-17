@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_COMMON_ALERTS_ALERTS_HPP_
 #define AOS_CORE_COMMON_ALERTS_ALERTS_HPP_
 
+#include <core/common/alerts/itf/sender.hpp>
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
@@ -31,7 +32,10 @@ constexpr auto cAlertsCacheSize = AOS_CONFIG_CM_ALERTS_CACHE_SIZE;
 /**
  * Alerts.
  */
-class Alerts : public ReceiverItf, public AlertsProviderItf, private cloudconnection::ConnectionListenerItf {
+class Alerts : public ReceiverItf,
+               public AlertsProviderItf,
+               public aos::alerts::SenderItf,
+               private cloudconnection::ConnectionListenerItf {
 public:
     /**
      * Initializes alerts.
@@ -40,7 +44,7 @@ public:
      * @param sender alerts sender object.
      * @return Error.
      */
-    Error Init(const alerts::Config& config, SenderItf& sender);
+    Error Init(const alerts::Config& config, cm::alerts::SenderItf& sender);
 
     /**
      * Starts alerts module.
@@ -75,6 +79,14 @@ public:
     void OnDisconnect() override;
 
     /**
+     * Sends alert data.
+     *
+     * @param alert alert variant.
+     * @return Error.
+     */
+    Error SendAlert(const AlertVariant& alert) override;
+
+    /**
      * Subscribes alerts listener to specified tags.
      *
      * @param tags alert tags to subscribe to.
@@ -98,6 +110,7 @@ private:
 
     using ListenersArray = StaticArray<AlertsListenerItf*, cListenersMaxCount>;
 
+    Error                  HandleAlert(const AlertVariant& alert);
     Error                  SendAlerts();
     bool                   IsDuplicated(const AlertVariant& alert);
     UniquePtr<aos::Alerts> CreatePackage();
@@ -106,7 +119,7 @@ private:
 
     StaticAllocator<cAllocatorSize>                      mAllocator;
     alerts::Config                                       mConfig;
-    SenderItf*                                           mSender {};
+    cm::alerts::SenderItf*                               mSender {};
     StaticArray<AlertVariant, cAlertsCacheSize>          mAlerts;
     StaticMap<AlertTag, ListenersArray, cAlertTagsCount> mListeners;
     Mutex                                                mMutex;
