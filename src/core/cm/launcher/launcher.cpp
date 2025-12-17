@@ -196,6 +196,8 @@ Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
     LockGuard lock {mMutex};
 
+    LOG_DBG() << "Subscribe instance status listener";
+
     if (auto err = mInstanceStatusListeners.PushBack(&listener); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -206,6 +208,8 @@ Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
     LockGuard lock {mMutex};
+
+    LOG_DBG() << "Unsubscribe instance status listener";
 
     auto count = mInstanceStatusListeners.Remove(&listener);
 
