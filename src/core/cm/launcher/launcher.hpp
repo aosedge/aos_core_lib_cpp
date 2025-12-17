@@ -114,7 +114,7 @@ public:
     Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override;
 
 private:
-    static constexpr auto cMaxNumInstanceStatusListeners = 1;
+    static constexpr auto cMaxNumInstanceStatusListeners = 8;
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>) + sizeof(monitoring::NodeMonitoringData);
 
