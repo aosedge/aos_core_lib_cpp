@@ -530,10 +530,19 @@ private:
  * Returns base name of the path.
  *
  * @param path path.
- * @param base base name.
+ * @param[out] base base name.
  * @return Error.
  */
 Error BaseName(const String& path, String& base);
+
+/**
+ * Returns parent path of the given path.
+ *
+ * @param path path.
+ * @param[out] parent parent path.
+ * @return Error.
+ */
+Error ParentPath(const String& path, String& parent);
 
 } // namespace fs
 } // namespace aos
