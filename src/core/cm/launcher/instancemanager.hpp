@@ -80,6 +80,13 @@ public:
     Array<SharedPtr<Instance>>& GetActiveInstances();
 
     /**
+     * Returns the collection of currently cached instances.
+     *
+     * @return Array<SharedPtr<Instance>>&.
+     */
+    Array<SharedPtr<Instance>>& GetCachedInstances();
+
+    /**
      * Finds an active instance by its identifier.
      *
      * @param id instance identifier.
@@ -120,11 +127,27 @@ public:
     SharedPtr<Instance>* FindStashInstance(const InstanceIdent& id);
 
     /**
+     * Finds a cached instance by its identifier.
+     *
+     * @param id instance identifier.
+     * @return SharedPtr<Instance>*.
+     */
+    SharedPtr<Instance>* FindCachedInstance(const InstanceIdent& id);
+
+    /**
      * Submits all stashed instances for execution.
      *
      * @return Error.
      */
     Error SubmitStash();
+
+    /**
+     * Disables instance.
+     *
+     * @param instance instance.
+     * @return Error.
+     */
+    Error DisableInstance(SharedPtr<Instance>& instance);
 
     /**
      * Updates monitoring data for active instances.

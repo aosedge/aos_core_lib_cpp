@@ -35,7 +35,8 @@ Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider
     imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
-    alerts::AlertsProviderItf& alertsProvider, IDValidator gidValidator, IDValidator uidValidator)
+    alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider, IDValidator gidValidator,
+    IDValidator uidValidator)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -48,6 +49,7 @@ Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider
     mNetworkManager     = &networkManager;
     mMonitorProvider    = &monitorProvider;
     mAlertsProvider     = &alertsProvider;
+    mIdentProvider      = &identProvider;
 
     auto err = mInstanceManager.Init(
         config, storage, storageState, itemInfoProvider, blobInfoProvider, ociSpec, gidValidator, uidValidator);
@@ -68,10 +70,9 @@ Error Launcher::Start()
 
     LockGuard lock {mMutex};
 
-    mIsRunning          = true;
-    mDisableNodeMonitor = false;
-    mUpdatedNodes.Clear();
+    mIsRunning = true;
 
+    // Start managers.
     if (auto err = mInstanceManager.Start(); !err.IsNone()) {
         return err;
     }
@@ -83,7 +84,13 @@ Error Launcher::Start()
     if (auto err = mNodeManager.LoadSentInstances(mInstanceManager.GetActiveInstances()); !err.IsNone()) {
         return err;
     }
+
+    // Subscribe to providers.
     if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mIdentProvider->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -95,11 +102,28 @@ Error Launcher::Start()
         return err;
     }
 
-    if (auto err = mThread.Run([this](void*) { MonitorNodes(); }); !err.IsNone()) {
+    // Set initial subjects list.
+    auto subjects = MakeUnique<SubjectArray>(&mAllocator);
+
+    if (auto err = mIdentProvider->GetSubjects(*subjects); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto [_, err] = mBalancer.SetSubjects(*subjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Notify status listeners.
     NotifyInstanceStatusListeners(mInstanceStatuses);
+
+    // Start monitoring thread.
+    mDisableProcessUpdates = false;
+    mUpdatedNodes.Clear();
+    mNewSubjects.SetValue(*subjects); // Check subjects after startup.
+
+    if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -110,6 +134,11 @@ Error Launcher::Stop()
 
     UniqueLock lock {mMutex};
 
+    // Unsubscribe from providers.
+    if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mAlertsProvider->UnsubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -118,6 +147,7 @@ Error Launcher::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
+    // Stop managers.
     if (auto err = mInstanceManager.Stop(); !err.IsNone()) {
         return err;
     }
@@ -128,13 +158,13 @@ Error Launcher::Stop()
 
     // Finish monitoring thread.
     mUpdatedNodes.Clear();
-    mIsRunning          = false;
-    mDisableNodeMonitor = false;
-    mMonitorNodesCondVar.NotifyAll();
+    mIsRunning             = false;
+    mDisableProcessUpdates = false;
+    mProcessUpdatesCondVar.NotifyAll();
 
     lock.Unlock();
 
-    if (auto err = mThread.Join(); !err.IsNone()) {
+    if (auto err = mWorkerThread.Join(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -148,10 +178,10 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     UniqueLock lock {mMutex};
 
     // Disable node monitoring for the duration of running instances.
-    mDisableNodeMonitor       = true;
+    mDisableProcessUpdates    = true;
     auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
-        self->mDisableNodeMonitor = false;
-        self->mMonitorNodesCondVar.NotifyAll();
+        self->mDisableProcessUpdates = false;
+        self->mProcessUpdatesCondVar.NotifyAll();
     });
 
     statuses.Clear();
@@ -256,7 +286,7 @@ void Launcher::UpdateData(bool rebalancing)
 void Launcher::FailActivatingInstances()
 {
     for (auto& instance : mInstanceManager.GetActiveInstances()) {
-        if (instance->GetStatus().mState == InstanceStateEnum::eActivating) {
+        if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating) {
             instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout));
         }
     }
@@ -267,10 +297,10 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
     LOG_DBG() << "Rebalance instances";
 
     // Disable node monitoring for the duration of rebalancing.
-    mDisableNodeMonitor       = true;
+    mDisableProcessUpdates    = true;
     auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
-        self->mDisableNodeMonitor = false;
-        self->mMonitorNodesCondVar.NotifyAll();
+        self->mDisableProcessUpdates = false;
+        self->mProcessUpdatesCondVar.NotifyAll();
     });
 
     UpdateData(true);
@@ -288,23 +318,59 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
     return ErrorEnum::eNone;
 }
 
-void Launcher::MonitorNodes()
+void Launcher::ProcessUpdate()
 {
     while (true) {
         UniqueLock lock {mMutex};
 
-        mMonitorNodesCondVar.Wait(
-            lock, [this]() { return (!mUpdatedNodes.IsEmpty() || !mIsRunning) && !mDisableNodeMonitor; });
+        mProcessUpdatesCondVar.Wait(lock, [this]() {
+            // Wake up on:
+            // - node updates (need resend),
+            // - subject updates (need rebalance),
+            // - stop request.
+            return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || !mIsRunning) && !mDisableProcessUpdates;
+        });
 
         if (!mIsRunning) {
             return;
         }
 
-        if (auto err = mNodeManager.ResendInstances(lock, mUpdatedNodes); !err.IsNone()) {
-            LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
+        // Update subjects.
+        Error err;
+        bool  doRebalance = false;
+
+        {
+            LockGuard subjectsLock {mNewSubjectsMutex};
+
+            if (mNewSubjects.HasValue()) {
+                Tie(doRebalance, err) = mBalancer.SetSubjects(mNewSubjects.GetValue());
+                if (!err.IsNone()) {
+                    LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
+                }
+
+                mNewSubjects.Reset();
+            }
         }
 
-        mUpdatedNodes.Clear();
+        // Resend instances.
+        if (!mUpdatedNodes.IsEmpty()) {
+            if (!doRebalance) {
+                if (err = mNodeManager.ResendInstances(lock, mUpdatedNodes); !err.IsNone()) {
+                    LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
+                }
+            } else {
+                LOG_INF() << "Rebalancing will be performed, skip resending instances";
+            }
+
+            mUpdatedNodes.Clear();
+        }
+
+        // Rebalance.
+        if (doRebalance) {
+            if (err = Rebalance(lock); !err.IsNone()) {
+                LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
     }
 }
 
@@ -358,7 +424,7 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         return AOS_ERROR_WRAP(err);
     }
 
-    mMonitorNodesCondVar.NotifyAll();
+    mProcessUpdatesCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -395,6 +461,17 @@ Error Launcher::OnAlertReceived(const AlertVariant& alert)
     }
 
     return Rebalance(lock);
+}
+
+void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
+{
+    LOG_DBG() << "Subjects changed";
+
+    UniqueLock lock {mNewSubjectsMutex};
+
+    mNewSubjects.SetValue(subjects);
+
+    mProcessUpdatesCondVar.NotifyAll();
 }
 
 } // namespace aos::cm::launcher

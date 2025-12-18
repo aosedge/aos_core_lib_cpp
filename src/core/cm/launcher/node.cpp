@@ -302,6 +302,8 @@ RetWithError<bool> Node::ResendInstances()
     }
 
     // Send request to node.
+    LOG_INF() << "Resend instance update" << Log::Field("nodeID", mInfo.mNodeID);
+
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, mSentInstances); !err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};
     }

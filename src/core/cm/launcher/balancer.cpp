@@ -27,6 +27,27 @@ void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProv
     mNetworkManager  = &networkManager;
 }
 
+RetWithError<bool> Balancer::SetSubjects(const Array<StaticString<cIDLen>>& subjects)
+{
+    if (auto err = mSubjects.Assign(subjects); !err.IsNone()) {
+        return {false, AOS_ERROR_WRAP(err)};
+    }
+
+    for (const auto& instance : mInstanceManager->GetActiveInstances()) {
+        if (!IsSubjectEnabled(*instance)) {
+            return {true, ErrorEnum::eNone};
+        }
+    }
+
+    for (const auto& instance : mInstanceManager->GetCachedInstances()) {
+        if (IsSubjectEnabled(*instance) && instance->GetInfo().mState == InstanceStateEnum::eDisabled) {
+            return {true, ErrorEnum::eNone};
+        }
+    }
+
+    return {false, ErrorEnum::eNone};
+}
+
 Error Balancer::RunInstances(const Array<RunInstanceRequest>& instances, UniqueLock<Mutex>& lock, bool rebalancing)
 {
     auto sortedInstances = MakeUnique<StaticArray<RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
@@ -96,6 +117,21 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
                 continue;
             }
 
+            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request); !err.IsNone()) {
+                LOG_ERR() << "Can't create new instance" << Log::Field("instance", instanceIdent.mItemID)
+                          << Log::Field(err);
+
+                continue;
+            }
+
+            auto instance = mInstanceManager->FindStashInstance(instanceIdent);
+
+            if (!IsSubjectEnabled(**instance)) {
+                mInstanceManager->DisableInstance(*instance);
+
+                continue;
+            }
+
             auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
             if (auto err = mImageInfoProvider.GetImageIndex(instanceIdent.mItemID, request.mVersion, *imageIndex);
@@ -104,15 +140,6 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
 
                 return err;
             }
-
-            if (auto err = mInstanceManager->AddInstanceToStash(instanceIdent, request); !err.IsNone()) {
-                LOG_ERR() << "Can't create new instance" << Log::Field("instance", instanceIdent.mItemID)
-                          << Log::Field(err);
-
-                break;
-            }
-
-            auto instance = mInstanceManager->FindStashInstance(instanceIdent);
 
             bool  isInstanceScheduled = false;
             Error scheduleErr         = ErrorEnum::eNone;
@@ -611,6 +638,12 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                 return AOS_ERROR_WRAP(ErrorEnum::eFailed);
             }
 
+            if (!IsSubjectEnabled(**instance)) {
+                mInstanceManager->DisableInstance(*instance);
+
+                continue;
+            }
+
             auto imageDescriptor
                 = imageIndex->mManifests.FindIf([&instance](const oci::IndexContentDescriptor& descriptor) {
                       return descriptor.mDigest == (*instance)->GetInfo().mManifestDigest;
@@ -687,6 +720,11 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
     }
 
     return ErrorEnum::eNone;
+}
+
+bool Balancer::IsSubjectEnabled(const Instance& instance)
+{
+    return !instance.GetInfo().mIsUnitSubject || mSubjects.Contains(instance.GetInfo().mInstanceIdent.mSubjectID);
 }
 
 } // namespace aos::cm::launcher
