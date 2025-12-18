@@ -94,7 +94,7 @@ public:
                         static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);
                         status.mNodeID                      = nodeID;
                         status.mRuntimeID                   = inst.mRuntimeID;
-                        status.mState                       = InstanceStateEnum::eActivating;
+                        status.mState                       = aos::InstanceStateEnum::eActivating;
                         status.mError                       = ErrorEnum::eNone;
 
                         mInstanceStatuses.push_back(status);

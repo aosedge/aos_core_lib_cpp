@@ -10,7 +10,6 @@
 #include <gtest/gtest.h>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <core/cm/launcher/launcher.hpp>
@@ -18,6 +17,7 @@
 #include <core/common/tests/utils/utils.hpp>
 
 #include "stubs/alertsproviderstub.hpp"
+#include "stubs/identproviderstub.hpp"
 #include "stubs/imagestorestub.hpp"
 #include "stubs/instancerunnerstub.hpp"
 #include "stubs/instancestatusproviderstub.hpp"
@@ -116,6 +116,8 @@ protected:
         tests::utils::InitLog();
 
         LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
+
+        ASSERT_TRUE(mIdentProvider.SetSubjects({cSubject1}).IsNone());
     }
 
     void TearDown() override { }
@@ -158,6 +160,7 @@ protected:
     // Stub objects
     alerts::AlertsProviderStub             mAlertsProvider;
     imagemanager::ImageStoreStub           mImageStore;
+    iamclient::IdentProviderStub           mIdentProvider;
     networkmanager::NetworkManagerStub     mNetworkManager;
     nodeinfoprovider::NodeInfoProviderStub mNodeInfoProvider;
     NiceMock<launcher::InstanceRunnerStub> mInstanceRunner;
@@ -173,12 +176,14 @@ protected:
 bool ValidateGID(size_t gid)
 {
     (void)gid;
+
     return true;
 }
 
 bool ValidateUID(size_t uid)
 {
     (void)uid;
+
     return true;
 }
 
@@ -191,11 +196,8 @@ uint32_t GenerateUID()
 
 InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci::cDigestLen> manifestDigest = {},
     const String& runtimeID = "1.0.0", const String& nodeID = "",
-    InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {},
-    bool cached = false)
+    InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {})
 {
-    (void)instanceState;
-
     InstanceInfo result;
 
     result.mInstanceIdent  = instance;
@@ -205,13 +207,13 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
     result.mPrevNodeID     = nodeID;
     result.mUID            = uid != 0 ? uid : GenerateUID();
     result.mTimestamp      = timestamp;
-    result.mCached         = cached;
+    result.mState          = instanceState;
 
     return result;
 }
 
 InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::string& nodeID,
-    const std::string& runtimeID, InstanceState state = InstanceStateEnum::eFailed,
+    const std::string& runtimeID, aos::InstanceState state = aos::InstanceStateEnum::eFailed,
     const Error& error = ErrorEnum::eTimeout)
 {
     InstanceStatus result;
@@ -223,7 +225,7 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::st
     result.mError                       = error;
 
     if (!error.IsNone()) {
-        result.mState = InstanceStateEnum::eFailed;
+        result.mState = aos::InstanceStateEnum::eFailed;
     }
 
     return result;
@@ -241,12 +243,13 @@ RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string
 {
     RunInstanceRequest request;
 
-    request.mItemID                 = itemID.c_str();
-    request.mUpdateItemType         = updateItemType;
-    request.mOwnerID                = ownerID.c_str();
-    request.mSubjectInfo.mSubjectID = subjectID.c_str();
-    request.mPriority               = priority;
-    request.mNumInstances           = numInstances;
+    request.mItemID                     = itemID.c_str();
+    request.mUpdateItemType             = updateItemType;
+    request.mOwnerID                    = ownerID.c_str();
+    request.mSubjectInfo.mSubjectID     = subjectID.c_str();
+    request.mSubjectInfo.mIsUnitSubject = true;
+    request.mPriority                   = priority;
+    request.mNumInstances               = numInstances;
 
     for (const auto& label : labels) {
         request.mLabels.PushBack(label.c_str());
@@ -535,7 +538,7 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -574,13 +577,13 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     // Add outdated TTL.
     ASSERT_TRUE(mStorage
                     .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1), manifestService1, "1.0.0", "",
-                        InstanceStateEnum::eInactive, 5000, Time::Now().Add(-25 * Time::cHours), true))
+                        InstanceStateEnum::eCached, 5000, Time::Now().Add(-25 * Time::cHours)))
                     .IsNone());
 
     // Add instance with current timestamp.
     ASSERT_TRUE(mStorage
                     .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService2), manifestService2, "1.0.0", "",
-                        InstanceStateEnum::eInactive, 5001, Time::Now(), true))
+                        InstanceStateEnum::eCached, 5001, Time::Now()))
                     .IsNone());
 
     mInstanceRunner.Init(mLauncher);
@@ -589,7 +592,7 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -660,7 +663,7 @@ TEST_F(CMLauncherTest, InitialStatus)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     // Start launcher
@@ -674,7 +677,7 @@ TEST_F(CMLauncherTest, InitialStatus)
 
     for (const auto& instance : *storedInstances) {
         statuses.push_back(CreateInstanceStatus(instance.mInstanceIdent, instance.mNodeID.CStr(),
-            instance.mRuntimeID.CStr(), InstanceStateEnum::eActivating, ErrorEnum::eNone));
+            instance.mRuntimeID.CStr(), aos::InstanceStateEnum::eActivating, ErrorEnum::eNone));
     }
 
     mInstanceStatusProvider.SetStatuses(statuses);
@@ -731,7 +734,7 @@ TEST_F(CMLauncherTest, CacheInstances)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -754,9 +757,9 @@ TEST_F(CMLauncherTest, CacheInstances)
     EXPECT_EQ((*instances)[0].mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
     EXPECT_EQ((*instances)[1].mInstanceIdent, CreateInstanceIdent(cService2, cSubject1, 0));
     EXPECT_EQ((*instances)[2].mInstanceIdent, CreateInstanceIdent(cService3, cSubject1, 0));
-    EXPECT_FALSE((*instances)[0].mCached);
-    EXPECT_FALSE((*instances)[1].mCached);
-    EXPECT_FALSE((*instances)[2].mCached);
+    EXPECT_NE((*instances)[0].mState, InstanceStateEnum::eCached);
+    EXPECT_NE((*instances)[1].mState, InstanceStateEnum::eCached);
+    EXPECT_NE((*instances)[2].mState, InstanceStateEnum::eCached);
 
     // Run instances 2
     auto runRequest2 = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
@@ -771,9 +774,9 @@ TEST_F(CMLauncherTest, CacheInstances)
     EXPECT_EQ((*instances)[0].mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
     EXPECT_EQ((*instances)[1].mInstanceIdent, CreateInstanceIdent(cService2, cSubject1, 0));
     EXPECT_EQ((*instances)[2].mInstanceIdent, CreateInstanceIdent(cService3, cSubject1, 0));
-    EXPECT_FALSE((*instances)[0].mCached);
-    EXPECT_TRUE((*instances)[1].mCached);
-    EXPECT_TRUE((*instances)[2].mCached);
+    EXPECT_NE((*instances)[0].mState, InstanceStateEnum::eCached);
+    EXPECT_EQ((*instances)[1].mState, InstanceStateEnum::eCached);
+    EXPECT_EQ((*instances)[2].mState, InstanceStateEnum::eCached);
 
     // Stop launcher
     ASSERT_TRUE(mLauncher.Stop().IsNone());
@@ -816,7 +819,7 @@ TEST_F(CMLauncherTest, Components)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -997,9 +1000,9 @@ TestDataPtr TestItemLabels()
     testData->mExpectedRunStatus.PushBack(
         CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1), cNodeIDLocalSM, cRunnerRunc));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), "", "",
-        InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
+        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 1), "", "",
-        InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
+        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
 
     return testData;
 }
@@ -1103,7 +1106,7 @@ TestDataPtr TestItemStorageRatio()
     for (size_t i = 3; i < 5; ++i) {
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), "", "",
-                InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
+                aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
     }
 
     // Initialize empty requests for other nodes
@@ -1147,7 +1150,7 @@ TestDataPtr TestItemStateRatio()
     for (size_t i = 3; i < 5; ++i) {
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), "", "",
-                InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
+                aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
     }
 
     // Initialize empty requests for other nodes
@@ -1473,7 +1476,7 @@ TEST_F(CMLauncherTest, Balancing)
         ASSERT_TRUE(mLauncher
                         .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                             mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                            ValidateGID, ValidateUID)
+                            mIdentProvider, ValidateGID, ValidateUID)
                         .IsNone());
 
         InstanceStatusListenerStub instanceStatusListener;
@@ -1567,7 +1570,7 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1600,10 +1603,10 @@ TEST_F(CMLauncherTest, PlatformFiltering)
 
     // Check run status - service1 and service2 should fail, service3 should succeed
     auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
-    expectedRunStatus->PushBack(CreateInstanceStatus(
-        CreateInstanceIdent(cService1, cSubject1, 0), "", "", InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound)));
-    expectedRunStatus->PushBack(CreateInstanceStatus(
-        CreateInstanceIdent(cService2, cSubject1, 0), "", "", InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound)));
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), "", "",
+        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound)));
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), "", "",
+        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound)));
     expectedRunStatus->PushBack(
         CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDRemoteSM2, cRunnerRunc));
 
@@ -1655,7 +1658,7 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
     ASSERT_TRUE(mLauncher
                     .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        ValidateGID, ValidateUID)
+                        mIdentProvider, ValidateGID, ValidateUID)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1682,11 +1685,80 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
     // Verify latest instance statuses are correct (after resend).
     std::vector<InstanceStatus> expectedStatuses = {
         CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
-            InstanceStateEnum::eActivating, ErrorEnum::eNone),
+            aos::InstanceStateEnum::eActivating, ErrorEnum::eNone),
     };
 
     ASSERT_EQ(instanceStatusListener.GetLastStatuses(),
         Array<InstanceStatus>(expectedStatuses.data(), expectedStatuses.size()));
+}
+
+TEST_F(CMLauncherTest, SubjectChanged)
+{
+    using namespace std::chrono_literals;
+
+    Config cfg;
+    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    // Service config
+    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
+    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher);
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    // 1) Run a single instance with a single subject.
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    // Wait until we have at least some statuses recorded.
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2000ms));
+
+    // 2) Change subjects (remove all of them).
+    ASSERT_TRUE(mIdentProvider.SetSubjects({}).IsNone());
+
+    // 3) Check that instance fails with BadSubject error.
+    // Expect one more notification caused by rebalance after subjects update.
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(4, 2000ms));
+
+    // Verify latest instance statuses are failed with BadSubject error.
+    ASSERT_EQ(instanceStatusListener.GetLastStatuses(), Array<InstanceStatus>());
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
 } // namespace aos::cm::launcher
