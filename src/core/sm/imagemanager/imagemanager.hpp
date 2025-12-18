@@ -13,6 +13,7 @@
 
 #include "config.hpp"
 #include "itf/blobinfoprovider.hpp"
+#include "itf/imagehandler.hpp"
 #include "itf/imagemanager.hpp"
 #include "itf/iteminfoprovider.hpp"
 
@@ -36,11 +37,12 @@ public:
      * @param downloader downloader.
      * @param fileInfoProvider file info provider.
      * @param ociSpec OCI spec interface.
+     * @param imageHandler image handler.
      * @return Error.
      */
     Error Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
         spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
-        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec);
+        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler);
 
     /**
      * Returns all installed update items statuses.
@@ -86,14 +88,23 @@ public:
     Error GetLayerPath(const String& digest, String& path) const override;
 
 private:
-    static constexpr auto cBlobsFolder   = "blobs";
-    static constexpr auto cLayersFolder  = "layers";
-    static constexpr auto cAllocatorSize = cMaxNumConcurrentItems * sizeof(oci::ImageManifest);
+    static constexpr auto cBlobsFolder         = "blobs";
+    static constexpr auto cLayersFolder        = "layers";
+    static constexpr auto cUnpackedLayerFolder = "layer";
+    static constexpr auto cDigestFile          = "digest";
+    static constexpr auto cSizeFile            = "size";
+    static constexpr auto cAllocatorSize
+        = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig));
 
     Error CreateBlobPath(const String& digest, String& path) const;
+    Error CreateLayerPath(const String& digest, String& path) const;
     Error ValidateBlob(const String& path, const String& digest) const;
     Error DownloadBlob(const String& path, const String& digest, size_t size);
     Error InstallBlob(const oci::ContentDescriptor& descriptor);
+    Error ValidateLayer(const String& path, const String& diffDigest) const;
+    Error CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space);
+    Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest);
+    Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest);
     Error GetBlobURL(const String& digest, String& url) const;
     void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
 
@@ -103,6 +114,7 @@ private:
     downloader::DownloaderItf*         mDownloader {};
     fs::FileInfoProviderItf*           mFileInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
+    ImageHandlerItf*                   mImageHandler {};
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };
