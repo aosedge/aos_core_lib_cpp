@@ -17,6 +17,27 @@ namespace aos::cm::launcher {
  */
 
 /**
+ * Supported hash functions.
+ */
+class InstanceStateType {
+public:
+    enum class Enum { eActive, eDisabled, eCached };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sInstanceStateStrings[] = {
+            "active",
+            "disabled",
+            "cached",
+        };
+        return Array<const char* const>(sInstanceStateStrings, ArraySize(sInstanceStateStrings));
+    };
+};
+
+using InstanceStateEnum = InstanceStateType::Enum;
+using InstanceState     = EnumStringer<InstanceStateType>;
+
+/**
  * Persisted instance information.
  */
 struct InstanceInfo {
@@ -61,9 +82,14 @@ struct InstanceInfo {
     Time mTimestamp;
 
     /**
-     * Cached indicator.
+     * Instance state.
      */
-    bool mCached {};
+    InstanceState mState {};
+
+    /**
+     * Indicates whether instance uses unit subject.
+     */
+    bool mIsUnitSubject {};
 
     /**
      * Compares instance info.
@@ -75,7 +101,7 @@ struct InstanceInfo {
     {
         return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
             && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
-            && mTimestamp == rhs.mTimestamp && mCached == rhs.mCached;
+            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject;
     }
 
     /**
