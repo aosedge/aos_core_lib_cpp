@@ -1062,6 +1062,13 @@
 #endif
 
 /**
+ * Rootfs type len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN
+#define AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN 16
+#endif
+
+/**
  * Max num runtimes.
  */
 #ifndef AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES

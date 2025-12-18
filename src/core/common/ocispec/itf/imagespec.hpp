@@ -48,6 +48,11 @@ constexpr auto cMaxNumManifests = AOS_CONFIG_OCISPEC_MAX_NUM_MANIFESTS;
 constexpr auto cMaxNumLayers = AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS;
 
 /**
+ * Rootfs type len.
+ */
+constexpr auto cRootfsTypeLen = AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN;
+
+/**
  * Describes the platform which the image in the manifest runs on.
  */
 struct Platform {
@@ -215,6 +220,30 @@ struct ImageManifest {
 };
 
 /**
+ * Rootfs config struct.
+ */
+struct Rootfs {
+    StaticArray<StaticString<cDigestLen>, cMaxNumLayers> mDiffIDs;
+    StaticString<cRootfsTypeLen>                         mType;
+
+    /**
+     * Compares rootfs config.
+     *
+     * @param rhs rootfs config to compare.
+     * @return bool.
+     */
+    bool operator==(const Rootfs& rhs) const { return mDiffIDs == rhs.mDiffIDs && mType == rhs.mType; }
+
+    /**
+     * Compares rootfs config.
+     *
+     * @param rhs rootfs config to compare.
+     * @return bool.
+     */
+    bool operator!=(const Rootfs& rhs) const { return !operator==(rhs); }
+};
+
+/**
  * OCI image config part.
  */
 struct Config {
@@ -251,6 +280,7 @@ struct ImageConfig : public Platform {
     Time                     mCreated;
     StaticString<cAuthorLen> mAuthor;
     Config                   mConfig;
+    Rootfs                   mRootfs;
 
     /**
      * Compares image config.
