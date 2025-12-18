@@ -52,6 +52,14 @@ public:
      */
     Error RunInstances(const Array<RunInstanceRequest>& instances, UniqueLock<Mutex>& lock, bool rebalancing);
 
+    /**
+     * Saves subjects and returns flag indicating whether rebalancing is required.
+     *
+     * @param subjects subjects.
+     * @return RetWithError<bool>.
+     */
+    RetWithError<bool> SetSubjects(const Array<StaticString<cIDLen>>& subjects);
+
 private:
     static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)
         + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig)
@@ -95,13 +103,17 @@ private:
 
     Error PerformPolicyBalancing(const Array<RunInstanceRequest>& instances);
 
+    bool IsSubjectEnabled(const Instance& instance);
+
     ImageInfoProvider                  mImageInfoProvider;
     InstanceManager*                   mInstanceManager {};
     NodeManager*                       mNodeManager {};
     MonitoringProviderItf*             mMonitorProvider {};
     networkmanager::NetworkManagerItf* mNetworkManager {};
     InstanceRunnerItf*                 mRunner {};
-    StaticAllocator<cAllocatorSize>    mAllocator;
+    SubjectArray                       mSubjects;
+
+    StaticAllocator<cAllocatorSize> mAllocator;
 };
 
 /** @}*/

@@ -155,9 +155,10 @@ public:
     /**
      * Caches instance.
      *
+     * @param disable disable instance.
      * @return Error.
      */
-    virtual Error Cache() = 0;
+    virtual Error Cache(bool disable = false) = 0;
 
     /**
      * Returns requested CPU.
@@ -221,9 +222,10 @@ public:
     /**
      * Caches component instance.
      *
+     * @param disable disable instance.
      * @return Error.
      */
-    Error Cache() override;
+    Error Cache(bool disable = false) override;
 
     /**
      * Returns requested CPU for component instance.
@@ -277,9 +279,10 @@ public:
     /**
      * Caches service instance.
      *
+     * @param disable disable instance.
      * @return Error.
      */
-    Error Cache() override;
+    Error Cache(bool disable = false) override;
 
     /**
      * Returns requested CPU for service instance.

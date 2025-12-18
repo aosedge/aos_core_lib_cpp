@@ -95,6 +95,11 @@ Array<SharedPtr<Instance>>& InstanceManager::GetActiveInstances()
     return mActiveInstances;
 }
 
+Array<SharedPtr<Instance>>& InstanceManager::GetCachedInstances()
+{
+    return mCachedInstances;
+}
+
 Array<SharedPtr<Instance>>& InstanceManager::GetStashInstances()
 {
     return mStashInstances;
@@ -127,10 +132,26 @@ Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInst
         return ErrorEnum::eNone;
     }
 
+    instance = FindCachedInstance(id);
+    if (instance != nullptr) {
+        if ((*instance)->GetInfo().mState == InstanceStateEnum::eDisabled) {
+            return ErrorEnum::eNone;
+        }
+
+        if (auto err = mStashInstances.PushBack(*instance); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        mCachedInstances.Erase(instance);
+
+        return ErrorEnum::eNone;
+    }
+
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
     instanceInfo->mInstanceIdent = id;
     instanceInfo->mTimestamp     = Time::Now();
+    instanceInfo->mIsUnitSubject = request.mSubjectInfo.mIsUnitSubject;
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -172,6 +193,20 @@ Error InstanceManager::SubmitStash()
     return ErrorEnum::eNone;
 }
 
+Error InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
+{
+    if (auto err = instance->Cache(true); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mCachedInstances.PushBack(instance);
+
+    mStashInstances.Remove(instance);
+    mActiveInstances.Remove(instance);
+
+    return ErrorEnum::eNone;
+}
+
 SharedPtr<Instance>* InstanceManager::FindActiveInstance(const InstanceIdent& id)
 {
     auto instance = mActiveInstances.FindIf(
@@ -186,6 +221,14 @@ SharedPtr<Instance>* InstanceManager::FindStashInstance(const InstanceIdent& id)
         [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
 
     return instance != mStashInstances.end() ? instance : nullptr;
+}
+
+SharedPtr<Instance>* InstanceManager::FindCachedInstance(const InstanceIdent& id)
+{
+    auto instance = mCachedInstances.FindIf(
+        [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
+
+    return instance != mCachedInstances.end() ? instance : nullptr;
 }
 
 void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonitoringData>& monitoringData)
@@ -228,7 +271,7 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
         return createErr;
     }
 
-    if (!info.mCached) {
+    if (info.mState == InstanceStateEnum::eActive) {
         if (auto err = mActiveInstances.EmplaceBack(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -244,7 +287,7 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
 Error InstanceManager::SetExpiredStatus()
 {
     for (auto& instance : mActiveInstances) {
-        if (instance->GetStatus().mState == InstanceStateEnum::eActivating) {
+        if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating) {
             instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eFailed));
         }
     }

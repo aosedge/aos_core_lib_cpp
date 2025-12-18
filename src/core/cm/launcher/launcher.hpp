@@ -12,6 +12,7 @@
 #include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/itf/storagestate.hpp>
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
+#include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 
 #include "itf/instancestatusreceiver.hpp"
@@ -34,7 +35,8 @@ namespace aos::cm::launcher {
 class Launcher : public LauncherItf,
                  public InstanceStatusReceiverItf,
                  private nodeinfoprovider::NodeInfoListenerItf,
-                 private alerts::AlertsListenerItf {
+                 private alerts::AlertsListenerItf,
+                 private iamclient::SubjectsListenerItf {
 public:
     /**
      * Initializes launcher object instance.
@@ -49,6 +51,7 @@ public:
      * @param networkManager interface to manage networks of service instances.
      * @param monitorProvider monitoring provider.
      * @param alertsProvider alerts provider.
+     * @param identProvider ident provider.
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @return Error.
@@ -58,7 +61,8 @@ public:
         imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
-        alerts::AlertsProviderItf& alertsProvider, IDValidator gidValidator, IDValidator uidValidator);
+        alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider, IDValidator gidValidator,
+        IDValidator uidValidator);
 
     /**
      * Starts launcher instance.
@@ -126,7 +130,7 @@ private:
 
     Error Rebalance(UniqueLock<Mutex>& lock);
 
-    void MonitorNodes();
+    void ProcessUpdate();
 
     //
     // InstanceStatusReceiverItf implementation
@@ -148,9 +152,16 @@ private:
 
     Error OnAlertReceived(const AlertVariant& alert) override;
 
+    //
+    // iamclient::SubjectsListenerItf implementation
+    //
+
+    void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
+
     Config                                 mConfig;
     StorageItf*                            mStorage {};
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
+    iamclient::IdentProviderItf*           mIdentProvider {};
     InstanceRunnerItf*                     mRunner {};
     unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
     storagestate::StorageStateItf*         mStorageState {};
@@ -167,11 +178,14 @@ private:
 
     StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
 
-    Thread<>                                        mThread;
-    ConditionalVariable                             mMonitorNodesCondVar;
+    Thread<>                                        mWorkerThread;
+    ConditionalVariable                             mProcessUpdatesCondVar;
     StaticArray<StaticString<cIDLen>, cMaxNumNodes> mUpdatedNodes;
     bool                                            mIsRunning {};
-    bool                                            mDisableNodeMonitor {};
+    bool                                            mDisableProcessUpdates {};
+
+    Optional<SubjectArray> mNewSubjects;
+    Mutex                  mNewSubjectsMutex;
 
     Mutex                           mMutex;
     StaticAllocator<cAllocatorSize> mAllocator;

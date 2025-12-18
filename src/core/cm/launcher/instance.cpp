@@ -76,12 +76,12 @@ Error Instance::Schedule(const aos::InstanceInfo& info, const String& nodeID)
     mInfo.mUID            = info.mUID;
     mInfo.mGID            = info.mGID;
     mInfo.mTimestamp      = Time::Now();
-    mInfo.mCached         = false;
+    mInfo.mState          = InstanceStateEnum::eActive;
 
     static_cast<InstanceIdent&>(mStatus) = static_cast<const InstanceIdent&>(info);
     mStatus.mNodeID                      = nodeID;
     mStatus.mRuntimeID                   = info.mRuntimeID;
-    mStatus.mState                       = InstanceStateEnum::eActivating;
+    mStatus.mState                       = aos::InstanceStateEnum::eActivating;
     mStatus.mError                       = ErrorEnum::eNone;
 
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
@@ -97,7 +97,7 @@ void Instance::SetError(const Error& err)
     mInfo.mNodeID     = "";
 
     mStatus.mError = err;
-    mStatus.mState = InstanceStateEnum::eFailed;
+    mStatus.mState = aos::InstanceStateEnum::eFailed;
 
     if (auto updateErr = mStorage.UpdateInstance(mInfo); !updateErr.IsNone()) {
         LOG_ERR() << "Can't set instance error status" << Log::Field(err);
@@ -134,11 +134,11 @@ Error ComponentInstance::Remove()
     return ErrorEnum::eNone;
 }
 
-Error ComponentInstance::Cache()
+Error ComponentInstance::Cache(bool disable)
 {
-    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << ", disable=" << disable;
 
-    mInfo.mCached = true;
+    mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
     mInfo.mNodeID = "";
 
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
@@ -228,11 +228,11 @@ Error ServiceInstance::Remove()
     return ErrorEnum::eNone;
 }
 
-Error ServiceInstance::Cache()
+Error ServiceInstance::Cache(bool disable)
 {
-    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << ", disable=" << disable;
 
-    mInfo.mCached = true;
+    mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
     mInfo.mNodeID = "";
 
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
