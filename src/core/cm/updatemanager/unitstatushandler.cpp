@@ -302,7 +302,9 @@ void UnitStatusHandler::OnConnect()
         mCloudConnected = true;
     }
 
-    SendFullUnitStatus();
+    if (auto err = SendFullUnitStatus(); !err.IsNone()) {
+        LOG_ERR() << "Failed to send full unit status on cloud connect" << Log::Field(err);
+    }
 }
 
 void UnitStatusHandler::OnDisconnect()
