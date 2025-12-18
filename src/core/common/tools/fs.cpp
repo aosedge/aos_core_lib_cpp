@@ -716,4 +716,55 @@ Error BaseName(const String& path, String& base)
     return ErrorEnum::eNone;
 }
 
+Error ParentPath(const String& path, String& parent)
+{
+    if (auto err = parent.Assign(path); !err.IsNone()) {
+        return err;
+    }
+
+    if (parent.Size() == 0) {
+        return ErrorEnum::eNone;
+    }
+
+    parent.RightTrim("/");
+
+    if (parent.Size() == 0) {
+        parent = "/";
+
+        return ErrorEnum::eNone;
+    }
+
+    size_t lastSlash = parent.Size();
+
+    for (size_t i = parent.Size(); i > 0; --i) {
+        if (parent[i - 1] == '/') {
+            lastSlash = i - 1;
+
+            break;
+        }
+    }
+
+    if (lastSlash == parent.Size()) {
+        parent.Clear();
+
+        return ErrorEnum::eNone;
+    }
+
+    if (lastSlash == 0) {
+        return parent.Resize(1);
+    }
+
+    if (auto err = parent.Resize(lastSlash); !err.IsNone()) {
+        return err;
+    }
+
+    parent.RightTrim("/");
+
+    if (parent.Size() == 0) {
+        parent = "/";
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::fs

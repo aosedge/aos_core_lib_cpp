@@ -508,6 +508,7 @@ TEST_F(FSTest, BaseName)
 {
     auto check = [](const char* input, const char* expected) {
         StaticString<cFilePathLen> base;
+
         EXPECT_TRUE(fs::BaseName(input, base).IsNone()) << "Input: " << input;
         EXPECT_STREQ(base.CStr(), expected) << "Input: " << input;
     };
@@ -527,4 +528,32 @@ TEST_F(FSTest, BaseName)
     check("home", "home");
     check("home/", "home");
     check("/dir//sub///file//", "file");
+}
+
+TEST_F(FSTest, ParentPath)
+{
+    auto check = [](const char* input, const char* expected) {
+        StaticString<cFilePathLen> parent;
+
+        EXPECT_TRUE(fs::ParentPath(input, parent).IsNone()) << "Input: " << input;
+        EXPECT_STREQ(parent.CStr(), expected) << "Input: " << input;
+    };
+
+    check("", "");
+    check("/", "/");
+    check("////", "/");
+
+    check(".", "");
+    check("..", "");
+
+    check("file", "");
+    check("dir/", "");
+
+    check("/home/root/test.txt", "/home/root");
+    check("/home/root/", "/home");
+    check("home", "");
+    check("home/", "");
+    check("/dir//sub///file//", "/dir//sub");
+
+    check("/file", "/");
 }
