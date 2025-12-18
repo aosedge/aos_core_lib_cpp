@@ -22,8 +22,8 @@ namespace aos::sm::smclient {
 /**
  * SM client.
  */
-class SMClientItf : public alerts::SenderItf,
-                    public monitoring::SenderItf,
+class SMClientItf : public aos::alerts::SenderItf,
+                    public aos::monitoring::SenderItf,
                     public aos::logging::SenderItf,
                     public launcher::SenderItf,
                     public imagemanager::BlobInfoProviderItf,
