@@ -636,6 +636,7 @@ struct InstanceFilter {
 struct SubjectInfo {
     StaticString<cIDLen> mSubjectID;
     SubjectType          mSubjectType;
+    bool                 mIsUnitSubject {};
 
     /**
      * Compares subject info.
@@ -645,7 +646,7 @@ struct SubjectInfo {
      */
     bool operator==(const SubjectInfo& rhs) const
     {
-        return mSubjectID == rhs.mSubjectID && mSubjectType == rhs.mSubjectType;
+        return mSubjectID == rhs.mSubjectID && mSubjectType == rhs.mSubjectType && mIsUnitSubject == rhs.mIsUnitSubject;
     }
 
     /**
