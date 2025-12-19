@@ -15,6 +15,7 @@
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 
+#include "itf/envvarhandler.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 #include "itf/storage.hpp"
@@ -34,6 +35,7 @@ namespace aos::cm::launcher {
  */
 class Launcher : public LauncherItf,
                  public InstanceStatusReceiverItf,
+                 public EnvVarHandlerItf,
                  private nodeinfoprovider::NodeInfoListenerItf,
                  private alerts::AlertsListenerItf,
                  private iamclient::SubjectsListenerItf {
@@ -116,6 +118,18 @@ public:
      * @return Error.
      */
     Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override;
+
+    //
+    // EnvVarHandlerItf implementation
+    //
+
+    /**
+     * Overrides environment variables.
+     *
+     * @param envVars environment variables.
+     * @return Error.
+     */
+    Error OverrideEnvVars(const OverrideEnvVarsRequest& envVars) override;
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 8;
