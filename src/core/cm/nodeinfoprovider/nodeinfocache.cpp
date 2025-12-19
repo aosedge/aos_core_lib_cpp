@@ -32,6 +32,8 @@ void NodeInfoCache::GetUnitNodeInfo(UnitNodeInfo& info) const
     info = mNodeInfo;
 
     if (!mHasSMComponent || mSMReceived) {
+        info.mIsConnected = true;
+
         return;
     }
 
