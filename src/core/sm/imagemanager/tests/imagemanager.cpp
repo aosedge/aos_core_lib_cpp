@@ -55,7 +55,7 @@ Error SplitDigest(const String& digest, String& alg, String& hash)
     return ErrorEnum::eNone;
 }
 
-fs::FileInfo GetFileInfo(const String& digest, size_t size = 1024)
+fs::FileInfo GetFileInfoByDigest(const String& digest, size_t size = 1024)
 {
     fs::FileInfo                  fileInfo;
     StaticString<oci::cDigestLen> alg;
@@ -63,6 +63,22 @@ fs::FileInfo GetFileInfo(const String& digest, size_t size = 1024)
 
     auto err = SplitDigest(digest, alg, hash);
     EXPECT_TRUE(err.IsNone()) << "Failed to split digest: " << tests::utils::ErrorToStr(err);
+
+    err = hash.HexToByteArray(fileInfo.mSHA256);
+    EXPECT_TRUE(err.IsNone()) << "Failed to convert hash to byte array: " << tests::utils::ErrorToStr(err);
+
+    fileInfo.mSize = size;
+
+    return fileInfo;
+};
+
+fs::FileInfo GetFileInfoByPath(const String& path, size_t size = 1024)
+{
+    fs::FileInfo                  fileInfo;
+    StaticString<oci::cDigestLen> hash;
+
+    auto err = fs::BaseName(path, hash);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get base name: " << tests::utils::ErrorToStr(err);
 
     err = hash.HexToByteArray(fileInfo.mSHA256);
     EXPECT_TRUE(err.IsNone()) << "Failed to convert hash to byte array: " << tests::utils::ErrorToStr(err);
@@ -168,6 +184,18 @@ protected:
 
                     return ErrorEnum::eNone;
                 }));
+        EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_))
+            .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+                auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
+                EXPECT_TRUE(space);
+
+                EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
+                EXPECT_CALL(*space, Release()).Times(AtLeast(0));
+                EXPECT_CALL(*space, Resize(_)).Times(AtLeast(0));
+                EXPECT_CALL(*space, Size()).Times(AtLeast(0));
+
+                return {Move(space), ErrorEnum::eNone};
+            }));
     }
 
     void TearDown() override
@@ -215,20 +243,10 @@ TEST_F(ImageManagerTest, InstallComponent)
     EXPECT_CALL(mDownloaderMock, Download(String(cManifestDigest), _, manifestPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cLayerDigest), _, layerPath)).Times(1);
     EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfo(cManifestDigest)), Return(ErrorEnum::eNone)))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfo(cLayerDigest)), Return(ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cLayerDigest)), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(manifestPath, _))
         .WillOnce(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
-    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
-            auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
-            EXPECT_TRUE(space);
-
-            EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
-            EXPECT_CALL(*space, Release()).Times(AtLeast(0));
-
-            return {Move(space), ErrorEnum::eNone};
-        }));
 
     // Install update item
 
@@ -300,10 +318,10 @@ TEST_F(ImageManagerTest, InstallService)
     EXPECT_CALL(mDownloaderMock, Download(String(cServiceConfigDigest), _, serviceConfigPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cLayerDigest), _, layerBlobPath)).Times(1);
     EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfo(cManifestDigest)), Return(ErrorEnum::eNone)))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfo(cImageConfigDigest)), Return(ErrorEnum::eNone)))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfo(cServiceConfigDigest)), Return(ErrorEnum::eNone)))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfo(cLayerDigest)), Return(ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cImageConfigDigest)), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cServiceConfigDigest)), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cLayerDigest)), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(manifestPath, _))
         .WillOnce(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mOCISpecMock, LoadImageConfig(imageConfigPath, _))
@@ -315,18 +333,6 @@ TEST_F(ImageManagerTest, InstallService)
         .Times(1);
     EXPECT_CALL(mImageHandlerMock, GetUnpackedLayerDigest(layerUnpackedPath))
         .WillOnce(Return(StaticString<oci::cDigestLen>(cUnpackedLayerDigest)));
-    EXPECT_CALL(mSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
-            auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
-            EXPECT_TRUE(space);
-
-            EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
-            EXPECT_CALL(*space, Release()).Times(AtLeast(0));
-            EXPECT_CALL(*space, Resize(_)).Times(AtLeast(0));
-            EXPECT_CALL(*space, Size()).Times(AtLeast(0));
-
-            return {Move(space), ErrorEnum::eNone};
-        }));
 
     // Install update item
 
@@ -355,6 +361,86 @@ TEST_F(ImageManagerTest, GetLayerPath)
     auto err = mImageManager.GetLayerPath(cDigest, path);
     EXPECT_TRUE(err.IsNone()) << "Failed to get layer path: " << tests::utils::ErrorToStr(err);
     EXPECT_EQ(path, layerPath);
+}
+
+TEST_F(ImageManagerTest, GetAllInstalledItems)
+{
+    std::vector<UpdateItemInfo> installItems
+        = {{"component1", UpdateItemTypeEnum::eComponent, "1.0.0",
+               "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+            {"service1", UpdateItemTypeEnum::eService, "1.0.0",
+                "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"},
+            {"component2", UpdateItemTypeEnum::eComponent, "2.0.0",
+                "sha256:0f9e8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e"},
+            {"service2", UpdateItemTypeEnum::eService, "2.0.0",
+                "sha256:9e8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e8d"},
+            {"component3", UpdateItemTypeEnum::eComponent, "3.0.0",
+                "sha256:8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e8d7c"},
+            {"service3", UpdateItemTypeEnum::eService, "3.0.0",
+                "sha256:7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e8d7c6b"}};
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo) -> Error {
+            fileInfo = GetFileInfoByPath(path);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(Invoke([](const String& path, oci::ImageManifest& manifest) -> Error {
+            (void)path;
+
+            manifest.mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+            manifest.mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+            manifest.mConfig.mSize      = 512;
+            manifest.mAosService.EmplaceValue(oci::ContentDescriptor {"application/vnd.aos.service.config.v1+json",
+                "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", 256});
+            manifest.mLayers.EmplaceBack(oci::ContentDescriptor {"application/vnd.oci.image.layer.v1.tar+gzip",
+                "sha256:4a6f6b8f5f5e3e7b9c4d3e2f1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b", 1024});
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mOCISpecMock, LoadImageConfig(_, _))
+        .WillRepeatedly(Invoke([](const String& path, oci::ImageConfig& imageConfig) -> Error {
+            (void)path;
+
+            imageConfig.mRootfs.mDiffIDs.EmplaceBack(
+                "sha256:0f9e8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e");
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mImageHandlerMock, GetUnpackedLayerSize(_, String("application/vnd.oci.image.layer.v1.tar+gzip")))
+        .WillRepeatedly(Return(1024));
+    EXPECT_CALL(mImageHandlerMock, GetUnpackedLayerDigest(_))
+        .WillRepeatedly(Return(
+            StaticString<oci::cDigestLen>("sha256:9e8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e8d")));
+
+    // Install update item
+
+    for (const auto& item : installItems) {
+        auto err = mImageManager.InstallUpdateItem(item);
+        EXPECT_TRUE(err.IsNone()) << "Failed to install item: " << tests::utils::ErrorToStr(err);
+    }
+
+    std::vector<size_t> removeIndexes = {1, 4};
+
+    for (auto it = removeIndexes.rbegin(); it != removeIndexes.rend(); ++it) {
+        auto err = mImageManager.RemoveUpdateItem(installItems[*it].mID, installItems[*it].mVersion);
+        EXPECT_TRUE(err.IsNone()) << "Failed to remove item: " << tests::utils::ErrorToStr(err);
+
+        installItems.erase(installItems.begin() + *it);
+    }
+
+    auto installedItems = std::make_unique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>();
+
+    auto err = mImageManager.GetAllInstalledItems(*installedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all installed items: " << tests::utils::ErrorToStr(err);
+
+    for (size_t i = 0; i < installedItems->Size(); ++i) {
+        UpdateItemStatus status
+            = {installItems[i].mID, installItems[i].mType, installItems[i].mVersion, ItemStateEnum::eInstalled};
+
+        EXPECT_EQ((*installedItems)[i], status);
+    }
 }
 
 } // namespace aos::sm::imagemanager

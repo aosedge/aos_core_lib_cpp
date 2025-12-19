@@ -71,16 +71,20 @@ Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProv
 
 Error ImageManager::GetAllInstalledItems(Array<UpdateItemStatus>& statuses) const
 {
-    (void)statuses;
-
     LOG_DBG() << "Get all installed items";
+
+    for (const auto& status : mInstalledItems) {
+        if (auto err = statuses.PushBack(status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     return ErrorEnum::eNone;
 }
 
 Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 {
-    LOG_DBG() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
+    LOG_INF() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
               << Log::Field("type", itemInfo.mType) << Log::Field("manifestDigest", itemInfo.mManifestDigest);
 
     oci::ContentDescriptor manifestDescriptor {"", itemInfo.mManifestDigest, 0};
@@ -152,12 +156,36 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
         }
     }
 
+    auto it = mInstalledItems.FindIf([&itemInfo](const UpdateItemStatus& status) {
+        return status.mID == itemInfo.mID && status.mVersion == itemInfo.mVersion;
+    });
+    if (it != mInstalledItems.end()) {
+        *it = UpdateItemStatus {itemInfo.mID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eInstalled};
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mInstalledItems.PushBack(
+            UpdateItemStatus {itemInfo.mID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eInstalled});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
 Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version)
 {
-    LOG_DBG() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+    LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    auto it = mInstalledItems.FindIf([&itemID, &version](const UpdateItemStatus& status) {
+        return status.mID == itemID && status.mVersion == version;
+    });
+    if (it != mInstalledItems.end()) {
+        mInstalledItems.Erase(it);
+    } else {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
 
     return ErrorEnum::eNone;
 }
