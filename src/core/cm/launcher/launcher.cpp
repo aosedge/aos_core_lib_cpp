@@ -246,6 +246,15 @@ Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listene
     return count == 0 ? AOS_ERROR_WRAP(ErrorEnum::eNotFound) : ErrorEnum::eNone;
 }
 
+Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
+{
+    (void)envVars;
+
+    LOG_DBG() << "Override env vars";
+
+    return ErrorEnum::eNone;
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
