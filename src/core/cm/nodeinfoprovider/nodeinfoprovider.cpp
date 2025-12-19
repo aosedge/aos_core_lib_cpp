@@ -258,17 +258,25 @@ void NodeInfoProvider::Run()
 
             for (const auto& nodeInfo : mCache) {
                 if (!nodeInfo.IsReady()) {
+                    LOG_DBG() << "Node info not ready" << Log::Field("nodeID", nodeInfo.GetNodeID());
+
                     continue;
                 }
 
                 auto it = mNotificationQueue.Find(nodeInfo.GetNodeID());
                 if (it == mNotificationQueue.end()) {
+                    LOG_DBG() << "No notification scheduled for node" << Log::Field("nodeID", nodeInfo.GetNodeID());
+
                     continue;
                 }
 
                 auto unitNodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
 
                 nodeInfo.GetUnitNodeInfo(*unitNodeInfo);
+
+                LOG_DBG() << "Notifying listeners about node info change" << Log::Field("nodeID", unitNodeInfo->mNodeID)
+                          << Log::Field("state", unitNodeInfo->mState)
+                          << Log::Field("isConnected", unitNodeInfo->mIsConnected) << Log::Field(unitNodeInfo->mError);
 
                 for (auto* listener : mListeners) {
                     listener->OnNodeInfoChanged(*unitNodeInfo);
