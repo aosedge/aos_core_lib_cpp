@@ -14,7 +14,7 @@ namespace aos::cm::monitoring {
  * Public
  **********************************************************************************************************************/
 
-Error Monitoring::Init(const Config& config, SenderItf& sender,
+Error Monitoring::Init(const Config& config, SenderItf& sender, cloudconnection::CloudConnectionItf& cloudConnection,
     instancestatusprovider::ProviderItf&   instanceStatusProvider,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider)
 {
@@ -22,6 +22,7 @@ Error Monitoring::Init(const Config& config, SenderItf& sender,
 
     mConfig                 = config;
     mSender                 = &sender;
+    mCloudConnection        = &cloudConnection;
     mInstanceStatusProvider = &instanceStatusProvider;
     mNodeInfoProvider       = &nodeInfoProvider;
 
@@ -44,8 +45,14 @@ Error Monitoring::Start()
         if (!err->IsNone()) {
             mInstanceStatusProvider->UnsubscribeListener(*this);
             mNodeInfoProvider->UnsubscribeListener(*this);
+            mCloudConnection->UnsubscribeListener(*this);
         }
     });
+
+    err = mCloudConnection->SubscribeListener(*this);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     err = mInstanceStatusProvider->SubscribeListener(*this);
     if (!err.IsNone()) {
@@ -86,6 +93,7 @@ Error Monitoring::Stop()
 
     mInstanceStatusProvider->UnsubscribeListener(*this);
     mNodeInfoProvider->UnsubscribeListener(*this);
+    mCloudConnection->UnsubscribeListener(*this);
 
     mIsRunning = false;
 
