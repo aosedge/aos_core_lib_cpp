@@ -14,7 +14,7 @@ set(TARGET_NAME mocks)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS cnimock.hpp launchermock.hpp networkmanagermock.hpp resourcemanagermock.hpp runnermock.hpp storagemock.hpp)
+set(HEADERS cnimock.hpp launchermock.hpp networkmanagermock.hpp resourcemanagermock.hpp storagemock.hpp)
 
 # ######################################################################################################################
 # Target
