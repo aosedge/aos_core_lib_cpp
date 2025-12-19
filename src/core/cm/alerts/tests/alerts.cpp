@@ -13,6 +13,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 
@@ -124,9 +125,10 @@ class AlertsTest : public Test {
 protected:
     void SetUp() override { tests::utils::InitLog(); }
 
-    alerts::Config          mConfig {Time::cSeconds * 1};
-    SenderStub              mCommunication;
-    std::unique_ptr<Alerts> mAlerts = std::make_unique<Alerts>();
+    alerts::Config                       mConfig {Time::cSeconds * 1};
+    SenderStub                           mCommunication;
+    cloudconnection::CloudConnectionMock mCloudConnection;
+    std::unique_ptr<Alerts>              mAlerts = std::make_unique<Alerts>();
 };
 
 /***********************************************************************************************************************
@@ -148,13 +150,22 @@ TEST_F(AlertsTest, DuplicatesAreSkipped)
         CreateCoreAlert(cTime.Add(Time::cSeconds * 2), "node2", "test message 3"),
     };
 
-    auto err = mAlerts->Init(mConfig, mCommunication);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
 
-    mAlerts->OnConnect();
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    connectionListener->OnConnect();
 
     for (const auto& alert : cAlerts) {
         err = mAlerts->OnAlertReceived(*alert);
@@ -166,6 +177,8 @@ TEST_F(AlertsTest, DuplicatesAreSkipped)
 
     EXPECT_EQ(msg->mItems.Size(), cExpectedSentAlertsCount);
 
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
     err = mAlerts->Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -173,6 +186,15 @@ TEST_F(AlertsTest, DuplicatesAreSkipped)
 TEST_F(AlertsTest, AlertIsSkippedIfBufferIsFull)
 {
     const auto cTime = Time::Now();
+
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
 
     std::string message;
 
@@ -183,16 +205,16 @@ TEST_F(AlertsTest, AlertIsSkippedIfBufferIsFull)
         EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
     }
 
-    auto err = mAlerts->Init(mConfig, mCommunication);
+    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->OnAlertReceived(*CreateCoreAlert(cTime, "node1", "skipped alert"));
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    mAlerts->OnConnect();
-
     err = mAlerts->Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    connectionListener->OnConnect();
 
     size_t receivedAlertsCount = 0;
 
@@ -216,6 +238,8 @@ TEST_F(AlertsTest, AlertIsSkippedIfBufferIsFull)
 
     EXPECT_EQ(receivedAlertsCount, cAlertsCacheSize);
 
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
     err = mAlerts->Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -227,17 +251,26 @@ TEST_F(AlertsTest, PackagesAreSent)
         CreatePackage(cAlertItemsCount),
     };
 
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
     std::vector<aos::Alerts> receivedPackages;
 
     mConfig.mSendPeriod = Time::cSeconds * 3;
 
-    auto err = mAlerts->Init(mConfig, mCommunication);
+    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-
-    mAlerts->OnConnect();
 
     err = mAlerts->Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    connectionListener->OnConnect();
 
     for (const auto& package : cAlertPackages) {
         for (const auto& alert : package->mItems) {
@@ -257,6 +290,8 @@ TEST_F(AlertsTest, PackagesAreSent)
         }
     }
 
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
     err = mAlerts->Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -265,9 +300,18 @@ TEST_F(AlertsTest, PackagesAreSentOnReconnect)
 {
     const auto package = CreatePackage();
 
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
     std::vector<aos::Alerts> receivedPackages;
 
-    auto err = mAlerts->Init(mConfig, mCommunication);
+    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->Start();
@@ -281,7 +325,7 @@ TEST_F(AlertsTest, PackagesAreSentOnReconnect)
     auto msg = std::make_unique<aos::Alerts>();
     EXPECT_FALSE(mCommunication.WaitForMessage(*msg));
 
-    mAlerts->OnConnect();
+    connectionListener->OnConnect();
 
     EXPECT_TRUE(mCommunication.WaitForMessage(*msg));
 
@@ -292,6 +336,8 @@ TEST_F(AlertsTest, PackagesAreSentOnReconnect)
     } else {
         FAIL() << "Received message is not alerts";
     }
+
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
 
     err = mAlerts->Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -307,7 +353,7 @@ TEST_F(AlertsTest, ListenersAreNotified)
         AlertTagEnum::eCoreAlert,
     };
 
-    auto err = mAlerts->Init(mConfig, mCommunication);
+    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->SubscribeListener(
