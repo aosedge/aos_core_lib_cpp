@@ -138,7 +138,6 @@ private:
 
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
     Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) override;
-    Error OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvVarsInstanceStatus>& statuses) override;
 
     //
     // nodeinfoprovider::NodeInfoListenerItf implementation

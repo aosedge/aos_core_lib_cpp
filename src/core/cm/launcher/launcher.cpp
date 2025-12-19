@@ -429,14 +429,6 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
     return ErrorEnum::eNone;
 }
 
-Error Launcher::OnEnvVarsStatusesReceived(const String& nodeID, const Array<EnvVarsInstanceStatus>& statuses)
-{
-    (void)nodeID;
-    (void)statuses;
-
-    return ErrorEnum::eNone;
-}
-
 void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
