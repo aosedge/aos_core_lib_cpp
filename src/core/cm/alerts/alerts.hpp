@@ -42,9 +42,11 @@ public:
      *
      * @param config configuration object.
      * @param sender alerts sender object.
+     * @param cloudConnection cloud connection.
      * @return Error.
      */
-    Error Init(const alerts::Config& config, cm::alerts::SenderItf& sender);
+    Error Init(const alerts::Config& config, cm::alerts::SenderItf& sender,
+        cloudconnection::CloudConnectionItf& cloudConnection);
 
     /**
      * Starts alerts module.
@@ -67,16 +69,6 @@ public:
      * @return Error.
      */
     Error OnAlertReceived(const AlertVariant& alert) override;
-
-    /**
-     * Notifies publisher is connected.
-     */
-    void OnConnect() override;
-
-    /**
-     * Notifies publisher is disconnected.
-     */
-    void OnDisconnect() override;
 
     /**
      * Sends alert data.
@@ -110,6 +102,8 @@ private:
 
     using ListenersArray = StaticArray<AlertsListenerItf*, cListenersMaxCount>;
 
+    void                   OnConnect() override;
+    void                   OnDisconnect() override;
     Error                  HandleAlert(const AlertVariant& alert);
     Error                  SendAlerts();
     bool                   IsDuplicated(const AlertVariant& alert);
@@ -120,6 +114,7 @@ private:
     StaticAllocator<cAllocatorSize>                      mAllocator;
     alerts::Config                                       mConfig;
     cm::alerts::SenderItf*                               mSender {};
+    cloudconnection::CloudConnectionItf*                 mCloudConnection {};
     StaticArray<AlertVariant, cAlertsCacheSize>          mAlerts;
     StaticMap<AlertTag, ListenersArray, cAlertTagsCount> mListeners;
     Mutex                                                mMutex;

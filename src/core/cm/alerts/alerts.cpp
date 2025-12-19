@@ -44,12 +44,14 @@ private:
  * Public
  **********************************************************************************************************************/
 
-Error Alerts::Init(const alerts::Config& config, cm::alerts::SenderItf& sender)
+Error Alerts::Init(
+    const alerts::Config& config, cm::alerts::SenderItf& sender, cloudconnection::CloudConnectionItf& cloudConnection)
 {
-    LOG_DBG() << "Initialize alerts";
+    LOG_DBG() << "Initialize alerts" << Log::Field("sendPeriod", config.mSendPeriod);
 
-    mConfig = config;
-    mSender = &sender;
+    mConfig          = config;
+    mSender          = &sender;
+    mCloudConnection = &cloudConnection;
 
     return ErrorEnum::eNone;
 }
@@ -62,6 +64,10 @@ Error Alerts::Start()
 
     if (mIsRunning) {
         return ErrorEnum::eWrongState;
+    }
+
+    if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     mIsRunning = true;
@@ -88,7 +94,23 @@ Error Alerts::Stop()
 
     mIsRunning = false;
 
-    return mSendTimer.Stop();
+    Error err;
+
+    if (auto unsubscribeErr = mCloudConnection->UnsubscribeListener(*this); !unsubscribeErr.IsNone()) {
+        LOG_ERR() << "Failed to unsubscribe from cloud connection" << Log::Field(unsubscribeErr);
+
+        err = AOS_ERROR_WRAP(unsubscribeErr);
+    }
+
+    if (auto stopErr = mSendTimer.Stop(); !stopErr.IsNone()) {
+        LOG_ERR() << "Failed to stop alerts send timer" << Log::Field(stopErr);
+
+        if (err.IsNone()) {
+            err = AOS_ERROR_WRAP(stopErr);
+        }
+    }
+
+    return err;
 }
 
 Error Alerts::OnAlertReceived(const AlertVariant& alert)
