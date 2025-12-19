@@ -81,9 +81,13 @@ void NormalizeMonitoringData(NodeMonitoringData& monitoringData)
     uint64_t totalInstancesDownload = 0;
     uint64_t totalInstancesUpload   = 0;
 
+    monitoringData.mMonitoringData.mTimestamp = monitoringData.mTimestamp;
+
     auto& nodeMonitoringData = monitoringData.mMonitoringData;
 
-    for (const auto& instanceMonitoring : monitoringData.mInstances) {
+    for (auto& instanceMonitoring : monitoringData.mInstances) {
+        instanceMonitoring.mMonitoringData.mTimestamp = monitoringData.mTimestamp;
+
         totalInstancesDMIPS += instanceMonitoring.mMonitoringData.mCPU;
         totalInstancesRAM += instanceMonitoring.mMonitoringData.mRAM;
         totalInstancesDownload += instanceMonitoring.mMonitoringData.mDownload;
