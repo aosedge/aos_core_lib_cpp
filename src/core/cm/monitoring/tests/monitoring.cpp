@@ -8,6 +8,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
@@ -110,7 +111,8 @@ protected:
     {
         tests::utils::InitLog();
 
-        auto err = mMonitoring.Init(Config {Time::cSeconds * 1}, mSender, mInstanceStatusProvider, mNodeInfoProvider);
+        auto err = mMonitoring.Init(
+            Config {Time::cSeconds * 1}, mSender, mCloudConnection, mInstanceStatusProvider, mNodeInfoProvider);
         ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
         EXPECT_CALL(mInstanceStatusProvider, SubscribeListener(_)).WillOnce(Return(ErrorEnum::eNone));
@@ -121,6 +123,7 @@ protected:
     }
 
     SenderStub                             mSender;
+    cloudconnection::CloudConnectionMock   mCloudConnection;
     instancestatusprovider::ProviderMock   mInstanceStatusProvider;
     nodeinfoprovider::NodeInfoProviderMock mNodeInfoProvider;
     Monitoring                             mMonitoring;
@@ -132,6 +135,15 @@ protected:
 
 TEST_F(CMMonitoring, OnMonitoringReceived)
 {
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
     auto err = mMonitoring.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -152,7 +164,7 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
     err = mMonitoring.OnMonitoringReceived(*nodeMonitoring);
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    mMonitoring.OnConnect();
+    connectionListener->OnConnect();
 
     auto monitoring = std::make_unique<aos::Monitoring>();
 
@@ -176,12 +188,23 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
     EXPECT_EQ(monitoring->mInstances[0].mItems[0].mPartitions[0].mName, "partition1");
     EXPECT_EQ(monitoring->mInstances[0].mItems[0].mPartitions[0].mUsedSize, 512.0);
 
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
     err = mMonitoring.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
 TEST_F(CMMonitoring, OnNodeInfoChanged)
 {
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
     auto err = mMonitoring.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -196,7 +219,7 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
         mMonitoring.OnNodeInfoChanged(*nodeInfo);
     }
 
-    mMonitoring.OnConnect();
+    connectionListener->OnConnect();
 
     auto monitoring = std::make_unique<aos::Monitoring>();
 
@@ -221,6 +244,8 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
     EXPECT_EQ(monitoring->mNodes[1].mStates[1].mIsConnected, true);
     EXPECT_EQ(monitoring->mNodes[1].mStates[1].mState.GetValue(), NodeStateEnum::eProvisioned);
 
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
     err = mMonitoring.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -228,6 +253,15 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
 TEST_F(CMMonitoring, OnInstancesStatusesChanged)
 {
     const InstanceIdent ident0 {"itemID", "subjectID", 0, UpdateItemTypeEnum::eService};
+
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
 
     auto err = mMonitoring.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -244,7 +278,7 @@ TEST_F(CMMonitoring, OnInstancesStatusesChanged)
         mMonitoring.OnInstancesStatusesChanged(Array<InstanceStatus> {status.get(), 1});
     }
 
-    mMonitoring.OnConnect();
+    connectionListener->OnConnect();
 
     auto monitoring = std::make_unique<aos::Monitoring>();
 
@@ -262,6 +296,8 @@ TEST_F(CMMonitoring, OnInstancesStatusesChanged)
     EXPECT_EQ(monitoring->mInstances[1].mNodeID, "node2");
     EXPECT_EQ(monitoring->mInstances[1].mStates.Size(), 1);
     EXPECT_EQ(monitoring->mInstances[1].mStates[0].mState.GetValue(), InstanceStateEnum::eActivating);
+
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
 
     err = mMonitoring.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);

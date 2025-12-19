@@ -33,11 +33,13 @@ public:
      *
      * @param config monitoring configuration.
      * @param sender monitoring sender object.
+     * @param cloudConnection cloud connection.
      * @param instanceStatusProvider instance status provider.
      * @param nodeInfoProvider node info provider.
      * @return Error.
      */
-    Error Init(const Config& config, SenderItf& sender, instancestatusprovider::ProviderItf& instanceStatusProvider,
+    Error Init(const Config& config, SenderItf& sender, cloudconnection::CloudConnectionItf& cloudConnection,
+        instancestatusprovider::ProviderItf&   instanceStatusProvider,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider);
 
     /**
@@ -76,17 +78,9 @@ public:
      */
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
 
-    /**
-     * Notifies publisher is connected.
-     */
-    void OnConnect() override;
-
-    /**
-     * Notifies publisher is disconnected.
-     */
-    void OnDisconnect() override;
-
 private:
+    void  OnConnect() override;
+    void  OnDisconnect() override;
     Error FillNodeMonitoring(const String& nodeID, const aos::monitoring::NodeMonitoringData& nodeMonitoring);
     Error FillInstanceMonitoring(const aos::monitoring::InstanceMonitoringData& instanceMonitoring);
     Error CacheMonitoringData(const aos::monitoring::NodeMonitoringData& monitoringData);
@@ -94,6 +88,7 @@ private:
 
     Config                                 mConfig;
     SenderItf*                             mSender {};
+    cloudconnection::CloudConnectionItf*   mCloudConnection {};
     instancestatusprovider::ProviderItf*   mInstanceStatusProvider {};
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     Mutex                                  mMutex;
