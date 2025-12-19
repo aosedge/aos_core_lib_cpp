@@ -8,5 +8,4 @@
 #include <core/sm/tests/mocks/launchermock.hpp>
 #include <core/sm/tests/mocks/networkmanagermock.hpp>
 #include <core/sm/tests/mocks/resourcemanagermock.hpp>
-#include <core/sm/tests/mocks/runnermock.hpp>
 #include <core/sm/tests/mocks/storagemock.hpp>
