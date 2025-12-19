@@ -117,6 +117,8 @@ private:
     ImageHandlerItf*                   mImageHandler {};
 
     StaticAllocator<cAllocatorSize> mAllocator;
+
+    StaticList<UpdateItemStatus, cMaxNumUpdateItems> mInstalledItems;
 };
 
 /** @}*/
