@@ -53,6 +53,12 @@ constexpr auto cMaxNumLayers = AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS;
 constexpr auto cRootfsTypeLen = AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN;
 
 /**
+ * OCI layer media type constants.
+ */
+constexpr auto cOCILayerTar     = "application/vnd.oci.image.layer.v1.tar";
+constexpr auto cOCILayerTarGZip = "application/vnd.oci.image.layer.v1.tar+gzip";
+
+/**
  * Describes the platform which the image in the manifest runs on.
  */
 struct Platform {
