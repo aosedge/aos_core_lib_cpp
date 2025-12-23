@@ -275,7 +275,8 @@ StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, con
 }
 
 aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::string& imageID,
-    const std::string& runtimeID, uint32_t uid, gid_t gid, const String& ip, uint64_t priority)
+    const std::string& runtimeID, uint32_t uid, gid_t gid, const String& ip, uint64_t priority,
+    const EnvVarArray& envVars = {}, SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup)
 {
     aos::InstanceInfo result;
 
@@ -288,6 +289,7 @@ aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::stri
 
     result.mManifestDigest = imagemanager::ImageStoreStub::BuildManifestDigest(itemID, image);
     result.mRuntimeID      = runtimeID.c_str();
+    result.mSubjectType    = subjectType;
     result.mUID            = uid;
     result.mGID            = gid;
     result.mPriority       = priority;
@@ -296,6 +298,7 @@ aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::stri
     result.mNetworkParameters.EmplaceValue();
     result.mNetworkParameters->mIP     = (std::string("172.17.0.") + ip.CStr()).c_str();
     result.mNetworkParameters->mSubnet = "172.17.0.0/16";
+    result.mEnvVars                    = envVars;
 
     return result;
 }
@@ -517,6 +520,22 @@ UnitNodeInfo CreateNodeInfo(const std::string& nodeID, size_t maxDMIPS, size_t t
     nodeInfo.mError       = error;
 
     return nodeInfo;
+}
+
+EnvVar CreateEnvVar(const std::string& name, const std::string& value)
+{
+    EnvVar var;
+
+    var.mName  = name.c_str();
+    var.mValue = value.c_str();
+
+    return var;
+}
+
+template <typename T>
+Array<T> ConvertToArray(const std::initializer_list<T>& list)
+{
+    return Array<T>(list.begin(), list.size());
 }
 
 /***********************************************************************************************************************
@@ -1757,6 +1776,110 @@ TEST_F(CMLauncherTest, SubjectChanged)
 
     // Verify latest instance statuses are failed with BadSubject error.
     ASSERT_EQ(instanceStatusListener.GetLastStatuses(), Array<InstanceStatus>());
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
+TEST_F(CMLauncherTest, OverrideEnvVars)
+{
+    using namespace std::chrono_literals;
+
+    Config cfg;
+    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    // Service config
+    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
+    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher);
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(cfg, mStorage, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    // 1) Run a single instance
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    // Wait until we have at least some statuses recorded
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2000ms));
+
+    // 2) Change override env vars with different TTLs
+    EnvVarsInstanceInfo envVarsInfo;
+    EnvVarInfo          envVar1, envVar2, envVar3;
+
+    envVarsInfo.mItemID.EmplaceValue(cService1);
+
+    // Env var 1: with expired TTL
+    static_cast<EnvVar&>(envVar1) = CreateEnvVar("OVERRIDE_VAR1", "override_value1");
+    envVar1.mTTL.SetValue(Time::Now().Add(-1 * Time::cHours));
+    envVarsInfo.mVariables.PushBack(envVar1);
+
+    // Env var 2: with non-expired TTL
+    static_cast<EnvVar&>(envVar2) = CreateEnvVar("OVERRIDE_VAR2", "override_value2");
+    envVar2.mTTL.SetValue(Time::Now().Add(1 * Time::cHours));
+    envVarsInfo.mVariables.PushBack(envVar2);
+
+    // Env var 3: without TTL
+    static_cast<EnvVar&>(envVar3) = CreateEnvVar("OVERRIDE_VAR3", "override_value3");
+    envVarsInfo.mVariables.PushBack(envVar3);
+
+    OverrideEnvVarsRequest overrideRequest;
+
+    overrideRequest.mItems.PushBack(envVarsInfo);
+
+    ASSERT_TRUE(mLauncher.OverrideEnvVars(overrideRequest).IsNone());
+
+    // 3) Wait for rebalancing finished
+    // Expect one more notification caused by rebalance after override env vars update
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(4, 2000ms));
+
+    // 4) Check result - verify only non-expired and no-TTL env vars are sent to instance runner
+    // (envVar1 with expired TTL should be filtered out)
+    auto expectedEnvVarsList
+        = {CreateEnvVar("OVERRIDE_VAR2", "override_value2"), CreateEnvVar("OVERRIDE_VAR3", "override_value3")};
+
+    InstanceRunnerStub::NodeRunRequest localSMRequest = {{},
+        {CreateAosInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, "3",
+            50, ConvertToArray(expectedEnvVarsList), SubjectTypeEnum::eGroup)}};
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
+    expectedRunRequests[cNodeIDLocalSM] = localSMRequest;
+
+    // Compare actual with expected
+    EXPECT_EQ(mInstanceRunner.GetNodeInstances(), expectedRunRequests);
 
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
