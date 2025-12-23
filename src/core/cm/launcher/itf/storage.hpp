@@ -9,6 +9,7 @@
 
 #include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/types/common.hpp>
+#include <core/common/types/envvars.hpp>
 
 namespace aos::cm::launcher {
 
@@ -92,6 +93,11 @@ struct InstanceInfo {
     bool mIsUnitSubject {};
 
     /**
+     * Environment variables assigned to the instance.
+     */
+    EnvVarArray mEnvVars;
+
+    /**
      * Compares instance info.
      *
      * @param other instance info to compare with.
@@ -101,7 +107,8 @@ struct InstanceInfo {
     {
         return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
             && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
-            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject;
+            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
+            && mEnvVars == rhs.mEnvVars;
     }
 
     /**
@@ -163,6 +170,21 @@ public:
      * @return Error.
      */
     virtual Error GetActiveInstances(Array<InstanceInfo>& instances) const = 0;
+
+    /**
+     * Saves override environment variables request.
+     *
+     * @param envVars override environment variables request.
+     * @return Error.
+     */
+    virtual Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) = 0;
+
+    /**
+     * Gets override environment variables request.
+     *
+     * @return override environment variables request.
+     */
+    virtual Error GetOverrideEnvVars(OverrideEnvVarsRequest& envVars) = 0;
 };
 
 /** @}*/

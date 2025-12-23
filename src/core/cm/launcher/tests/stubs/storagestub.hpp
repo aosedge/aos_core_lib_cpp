@@ -7,6 +7,7 @@
 #define AOS_CM_LAUNCHER_STUBS_STORAGESTUB_HPP_
 
 #include <map>
+#include <memory>
 
 #include <core/cm/launcher/itf/storage.hpp>
 
@@ -71,6 +72,20 @@ public:
         return Error();
     }
 
+    Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) override
+    {
+        *mOverrideEnvVarsRequest = envVars;
+
+        return Error();
+    }
+
+    Error GetOverrideEnvVars(OverrideEnvVarsRequest& envVars) override
+    {
+        envVars = *mOverrideEnvVarsRequest;
+
+        return Error();
+    }
+
     Error GetActiveInstances(Array<InstanceInfo>& instances) const override
     {
         instances.Clear();
@@ -92,7 +107,8 @@ public:
     void ClearInstances() { mInstanceInfo.clear(); }
 
 private:
-    std::map<InstanceIdent, InstanceInfo> mInstanceInfo;
+    std::map<InstanceIdent, InstanceInfo>   mInstanceInfo;
+    std::unique_ptr<OverrideEnvVarsRequest> mOverrideEnvVarsRequest = std::make_unique<OverrideEnvVarsRequest>();
 };
 
 } // namespace aos::cm::launcher
