@@ -30,6 +30,11 @@ template <typename T, typename I, typename CI>
 class AlgorithmItf {
 public:
     /**
+     * Destructor.
+     */
+    virtual ~AlgorithmItf() = default;
+
+    /**
      * Returns current container size.
      *
      * @return size_t.
