@@ -10,6 +10,7 @@
 #include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/types/common.hpp>
 #include <core/common/types/desiredstatus.hpp>
+#include <core/common/types/envvars.hpp>
 
 namespace aos::cm::launcher {
 
@@ -191,6 +192,22 @@ public:
      * @return Error.
      */
     virtual Error GetActiveInstances(Array<InstanceInfo>& instances) const = 0;
+
+    /**
+     * Saves override environment variables.
+     *
+     * @param envVars override environment variables.
+     * @return Error.
+     */
+    virtual Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) = 0;
+
+    /**
+     * Returns override environment variables.
+     *
+     * @param[out] envVars override environment variables.
+     * @return Error.
+     */
+    virtual Error GetOverrideEnvVars(OverrideEnvVarsRequest& envVars) = 0;
 };
 
 /** @}*/
