@@ -16,7 +16,7 @@ namespace aos::sm::launcher {
 
 Error Launcher::Init(const Array<RuntimeItf*>& runtimes, SenderItf& sender, StorageItf& storage)
 {
-    LOG_INF() << "Initializing launcher";
+    LOG_DBG() << "Init launcher";
 
     for (auto* runtime : runtimes) {
         if (auto err = mRuntimes.Set(runtime, ""); !err.IsNone()) {

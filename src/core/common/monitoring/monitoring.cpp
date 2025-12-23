@@ -121,7 +121,7 @@ Error Monitoring::Init(const Config& config, nodeconfig::NodeConfigProviderItf& 
     iamclient::CurrentNodeInfoProviderItf& currentNodeInfoProvider, SenderItf& sender, alerts::SenderItf& alertSender,
     NodeMonitoringProviderItf& nodeMonitoringProvider, InstanceInfoProviderItf* instanceInfoProvider)
 {
-    LOG_INF() << "Initialize monitoring";
+    LOG_DBG() << "Init monitoring";
 
     mConfig                  = config;
     mNodeConfigProvider      = &nodeConfigProvider;

@@ -47,7 +47,7 @@ Error ToRelativePath(const String& base, const String& full, String& result)
 Error StorageState::Init(const Config& config, StorageItf& storage, SenderItf& sender, fs::FSPlatformItf& fsPlatform,
     fs::FSWatcherItf& fsWatcher, crypto::HasherItf& hasher)
 {
-    LOG_INF() << "Initialize storage state";
+    LOG_DBG() << "Init storage state";
 
     mConfig        = config;
     mStorage       = &storage;
@@ -346,7 +346,7 @@ void StorageState::OnFSEvent(const String& path, const Array<fs::FSEvent>& event
 
 Error StorageState::InitStateWatching()
 {
-    LOG_DBG() << "Initialize state watching";
+    LOG_DBG() << "Init state watching";
 
     auto infos = MakeUnique<InstanceInfoArray>(&mAllocator);
 

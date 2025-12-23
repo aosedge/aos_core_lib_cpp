@@ -16,7 +16,7 @@ namespace aos::cm::nodeinfoprovider {
 
 Error NodeInfoProvider::Init(const Config& config, iamclient::NodeInfoProviderItf& nodeInfoProvider)
 {
-    LOG_DBG() << "Initialize node info provider";
+    LOG_DBG() << "Init node info provider";
 
     mNodeInfoProvider = &nodeInfoProvider;
 

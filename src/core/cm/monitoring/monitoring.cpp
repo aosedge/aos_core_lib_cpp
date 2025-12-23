@@ -18,7 +18,7 @@ Error Monitoring::Init(const Config& config, SenderItf& sender, cloudconnection:
     instancestatusprovider::ProviderItf&   instanceStatusProvider,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider)
 {
-    LOG_DBG() << "Initialize monitoring" << Log::Field("sendPeriod", config.mSendPeriod);
+    LOG_DBG() << "Init monitoring" << Log::Field("sendPeriod", config.mSendPeriod);
 
     mConfig                 = config;
     mSender                 = &sender;
