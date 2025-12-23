@@ -14,6 +14,7 @@
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
+#include <core/common/tools/timer.hpp>
 
 #include "itf/envvarhandler.hpp"
 #include "itf/instancestatusreceiver.hpp"
@@ -199,6 +200,9 @@ private:
 
     Optional<SubjectArray> mNewSubjects;
     Mutex                  mNewSubjectsMutex;
+
+    OverrideEnvVarsRequest mOverrideEnvVars;
+    Timer                  mEnvVarsTTLTimer;
 
     Mutex                           mMutex;
     StaticAllocator<cAllocatorSize> mAllocator;

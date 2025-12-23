@@ -146,6 +146,13 @@ public:
     void UpdateMonitoringData(const MonitoringData& monitoringData);
 
     /**
+     * Sets instance environment variables.
+     *
+     * @param envVars environment variables.
+     */
+    void SetEnvVars(const EnvVarArray& envVars) { mInfo.mEnvVars = envVars; }
+
+    /**
      * Removes instance.
      *
      * @return Error.

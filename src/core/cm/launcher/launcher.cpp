@@ -116,6 +116,19 @@ Error Launcher::Start()
     // Notify status listeners.
     NotifyInstanceStatusListeners(mInstanceStatuses);
 
+    // Load override environment variables.
+    if (auto err = mStorage->GetOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mBalancer.OverrideEnvVars(mOverrideEnvVars);
+
+    // Start timer to periodically check override environment variables TTLs.
+    auto onEnvVarsTTLTimerTick = [this](void*) { OverrideEnvVars(mOverrideEnvVars); };
+    if (auto err = mEnvVarsTTLTimer.Start(Time::cMinutes, onEnvVarsTTLTimerTick, false); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     // Start monitoring thread.
     mDisableProcessUpdates = false;
     mUpdatedNodes.Clear();
@@ -144,6 +157,11 @@ Error Launcher::Stop()
     }
 
     if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Stop TTL timer.
+    if (auto err = mEnvVarsTTLTimer.Stop(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -248,11 +266,35 @@ Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listene
 
 Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
 {
-    (void)envVars;
-
     LOG_DBG() << "Override env vars";
 
-    return ErrorEnum::eNone;
+    UniqueLock lock {mMutex};
+
+    mOverrideEnvVars = envVars;
+
+    // Remove variables with expired TTLs.
+    auto now = Time::Now();
+
+    for (auto& item : mOverrideEnvVars.mItems) {
+        item.mVariables.RemoveIf([&now](const EnvVarInfo& envVarInfo) {
+            return envVarInfo.mTTL.HasValue() && envVarInfo.mTTL.GetValue() < now;
+        });
+    }
+
+    mOverrideEnvVars.mItems.RemoveIf([](const EnvVarsInstanceInfo& item) { return item.mVariables.IsEmpty(); });
+
+    // Override environment variables.
+    if (!mBalancer.OverrideEnvVars(mOverrideEnvVars)) {
+        return ErrorEnum::eNone;
+    }
+
+    // Save override environment variables.
+    if (auto err = mStorage->SaveOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Rebalance instances.
+    return Rebalance(lock);
 }
 
 /***********************************************************************************************************************
