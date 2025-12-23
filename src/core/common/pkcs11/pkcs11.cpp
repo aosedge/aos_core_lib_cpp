@@ -359,7 +359,7 @@ Error LibraryContext::Init()
     auto rv = mFunctionList->C_Initialize(nullptr);
 #endif
     if (rv != CKR_OK) {
-        LOG_ERR() << "Initialize library failed: err = " << rv;
+        LOG_ERR() << "Init library failed: err = " << rv;
 
         return static_cast<int>(rv);
     }

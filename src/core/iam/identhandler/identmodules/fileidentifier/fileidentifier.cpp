@@ -28,7 +28,7 @@ constexpr auto cWhiteSpaces = "\n\t ";
 
 Error FileIdentifier::Init(const FileIdentifierConfig& config)
 {
-    LOG_DBG() << "Initialize file identifier";
+    LOG_DBG() << "Init file identifier";
 
     mConfig = config;
     mSubjects.Clear();

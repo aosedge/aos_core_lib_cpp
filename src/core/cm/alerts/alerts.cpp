@@ -47,7 +47,7 @@ private:
 Error Alerts::Init(
     const alerts::Config& config, cm::alerts::SenderItf& sender, cloudconnection::CloudConnectionItf& cloudConnection)
 {
-    LOG_DBG() << "Initialize alerts" << Log::Field("sendPeriod", config.mSendPeriod);
+    LOG_DBG() << "Init alerts" << Log::Field("sendPeriod", config.mSendPeriod);
 
     mConfig          = config;
     mSender          = &sender;
