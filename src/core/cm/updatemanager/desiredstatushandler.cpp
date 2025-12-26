@@ -87,8 +87,7 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
     if (mUpdateState != UpdateStateEnum::eNone) {
         LOG_WRN() << "Desired status processing is already scheduled. Set new desired status as pending";
     } else {
-        SetState(UpdateStateEnum::eDownloading);
-        mCondVar.NotifyOne();
+        StartUpdate();
     }
 
     return ErrorEnum::eNone;
@@ -97,6 +96,12 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+void DesiredStatusHandler::StartUpdate()
+{
+    SetState(UpdateStateEnum::eDownloading);
+    mCondVar.NotifyOne();
+}
 
 void DesiredStatusHandler::Run()
 {
