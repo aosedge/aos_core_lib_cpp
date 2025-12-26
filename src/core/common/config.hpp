@@ -103,7 +103,7 @@
  * ID len.
  */
 #ifndef AOS_CONFIG_TYPES_ID_LEN
-#define AOS_CONFIG_TYPES_ID_LEN 40
+#define AOS_CONFIG_TYPES_ID_LEN 64
 #endif
 
 /**
