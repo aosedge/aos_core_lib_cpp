@@ -40,16 +40,16 @@ public:
      * Initializes the instance manager with configuration and required interfaces.
      *
      * @param config Configuration object.
-     * @param storage Interface to persistent storage.
      * @param imageInfoProvider Interface for retrieving service information from images.
      * @param storageState Interface for managing storage and state partitions.
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
+     * @param storage Interface to persistent storage.
      * @return Error.
      */
-    Error Init(const Config& config, StorageItf& storage, storagestate::StorageStateItf& storageState,
-        imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
-        oci::OCISpecItf& ociSpec, IDValidator gidValidator, IDValidator uidValidator);
+    Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+        storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IDValidator gidValidator,
+        IDValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts the instance manager.

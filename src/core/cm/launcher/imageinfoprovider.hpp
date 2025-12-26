@@ -26,11 +26,9 @@ public:
      * @brief Initializes image info provider.
      *
      * @param itemInfoProvider item info provider.
-     * @param blobInfoProvider blob info provider.
      * @param ociSpec OCI spec.
      */
-    void Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
-        oci::OCISpecItf& ociSpec);
+    void Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec);
 
     /**
      * Returns OCI image config for the specified instance/image identifiers.
@@ -66,7 +64,6 @@ private:
         + sizeof(StaticString<oci::cDigestLen>);
 
     imagemanager::ItemInfoProviderItf* mItemInfoProvider {};
-    imagemanager::BlobInfoProviderItf* mBlobInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
 
     StaticAllocator<cAllocatorSize> mAllocator;

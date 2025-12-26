@@ -11,11 +11,9 @@
 
 namespace aos::cm::launcher {
 
-void ImageInfoProvider::Init(imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec)
+void ImageInfoProvider::Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec)
 {
     mItemInfoProvider = &itemInfoProvider;
-    mBlobInfoProvider = &blobInfoProvider;
     mOCISpec          = &ociSpec;
 }
 

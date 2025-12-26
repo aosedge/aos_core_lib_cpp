@@ -30,13 +30,12 @@ public:
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
+Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
     alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider, IDValidator gidValidator,
-    IDValidator uidValidator)
+    IDValidator uidValidator, StorageItf& storage)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -51,15 +50,15 @@ Error Launcher::Init(const Config& config, StorageItf& storage, nodeinfoprovider
     mAlertsProvider     = &alertsProvider;
     mIdentProvider      = &identProvider;
 
-    auto err = mInstanceManager.Init(
-        config, storage, storageState, itemInfoProvider, blobInfoProvider, ociSpec, gidValidator, uidValidator);
+    auto err
+        = mInstanceManager.Init(config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mStorageState, *mRunner);
-    mBalancer.Init(mInstanceManager, itemInfoProvider, blobInfoProvider, ociSpec, mNodeManager, *mMonitorProvider,
-        *mRunner, *mNetworkManager);
+    mBalancer.Init(
+        mInstanceManager, itemInfoProvider, ociSpec, mNodeManager, *mMonitorProvider, *mRunner, *mNetworkManager);
 
     return ErrorEnum::eNone;
 }
