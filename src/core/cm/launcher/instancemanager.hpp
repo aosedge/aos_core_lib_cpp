@@ -27,11 +27,6 @@ namespace aos::cm::launcher {
  */
 
 /**
- * @brief ID validator type.
- */
-using IDValidator = bool (*)(size_t id);
-
-/**
  * Auxiliary class accumulating data about running service instances.
  */
 class InstanceManager {
@@ -48,8 +43,8 @@ public:
      * @return Error.
      */
     Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IDValidator gidValidator,
-        IDValidator uidValidator, StorageItf& storage);
+        storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
+        IdentifierPoolValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts the instance manager.

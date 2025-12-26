@@ -13,6 +13,11 @@
 namespace aos {
 
 /**
+ * Validator function type.
+ */
+using IdentifierPoolValidator = bool (*)(size_t id);
+
+/**
  * Identifier range pool.
  * @tparam cStartRange pool's range start.
  * @tparam cRangeEnd pool's range end.
@@ -22,17 +27,12 @@ template <size_t cStartRange, size_t cRangeEnd, size_t cMaxNumLockedIDs>
 class IdentifierRangePool : public NonCopyable {
 public:
     /**
-     * Validator function type.
-     */
-    using Validator = bool (*)(size_t id);
-
-    /**
      * Initializes identifier pool.
      *
      * @param validator identifier validator functor.
      * @return Error.
      */
-    Error Init(Validator validator)
+    Error Init(IdentifierPoolValidator validator)
     {
         mValidator = validator;
 
@@ -129,7 +129,7 @@ public:
 private:
     Mutex                                 mMutex;
     StaticArray<size_t, cMaxNumLockedIDs> mLockedIds;
-    Validator                             mValidator {};
+    IdentifierPoolValidator               mValidator {};
 
     static_assert(cStartRange < cRangeEnd, "invalid identifier pool range");
 };
