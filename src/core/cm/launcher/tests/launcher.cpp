@@ -528,7 +528,7 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
     Config cfg;
 
     cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-    cfg.mServiceTTL             = 1 * Time::cSeconds;
+    cfg.mInstanceTTL            = 1 * Time::cSeconds;
 
     ASSERT_TRUE(mStorage.AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1))).IsNone());
 
@@ -556,7 +556,7 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     Config cfg;
 
     cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-    cfg.mServiceTTL             = 1 * Time::cHours;
+    cfg.mInstanceTTL            = 1 * Time::cHours;
 
     // Add services to the image provider.
     oci::ServiceConfig serviceConfig1;

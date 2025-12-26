@@ -17,6 +17,7 @@
 
 #include "itf/launcher.hpp"
 
+#include "config.hpp"
 #include "instance.hpp"
 
 namespace aos::cm::launcher {
@@ -29,14 +30,6 @@ namespace aos::cm::launcher {
  * @brief ID validator type.
  */
 using IDValidator = bool (*)(size_t id);
-
-/**
- * Launcher configuration.
- */
-struct Config {
-    Duration mNodesConnectionTimeout;
-    Duration mServiceTTL;
-};
 
 /**
  * Auxiliary class accumulating data about running service instances.
