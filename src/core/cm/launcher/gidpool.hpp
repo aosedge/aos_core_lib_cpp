@@ -36,15 +36,13 @@ static constexpr auto cMaxNumLockedGIDs = cMaxNumUpdateItems;
  */
 class GIDPool {
 public:
-    using Validator = IdentifierRangePool<cGIDRangeBegin, cGIDRangeEnd, cMaxNumLockedGIDs>::Validator;
-
     /**
      * Initializes the underlying identifier pool.
      *
      * @param validator validator callback.
      * @return Error.
      */
-    Error Init(Validator validator) { return mPool.Init(validator); }
+    Error Init(IdentifierPoolValidator validator) { return mPool.Init(validator); }
 
     /**
      * Returns a GID for an update item.

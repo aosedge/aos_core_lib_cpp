@@ -63,8 +63,8 @@ public:
         imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
-        alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider, IDValidator gidValidator,
-        IDValidator uidValidator, StorageItf& storage);
+        alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider,
+        IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts launcher instance.
