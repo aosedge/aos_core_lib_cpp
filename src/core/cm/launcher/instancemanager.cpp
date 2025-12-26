@@ -301,7 +301,7 @@ Error InstanceManager::RemoveOutdatedInstances()
     auto  now      = Time::Now();
 
     for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
-        if (now.Sub((*instance)->GetInfo().mTimestamp) >= mConfig.mServiceTTL) {
+        if (now.Sub((*instance)->GetInfo().mTimestamp) >= mConfig.mInstanceTTL) {
             if (auto err = (*instance)->Remove(); !err.IsNone()) {
                 firstErr = err;
             }
