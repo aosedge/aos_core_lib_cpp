@@ -48,6 +48,9 @@ Error NodeInfoProvider::Start()
             return AOS_ERROR_WRAP(err);
         }
 
+        LOG_INF() << "Node info" << Log::Field("nodeID", nodeInfo->mNodeID) << Log::Field("state", nodeInfo->mState)
+                  << Log::Field("isConnected", nodeInfo->mIsConnected) << Log::Field(nodeInfo->mError);
+
         if (auto err = mCache.EmplaceBack(mConfig.mSMConnectionTimeout, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
