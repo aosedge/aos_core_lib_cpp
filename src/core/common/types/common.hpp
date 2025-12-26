@@ -984,7 +984,7 @@ struct RuntimeInfo : public PlatformInfo {
     Optional<size_t>              mMaxDMIPS;
     Optional<size_t>              mAllowedDMIPS;
     Optional<size_t>              mTotalRAM;
-    Optional<ssize_t>             mAllowedRAM;
+    Optional<size_t>              mAllowedRAM;
     size_t                        mMaxInstances {};
 
     /**
