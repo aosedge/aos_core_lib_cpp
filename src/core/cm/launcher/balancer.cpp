@@ -15,12 +15,11 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec, NodeManager& nodeManager,
-    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner,
-    networkmanager::NetworkManagerItf& networkManager)
+    oci::OCISpecItf& ociSpec, NodeManager& nodeManager, MonitoringProviderItf& monitorProvider,
+    InstanceRunnerItf& runner, networkmanager::NetworkManagerItf& networkManager)
 {
     mInstanceManager = &instanceManager;
-    mImageInfoProvider.Init(itemInfoProvider, blobInfoProvider, ociSpec);
+    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
     mNodeManager     = &nodeManager;
     mMonitorProvider = &monitorProvider;
     mRunner          = &runner;

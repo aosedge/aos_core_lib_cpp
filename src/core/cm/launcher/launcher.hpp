@@ -44,10 +44,10 @@ public:
      * Initializes launcher object instance.
      *
      * @param config configuration.
-     * @param storage storage interface.
      * @param nodeInfoProvider interface providing information about all unit nodes.
      * @param runner instance runner interface.
      * @param imageInfoProvider interface that retrieves service information from its image.
+     * @param ociSpec OCI spec interface.
      * @param nodeConfigProvider node config provider interface.
      * @param storageState interface to manage storage and state partitions.
      * @param networkManager interface to manage networks of service instances.
@@ -56,15 +56,15 @@ public:
      * @param identProvider ident provider.
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
+     * @param storage storage interface.
      * @return Error.
      */
-    Error Init(const Config& config, StorageItf& storage, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec,
+    Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
+        imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
         alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider, IDValidator gidValidator,
-        IDValidator uidValidator);
+        IDValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts launcher instance.

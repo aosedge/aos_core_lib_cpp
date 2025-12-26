@@ -14,14 +14,14 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-Error InstanceManager::Init(const Config& config, StorageItf& storage, storagestate::StorageStateItf& storageState,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, imagemanager::BlobInfoProviderItf& blobInfoProvider,
-    oci::OCISpecItf& ociSpec, IDValidator gidValidator, IDValidator uidValidator)
+Error InstanceManager::Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IDValidator gidValidator,
+    IDValidator uidValidator, StorageItf& storage)
 {
     mConfig       = config;
     mStorage      = &storage;
     mStorageState = &storageState;
-    mImageInfoProvider.Init(itemInfoProvider, blobInfoProvider, ociSpec);
+    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
 
     if (auto err = mUIDPool.Init(uidValidator); !err.IsNone()) {
         return err;

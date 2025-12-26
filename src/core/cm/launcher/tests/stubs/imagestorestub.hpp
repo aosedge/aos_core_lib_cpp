@@ -22,7 +22,7 @@ namespace aos::cm::imagemanager {
  * Test helper that emulates OCI images.
  * Provides ItemInfoProvider, BlobInfoProvider, and OCISpec interfaces.
  */
-class ImageStoreStub : public ItemInfoProviderItf, public BlobInfoProviderItf, public oci::OCISpecItf {
+class ImageStoreStub : public ItemInfoProviderItf, public oci::OCISpecItf {
 public:
     void Init()
     {
@@ -105,14 +105,6 @@ public:
         }
 
         return version.Assign(it->second.c_str());
-    }
-
-    //
-    // imagemanager::BlobInfoProviderItf
-    //
-    Error GetBlobsInfos(const Array<StaticString<oci::cDigestLen>>&, Array<BlobInfo>&) override
-    {
-        return ErrorEnum::eNone;
     }
 
     //

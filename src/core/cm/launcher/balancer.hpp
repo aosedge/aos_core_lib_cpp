@@ -39,9 +39,8 @@ public:
      * @param networkManager network manager.
      */
     void Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        imagemanager::BlobInfoProviderItf& blobInfoProvider, oci::OCISpecItf& ociSpec, NodeManager& nodeManager,
-        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner,
-        networkmanager::NetworkManagerItf& networkManager);
+        oci::OCISpecItf& ociSpec, NodeManager& nodeManager, MonitoringProviderItf& monitorProvider,
+        InstanceRunnerItf& runner, networkmanager::NetworkManagerItf& networkManager);
 
     /**
      * Runs instances.
