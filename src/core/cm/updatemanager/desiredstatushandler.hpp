@@ -108,6 +108,7 @@ private:
     Error LaunchInstances();
     Error FinalizeUpdate();
     Error CancelDownload();
+    void  StartUpdate();
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};
