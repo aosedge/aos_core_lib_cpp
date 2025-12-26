@@ -121,13 +121,6 @@
 #endif
 
 /**
- * Instance ID len.
- */
-#ifndef AOS_CONFIG_TYPES_INSTANCE_ID_LEN
-#define AOS_CONFIG_TYPES_INSTANCE_ID_LEN 40
-#endif
-
-/**
  * Unit model len.
  */
 #ifndef AOS_CONFIG_TYPES_UNIT_MODEL_LEN
