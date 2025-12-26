@@ -154,7 +154,7 @@ private:
     static constexpr auto     cInstanceInterfaceName     = "eth0";
     static constexpr auto     cBridgePrefix              = "br-";
     static constexpr auto     cVlanIfPrefix              = "vlan-";
-    static constexpr auto     cNumAllocations            = 8 * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES;
+    static constexpr auto     cNumAllocations            = 8 * cMaxNumConcurrentItems;
     static constexpr auto     cResolvConfLineLen         = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
@@ -218,11 +218,10 @@ private:
 
     mutable Mutex mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))
-            * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES,
+            * cMaxNumConcurrentItems,
         cNumAllocations>
-        mAllocator;
-    mutable StaticAllocator<(sizeof(Host) * 3) * AOS_CONFIG_LAUNCHER_NUM_COOPERATE_LAUNCHES, cNumAllocations>
-        mHostAllocator;
+                                                                                          mAllocator;
+    mutable StaticAllocator<(sizeof(Host) * 3) * cMaxNumConcurrentItems, cNumAllocations> mHostAllocator;
 };
 
 /** @}*/
