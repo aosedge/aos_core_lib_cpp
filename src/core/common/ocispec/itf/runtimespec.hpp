@@ -673,10 +673,11 @@ struct RuntimeConfig {
 /**
  * Creates example runtime spec.
  *
- * @param spec runtime spec.
+ * @param config runtime spec.
  * @param isCgroup2UnifiedMode adds croup namespace.
+ * @return Error.
  */
-inline Error CreateExampleRuntimeSpec(RuntimeConfig& config, bool isCgroup2UnifiedMode = true)
+inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2UnifiedMode = true)
 {
     config.mOCIVersion = cVersion;
 

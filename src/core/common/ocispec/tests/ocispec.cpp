@@ -34,7 +34,7 @@ TEST_F(OCISpecTest, CreateExampleRuntimeConfig)
 
     LOG_DBG() << "Runtime spec: size=" << sizeof(RuntimeConfig) << " bytes";
 
-    auto err = CreateExampleRuntimeSpec(*runtimeConfig);
+    auto err = CreateExampleRuntimeConfig(*runtimeConfig);
     EXPECT_TRUE(err.IsNone()) << "Error creating example runtime spec: err=" << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(runtimeConfig->mOCIVersion, cVersion);
