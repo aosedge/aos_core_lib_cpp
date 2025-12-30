@@ -527,13 +527,6 @@
 #endif
 
 /**
- * Max number of update images per update item.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES
-#define AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES 4
-#endif
-
-/**
  * Runtime type len.
  */
 #ifndef AOS_CONFIG_TYPES_RUNTIME_TYPE_LEN
