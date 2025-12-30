@@ -35,11 +35,6 @@ constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
 constexpr auto cMaxNumNodes = AOS_CONFIG_TYPES_MAX_NUM_NODES;
 
 /**
- * Max number of update images per update item.
- */
-constexpr auto cMaxNumUpdateImages = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_IMAGES;
-
-/**
  * Max number of update items.
  */
 constexpr auto cMaxNumUpdateItems = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEMS;
