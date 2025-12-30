@@ -42,9 +42,10 @@ protected:
 
     void SetUp() override
     {
-        mConfig.mInstallPath   = "/tmp/imagemanager_test/install";
-        mConfig.mDownloadPath  = "/tmp/imagemanager_test/download";
-        mConfig.mUpdateItemTTL = Time::cSeconds * 10;
+        mConfig.mInstallPath          = "/tmp/imagemanager_test/install";
+        mConfig.mDownloadPath         = "/tmp/imagemanager_test/download";
+        mConfig.mUpdateItemTTL        = Time::cSeconds * 10;
+        mConfig.mRemoveOutdatedPeriod = Time::cSeconds * 20;
 
         EXPECT_CALL(mStorageMock, GetItemsInfo(_)).WillRepeatedly(Return(ErrorEnum::eNone));
 
@@ -1376,9 +1377,7 @@ TEST_F(ImageManagerTest, Start_RemovesOutdatedItems)
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, FreeSpace(_)).Times(1);
 
-    auto err = mImageManager.Start();
-
-    EXPECT_TRUE(err.IsNone());
+    EXPECT_TRUE(mImageManager.Start().IsNone());
     EXPECT_TRUE(mImageManager.Stop().IsNone());
     EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
 }
