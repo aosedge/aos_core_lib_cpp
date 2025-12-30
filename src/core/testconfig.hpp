@@ -28,9 +28,4 @@
  */
 #define AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC 3
 
-/**
- * Aos runtime dir.
- */
-#define AOS_CONFIG_LAUNCHER_RUNTIME_DIR "/tmp/aos/runtime"
-
 #endif
