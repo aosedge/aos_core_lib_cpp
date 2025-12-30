@@ -236,6 +236,13 @@ Error ImageManager::GetLayerPath(const String& digest, String& path) const
  * Private
  **********************************************************************************************************************/
 
+RetWithError<size_t> ImageManager::RemoveItem(const String& id)
+{
+    LOG_DBG() << "Remove item" << Log::Field("id", id);
+
+    return 0;
+}
+
 Error ImageManager::CreateBlobPath(const String& digest, String& path) const
 {
     StaticString<oci::cDigestLen> alg;
