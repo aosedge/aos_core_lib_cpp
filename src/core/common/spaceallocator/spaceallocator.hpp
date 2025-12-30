@@ -13,7 +13,6 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 
-#include "itf/itemremover.hpp"
 #include "itf/spaceallocator.hpp"
 
 namespace aos::spaceallocator {

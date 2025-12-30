@@ -14,7 +14,7 @@ set(TARGET_NAME spaceallocator)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS spaceallocator.hpp itf/spaceallocator.hpp itf/itemremover.hpp)
+set(HEADERS spaceallocator.hpp itf/spaceallocator.hpp)
 
 # ######################################################################################################################
 # Target

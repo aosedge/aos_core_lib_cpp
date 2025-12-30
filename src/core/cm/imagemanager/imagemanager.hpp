@@ -11,7 +11,6 @@
 #include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/spaceallocator/itf/itemremover.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/thread.hpp>
