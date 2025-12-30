@@ -170,7 +170,6 @@ private:
     static constexpr auto cMaxNumListeners    = 1;
     static constexpr auto cMaxNumItemVersions = 2;
     static constexpr auto cRetryTimeout       = Time::cSeconds * 2;
-    static constexpr auto cRemovePeriod       = 24 * Time::cHours;
     static constexpr auto cDigestAlgorithmLen = 16;
 
     Error RemoveOutdatedItems();

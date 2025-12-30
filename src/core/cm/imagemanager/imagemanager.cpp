@@ -79,7 +79,7 @@ Error ImageManager::Start()
     }
 
     if (auto err = mTimer.Start(
-            cRemovePeriod,
+            mConfig.mRemoveOutdatedPeriod,
             [this](void*) {
                 if (auto err = RemoveOutdatedItems(); !err.IsNone()) {
                     LOG_ERR() << "Error removing outdated items" << Log::Field(err);
