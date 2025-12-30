@@ -59,9 +59,8 @@ public:
     Error GetImageIndex(const String& itemID, const String& version, oci::ImageIndex& imageIndex);
 
 private:
-    static constexpr auto cAllocatorSize = sizeof(oci::ImageIndex) + sizeof(oci::ImageManifest)
-        + sizeof(StaticArray<BlobInfo, cMaxNumBlobs>) + sizeof(StaticString<cFilePathLen>) * 3
-        + sizeof(StaticString<oci::cDigestLen>);
+    static constexpr auto cAllocatorSize = Max(sizeof(oci::ImageManifest) + sizeof(StaticString<cFilePathLen>) * 3,
+        sizeof(StaticString<cFilePathLen>) + sizeof(StaticString<oci::cDigestLen>));
 
     imagemanager::ItemInfoProviderItf* mItemInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
