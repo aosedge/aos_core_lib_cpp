@@ -12,6 +12,25 @@
 namespace aos::spaceallocator {
 
 /**
+ * Item remover interface.
+ */
+class ItemRemoverItf {
+public:
+    /**
+     * Removes item.
+     *
+     * @param id item id.
+     * @return RetWithError<size_t>.
+     */
+    virtual RetWithError<size_t> RemoveItem(const String& id) = 0;
+
+    /**
+     * Destructor.
+     */
+    virtual ~ItemRemoverItf() = default;
+};
+
+/**
  * Space interface.
  */
 class SpaceItf {
