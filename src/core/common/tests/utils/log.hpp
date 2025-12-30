@@ -20,8 +20,10 @@ inline void InitLog()
     Log::SetCallback([](const String& module, LogLevel level, const String& message) {
         static std::mutex           sLogMutex;
         std::lock_guard<std::mutex> lock(sLogMutex);
+        static const char* const    sLevelStrings[] = {"DBG", "INF", "WRN", "ERR"};
 
-        std::cout << level.ToString().CStr() << " | " << module.CStr() << " | " << message.CStr() << std::endl;
+        std::cout << sLevelStrings[static_cast<size_t>(level.GetValue())] << " | " << module.CStr() << " | "
+                  << message.CStr() << std::endl;
     });
 }
 
