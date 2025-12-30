@@ -26,7 +26,7 @@ namespace aos::sm::imagemanager {
 /**
  * Image manager.
  */
-class ImageManager : public ImageManagerItf, public ItemInfoProviderItf {
+class ImageManager : public ImageManagerItf, public ItemInfoProviderItf, public spaceallocator::ItemRemoverItf {
 public:
     /**
      * Initializes image manager.
@@ -95,6 +95,8 @@ private:
     static constexpr auto cSizeFile            = "size";
     static constexpr auto cAllocatorSize
         = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig));
+
+    RetWithError<size_t> RemoveItem(const String& id) override;
 
     Error CreateBlobPath(const String& digest, String& path) const;
     Error CreateLayerPath(const String& digest, String& path) const;
