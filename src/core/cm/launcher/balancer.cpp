@@ -93,6 +93,7 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
     static_cast<InstanceIdent&>(info) = instance.GetInfo().mInstanceIdent;
     info.mManifestDigest              = imageDescriptor.mDigest;
     info.mRuntimeID                   = runtimeID;
+    info.mOwnerID                     = request.mOwnerID;
     info.mPriority                    = request.mPriority;
     info.mUID                         = instance.GetInfo().mUID;
     info.mGID                         = instance.GetInfo().mGID;
