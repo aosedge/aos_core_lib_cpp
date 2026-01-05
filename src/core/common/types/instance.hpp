@@ -22,6 +22,7 @@ namespace aos {
 struct InstanceInfoData {
     StaticString<oci::cDigestLen>       mManifestDigest;
     StaticString<cIDLen>                mRuntimeID;
+    StaticString<cIDLen>                mOwnerID;
     SubjectType                         mSubjectType;
     uid_t                               mUID {};
     gid_t                               mGID {};
@@ -40,7 +41,7 @@ struct InstanceInfoData {
      */
     bool operator==(const InstanceInfoData& rhs) const
     {
-        return mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID
+        return mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID && mOwnerID == rhs.mOwnerID
             && mSubjectType == rhs.mSubjectType && mGID == rhs.mGID && mUID == rhs.mUID && mPriority == rhs.mPriority
             && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
             && mNetworkParameters == rhs.mNetworkParameters && mMonitoringParams == rhs.mMonitoringParams;

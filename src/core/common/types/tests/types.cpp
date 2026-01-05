@@ -33,13 +33,13 @@ TEST(CommonTest, Types)
         != (InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService}));
 
     //  comparision
-    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3, 4,
-                    "state", "storage", {}, {}, {}})
-        == (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3, 4,
+    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "", {}, 2,
+                    3, 4, "state", "storage", {}, {}, {}})
+        == (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "", {}, 2, 3, 4,
             "state", "storage", {}, {}, {}}));
-    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3,
-                     4, "state", "storage", {}, {}, {}})
-        != (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", {}, 2, 3, 4,
+    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "", {}, 2,
+                     3, 4, "state", "storage", {}, {}, {}})
+        != (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "", {}, 2, 3, 4,
             "state", "storage", {}, {}, {}}));
     // InstanceStatus comparision
     EXPECT_TRUE((InstanceStatus {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, false, "node0", "runc",
