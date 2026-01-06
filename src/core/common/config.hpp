@@ -229,7 +229,7 @@
  * Host device name len.
  */
 #ifndef AOS_CONFIG_TYPES_DEVICE_NAME_LEN
-#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 64
+#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 128
 #endif
 
 /**

@@ -19,7 +19,8 @@ namespace aos::sm::resourcemanager {
  */
 class ResourceInfoProviderMock : public ResourceInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetResourcesInfos, (Array<ResourceInfo> & resources), (override));
+    MOCK_METHOD(Error, GetResourcesInfos, (Array<aos::ResourceInfo>&), (override));
+    MOCK_METHOD(Error, GetResourceInfo, (const String&, ResourceInfo&), (override));
 };
 
 } // namespace aos::sm::resourcemanager

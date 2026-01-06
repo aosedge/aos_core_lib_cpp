@@ -25,7 +25,7 @@ struct ResourceInfo : public aos::ResourceInfo {
     StaticArray<Mount, cMaxNumFSMounts>                           mMounts;
     StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>    mEnv;
     StaticArray<Host, cMaxNumHosts>                               mHosts;
-    StaticArray<StaticString<cDeviceNameLen>, cMaxNumHostDevices> mHostDevices;
+    StaticArray<StaticString<cDeviceNameLen>, cMaxNumHostDevices> mDevices;
 };
 
 /**
@@ -44,7 +44,16 @@ public:
      * @param[out] resources resources info.
      * @return Error.
      */
-    virtual Error GetResourcesInfos(Array<ResourceInfo>& resources) = 0;
+    virtual Error GetResourcesInfos(Array<aos::ResourceInfo>& resources) = 0;
+
+    /**
+     * Returns resource info by name.
+     *
+     * @param name resource name.
+     * @param[out] resourceInfo resource info.
+     * @return Error.
+     */
+    virtual Error GetResourceInfo(const String& name, ResourceInfo& resourceInfo) = 0;
 };
 
 /** @}*/
