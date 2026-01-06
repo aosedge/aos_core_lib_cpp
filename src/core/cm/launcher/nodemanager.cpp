@@ -105,6 +105,19 @@ Error NodeManager::UpdateRunnigInstances(const String& nodeID, const Array<Insta
 {
     auto node = FindNode(nodeID);
     if (node == nullptr) {
+        // Create new node for cases when status is received before node info.
+        auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+
+        nodeInfo->mNodeID      = nodeID;
+        nodeInfo->mState       = NodeStateEnum::eProvisioned;
+        nodeInfo->mIsConnected = false;
+
+        UpdateNodeInfo(*nodeInfo);
+
+        node = FindNode(nodeID);
+    }
+
+    if (node == nullptr) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "node not found"));
     }
 
@@ -112,8 +125,10 @@ Error NodeManager::UpdateRunnigInstances(const String& nodeID, const Array<Insta
         return AOS_ERROR_WRAP(err);
     }
 
-    if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-        mStatusUpdateCondVar.NotifyAll();
+    if (node->GetInfo().mIsConnected && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
+        if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
+            mStatusUpdateCondVar.NotifyAll();
+        }
     }
 
     return ErrorEnum::eNone;
