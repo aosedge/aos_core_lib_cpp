@@ -134,10 +134,15 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Instances statuses received" << Log::Field("count", statuses.Size());
+
     for (const auto& status : statuses) {
         LOG_DBG() << "Instance status received" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
                   << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
                   << Log::Field("error", status.mError);
+
+        if (auto err = StoreInstalledComponent(status); !err.IsNone()) {
+            LOG_ERR() << "Failed to store installed component" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 
     for (auto* subscriber : mSubscribers) {
@@ -308,6 +313,32 @@ void Launcher::RunRebootThread()
             }
         }
     }
+}
+
+Error Launcher::StoreInstalledComponent(const aos::InstanceStatus& status)
+{
+    if (status.mType != UpdateItemTypeEnum::eComponent || status.mState != InstanceStateEnum::eActive) {
+        return ErrorEnum::eNone;
+    }
+
+    if (mInstances.ContainsIf([&status](const auto& instance) {
+            return static_cast<const InstanceIdent&>(instance.mStatus) == static_cast<const InstanceIdent&>(status);
+        })) {
+        return ErrorEnum::eNone;
+    }
+
+    auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
+
+    static_cast<InstanceIdent&>(*instanceInfo) = static_cast<const InstanceIdent&>(status);
+    instanceInfo->mRuntimeID                   = status.mRuntimeID;
+    instanceInfo->mType                        = status.mType;
+    instanceInfo->mManifestDigest              = status.mManifestDigest;
+
+    if (auto err = mStorage->AddInstanceInfo(*instanceInfo); !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
