@@ -232,13 +232,13 @@ void NodeInfoProvider::OnNodeInfoChanged(const NodeInfo& info)
 
 Error NodeInfoProvider::ScheduleNotification(const String& nodeID)
 {
-    if (mNotificationQueue.Find(nodeID) != mNotificationQueue.end()) {
-        return ErrorEnum::eNone;
+    if (mNotificationQueue.Find(nodeID) == mNotificationQueue.end()) {
+        if (auto err = mNotificationQueue.EmplaceBack(nodeID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
-    if (auto err = mNotificationQueue.EmplaceBack(nodeID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    LOG_DBG() << "Scheduled notification for node" << Log::Field("nodeID", nodeID);
 
     mCondVar.NotifyAll();
 
