@@ -219,8 +219,7 @@ Error Balancer::ScheduleInstance(
     auto reqRAM       = GetRequestedRAM(instance, *node, *serviceConfig);
     auto reqResources = serviceConfig->mResources;
 
-    if (auto err
-        = node->ScheduleInstance(*instanceInfo, request.mOwnerID, *networkServiceData, reqCPU, reqRAM, reqResources);
+    if (auto err = node->ScheduleInstance(*instanceInfo, *networkServiceData, reqCPU, reqRAM, reqResources);
         !err.IsNone()) {
         return err;
     }
@@ -705,8 +704,7 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
             auto reqRAM       = GetRequestedRAM(**instance, *node, *serviceConfig);
             auto reqResources = serviceConfig->mResources;
 
-            if (auto err = node->ScheduleInstance(
-                    *instanceInfo, request.mSubjectInfo.mSubjectID, *networkServiceData, reqCPU, reqRAM, reqResources);
+            if (auto err = node->ScheduleInstance(*instanceInfo, *networkServiceData, reqCPU, reqRAM, reqResources);
                 !err.IsNone()) {
                 (*instance)->SetError(err);
                 continue;
