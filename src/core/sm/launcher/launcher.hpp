@@ -152,6 +152,7 @@ private:
     };
 
     void  RunRebootThread();
+    Error StoreInstalledComponent(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses);
     void  StartInstances(const Array<InstanceInfo>& startInstances);

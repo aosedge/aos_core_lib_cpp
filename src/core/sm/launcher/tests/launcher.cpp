@@ -101,9 +101,15 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const String&
     return status;
 }
 
-InstanceStatus CreateInstanceStatus(const InstanceInfo& instance, InstanceStateEnum state)
+InstanceStatus CreateInstanceStatus(
+    const InstanceInfo& instance, InstanceStateEnum state, const UpdateItemTypeEnum type = UpdateItemTypeEnum::eService)
 {
-    return CreateInstanceStatus(static_cast<const InstanceIdent&>(instance), instance.mRuntimeID, state);
+    InstanceStatus status
+        = CreateInstanceStatus(static_cast<const InstanceIdent&>(instance), instance.mRuntimeID, state);
+
+    status.mType = type;
+
+    return status;
 }
 
 monitoring::InstanceMonitoringData CreateMonitoringData(const InstanceInfo& instance)
@@ -293,6 +299,46 @@ TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 
     err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
+{
+    const std::vector cRuntime0Components = {
+        CreateInstanceStatus(
+            CreateInstanceInfo(0, "runtime0"), InstanceStateEnum::eActive, UpdateItemTypeEnum::eComponent),
+        CreateInstanceStatus(
+            CreateInstanceInfo(1, "runtime0"), InstanceStateEnum::eInactive, UpdateItemTypeEnum::eComponent),
+        CreateInstanceStatus(
+            CreateInstanceInfo(2, "runtime0"), InstanceStateEnum::eActive, UpdateItemTypeEnum::eService),
+    };
+
+    EXPECT_CALL(mRuntime0, Start).WillOnce(Invoke([&]() {
+        mLauncher.OnInstancesStatusesReceived(
+            Array<InstanceStatus>(cRuntime0Components.data(), cRuntime0Components.size()));
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo&, InstanceStatus& status) {
+        status = cRuntime0Components[0];
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[0]);
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -756,7 +802,13 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mRuntime0, Reboot()).WillOnce(Return(ErrorEnum::eNone));
+    std::promise<void> rebootPromise;
+
+    EXPECT_CALL(mRuntime0, Reboot()).WillOnce(Invoke([&](void) {
+        rebootPromise.set_value();
+
+        return ErrorEnum::eNone;
+    }));
 
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -777,6 +829,9 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
     EXPECT_EQ(mReceivedStatuses[0], cInstanceStatus);
+
+    EXPECT_TRUE(rebootPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
+        == std::future_status::ready);
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
