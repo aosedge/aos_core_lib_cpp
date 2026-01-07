@@ -9,9 +9,19 @@
 
 #include <gmock/gmock.h>
 
+#include <core/sm/launcher/itf/instancestatusreceiver.hpp>
 #include <core/sm/launcher/itf/launcher.hpp>
 
 namespace aos::sm::launcher {
+
+/**
+ * Instance status receiver mock.
+ */
+class InstanceStatusReceiverMock : public InstanceStatusReceiverItf {
+public:
+    MOCK_METHOD(Error, OnInstancesStatusesReceived, (const Array<InstanceStatus>&), (override));
+    MOCK_METHOD(Error, RebootRequired, (const String&), (override));
+};
 
 /**
  * Launcher mock.
