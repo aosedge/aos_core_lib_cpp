@@ -254,7 +254,7 @@ struct Rootfs {
  */
 struct Config {
     StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
-    StaticArray<StaticString<cEnvVarLen>, cMaxNumEnvVariables>      mEnv;
+    EnvVarArray                                                     mEnv;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>         mEntryPoint;
     StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>         mCmd;
     StaticString<cFilePathLen>                                      mWorkingDir;

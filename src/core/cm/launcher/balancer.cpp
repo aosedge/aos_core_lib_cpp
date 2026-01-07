@@ -26,6 +26,17 @@ void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProv
     mNetworkManager  = &networkManager;
 }
 
+bool Balancer::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
+{
+    if (mEnvVarsOverrides == envVars) {
+        return false;
+    }
+
+    mEnvVarsOverrides = envVars;
+
+    return true;
+}
+
 RetWithError<bool> Balancer::SetSubjects(const Array<StaticString<cIDLen>>& subjects)
 {
     if (auto err = mSubjects.Assign(subjects); !err.IsNone()) {
@@ -89,7 +100,7 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
     const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor, const String& runtimeID,
     const Instance& instance, aos::InstanceInfo& info)
 {
-    // create instance info, InstanceNetworkParameters are added after network updates
+    // Create instance info, InstanceNetworkParameters are added after network updates
     static_cast<InstanceIdent&>(info) = instance.GetInfo().mInstanceIdent;
     info.mManifestDigest              = imageDescriptor.mDigest;
     info.mRuntimeID                   = runtimeID;
@@ -102,6 +113,35 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
 
     if (auto err = mNodeManager->SetupStateStorage(nodeConf, servConf, info.mGID, info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = ApplyEnvVarOverrides(info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Balancer::ApplyEnvVarOverrides(aos::InstanceInfo& info)
+{
+    for (const auto& item : mEnvVarsOverrides.mItems) {
+        if (!item.Match(info)) {
+            continue;
+        }
+
+        for (const auto& envVarInfo : item.mVariables) {
+            auto found = info.mEnvVars.FindIf(
+                [&envVarInfo](const EnvVar& existing) { return existing.mName == envVarInfo.mName; });
+
+            if (found != info.mEnvVars.end()) {
+                found->mValue = envVarInfo.mValue;
+            } else {
+                auto envVar = EnvVar {envVarInfo.mName, envVarInfo.mValue};
+                if (auto err = info.mEnvVars.PushBack(envVar); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+        }
     }
 
     return ErrorEnum::eNone;
@@ -213,6 +253,8 @@ Error Balancer::ScheduleInstance(
         !err.IsNone()) {
         return err;
     }
+
+    instance.SetEnvVars(imageConfig->mConfig.mEnv);
 
     // Schedule instance.
     auto reqCPU       = GetRequestedCPU(instance, *node, *serviceConfig);
@@ -704,6 +746,8 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
             auto reqCPU       = GetRequestedCPU(**instance, *node, *serviceConfig);
             auto reqRAM       = GetRequestedRAM(**instance, *node, *serviceConfig);
             auto reqResources = serviceConfig->mResources;
+
+            (*instance)->SetEnvVars(imageConfig->mConfig.mEnv);
 
             if (auto err = node->ScheduleInstance(
                     *instanceInfo, request.mSubjectInfo.mSubjectID, *networkServiceData, reqCPU, reqRAM, reqResources);

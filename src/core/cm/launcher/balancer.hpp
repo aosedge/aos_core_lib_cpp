@@ -59,6 +59,14 @@ public:
      */
     RetWithError<bool> SetSubjects(const Array<StaticString<cIDLen>>& subjects);
 
+    /**
+     * Overrides environment variables.
+     *
+     * @param envVars environment variables.
+     * @return bool true if env vars changed, false otherwise.
+     */
+    bool OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
+
 private:
     static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)
         + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig)
@@ -99,10 +107,9 @@ private:
     Error RemoveNetworkForDeletedInstances();
     Error SetNetworkParams(bool onlyWithExposedPorts);
     Error SetupNetworkForNewInstances();
-
+    Error ApplyEnvVarOverrides(aos::InstanceInfo& info);
     Error PerformPolicyBalancing(const Array<RunInstanceRequest>& instances);
-
-    bool IsSubjectEnabled(const Instance& instance);
+    bool  IsSubjectEnabled(const Instance& instance);
 
     ImageInfoProvider                  mImageInfoProvider;
     InstanceManager*                   mInstanceManager {};
@@ -111,6 +118,7 @@ private:
     networkmanager::NetworkManagerItf* mNetworkManager {};
     InstanceRunnerItf*                 mRunner {};
     SubjectArray                       mSubjects;
+    OverrideEnvVarsRequest             mEnvVarsOverrides;
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };

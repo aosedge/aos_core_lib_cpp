@@ -75,8 +75,9 @@ Error Instance::Schedule(const aos::InstanceInfo& info, const String& nodeID)
     mInfo.mNodeID         = nodeID;
     mInfo.mUID            = info.mUID;
     mInfo.mGID            = info.mGID;
-    mInfo.mTimestamp      = Time::Now();
-    mInfo.mState          = InstanceStateEnum::eActive;
+    // Keep original EnvVars, not overridden.
+    mInfo.mTimestamp = Time::Now();
+    mInfo.mState     = InstanceStateEnum::eActive;
 
     static_cast<InstanceIdent&>(mStatus) = static_cast<const InstanceIdent&>(info);
     mStatus.mNodeID                      = nodeID;

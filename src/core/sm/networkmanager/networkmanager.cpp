@@ -982,14 +982,14 @@ Error NetworkManager::RemoveNetworks(const Array<aos::NetworkParameters>& networ
                 err = errClearNetwork;
             }
 
-            it = mNetworkProviders.Erase(it);
-
             LOG_DBG() << "Remove network from storage: networkID=" << it->mFirst;
 
             if (auto errRemoveStorage = mStorage->RemoveNetworkInfo(it->mFirst);
                 !errRemoveStorage.IsNone() && err.IsNone()) {
                 err = errRemoveStorage;
             }
+
+            it = mNetworkProviders.Erase(it);
         } else {
             ++it;
         }
