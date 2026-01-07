@@ -123,13 +123,11 @@ public:
      * Schedules instance on node.
      *
      * @param instance instance information.
-     * @param providerID provider identifier.
      * @param servData network service data.
      * @return Error.
      */
-    Error ScheduleInstance(const aos::InstanceInfo& instance, const String& providerID,
-        const networkmanager::NetworkServiceData& servData, size_t reqCPU, size_t reqRAM,
-        const Array<StaticString<cResourceNameLen>>& reqResources);
+    Error ScheduleInstance(const aos::InstanceInfo& instance, const networkmanager::NetworkServiceData& servData,
+        size_t reqCPU, size_t reqRAM, const Array<StaticString<cResourceNameLen>>& reqResources);
 
     /**
      * Sets up network parameters.
@@ -207,7 +205,6 @@ private:
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mSentInstances;
     StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mScheduledInstances;
     StaticArray<InstanceStatus, cMaxNumInstancesPerNode>                     mRunningInstances;
-    StaticArray<StaticString<cIDLen>, cMaxNumInstancesPerNode>               mOwnerIDs;
     StaticArray<networkmanager::NetworkServiceData, cMaxNumInstancesPerNode> mNetworkServiceData;
 
     size_t                                          mAvailableCPU {};
