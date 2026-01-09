@@ -15,15 +15,6 @@
 namespace aos::sm::launcher {
 
 /**
- * Instance status receiver mock.
- */
-class InstanceStatusReceiverMock : public InstanceStatusReceiverItf {
-public:
-    MOCK_METHOD(Error, OnInstancesStatusesReceived, (const Array<InstanceStatus>&), (override));
-    MOCK_METHOD(Error, RebootRequired, (const String&), (override));
-};
-
-/**
  * Launcher mock.
  */
 class LauncherMock : public LauncherItf {
