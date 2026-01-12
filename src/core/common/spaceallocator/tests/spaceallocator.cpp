@@ -20,7 +20,12 @@ namespace aos::spaceallocator {
 
 class SpaceallocatorTest : public Test {
 protected:
-    void TearDown() { fs::RemoveAll(mPath); }
+    void TearDown()
+    {
+        // Clear global partition state between tests
+        SpaceAllocator<1>::mPartitions.Clear();
+        fs::RemoveAll(mPath);
+    }
 
     StrictMock<FSPlatformMock>       mPlatformFS;
     StrictMock<ItemRemoverMock>      mRemover;
@@ -287,6 +292,44 @@ TEST_F(SpaceallocatorTest, PartLimit)
 
     ASSERT_TRUE(space3->Release().IsNone());
     ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, ResizeSpace)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+
+    const size_t initialSize = 256 * cKilobyte;
+
+    auto [space, err] = mSpaceAllocator.AllocateSpace(initialSize);
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_NE(space.Get(), nullptr);
+    ASSERT_EQ(space->Size(), initialSize);
+
+    const size_t newSize = 512 * cKilobyte;
+    ASSERT_TRUE(space->Resize(newSize).IsNone());
+    ASSERT_EQ(space->Size(), newSize);
+
+    const size_t smallerSize = 128 * cKilobyte;
+    ASSERT_TRUE(space->Resize(smallerSize).IsNone());
+    ASSERT_EQ(space->Size(), smallerSize);
+
+    ASSERT_TRUE(space->Resize(smallerSize).IsNone());
+    ASSERT_EQ(space->Size(), smallerSize);
+
+    EXPECT_TRUE(space->Accept().IsNone());
 
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }

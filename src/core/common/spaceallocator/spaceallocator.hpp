@@ -17,64 +17,6 @@
 
 namespace aos::spaceallocator {
 
-/**
- * Space instance.
- */
-class Space : public SpaceItf {
-public:
-    /**
-     * Crates space instance.
-     */
-    Space(size_t size, SpaceAllocatorItf* allocator)
-        : mSize(size)
-        , mAllocator(allocator)
-    {
-    }
-
-    /**
-     * Accepts space.
-     *
-     * @return Error.
-     */
-    Error Accept() override { return mAllocator->AllocateDone(); }
-
-    /**
-     * Releases space.
-     *
-     * @return Error.
-     */
-    Error Release() override
-    {
-        mAllocator->FreeSpace(mSize);
-
-        return mAllocator->AllocateDone();
-    }
-
-    /**
-     * Resizes space.
-     *
-     * @param size new size.
-     * @return Error.
-     */
-    Error Resize(size_t size) override
-    {
-        mSize = size;
-
-        return ErrorEnum::eNone;
-    }
-
-    /**
-     * Returns space size.
-     *
-     * @return size_t.
-     */
-    size_t Size() const override { return mSize; }
-
-private:
-    size_t             mSize;
-    SpaceAllocatorItf* mAllocator {};
-};
-
 struct Partition;
 
 /**
@@ -332,6 +274,45 @@ struct SpaceAllocatorStorage {
  */
 template <size_t cNumAllocations>
 class SpaceAllocator : public SpaceAllocatorItf, public SpaceAllocatorStorage {
+private:
+    /**
+     * Space instance.
+     */
+    class Space : public SpaceItf {
+    public:
+        Space(size_t size, SpaceAllocator* allocator)
+            : mSize(size)
+            , mAllocator(allocator)
+        {
+        }
+
+        Error Accept() override { return mAllocator->AllocateDone(); }
+
+        Error Release() override
+        {
+            mAllocator->FreeSpace(mSize);
+
+            return mAllocator->AllocateDone();
+        }
+
+        Error Resize(size_t size) override
+        {
+            if (auto err = mAllocator->ResizeSpace(mSize, size); !err.IsNone()) {
+                return err;
+            }
+
+            mSize = size;
+
+            return ErrorEnum::eNone;
+        }
+
+        size_t Size() const override { return mSize; }
+
+    private:
+        size_t          mSize;
+        SpaceAllocator* mAllocator;
+    };
+
 public:
     /**
      * Constructor.
@@ -434,6 +415,8 @@ public:
         }
 
         if (err = mPartition->Allocate(size); !err.IsNone()) {
+            Free(size);
+
             return {nullptr, err};
         }
 
@@ -511,6 +494,28 @@ public:
     }
 
 private:
+    Error ResizeSpace(size_t oldSize, size_t newSize)
+    {
+        if (oldSize == newSize) {
+            return ErrorEnum::eNone;
+        }
+
+        Free(oldSize);
+        mPartition->Free(oldSize);
+
+        if (auto err = Allocate(newSize); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mPartition->Allocate(newSize); !err.IsNone()) {
+            Free(newSize);
+
+            return err;
+        }
+
+        return ErrorEnum::eNone;
+    }
+
     Error NewPartition(const String& path, Partition& partition)
     {
         auto [totalSize, err] = mPlatformFS->GetTotalSize(path);
