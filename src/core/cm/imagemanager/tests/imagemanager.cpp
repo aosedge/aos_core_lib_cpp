@@ -119,6 +119,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
             info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
+            info.mDecryptInfo.EmplaceValue();
+            info.mSignInfo.EmplaceValue();
 
             for (size_t i = 0; i < crypto::cSHA256Size; i++) {
                 info.mSHA256.PushBack(static_cast<uint8_t>(i));
@@ -238,6 +240,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
             info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
+            info.mDecryptInfo.EmplaceValue();
+            info.mSignInfo.EmplaceValue();
 
             for (size_t i = 0; i < crypto::cSHA256Size; i++) {
                 info.mSHA256.PushBack(static_cast<uint8_t>(i));
@@ -333,6 +337,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
             info.mDigest = digests[0];
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
+            info.mDecryptInfo.EmplaceValue();
+            info.mSignInfo.EmplaceValue();
 
             for (size_t i = 0; i < crypto::cSHA256Size; i++) {
                 info.mSHA256.PushBack(static_cast<uint8_t>(i));
@@ -469,6 +475,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
             info.mDigest = digests[0];
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
+            info.mDecryptInfo.EmplaceValue();
+            info.mSignInfo.EmplaceValue();
 
             for (size_t i = 0; i < crypto::cSHA256Size; i++) {
                 info.mSHA256.PushBack(static_cast<uint8_t>(i));
@@ -556,6 +564,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
             info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
+            info.mDecryptInfo.EmplaceValue();
+            info.mSignInfo.EmplaceValue();
 
             for (size_t i = 0; i < crypto::cSHA256Size; i++) {
                 info.mSHA256.PushBack(static_cast<uint8_t>(i));
@@ -668,6 +678,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
             info.mDigest = "sha256:abc123";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
+            info.mDecryptInfo.EmplaceValue();
+            info.mSignInfo.EmplaceValue();
 
             for (size_t i = 0; i < crypto::cSHA256Size; i++) {
                 info.mSHA256.PushBack(static_cast<uint8_t>(i));
