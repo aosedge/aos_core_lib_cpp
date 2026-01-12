@@ -1447,7 +1447,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_WrongState)
 
 TEST_F(ImageManagerTest, GetBlobPath_Success)
 {
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "blobs", "sha256");
     fs::MakeDirAll(blobsDir);
 
     StaticString<cFilePathLen> blobPath;

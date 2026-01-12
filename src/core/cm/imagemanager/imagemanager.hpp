@@ -167,6 +167,8 @@ public:
     RetWithError<size_t> RemoveItem(const String& id) override;
 
 private:
+    static constexpr auto cBlobsDirName = "blobs";
+
     static constexpr auto cMaxNumListeners    = 1;
     static constexpr auto cMaxNumItemVersions = 2;
     static constexpr auto cRetryTimeout       = Time::cSeconds * 2;

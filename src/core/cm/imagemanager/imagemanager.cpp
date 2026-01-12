@@ -42,13 +42,13 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
         return AOS_ERROR_WRAP(err);
     }
 
-    mBlobsInstallPath = fs::JoinPath(mConfig.mInstallPath, "/blobs/");
+    mBlobsInstallPath = fs::JoinPath(mConfig.mInstallPath, cBlobsDirName);
 
     if (auto err = fs::MakeDirAll(mBlobsInstallPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mBlobsDownloadPath = fs::JoinPath(mConfig.mDownloadPath, "/blobs/");
+    mBlobsDownloadPath = fs::JoinPath(mConfig.mDownloadPath, cBlobsDirName);
 
     if (auto err = fs::MakeDirAll(mBlobsDownloadPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -1092,13 +1092,23 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
         mCurrentDownloadDigest.Clear();
     });
 
+    StaticString<cFilePathLen> downloadDir;
+
+    if (auto err = fs::ParentPath(downloadPath, downloadDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = fs::MakeDirAll(downloadDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     NotifyItemStatusChanged(mCurrentItemID, mCurrentItemVersion, ItemStateEnum::eDownloading, ErrorEnum::eNone);
 
     while (true) {
-        Error err = mDownloader->Download(blobInfo.mDigest, blobInfo.mURLs[0], downloadPath);
+        auto err = mDownloader->Download(blobInfo.mDigest, blobInfo.mURLs[0], downloadPath);
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to download" << Log::Field("url", blobInfo.mURLs[0])
-                      << Log::Field("path", downloadPath) << Log::Field(err);
+                      << Log::Field("path", downloadPath) << Log::Field(AOS_ERROR_WRAP(err));
 
             if (err = WaitForStop(); !err.IsNone()) {
                 auto [newPartialSize, retrySizeErr] = fs::CalculateSize(downloadPath);
@@ -1185,6 +1195,16 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
 
     Tie(installSpace, err) = mInstallSpaceAllocator->AllocateSpace(blobInfo.mSize);
     if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<cFilePathLen> installDir;
+
+    if (err = fs::ParentPath(installPath, installDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::MakeDirAll(installDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
