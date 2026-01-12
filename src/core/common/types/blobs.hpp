@@ -22,8 +22,8 @@ struct BlobInfo {
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mURLs;
     StaticArray<uint8_t, crypto::cSHA256Size>       mSHA256;
     size_t                                          mSize {};
-    crypto::DecryptInfo                             mDecryptInfo;
-    crypto::SignInfo                                mSignInfo;
+    Optional<crypto::DecryptInfo>                   mDecryptInfo;
+    Optional<crypto::SignInfo>                      mSignInfo;
 
     /**
      * Compares blob info.
