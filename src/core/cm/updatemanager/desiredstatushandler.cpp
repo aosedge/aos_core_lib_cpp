@@ -62,6 +62,12 @@ Error DesiredStatusHandler::Stop()
             return ErrorEnum::eWrongState;
         }
 
+        if (mUpdateState == UpdateStateEnum::eDownloading || mUpdateState == UpdateStateEnum::eInstalling) {
+            if (auto cancelErr = mImageManager->Cancel(); !cancelErr.IsNone() && err.IsNone()) {
+                err = AOS_ERROR_WRAP(cancelErr);
+            }
+        }
+
         mIsRunning = false;
         mCondVar.NotifyOne();
     }
