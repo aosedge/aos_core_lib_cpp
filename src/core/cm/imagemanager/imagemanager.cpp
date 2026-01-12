@@ -1188,19 +1188,28 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = mCryptoHelper->Decrypt(downloadPath, installPath, blobInfo.mDecryptInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (blobInfo.mDecryptInfo.HasValue()) {
+        if (err = mCryptoHelper->Decrypt(downloadPath, installPath, *blobInfo.mDecryptInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    } else {
+        if (err = fs::Rename(downloadPath, installPath); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     LOG_DBG() << "Decrypted successfully" << Log::Field("path", installPath);
 
-    if (err = mCryptoHelper->ValidateSigns(installPath, blobInfo.mSignInfo, certificateChains, certificates);
-        !err.IsNone()) {
-        if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
-            LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath) << Log::Field(removeErr);
-        }
+    if (blobInfo.mSignInfo.HasValue()) {
+        if (err = mCryptoHelper->ValidateSigns(installPath, *blobInfo.mSignInfo, certificateChains, certificates);
+            !err.IsNone()) {
+            if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
+                LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
+                          << Log::Field(removeErr);
+            }
 
-        return AOS_ERROR_WRAP(err);
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     fs::FileInfo fileInfo;
