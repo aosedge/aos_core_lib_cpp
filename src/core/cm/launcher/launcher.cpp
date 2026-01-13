@@ -26,6 +26,15 @@ public:
     }
 };
 
+Error PushUnique(Array<StaticString<cIDLen>>& array, const StaticString<cIDLen>& value)
+{
+    if (array.Contains(value)) {
+        return ErrorEnum::eNone;
+    }
+
+    return array.PushBack(value);
+}
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -67,7 +76,8 @@ Error Launcher::Start()
 {
     LOG_DBG() << "Start Launcher";
 
-    LockGuard lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
+    LockGuard balancingLock {mBalancingMutex};
 
     mIsRunning = true;
 
@@ -131,7 +141,15 @@ Error Launcher::Stop()
 {
     LOG_DBG() << "Stop Launcher";
 
-    UniqueLock lock {mMutex};
+    UniqueLock updateLock {mUpdateMutex};
+
+    // Finish monitoring thread.
+    mIsRunning             = false;
+    mDisableProcessUpdates = false;
+    mAlertReceived         = false;
+    mUpdatedNodes.Clear();
+    mNewSubjects.Reset();
+    mProcessUpdatesCondVar.NotifyAll();
 
     // Unsubscribe from providers.
     if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
@@ -155,13 +173,7 @@ Error Launcher::Stop()
         return err;
     }
 
-    // Finish monitoring thread.
-    mUpdatedNodes.Clear();
-    mIsRunning             = false;
-    mDisableProcessUpdates = false;
-    mProcessUpdatesCondVar.NotifyAll();
-
-    lock.Unlock();
+    updateLock.Unlock();
 
     if (auto err = mWorkerThread.Join(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -174,7 +186,8 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 {
     LOG_DBG() << "Run instances";
 
-    UniqueLock lock {mMutex};
+    UniqueLock updateLock {mUpdateMutex};
+    UniqueLock balancingLock {mBalancingMutex};
 
     // Disable node monitoring for the duration of running instances.
     mDisableProcessUpdates    = true;
@@ -191,7 +204,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 
     UpdateData(false);
 
-    auto runErr = mBalancer.RunInstances(mRunRequests, lock, false);
+    auto runErr = mBalancer.RunInstances(mRunRequests, updateLock, false);
 
     FailActivatingInstances();
 
@@ -206,7 +219,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 
 Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
-    LockGuard lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     statuses.Clear();
 
@@ -223,7 +236,7 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 
 Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
-    LockGuard lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     LOG_DBG() << "Subscribe instance status listener";
 
@@ -236,7 +249,7 @@ Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 
 Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
-    LockGuard lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     LOG_DBG() << "Unsubscribe instance status listener";
 
@@ -329,41 +342,36 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
 void Launcher::ProcessUpdate()
 {
     while (true) {
-        UniqueLock lock {mMutex};
+        UniqueLock updateLock {mUpdateMutex};
 
-        mProcessUpdatesCondVar.Wait(lock, [this]() {
-            // Wake up on:
-            // - node updates (need resend),
-            // - subject updates (need rebalance),
-            // - stop request.
-            return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || !mIsRunning) && !mDisableProcessUpdates;
+        mProcessUpdatesCondVar.Wait(updateLock, [this]() {
+            return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning)
+                && !mDisableProcessUpdates;
         });
 
         if (!mIsRunning) {
             return;
         }
 
+        UniqueLock balancingLock {mBalancingMutex};
+
         // Update subjects.
         Error err;
         bool  doRebalance = false;
 
-        {
-            LockGuard subjectsLock {mNewSubjectsMutex};
-
-            if (mNewSubjects.HasValue()) {
-                Tie(doRebalance, err) = mBalancer.SetSubjects(mNewSubjects.GetValue());
-                if (!err.IsNone()) {
-                    LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
-                }
-
-                mNewSubjects.Reset();
+        if (mNewSubjects.HasValue()) {
+            Tie(doRebalance, err) = mBalancer.SetSubjects(mNewSubjects.GetValue());
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
             }
+
+            mNewSubjects.Reset();
         }
 
         // Resend instances.
         if (!mUpdatedNodes.IsEmpty()) {
             if (!doRebalance) {
-                if (err = mNodeManager.ResendInstances(lock, mUpdatedNodes); !err.IsNone()) {
+                if (err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes); !err.IsNone()) {
                     LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
                 }
             } else {
@@ -373,9 +381,15 @@ void Launcher::ProcessUpdate()
             mUpdatedNodes.Clear();
         }
 
+        // Process received alert.
+        if (mAlertReceived) {
+            mAlertReceived = false;
+            doRebalance    = true;
+        }
+
         // Rebalance.
         if (doRebalance) {
-            if (err = Rebalance(lock); !err.IsNone()) {
+            if (err = Rebalance(updateLock); !err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
@@ -386,7 +400,7 @@ Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 {
     LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status));
 
-    LockGuard lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
         return err;
@@ -401,7 +415,7 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
 {
     LOG_INF() << "Node instances statuses received" << Log::Field("nodeID", nodeID);
 
-    LockGuard lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     Error firstErr;
 
@@ -427,8 +441,9 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
 
     NotifyInstanceStatusListeners(mInstanceStatuses);
 
-    // Notify nodes monitor.
-    if (auto err = mUpdatedNodes.PushBack(nodeID); !err.IsNone()) {
+    if (auto err = PushUnique(mUpdatedNodes, nodeID); !err.IsNone()) {
+        LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));
+
         return AOS_ERROR_WRAP(err);
     }
 
@@ -441,12 +456,16 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
 
-    UniqueLock lock {mMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     if (mNodeManager.UpdateNodeInfo(info)) {
-        if (auto err = Rebalance(lock); !err.IsNone()) {
-            LOG_ERR() << "Rebalance" << Log::Field(AOS_ERROR_WRAP(err));
+        if (auto err = PushUnique(mUpdatedNodes, info.mNodeID); !err.IsNone()) {
+            LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));
+
+            return;
         }
+
+        mProcessUpdatesCondVar.NotifyAll();
     }
 }
 
@@ -454,20 +473,23 @@ Error Launcher::OnAlertReceived(const AlertVariant& alert)
 {
     LOG_DBG() << "Alert received" << Log::Field("alert", alert.ApplyVisitor(GetAlertTagVisitor()));
 
-    UniqueLock lock {mMutex};
+    UniqueLock updateLock {mUpdateMutex};
 
     if (!alert.ApplyVisitor(ShouldRebalanceVisitor())) {
         return ErrorEnum::eNone;
     }
 
-    return Rebalance(lock);
+    mAlertReceived = true;
+    mProcessUpdatesCondVar.NotifyAll();
+
+    return ErrorEnum::eNone;
 }
 
 void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
 {
     LOG_DBG() << "Subjects changed";
 
-    UniqueLock lock {mNewSubjectsMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     mNewSubjects.SetValue(subjects);
 
