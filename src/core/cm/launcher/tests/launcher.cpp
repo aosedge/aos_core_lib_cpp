@@ -93,6 +93,13 @@ public:
         return *mLastStatuses;
     }
 
+    size_t GetNotifyCount() const
+    {
+        std::lock_guard lock {mMutex};
+
+        return mNotifyCount;
+    }
+
     bool WaitForNotifyCount(size_t expectedCount, std::chrono::milliseconds timeout) const
     {
         std::unique_lock<std::mutex> lock {mMutex};
@@ -1497,7 +1504,15 @@ TEST_F(CMLauncherTest, Balancing)
                 mMonitoringProvider.SetAverageMonitoring(nodeID.c_str(), monitoring);
             }
 
+            // Get current notification count before triggering alert
+            size_t currentNotifyCount = instanceStatusListener.GetNotifyCount();
+
             mAlertsProvider.TriggerSystemQuotaAlert();
+
+            // Wait for rebalancing to complete (expect at least 2 more notifications:
+            // one from rebalancing and one from status updates after rebalancing)
+            using namespace std::chrono_literals;
+            ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(currentNotifyCount + 2, 2000ms));
         }
         ASSERT_TRUE(mLauncher.Stop().IsNone());
 

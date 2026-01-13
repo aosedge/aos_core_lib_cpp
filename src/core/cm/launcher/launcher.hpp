@@ -171,37 +171,39 @@ private:
 
     void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
 
-    Config                                 mConfig;
-    StorageItf*                            mStorage {};
-    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
-    iamclient::IdentProviderItf*           mIdentProvider {};
-    InstanceRunnerItf*                     mRunner {};
-    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
-    storagestate::StorageStateItf*         mStorageState {};
-    networkmanager::NetworkManagerItf*     mNetworkManager {};
-    MonitoringProviderItf*                 mMonitorProvider {};
-    alerts::AlertsProviderItf*             mAlertsProvider {};
+    // External dependencies
+    Config                                                                            mConfig;
+    StorageItf*                                                                       mStorage {};
+    nodeinfoprovider::NodeInfoProviderItf*                                            mNodeInfoProvider {};
+    iamclient::IdentProviderItf*                                                      mIdentProvider {};
+    InstanceRunnerItf*                                                                mRunner {};
+    unitconfig::NodeConfigProviderItf*                                                mNodeConfigProvider {};
+    storagestate::StorageStateItf*                                                    mStorageState {};
+    networkmanager::NetworkManagerItf*                                                mNetworkManager {};
+    MonitoringProviderItf*                                                            mMonitorProvider {};
+    alerts::AlertsProviderItf*                                                        mAlertsProvider {};
+    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
 
+    // Managers
     InstanceManager mInstanceManager;
     NodeManager     mNodeManager;
+    Balancer        mBalancer;
 
-    StaticArray<RunInstanceRequest, cMaxNumInstances>                                 mRunRequests;
-    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
-    Balancer                                                                          mBalancer;
-
-    StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
-
+    // Process update thread
     Thread<>                                        mWorkerThread;
+    Mutex                                           mUpdateMutex;
     ConditionalVariable                             mProcessUpdatesCondVar;
-    StaticArray<StaticString<cIDLen>, cMaxNumNodes> mUpdatedNodes;
-    bool                                            mIsRunning {};
     bool                                            mDisableProcessUpdates {};
+    StaticArray<StaticString<cIDLen>, cMaxNumNodes> mUpdatedNodes;
+    bool                                            mAlertReceived {};
+    Optional<SubjectArray>                          mNewSubjects;
 
-    Optional<SubjectArray> mNewSubjects;
-    Mutex                  mNewSubjectsMutex;
-
-    Mutex                           mMutex;
-    StaticAllocator<cAllocatorSize> mAllocator;
+    // Misc
+    StaticArray<RunInstanceRequest, cMaxNumInstances> mRunRequests;
+    StaticArray<InstanceStatus, cMaxNumInstances>     mInstanceStatuses;
+    Mutex                                             mBalancingMutex;
+    bool                                              mIsRunning {};
+    StaticAllocator<cAllocatorSize>                   mAllocator;
 };
 
 /** @}*/
