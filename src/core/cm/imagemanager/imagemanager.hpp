@@ -177,6 +177,7 @@ private:
     Error RemoveOutdatedItems();
     Error WaitForStop();
     Error AllocateSpaceForPartialDownloads();
+    Error RemovePendingItems(const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses);
     Error CleanupDownloadingItems(const Array<UpdateItemInfo>& currentItems, const Array<ItemInfo>& storedItems);
     Error VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
         const Array<crypto::CertificateInfo>&      certificates,

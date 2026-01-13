@@ -96,6 +96,78 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_EmptyList)
     EXPECT_EQ(statuses.Size(), 0);
 }
 
+TEST_F(ImageManagerTest, DownloadUpdateItems_EmptyList_RemovesPendingItems)
+{
+    StaticArray<UpdateItemInfo, 5>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 5>             statuses;
+
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
+        ItemInfo pendingItem1;
+        pendingItem1.mItemID      = "service1";
+        pendingItem1.mVersion     = "1.0.0";
+        pendingItem1.mIndexDigest = "sha256:abc123";
+        pendingItem1.mState       = ItemStateEnum::ePending;
+        items.PushBack(pendingItem1);
+
+        ItemInfo pendingItem2;
+        pendingItem2.mItemID      = "service2";
+        pendingItem2.mVersion     = "2.0.0";
+        pendingItem2.mIndexDigest = "sha256:def456";
+        pendingItem2.mState       = ItemStateEnum::ePending;
+        items.PushBack(pendingItem2);
+
+        ItemInfo installedItem;
+        installedItem.mItemID      = "service3";
+        installedItem.mVersion     = "3.0.0";
+        installedItem.mIndexDigest = "sha256:ghi789";
+        installedItem.mState       = ItemStateEnum::eInstalled;
+        items.PushBack(installedItem);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mStorageMock, RemoveItem(_, _))
+        .Times(2)
+        .WillOnce(Invoke([](const String& itemID, const String& version) {
+            EXPECT_EQ(itemID, "service1");
+            EXPECT_EQ(version, "1.0.0");
+            return ErrorEnum::eNone;
+        }))
+        .WillOnce(Invoke([](const String& itemID, const String& version) {
+            EXPECT_EQ(itemID, "service2");
+            EXPECT_EQ(version, "2.0.0");
+            return ErrorEnum::eNone;
+        }));
+
+    ItemStatusListenerMock listener;
+    EXPECT_CALL(listener, OnItemsStatusesChanged(_))
+        .Times(2)
+        .WillRepeatedly(Invoke([](const Array<UpdateItemStatus>& statuses) {
+            ASSERT_EQ(statuses.Size(), 1);
+            EXPECT_EQ(statuses[0].mState, ItemStateEnum::eRemoved);
+            EXPECT_TRUE(statuses[0].mError.IsNone());
+        }));
+
+    EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
+
+    auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+
+    EXPECT_TRUE(err.IsNone());
+    ASSERT_EQ(statuses.Size(), 2);
+    EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mVersion, "1.0.0");
+    EXPECT_EQ(statuses[0].mState, ItemStateEnum::eRemoved);
+    EXPECT_TRUE(statuses[0].mError.IsNone());
+    EXPECT_EQ(statuses[1].mItemID, "service2");
+    EXPECT_EQ(statuses[1].mVersion, "2.0.0");
+    EXPECT_EQ(statuses[1].mState, ItemStateEnum::eRemoved);
+    EXPECT_TRUE(statuses[1].mError.IsNone());
+
+    EXPECT_TRUE(mImageManager.UnsubscribeListener(listener).IsNone());
+}
+
 TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
 {
     StaticArray<UpdateItemInfo, 5>               itemsInfo;

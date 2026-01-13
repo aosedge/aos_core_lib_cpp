@@ -132,6 +132,26 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         return AOS_ERROR_WRAP(err);
     }
 
+    if (itemsInfo.Size() == 0) {
+        auto err = RemovePendingItems(*storedItems, statuses);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to remove pending items" << Log::Field(err);
+        }
+
+        auto [cleanupSize, cleanupErr] = CleanupOrphanedBlobs();
+        if (!cleanupErr.IsNone()) {
+            LOG_ERR() << "Failed to cleanup orphaned blobs" << Log::Field(cleanupErr);
+
+            if (err.IsNone()) {
+                err = cleanupErr;
+            }
+        } else {
+            LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", cleanupSize);
+        }
+
+        return err;
+    }
+
     if (auto err = CleanupDownloadingItems(itemsInfo, *storedItems); !err.IsNone()) {
         LOG_ERR() << "Failed to cleanup downloading items" << Log::Field(err);
     }
@@ -565,6 +585,41 @@ Error ImageManager::AllocateSpaceForPartialDownloads()
             LOG_DBG() << "Allocated space for partial download" << Log::Field("path", filePath)
                       << Log::Field("size", fileSize);
         }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::RemovePendingItems(const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses)
+{
+    LOG_DBG() << "Remove pending items";
+
+    for (const auto& storedItem : storedItems) {
+        if (storedItem.mState != ItemStateEnum::ePending) {
+            continue;
+        }
+
+        LOG_DBG() << "Removing pending item" << Log::Field("itemID", storedItem.mItemID)
+                  << Log::Field("version", storedItem.mVersion);
+
+        if (auto err = mStorage->RemoveItem(storedItem.mItemID, storedItem.mVersion); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove pending item from storage" << Log::Field("itemID", storedItem.mItemID)
+                      << Log::Field("version", storedItem.mVersion) << Log::Field(err);
+
+            continue;
+        }
+
+        UpdateItemStatus status;
+        status.mItemID  = storedItem.mItemID;
+        status.mVersion = storedItem.mVersion;
+        status.mState   = ItemStateEnum::eRemoved;
+        status.mError   = ErrorEnum::eNone;
+
+        if (auto err = statuses.PushBack(status); !err.IsNone()) {
+            LOG_ERR() << "Failed to add status to statuses array" << Log::Field(err);
+        }
+
+        NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
     }
 
     return ErrorEnum::eNone;
