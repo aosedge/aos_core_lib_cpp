@@ -109,11 +109,18 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
 
 Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
 {
+    LOG_DBG() << "Perform node balancing" << Log::Field("reqNum", requests.Size());
+
     for (const auto& request : requests) {
+        LOG_DBG() << "Perform node balancing" << Log::Field("itemID", request.mItemID)
+                  << Log::Field("numInstances", request.mNumInstances);
+
         for (size_t i = 0; i < request.mNumInstances; i++) {
             InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
 
             if (mNodeManager->IsScheduled(instanceIdent)) {
+                LOG_DBG() << "Instance aready scheduled" << Log::Field("instance", instanceIdent);
+
                 continue;
             }
 
@@ -127,6 +134,8 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
             auto instance = mInstanceManager->FindStashInstance(instanceIdent);
 
             if (!IsSubjectEnabled(**instance)) {
+                LOG_DBG() << "Subject disabled" << Log::Field("instance", instanceIdent.mItemID);
+
                 mInstanceManager->DisableInstance(*instance);
 
                 continue;
@@ -138,23 +147,27 @@ Error Balancer::PerformNodeBalancing(const Array<RunInstanceRequest>& requests)
                 !err.IsNone()) {
                 LOG_ERR() << "Can't get images" << Log::Field("instance", instanceIdent.mItemID) << Log::Field(err);
 
-                return err;
+                continue;
             }
 
-            bool  isInstanceScheduled = false;
-            Error scheduleErr         = ErrorEnum::eNone;
+            Error scheduleErr = ErrorEnum::eNone;
 
             for (const auto& manifest : imageIndex->mManifests) {
+                LOG_DBG() << "Try to schedule instance" << Log::Field("instance", (*instance)->GetInfo().mInstanceIdent)
+                          << Log::Field("manifest", manifest.mDigest);
+
                 if (auto err = ScheduleInstance(**instance, request, manifest); err.IsNone()) {
-                    isInstanceScheduled = true;
+                    LOG_DBG() << "Instance scheduled successfully";
 
                     break;
                 } else {
+                    LOG_ERR() << "Can't schedule instance" << Log::Field(err);
+
                     scheduleErr = err;
                 }
             }
 
-            if (!isInstanceScheduled) {
+            if (!scheduleErr.IsNone()) {
                 (*instance)->SetError(scheduleErr);
             }
         }
@@ -172,25 +185,25 @@ Error Balancer::ScheduleInstance(
 
     // Get service and image configs.
     if (auto err = mImageInfoProvider.GetServiceConfig(imageDescriptor, *serviceConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return AOS_ERROR_WRAP(Error(err, "get service config failed"));
     }
 
     if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *imageConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return AOS_ERROR_WRAP(Error(err, "get image config failed"));
     }
 
     // Select node runtimes.
     if (auto err = mNodeManager->GetConnectedNodes(*nodes); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return AOS_ERROR_WRAP(Error(err, "get connected nodes failed"));
     }
 
     if (auto err = FilterNodesByStaticResources(*serviceConfig, request, *nodes); !err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(Error(err, "can't find node for instance"));
     }
 
     auto [nodeRuntime, selectErr] = SelectRuntimeForInstance(instance, *serviceConfig, *imageConfig, *nodes);
     if (!selectErr.IsNone()) {
-        return selectErr;
+        return AOS_ERROR_WRAP(Error(selectErr, "can't select runtime for instance"));
     }
 
     auto&       node    = nodeRuntime.mFirst;
@@ -211,7 +224,7 @@ Error Balancer::ScheduleInstance(
     if (auto err = SetupInstanceInfo(
             *serviceConfig, node->GetConfig(), request, imageDescriptor, runtime->mRuntimeID, instance, *instanceInfo);
         !err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(Error(err, "can't setup instance info"));
     }
 
     // Schedule instance.
@@ -221,11 +234,11 @@ Error Balancer::ScheduleInstance(
 
     if (auto err = node->ScheduleInstance(*instanceInfo, *networkServiceData, reqCPU, reqRAM, reqResources);
         !err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(Error(err, "can't schedule instance"));
     }
 
     if (auto err = instance.Schedule(*instanceInfo, node->GetInfo().mNodeID); !err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(Error(err, "can't schedule instance"));
     }
 
     return ErrorEnum::eNone;
@@ -622,7 +635,9 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
 
         if (auto err = mImageInfoProvider.GetImageIndex(request.mItemID, request.mVersion, *imageIndex);
             !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+            LOG_ERR() << "Can't get image index" << Log::Field("itemID", request.mItemID) << Log::Field(err);
+
+            continue;
         }
 
         for (size_t i = 0; i < request.mNumInstances; i++) {
@@ -634,10 +649,14 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
 
             auto instance = mInstanceManager->FindActiveInstance(instanceIdent);
             if (!instance) {
-                return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+                LOG_ERR() << "Can't find instance" << Log::Field("instance", instanceIdent);
+
+                continue;
             }
 
             if (!IsSubjectEnabled(**instance)) {
+                LOG_DBG() << "Subject disabled" << Log::Field("instance", instanceIdent);
+
                 mInstanceManager->DisableInstance(*instance);
 
                 continue;
@@ -649,13 +668,17 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                   });
 
             if (!imageDescriptor) {
+                LOG_ERR() << "Can't find image descriptor" << Log::Field("instance", instanceIdent);
+
                 (*instance)->SetError(AOS_ERROR_WRAP(ErrorEnum::eNotFound));
 
                 continue;
             }
 
             if (auto err = mImageInfoProvider.GetServiceConfig(*imageDescriptor, *serviceConfig); !err.IsNone()) {
-                (*instance)->SetError(err);
+                LOG_ERR() << "Can't get service config" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
+                (*instance)->SetError(AOS_ERROR_WRAP(err));
 
                 continue;
             }
@@ -664,14 +687,21 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
                 continue;
             }
 
+            LOG_DBG() << "Perform policy balancing" << Log::Field("instance", instanceIdent);
+
             if (auto err = mImageInfoProvider.GetImageConfig(*imageDescriptor, *imageConfig); !err.IsNone()) {
-                (*instance)->SetError(err);
+                LOG_ERR() << "Can't get image config" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
+                (*instance)->SetError(AOS_ERROR_WRAP(err));
 
                 continue;
             }
 
             auto addInstanceErr = mInstanceManager->AddInstanceToStash(instanceIdent, request);
             if (!addInstanceErr.IsNone()) {
+                LOG_ERR() << "Can't add instance to stash" << Log::Field("instance", instanceIdent)
+                          << Log::Field(addInstanceErr);
+
                 (*instance)->SetError(addInstanceErr);
 
                 continue;
@@ -687,7 +717,10 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
 
             auto node = mNodeManager->FindNode((*instance)->GetInfo().mNodeID);
             if (!node) {
+                LOG_ERR() << "Can't find node" << Log::Field("instance", instanceIdent);
+
                 (*instance)->SetError(AOS_ERROR_WRAP(ErrorEnum::eFailed));
+
                 continue;
             }
 
@@ -696,7 +729,11 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
             if (auto err = SetupInstanceInfo(*serviceConfig, node->GetConfig(), request, *imageDescriptor,
                     (*instance)->GetInfo().mRuntimeID, **instance, *instanceInfo);
                 !err.IsNone()) {
+
+                LOG_ERR() << "Can't setup instance info" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
                 (*instance)->SetError(err);
+
                 continue;
             }
 
@@ -706,12 +743,18 @@ Error Balancer::PerformPolicyBalancing(const Array<RunInstanceRequest>& requests
 
             if (auto err = node->ScheduleInstance(*instanceInfo, *networkServiceData, reqCPU, reqRAM, reqResources);
                 !err.IsNone()) {
+                LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
                 (*instance)->SetError(err);
+
                 continue;
             }
 
             if (auto err = (*instance)->Schedule(*instanceInfo, node->GetInfo().mNodeID); !err.IsNone()) {
+                LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
                 (*instance)->SetError(err);
+
                 continue;
             }
         }
