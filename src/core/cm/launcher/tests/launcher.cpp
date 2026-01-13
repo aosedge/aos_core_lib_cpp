@@ -1761,14 +1761,17 @@ TEST_F(CMLauncherTest, SubjectChanged)
     ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
 
     // Wait until we have at least some statuses recorded.
-    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2000ms));
+    // Expect 2 status notifications:
+    // - 1st: from Launcher::RunInstances() completion notification
+    // - 2nd: from OnNodeInstancesStatusesReceived() after instance runner sends status
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(2, 2000ms));
 
     // 2) Change subjects (remove all of them).
     ASSERT_TRUE(mIdentProvider.SetSubjects({}).IsNone());
 
     // 3) Check that instance fails with BadSubject error.
     // Expect one more notification caused by rebalance after subjects update.
-    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(4, 2000ms));
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2000ms));
 
     // Verify latest instance statuses are failed with BadSubject error.
     ASSERT_EQ(instanceStatusListener.GetLastStatuses(), Array<InstanceStatus>());
