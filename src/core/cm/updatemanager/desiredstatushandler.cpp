@@ -38,8 +38,6 @@ Error DesiredStatusHandler::Start()
         return ErrorEnum::eWrongState;
     }
 
-    CancelDownload();
-
     mIsRunning = true;
 
     if (auto err = mThread.Run([this](void*) { Run(); }); !err.IsNone()) {
@@ -111,6 +109,11 @@ void DesiredStatusHandler::StartUpdate()
 
 void DesiredStatusHandler::Run()
 {
+    // Temporarily cancel any ongoing download. Should be removed when storing current desired state in db
+    // will be added.
+
+    CancelDownload();
+
     while (true) {
         {
             UniqueLock lock {mMutex};
