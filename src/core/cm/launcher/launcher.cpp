@@ -123,7 +123,7 @@ Error Launcher::Start()
     }
 
     // Notify status listeners.
-    NotifyInstanceStatusListeners(mInstanceStatuses);
+    UpdateInstanceStatuses();
 
     // Start monitoring thread.
     mDisableProcessUpdates = false;
@@ -196,8 +196,6 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
         self->mProcessUpdatesCondVar.NotifyAll();
     });
 
-    statuses.Clear();
-
     if (auto err = mRunRequests.Assign(requests); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -207,12 +205,15 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     auto runErr = mBalancer.RunInstances(mRunRequests, updateLock, false);
 
     FailActivatingInstances();
+    UpdateInstanceStatuses();
 
     if (!runErr.IsNone()) {
         return AOS_ERROR_WRAP(runErr);
     }
 
-    NotifyInstanceStatusListeners(statuses);
+    if (auto err = statuses.Assign(mInstanceStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -271,20 +272,31 @@ Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
  * Private
  **********************************************************************************************************************/
 
-void Launcher::NotifyInstanceStatusListeners(Array<InstanceStatus>& statuses)
+void Launcher::UpdateInstanceStatuses()
 {
-    statuses.Clear();
+    bool changed = mInstanceStatuses.Size() != mInstanceManager.GetActiveInstances().Size();
 
-    for (const auto& instance : mInstanceManager.GetActiveInstances()) {
-        if (auto err = statuses.PushBack(instance->GetStatus()); !err.IsNone()) {
-            LOG_ERR() << "Failed to push new instance status" << Log::Field(AOS_ERROR_WRAP(err));
+    if (auto err = mInstanceStatuses.Resize(mInstanceManager.GetActiveInstances().Size()); !err.IsNone()) {
+        LOG_ERR() << "Failed to resize instance statuses array" << Log::Field(AOS_ERROR_WRAP(err));
 
-            break;
+        return;
+    }
+
+    for (size_t i = 0; i < mInstanceStatuses.Size(); ++i) {
+        const auto& newStatus = mInstanceManager.GetActiveInstances()[i]->GetStatus();
+
+        if (mInstanceStatuses[i] != newStatus) {
+            changed              = true;
+            mInstanceStatuses[i] = newStatus;
         }
     }
 
+    if (!changed) {
+        return;
+    }
+
     for (auto& listener : mInstanceStatusListeners) {
-        listener->OnInstancesStatusesChanged(statuses);
+        listener->OnInstancesStatusesChanged(mInstanceStatuses);
     }
 }
 
@@ -334,7 +346,7 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
         return AOS_ERROR_WRAP(runErr);
     }
 
-    NotifyInstanceStatusListeners(mInstanceStatuses);
+    UpdateInstanceStatuses();
 
     return ErrorEnum::eNone;
 }
@@ -406,7 +418,7 @@ Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
         return err;
     }
 
-    NotifyInstanceStatusListeners(mInstanceStatuses);
+    UpdateInstanceStatuses();
 
     return ErrorEnum::eNone;
 }
@@ -439,7 +451,7 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         return firstErr;
     }
 
-    NotifyInstanceStatusListeners(mInstanceStatuses);
+    UpdateInstanceStatuses();
 
     if (auto err = PushUnique(mUpdatedNodes, nodeID); !err.IsNone()) {
         LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));

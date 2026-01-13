@@ -138,7 +138,7 @@ private:
 
     void SendRunStatus();
 
-    void NotifyInstanceStatusListeners(Array<InstanceStatus>& statuses);
+    void UpdateInstanceStatuses();
     void UpdateData(bool rebalancing);
     void FailActivatingInstances();
 
