@@ -122,9 +122,6 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    // Notify status listeners.
-    UpdateInstanceStatuses();
-
     // Start monitoring thread.
     mDisableProcessUpdates = false;
     mUpdatedNodes.Clear();
