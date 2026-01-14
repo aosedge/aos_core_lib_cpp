@@ -198,6 +198,8 @@ private:
         const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageIndex& imageIndex);
     Error LoadManifest(const String& digest, const Array<crypto::CertificateInfo>& certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageManifest& manifest);
+    Error LoadBlob(const oci::ContentDescriptor& descriptor, const Array<crypto::CertificateInfo>& certificates,
+        const Array<crypto::CertificateChainInfo>& certificateChains);
     Error LoadLayers(const Array<oci::ContentDescriptor>& layers, const Array<crypto::CertificateInfo>& certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains);
     Error EnsureBlob(const String& digest, const String& downloadPath, const String& installPath,
@@ -216,6 +218,7 @@ private:
         const Array<crypto::CertificateChainInfo>& certificateChains,
         UniquePtr<spaceallocator::SpaceItf>&       installSpace);
     Error VerifyItemBlobs(const String& indexDigest);
+    Error VerifyBlobIntegrity(const String& digest);
     Error VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo);
     bool  IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items);
     void  NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses);
