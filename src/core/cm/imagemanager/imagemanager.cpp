@@ -853,6 +853,16 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
             return AOS_ERROR_WRAP(err);
         }
 
+        if (auto err = LoadBlob(manifest->mConfig, certificates, certificateChains); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (manifest->mAosService.HasValue()) {
+            if (auto err = LoadBlob(*manifest->mAosService, certificates, certificateChains); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
         if (auto err = LoadLayers(manifest->mLayers, certificates, certificateChains); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -951,48 +961,57 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
+    const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains)
+{
+    LOG_DBG() << "Load blob" << Log::Field("digest", descriptor.mDigest);
+
+    Error                               err;
+    UniquePtr<spaceallocator::SpaceItf> space;
+
+    StaticString<cFilePathLen> downloadPath;
+    if (err = GetBlobFilePath(mBlobsDownloadPath, descriptor.mDigest, downloadPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<cFilePathLen> installPath;
+    if (err = GetBlobFilePath(mBlobsInstallPath, descriptor.mDigest, installPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
+        if (space && !err->IsNone()) {
+            LOG_ERR() << "Failed to load blob" << Log::Field("digest", descriptor.mDigest) << Log::Field(*err);
+
+            if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
+                LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
+                          << Log::Field(removeErr);
+            }
+
+            space->Release();
+            return;
+        }
+
+        if (space) {
+            space->Accept();
+        }
+    });
+
+    if (err = EnsureBlob(descriptor.mDigest, downloadPath, installPath, certificates, certificateChains, space);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::LoadLayers(const Array<oci::ContentDescriptor>& layers,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains)
 {
     LOG_DBG() << "Load layers" << Log::Field("count", layers.Size());
 
-    Error err;
-
     for (const auto& layer : layers) {
-        LOG_DBG() << "Load layer" << Log::Field("digest", layer.mDigest);
-
-        UniquePtr<spaceallocator::SpaceItf> space;
-
-        StaticString<cFilePathLen> downloadPath;
-        if (err = GetBlobFilePath(mBlobsDownloadPath, layer.mDigest, downloadPath); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        StaticString<cFilePathLen> installPath;
-        if (err = GetBlobFilePath(mBlobsInstallPath, layer.mDigest, installPath); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
-            if (space && !err->IsNone()) {
-                LOG_ERR() << "Failed to load layer" << Log::Field("digest", layer.mDigest) << Log::Field(*err);
-
-                if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
-                    LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
-                              << Log::Field(removeErr);
-                }
-
-                space->Release();
-                return;
-            }
-
-            if (space) {
-                space->Accept();
-            }
-        });
-
-        if (err = EnsureBlob(layer.mDigest, downloadPath, installPath, certificates, certificateChains, space);
-            !err.IsNone()) {
+        if (auto err = LoadBlob(layer, certificates, certificateChains); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -1362,6 +1381,25 @@ void ImageManager::RegisterOutdatedItems(const Array<ItemInfo>& items)
     }
 }
 
+Error ImageManager::VerifyBlobIntegrity(const String& digest)
+{
+    StaticString<cFilePathLen> blobPath;
+    if (auto err = GetBlobFilePath(mBlobsInstallPath, digest, blobPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    fs::FileInfo fileInfo;
+    if (auto err = mFileInfoProvider->GetFileInfo(blobPath, fileInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = VerifyBlobChecksum(digest, fileInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo)
 {
     auto [colonPos, findErr] = digest.FindSubstr(0, ":");
@@ -1395,17 +1433,12 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
 {
     LOG_DBG() << "Verify item blobs" << Log::Field("indexDigest", indexDigest);
 
+    if (auto err = VerifyBlobIntegrity(indexDigest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     StaticString<cFilePathLen> indexPath;
     if (auto err = GetBlobFilePath(mBlobsInstallPath, indexDigest, indexPath); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    fs::FileInfo indexFileInfo;
-    if (auto err = mFileInfoProvider->GetFileInfo(indexPath, indexFileInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = VerifyBlobChecksum(indexDigest, indexFileInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1419,17 +1452,12 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
     }
 
     for (const auto& manifestDescriptor : imageIndex->mManifests) {
+        if (auto err = VerifyBlobIntegrity(manifestDescriptor.mDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
         StaticString<cFilePathLen> manifestPath;
         if (auto err = GetBlobFilePath(mBlobsInstallPath, manifestDescriptor.mDigest, manifestPath); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        fs::FileInfo manifestFileInfo;
-        if (auto err = mFileInfoProvider->GetFileInfo(manifestPath, manifestFileInfo); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (auto err = VerifyBlobChecksum(manifestDescriptor.mDigest, manifestFileInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -1442,19 +1470,18 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
             return AOS_ERROR_WRAP(err);
         }
 
+        if (auto err = VerifyBlobIntegrity(manifest->mConfig.mDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (manifest->mAosService.HasValue()) {
+            if (auto err = VerifyBlobIntegrity(manifest->mAosService->mDigest); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
         for (const auto& layer : manifest->mLayers) {
-            StaticString<cFilePathLen> layerPath;
-            if (auto err = GetBlobFilePath(mBlobsInstallPath, layer.mDigest, layerPath); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            fs::FileInfo layerFileInfo;
-
-            if (auto err = mFileInfoProvider->GetFileInfo(layerPath, layerFileInfo); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            if (auto err = VerifyBlobChecksum(layer.mDigest, layerFileInfo); !err.IsNone()) {
+            if (auto err = VerifyBlobIntegrity(layer.mDigest); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1504,6 +1531,14 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
 
             if (auto err = mOCISpec->LoadImageManifest(manifestPath, *manifest); !err.IsNone()) {
                 continue;
+            }
+
+            if (manifest->mConfig.mDigest == blobDigest) {
+                return true;
+            }
+
+            if (manifest->mAosService.HasValue() && manifest->mAosService->mDigest == blobDigest) {
+                return true;
             }
 
             for (const auto& layer : manifest->mLayers) {

@@ -234,6 +234,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:config1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
@@ -368,6 +370,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:config1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
@@ -405,18 +409,20 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto& digests, Array<BlobInfo>& blobsInfo) {
-            BlobInfo info;
-            info.mDigest = digests[0];
-            info.mSize   = 1024;
-            info.mURLs.PushBack("http://test.com/blob");
-            info.mDecryptInfo.EmplaceValue();
-            info.mSignInfo.EmplaceValue();
+            for (const auto& digest : digests) {
+                BlobInfo info;
+                info.mDigest = digest;
+                info.mSize   = 1024;
+                info.mURLs.PushBack("http://test.com/blob");
+                info.mDecryptInfo.EmplaceValue();
+                info.mSignInfo.EmplaceValue();
 
-            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-                info.mSHA256.PushBack(static_cast<uint8_t>(i));
+                for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                    info.mSHA256.PushBack(static_cast<uint8_t>(i));
+                }
+
+                blobsInfo.PushBack(info);
             }
-
-            blobsInfo.PushBack(info);
 
             return ErrorEnum::eNone;
         }));
@@ -452,6 +458,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:configlayer";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:layer";
             manifest.mLayers.PushBack(layer);
@@ -543,18 +551,20 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
 
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto& digests, Array<BlobInfo>& blobsInfo) {
-            BlobInfo info;
-            info.mDigest = digests[0];
-            info.mSize   = 1024;
-            info.mURLs.PushBack("http://test.com/blob");
-            info.mDecryptInfo.EmplaceValue();
-            info.mSignInfo.EmplaceValue();
+            for (const auto& digest : digests) {
+                BlobInfo info;
+                info.mDigest = digest;
+                info.mSize   = 1024;
+                info.mURLs.PushBack("http://test.com/blob");
+                info.mDecryptInfo.EmplaceValue();
+                info.mSignInfo.EmplaceValue();
 
-            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-                info.mSHA256.PushBack(static_cast<uint8_t>(i));
+                for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                    info.mSHA256.PushBack(static_cast<uint8_t>(i));
+                }
+
+                blobsInfo.PushBack(info);
             }
-
-            blobsInfo.PushBack(info);
 
             return ErrorEnum::eNone;
         }));
@@ -679,6 +689,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:config1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
@@ -793,6 +805,8 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:config1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             manifest.mLayers.PushBack(layer);
@@ -850,14 +864,16 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
     auto indexPath    = fs::JoinPath(blobsDir, "1111");
     auto manifestPath = fs::JoinPath(blobsDir, "2222");
+    auto configPath   = fs::JoinPath(blobsDir, "cccc");
     auto layerPath    = fs::JoinPath(blobsDir, "3333");
 
     std::ofstream(indexPath.CStr()).close();
     std::ofstream(manifestPath.CStr()).close();
+    std::ofstream(configPath.CStr()).close();
     std::ofstream(layerPath.CStr()).close();
 
     EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .Times(3)
+        .Times(4)
         .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
@@ -884,6 +900,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:cccc";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:3333";
             manifest.mLayers.PushBack(layer);
@@ -1048,14 +1066,16 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
 
     auto indexPath    = fs::JoinPath(blobsDir, "4444");
     auto manifestPath = fs::JoinPath(blobsDir, "5555");
+    auto configPath   = fs::JoinPath(blobsDir, "7777");
     auto layerPath    = fs::JoinPath(blobsDir, "6666");
 
     std::ofstream(indexPath.CStr()).close();
     std::ofstream(manifestPath.CStr()).close();
+    std::ofstream(configPath.CStr()).close();
     std::ofstream(layerPath.CStr()).close();
 
     EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .Times(3)
+        .Times(4)
         .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
@@ -1082,6 +1102,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:7777";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:6666";
             manifest.mLayers.PushBack(layer);
@@ -1197,14 +1219,16 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
 
     auto service2Index    = fs::JoinPath(blobsDir, "aaaa");
     auto service2Manifest = fs::JoinPath(blobsDir, "bbbb");
+    auto service2Config   = fs::JoinPath(blobsDir, "dddd");
     auto service2Layer    = fs::JoinPath(blobsDir, "cccc");
 
     std::ofstream(service2Index.CStr()).close();
     std::ofstream(service2Manifest.CStr()).close();
+    std::ofstream(service2Config.CStr()).close();
     std::ofstream(service2Layer.CStr()).close();
 
     EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .Times(3)
+        .Times(4)
         .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
@@ -1231,6 +1255,8 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:dddd";
+
             oci::ContentDescriptor layer;
             layer.mDigest = "sha256:cccc";
             manifest.mLayers.PushBack(layer);
@@ -1313,6 +1339,7 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
 
     auto index1Path    = fs::JoinPath(blobsDir, "1111");
     auto manifest1Path = fs::JoinPath(blobsDir, "2222");
+    auto config1Path   = fs::JoinPath(blobsDir, "config2");
     auto layer1Path    = fs::JoinPath(blobsDir, "3333");
 
     {
@@ -1326,13 +1353,19 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
         f2.flush();
     }
     {
-        std::ofstream f3(layer1Path.CStr(), std::ios::binary);
-        f3 << "layer1_content_data";
+        std::ofstream f3(config1Path.CStr(), std::ios::binary);
+        f3 << "config1_content_data";
         f3.flush();
+    }
+    {
+        std::ofstream f4(layer1Path.CStr(), std::ios::binary);
+        f4 << "layer1_content_data";
+        f4.flush();
     }
 
     auto index2Path    = fs::JoinPath(blobsDir, "4444");
     auto manifest2Path = fs::JoinPath(blobsDir, "5555");
+    auto config2Path   = fs::JoinPath(blobsDir, "config5");
     auto layer2Path    = fs::JoinPath(blobsDir, "6666");
 
     {
@@ -1346,9 +1379,14 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
         f2.flush();
     }
     {
-        std::ofstream f3(layer2Path.CStr(), std::ios::binary);
-        f3 << "layer2_content_data";
+        std::ofstream f3(config2Path.CStr(), std::ios::binary);
+        f3 << "config2_content_data";
         f3.flush();
+    }
+    {
+        std::ofstream f4(layer2Path.CStr(), std::ios::binary);
+        f4 << "layer2_content_data";
+        f4.flush();
     }
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _))
@@ -1373,15 +1411,17 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
         .WillRepeatedly(Invoke([]([[maybe_unused]] const String& path, oci::ImageManifest& manifest) {
             auto [pos1, err1] = path.FindSubstr(0, "2222");
             if (err1.IsNone()) {
-                oci::ContentDescriptor layer;
+                manifest.mConfig.mDigest = "sha256:config2";
 
+                oci::ContentDescriptor layer;
                 layer.mDigest = "sha256:3333";
                 manifest.mLayers.PushBack(layer);
             } else {
                 auto [pos2, err2] = path.FindSubstr(0, "5555");
                 if (err2.IsNone()) {
-                    oci::ContentDescriptor layer;
+                    manifest.mConfig.mDigest = "sha256:config5";
 
+                    oci::ContentDescriptor layer;
                     layer.mDigest = "sha256:6666";
                     manifest.mLayers.PushBack(layer);
                 }
@@ -1409,6 +1449,9 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
     auto [manifest1Exists, manifest1Err] = fs::FileExist(manifest1Path);
     EXPECT_FALSE(manifest1Exists);
 
+    auto [config1Exists, config1Err] = fs::FileExist(config1Path);
+    EXPECT_FALSE(config1Exists);
+
     auto [layer1Exists, layer1Err] = fs::FileExist(layer1Path);
     EXPECT_FALSE(layer1Exists);
 
@@ -1417,6 +1460,9 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
 
     auto [manifest2Exists, manifest2Err] = fs::FileExist(manifest2Path);
     EXPECT_TRUE(manifest2Exists);
+
+    auto [config2Exists, config2Err] = fs::FileExist(config2Path);
+    EXPECT_TRUE(config2Exists);
 
     auto [layer2Exists, layer2Err] = fs::FileExist(layer2Path);
     EXPECT_TRUE(layer2Exists);
