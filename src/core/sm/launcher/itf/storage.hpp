@@ -31,12 +31,13 @@ public:
     virtual Error GetAllInstancesInfos(Array<InstanceInfo>& infos) = 0;
 
     /**
-     * Stores instance info to storage.
+     * Updates instance info in storage. Inserts a new record
+     * if it does not exist.
      *
      * @param info instance info to store.
      * @return Error.
      */
-    virtual Error AddInstanceInfo(const InstanceInfo& info) = 0;
+    virtual Error UpdateInstanceInfo(const InstanceInfo& info) = 0;
 
     /**
      * Deletes instance info from storage.

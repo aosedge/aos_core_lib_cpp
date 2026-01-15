@@ -154,7 +154,7 @@ sequenceDiagram
                 
                 runtimes -->> launcher: status
                 alt  eActive or eActivating
-                    launcher ->> storage: AddInstanceInfo
+                    launcher ->> storage: UpdateInstanceInfo
                 end
             end
         end

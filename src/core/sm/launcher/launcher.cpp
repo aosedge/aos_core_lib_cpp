@@ -334,7 +334,7 @@ Error Launcher::StoreInstalledComponent(const aos::InstanceStatus& status)
     instanceInfo->mType                        = status.mType;
     instanceInfo->mManifestDigest              = status.mManifestDigest;
 
-    if (auto err = mStorage->AddInstanceInfo(*instanceInfo); !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
+    if (auto err = mStorage->UpdateInstanceInfo(*instanceInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -510,7 +510,7 @@ void Launcher::StartInstance(RuntimeItf& runtime, InstanceData& instance)
         return;
     }
 
-    if (auto err = mStorage->AddInstanceInfo(instance.mInfo); !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
+    if (auto err = mStorage->UpdateInstanceInfo(instance.mInfo); !err.IsNone()) {
         LOG_ERR() << "Start instance failed"
                   << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo)) << Log::Field(err);
 

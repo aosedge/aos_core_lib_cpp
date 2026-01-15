@@ -148,14 +148,18 @@ public:
         return infos.Assign(mData);
     }
 
-    Error AddInstanceInfo(const InstanceInfo& info) override
+    Error UpdateInstanceInfo(const InstanceInfo& info) override
     {
         std::lock_guard lock {mMutex};
 
-        if (mData.ContainsIf([&info](const InstanceInfo& existingInfo) {
-                return static_cast<const InstanceIdent&>(existingInfo) == static_cast<const InstanceIdent&>(info);
-            })) {
-            return ErrorEnum::eAlreadyExist;
+        auto it = mData.FindIf([&info](const InstanceInfo& existingInfo) {
+            return static_cast<const InstanceIdent&>(existingInfo) == static_cast<const InstanceIdent&>(info);
+        });
+
+        if (it != mData.end()) {
+            *it = info;
+
+            return ErrorEnum::eNone;
         }
 
         return mData.PushBack(info);
