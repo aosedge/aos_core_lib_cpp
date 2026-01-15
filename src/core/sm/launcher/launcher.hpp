@@ -169,20 +169,20 @@ private:
     RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent);
     RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
 
-    mutable StaticAllocator<cAllocatorSize>                                                     mAllocator;
-    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers>                       mSubscribers;
-    Thread<cThreadTaskSize, cThreadStackSize>                                                   mThread;
-    Thread<cThreadTaskSize, cThreadStackSize>                                                   mRebootThread;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances * 2, cThreadTaskSize, cThreadStackSize> mLaunchPool;
-    mutable Mutex                                                                               mMutex;
-    mutable ConditionalVariable                                                                 mCondVar;
-    StaticArray<InstanceData, cMaxNumInstances>                                                 mInstances;
-    StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>                           mRuntimes;
-    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                                      mRebootQueue;
-    StorageItf*                                                                                 mStorage {};
-    SenderItf*                                                                                  mSender {};
-    bool                                                                                        mLaunchInProgress {};
-    bool                                                                                        mIsRunning {};
+    mutable StaticAllocator<cAllocatorSize>                                                 mAllocator;
+    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers>                   mSubscribers;
+    Thread<cThreadTaskSize, cThreadStackSize>                                               mThread;
+    Thread<cThreadTaskSize, cThreadStackSize>                                               mRebootThread;
+    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize, cThreadStackSize> mLaunchPool;
+    mutable Mutex                                                                           mMutex;
+    mutable ConditionalVariable                                                             mCondVar;
+    StaticArray<InstanceData, cMaxNumInstances>                                             mInstances;
+    StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>                       mRuntimes;
+    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                                  mRebootQueue;
+    StorageItf*                                                                             mStorage {};
+    SenderItf*                                                                              mSender {};
+    bool                                                                                    mLaunchInProgress {};
+    bool                                                                                    mIsRunning {};
 };
 
 } // namespace aos::sm::launcher
