@@ -482,17 +482,17 @@ public:
     }
 
     Error GetInstanceMonitoringParams(
-        const InstanceIdent& instanceIdent, Optional<InstanceMonitoringParams>& params) const override
+        const InstanceIdent& instanceIdent, InstanceMonitoringParams& params) const override
     {
         std::lock_guard lock {mMutex};
 
         if (auto it = mInstanceParams.find(instanceIdent); it != mInstanceParams.end()) {
-            params.EmplaceValue();
+            params.mAlertRules = it->second;
 
-            params->mAlertRules = it->second;
+            return ErrorEnum::eNone;
         }
 
-        return ErrorEnum::eNone;
+        return ErrorEnum::eNotFound;
     }
 
     void SetInstanceMonitoringParams(const InstanceIdent& instanceIdent, const Optional<AlertRules>& rules)
@@ -542,6 +542,18 @@ private:
     std::map<InstanceIdent, Optional<AlertRules>> mInstanceParams;
     std::vector<InstanceMonitoringData>           mInstancesMonitoringData;
     instancestatusprovider::ListenerItf*          mListener {};
+};
+
+class InstanceInfoProviderMonitoringNotSupportedStub : public InstanceInfoProviderItfStub {
+public:
+    Error GetInstanceMonitoringParams(
+        const InstanceIdent& instanceIdent, InstanceMonitoringParams& params) const override
+    {
+        (void)instanceIdent;
+        (void)params;
+
+        return ErrorEnum::eNotSupported;
+    }
 };
 
 } // namespace
@@ -1037,6 +1049,87 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
             EXPECT_EQ(receivedInstancesData[j].mMonitoringData, cExpectedInstancesData.mInstancesData[j].second);
         }
 
+        EXPECT_EQ(receivedData.mMonitoringData, cExpectedAverage[i].mSystemData);
+    }
+
+    err = mMonitoring.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(MonitoringTest, InstanceMonitoringNotSupported)
+{
+    const auto cIdent = InstanceIdent {"item", "subject", 1, UpdateItemTypeEnum::eService};
+
+    InstanceInfoProviderMonitoringNotSupportedStub instanceInfoProviderNotSupported;
+
+    mConfig.mPollPeriod    = cPollPeriod;
+    mConfig.mAverageWindow = cPollPeriod * 3;
+
+    mNodeConfig.mAlertRules.Reset();
+    mNodeConfigProvider.SetNodeConfig(mNodeConfig);
+
+    const std::vector cMonitoringData = {
+        TestMonitoringData()
+            .SysData(SystemTestData().CPU(0).RAM(600).Download(300).Upload(300).Partition(cStatesPartition, 100))
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
+                InstanceTestData().CPU(600).RAM(0).Download(300).Upload(300).Partition(cStatesPartition, 300)),
+
+        TestMonitoringData()
+            .SysData(SystemTestData().CPU(900).RAM(300).Download(0).Upload(300).Partition(cStatesPartition, 400))
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
+                InstanceTestData().CPU(300).RAM(900).Download(300).Upload(0).Partition(cStatesPartition, 0)),
+
+        TestMonitoringData()
+            .SysData(SystemTestData().CPU(1200).RAM(200).Download(200).Upload(0).Partition(cStatesPartition, 500))
+            .InstanceData(InstanceIdent {"", "", 1, UpdateItemTypeEnum::eService},
+                InstanceTestData().CPU(200).RAM(1200).Download(0).Upload(200).Partition(cStatesPartition, 800)),
+    };
+
+    const std::vector cExpectedAverage = {
+        TestMonitoringData().SysData(
+            SystemTestData().CPU(0).RAM(600).Download(300).Upload(300).Partition(cStatesPartition, 100)),
+
+        TestMonitoringData().SysData(
+            SystemTestData().CPU(300).RAM(500).Download(200).Upload(300).Partition(cStatesPartition, 200)),
+
+        TestMonitoringData().SysData(
+            SystemTestData().CPU(600).RAM(400).Download(200).Upload(200).Partition(cStatesPartition, 300)),
+    };
+
+    auto err = mMonitoring.Init(mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender, mAlertSender,
+        mNodeMonitoringProvider, &instanceInfoProviderNotSupported);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::vector<NodeMonitoringData> avgMonitoring;
+
+    for (size_t i = 0; i < cMonitoringData.size(); ++i) {
+        const auto& data = cMonitoringData[i];
+
+        mNodeMonitoringProvider.SetMonitoringData(data.mSystemData);
+
+        avgMonitoring.resize(avgMonitoring.size() + 1);
+    }
+
+    err = instanceInfoProviderNotSupported.SetInstanceStatus(cIdent, InstanceStateEnum::eActive);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mMonitoring.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    for (auto& avgData : avgMonitoring) {
+        auto sentData = std::make_unique<NodeMonitoringData>();
+
+        err = mSender.GetMonitoringData(*sentData);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mMonitoring.GetAverageMonitoringData(avgData);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    for (size_t i = 0; i < avgMonitoring.size(); ++i) {
+        const auto& receivedData = avgMonitoring[i];
+
+        EXPECT_EQ(receivedData.mInstances.Size(), 0);
         EXPECT_EQ(receivedData.mMonitoringData, cExpectedAverage[i].mSystemData);
     }
 

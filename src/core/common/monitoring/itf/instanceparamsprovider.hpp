@@ -30,7 +30,7 @@ public:
      * @return Error eNotSupported if instance monitoring is not supported.
      */
     virtual Error GetInstanceMonitoringParams(
-        const InstanceIdent& instanceIdent, Optional<InstanceMonitoringParams>& params) const
+        const InstanceIdent& instanceIdent, InstanceMonitoringParams& params) const
         = 0;
 };
 
