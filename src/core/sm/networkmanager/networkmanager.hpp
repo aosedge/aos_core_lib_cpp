@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_SM_NETWORKMANAGER_NETWORKMANAGER_HPP_
 #define AOS_CORE_SM_NETWORKMANAGER_NETWORKMANAGER_HPP_
 
+#include <core/common/crypto/itf/hash.hpp>
 #include <core/common/crypto/itf/rand.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/map.hpp>
@@ -44,12 +45,15 @@ public:
      * @param netMonitor traffic monitor.
      * @param netns namespace manager.
      * @param netIf network interface manager.
+     * @param random random generator interface.
+     * @param netIfFactory network interface factory.
+     * @param hasher hasher interface.
      * @param workingDir working directory.
      * @return Error.
      */
     Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
         InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
-        const String& workingDir);
+        crypto::HasherItf& hasher, const String& workingDir);
 
     /**
      * Starts network manager.
@@ -154,20 +158,21 @@ private:
     static constexpr auto     cInstanceInterfaceName     = "eth0";
     static constexpr auto     cBridgePrefix              = "br-";
     static constexpr auto     cVlanIfPrefix              = "vlan-";
+    static constexpr auto     cMaxBridgeNetworkIDLen     = cInterfaceLen - 1 - strlen(cBridgePrefix); // 15 - 3 = 12
     static constexpr auto     cNumAllocations            = 8 * cMaxNumConcurrentItems;
     static constexpr auto     cResolvConfLineLen         = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
     Error PrepareCNIConfig(const String& instanceID, const String& networkID, const InstanceNetworkParameters& network,
-        cni::NetworkConfigList& net, cni::RuntimeConf& rt, Array<StaticString<cHostNameLen>>& hosts) const;
+        cni::NetworkConfigList& net, cni::RuntimeConf& rt, Array<StaticString<cHostNameLen>>& hosts);
     Error PrepareNetworkConfigList(const String& instanceID, const String& networkID,
-        const InstanceNetworkParameters& network, cni::NetworkConfigList& net) const;
+        const InstanceNetworkParameters& network, cni::NetworkConfigList& net);
     Error PrepareRuntimeConfig(
         const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const;
 
-    Error CreateBridgePluginConfig(
-        const String& networkID, const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const;
+    Error CreateBridgePluginConfig(const String& networkID, const String& bridgeName,
+        const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const;
     Error CreateFirewallPluginConfig(
         const String& instanceID, const InstanceNetworkParameters& network, cni::FirewallPluginConf& config) const;
     Error CreateBandwidthPluginConfig(const InstanceNetworkParameters& network, cni::BandwidthNetConf& config) const;
@@ -199,6 +204,7 @@ private:
     Error RemoveNetwork(const String& networkID);
     Error CreateNetwork(const NetworkInfo& network);
     Error GenerateVlanIfName(String& vlanIfName);
+    Error GenerateBridgeName(const String& networkID, String& bridgeName);
     Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error CleanupInstanceNetworkResources(const String& instanceID, const String& networkID);
 
@@ -209,6 +215,7 @@ private:
     InterfaceManagerItf*                                                        mNetIf {};
     crypto::RandomItf*                                                          mRandom {};
     InterfaceFactoryItf*                                                        mNetIfFactory {};
+    crypto::HasherItf*                                                          mHasher {};
     StaticString<cFilePathLen>                                                  mCNINetworkCacheDir;
     NetworkCache                                                                mNetworkData;
     StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                 mNetworkProviders;
