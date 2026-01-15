@@ -179,6 +179,8 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 
     LOG_DBG() << "Get instances statuses";
 
+    statuses.Clear();
+
     for (const auto& instance : mInstances) {
         if (auto err = statuses.EmplaceBack(instance.mStatus); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -321,7 +323,7 @@ void Launcher::RunRebootThread()
 
 Error Launcher::StoreInstalledComponent(const aos::InstanceStatus& status)
 {
-    if (status.mType != UpdateItemTypeEnum::eComponent || status.mState != InstanceStateEnum::eActive) {
+    if (!IsPreinstalledInstance(status)) {
         return ErrorEnum::eNone;
     }
 
@@ -364,11 +366,15 @@ void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, co
         }
     }
 
-    if (!statuses->IsEmpty()) {
+    if (!mFirstStart) {
+        LOG_DBG() << "Send node instances statuses" << Log::Field("count", statuses->Size());
+
         if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
             LOG_ERR() << "Failed to send node instances statuses" << Log::Field(err);
         }
     }
+
+    mFirstStart = false;
 }
 
 void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses)
@@ -529,7 +535,11 @@ void Launcher::ClearCachedInstances()
 {
     LockGuard lock {mMutex};
 
-    while (!mInstances.IsEmpty()) {
+    const auto removedCount = mInstances.RemoveIf([this](const auto& instance) {
+        if (IsPreinstalledInstance(instance.mStatus)) {
+            return false;
+        }
+
         if (auto err = mStorage->RemoveInstanceInfo(static_cast<const InstanceIdent&>(mInstances.Back().mInfo));
             !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
             LOG_ERR() << "Remove instance info failed"
@@ -537,8 +547,10 @@ void Launcher::ClearCachedInstances()
                       << Log::Field(AOS_ERROR_WRAP(err));
         }
 
-        mInstances.PopBack();
-    }
+        return true;
+    });
+
+    LOG_DBG() << "Removed instances count" << Log::Field("count", removedCount);
 }
 
 Error Launcher::StartLaunch()
@@ -560,6 +572,11 @@ void Launcher::FinishLaunch()
 
     mLaunchInProgress = false;
     mCondVar.NotifyAll();
+}
+
+bool Launcher::IsPreinstalledInstance(const InstanceStatus& status) const
+{
+    return status.mPreinstalled;
 }
 
 Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent)
