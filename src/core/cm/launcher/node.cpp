@@ -223,17 +223,33 @@ Error Node::ScheduleInstance(const aos::InstanceInfo& instance, const networkman
     return ErrorEnum::eNone;
 }
 
-Error Node::SetupNetworkParams(bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr)
+Error Node::SetupNetworkParams(
+    bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr, Array<SharedPtr<Instance>>& instances)
 {
-    for (size_t i = 0; i < mScheduledInstances.Size(); ++i) {
+    for (size_t i = 0; i < mScheduledInstances.Size();) {
+        const auto& scheduledInstance = mScheduledInstances[i];
+
         if (onlyExposedPorts && mNetworkServiceData[i].mExposedPorts.IsEmpty()) {
+            ++i;
+
             continue;
         }
 
-        auto netErr = netMgr.PrepareInstanceNetworkParameters(mScheduledInstances[i], mScheduledInstances[i].mOwnerID,
+        auto netErr = netMgr.PrepareInstanceNetworkParameters(scheduledInstance, mScheduledInstances[i].mOwnerID,
             mInfo.mNodeID, mNetworkServiceData[i], mScheduledInstances[i].mNetworkParameters.GetValue());
         if (!netErr.IsNone()) {
-            return AOS_ERROR_WRAP(netErr);
+            auto instance = instances.FindIf([&scheduledInstance](const SharedPtr<Instance>& instance) {
+                return instance->GetInfo().mInstanceIdent == scheduledInstance;
+            });
+
+            if (instance != instances.end()) {
+                (*instance)->SetError(AOS_ERROR_WRAP(Error(netErr, "can't prepare instance network parameters")));
+            }
+
+            mScheduledInstances.Erase(mScheduledInstances.begin() + i);
+            mNetworkServiceData.Erase(mNetworkServiceData.begin() + i);
+        } else {
+            ++i;
         }
     }
 
