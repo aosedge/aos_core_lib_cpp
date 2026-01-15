@@ -161,6 +161,7 @@ private:
     Error StartStoredInstances();
     Error StartLaunch();
     void  FinishLaunch();
+    bool  IsPreinstalledInstance(const InstanceStatus& status) const;
 
     InstanceData* FindInstanceData(const InstanceIdent& instanceIdent);
     InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
@@ -183,6 +184,7 @@ private:
     SenderItf*                                                                              mSender {};
     bool                                                                                    mLaunchInProgress {};
     bool                                                                                    mIsRunning {};
+    bool                                                                                    mFirstStart {true};
 };
 
 } // namespace aos::sm::launcher

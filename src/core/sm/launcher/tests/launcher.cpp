@@ -101,13 +101,14 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const String&
     return status;
 }
 
-InstanceStatus CreateInstanceStatus(
-    const InstanceInfo& instance, InstanceStateEnum state, const UpdateItemTypeEnum type = UpdateItemTypeEnum::eService)
+InstanceStatus CreateInstanceStatus(const InstanceInfo& instance, InstanceStateEnum state,
+    const UpdateItemTypeEnum type = UpdateItemTypeEnum::eService, bool preinstalled = false)
 {
     InstanceStatus status
         = CreateInstanceStatus(static_cast<const InstanceIdent&>(instance), instance.mRuntimeID, state);
 
-    status.mType = type;
+    status.mType         = type;
+    status.mPreinstalled = preinstalled;
 
     return status;
 }
@@ -314,7 +315,7 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
         CreateInstanceStatus(
             CreateInstanceInfo(0, "runtime0"), InstanceStateEnum::eActive, UpdateItemTypeEnum::eComponent),
         CreateInstanceStatus(
-            CreateInstanceInfo(1, "runtime0"), InstanceStateEnum::eInactive, UpdateItemTypeEnum::eComponent),
+            CreateInstanceInfo(1, "runtime0"), InstanceStateEnum::eInactive, UpdateItemTypeEnum::eComponent, true),
         CreateInstanceStatus(
             CreateInstanceInfo(2, "runtime0"), InstanceStateEnum::eActive, UpdateItemTypeEnum::eService),
     };
@@ -379,7 +380,7 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
@@ -418,7 +419,7 @@ TEST_F(LauncherTest, UpdateInstances)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
@@ -495,6 +496,8 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 
     err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 0);
 
     std::promise<void> launchPromise;
 
@@ -758,7 +761,7 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
@@ -817,7 +820,7 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
@@ -857,6 +860,9 @@ TEST_F(LauncherTest, RebootRuntime)
     }));
 
     err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.RebootRequired("runtime0");
