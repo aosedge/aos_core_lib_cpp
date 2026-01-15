@@ -594,7 +594,9 @@ Error Balancer::SetNetworkParams(bool onlyWithExposedPorts)
 {
     // update network for new instance list
     for (auto& node : mNodeManager->GetNodes()) {
-        if (auto err = node.SetupNetworkParams(onlyWithExposedPorts, *mNetworkManager); !err.IsNone()) {
+        auto err
+            = node.SetupNetworkParams(onlyWithExposedPorts, *mNetworkManager, mInstanceManager->GetStashInstances());
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -613,13 +615,13 @@ Error Balancer::SetupNetworkForNewInstances()
         for (const auto& instance : mInstanceManager->GetStashInstances()) {
             if (nodeID == instance->GetInfo().mNodeID) {
                 if (auto err = providers->PushBack(instance->GetOwnerID()); !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
+                    instance->SetError(AOS_ERROR_WRAP(Error(err, "can't add owner ID")));
                 }
             }
         }
 
         if (auto err = mNetworkManager->UpdateProviderNetwork(*providers, nodeID); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+            return AOS_ERROR_WRAP(Error(err, "can't update provider network"));
         }
     }
 

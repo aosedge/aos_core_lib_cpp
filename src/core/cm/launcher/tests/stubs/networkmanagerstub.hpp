@@ -21,14 +21,21 @@ public:
     void Init()
     {
         mNetworkInfo.clear();
-        mCurrentIP = 0xAC110001;
+        mCurrentIP     = 0xAC110001;
+        mFailOnPrepare = false;
     }
+
+    void SetFailOnPrepare(bool value) { mFailOnPrepare = value; }
 
     Error PrepareInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& networkID,
         const String& nodeID, const NetworkServiceData& networkData, InstanceNetworkParameters& result) override
     {
         (void)nodeID;
         (void)networkData;
+
+        if (mFailOnPrepare) {
+            return ErrorEnum::eFailed;
+        }
 
         mNetworkInfo[networkID.CStr()].insert(instanceIdent);
 
@@ -84,6 +91,7 @@ private:
     std::map<std::string, std::set<InstanceIdent>> mNetworkInfo;
     uint32_t                                       mCurrentIP {0xAC110001};
     std::string                                    mSubnet {"172.17.0.0/16"};
+    bool                                           mFailOnPrepare {};
 
     std::string IPToString(uint32_t ip) const
     {

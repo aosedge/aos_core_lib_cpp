@@ -134,9 +134,11 @@ public:
      *
      * @param onlyExposedPorts flag for only exposed ports.
      * @param netMgr network manager.
+     * @param instances all scheduled instances.
      * @return Error.
      */
-    Error SetupNetworkParams(bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr);
+    Error SetupNetworkParams(
+        bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr, Array<SharedPtr<Instance>>& instances);
 
     /**
      * Sends scheduled instances to node.

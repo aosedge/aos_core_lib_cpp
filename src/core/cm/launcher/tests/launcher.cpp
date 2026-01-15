@@ -1701,4 +1701,77 @@ TEST_F(CMLauncherTest, SubjectChanged)
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
+TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
+{
+    using namespace std::chrono_literals;
+
+    Config cfg;
+
+    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mNetworkManager.SetFailOnPrepare(true);
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    // Service config
+    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
+    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher);
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
+                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    // Run a single instance.
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(1, 2000ms));
+
+    // Verify that instance failed because of PrepareNetworkParams error.
+    const auto& lastStatuses = instanceStatusListener.GetLastStatuses();
+    ASSERT_EQ(lastStatuses.Size(), 1U);
+
+    const auto& status = lastStatuses[0];
+
+    ASSERT_EQ(static_cast<const InstanceIdent&>(status), CreateInstanceIdent(cService1, cSubject1, 0));
+    ASSERT_EQ(status.mState, aos::InstanceStateEnum::eFailed);
+    ASSERT_FALSE(status.mError.IsNone());
+
+    // Stop launcher and unsubscribe listener.
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+    ASSERT_TRUE(mLauncher.UnsubscribeListener(instanceStatusListener).IsNone());
+}
+
 } // namespace aos::cm::launcher
