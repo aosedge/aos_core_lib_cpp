@@ -18,6 +18,7 @@
 #include <core/sm/tests/mocks/cnimock.hpp>
 #include <core/sm/tests/mocks/storagemock.hpp>
 
+#include "mocks/hashermock.hpp"
 #include "mocks/interfacefactorymock.hpp"
 #include "mocks/interfacemanagermock.hpp"
 #include "mocks/namespacemanagermock.hpp"
@@ -48,8 +49,8 @@ protected:
         EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
             .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
-        ASSERT_EQ(
-            mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir),
+        ASSERT_EQ(mNetManager->Init(
+                      mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mHasher, mWorkingDir),
             aos::ErrorEnum::eNone);
         ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
     }
@@ -105,6 +106,7 @@ protected:
     StrictMock<InterfaceManagerMock>                                                      mNetIf;
     StrictMock<InterfaceFactoryMock>                                                      mNetIfFactory;
     StrictMock<RandomMock>                                                                mRandom;
+    NiceMock<HasherMock>                                                                  mHasher;
     aos::StaticString<aos::cFilePathLen>                                                  mWorkingDir;
     aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners>            mNetworkInfos;
     aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances> mInstanceNetworkInfos;
@@ -840,7 +842,8 @@ TEST_F(NetworkManagerTest, UpdateNetworksRemoveExisting)
         .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
     mNetManager = std::make_unique<NetworkManager>();
-    ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir),
+    ASSERT_EQ(mNetManager->Init(
+                  mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mHasher, mWorkingDir),
         aos::ErrorEnum::eNone);
 
     aos::StaticArray<aos::NetworkParameters, 1> emptyNetworks;
@@ -911,4 +914,51 @@ TEST_F(NetworkManagerTest, UpdateNetworksRemoveNetworkWithInstance)
     EXPECT_CALL(mStorage, RemoveNetworkInfo(network.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     ASSERT_EQ(mNetManager->UpdateNetworks(emptyNetworks), aos::ErrorEnum::eNone);
+}
+
+TEST_F(NetworkManagerTest, UpdateNetworks_LongNetworkID_UseHashedBridgeName)
+{
+    aos::StaticArray<aos::NetworkParameters, 1> networks;
+
+    aos::NetworkParameters network;
+    network.mNetworkID = "very-long-network-id-that-exceeds-limit";
+    network.mIP        = "192.168.1.1";
+    network.mSubnet    = "192.168.1.0/24";
+    network.mVlanID    = 100ULL;
+    networks.PushBack(network);
+
+    EXPECT_CALL(mRandom, RandBuffer(_, 4)).WillOnce(Invoke([](aos::Array<uint8_t>& buffer, size_t) {
+        buffer.Resize(4);
+        uint8_t data[] = {0x12, 0x34, 0xAB, 0xCD};
+        for (size_t i = 0; i < sizeof(data); i++) {
+            buffer[i] = data[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    auto hashMock = std::make_unique<NiceMock<HashMock>>();
+    testing::Mock::AllowLeak(hashMock.get());
+
+    EXPECT_CALL(*hashMock, Update(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(*hashMock, Finalize(_)).WillOnce(Invoke([](aos::Array<uint8_t>& hash) {
+        hash.Resize(32);
+        uint8_t hashData[] = {0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
+        for (size_t i = 0; i < sizeof(hashData); i++) {
+            hash[i] = hashData[i];
+        }
+        return aos::ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mHasher, CreateHash(aos::crypto::Hash(aos::crypto::HashEnum::eSHA256)))
+        .WillOnce(Return(aos::RetWithError<aos::UniquePtr<aos::crypto::HashItf>>(
+            {aos::UniquePtr<aos::crypto::HashItf>(hashMock.release()), aos::ErrorEnum::eNone})));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(aos::String("br-abcdef123456"), network.mIP, network.mSubnet))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, network.mVlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->UpdateNetworks(networks), aos::ErrorEnum::eNone);
 }
