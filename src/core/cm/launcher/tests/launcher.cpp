@@ -1375,6 +1375,7 @@ TEST_F(CMLauncherTest, Balancing)
         mInstanceRunner.Init(mLauncher);
         mInstanceStatusProvider.Init();
         mMonitoringProvider.Init();
+        mAlertsProvider.Init();
         mResourceManager.Init();
         mStorage.Init(testItem.mStoredInstances);
 
@@ -1433,7 +1434,9 @@ TEST_F(CMLauncherTest, Balancing)
             using namespace std::chrono_literals;
             ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(currentNotifyCount + 2, 2000ms));
         }
+
         ASSERT_TRUE(mLauncher.Stop().IsNone());
+        mLauncher.UnsubscribeListener(instanceStatusListener);
 
         // Check sent run requests
         ASSERT_EQ(mInstanceRunner.GetNodeInstances(), testItem.mExpectedRunRequests);
