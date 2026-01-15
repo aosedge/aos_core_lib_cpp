@@ -292,9 +292,7 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
     LOG_DBG() << "Start watching instance" << Log::Field("ident", ident);
 
-    auto it = mWatchedInstances.FindIf([&ident](const auto& instance) { return instance.mIdent == ident; });
-
-    if (it != mWatchedInstances.end()) {
+    if (mWatchedInstances.ContainsIf([&ident](const auto& instance) { return instance.mIdent == ident; })) {
         return;
     }
 
@@ -306,30 +304,39 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
     mWatchedInstances.Back().mIdent = ident;
 
-    if (auto err
-        = mInstanceInfoProvider->GetInstanceMonitoringParams(ident, mWatchedInstances.Back().mMonitoringParams);
-        !err.IsNone()) {
-        if (err.Is(ErrorEnum::eNotSupported)) {
-            LOG_DBG() << "Instance monitoring is not supported" << Log::Field("ident", ident);
+    Error err = ErrorEnum::eNone;
+
+    auto stopWatchOnError = DeferRelease(&err, [&](const Error* err) {
+        if (!err->IsNone()) {
+            if (err->Is(ErrorEnum::eNotSupported)) {
+                LOG_DBG() << "Instance monitoring is not supported" << Log::Field("ident", ident);
+            } else {
+                LOG_ERR() << "Stopping watching instance" << Log::Field("ident", ident) << Log::Field(*err);
+            }
 
             mWatchedInstances.PopBack();
-        } else {
-            LOG_ERR() << "Can't get instance monitoring params" << Log::Field("ident", ident) << Log::Field(err);
         }
+    });
+
+    err = mInstanceInfoProvider->GetInstanceMonitoringParams(ident, mWatchedInstances.Back().mMonitoringParams);
+    if (!err.IsNone()) {
+        err = AOS_ERROR_WRAP(err);
 
         return;
     }
 
-    if (auto err = mAverage.StartInstanceMonitoring(ident); !err.IsNone()) {
-        LOG_ERR() << "Failed to start instance monitoring" << Log::Field("ident", ident) << Log::Field(err);
+    err = mAverage.StartInstanceMonitoring(ident);
+    if (!err.IsNone()) {
+        err = AOS_ERROR_WRAP(err);
 
-        mWatchedInstances.PopBack();
         return;
     }
 
-    if (auto err = SetInstanceAlertProcessors(mWatchedInstances.Back().mMonitoringParams, mWatchedInstances.Back());
-        !err.IsNone()) {
-        LOG_ERR() << "Failed to set instance alert processors" << Log::Field("ident", ident) << Log::Field(err);
+    err = SetInstanceAlertProcessors(mWatchedInstances.Back().mMonitoringParams, mWatchedInstances.Back());
+    if (!err.IsNone()) {
+        err = AOS_ERROR_WRAP(err);
+
+        return;
     }
 }
 

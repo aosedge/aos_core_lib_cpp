@@ -118,7 +118,7 @@ public:
      * @return Error eNotSupported if instance monitoring is not supported.
      */
     Error GetInstanceMonitoringParams(
-        const InstanceIdent& instanceIdent, Optional<InstanceMonitoringParams>& params) const override;
+        const InstanceIdent& instanceIdent, InstanceMonitoringParams& params) const override;
 
     /**
      * Returns instance monitoring data.

@@ -77,9 +77,9 @@ private:
     static constexpr auto cAllocatorSize = Max(sizeof(NodeMonitoringData), sizeof(InstanceStatusArray));
 
     struct Instance {
-        InstanceIdent                      mIdent;
-        AlertProcessorArray                mAlertProcessors;
-        Optional<InstanceMonitoringParams> mMonitoringParams;
+        InstanceIdent            mIdent;
+        AlertProcessorArray      mAlertProcessors;
+        InstanceMonitoringParams mMonitoringParams;
     };
 
     Error OnNodeConfigChanged(const NodeConfig& nodeConfig) override;

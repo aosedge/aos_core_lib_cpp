@@ -214,20 +214,24 @@ Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listene
     return mSubscribers.Remove(&listener) == 0 ? AOS_ERROR_WRAP(ErrorEnum::eNotFound) : ErrorEnum::eNone;
 }
 
-Error Launcher::GetInstanceMonitoringParams(
-    const InstanceIdent& instanceIdent, Optional<InstanceMonitoringParams>& params) const
+Error Launcher::GetInstanceMonitoringParams(const InstanceIdent& instanceIdent, InstanceMonitoringParams& params) const
 {
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Get instance monitoring params" << Log::Field("ident", instanceIdent);
 
-    if (auto instanceData = FindInstanceData(instanceIdent); instanceData) {
-        params = instanceData->mInfo.mMonitoringParams;
-
-        return ErrorEnum::eNone;
+    const auto instanceData = FindInstanceData(instanceIdent);
+    if (!instanceData) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
     }
 
-    return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "Instance not found"));
+    if (!instanceData->mInfo.mMonitoringParams.HasValue()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
+    }
+
+    params = instanceData->mInfo.mMonitoringParams.GetValue();
+
+    return ErrorEnum::eNone;
 }
 
 Error Launcher::GetInstanceMonitoringData(

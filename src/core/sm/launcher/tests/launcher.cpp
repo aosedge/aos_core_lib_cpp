@@ -643,14 +643,14 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
 
     EXPECT_EQ(storedData->Size(), cStartInstances.Size());
 
-    auto params = std::make_unique<Optional<InstanceMonitoringParams>>();
+    auto params = std::make_unique<InstanceMonitoringParams>();
 
     err = mLauncher.GetInstanceMonitoringParams(startInstance, *params);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(startInstance.mMonitoringParams, *params);
 
-    params = std::make_unique<Optional<InstanceMonitoringParams>>();
+    params = std::make_unique<InstanceMonitoringParams>();
 
     err = mLauncher.GetInstanceMonitoringParams(
         InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *params);
