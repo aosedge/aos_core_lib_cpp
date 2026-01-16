@@ -91,6 +91,7 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
 {
     // create instance info, InstanceNetworkParameters are added after network updates
     static_cast<InstanceIdent&>(info) = instance.GetInfo().mInstanceIdent;
+    info.mVersion                     = request.mVersion;
     info.mManifestDigest              = imageDescriptor.mDigest;
     info.mRuntimeID                   = runtimeID;
     info.mOwnerID                     = request.mOwnerID;
