@@ -136,7 +136,7 @@ Error ComponentInstance::Remove()
 
 Error ComponentInstance::Cache(bool disable)
 {
-    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << ", disable=" << disable;
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << Log::Field("disable", disable);
 
     mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
     mInfo.mNodeID = "";
@@ -230,7 +230,7 @@ Error ServiceInstance::Remove()
 
 Error ServiceInstance::Cache(bool disable)
 {
-    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << ", disable=" << disable;
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << Log::Field("disable", disable);
 
     mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
     mInfo.mNodeID = "";
