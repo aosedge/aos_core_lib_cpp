@@ -202,7 +202,7 @@ uint32_t GenerateUID()
 }
 
 InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci::cDigestLen> manifestDigest = {},
-    const String& runtimeID = "1.0.0", const String& nodeID = "",
+    const String& runtimeID = "runc", const String& nodeID = "",
     InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {})
 {
     InstanceInfo result;
