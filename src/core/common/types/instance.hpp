@@ -20,6 +20,7 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
+    StaticString<cVersionLen>           mVersion;
     StaticString<oci::cDigestLen>       mManifestDigest;
     StaticString<cIDLen>                mRuntimeID;
     StaticString<cIDLen>                mOwnerID;
