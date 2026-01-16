@@ -12,6 +12,7 @@
 
 #include <core/common/consts.hpp>
 #include <core/common/crypto/itf/hash.hpp>
+#include <core/common/types/common.hpp>
 
 #include "config.hpp"
 #include "noncopyable.hpp"
@@ -86,6 +87,14 @@ public:
      * @return Error.
      */
     virtual Error ChangeOwner(const String& path, uint32_t uid, uint32_t gid) const = 0;
+
+    /**
+     * Gets block device for the given path.
+     *
+     * @param path path to file or directory.
+     * @return RetWithError<StaticString<cDeviceNameLen>>.
+     */
+    virtual RetWithError<StaticString<cDeviceNameLen>> GetBlockDevice(const String& path) const = 0;
 };
 
 /**
