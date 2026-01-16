@@ -20,7 +20,7 @@ namespace aos::sm::networkmanager {
 
 Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor,
     NamespaceManagerItf& netns, InterfaceManagerItf& netIf, crypto::RandomItf& random,
-    InterfaceFactoryItf& netIfFactory, crypto::HasherItf& hasher, const String& workingDir)
+    InterfaceFactoryItf& netIfFactory, const String& workingDir)
 {
     LOG_DBG() << "Init network manager";
 
@@ -31,7 +31,6 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
     mNetIf        = &netIf;
     mRandom       = &random;
     mNetIfFactory = &netIfFactory;
-    mHasher       = &hasher;
 
     auto cniDir      = fs::JoinPath(workingDir, "cni");
     auto cniCacheDir = fs::JoinPath(cniDir, "results");
@@ -498,13 +497,9 @@ Error NetworkManager::ClearNetwork(const String& networkID)
 {
     LOG_DBG() << "Clear network: networkID=" << networkID;
 
-    StaticString<cInterfaceLen> bridgeName;
+    StaticString<cInterfaceLen> ifName;
 
-    if (auto err = GenerateBridgeName(networkID, bridgeName); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = mNetIf->DeleteLink(bridgeName); !err.IsNone()) {
+    if (auto err = mNetIf->DeleteLink(ifName.Append(cBridgePrefix).Append(networkID)); !err.IsNone()) {
         return err;
     }
 
@@ -524,7 +519,7 @@ Error NetworkManager::ClearNetwork(const String& networkID)
 
 Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& networkID,
     const InstanceNetworkParameters& network, cni::NetworkConfigList& netConfigList, cni::RuntimeConf& rtConfig,
-    Array<StaticString<cHostNameLen>>& hosts)
+    Array<StaticString<cHostNameLen>>& hosts) const
 {
     LOG_DBG() << "Prepare CNI config: instanceID=" << instanceID << ", networkID=" << networkID;
 
@@ -830,17 +825,11 @@ Error NetworkManager::PrepareRuntimeConfig(
 }
 
 Error NetworkManager::PrepareNetworkConfigList(const String& instanceID, const String& networkID,
-    const InstanceNetworkParameters& network, cni::NetworkConfigList& net)
+    const InstanceNetworkParameters& network, cni::NetworkConfigList& net) const
 {
     LOG_DBG() << "Prepare network config list: instanceID=" << instanceID << ", networkID=" << networkID;
 
-    StaticString<cInterfaceLen> bridgeName;
-
-    if (auto err = GenerateBridgeName(networkID, bridgeName); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = CreateBridgePluginConfig(networkID, bridgeName, network, net.mBridge); !err.IsNone()) {
+    if (auto err = CreateBridgePluginConfig(networkID, network, net.mBridge); !err.IsNone()) {
         return err;
     }
 
@@ -859,13 +848,13 @@ Error NetworkManager::PrepareNetworkConfigList(const String& instanceID, const S
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::CreateBridgePluginConfig(const String& networkID, const String& bridgeName,
-    const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const
+Error NetworkManager::CreateBridgePluginConfig(
+    const String& networkID, const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const
 {
     LOG_DBG() << "Create bridge plugin config";
 
-    config.mType        = "bridge";
-    config.mBridge      = bridgeName;
+    config.mType = "bridge";
+    config.mBridge.Append(cBridgePrefix).Append(networkID);
     config.mIsGateway   = true;
     config.mIPMasq      = true;
     config.mHairpinMode = true;
@@ -1048,11 +1037,9 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     StaticString<cInterfaceLen> bridgeName;
 
-    if (auto err = GenerateBridgeName(network.mNetworkID, bridgeName); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = mNetIfFactory->CreateBridge(bridgeName, network.mIP, network.mSubnet); !err.IsNone()) {
+    if (auto err = mNetIfFactory->CreateBridge(
+            bridgeName.Append(cBridgePrefix).Append(network.mNetworkID), network.mIP, network.mSubnet);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1066,49 +1053,6 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     LOG_DBG() << "Network created: networkID=" << network.mNetworkID << ", subnet=" << network.mSubnet
               << ", ip=" << network.mIP << ", vlanID=" << network.mVlanID << ", vlanIfName=" << network.mVlanIfName;
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::GenerateBridgeName(const String& networkID, String& bridgeName)
-{
-    bridgeName.Append(cBridgePrefix);
-
-    if (networkID.Size() <= cMaxBridgeNetworkIDLen) {
-        bridgeName.Append(networkID);
-
-        return ErrorEnum::eNone;
-    }
-
-    auto [hasher, err] = mHasher->CreateHash(crypto::HashEnum::eSHA256);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto inputData = Array<uint8_t>(reinterpret_cast<const uint8_t*>(networkID.Get()), networkID.Size());
-
-    if (err = hasher->Update(inputData); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    StaticArray<uint8_t, crypto::cSHA256Size> hashResult;
-
-    if (err = hasher->Finalize(hashResult); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    // Use first 6 bytes of hash to get 12 hex characters
-    auto hashPrefix = Array<uint8_t>(hashResult.Get(), cMaxBridgeNetworkIDLen / 2);
-
-    StaticString<cMaxBridgeNetworkIDLen + 1> hexString;
-
-    if (err = hexString.ByteArrayToHex(hashPrefix); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    bridgeName.Append(hexString);
-
-    LOG_DBG() << "Generated bridge name from hash: networkID=" << networkID << ", bridgeName=" << bridgeName;
 
     return ErrorEnum::eNone;
 }
