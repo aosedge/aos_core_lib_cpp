@@ -25,6 +25,7 @@ struct NetworkInfo {
     StaticString<cIPLen>        mIP;
     uint64_t                    mVlanID {};
     StaticString<cInterfaceLen> mVlanIfName;
+    StaticString<cInterfaceLen> mBridgeIfName;
 
     /**
      * Default constructor.
@@ -39,14 +40,16 @@ struct NetworkInfo {
      * @param ip IP address.
      * @param vlanID VLAN ID.
      * @param vlanIfName VLAN interface name.
+     * @param bridgeIfName Bridge interface name.
      */
-    NetworkInfo(
-        const String& networkID, const String& subnet, const String& ip, uint64_t vlanID, const String& vlanIfName = {})
+    NetworkInfo(const String& networkID, const String& subnet, const String& ip, uint64_t vlanID,
+        const String& vlanIfName = {}, const String& bridgeIfName = {})
         : mNetworkID(networkID)
         , mSubnet(subnet)
         , mIP(ip)
         , mVlanID(vlanID)
         , mVlanIfName(vlanIfName)
+        , mBridgeIfName(bridgeIfName)
     {
     }
 
@@ -59,7 +62,9 @@ struct NetworkInfo {
     bool operator==(const NetworkInfo& networkInfo) const
     {
         return mNetworkID == networkInfo.mNetworkID && mSubnet == networkInfo.mSubnet && mIP == networkInfo.mIP
-            && mVlanID == networkInfo.mVlanID && mVlanIfName == networkInfo.mVlanIfName;
+            && mVlanID == networkInfo.mVlanID && mVlanIfName == networkInfo.mVlanIfName
+            && mBridgeIfName == networkInfo.mBridgeIfName;
+        ;
     }
 
     /**

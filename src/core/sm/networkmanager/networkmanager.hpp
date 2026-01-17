@@ -147,15 +147,16 @@ private:
     using InstanceCache = StaticMap<StaticString<cIDLen>, NetworkData, cMaxNumInstances>;
     using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumOwners>;
 
-    static constexpr uint64_t cBurstLen                  = 12800;
-    static constexpr auto     cMaxExposedPort            = 2;
-    static constexpr auto     cCountRetriesVlanIfNameGen = 10;
-    static constexpr auto     cAdminChainPrefix          = "INSTANCE_";
-    static constexpr auto     cInstanceInterfaceName     = "eth0";
-    static constexpr auto     cBridgePrefix              = "br-";
-    static constexpr auto     cVlanIfPrefix              = "vlan-";
-    static constexpr auto     cNumAllocations            = 8 * cMaxNumConcurrentItems;
-    static constexpr auto     cResolvConfLineLen         = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
+    static constexpr uint64_t cBurstLen              = 12800;
+    static constexpr auto     cMaxExposedPort        = 2;
+    static constexpr auto     cCountRetriesIfNameGen = 10;
+    static constexpr auto     cMaxNetworkIDLen       = 8;
+    static constexpr auto     cAdminChainPrefix      = "INSTANCE_";
+    static constexpr auto     cInstanceInterfaceName = "eth0";
+    static constexpr auto     cBridgePrefix          = "br-";
+    static constexpr auto     cVlanIfPrefix          = "vlan-";
+    static constexpr auto     cNumAllocations        = 8 * cMaxNumConcurrentItems;
+    static constexpr auto     cResolvConfLineLen     = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
@@ -198,9 +199,25 @@ private:
     Error RemoveNetworks(const Array<aos::NetworkParameters>& networks);
     Error RemoveNetwork(const String& networkID);
     Error CreateNetwork(const NetworkInfo& network);
-    Error GenerateVlanIfName(String& vlanIfName);
     Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error CleanupInstanceNetworkResources(const String& instanceID, const String& networkID);
+    Error GenerateIfName(String& ifName, const String& ifPrefix);
+
+    template <typename P>
+    Error GenerateUniqueIfName(String& ifName, const String& ifPrefix, P&& isUnique)
+    {
+        for (auto i = 0; i < cCountRetriesIfNameGen; ++i) {
+            if (auto err = GenerateIfName(ifName, ifPrefix); !err.IsNone()) {
+                return err;
+            }
+
+            if (isUnique(ifName)) {
+                return ErrorEnum::eNone;
+            }
+        }
+
+        return ErrorEnum::eNotFound;
+    }
 
     StorageItf*                                                                 mStorage {};
     cni::CNIItf*                                                                mCNI {};

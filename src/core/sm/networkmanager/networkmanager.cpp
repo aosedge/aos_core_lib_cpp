@@ -127,15 +127,34 @@ Error NetworkManager::UpdateNetworks(const Array<aos::NetworkParameters>& networ
 
         StaticString<cInterfaceLen> vlanIfName;
 
-        if (auto err = GenerateVlanIfName(vlanIfName); !err.IsNone()) {
+        if (auto err = GenerateUniqueIfName(vlanIfName, cVlanIfPrefix,
+                [this](const String& ifName) {
+                    return mNetworkProviders.FindIf([&](const auto& network) {
+                        return network.mSecond.mVlanIfName == ifName;
+                    }) == mNetworkProviders.end();
+                });
+            !err.IsNone()) {
             return err;
         }
 
-        networkInfo->mNetworkID  = network.mNetworkID;
-        networkInfo->mSubnet     = network.mSubnet;
-        networkInfo->mIP         = network.mIP;
-        networkInfo->mVlanID     = network.mVlanID;
-        networkInfo->mVlanIfName = vlanIfName;
+        StaticString<cInterfaceLen> bridgeIfName;
+
+        if (auto err = GenerateUniqueIfName(bridgeIfName, cBridgePrefix,
+                [this](const String& ifName) {
+                    return mNetworkProviders.FindIf([&](const auto& network) {
+                        return network.mSecond.mBridgeIfName == ifName;
+                    }) == mNetworkProviders.end();
+                });
+            !err.IsNone()) {
+            return err;
+        }
+
+        networkInfo->mNetworkID    = network.mNetworkID;
+        networkInfo->mSubnet       = network.mSubnet;
+        networkInfo->mIP           = network.mIP;
+        networkInfo->mVlanID       = network.mVlanID;
+        networkInfo->mVlanIfName   = vlanIfName;
+        networkInfo->mBridgeIfName = bridgeIfName;
 
         if (auto err = CreateNetwork(*networkInfo); !err.IsNone()) {
             return err;
@@ -156,7 +175,8 @@ Error NetworkManager::UpdateNetworks(const Array<aos::NetworkParameters>& networ
 Error NetworkManager::AddInstanceToNetwork(
     const String& instanceID, const String& networkID, const InstanceNetworkParameters& instanceNetworkParameters)
 {
-    LOG_DBG() << "Add instance to network: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Add instance to network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     auto err = IsInstanceInNetwork(instanceID, networkID);
     if (err.IsNone()) {
@@ -175,8 +195,8 @@ Error NetworkManager::AddInstanceToNetwork(
         if (!err.IsNone()) {
             if (auto errRemoveInstanceFromCache = RemoveInstanceFromCache(*instanceID, networkID);
                 !errRemoveInstanceFromCache.IsNone()) {
-                LOG_ERR() << "Failed to remove instance from cache: instanceID=" << *instanceID
-                          << ", networkID=" << networkID << ", err=" << errRemoveInstanceFromCache;
+                LOG_ERR() << "Failed to remove instance from cache" << Log::Field("instanceID", *instanceID)
+                          << Log::Field("networkID", networkID) << Log::Field(errRemoveInstanceFromCache);
             }
         }
     });
@@ -188,8 +208,8 @@ Error NetworkManager::AddInstanceToNetwork(
     auto cleanupNetworkNamespace = DeferRelease(&instanceID, [this, &err](const String* instanceID) {
         if (!err.IsNone()) {
             if (auto errDelNetNs = mNetns->DeleteNetworkNamespace(*instanceID); !errDelNetNs.IsNone()) {
-                LOG_ERR() << "Failed to delete network namespace: instanceID=" << *instanceID
-                          << ", err=" << errDelNetNs;
+                LOG_ERR() << "Failed to delete network namespace" << Log::Field("instanceID", *instanceID)
+                          << Log::Field(errDelNetNs);
             }
         }
     });
@@ -213,7 +233,8 @@ Error NetworkManager::AddInstanceToNetwork(
     auto cleanupCNI = DeferRelease(&instanceID, [this, &netConfigList, &rtConfig, &err](const String* instanceID) {
         if (!err.IsNone()) {
             if (auto errCleanCNI = mCNI->DeleteNetworkList(*netConfigList, *rtConfig); !errCleanCNI.IsNone()) {
-                LOG_ERR() << "Failed to delete network list: instanceID=" << *instanceID << ", err=" << errCleanCNI;
+                LOG_ERR() << "Failed to delete network list" << Log::Field("instanceID", *instanceID)
+                          << Log::Field(errCleanCNI);
             }
         }
     });
@@ -243,14 +264,16 @@ Error NetworkManager::AddInstanceToNetwork(
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "Instance added to network: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Instance added to network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     return ErrorEnum::eNone;
 }
 
 Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const String& networkID)
 {
-    LOG_DBG() << "Remove instance from network: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Remove instance from network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     if (auto err = IsInstanceInNetwork(instanceID, networkID); !err.IsNone()) {
         LOG_WRN() << "Instance not found in network";
@@ -346,7 +369,7 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
 
 RetWithError<StaticString<cFilePathLen>> NetworkManager::GetNetnsPath(const String& instanceID) const
 {
-    LOG_DBG() << "Get network namespace path: instanceID=" << instanceID;
+    LOG_DBG() << "Get network namespace path" << Log::Field("instanceID", instanceID);
 
     return mNetns->GetNetworkNamespacePath(instanceID);
 }
@@ -355,7 +378,7 @@ Error NetworkManager::GetInstanceIP(const String& instanceID, const String& netw
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Get instance IP: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Get instance IP" << Log::Field("instanceID", instanceID) << Log::Field("networkID", networkID);
 
     auto network = mNetworkData.Find(networkID);
     if (network == mNetworkData.end()) {
@@ -382,14 +405,14 @@ Error NetworkManager::GetSystemTraffic(uint64_t& inputTraffic, uint64_t& outputT
 Error NetworkManager::GetInstanceTraffic(
     const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic) const
 {
-    LOG_DBG() << "Get instance traffic: instanceID=" << instanceID;
+    LOG_DBG() << "Get instance traffic" << Log::Field("instanceID", instanceID);
 
     return AOS_ERROR_WRAP(mNetMonitor->GetInstanceTraffic(instanceID, inputTraffic, outputTraffic));
 }
 
 Error NetworkManager::SetTrafficPeriod(TrafficPeriod period)
 {
-    LOG_DBG() << "Set traffic period: period=" << period;
+    LOG_DBG() << "Set traffic period" << Log::Field("period", period);
 
     mNetMonitor->SetPeriod(period);
 
@@ -404,7 +427,8 @@ Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Check if instance is in network: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Check if instance is in network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     auto network = mNetworkData.Find(networkID);
     if (network == mNetworkData.end()) {
@@ -425,7 +449,8 @@ Error NetworkManager::UpdateInstanceNetworkCache(const String& instanceID, const
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Update instance network cache: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Update instance network cache" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     auto network = mNetworkData.Find(networkID);
     if (network == mNetworkData.end()) {
@@ -447,7 +472,7 @@ Error NetworkManager::AddInstanceToCache(const String& instanceID, const String&
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Add instance to cache: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Add instance to cache" << Log::Field("instanceID", instanceID) << Log::Field("networkID", networkID);
 
     auto network = mNetworkData.Find(networkID);
     if (network == mNetworkData.end()) {
@@ -467,7 +492,8 @@ Error NetworkManager::RemoveInstanceFromCache(const String& instanceID, const St
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Remove instance from cache: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Remove instance from cache" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     auto network = mNetworkData.Find(networkID);
     if (network == mNetworkData.end()) {
@@ -495,18 +521,19 @@ Error NetworkManager::RemoveInstanceFromCache(const String& instanceID, const St
 
 Error NetworkManager::ClearNetwork(const String& networkID)
 {
-    LOG_DBG() << "Clear network: networkID=" << networkID;
+    LOG_DBG() << "Clear network" << Log::Field("networkID", networkID);
 
-    StaticString<cInterfaceLen> ifName;
+    if (auto itProvider = mNetworkProviders.Find(networkID); itProvider != mNetworkProviders.end()) {
+        if (!itProvider->mSecond.mBridgeIfName.IsEmpty()) {
+            if (auto err = mNetIf->DeleteLink(itProvider->mSecond.mBridgeIfName); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
 
-    if (auto err = mNetIf->DeleteLink(ifName.Append(cBridgePrefix).Append(networkID)); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto itProvider = mNetworkProviders.Find(networkID);
-        itProvider != mNetworkProviders.end() && !itProvider->mSecond.mVlanIfName.IsEmpty()) {
-        if (auto err = mNetIf->DeleteLink(itProvider->mSecond.mVlanIfName); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        if (!itProvider->mSecond.mVlanIfName.IsEmpty()) {
+            if (auto err = mNetIf->DeleteLink(itProvider->mSecond.mVlanIfName); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
         }
     }
 
@@ -521,7 +548,7 @@ Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& n
     const InstanceNetworkParameters& network, cni::NetworkConfigList& netConfigList, cni::RuntimeConf& rtConfig,
     Array<StaticString<cHostNameLen>>& hosts) const
 {
-    LOG_DBG() << "Prepare CNI config: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Prepare CNI config" << Log::Field("instanceID", instanceID) << Log::Field("networkID", networkID);
 
     if (auto err = PrepareHosts(instanceID, networkID, network, hosts); !err.IsNone()) {
         return err;
@@ -546,7 +573,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Prepare hosts: networkID=" << networkID;
+    LOG_DBG() << "Prepare hosts" << Log::Field("networkID", networkID);
 
     auto networkData = mNetworkData.Find(networkID);
     if (networkData == mNetworkData.end()) {
@@ -637,7 +664,7 @@ Error NetworkManager::IsHostnameExist(
 Error NetworkManager::CreateResolvConfFile(
     const String& networkID, const InstanceNetworkParameters& network, const Array<StaticString<cIPLen>>& dns) const
 {
-    LOG_DBG() << "Create resolv.conf file: networkID=" << networkID;
+    LOG_DBG() << "Create resolv.conf file" << Log::Field("networkID", networkID);
 
     if (network.mResolvConfFilePath.IsEmpty()) {
         return ErrorEnum::eNone;
@@ -655,7 +682,7 @@ Error NetworkManager::CreateResolvConfFile(
 Error NetworkManager::WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
     const InstanceNetworkParameters& network) const
 {
-    LOG_DBG() << "Write resolv.conf file: filePath=" << filePath;
+    LOG_DBG() << "Write resolv.conf file" << Log::Field("filePath", filePath);
 
     auto fd = open(filePath.CStr(), O_CREAT | O_WRONLY, 0644);
     if (fd < 0) {
@@ -699,7 +726,7 @@ Error NetworkManager::WriteResolvConfFile(const String& filePath, const Array<St
 Error NetworkManager::CreateHostsFile(
     const String& networkID, const String& instanceIP, const InstanceNetworkParameters& network) const
 {
-    LOG_DBG() << "Create hosts file: networkID=" << networkID;
+    LOG_DBG() << "Create hosts file" << Log::Field("networkID", networkID);
 
     if (network.mHostsFilePath.IsEmpty()) {
         return ErrorEnum::eNone;
@@ -737,7 +764,7 @@ Error NetworkManager::CreateHostsFile(
 Error NetworkManager::WriteHostsFile(
     const String& filePath, const Array<SharedPtr<Host>>& hosts, const InstanceNetworkParameters& network) const
 {
-    LOG_DBG() << "Write hosts file: filePath=" << filePath;
+    LOG_DBG() << "Write hosts file" << Log::Field("filePath", filePath);
 
     auto fd = open(filePath.CStr(), O_CREAT | O_WRONLY, 0644);
     if (fd < 0) {
@@ -801,7 +828,7 @@ Error NetworkManager::WriteHosts(const Array<Host>& hosts, int fd) const
 Error NetworkManager::PrepareRuntimeConfig(
     const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const
 {
-    LOG_DBG() << "Prepare runtime config: instanceID=" << instanceID;
+    LOG_DBG() << "Prepare runtime config" << Log::Field("instanceID", instanceID);
 
     rt.mContainerID = instanceID;
 
@@ -827,7 +854,8 @@ Error NetworkManager::PrepareRuntimeConfig(
 Error NetworkManager::PrepareNetworkConfigList(const String& instanceID, const String& networkID,
     const InstanceNetworkParameters& network, cni::NetworkConfigList& net) const
 {
-    LOG_DBG() << "Prepare network config list: instanceID=" << instanceID << ", networkID=" << networkID;
+    LOG_DBG() << "Prepare network config list" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
 
     if (auto err = CreateBridgePluginConfig(networkID, network, net.mBridge); !err.IsNone()) {
         return err;
@@ -853,8 +881,13 @@ Error NetworkManager::CreateBridgePluginConfig(
 {
     LOG_DBG() << "Create bridge plugin config";
 
-    config.mType = "bridge";
-    config.mBridge.Append(cBridgePrefix).Append(networkID);
+    auto it = mNetworkProviders.Find(networkID);
+    if (it == mNetworkProviders.end()) {
+        return ErrorEnum::eNotFound;
+    }
+
+    config.mType        = "bridge";
+    config.mBridge      = it->mSecond.mBridgeIfName;
     config.mIsGateway   = true;
     config.mIPMasq      = true;
     config.mHairpinMode = true;
@@ -864,10 +897,7 @@ Error NetworkManager::CreateBridgePluginConfig(
     config.mIPAM.mRange.mRangeStart = network.mNetworkParameters.mIP;
     config.mIPAM.mRange.mRangeEnd   = network.mNetworkParameters.mIP;
     config.mIPAM.mRange.mSubnet     = network.mNetworkParameters.mSubnet;
-
-    if (auto it = mNetworkProviders.Find(networkID); it != mNetworkProviders.end()) {
-        config.mIPAM.mRange.mGateway = it->mSecond.mIP;
-    }
+    config.mIPAM.mRange.mGateway    = it->mSecond.mIP;
 
     if (auto err = config.mIPAM.mRouters.Resize(1); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -984,7 +1014,7 @@ Error NetworkManager::RemoveNetworks(const Array<aos::NetworkParameters>& networ
 
             it = mNetworkProviders.Erase(it);
 
-            LOG_DBG() << "Remove network from storage: networkID=" << it->mFirst;
+            LOG_DBG() << "Remove network from storage" << Log::Field("networkID", it->mFirst);
 
             if (auto errRemoveStorage = mStorage->RemoveNetworkInfo(it->mFirst);
                 !errRemoveStorage.IsNone() && err.IsNone()) {
@@ -1003,7 +1033,7 @@ Error NetworkManager::RemoveNetwork(const String& networkID)
     NetworkCache::Iterator provider;
 
     {
-        LOG_DBG() << "Remove network: networkID=" << networkID;
+        LOG_DBG() << "Remove network" << Log::Field("networkID", networkID);
 
         UniqueLock lock {mMutex};
 
@@ -1032,14 +1062,12 @@ Error NetworkManager::RemoveNetwork(const String& networkID)
 
 Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 {
-    LOG_DBG() << "Create network: networkID=" << network.mNetworkID << ", subnet=" << network.mSubnet
-              << ", ip=" << network.mIP << ", vlanID=" << network.mVlanID << ", vlanIfName=" << network.mVlanIfName;
+    LOG_DBG() << "Create network" << Log::Field("networkID", network.mNetworkID)
+              << Log::Field("subnet", network.mSubnet) << Log::Field("ip", network.mIP)
+              << Log::Field("vlanID", network.mVlanID) << Log::Field("bridgeIfName", network.mBridgeIfName)
+              << Log::Field("vlanIfName", network.mVlanIfName);
 
-    StaticString<cInterfaceLen> bridgeName;
-
-    if (auto err = mNetIfFactory->CreateBridge(
-            bridgeName.Append(cBridgePrefix).Append(network.mNetworkID), network.mIP, network.mSubnet);
-        !err.IsNone()) {
+    if (auto err = mNetIfFactory->CreateBridge(network.mBridgeIfName, network.mIP, network.mSubnet); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1047,40 +1075,30 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mNetIf->SetMasterLink(network.mVlanIfName, bridgeName); !err.IsNone()) {
+    if (auto err = mNetIf->SetMasterLink(network.mVlanIfName, network.mBridgeIfName); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "Network created: networkID=" << network.mNetworkID << ", subnet=" << network.mSubnet
-              << ", ip=" << network.mIP << ", vlanID=" << network.mVlanID << ", vlanIfName=" << network.mVlanIfName;
+    LOG_DBG() << "Network created" << Log::Field("networkID", network.mNetworkID);
 
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::GenerateVlanIfName(String& vlanIfName)
+Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
 {
-    vlanIfName.Append(cVlanIfPrefix);
+    ifName.Clear();
 
-    String randomString
-        = String(vlanIfName.Get() + strlen(cVlanIfPrefix), vlanIfName.MaxSize() - strlen(cVlanIfPrefix));
+    ifName.Append(ifPrefix);
 
-    for (auto i = 0; i < cCountRetriesVlanIfNameGen; ++i) {
-        if (auto err = crypto::GenerateRandomString<4>(randomString, *mRandom); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    String randomString = String(ifName.Get() + ifPrefix.Size(), ifName.MaxSize() - ifPrefix.Size());
 
-        vlanIfName.Resize(vlanIfName.Size() + randomString.Size());
-
-        auto it
-            = mNetworkProviders.FindIf([&](const auto& network) { return network.mSecond.mVlanIfName == vlanIfName; });
-        if (it == mNetworkProviders.end()) {
-            return ErrorEnum::eNone;
-        }
-
-        vlanIfName.Resize(vlanIfName.Size() - randomString.Size());
+    if (auto err = crypto::GenerateRandomString<cMaxNetworkIDLen / 2>(randomString, *mRandom); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
-    return ErrorEnum::eNotFound;
+    ifName.Resize(ifName.Size() + randomString.Size());
+
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::sm::networkmanager
