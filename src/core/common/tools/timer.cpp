@@ -17,8 +17,8 @@ StaticArray<Timer*, Timer::cMaxTimersCount> Timer::mRegisteredTimers;
 Mutex                                       Timer::mCommonMutex;
 ConditionalVariable                         Timer::mCommonCondVar;
 
-Thread<cDefaultFunctionMaxSize, cDefaultThreadStackSize> Timer::mManagementThread;
-ThreadPool<Timer::cInvocationThreadsCount>               Timer::mInvocationThreads;
+Thread<>                                   Timer::mManagementThread;
+ThreadPool<Timer::cInvocationThreadsCount> Timer::mInvocationThreads;
 
 /***********************************************************************************************************************
  * Private

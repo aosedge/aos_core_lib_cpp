@@ -126,8 +126,8 @@ private:
     static Mutex                                mCommonMutex;
     static ConditionalVariable                  mCommonCondVar;
 
-    static Thread<cDefaultFunctionMaxSize, cDefaultThreadStackSize> mManagementThread;
-    static ThreadPool<cInvocationThreadsCount>                      mInvocationThreads;
+    static Thread<>                            mManagementThread;
+    static ThreadPool<cInvocationThreadsCount> mInvocationThreads;
 };
 
 } // namespace aos
