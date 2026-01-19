@@ -92,6 +92,11 @@ struct InstanceInfo {
     bool mIsUnitSubject {};
 
     /**
+     * Instance version.
+     */
+    StaticString<cVersionLen> mVersion;
+
+    /**
      * Compares instance info.
      *
      * @param other instance info to compare with.
@@ -101,7 +106,8 @@ struct InstanceInfo {
     {
         return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
             && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
-            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject;
+            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
+            && mVersion == rhs.mVersion;
     }
 
     /**

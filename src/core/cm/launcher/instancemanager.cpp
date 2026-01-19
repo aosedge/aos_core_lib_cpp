@@ -150,6 +150,7 @@ Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInst
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
     instanceInfo->mInstanceIdent = id;
+    instanceInfo->mVersion       = request.mVersion;
     instanceInfo->mTimestamp     = Time::Now();
     instanceInfo->mIsUnitSubject = request.mSubjectInfo.mIsUnitSubject;
 
