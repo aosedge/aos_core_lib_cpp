@@ -180,7 +180,8 @@ uint32_t GenerateUID()
 
 InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci::cDigestLen> manifestDigest = {},
     const String& runtimeID = "runc", const String& nodeID = "",
-    InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {})
+    InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {},
+    const String& version = "")
 {
     InstanceInfo result;
 
@@ -192,13 +193,14 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
     result.mUID            = uid != 0 ? uid : GenerateUID();
     result.mTimestamp      = timestamp;
     result.mState          = instanceState;
+    result.mVersion        = version;
 
     return result;
 }
 
 InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::string& nodeID,
     const std::string& runtimeID, aos::InstanceState state = aos::InstanceStateEnum::eFailed,
-    const Error& error = ErrorEnum::eTimeout)
+    const Error& error = ErrorEnum::eTimeout, const std::string& version = "")
 {
     InstanceStatus result;
 
@@ -207,6 +209,7 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::st
     result.mRuntimeID                   = runtimeID.c_str();
     result.mState                       = state;
     result.mError                       = error;
+    result.mVersion                     = version.c_str();
 
     if (!error.IsNone()) {
         result.mState = aos::InstanceStateEnum::eFailed;
@@ -223,14 +226,17 @@ InstanceIdent CreateInstanceIdent(const std::string& itemID, const std::string& 
 
 RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string& subjectID = "", uint64_t priority = 0,
     size_t numInstances = 1, const std::string& ownerID = "", const std::vector<std::string>& labels = {},
-    UpdateItemType updateItemType = UpdateItemTypeEnum::eService)
+    UpdateItemType updateItemType = UpdateItemTypeEnum::eService, const std::string& version = "",
+    SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup)
 {
     RunInstanceRequest request;
 
     request.mItemID                     = itemID.c_str();
     request.mUpdateItemType             = updateItemType;
+    request.mVersion                    = version.c_str();
     request.mOwnerID                    = ownerID.c_str();
     request.mSubjectInfo.mSubjectID     = subjectID.c_str();
+    request.mSubjectInfo.mSubjectType   = subjectType;
     request.mSubjectInfo.mIsUnitSubject = true;
     request.mPriority                   = priority;
     request.mNumInstances               = numInstances;
@@ -248,7 +254,9 @@ StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, con
 }
 
 aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::string& imageID,
-    const std::string& runtimeID, uint32_t uid, gid_t gid, const String& ip, uint64_t priority)
+    const std::string& runtimeID, uint32_t uid, gid_t gid, const String& ip, uint64_t priority,
+    const std::string& version = "", const Optional<AlertRules>& alertRules = {},
+    SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup, const std::string& ownerID = "")
 {
     aos::InstanceInfo result;
 
@@ -259,16 +267,24 @@ aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::stri
     StaticString<cIDLen> image;
     image = imageID.c_str();
 
+    result.mVersion        = version.c_str();
     result.mManifestDigest = imagemanager::ImageStoreStub::BuildManifestDigest(itemID, image);
     result.mRuntimeID      = runtimeID.c_str();
+    result.mOwnerID        = ownerID.c_str();
     result.mUID            = uid;
     result.mGID            = gid;
     result.mPriority       = priority;
+    result.mSubjectType    = subjectType;
     result.mStoragePath    = "storage_path";
     result.mStatePath      = "state_path";
     result.mNetworkParameters.EmplaceValue();
     result.mNetworkParameters->mIP     = (std::string("172.17.0.") + ip.CStr()).c_str();
     result.mNetworkParameters->mSubnet = "172.17.0.0/16";
+
+    if (alertRules.HasValue()) {
+        result.mMonitoringParams.EmplaceValue();
+        result.mMonitoringParams.GetValue().mAlertRules = alertRules;
+    }
 
     return result;
 }
@@ -1737,6 +1753,75 @@ TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
     // Stop launcher and unsubscribe listener.
     ASSERT_TRUE(mLauncher.Stop().IsNone());
     ASSERT_TRUE(mLauncher.UnsubscribeListener(instanceStatusListener).IsNone());
+}
+
+TEST_F(CMLauncherTest, TestSentInstanceInfo)
+{
+    const std::string version = "1.2.3";
+    const std::string ownerID = "owner123";
+
+    Config cfg;
+    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
+
+    // Initialize all stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    // Set up service config with alert rules and quotas
+    auto alertRules    = CreateAlertRules(75.0, 85.0);
+    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+
+    CreateServiceConfig(*serviceConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+        CreateServiceQuotas(500, 300, 0, 0), CreateRequestedResources(100, 50, 0, 0), alertRules);
+
+    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig(), version);
+
+    mInstanceRunner.Init(mLauncher);
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
+                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    // Run instance with version and ownerID
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(
+        cService1, cSubject1, 100, 1, ownerID, {}, UpdateItemTypeEnum::eService, version, SubjectTypeEnum::eUser));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(2, std::chrono::seconds(2)));
+
+    // Verify sent instance info is correct
+    auto expectedInstanceInfo = CreateAosInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1,
+        cRunnerRunc, 5000, 5000, "2", 100, version, alertRules, SubjectTypeEnum::eUser, ownerID);
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests = {
+        {cNodeIDLocalSM, {{}, {expectedInstanceInfo}}},
+    };
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    // Stop launcher
+    mLauncher.UnsubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
 } // namespace aos::cm::launcher
