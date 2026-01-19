@@ -139,8 +139,7 @@ public:
     Error GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const override;
 
 private:
-    static constexpr auto cThreadTaskSize  = AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE;
-    static constexpr auto cThreadStackSize = AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE;
+    static constexpr auto cThreadTaskSize = 512;
 
     static constexpr auto cMaxNumSubscribers = 4;
     static constexpr auto cAllocatorSize     = sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
@@ -170,21 +169,21 @@ private:
     RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent);
     RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
 
-    mutable StaticAllocator<cAllocatorSize>                                                 mAllocator;
-    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers>                   mSubscribers;
-    Thread<cThreadTaskSize, cThreadStackSize>                                               mThread;
-    Thread<cThreadTaskSize, cThreadStackSize>                                               mRebootThread;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize, cThreadStackSize> mLaunchPool;
-    mutable Mutex                                                                           mMutex;
-    mutable ConditionalVariable                                                             mCondVar;
-    StaticArray<InstanceData, cMaxNumInstances>                                             mInstances;
-    StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>                       mRuntimes;
-    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                                  mRebootQueue;
-    StorageItf*                                                                             mStorage {};
-    SenderItf*                                                                              mSender {};
-    bool                                                                                    mLaunchInProgress {};
-    bool                                                                                    mIsRunning {};
-    bool                                                                                    mFirstStart {true};
+    mutable StaticAllocator<cAllocatorSize>                               mAllocator;
+    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
+    Thread<cThreadTaskSize>                                               mThread;
+    Thread<cThreadTaskSize>                                               mRebootThread;
+    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mLaunchPool;
+    mutable Mutex                                                         mMutex;
+    mutable ConditionalVariable                                           mCondVar;
+    StaticArray<InstanceData, cMaxNumInstances>                           mInstances;
+    StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
+    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
+    StorageItf*                                                           mStorage {};
+    SenderItf*                                                            mSender {};
+    bool                                                                  mLaunchInProgress {};
+    bool                                                                  mIsRunning {};
+    bool                                                                  mFirstStart {true};
 };
 
 } // namespace aos::sm::launcher

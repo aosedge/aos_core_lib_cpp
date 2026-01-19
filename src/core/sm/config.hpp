@@ -9,20 +9,6 @@
 #define AOS_CORE_SM_CONFIG_HPP_
 
 /**
- * Launcher thread task size.
- */
-#ifndef AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE
-#define AOS_CONFIG_LAUNCHER_THREAD_TASK_SIZE 512
-#endif
-
-/**
- * Launcher thread stack size.
- */
-#ifndef AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE
-#define AOS_CONFIG_LAUNCHER_THREAD_STACK_SIZE 0
-#endif
-
-/**
  * Max number of network manager aliases.
  */
 #ifndef AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES
