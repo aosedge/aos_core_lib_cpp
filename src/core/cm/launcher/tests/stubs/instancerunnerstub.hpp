@@ -43,7 +43,7 @@ public:
         mStatusReceiver     = &statusReceiver;
     }
 
-    const std::map<std::string, NodeRunRequest>& GetNodeInstances() const { return mNodeInstances; }
+    const std::map<std::string, NodeRunRequest>& GetRunRequests() const { return mNodeInstances; }
 
     void SetAutoUpdateStatuses(bool enable)
     {

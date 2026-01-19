@@ -130,38 +130,15 @@ protected:
     void TearDown() override { }
 
 protected:
-    void AddService(const std::string& id, const String& imageID, const oci::ServiceConfig& serviceConfig,
-        const oci::ImageConfig& imageConfig)
+    void AddService(const std::string& id, const std::string& imageID, const oci::ServiceConfig& serviceConfig,
+        const oci::ImageConfig& imageConfig, const std::string& version = "")
     {
-        StaticString<cIDLen> itemID;
-
-        itemID = id.c_str();
-        mImageStore.AddService(itemID, imageID, serviceConfig, imageConfig);
+        mImageStore.AddService(id.c_str(), imageID.c_str(), serviceConfig, imageConfig, version.c_str());
     }
 
-    void AddService(const std::string& id, const char* imageID, const oci::ServiceConfig& serviceConfig,
-        const oci::ImageConfig& imageConfig)
+    StaticString<oci::cDigestLen> GetManifestDigest(const std::string& id, const std::string& imageID = "") const
     {
-        StaticString<cIDLen> image;
-
-        image = imageID;
-        AddService(id, image, serviceConfig, imageConfig);
-    }
-
-    StaticString<oci::cDigestLen> GetManifestDigest(const std::string& id, const String& imageID) const
-    {
-        StaticString<cIDLen> itemID;
-
-        itemID = id.c_str();
-        return mImageStore.GetManifestDigest(itemID, imageID);
-    }
-
-    StaticString<oci::cDigestLen> GetManifestDigest(const std::string& id, const char* imageID = "") const
-    {
-        StaticString<cIDLen> image;
-
-        image = imageID;
-        return GetManifestDigest(id, image);
+        return mImageStore.GetManifestDigest(id.c_str(), imageID.c_str());
     }
 
     // Stub objects
@@ -265,20 +242,9 @@ RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string
     return request;
 }
 
-StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, const String& imageID)
+StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, const std::string& imageID = cImageID1)
 {
-    StaticString<cIDLen> aosItemID;
-    aosItemID = itemID.c_str();
-
-    return imagemanager::ImageStoreStub::BuildManifestDigest(aosItemID, imageID);
-}
-
-StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, const char* imageID = cImageID1)
-{
-    StaticString<cIDLen> aosImageID;
-    aosImageID = imageID;
-
-    return BuildManifestDigest(itemID, aosImageID);
+    return imagemanager::ImageStoreStub::BuildManifestDigest(itemID.c_str(), imageID.c_str());
 }
 
 aos::InstanceInfo CreateAosInstanceInfo(const InstanceIdent& id, const std::string& imageID,
@@ -572,8 +538,7 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     CreateServiceConfig(serviceConfig1);
     CreateServiceConfig(serviceConfig2);
 
-    StaticString<cIDLen> emptyImage;
-    emptyImage = "";
+    const std::string emptyImage = "";
 
     AddService(cService1, emptyImage, serviceConfig1, CreateImageConfig());
     AddService(cService2, emptyImage, serviceConfig2, CreateImageConfig());
@@ -774,7 +739,7 @@ TEST_F(CMLauncherTest, Components)
     expectedRunRequests[cNodeIDLocalSM]   = {};
     expectedRunRequests[cNodeIDRemoteSM1] = remoteRunRequest;
 
-    ASSERT_EQ(mInstanceRunner.GetNodeInstances(), expectedRunRequests);
+    ASSERT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
     // Check run status
     auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
@@ -1439,7 +1404,7 @@ TEST_F(CMLauncherTest, Balancing)
         mLauncher.UnsubscribeListener(instanceStatusListener);
 
         // Check sent run requests
-        ASSERT_EQ(mInstanceRunner.GetNodeInstances(), testItem.mExpectedRunRequests);
+        ASSERT_EQ(mInstanceRunner.GetRunRequests(), testItem.mExpectedRunRequests);
     }
 }
 
@@ -1536,7 +1501,7 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     expectedRunRequests[cNodeIDRemoteSM1] = {};
     expectedRunRequests[cNodeIDRemoteSM2] = remoteSM2Request;
 
-    ASSERT_EQ(mInstanceRunner.GetNodeInstances(), expectedRunRequests);
+    ASSERT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
     // Check run status - service1 and service2 should fail, service3 should succeed
     auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
