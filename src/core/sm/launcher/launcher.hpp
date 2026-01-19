@@ -12,7 +12,7 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/instance.hpp>
-#include <core/sm/config.hpp>
+#include <core/sm/imagemanager/imagemanager.hpp>
 
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
@@ -39,12 +39,14 @@ public:
      * Initializes launcher.
      *
      * @param runtimes available runtimes.
+     * @param imageManager image manager.
      * @param statusSender sender.
      * @param storage storage.
      *
      * @return Error.
      */
-    Error Init(const Array<RuntimeItf*>& runtimes, SenderItf& sender, StorageItf& storage);
+    Error Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
+        StorageItf& storage);
 
     /**
      * Starts launcher.
@@ -139,16 +141,23 @@ public:
     Error GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const override;
 
 private:
-    static constexpr auto cThreadTaskSize = 512;
-
-    static constexpr auto cMaxNumSubscribers = 4;
-    static constexpr auto cAllocatorSize     = sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
-        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray);
-
     struct InstanceData {
         InstanceInfo   mInfo;
         InstanceStatus mStatus;
     };
+
+    struct UpdateItemInfo {
+        StaticString<cIDLen>      mItemID;
+        StaticString<cVersionLen> mVersion;
+    };
+
+    static constexpr auto cThreadTaskSize    = 512;
+    static constexpr auto cMaxNumSubscribers = 4;
+    static constexpr auto cAllocatorSize     = sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
+        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray)
+        + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
+            sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
+                + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
 
     void  RunRebootThread();
     Error StoreInstalledComponent(const aos::InstanceStatus& status);
@@ -161,6 +170,8 @@ private:
     Error StartLaunch();
     void  FinishLaunch();
     bool  IsPreinstalledInstance(const InstanceStatus& status) const;
+    void  RemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
+    void  InstallUpdateItems(const Array<InstanceInfo>& startInstances);
 
     InstanceData* FindInstanceData(const InstanceIdent& instanceIdent);
     InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
@@ -179,6 +190,7 @@ private:
     StaticArray<InstanceData, cMaxNumInstances>                           mInstances;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
+    imagemanager::ImageManagerItf*                                        mImageManager {};
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};
     bool                                                                  mLaunchInProgress {};
