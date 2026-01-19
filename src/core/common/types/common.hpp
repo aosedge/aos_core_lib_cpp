@@ -52,7 +52,7 @@ constexpr auto cMaxNumUpdateItemInstances = AOS_CONFIG_TYPES_MAX_NUM_UPDATE_ITEM
 /**
  * Max number of instances.
  */
-constexpr auto cMaxNumInstances = cMaxNumUpdateItemInstances * cMaxNumUpdateItems;
+constexpr auto cMaxNumInstances = AOS_CONFIG_TYPES_MAX_NUM_INSTANCES;
 
 /**
  * Node type len.
