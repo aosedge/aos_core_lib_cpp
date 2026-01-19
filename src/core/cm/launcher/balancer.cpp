@@ -99,8 +99,13 @@ Error Balancer::SetupInstanceInfo(const oci::ServiceConfig& servConf, const Node
     info.mUID                         = instance.GetInfo().mUID;
     info.mGID                         = instance.GetInfo().mGID;
     info.mSubjectType                 = request.mSubjectInfo.mSubjectType;
-    info.mNetworkParameters.EmplaceValue();
 
+    if (servConf.mAlertRules.HasValue()) {
+        info.mMonitoringParams.EmplaceValue();
+        info.mMonitoringParams.GetValue().mAlertRules = servConf.mAlertRules;
+    }
+
+    info.mNetworkParameters.EmplaceValue();
     if (auto err = mNodeManager->SetupStateStorage(nodeConf, servConf, info.mGID, info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
