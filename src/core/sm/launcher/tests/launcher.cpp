@@ -6,18 +6,20 @@
 
 #include <future>
 #include <list>
-#include <queue>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <core/common/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
-
-#include <core/sm/launcher/launcher.hpp>
-
 #include <core/sm/launcher/itf/rebooter.hpp>
 #include <core/sm/launcher/itf/updatechecker.hpp>
+#include <core/sm/launcher/launcher.hpp>
+
+#include "mocks/runtimemock.hpp"
+#include "stubs/senderstub.hpp"
+#include "stubs/storagestub.hpp"
 
 using namespace testing;
 
@@ -123,128 +125,6 @@ monitoring::InstanceMonitoringData CreateMonitoringData(const InstanceInfo& inst
     return data;
 }
 
-/***********************************************************************************************************************
- * Stubs
- **********************************************************************************************************************/
-
-class StorageStub : public StorageItf {
-public:
-    Error Init(const std::vector<InstanceInfo>& data)
-    {
-        std::lock_guard lock {mMutex};
-
-        for (const auto& instance : data) {
-            if (auto err = mData.PushBack(instance); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    Error GetAllInstancesInfos(Array<InstanceInfo>& infos) override
-    {
-        std::lock_guard lock {mMutex};
-
-        return infos.Assign(mData);
-    }
-
-    Error UpdateInstanceInfo(const InstanceInfo& info) override
-    {
-        std::lock_guard lock {mMutex};
-
-        auto it = mData.FindIf([&info](const InstanceInfo& existingInfo) {
-            return static_cast<const InstanceIdent&>(existingInfo) == static_cast<const InstanceIdent&>(info);
-        });
-
-        if (it != mData.end()) {
-            *it = info;
-
-            return ErrorEnum::eNone;
-        }
-
-        return mData.PushBack(info);
-    }
-
-    Error RemoveInstanceInfo(const InstanceIdent& ident) override
-    {
-        std::lock_guard lock {mMutex};
-
-        return mData.RemoveIf(
-                   [&ident](const InstanceInfo& info) { return static_cast<const InstanceIdent&>(info) == ident; })
-            ? ErrorEnum::eNone
-            : ErrorEnum::eNotFound;
-    }
-
-private:
-    std::mutex        mMutex;
-    InstanceInfoArray mData;
-};
-
-class SenderStub : public SenderItf {
-public:
-    Error SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mStatusesQueue.push(statuses);
-        mCondVar.notify_one();
-
-        return ErrorEnum::eNone;
-    }
-
-    Error SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mStatusesQueue.push(statuses);
-        mCondVar.notify_one();
-
-        return ErrorEnum::eNone;
-    }
-
-    Error WaitStatuses(Array<InstanceStatus>& statuses, Duration timeout)
-    {
-        std::unique_lock lock {mMutex};
-
-        if (!mCondVar.wait_for(lock, std::chrono::milliseconds(timeout.Milliseconds()),
-                [this]() { return !mStatusesQueue.empty(); })) {
-            return ErrorEnum::eTimeout;
-        }
-
-        statuses = mStatusesQueue.front();
-        mStatusesQueue.pop();
-
-        return ErrorEnum::eNone;
-    }
-
-private:
-    std::mutex                      mMutex;
-    std::condition_variable         mCondVar;
-    std::queue<InstanceStatusArray> mStatusesQueue;
-};
-
-/***********************************************************************************************************************
- * Mocks
- **********************************************************************************************************************/
-
-class RuntimeMock : public RuntimeItf {
-public:
-    MOCK_METHOD(Error, GetInstanceMonitoringData,
-        (const InstanceIdent& instanceIdent, monitoring::InstanceMonitoringData& monitoringData), (override));
-    MOCK_METHOD(Error, Start, (), (override));
-    MOCK_METHOD(Error, Stop, (), (override));
-    MOCK_METHOD(Error, GetRuntimeInfo, (RuntimeInfo & runtimeInfo), (const, override));
-    MOCK_METHOD(Error, StartInstance, (const InstanceInfo& instance, InstanceStatus& status), (override));
-    MOCK_METHOD(Error, StopInstance, (const InstanceIdent& instance, InstanceStatus& status), (override));
-    MOCK_METHOD(Error, Reboot, (), (override));
-};
-
-class InstanceListenerMock : public instancestatusprovider::ListenerItf {
-public:
-    MOCK_METHOD(void, OnInstancesStatusesChanged, (const Array<InstanceStatus>& statuses), (override));
-};
-
 } // namespace
 
 /***********************************************************************************************************************
@@ -282,12 +162,12 @@ protected:
 
     Launcher mLauncher;
 
-    RuntimeMock          mRuntime0;
-    RuntimeMock          mRuntime1;
-    StorageStub          mStorage;
-    SenderStub           mSender;
-    InstanceListenerMock mStatusListener;
-    InstanceStatusArray  mReceivedStatuses;
+    RuntimeMock                          mRuntime0;
+    RuntimeMock                          mRuntime1;
+    StorageStub                          mStorage;
+    SenderStub                           mSender;
+    instancestatusprovider::ListenerMock mStatusListener;
+    InstanceStatusArray                  mReceivedStatuses;
 };
 
 /***********************************************************************************************************************
