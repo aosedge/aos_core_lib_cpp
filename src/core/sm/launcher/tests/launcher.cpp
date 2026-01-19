@@ -17,6 +17,7 @@
 #include <core/sm/launcher/itf/updatechecker.hpp>
 #include <core/sm/launcher/launcher.hpp>
 
+#include "mocks/imagemanagermock.hpp"
 #include "mocks/runtimemock.hpp"
 #include "stubs/senderstub.hpp"
 #include "stubs/storagestub.hpp"
@@ -36,8 +37,9 @@ std::ostream& operator<<(std::ostream& os, const InstanceIdent& ident)
 
 std::ostream& operator<<(std::ostream& os, const InstanceStatus& status)
 {
-    return os << "{" << static_cast<const InstanceIdent&>(status) << ":" << status.mRuntimeID.CStr() << ":"
-              << status.mState.ToString().CStr() << ":" << tests::utils::ErrorToStr(status.mError) << "}";
+    return os << "{" << static_cast<const InstanceIdent&>(status) << ":" << status.mVersion.CStr() << ":"
+              << status.mRuntimeID.CStr() << ":" << status.mState.ToString().CStr() << ":"
+              << tests::utils::ErrorToStr(status.mError) << "}";
 }
 
 namespace sm::launcher {
@@ -60,13 +62,14 @@ namespace {
  * Static
  **********************************************************************************************************************/
 
-InstanceInfo CreateInstanceInfo(uint64_t instance, const String& runtimeID)
+InstanceInfo CreateInstanceInfo(const String& itemID, uint64_t instance, const String& version, const String& runtimeID)
 {
     InstanceInfo info;
 
-    info.mItemID    = "";
+    info.mItemID    = itemID;
     info.mSubjectID = "";
     info.mInstance  = instance;
+    info.mVersion   = version;
     info.mRuntimeID = runtimeID;
 
     return info;
@@ -93,11 +96,13 @@ void SetInstanceStatus(const InstanceInfo& instance, InstanceStateEnum state, In
     status.mRuntimeID = instance.mRuntimeID;
 }
 
-InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const String& runtimeID, InstanceStateEnum state)
+InstanceStatus CreateInstanceStatus(
+    const InstanceIdent& instance, const String& version, const String& runtimeID, InstanceStateEnum state)
 {
     InstanceStatus status;
 
     SetInstanceStatus(instance, state, status);
+    status.mVersion   = version;
     status.mRuntimeID = runtimeID;
 
     return status;
@@ -106,8 +111,8 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const String&
 InstanceStatus CreateInstanceStatus(const InstanceInfo& instance, InstanceStateEnum state,
     const UpdateItemTypeEnum type = UpdateItemTypeEnum::eService, bool preinstalled = false)
 {
-    InstanceStatus status
-        = CreateInstanceStatus(static_cast<const InstanceIdent&>(instance), instance.mRuntimeID, state);
+    InstanceStatus status = CreateInstanceStatus(
+        static_cast<const InstanceIdent&>(instance), instance.mVersion, instance.mRuntimeID, state);
 
     status.mType         = type;
     status.mPreinstalled = preinstalled;
@@ -125,6 +130,32 @@ monitoring::InstanceMonitoringData CreateMonitoringData(const InstanceInfo& inst
     return data;
 }
 
+imagemanager::UpdateItemStatus CreateUpdateItemStatus(
+    const InstanceInfo& info, ItemState state = ItemStateEnum::eInstalled)
+{
+    imagemanager::UpdateItemStatus status;
+
+    status.mID      = info.mItemID;
+    status.mVersion = info.mVersion;
+    status.mType    = info.mType;
+    status.mState   = state;
+
+    return status;
+}
+
+imagemanager::UpdateItemStatus CreateUpdateItemStatus(
+    const InstanceStatus& status, ItemState state = ItemStateEnum::eInstalled)
+{
+    imagemanager::UpdateItemStatus itemStatus;
+
+    itemStatus.mID      = status.mItemID;
+    itemStatus.mVersion = status.mVersion;
+    itemStatus.mType    = status.mType;
+    itemStatus.mState   = state;
+
+    return itemStatus;
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -135,10 +166,15 @@ class LauncherTest : public Test {
 protected:
     static constexpr auto cWaitTimeout = Time::cSeconds;
 
-    void SetUp() override
+    static void SetUpTestSuite()
     {
         tests::utils::InitLog();
 
+        LOG_INF() << "Launcher size" << Log::Field("size", sizeof(Launcher));
+    }
+
+    void SetUp() override
+    {
         EXPECT_CALL(mRuntime0, Start).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mRuntime0, Stop).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mRuntime0, GetRuntimeInfo)
@@ -162,12 +198,13 @@ protected:
 
     Launcher mLauncher;
 
-    RuntimeMock                          mRuntime0;
-    RuntimeMock                          mRuntime1;
-    StorageStub                          mStorage;
-    SenderStub                           mSender;
-    instancestatusprovider::ListenerMock mStatusListener;
-    InstanceStatusArray                  mReceivedStatuses;
+    RuntimeMock                              mRuntime0;
+    RuntimeMock                              mRuntime1;
+    NiceMock<imagemanager::ImageManagerMock> mImageManager;
+    StorageStub                              mStorage;
+    SenderStub                               mSender;
+    instancestatusprovider::ListenerMock     mStatusListener;
+    InstanceStatusArray                      mReceivedStatuses;
 };
 
 /***********************************************************************************************************************
@@ -176,8 +213,10 @@ protected:
 
 TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mImageManager, GetAllInstalledItems).WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -192,12 +231,12 @@ TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
 {
     const std::vector cRuntime0Components = {
-        CreateInstanceStatus(
-            CreateInstanceInfo(0, "runtime0"), InstanceStateEnum::eActive, UpdateItemTypeEnum::eComponent),
-        CreateInstanceStatus(
-            CreateInstanceInfo(1, "runtime0"), InstanceStateEnum::eInactive, UpdateItemTypeEnum::eComponent, true),
-        CreateInstanceStatus(
-            CreateInstanceInfo(2, "runtime0"), InstanceStateEnum::eActive, UpdateItemTypeEnum::eService),
+        CreateInstanceStatus(CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
+            UpdateItemTypeEnum::eComponent),
+        CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"), InstanceStateEnum::eInactive,
+            UpdateItemTypeEnum::eComponent, true),
+        CreateInstanceStatus(CreateInstanceInfo("item2", 2, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
+            UpdateItemTypeEnum::eService),
     };
 
     EXPECT_CALL(mRuntime0, Start).WillOnce(Invoke([&]() {
@@ -208,12 +247,19 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
     }));
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo&, InstanceStatus& status) {
-        status = cRuntime0Components[0];
+        status = cRuntime0Components[1];
 
         return ErrorEnum::eNone;
     }));
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    EXPECT_CALL(mImageManager, GetAllInstalledItems)
+        .WillOnce(Invoke([&](Array<imagemanager::UpdateItemStatus>& statuses) {
+            statuses.PushBack(CreateUpdateItemStatus(cRuntime0Components[1]));
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -223,7 +269,7 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
-    EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[0]);
+    EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[1]);
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -232,8 +278,8 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
 TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 {
     const std::vector cStoredInfos = {
-        CreateInstanceInfo(0, "runtime0"),
-        CreateInstanceInfo(1, "runtime1"),
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
     };
     const std::vector cExpectedStatuses = {
         CreateInstanceStatus(cStoredInfos[0], InstanceStateEnum::eActive),
@@ -242,7 +288,7 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -257,6 +303,15 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
         return ErrorEnum::eNone;
     }));
 
+    EXPECT_CALL(mImageManager, GetAllInstalledItems)
+        .WillOnce(Invoke([&](Array<imagemanager::UpdateItemStatus>& statuses) {
+            for (const auto& info : cStoredInfos) {
+                statuses.PushBack(CreateUpdateItemStatus(info));
+            }
+
+            return ErrorEnum::eNone;
+        }));
+
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -266,7 +321,7 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
     ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
 
     for (size_t i = 0; i < mReceivedStatuses.Size(); ++i) {
-        EXPECT_EQ(mReceivedStatuses[i], CreateInstanceStatus(cStoredInfos[i], InstanceStateEnum::eActive));
+        EXPECT_EQ(mReceivedStatuses[i], cExpectedStatuses[i]);
     }
 
     err = mLauncher.Stop();
@@ -276,18 +331,18 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 TEST_F(LauncherTest, UpdateInstances)
 {
     const std::vector cStoredInfos = {
-        CreateInstanceInfo(0, "runtime0"),
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
     };
     const std::vector cStartInstanceInfos = {
-        CreateInstanceInfo(1, "runtime0"),
-        CreateInstanceInfo(2, "runtime1"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item2", 2, "1.0.0", "runtime1"),
     };
     const Array<InstanceInfo>  cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
     const Array<InstanceIdent> cStopInstances(&static_cast<const InstanceIdent&>(cStoredInfos.front()), 1);
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -295,6 +350,16 @@ TEST_F(LauncherTest, UpdateInstances)
 
         return ErrorEnum::eNone;
     }));
+
+    EXPECT_CALL(mImageManager, GetAllInstalledItems)
+        .WillOnce(Invoke([&](Array<imagemanager::UpdateItemStatus>& statuses) {
+            for (const auto& info : cStoredInfos) {
+                statuses.PushBack(CreateUpdateItemStatus(info));
+            }
+
+            return ErrorEnum::eNone;
+        }))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -326,6 +391,21 @@ TEST_F(LauncherTest, UpdateInstances)
         return ErrorEnum::eNone;
     }));
 
+    EXPECT_CALL(mImageManager, RemoveUpdateItem(cStoredInfos[0].mItemID, cStoredInfos[0].mVersion))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mImageManager, InstallUpdateItem)
+        .WillRepeatedly(Invoke([&](const imagemanager::UpdateItemInfo& itemInfo) {
+            auto it = std::find_if(
+                cStartInstanceInfos.begin(), cStartInstanceInfos.end(), [&itemInfo](const InstanceInfo& info) {
+                    return info.mItemID == itemInfo.mID && info.mVersion == itemInfo.mVersion;
+                });
+
+            EXPECT_NE(it, cStartInstanceInfos.end());
+
+            return ErrorEnum::eNone;
+        }));
+
     err = mLauncher.UpdateInstances(cStopInstances, cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -337,7 +417,8 @@ TEST_F(LauncherTest, UpdateInstances)
     size_t i = 0;
     for (size_t j = 0; j < cStopInstances.Size(); ++j, ++i) {
         EXPECT_EQ(mReceivedStatuses[i],
-            CreateInstanceStatus(cStopInstances[j], cStoredInfos[j].mRuntimeID, InstanceStateEnum::eInactive));
+            CreateInstanceStatus(
+                cStopInstances[j], cStoredInfos[j].mVersion, cStoredInfos[j].mRuntimeID, InstanceStateEnum::eInactive));
     }
 
     for (size_t j = 0; j < cStartInstances.Size(); ++j, ++i) {
@@ -362,13 +443,13 @@ TEST_F(LauncherTest, UpdateInstances)
 TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 {
     const std::vector cStartInstanceInfos = {
-        CreateInstanceInfo(0, "runtime0"),
-        CreateInstanceInfo(1, "runtime0"),
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 1, "1.0.0", "runtime0"),
     };
     const Array<InstanceInfo> cStartFirstInstance(&cStartInstanceInfos.front(), 1);
     const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -410,7 +491,7 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 
 TEST_F(LauncherTest, GetInstancesStatusesReturnsEmptyArray)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     auto storedData = std::make_unique<InstanceInfoArray>();
@@ -431,12 +512,12 @@ TEST_F(LauncherTest, GetInstancesStatusesReturnsEmptyArray)
 TEST_F(LauncherTest, GetInstancesStatuses)
 {
     const std::vector cStartInstanceInfos = {
-        CreateInstanceInfo(0, "runtime0"),
-        CreateInstanceInfo(1, "runtime1"),
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 1, "1.0.0", "runtime1"),
     };
     const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance(cStartInstanceInfos[0], _))
@@ -487,15 +568,14 @@ TEST_F(LauncherTest, GetInstancesStatuses)
 
 TEST_F(LauncherTest, GetInstanceMonitoringParams)
 {
-
-    auto startInstance = CreateInstanceInfo(0, "runtime0");
+    auto startInstance = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
     startInstance.mMonitoringParams.EmplaceValue();
     startInstance.mMonitoringParams->mAlertRules.EmplaceValue();
     startInstance.mMonitoringParams->mAlertRules->mCPU.SetValue({Time::cSeconds, 10.0, 30.0});
 
     const Array<InstanceInfo> cStartInstances(&startInstance, 1);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance(startInstance, _))
@@ -545,11 +625,11 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
 
 TEST_F(LauncherTest, GetInstanceMonitoringData)
 {
-    const auto                cInstanceInfo = CreateInstanceInfo(0, "runtime0");
+    const auto                cInstanceInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
     const Array<InstanceInfo> cStartInstances(&cInstanceInfo, 1);
     const auto                cMonitoringData = CreateMonitoringData(cInstanceInfo);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -592,7 +672,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
 
 TEST_F(LauncherTest, GetRuntimesInfos)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -618,12 +698,12 @@ TEST_F(LauncherTest, GetRuntimesInfos)
 
 TEST_F(LauncherTest, OnInstanceStatusChanged)
 {
-    const auto cInstanceInfo   = CreateInstanceInfo(0, "runtime0");
+    const auto cInstanceInfo   = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
     const auto cInstanceStatus = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eActive);
 
     mStorage.Init({cInstanceInfo});
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.SubscribeListener(mStatusListener);
@@ -672,12 +752,12 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 
 TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
 {
-    const auto cInstanceInfo   = CreateInstanceInfo(0, "runtime0");
+    const auto cInstanceInfo   = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
     const auto cInstanceStatus = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eActive);
 
     mStorage.Init({cInstanceInfo});
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& instance, InstanceStatus& status) {
@@ -726,7 +806,7 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
 
 TEST_F(LauncherTest, RebootRuntime)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mSender, mStorage);
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.SubscribeListener(mStatusListener);
