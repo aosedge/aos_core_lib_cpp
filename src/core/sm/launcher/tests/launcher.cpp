@@ -130,32 +130,6 @@ monitoring::InstanceMonitoringData CreateMonitoringData(const InstanceInfo& inst
     return data;
 }
 
-imagemanager::UpdateItemStatus CreateUpdateItemStatus(
-    const InstanceInfo& info, ItemState state = ItemStateEnum::eInstalled)
-{
-    imagemanager::UpdateItemStatus status;
-
-    status.mID      = info.mItemID;
-    status.mVersion = info.mVersion;
-    status.mType    = info.mType;
-    status.mState   = state;
-
-    return status;
-}
-
-imagemanager::UpdateItemStatus CreateUpdateItemStatus(
-    const InstanceStatus& status, ItemState state = ItemStateEnum::eInstalled)
-{
-    imagemanager::UpdateItemStatus itemStatus;
-
-    itemStatus.mID      = status.mItemID;
-    itemStatus.mVersion = status.mVersion;
-    itemStatus.mType    = status.mType;
-    itemStatus.mState   = state;
-
-    return itemStatus;
-}
-
 } // namespace
 
 /***********************************************************************************************************************
@@ -216,8 +190,6 @@ TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
     auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mImageManager, GetAllInstalledItems).WillOnce(Return(ErrorEnum::eNone));
-
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -251,13 +223,6 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
 
         return ErrorEnum::eNone;
     }));
-
-    EXPECT_CALL(mImageManager, GetAllInstalledItems)
-        .WillOnce(Invoke([&](Array<imagemanager::UpdateItemStatus>& statuses) {
-            statuses.PushBack(CreateUpdateItemStatus(cRuntime0Components[1]));
-
-            return ErrorEnum::eNone;
-        }));
 
     auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -303,15 +268,6 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mImageManager, GetAllInstalledItems)
-        .WillOnce(Invoke([&](Array<imagemanager::UpdateItemStatus>& statuses) {
-            for (const auto& info : cStoredInfos) {
-                statuses.PushBack(CreateUpdateItemStatus(info));
-            }
-
-            return ErrorEnum::eNone;
-        }));
-
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -351,15 +307,7 @@ TEST_F(LauncherTest, UpdateInstances)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mImageManager, GetAllInstalledItems)
-        .WillOnce(Invoke([&](Array<imagemanager::UpdateItemStatus>& statuses) {
-            for (const auto& info : cStoredInfos) {
-                statuses.PushBack(CreateUpdateItemStatus(info));
-            }
-
-            return ErrorEnum::eNone;
-        }))
-        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManager, GetAllInstalledItems).WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);

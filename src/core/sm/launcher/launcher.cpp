@@ -381,18 +381,22 @@ void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, co
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    RemoveUpdateItems(stopInstances, startInstances);
+    if (!mFirstStart) {
+        RemoveUpdateItems(stopInstances, startInstances);
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+        if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+            LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 
     ClearCachedInstances();
 
-    InstallUpdateItems(startInstances);
+    if (!mFirstStart) {
+        InstallUpdateItems(startInstances);
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+        if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+            LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 
     StartInstances(startInstances);
