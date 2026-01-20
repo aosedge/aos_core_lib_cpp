@@ -219,14 +219,8 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
     LockGuard updateLock {mUpdateMutex};
 
-    statuses.Clear();
-
-    for (const auto& instance : mInstanceManager.GetActiveInstances()) {
-        if (auto err = statuses.PushBack(instance->GetStatus()); !err.IsNone()) {
-            LOG_ERR() << "Failed to push new instance status" << Log::Field(AOS_ERROR_WRAP(err));
-
-            break;
-        }
+    if (auto err = statuses.Assign(mInstanceStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -271,20 +265,34 @@ Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
 
 void Launcher::UpdateInstanceStatuses()
 {
-    bool changed = mInstanceStatuses.Size() != mInstanceManager.GetActiveInstances().Size();
+    const auto& activeInstances        = mInstanceManager.GetActiveInstances();
+    const auto& preinstalledComponents = mInstanceManager.GetPreinstalledComponents();
+    const auto  totalSize              = activeInstances.Size() + preinstalledComponents.Size();
 
-    if (auto err = mInstanceStatuses.Resize(mInstanceManager.GetActiveInstances().Size()); !err.IsNone()) {
+    bool changed = mInstanceStatuses.Size() != totalSize;
+
+    if (auto err = mInstanceStatuses.Resize(totalSize); !err.IsNone()) {
         LOG_ERR() << "Failed to resize instance statuses array" << Log::Field(AOS_ERROR_WRAP(err));
 
         return;
     }
 
-    for (size_t i = 0; i < mInstanceStatuses.Size(); ++i) {
-        const auto& newStatus = mInstanceManager.GetActiveInstances()[i]->GetStatus();
+    for (size_t i = 0; i < activeInstances.Size(); ++i) {
+        const auto& newStatus = activeInstances[i]->GetStatus();
 
         if (mInstanceStatuses[i] != newStatus) {
             changed              = true;
             mInstanceStatuses[i] = newStatus;
+        }
+    }
+
+    for (size_t i = 0; i < preinstalledComponents.Size(); ++i) {
+        const auto& newStatus = preinstalledComponents[i];
+        const auto  index     = activeInstances.Size() + i;
+
+        if (mInstanceStatuses[index] != newStatus) {
+            changed                  = true;
+            mInstanceStatuses[index] = newStatus;
         }
     }
 
