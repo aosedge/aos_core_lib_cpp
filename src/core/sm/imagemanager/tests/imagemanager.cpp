@@ -341,6 +341,9 @@ TEST_F(ImageManagerTest, InstallService)
 
     // Check metadata
 
+    auto diffLayerDigest = ReadFileToString(GetBlobPath(cLayerDigest).CStr());
+    EXPECT_EQ(diffLayerDigest, cDiffDigest);
+
     auto unpackedLayerDigest = ReadFileToString(fs::JoinPath(GetLayerPath(cDiffDigest), "digest").CStr());
     EXPECT_EQ(unpackedLayerDigest, cUnpackedLayerDigest);
 

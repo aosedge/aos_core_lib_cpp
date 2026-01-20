@@ -343,7 +343,9 @@ Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) 
         return AOS_ERROR_WRAP(err);
     }
 
-    if (layerDigest != diffDigest) {
+    LOG_DBG() << "Layer checksum" << Log::Field("path", path) << Log::Field("layerDigest", layerDigest);
+
+    if (layerDigest != digest) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidChecksum, "wrong layer checksum"));
     }
 
@@ -518,13 +520,15 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
 
     if (err = fs::RemoveAll(path); !err.IsNone()) {
         LOG_ERR() << "Failed to remove packed layer" << Log::Field("path", path) << Log::Field(err);
+    } else {
+        mSpaceAllocator->FreeSpace(descriptor.mSize);
     }
-
-    mSpaceAllocator->FreeSpace(descriptor.mSize);
 
     if (err = space->Resize(space->Size() + diffDigest.Size()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    LOG_DBG() << "Create diff digest file" << Log::Field("diffDigest", diffDigest) << Log::Field("path", path);
 
     if (err = fs::WriteStringToFile(path, diffDigest, 0600); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -549,7 +553,10 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
     }
 
     if (exists) {
-        if (err = ValidateLayer(path, diffDigest); err.IsNone()) {
+        if (err = ValidateLayer(path, diffDigest); !err.IsNone()) {
+            LOG_WRN() << "Layer validation failed" << Log::Field("path", path) << Log::Field("diffDigest", diffDigest)
+                      << Log::Field(err);
+        } else {
             return ErrorEnum::eNone;
         }
     }
