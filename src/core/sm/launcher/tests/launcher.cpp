@@ -10,6 +10,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <core/common/monitoring/monitoring.hpp>
 #include <core/common/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
@@ -839,6 +840,31 @@ TEST_F(LauncherTest, RebootRuntime)
 
     err = mLauncher.UnsubscribeListener(mStatusListener);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, OnInstancesStatusesReceived)
+{
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.SubscribeListener(mStatusListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::promise<void> notifyPromise;
+
+    EXPECT_CALL(mStatusListener, OnInstancesStatusesChanged).WillOnce(Invoke([&](const Array<InstanceStatus>&) {
+        auto params = std::make_unique<InstanceMonitoringParams>();
+
+        mLauncher.GetInstanceMonitoringParams({}, *params);
+
+        notifyPromise.set_value();
+    }));
+
+    err = mLauncher.OnInstancesStatusesReceived({});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(notifyPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
+        == std::future_status::ready);
 }
 
 } // namespace aos::sm::launcher
