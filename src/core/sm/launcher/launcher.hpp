@@ -186,6 +186,7 @@ private:
     Thread<cThreadTaskSize>                                               mRebootThread;
     ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mLaunchPool;
     mutable Mutex                                                         mMutex;
+    Mutex                                                                 mSubscribersMutex;
     mutable ConditionalVariable                                           mCondVar;
     StaticArray<InstanceData, cMaxNumInstances>                           mInstances;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;

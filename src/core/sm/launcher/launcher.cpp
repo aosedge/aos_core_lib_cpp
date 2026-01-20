@@ -133,25 +133,37 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
 
 Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuses)
 {
-    LockGuard lock {mMutex};
+    Error err;
 
-    LOG_DBG() << "Instances statuses received" << Log::Field("count", statuses.Size());
+    {
+        LockGuard lock {mMutex};
 
-    for (const auto& status : statuses) {
-        LOG_DBG() << "Instance status received" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
-                  << Log::Field("error", status.mError);
+        LOG_DBG() << "Instances statuses received" << Log::Field("count", statuses.Size());
 
-        if (auto err = StoreInstalledComponent(status); !err.IsNone()) {
-            LOG_ERR() << "Failed to store installed component" << Log::Field(AOS_ERROR_WRAP(err));
+        for (const auto& status : statuses) {
+            LOG_DBG() << "Instance status received" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
+                      << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
+                      << Log::Field("error", status.mError);
+
+            if (auto storeErr = StoreInstalledComponent(status); err.IsNone() && !storeErr.IsNone()) {
+                err = AOS_ERROR_WRAP(storeErr);
+            }
+        }
+
+        if (auto sendErr = mSender->SendUpdateInstancesStatuses(statuses); err.IsNone() && !sendErr.IsNone()) {
+            err = AOS_ERROR_WRAP(sendErr);
         }
     }
 
-    for (auto* subscriber : mSubscribers) {
-        subscriber->OnInstancesStatusesChanged(statuses);
+    {
+        LockGuard lock {mSubscribersMutex};
+
+        for (auto* subscriber : mSubscribers) {
+            subscriber->OnInstancesStatusesChanged(statuses);
+        }
     }
 
-    return mSender->SendUpdateInstancesStatuses(statuses);
+    return err;
 }
 
 Error Launcher::RebootRequired(const String& runtimeID)
@@ -194,7 +206,7 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 
 Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
-    LockGuard lock {mMutex};
+    LockGuard lock {mSubscribersMutex};
 
     LOG_DBG() << "Subscribe instance status listener";
 
@@ -211,7 +223,7 @@ Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 
 Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
-    LockGuard lock {mMutex};
+    LockGuard lock {mSubscribersMutex};
 
     LOG_DBG() << "Unsubscribe instance status listener";
 
