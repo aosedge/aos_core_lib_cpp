@@ -17,6 +17,7 @@
 
 #include <core/cm/launcher/itf/instancerunner.hpp>
 #include <core/cm/launcher/itf/instancestatusreceiver.hpp>
+#include <core/common/tools/logger.hpp>
 #include <core/common/types/instance.hpp>
 
 namespace aos::cm::launcher {
@@ -35,12 +36,15 @@ public:
         bool operator!=(const NodeRunRequest& other) const { return !(*this == other); }
     };
 
-    void Init(InstanceStatusReceiverItf& statusReceiver, bool autoUpdateStatuses = true)
+    void Init(InstanceStatusReceiverItf& statusReceiver, bool autoUpdateStatuses = true,
+        aos::InstanceStateEnum initialState = aos::InstanceStateEnum::eActivating)
     {
         mNodeInstances.clear();
         mInstanceStatuses.clear();
+        mPreinstalledComponents.clear();
         mAutoUpdateStatuses = autoUpdateStatuses;
         mStatusReceiver     = &statusReceiver;
+        mInitialState       = initialState;
     }
 
     const std::map<std::string, NodeRunRequest>& GetRunRequests() const { return mNodeInstances; }
@@ -57,6 +61,13 @@ public:
         std::lock_guard lock {mMutex};
 
         mInstanceStatuses = statuses;
+    }
+
+    void SetPreinstalledComponents(const std::vector<InstanceStatus>& preinstalledComponents)
+    {
+        std::lock_guard lock {mMutex};
+
+        mPreinstalledComponents = preinstalledComponents;
     }
 
     MOCK_METHOD(void, OnRunRequest, ());
@@ -86,7 +97,7 @@ public:
 
                 if (mAutoUpdateStatuses) {
                     mInstanceStatuses.clear();
-                    mInstanceStatuses.reserve(startInstances.Size());
+                    mInstanceStatuses.reserve(startInstances.Size() + mPreinstalledComponents.size());
 
                     for (const auto& inst : startInstances) {
                         InstanceStatus status;
@@ -94,10 +105,14 @@ public:
                         static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);
                         status.mNodeID                      = nodeID;
                         status.mRuntimeID                   = inst.mRuntimeID;
-                        status.mState                       = aos::InstanceStateEnum::eActivating;
+                        status.mState                       = mInitialState;
                         status.mError                       = ErrorEnum::eNone;
 
                         mInstanceStatuses.push_back(status);
+                    }
+
+                    for (const auto& preinstalled : mPreinstalledComponents) {
+                        mInstanceStatuses.push_back(preinstalled);
                     }
                 }
 
@@ -123,6 +138,8 @@ private:
 
     bool                        mAutoUpdateStatuses {true};
     std::vector<InstanceStatus> mInstanceStatuses {};
+    std::vector<InstanceStatus> mPreinstalledComponents {};
+    aos::InstanceStateEnum      mInitialState {aos::InstanceStateEnum::eActivating};
 };
 
 } // namespace aos::cm::launcher

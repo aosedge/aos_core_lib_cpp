@@ -87,6 +87,11 @@ Error InstanceManager::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
+    mActiveInstances.Clear();
+    mStashInstances.Clear();
+    mCachedInstances.Clear();
+    mPreinstalledComponents.Clear();
+
     return ErrorEnum::eNone;
 }
 
@@ -105,8 +110,28 @@ Array<SharedPtr<Instance>>& InstanceManager::GetStashInstances()
     return mStashInstances;
 }
 
+Array<InstanceStatus>& InstanceManager::GetPreinstalledComponents()
+{
+    return mPreinstalledComponents;
+}
+
 Error InstanceManager::UpdateStatus(const InstanceStatus& status)
 {
+    if (status.mPreinstalled) {
+        auto preinstalledComponent = FindPreinstalledComponent(status);
+        if (preinstalledComponent == nullptr) {
+            if (auto err = mPreinstalledComponents.EmplaceBack(status); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            return ErrorEnum::eNone;
+        }
+
+        *preinstalledComponent = status;
+
+        return ErrorEnum::eNone;
+    }
+
     auto instance = FindActiveInstance(status);
     if (instance == nullptr) {
         // not expected instance received from SM.
@@ -230,6 +255,14 @@ SharedPtr<Instance>* InstanceManager::FindCachedInstance(const InstanceIdent& id
         [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
 
     return instance != mCachedInstances.end() ? instance : nullptr;
+}
+
+InstanceStatus* InstanceManager::FindPreinstalledComponent(const InstanceIdent& id)
+{
+    auto component = mPreinstalledComponents.FindIf(
+        [&id](const InstanceStatus& status) { return static_cast<const InstanceIdent&>(status) == id; });
+
+    return component != mPreinstalledComponents.end() ? component : nullptr;
 }
 
 void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonitoringData>& monitoringData)

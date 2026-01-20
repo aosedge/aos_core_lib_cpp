@@ -75,6 +75,13 @@ public:
     Array<SharedPtr<Instance>>& GetCachedInstances();
 
     /**
+     * Returns the collection of preinstalled components.
+     *
+     * @return Array<InstanceStatus>&.
+     */
+    Array<InstanceStatus>& GetPreinstalledComponents();
+
+    /**
      * Finds an active instance by its identifier.
      *
      * @param id instance identifier.
@@ -121,6 +128,14 @@ public:
      * @return SharedPtr<Instance>*.
      */
     SharedPtr<Instance>* FindCachedInstance(const InstanceIdent& id);
+
+    /**
+     * Finds a preinstalled component by its identifier.
+     *
+     * @param id instance identifier.
+     * @return InstanceStatus*.
+     */
+    InstanceStatus* FindPreinstalledComponent(const InstanceIdent& id);
 
     /**
      * Submits all stashed instances for execution.
@@ -173,6 +188,7 @@ private:
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mStashInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mCachedInstances;
+    StaticArray<InstanceStatus, cMaxNumInstances>      mPreinstalledComponents;
 };
 
 /** @}*/
