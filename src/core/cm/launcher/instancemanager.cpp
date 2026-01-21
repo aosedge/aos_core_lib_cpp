@@ -178,6 +178,8 @@ Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInst
     instanceInfo->mVersion       = request.mVersion;
     instanceInfo->mTimestamp     = Time::Now();
     instanceInfo->mIsUnitSubject = request.mSubjectInfo.mIsUnitSubject;
+    instanceInfo->mOwnerID       = request.mOwnerID;
+    instanceInfo->mSubjectType   = request.mSubjectInfo.mSubjectType;
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -187,8 +189,6 @@ Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInst
     if (!createErr.IsNone()) {
         return createErr;
     }
-
-    newInstance->SetOwnerID(request.mOwnerID);
 
     if (auto err = mStashInstances.PushBack(newInstance); !err.IsNone()) {
         return err;

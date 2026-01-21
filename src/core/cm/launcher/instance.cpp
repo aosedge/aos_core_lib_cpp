@@ -77,12 +77,19 @@ Error Instance::Schedule(const aos::InstanceInfo& info, const String& nodeID)
     mInfo.mGID            = info.mGID;
     mInfo.mTimestamp      = Time::Now();
     mInfo.mState          = InstanceStateEnum::eActive;
+    mInfo.mOwnerID        = info.mOwnerID;
+    mInfo.mSubjectType    = info.mSubjectType;
 
     static_cast<InstanceIdent&>(mStatus) = static_cast<const InstanceIdent&>(info);
+    mStatus.mVersion                     = info.mVersion;
+    mStatus.mPreinstalled                = false;
     mStatus.mNodeID                      = nodeID;
     mStatus.mRuntimeID                   = info.mRuntimeID;
-    mStatus.mState                       = aos::InstanceStateEnum::eActivating;
-    mStatus.mError                       = ErrorEnum::eNone;
+    mStatus.mManifestDigest              = info.mManifestDigest;
+    mStatus.mStateChecksum.Clear();
+    mStatus.mEnvVarsStatuses.Clear();
+    mStatus.mState = aos::InstanceStateEnum::eActivating;
+    mStatus.mError = ErrorEnum::eNone;
 
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

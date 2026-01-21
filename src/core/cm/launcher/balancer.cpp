@@ -620,7 +620,7 @@ Error Balancer::SetupNetworkForNewInstances()
 
         for (const auto& instance : mInstanceManager->GetStashInstances()) {
             if (nodeID == instance->GetInfo().mNodeID) {
-                if (auto err = providers->PushBack(instance->GetOwnerID()); !err.IsNone()) {
+                if (auto err = providers->PushBack(instance->GetInfo().mOwnerID); !err.IsNone()) {
                     instance->SetError(AOS_ERROR_WRAP(Error(err, "can't add owner ID")));
                 }
             }

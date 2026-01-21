@@ -97,6 +97,16 @@ struct InstanceInfo {
     StaticString<cVersionLen> mVersion;
 
     /**
+     * Owner ID.
+     */
+    StaticString<cIDLen> mOwnerID;
+
+    /**
+     * Subject type.
+     */
+    SubjectType mSubjectType;
+
+    /**
      * Compares instance info.
      *
      * @param other instance info to compare with.
@@ -107,7 +117,7 @@ struct InstanceInfo {
         return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
             && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
             && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
-            && mVersion == rhs.mVersion;
+            && mVersion == rhs.mVersion && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType;
     }
 
     /**

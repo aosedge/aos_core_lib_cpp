@@ -434,6 +434,10 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
 
     LockGuard updateLock {mUpdateMutex};
 
+    if (!mIsRunning) {
+        return ErrorEnum::eNone;
+    }
+
     Error firstErr;
 
     // Update instance manager.

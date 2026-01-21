@@ -182,8 +182,9 @@ uint32_t GenerateUID()
 
 InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci::cDigestLen> manifestDigest = {},
     const String& runtimeID = "runc", const String& nodeID = "",
-    InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, Time timestamp = {},
-    const String& version = "")
+    InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, gid_t gid = 0, Time timestamp = {},
+    const String& version = "", bool isUnitSubject = false, const String& ownerID = "",
+    SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup)
 {
     InstanceInfo result;
 
@@ -191,11 +192,15 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
     result.mManifestDigest = manifestDigest;
     result.mRuntimeID      = runtimeID;
     result.mNodeID         = nodeID;
-    result.mPrevNodeID     = nodeID;
+    result.mPrevNodeID     = "";
     result.mUID            = uid != 0 ? uid : GenerateUID();
+    result.mGID            = gid;
     result.mTimestamp      = timestamp;
     result.mState          = instanceState;
     result.mVersion        = version;
+    result.mIsUnitSubject  = isUnitSubject;
+    result.mOwnerID        = ownerID;
+    result.mSubjectType    = subjectType;
 
     return result;
 }
@@ -568,13 +573,13 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     // Add outdated TTL.
     ASSERT_TRUE(mStorage
                     .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1), manifestService1, "1.0.0", "",
-                        InstanceStateEnum::eCached, 5000, Time::Now().Add(-25 * Time::cHours)))
+                        InstanceStateEnum::eCached, 5000, 0, Time::Now().Add(-25 * Time::cHours)))
                     .IsNone());
 
     // Add instance with current timestamp.
     ASSERT_TRUE(mStorage
                     .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService2), manifestService2, "1.0.0", "",
-                        InstanceStateEnum::eCached, 5001, Time::Now()))
+                        InstanceStateEnum::eCached, 5001, 0, Time::Now()))
                     .IsNone());
 
     mInstanceRunner.Init(mLauncher);
@@ -1788,7 +1793,7 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
 
     AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig(), version);
 
-    mInstanceRunner.Init(mLauncher);
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
     // Init launcher
     ASSERT_TRUE(mLauncher
@@ -1810,7 +1815,7 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
     auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
     ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
 
-    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(1, std::chrono::seconds(2)));
 
     // Verify sent instance info is correct
     auto expectedInstanceInfo = CreateAosInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1,
@@ -1820,6 +1825,15 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
         {cNodeIDLocalSM, {{}, {expectedInstanceInfo}}},
     };
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    auto storedInstanceInfo = std::make_unique<InstanceInfo>();
+    ASSERT_TRUE(mStorage.GetInstance(CreateInstanceIdent(cService1, cSubject1, 0), *storedInstanceInfo).IsNone());
+
+    // Verify stored instance
+    auto expectedStoredInstanceInfo = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0),
+        BuildManifestDigest(cService1, cImageID1), cRunnerRunc, cNodeIDLocalSM, InstanceStateEnum::eActive, 5000, 5000,
+        storedInstanceInfo->mTimestamp, version.c_str(), true, ownerID.c_str(), SubjectTypeEnum::eUser);
+    EXPECT_EQ(*storedInstanceInfo, expectedStoredInstanceInfo);
 
     // Stop launcher
     mLauncher.UnsubscribeListener(instanceStatusListener);

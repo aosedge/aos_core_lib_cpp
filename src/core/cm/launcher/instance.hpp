@@ -93,20 +93,6 @@ public:
     const MonitoringData& GetMonitoringData() const { return mMonitoringData; }
 
     /**
-     * Returns provider identifier.
-     *
-     * @return const String&.
-     */
-    const String& GetOwnerID() const { return mOwnerID; }
-
-    /**
-     * Sets provider identifier.
-     *
-     * @param providerID provider identifier.
-     */
-    void SetOwnerID(const String& providerID) { mOwnerID = providerID; }
-
-    /**
      * Checks whether image is valid.
      *
      * @param imageInfoProvider interface for retrieving service information from image.
