@@ -10,6 +10,7 @@ RUN apt-get update \
     pipx cmake git autotools-dev autoconf libtool pkg-config python3-jinja2 \
     zip curl \
     libnl-3-dev libnl-route-3-dev \
+    libefivar-dev libefiboot-dev libblkid-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN pipx install conan
