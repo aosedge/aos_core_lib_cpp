@@ -47,9 +47,8 @@ Error NodeManager::Start()
         // add online provisioned node
         mNodes.EmplaceBack();
 
-        if (auto err = mNodes.Back().Init(*nodeInfo, *mNodeConfigProvider, *mRunner); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+        mNodes.Back().Init(nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
+        mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
     if (mStorageStateManager->IsSamePartition()) {
@@ -106,13 +105,11 @@ Error NodeManager::UpdateRunnigInstances(const String& nodeID, const Array<Insta
     auto node = FindNode(nodeID);
     if (node == nullptr) {
         // Create new node for cases when status is received before node info.
-        auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+        if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
-        nodeInfo->mNodeID      = nodeID;
-        nodeInfo->mState       = NodeStateEnum::eProvisioned;
-        nodeInfo->mIsConnected = false;
-
-        UpdateNodeInfo(*nodeInfo);
+        mNodes.Back().Init(nodeID, *mNodeConfigProvider, *mRunner);
 
         node = FindNode(nodeID);
     }
@@ -332,11 +329,8 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
             return false;
         }
 
-        if (auto err = mNodes.Back().Init(info, *mNodeConfigProvider, *mRunner); !err.IsNone()) {
-            LOG_ERR() << "Node initialization failed" << Log::Field(AOS_ERROR_WRAP(err));
-
-            return false;
-        }
+        mNodes.Back().Init(info.mNodeID, *mNodeConfigProvider, *mRunner);
+        mNodes.Back().UpdateInfo(info);
 
         return true;
     }

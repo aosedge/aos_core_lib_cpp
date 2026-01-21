@@ -14,15 +14,14 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-Error Node::Init(
-    const UnitNodeInfo& info, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner)
+void Node::Init(
+    const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner)
 {
     mNodeConfigProvider = &nodeConfigProvider;
     mInstanceRunner     = &instanceRunner;
 
-    UpdateInfo(info);
-
-    return ErrorEnum::eNone;
+    mInfo.mNodeID = id;
+    mInfo.mState  = NodeStateEnum::eUnprovisioned;
 }
 
 void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monitoringData, bool rebalancing)

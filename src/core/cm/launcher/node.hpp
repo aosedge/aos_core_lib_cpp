@@ -28,15 +28,15 @@ namespace aos::cm::launcher {
 class Node {
 public:
     /**
-     * Initializes the node handler.
+     * Initializes node.
      *
      * @param info node information.
      * @param nodeConfigProvider node config provider.
      * @param instanceRunner instance runner interface.
      * @return Error.
      */
-    Error Init(const UnitNodeInfo& info, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
-        InstanceRunnerItf& instanceRunner);
+    void Init(
+        const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner);
 
     /**
      * Returns node information.
