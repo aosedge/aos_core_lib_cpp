@@ -389,6 +389,84 @@ TEST_F(LauncherTest, UpdateInstances)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+    std::vector               startInstanceInfos = {cStoredInfos[0]};
+    const Array<InstanceInfo> cStartInstances(&startInstanceInfos.front(), startInstanceInfos.size());
+
+    // Modify first instance parameters to force restart
+    startInstanceInfos[0].mMonitoringParams.EmplaceValue();
+    startInstanceInfos[0].mMonitoringParams->mAlertRules.EmplaceValue();
+    startInstanceInfos[0].mNetworkParameters.EmplaceValue();
+    startInstanceInfos[0].mNetworkParameters->mIP = "newIP";
+
+    mStorage.Init(cStoredInfos);
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mImageManager, GetAllInstalledItems).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
+
+    for (size_t i = 0; i < mReceivedStatuses.Size(); ++i) {
+        EXPECT_EQ(mReceivedStatuses[i], CreateInstanceStatus(cStoredInfos[i], InstanceStateEnum::eActive));
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillOnce(Invoke([](const InstanceIdent& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    err = mLauncher.UpdateInstances({}, cStartInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+
+    EXPECT_EQ(mReceivedStatuses[0],
+        CreateInstanceStatus(
+            cStoredInfos[0], cStoredInfos[0].mVersion, cStoredInfos[0].mRuntimeID, InstanceStateEnum::eActive));
+
+    auto storedData = std::make_unique<InstanceInfoArray>();
+
+    err = mStorage.GetAllInstancesInfos(*storedData);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    storedData->Sort([](const InstanceInfo& a, const InstanceInfo& b) {
+        return static_cast<const InstanceIdent&>(a) < static_cast<const InstanceIdent&>(b);
+    });
+
+    EXPECT_EQ(*storedData, cStartInstances);
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 {
     const std::vector cStartInstanceInfos = {
