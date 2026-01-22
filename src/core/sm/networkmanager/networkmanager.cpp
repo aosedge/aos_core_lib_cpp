@@ -399,7 +399,7 @@ Error NetworkManager::GetSystemTraffic(uint64_t& inputTraffic, uint64_t& outputT
 {
     LOG_DBG() << "Get system traffic";
 
-    return AOS_ERROR_WRAP(mNetMonitor->GetSystemData(inputTraffic, outputTraffic));
+    return AOS_ERROR_WRAP(mNetMonitor->GetSystemTraffic(inputTraffic, outputTraffic));
 }
 
 Error NetworkManager::GetInstanceTraffic(

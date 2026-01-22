@@ -860,14 +860,14 @@ TEST_F(NetworkManagerTest, GetSystemTraffic)
     uint64_t inputTraffic  = 0;
     uint64_t outputTraffic = 0;
 
-    EXPECT_CALL(mTrafficMonitor, GetSystemData(_, _))
+    EXPECT_CALL(mTrafficMonitor, GetSystemTraffic(_, _))
         .WillOnce(DoAll(SetArgReferee<0>(5000), SetArgReferee<1>(7000), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_EQ(mNetManager->GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eNone);
     EXPECT_EQ(inputTraffic, 5000);
     EXPECT_EQ(outputTraffic, 7000);
 
-    EXPECT_CALL(mTrafficMonitor, GetSystemData(_, _)).WillOnce(Return(aos::ErrorEnum::eFailed));
+    EXPECT_CALL(mTrafficMonitor, GetSystemTraffic(_, _)).WillOnce(Return(aos::ErrorEnum::eFailed));
 
     EXPECT_EQ(mNetManager->GetSystemTraffic(inputTraffic, outputTraffic), aos::ErrorEnum::eFailed);
 }
