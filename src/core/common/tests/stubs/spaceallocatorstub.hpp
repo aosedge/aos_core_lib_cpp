@@ -57,7 +57,7 @@ public:
     /**
      * Returns space size.
      *
-     * @return uint64_t.
+     * @return size_t.
      */
     size_t Size() const override { return mSize; }
 
