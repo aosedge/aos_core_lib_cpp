@@ -92,7 +92,7 @@ public:
      * @param outputTraffic output traffic.
      * @return Error.
      */
-    virtual Error GetSystemData(uint64_t& inputTraffic, uint64_t& outputTraffic) const = 0;
+    virtual Error GetSystemTraffic(uint64_t& inputTraffic, uint64_t& outputTraffic) const = 0;
 
     /**
      * Returns instance traffic data.

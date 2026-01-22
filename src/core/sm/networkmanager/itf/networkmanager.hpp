@@ -11,10 +11,12 @@
 #include <core/common/types/network.hpp>
 #include <core/sm/config.hpp>
 
+#include "instancetrafficprovider.hpp"
 #include "interfacefactory.hpp"
 #include "interfacemanager.hpp"
 #include "namespacemanager.hpp"
 #include "storage.hpp"
+#include "systemtrafficprovider.hpp"
 #include "trafficmonitor.hpp"
 
 namespace aos::sm::networkmanager {
@@ -84,7 +86,7 @@ struct InstanceNetworkParameters {
 /**
  * Network manager interface.
  */
-class NetworkManagerItf {
+class NetworkManagerItf : public SystemTrafficProviderItf, public InstanceTrafficProviderItf {
 public:
     /**
      * Destructor.
@@ -137,26 +139,6 @@ public:
      * @return Error.
      */
     virtual Error GetInstanceIP(const String& instanceID, const String& networkID, String& ip) const = 0;
-
-    /**
-     * Returns instance's traffic.
-     *
-     * @param instanceID instance id.
-     * @param[out] inputTraffic instance's input traffic.
-     * @param[out] outputTraffic instance's output traffic.
-     * @return Error.
-     */
-    virtual Error GetInstanceTraffic(const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic) const
-        = 0;
-
-    /**
-     * Gets system traffic.
-     *
-     * @param[out] inputTraffic system input traffic.
-     * @param[out] outputTraffic system output traffic.
-     * @return Error.
-     */
-    virtual Error GetSystemTraffic(uint64_t& inputTraffic, uint64_t& outputTraffic) const = 0;
 
     /**
      * Sets the traffic period.

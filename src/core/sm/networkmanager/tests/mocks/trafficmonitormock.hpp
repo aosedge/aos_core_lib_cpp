@@ -20,7 +20,7 @@ public:
     MOCK_METHOD(void, SetPeriod, (TrafficPeriod), (override));
     MOCK_METHOD(Error, StartInstanceMonitoring, (const String&, const String&, uint64_t, uint64_t), (override));
     MOCK_METHOD(Error, StopInstanceMonitoring, (const String&), (override));
-    MOCK_METHOD(Error, GetSystemData, (uint64_t&, uint64_t&), (const, override));
+    MOCK_METHOD(Error, GetSystemTraffic, (uint64_t&, uint64_t&), (const, override));
     MOCK_METHOD(Error, GetInstanceTraffic, (const String&, uint64_t&, uint64_t&), (const, override));
 };
 
