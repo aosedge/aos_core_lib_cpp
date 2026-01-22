@@ -163,6 +163,8 @@ private:
     Error StoreInstalledComponent(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses);
+    void  StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& status);
+    void  StopAllInstances();
     void  StartInstances(const Array<InstanceInfo>& startInstances);
     void  StartInstance(RuntimeItf& runtime, InstanceData& instance);
     Error ApppendInstancesWithModifiedParams(
