@@ -26,7 +26,6 @@ protected:
     StrictMock<ItemRemoverMock>      mRemover;
     const String                     mPath       = "path";
     const size_t                     mLimit      = 0;
-    static constexpr auto            cKilobyte   = 1024;
     const size_t                     mTotalSize  = 1 * cKilobyte * cKilobyte;
     const StaticString<cFilePathLen> mMountPoint = "/mnt/test";
 };
