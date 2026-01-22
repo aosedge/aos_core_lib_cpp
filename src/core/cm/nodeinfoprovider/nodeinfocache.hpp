@@ -32,11 +32,19 @@ public:
     NodeInfoCache(const Duration waitTimeout, const NodeInfo& info);
 
     /**
+     * Constructor.
+     *
+     * @param waitTimeout wait timeout.
+     * @param nodeID node ID.
+     */
+    NodeInfoCache(const Duration waitTimeout, const String& nodeID);
+
+    /**
      * Returns node ID.
      *
      * @return const String&.
      */
-    const String& GetNodeID() const { return mNodeInfo.mNodeID; }
+    const String& GetNodeID() const { return mNodeID; }
 
     /**
      * Sets node info.
@@ -71,6 +79,13 @@ public:
     Error OnSMReceived(const SMInfo& info);
 
     /**
+     *  Returns is connected flag.
+     *
+     * @return bool.
+     */
+    bool IsConnected() const;
+
+    /**
      * Checks whether node info is ready.
      *
      * @return bool.
@@ -78,11 +93,16 @@ public:
     bool IsReady() const;
 
 private:
-    Duration     mWaitTimeout;
-    UnitNodeInfo mNodeInfo;
-    Time         mLastUpdate {Time::Now()};
-    bool         mSMReceived {};
-    bool         mHasSMComponent {};
+    void SetNodeInfo(UnitNodeInfo& info) const;
+    void SetSMInfo(UnitNodeInfo& info) const;
+
+    Duration             mWaitTimeout;
+    StaticString<cIDLen> mNodeID;
+    Optional<NodeInfo>   mNodeInfo;
+    Optional<SMInfo>     mSMInfo;
+    Time                 mLastUpdate {Time::Now()};
+    bool                 mSMReceived {};
+    bool                 mHasSMComponent {true};
 };
 
 /** @}*/

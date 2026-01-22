@@ -16,74 +16,110 @@ namespace aos::cm::nodeinfoprovider {
 
 NodeInfoCache::NodeInfoCache(const Duration waitTimeout, const NodeInfo& info)
     : mWaitTimeout(waitTimeout)
+    , mNodeID(info.mNodeID)
+    , mNodeInfo(info)
     , mHasSMComponent(info.ContainsComponent(CoreComponentEnum::eSM))
 {
-    static_cast<NodeInfo&>(mNodeInfo) = info;
+}
+
+NodeInfoCache::NodeInfoCache(const Duration waitTimeout, const String& nodeID)
+    : mWaitTimeout(waitTimeout)
+    , mNodeID(nodeID)
+{
 }
 
 void NodeInfoCache::SetNodeInfo(const NodeInfo& info)
 {
-    mHasSMComponent                   = info.ContainsComponent(CoreComponentEnum::eSM);
-    static_cast<NodeInfo&>(mNodeInfo) = info;
+    mHasSMComponent = info.ContainsComponent(CoreComponentEnum::eSM);
+    mNodeInfo.SetValue(info);
 }
 
 void NodeInfoCache::GetUnitNodeInfo(UnitNodeInfo& info) const
 {
-    info = mNodeInfo;
+    SetNodeInfo(info);
+    SetSMInfo(info);
 
-    if (!mHasSMComponent || mSMReceived) {
-        info.mIsConnected = true;
+    info.mIsConnected = IsConnected();
 
-        return;
-    }
-
-    if (info.mState == NodeStateEnum::eError || !info.mIsConnected) {
+    if (info.mIsConnected || info.mState == NodeStateEnum::eError) {
         return;
     }
 
     if (Time::Now().Sub(mLastUpdate) > mWaitTimeout) {
         info.mState = NodeStateEnum::eError;
         info.mError = Error(ErrorEnum::eTimeout, "SM connection timeout");
-    } else {
-        info.mIsConnected = false;
     }
 }
 
 void NodeInfoCache::OnSMConnected()
 {
-    mSMReceived = false;
+    mSMInfo.Reset();
     mLastUpdate = Time::Now();
 }
 
 void NodeInfoCache::OnSMDisconnected()
 {
-    mSMReceived = false;
+    mSMInfo.Reset();
     mLastUpdate = Time::Now();
 }
 
 Error NodeInfoCache::OnSMReceived(const SMInfo& info)
 {
-    if (auto err = mNodeInfo.mResources.Assign(info.mResources); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mNodeInfo.mRuntimes.Assign(info.mRuntimes); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    mSMReceived = true;
+    mSMInfo.SetValue(info);
     mLastUpdate = Time::Now();
 
     return ErrorEnum::eNone;
 }
 
-bool NodeInfoCache::IsReady() const
+bool NodeInfoCache::IsConnected() const
 {
-    if (!mHasSMComponent || mSMReceived) {
+    if (!mNodeInfo.HasValue()) {
+        LOG_DBG() << "Node info not available yet" << Log::Field("nodeID", mNodeID);
+
+        return false;
+    }
+
+    if (!mHasSMComponent) {
         return true;
     }
 
-    return Time::Now().Sub(mLastUpdate) > mWaitTimeout;
+    if (!mSMInfo.HasValue()) {
+        LOG_DBG() << "SM info not available yet" << Log::Field("nodeID", mNodeID);
+
+        return false;
+    }
+
+    return true;
+}
+
+bool NodeInfoCache::IsReady() const
+{
+    return IsConnected() || Time::Now().Sub(mLastUpdate) > mWaitTimeout;
+}
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+void NodeInfoCache::SetNodeInfo(UnitNodeInfo& info) const
+{
+    if (mNodeInfo.HasValue()) {
+        static_cast<NodeInfo&>(info) = *mNodeInfo;
+
+        return;
+    }
+
+    info.mNodeID = mNodeID;
+}
+
+void NodeInfoCache::SetSMInfo(UnitNodeInfo& info) const
+{
+    if (!mSMInfo.HasValue()) {
+        return;
+    }
+
+    info.mResources = mSMInfo->mResources;
+    info.mRuntimes  = mSMInfo->mRuntimes;
 }
 
 } // namespace aos::cm::nodeinfoprovider

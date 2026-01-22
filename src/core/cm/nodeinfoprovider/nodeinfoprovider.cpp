@@ -56,6 +56,12 @@ Error NodeInfoProvider::Start()
         }
     }
 
+    for (const auto& item : mCache) {
+        if (auto err = SendNotification(item); !err.IsNone()) {
+            LOG_ERR() << "Failed to send notification" << Log::Field("nodeID", item.GetNodeID()) << Log::Field(err);
+        }
+    }
+
     if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -154,16 +160,14 @@ void NodeInfoProvider::OnSMConnected(const String& nodeID)
 
     LOG_DBG() << "SM connected" << Log::Field("nodeID", nodeID);
 
-    auto it = mCache.FindIf([&nodeID](const auto& info) { return info.GetNodeID() == nodeID; });
-    if (it == mCache.end()) {
+    auto it = AddOrGetCacheItem(nodeID);
+    if (it == nullptr) {
+        LOG_ERR() << "Failed to handle SM disconnect" << Log::Field("nodeID", nodeID);
+
         return;
     }
 
     it->OnSMConnected();
-
-    if (auto err = ScheduleNotification(it->GetNodeID()); !err.IsNone()) {
-        LOG_ERR() << "Failed to schedule notification" << Log::Field("nodeID", nodeID) << Log::Field(err);
-    }
 }
 
 void NodeInfoProvider::OnSMDisconnected(const String& nodeID, const Error& err)
@@ -172,15 +176,17 @@ void NodeInfoProvider::OnSMDisconnected(const String& nodeID, const Error& err)
 
     LOG_DBG() << "SM disconnected" << Log::Field("nodeID", nodeID) << Log::Field(err);
 
-    auto it = mCache.FindIf([&nodeID](const auto& info) { return info.GetNodeID() == nodeID; });
-    if (it == mCache.end()) {
+    auto it = AddOrGetCacheItem(nodeID);
+    if (it == nullptr) {
+        LOG_ERR() << "Failed to handle SM disconnect" << Log::Field("nodeID", nodeID);
+
         return;
     }
 
     it->OnSMDisconnected();
 
-    if (auto notifyErr = ScheduleNotification(it->GetNodeID()); !notifyErr.IsNone()) {
-        LOG_ERR() << "Failed to schedule notification" << Log::Field("nodeID", nodeID) << Log::Field(notifyErr);
+    if (auto notifyErr = SendNotification(*it, true); !notifyErr.IsNone()) {
+        LOG_ERR() << "Failed to send notification" << Log::Field("nodeID", nodeID) << Log::Field(notifyErr);
     }
 }
 
@@ -190,16 +196,16 @@ Error NodeInfoProvider::OnSMInfoReceived(const SMInfo& info)
 
     LOG_DBG() << "SM info received" << Log::Field("nodeID", info.mNodeID);
 
-    auto it = mCache.FindIf([&info](const auto& nodeInfo) { return nodeInfo.GetNodeID() == info.mNodeID; });
-    if (it == mCache.end()) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    auto it = AddOrGetCacheItem(info.mNodeID);
+    if (it == nullptr) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "can't process SM info"));
     }
 
     if (auto err = it->OnSMReceived(info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    return ScheduleNotification(it->GetNodeID());
+    return SendNotification(*it);
 }
 
 /***********************************************************************************************************************
@@ -213,21 +219,63 @@ void NodeInfoProvider::OnNodeInfoChanged(const NodeInfo& info)
     LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID) << Log::Field("state", info.mState)
               << Log::Field("isConnected", info.mIsConnected) << Log::Field(info.mError);
 
-    auto it = mCache.FindIf([&info](const auto& nodeInfo) { return nodeInfo.GetNodeID() == info.mNodeID; });
-    if (it == mCache.end()) {
-        if (auto err = mCache.EmplaceBack(mConfig.mSMConnectionTimeout, info); !err.IsNone()) {
-            LOG_ERR() << "Failed to add node info to cache" << Log::Field(err);
-            return;
+    auto it = AddOrGetCacheItem(info.mNodeID);
+    if (it == nullptr) {
+        LOG_ERR() << "Failed to store" << Log::Field("nodeID", info.mNodeID);
+
+        return;
+    }
+
+    it->SetNodeInfo(info);
+
+    if (auto err = SendNotification(*it); !err.IsNone()) {
+        LOG_ERR() << "Failed to send notification" << Log::Field("nodeID", it->GetNodeID()) << Log::Field(err);
+    }
+}
+
+NodeInfoCache* NodeInfoProvider::AddOrGetCacheItem(const String& nodeID)
+{
+    if (auto it = mCache.FindIf([&nodeID](const auto& info) { return info.GetNodeID() == nodeID; });
+        it != mCache.end()) {
+        return it;
+    }
+
+    if (auto err = mCache.EmplaceBack(mConfig.mSMConnectionTimeout, nodeID); !err.IsNone()) {
+        return nullptr;
+    }
+
+    return &mCache.Back();
+}
+
+void NodeInfoProvider::NotifyListeners(const NodeInfoCache& info)
+{
+    auto unitNodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+
+    info.GetUnitNodeInfo(*unitNodeInfo);
+
+    LOG_DBG() << "Send node info changed" << Log::Field("nodeID", unitNodeInfo->mNodeID)
+              << Log::Field("state", unitNodeInfo->mState) << Log::Field("isConnected", unitNodeInfo->mIsConnected);
+
+    for (auto* listener : mListeners) {
+        listener->OnNodeInfoChanged(*unitNodeInfo);
+    }
+
+    mNotificationQueue.RemoveIf([&info](const auto& nodeID) { return nodeID == info.GetNodeID(); });
+}
+
+Error NodeInfoProvider::SendNotification(const NodeInfoCache& info, bool sendImmediately)
+{
+    if (sendImmediately || !info.IsConnected()) {
+        if (auto err = ScheduleNotification(info.GetNodeID()); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
-        it = &mCache.Back();
-    } else {
-        it->SetNodeInfo(info);
+        return ErrorEnum::eNone;
     }
 
-    if (auto err = ScheduleNotification(it->GetNodeID()); !err.IsNone()) {
-        LOG_ERR() << "Failed to schedule notification" << Log::Field("nodeID", it->GetNodeID()) << Log::Field(err);
-    }
+    NotifyListeners(info);
+
+    return ErrorEnum::eNone;
 }
 
 Error NodeInfoProvider::ScheduleNotification(const String& nodeID)
@@ -260,32 +308,17 @@ void NodeInfoProvider::Run()
             }
 
             for (const auto& nodeInfo : mCache) {
+                if (!mNotificationQueue.Contains(nodeInfo.GetNodeID())) {
+                    continue;
+                }
+
                 if (!nodeInfo.IsReady()) {
                     LOG_DBG() << "Node info not ready" << Log::Field("nodeID", nodeInfo.GetNodeID());
 
                     continue;
                 }
 
-                auto it = mNotificationQueue.Find(nodeInfo.GetNodeID());
-                if (it == mNotificationQueue.end()) {
-                    LOG_DBG() << "No notification scheduled for node" << Log::Field("nodeID", nodeInfo.GetNodeID());
-
-                    continue;
-                }
-
-                auto unitNodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
-
-                nodeInfo.GetUnitNodeInfo(*unitNodeInfo);
-
-                LOG_DBG() << "Notifying listeners about node info change" << Log::Field("nodeID", unitNodeInfo->mNodeID)
-                          << Log::Field("state", unitNodeInfo->mState)
-                          << Log::Field("isConnected", unitNodeInfo->mIsConnected) << Log::Field(unitNodeInfo->mError);
-
-                for (auto* listener : mListeners) {
-                    listener->OnNodeInfoChanged(*unitNodeInfo);
-                }
-
-                mNotificationQueue.Erase(it);
+                NotifyListeners(nodeInfo);
             }
 
             mCondVar.Wait(lock, mConfig.mSMConnectionTimeout);

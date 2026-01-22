@@ -115,9 +115,13 @@ private:
     static constexpr auto cAllocatorSize
         = sizeof(UnitNodeInfo) + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>);
 
-    void  OnNodeInfoChanged(const NodeInfo& info) override;
-    Error ScheduleNotification(const String& nodeID);
-    void  Run();
+    void OnNodeInfoChanged(const NodeInfo& info) override;
+
+    NodeInfoCache* AddOrGetCacheItem(const String& nodeID);
+    void           NotifyListeners(const NodeInfoCache& info);
+    Error          SendNotification(const NodeInfoCache& info, bool sendImmediately = false);
+    Error          ScheduleNotification(const String& nodeID);
+    void           Run();
 
     mutable Mutex                                                       mMutex;
     StaticAllocator<cAllocatorSize>                                     mAllocator;
