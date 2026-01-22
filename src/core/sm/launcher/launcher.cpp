@@ -89,6 +89,8 @@ Error Launcher::Stop()
 
         mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
 
+        StopAllInstances();
+
         for (auto& it : mRuntimes) {
             if (auto err = it.mFirst->Stop(); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
@@ -191,7 +193,7 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 
     mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
 
-    LOG_DBG() << "Get instances statuses";
+    LOG_DBG() << "Get instances statuses" << Log::Field("count", mInstances.Size());
 
     statuses.Clear();
 
@@ -439,43 +441,74 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances, Array<In
             continue;
         }
 
-        static_cast<InstanceIdent&>(statuses.Back()) = instance;
+        StopInstance(instance, statuses.Back());
+    }
+}
 
-        auto itInstance = FindInstanceData(instance);
-        if (itInstance == mInstances.end()) {
-            statuses.Back().mState = InstanceStateEnum::eFailed;
-            statuses.Back().mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
+void Launcher::StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& status)
+{
+    LOG_DBG() << "Stop instance" << Log::Field("ident", instanceIdent);
 
-            continue;
-        }
+    static_cast<InstanceIdent&>(status) = instanceIdent;
 
-        statuses.Back() = itInstance->mStatus;
+    auto itInstance = FindInstanceData(instanceIdent);
+    if (itInstance == mInstances.end()) {
+        status.mState = InstanceStateEnum::eFailed;
+        status.mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
 
-        auto runtime = FindInstanceRuntime(itInstance->mStatus.mRuntimeID);
-        if (runtime == nullptr) {
-            statuses.Back().mState = InstanceStateEnum::eFailed;
-            statuses.Back().mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
+        return;
+    }
 
-            continue;
-        }
+    status = itInstance->mStatus;
 
-        if (auto errAddTask = mLaunchPool.AddTask([this, runtime, &instance, status = &statuses.Back()](void*) {
-                if (auto err = runtime->StopInstance(instance, *status); !err.IsNone()) {
-                    LOG_ERR() << "Failed to stop instance" << Log::Field("ident", instance)
-                              << Log::Field(AOS_ERROR_WRAP(err));
+    auto runtime = FindInstanceRuntime(itInstance->mStatus.mRuntimeID);
+    if (runtime == nullptr) {
+        status.mState = InstanceStateEnum::eFailed;
+        status.mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
 
-                    if (status->mState != InstanceStateEnum::eFailed) {
-                        status->mState = InstanceStateEnum::eFailed;
-                        status->mError = AOS_ERROR_WRAP(err);
-                    }
+        return;
+    }
+
+    if (auto errAddTask = mLaunchPool.AddTask([this, runtime, &instanceIdent, status = &status](void*) {
+            if (auto err = runtime->StopInstance(instanceIdent, *status); !err.IsNone()) {
+                LOG_ERR() << "Failed to stop instance" << Log::Field("ident", instanceIdent)
+                          << Log::Field(AOS_ERROR_WRAP(err));
+
+                if (status->mState != InstanceStateEnum::eFailed) {
+                    status->mState = InstanceStateEnum::eFailed;
+                    status->mError = AOS_ERROR_WRAP(err);
                 }
-            });
-            !errAddTask.IsNone()) {
-            LOG_ERR() << "Stop instance failed" << Log::Field("ident", instance)
-                      << Log::Field(AOS_ERROR_WRAP(errAddTask));
+            }
+        });
+        !errAddTask.IsNone()) {
+        LOG_ERR() << "Stop instance failed" << Log::Field("ident", instanceIdent)
+                  << Log::Field(AOS_ERROR_WRAP(errAddTask));
+    }
+}
 
+void Launcher::StopAllInstances()
+{
+    if (auto err = mLaunchPool.Run(); !err.IsNone()) {
+        LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    for (auto& instance : mInstances) {
+        if (instance.mStatus.mState != InstanceStateEnum::eActive
+            || instance.mInfo.mType == UpdateItemTypeEnum::eComponent) {
             continue;
         }
+
+        StopInstance(static_cast<const InstanceIdent&>(instance.mInfo), instance.mStatus);
+    }
+
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 }
 

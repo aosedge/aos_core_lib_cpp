@@ -173,8 +173,8 @@ protected:
 
     Launcher mLauncher;
 
-    RuntimeMock                              mRuntime0;
-    RuntimeMock                              mRuntime1;
+    StrictMock<RuntimeMock>                  mRuntime0;
+    StrictMock<RuntimeMock>                  mRuntime1;
     NiceMock<imagemanager::ImageManagerMock> mImageManager;
     StorageStub                              mStorage;
     SenderStub                               mSender;
@@ -212,6 +212,8 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
             UpdateItemTypeEnum::eService),
     };
 
+    const auto cPreinstalledComponent = static_cast<const InstanceIdent&>(cRuntime0Components[1]);
+
     EXPECT_CALL(mRuntime0, Start).WillOnce(Invoke([&]() {
         mLauncher.OnInstancesStatusesReceived(
             Array<InstanceStatus>(cRuntime0Components.data(), cRuntime0Components.size()));
@@ -219,7 +221,9 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
         return ErrorEnum::eNone;
     }));
 
-    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo&, InstanceStatus& status) {
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& info, InstanceStatus& status) {
+        EXPECT_EQ(static_cast<const InstanceIdent&>(info), cPreinstalledComponent);
+
         status = cRuntime0Components[1];
 
         return ErrorEnum::eNone;
@@ -236,6 +240,8 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
     EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[1]);
+
+    EXPECT_CALL(mRuntime0, StopInstance(cPreinstalledComponent, _)).Times(0);
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -280,6 +286,11 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
     for (size_t i = 0; i < mReceivedStatuses.Size(); ++i) {
         EXPECT_EQ(mReceivedStatuses[i], cExpectedStatuses[i]);
     }
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[1]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -385,6 +396,16 @@ TEST_F(LauncherTest, UpdateInstances)
 
     EXPECT_EQ(*storedData, Array<InstanceInfo>(&cStartInstanceInfos.front(), cStartInstanceInfos.size()));
 
+    for (const auto& expectedStopInstance : cStartInstances) {
+        if (expectedStopInstance.mRuntimeID == "runtime0") {
+            EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(expectedStopInstance), _))
+                .WillOnce(Return(ErrorEnum::eNone));
+        } else if (expectedStopInstance.mRuntimeID == "runtime1") {
+            EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(expectedStopInstance), _))
+                .WillOnce(Return(ErrorEnum::eNone));
+        }
+    }
+
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -463,6 +484,8 @@ TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
 
     EXPECT_EQ(*storedData, cStartInstances);
 
+    EXPECT_CALL(mRuntime0, StopInstance(mReceivedStatuses[0], _)).WillOnce(Return(ErrorEnum::eNone));
+
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -511,6 +534,9 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
     EXPECT_EQ(mReceivedStatuses[0], CreateInstanceStatus(cStartInstanceInfos[0], InstanceStateEnum::eActive));
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStartInstanceInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -589,6 +615,9 @@ TEST_F(LauncherTest, GetInstancesStatuses)
     EXPECT_EQ((*statuses)[0], CreateInstanceStatus(cStartInstanceInfos[0], InstanceStateEnum::eActive));
     EXPECT_EQ((*statuses)[1], CreateInstanceStatus(cStartInstanceInfos[1], InstanceStateEnum::eFailed));
 
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStartInstanceInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -646,6 +675,9 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
         InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *params);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(startInstance), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -692,6 +724,9 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
     err = mLauncher.GetInstanceMonitoringData(
         InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *instanceMonitoringData);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -767,6 +802,9 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
     EXPECT_EQ(mReceivedStatuses[0], cInstanceStatus);
 
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -826,6 +864,9 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
 
     EXPECT_TRUE(rebootPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
         == std::future_status::ready);
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))
+        .WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
