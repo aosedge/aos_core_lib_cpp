@@ -362,7 +362,7 @@ Error Launcher::StoreInstalledComponent(const aos::InstanceStatus& status)
     return ErrorEnum::eNone;
 }
 
-void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
+void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
 {
     LOG_INF() << "Update instances" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
@@ -385,6 +385,10 @@ void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, co
         LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
 
         return;
+    }
+
+    if (auto err = ApppendInstancesWithModifiedParams(startInstances, stopInstances); !err.IsNone()) {
+        LOG_ERR() << "Failed to append instances with modified params to stop list" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     StopInstances(stopInstances, *statuses);
@@ -421,13 +425,7 @@ void Launcher::UpdateInstancesImpl(const Array<InstanceIdent>& stopInstances, co
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    for (const auto& instance : mInstances) {
-        if (auto err = statuses->EmplaceBack(instance.mStatus); !err.IsNone()) {
-            LOG_ERR() << "Failed to add instance status to statuses array"
-                      << Log::Field("ident", static_cast<const InstanceIdent&>(instance.mStatus))
-                      << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    }
+    PopulateInstancesStatuses(*statuses);
 }
 
 void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses)
@@ -541,6 +539,53 @@ void Launcher::StartInstance(RuntimeItf& runtime, InstanceData& instance)
         if (instance.mStatus.mState != InstanceStateEnum::eFailed) {
             instance.mStatus.mState = InstanceStateEnum::eFailed;
             instance.mStatus.mError = AOS_ERROR_WRAP(err);
+        }
+    }
+}
+
+Error Launcher::ApppendInstancesWithModifiedParams(
+    const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances)
+{
+    for (const auto& startInstance : startInstances) {
+        auto itInstance = FindInstanceData(static_cast<const InstanceIdent&>(startInstance));
+        if (!itInstance) {
+            continue;
+        }
+
+        if (itInstance->mInfo == startInstance) {
+            continue;
+        }
+
+        if (stopInstances.Contains(static_cast<const InstanceIdent&>(startInstance))) {
+            continue;
+        }
+
+        LOG_DBG() << "Instance parameters modified, adding to stop list"
+                  << Log::Field("ident", static_cast<const InstanceIdent&>(startInstance));
+
+        if (auto err = stopInstances.EmplaceBack(static_cast<const InstanceIdent&>(startInstance)); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void Launcher::PopulateInstancesStatuses(Array<InstanceStatus>& statuses) const
+{
+    for (const auto& status : mInstances) {
+        if (auto itStatus = statuses.FindIf([&status](const auto& item) {
+                return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status.mStatus)
+                    && item.mVersion == status.mStatus.mVersion;
+            });
+            itStatus != statuses.end()) {
+            statuses.Erase(itStatus);
+        }
+
+        if (auto err = statuses.EmplaceBack(status.mStatus); !err.IsNone()) {
+            LOG_ERR() << "Failed to add instance status to statuses array"
+                      << Log::Field("ident", static_cast<const InstanceIdent&>(status.mStatus))
+                      << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 }
