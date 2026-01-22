@@ -205,7 +205,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -214,7 +214,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
         }));
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -328,7 +328,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -337,7 +337,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
         }));
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -429,7 +429,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -438,7 +438,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
         }));
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -571,7 +571,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -660,7 +660,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -669,7 +669,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
         }));
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -776,7 +776,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
 
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, FreeSpace(_)).Times(AtLeast(0));
     EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
@@ -785,7 +785,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
         }));
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(_))
-        .WillRepeatedly(Invoke([this](uint64_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+        .WillRepeatedly(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
             auto space = MakeUnique<spaceallocator::SpaceMock>(&mAllocator);
             EXPECT_CALL(*space, Accept()).Times(AtLeast(0));
             EXPECT_CALL(*space, Release()).Times(AtLeast(0));
