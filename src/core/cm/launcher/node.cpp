@@ -123,8 +123,14 @@ Error Node::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
 
 Error Node::UpdateRunningInstances(const Array<InstanceStatus>& instances)
 {
-    if (auto err = mRunningInstances.Assign(instances); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    mRunningInstances.Clear();
+
+    for (const auto& instance : instances) {
+        if (!instance.mPreinstalled) {
+            if (auto err = mRunningInstances.EmplaceBack(instance); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
     }
 
     return ErrorEnum::eNone;
