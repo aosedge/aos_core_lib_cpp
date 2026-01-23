@@ -386,8 +386,17 @@ Error ImageManager::DownloadBlob(const String& path, const String& digest, size_
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor)
+Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, bool waitInProgress)
 {
+    if (waitInProgress) {
+        if (auto err = WaitForInProgressBlob(descriptor.mDigest); !err.IsNone()) {
+            return err;
+        }
+
+        auto releaseInProgress
+            = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInProgressBlob(*digest); });
+    }
+
     LOG_DBG() << "Install blob" << Log::Field("digest", descriptor.mDigest) << Log::Field("size", descriptor.mSize);
 
     StaticString<cFilePathLen> path;
@@ -539,6 +548,13 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
 
 Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest)
 {
+    if (auto err = WaitForInProgressBlob(descriptor.mDigest); !err.IsNone()) {
+        return err;
+    }
+
+    auto releaseInProgress
+        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInProgressBlob(*digest); });
+
     LOG_DBG() << "Install layer" << Log::Field("digest", descriptor.mDigest);
 
     StaticString<cFilePathLen> path;
@@ -561,7 +577,7 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
         }
     }
 
-    if (err = InstallBlob(descriptor); !err.IsNone()) {
+    if (err = InstallBlob(descriptor, false); !err.IsNone()) {
         return err;
     }
 
@@ -610,6 +626,47 @@ void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* sp
             space->Accept();
         }
     }
+}
+
+Error ImageManager::WaitForInProgressBlob(const String& digest)
+{
+    UniqueLock lock {mMutex};
+
+    if (auto err = mCV.Wait(lock,
+            [&]() {
+                auto it = mInProgressBlobs.FindIf([&digest](const StaticString<oci::cDigestLen>& inProgressDigest) {
+                    return inProgressDigest == digest;
+                });
+                return it == mInProgressBlobs.end();
+            });
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mInProgressBlobs.PushBack(digest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ReleaseInProgressBlob(const String& digest)
+{
+    UniqueLock lock {mMutex};
+
+    auto it = mInProgressBlobs.FindIf(
+        [&digest](const StaticString<oci::cDigestLen>& inProgressDigest) { return inProgressDigest == digest; });
+    if (it != mInProgressBlobs.end()) {
+        mInProgressBlobs.Erase(it);
+    } else {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::sm::imagemanager

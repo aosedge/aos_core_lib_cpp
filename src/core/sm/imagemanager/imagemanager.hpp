@@ -102,13 +102,15 @@ private:
     Error CreateLayerPath(const String& digest, String& path) const;
     Error ValidateBlob(const String& path, const String& digest) const;
     Error DownloadBlob(const String& path, const String& digest, size_t size);
-    Error InstallBlob(const oci::ContentDescriptor& descriptor);
+    Error InstallBlob(const oci::ContentDescriptor& descriptor, bool waitInProgress = true);
     Error ValidateLayer(const String& path, const String& diffDigest) const;
     Error CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space);
     Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest);
     Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest);
     Error GetBlobURL(const String& digest, String& url) const;
     void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
+    Error WaitForInProgressBlob(const String& digest);
+    Error ReleaseInProgressBlob(const String& digest);
 
     Config                             mConfig;
     BlobInfoProviderItf*               mBlobInfoProvider {};
@@ -120,7 +122,10 @@ private:
 
     StaticAllocator<cAllocatorSize> mAllocator;
 
-    StaticList<UpdateItemStatus, cMaxNumUpdateItems> mInstalledItems;
+    Mutex                                                             mMutex;
+    ConditionalVariable                                               mCV;
+    StaticList<UpdateItemStatus, cMaxNumUpdateItems>                  mInstalledItems;
+    StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mInProgressBlobs;
 };
 
 /** @}*/
