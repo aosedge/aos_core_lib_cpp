@@ -27,11 +27,11 @@ namespace aos::cm::monitoring {
 namespace {
 
 std::unique_ptr<aos::monitoring::NodeMonitoringData> CreateNodeMonitoringData(
-    const String& nodeID, const Time& timestamp)
+    const std::string& nodeID, const Time& timestamp)
 {
     auto monitoring = std::make_unique<aos::monitoring::NodeMonitoringData>();
 
-    monitoring->mNodeID    = nodeID;
+    monitoring->mNodeID    = nodeID.c_str();
     monitoring->mTimestamp = timestamp;
 
     return monitoring;
@@ -147,22 +147,24 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
     auto err = mMonitoring.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    auto nodeMonitoring = CreateNodeMonitoringData("node1", Time::Now());
+    for (size_t i = 0; i < 2; ++i) {
+        auto monitoring = CreateNodeMonitoringData(std::to_string(i), Time::Now());
 
-    nodeMonitoring->mMonitoringData.mCPU = 50.0;
-    nodeMonitoring->mMonitoringData.mRAM = 1024 * 4;
+        monitoring->mMonitoringData.mCPU = 50.0;
+        monitoring->mMonitoringData.mRAM = 1024 * 4;
 
-    nodeMonitoring->mInstances.EmplaceBack();
-    nodeMonitoring->mInstances[0].mInstanceIdent
-        = InstanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
-    nodeMonitoring->mInstances[0].mMonitoringData.mCPU = 20.0;
+        monitoring->mInstances.EmplaceBack();
+        monitoring->mInstances[0].mInstanceIdent
+            = InstanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
+        monitoring->mInstances[0].mMonitoringData.mCPU = 20.0;
 
-    nodeMonitoring->mInstances[0].mMonitoringData.mPartitions.EmplaceBack();
-    nodeMonitoring->mInstances[0].mMonitoringData.mPartitions[0].mName     = "partition1";
-    nodeMonitoring->mInstances[0].mMonitoringData.mPartitions[0].mUsedSize = 512.0;
+        monitoring->mInstances[0].mMonitoringData.mPartitions.EmplaceBack();
+        monitoring->mInstances[0].mMonitoringData.mPartitions[0].mName     = "partition1";
+        monitoring->mInstances[0].mMonitoringData.mPartitions[0].mUsedSize = 512.0;
 
-    err = mMonitoring.OnMonitoringReceived(*nodeMonitoring);
-    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+        err = mMonitoring.OnMonitoringReceived(*monitoring);
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
 
     connectionListener->OnConnect();
 
@@ -170,23 +172,30 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
 
     EXPECT_TRUE(mSender.WaitForMessage(*monitoring));
 
-    EXPECT_EQ(monitoring->mNodes.Size(), 1);
-    EXPECT_EQ(monitoring->mNodes[0].mNodeID, "node1");
-    EXPECT_EQ(monitoring->mNodes[0].mItems.Size(), 1);
-    EXPECT_EQ(monitoring->mNodes[0].mItems[0].mCPU, 50.0);
-    EXPECT_EQ(monitoring->mNodes[0].mItems[0].mRAM, 1024 * 4);
+    ASSERT_EQ(monitoring->mNodes.Size(), 2);
 
-    EXPECT_EQ(monitoring->mInstances.Size(), 1);
+    for (size_t i = 0; i < 2; ++i) {
+        EXPECT_EQ(monitoring->mNodes[i].mNodeID.CStr(), std::to_string(i));
+        EXPECT_EQ(monitoring->mNodes[i].mItems.Size(), 1);
+        EXPECT_EQ(monitoring->mNodes[i].mItems[0].mCPU, 50.0);
+        EXPECT_EQ(monitoring->mNodes[i].mItems[0].mRAM, 1024 * 4);
+    }
 
-    const InstanceIdent instanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
-    EXPECT_EQ(static_cast<const InstanceIdent&>(monitoring->mInstances[0]), instanceIdent);
-    EXPECT_EQ(monitoring->mInstances[0].mItems.Size(), 1);
+    ASSERT_EQ(monitoring->mInstances.Size(), 2);
 
-    EXPECT_EQ(monitoring->mInstances[0].mItems[0].mCPU, 20.0);
+    for (size_t i = 0; i < 2; ++i) {
+        const InstanceIdent instanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
 
-    EXPECT_EQ(monitoring->mInstances[0].mItems[0].mPartitions.Size(), 1);
-    EXPECT_EQ(monitoring->mInstances[0].mItems[0].mPartitions[0].mName, "partition1");
-    EXPECT_EQ(monitoring->mInstances[0].mItems[0].mPartitions[0].mUsedSize, 512.0);
+        EXPECT_EQ(static_cast<const InstanceIdent&>(monitoring->mInstances[i]), instanceIdent);
+        EXPECT_EQ(monitoring->mInstances[i].mItems.Size(), 1);
+
+        EXPECT_EQ(monitoring->mInstances[i].mNodeID.CStr(), std::to_string(i));
+        EXPECT_EQ(monitoring->mInstances[i].mItems[0].mCPU, 20.0);
+
+        EXPECT_EQ(monitoring->mInstances[i].mItems[0].mPartitions.Size(), 1);
+        EXPECT_EQ(monitoring->mInstances[i].mItems[0].mPartitions[0].mName, "partition1");
+        EXPECT_EQ(monitoring->mInstances[i].mItems[0].mPartitions[0].mUsedSize, 512.0);
+    }
 
     EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
 
