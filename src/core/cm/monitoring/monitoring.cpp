@@ -227,10 +227,11 @@ Error Monitoring::FillNodeMonitoring(const String& nodeID, const aos::monitoring
     return it->mItems.EmplaceBack(nodeMonitoring.mMonitoringData);
 }
 
-Error Monitoring::FillInstanceMonitoring(const aos::monitoring::InstanceMonitoringData& instanceMonitoring)
+Error Monitoring::FillInstanceMonitoring(
+    const String& nodeID, const aos::monitoring::InstanceMonitoringData& instanceMonitoring)
 {
-    auto it = mMonitoring.mInstances.FindIf([&instanceMonitoring](const InstanceMonitoringData& data) {
-        return static_cast<const InstanceIdent&>(data) == instanceMonitoring.mInstanceIdent;
+    auto it = mMonitoring.mInstances.FindIf([&instanceMonitoring, &nodeID](const InstanceMonitoringData& data) {
+        return static_cast<const InstanceIdent&>(data) == instanceMonitoring.mInstanceIdent && data.mNodeID == nodeID;
     });
 
     if (it == mMonitoring.mInstances.end()) {
@@ -241,6 +242,7 @@ Error Monitoring::FillInstanceMonitoring(const aos::monitoring::InstanceMonitori
         it = &mMonitoring.mInstances.Back();
 
         static_cast<InstanceIdent&>(*it) = instanceMonitoring.mInstanceIdent;
+        it->mNodeID                      = nodeID;
     }
 
     if (it->mItems.IsFull()) {
@@ -257,7 +259,7 @@ Error Monitoring::CacheMonitoringData(const aos::monitoring::NodeMonitoringData&
     }
 
     for (const auto& instanceMonitoring : monitoringData.mInstances) {
-        if (auto err = FillInstanceMonitoring(instanceMonitoring); !err.IsNone()) {
+        if (auto err = FillInstanceMonitoring(monitoringData.mNodeID, instanceMonitoring); !err.IsNone()) {
             return err;
         }
     }

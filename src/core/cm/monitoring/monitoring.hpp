@@ -82,7 +82,8 @@ private:
     void  OnConnect() override;
     void  OnDisconnect() override;
     Error FillNodeMonitoring(const String& nodeID, const aos::monitoring::NodeMonitoringData& nodeMonitoring);
-    Error FillInstanceMonitoring(const aos::monitoring::InstanceMonitoringData& instanceMonitoring);
+    Error FillInstanceMonitoring(
+        const String& nodeID, const aos::monitoring::InstanceMonitoringData& instanceMonitoring);
     Error CacheMonitoringData(const aos::monitoring::NodeMonitoringData& monitoringData);
     Error SendMonitoringData();
 
