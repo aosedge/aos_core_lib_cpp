@@ -9,6 +9,7 @@
 
 #include <core/common/ocispec/itf/imagespec.hpp>
 #include <core/common/types/common.hpp>
+#include <core/common/types/desiredstatus.hpp>
 
 namespace aos::cm::launcher {
 
@@ -107,6 +108,16 @@ struct InstanceInfo {
     SubjectType mSubjectType;
 
     /**
+     * Labels.
+     */
+    LabelsArray mLabels;
+
+    /**
+     * Instance priority.
+     */
+    size_t mPriority {};
+
+    /**
      * Compares instance info.
      *
      * @param other instance info to compare with.
@@ -117,7 +128,8 @@ struct InstanceInfo {
         return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
             && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
             && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
-            && mVersion == rhs.mVersion && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType;
+            && mVersion == rhs.mVersion && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType
+            && mLabels == rhs.mLabels && mPriority == rhs.mPriority;
     }
 
     /**
