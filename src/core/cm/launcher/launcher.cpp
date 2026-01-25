@@ -54,20 +54,21 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mRunner             = &runner;
     mNodeConfigProvider = &nodeConfigProvider;
     mStorageState       = &storageState;
-    mNetworkManager     = &networkManager;
     mMonitorProvider    = &monitorProvider;
     mAlertsProvider     = &alertsProvider;
     mIdentProvider      = &identProvider;
 
-    auto err
-        = mInstanceManager.Init(config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
+    mNetworkManager.Init(networkManager);
+
+    auto err = mInstanceManager.Init(
+        config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage, mNetworkManager);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mStorageState, *mRunner);
+    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
     mBalancer.Init(
-        mInstanceManager, itemInfoProvider, ociSpec, mNodeManager, *mMonitorProvider, *mRunner, *mNetworkManager);
+        mInstanceManager, itemInfoProvider, ociSpec, mNodeManager, *mMonitorProvider, *mRunner, mNetworkManager);
 
     return ErrorEnum::eNone;
 }
@@ -118,7 +119,7 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto [_, err] = mBalancer.SetSubjects(*subjects); !err.IsNone()) {
+    if (auto [_, err] = mInstanceManager.SetSubjects(*subjects); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -147,6 +148,7 @@ Error Launcher::Stop()
     mUpdatedNodes.Clear();
     mNewSubjects.Reset();
     mProcessUpdatesCondVar.NotifyAll();
+    mInstanceStatuses.Clear();
 
     // Unsubscribe from providers.
     if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
@@ -193,13 +195,9 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
         self->mProcessUpdatesCondVar.NotifyAll();
     });
 
-    if (auto err = mRunRequests.Assign(requests); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    ScheduleInstances(requests);
 
-    UpdateData(false);
-
-    auto runErr = mBalancer.RunInstances(mRunRequests, updateLock, false);
+    auto runErr = mBalancer.RunInstances(updateLock, false);
 
     FailActivatingInstances();
     UpdateInstanceStatuses();
@@ -305,22 +303,6 @@ void Launcher::UpdateInstanceStatuses()
     }
 }
 
-void Launcher::UpdateData(bool rebalancing)
-{
-    for (auto& node : mNodeManager.GetNodes()) {
-        const auto& nodeID = node.GetInfo().mNodeID;
-
-        auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
-
-        if (auto err = mMonitorProvider->GetAverageMonitoring(nodeID, *nodeMonitoring); !err.IsNone()) {
-            mInstanceManager.UpdateMonitoringData(nodeMonitoring->mInstances);
-        }
-
-        node.UpdateAvailableResources(*nodeMonitoring, rebalancing);
-        node.UpdateConfig();
-    }
-}
-
 void Launcher::FailActivatingInstances()
 {
     for (auto& instance : mInstanceManager.GetActiveInstances()) {
@@ -341,9 +323,9 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
         self->mProcessUpdatesCondVar.NotifyAll();
     });
 
-    UpdateData(true);
+    ScheduleInstances();
 
-    auto runErr = mBalancer.RunInstances(mRunRequests, lock, false);
+    auto runErr = mBalancer.RunInstances(lock, true);
 
     FailActivatingInstances();
 
@@ -377,7 +359,7 @@ void Launcher::ProcessUpdate()
         bool  doRebalance = false;
 
         if (mNewSubjects.HasValue()) {
-            Tie(doRebalance, err) = mBalancer.SetSubjects(mNewSubjects.GetValue());
+            Tie(doRebalance, err) = mInstanceManager.SetSubjects(mNewSubjects.GetValue());
             if (!err.IsNone()) {
                 LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
             }
@@ -398,7 +380,7 @@ void Launcher::ProcessUpdate()
             mUpdatedNodes.Clear();
         }
 
-        // Process received alert.
+        // Process received alert
         if (mAlertReceived) {
             mAlertReceived = false;
             doRebalance    = true;
@@ -408,6 +390,59 @@ void Launcher::ProcessUpdate()
         if (doRebalance) {
             if (err = Rebalance(updateLock); !err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+    }
+}
+
+void Launcher::ScheduleInstances()
+{
+    for (auto& instance : mInstanceManager.GetActiveInstances()) {
+        auto instanceIdent = instance->GetInfo().mInstanceIdent;
+
+        if (auto err = mInstanceManager.ScheduleInstance(instance); !err.IsNone()) {
+            LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
+            continue;
+        }
+    }
+
+    for (auto& instance : mInstanceManager.GetCachedInstances()) {
+        auto instanceIdent = instance->GetInfo().mInstanceIdent;
+
+        if (instance->GetInfo().mState != InstanceStateEnum::eDisabled) {
+            continue;
+        }
+
+        if (auto err = mInstanceManager.ScheduleInstance(instance); !err.IsNone()) {
+            LOG_DBG() << "Can't schedule disabled instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
+            continue;
+        }
+    }
+}
+
+void Launcher::ScheduleInstances(const Array<RunInstanceRequest>& requests)
+{
+    // Sort input requests by priority
+    auto sortedRequests = MakeUnique<StaticArray<RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
+    *sortedRequests     = requests;
+
+    sortedRequests->Sort([](const RunInstanceRequest& left, const RunInstanceRequest& right) {
+        return left.mPriority > right.mPriority || (left.mPriority == right.mPriority && left.mItemID < right.mItemID);
+    });
+
+    // Schedule instances
+    for (const auto& request : requests) {
+        for (size_t i = 0; i < request.mNumInstances; i++) {
+
+            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
+
+            auto err = mInstanceManager.ScheduleInstance(instanceIdent, request);
+            if (!err.IsNone()) {
+                LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+
+                continue;
             }
         }
     }
@@ -442,18 +477,14 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
 
     // Update instance manager.
     for (const auto& status : statuses) {
-        if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
-            if (firstErr.IsNone()) {
-                firstErr = err;
-            }
+        if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
+            firstErr = err;
         }
     }
 
     // Update node manager.
-    if (auto err = mNodeManager.UpdateRunnigInstances(nodeID, statuses); !err.IsNone()) {
-        if (firstErr.IsNone()) {
-            firstErr = err;
-        }
+    if (auto err = mNodeManager.UpdateRunnigInstances(nodeID, statuses); !err.IsNone() && firstErr.IsNone()) {
+        firstErr = err;
     }
 
     if (!firstErr.IsNone()) {
