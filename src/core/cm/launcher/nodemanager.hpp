@@ -34,8 +34,7 @@ public:
      * @param runner instance runner interface.
      */
     void Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-        InstanceRunnerItf& runner);
+        unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner);
 
     /**
      * Starts node manager.
@@ -50,6 +49,13 @@ public:
      * @return Error.
      */
     Error Stop();
+
+    /**
+     * Prepares node manager for balancing.
+     *
+     * @return Error.
+     */
+    Error PrepareForBalancing(bool rebalancing);
 
     /**
      * Loads instances from storage.
@@ -67,6 +73,14 @@ public:
      * @return Error.
      */
     Error UpdateRunnigInstances(const String& nodeID, const Array<InstanceStatus>& statuses);
+
+    /**
+     * Updates node info.
+     *
+     * @param info node information.
+     * @return bool.
+     */
+    bool UpdateNodeInfo(const UnitNodeInfo& info);
 
     /**
      * Returns connected nodes ordered by priorities.
@@ -90,26 +104,6 @@ public:
      * @return Array<Node>&.
      */
     Array<Node>& GetNodes();
-
-    /**
-     * Sets up state storage for instance.
-     *
-     * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @param gid group identifier.
-     * @param info instance information.
-     * @return Error.
-     */
-    Error SetupStateStorage(
-        const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig, gid_t gid, aos::InstanceInfo& info);
-
-    /**
-     * Checks whether instance is running.
-     *
-     * @param instance instance identifier.
-     * @return bool.
-     */
-    bool IsRunning(const InstanceIdent& instance);
 
     /**
      * Checks whether instance is scheduled.
@@ -136,35 +130,16 @@ public:
      */
     Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes);
 
-    /**
-     * Updates nodes.
-     *
-     * @param info node information.
-     * @return bool.
-     */
-    bool UpdateNodeInfo(const UnitNodeInfo& info);
-
 private:
-    static constexpr auto cDefaultResourceRation = 50.0;
-    static constexpr auto cStatusUpdateTimeout   = Time::cMinutes * 10;
+    static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
     static constexpr auto cAllocatorSize
-        = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo) + sizeof(size_t) * 2;
-
-    size_t GetReqStateSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const;
-    size_t GetReqStorageSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const;
-
-    size_t ClampResource(size_t value, const Optional<size_t>& quota) const;
-    size_t GetReqStateFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
-    size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
+        = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo);
 
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
-    storagestate::StorageStateItf*         mStorageStateManager {};
     InstanceRunnerItf*                     mRunner {};
 
     StaticAllocator<cAllocatorSize> mAllocator;
-    SharedPtr<size_t>               mAvailableState;
-    SharedPtr<size_t>               mAvailableStorage;
 
     StaticArray<Node, cMaxNumNodes> mNodes;
 
