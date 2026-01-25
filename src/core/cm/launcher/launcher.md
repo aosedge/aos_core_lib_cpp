@@ -260,9 +260,9 @@ classDiagram
         +GetActiveInstances() Array
         +FindActiveInstance(id) Instance*
         +UpdateStatus(status) Error
-        +AddInstanceToStash(id, request) Error
-        +GetStashInstances() Array
-        +SubmitStash() Error
+        +ScheduleInstance(id, request) Error
+        +GetScheduledInstances() Array
+        +SubmitScheduledInstances() Error
         +UpdateMonitoringData() void
     }
 
@@ -279,15 +279,39 @@ classDiagram
     }
 
     class Balancer {
-        +RunInstances(instances, rebalancing) Error
+        +RunInstances(lock, rebalancing) Error
+    }
+
+    class NetworkManager {
+        +Init(netMgr) void
+        +PrepareForBalancing() void
+        +SetNetworkServiceData(id, data) Error
+        +PrepareInstanceNetworkParameters(id, netID, nodeID, exposed, result) Error
+        +RemoveInstanceNetworkParameters(id, nodeID) Error
+        +RestartDNSServer() Error
+        +UpdateProviderNetwork(providers, nodeID) Error
+    }
+
+    class StorageState {
+        +Init(storageState) void
+        +Start() Error
+        +Stop() Error
+        +PrepareForBalancing() Error
+        +Cleanup(id) Error
+        +Remove(id) Error
+        +SetupStateStorage(id, params, reqStorage, reqState, storagePath, statePath) Error
     }
 
     Launcher *-- InstanceManager
     Launcher *-- NodeManager
     Launcher *-- Balancer
+    Launcher *-- NetworkManager
+
+    InstanceManager *-- StorageState
 
     Balancer ..> InstanceManager
     Balancer ..> NodeManager
+    Balancer ..> NetworkManager
 
     NodeManager ..|> NodeInfoListenerItf
 
@@ -299,9 +323,8 @@ classDiagram
         <<abstract>>
         +GetInfo() InstanceInfo
         +GetStatus() InstanceStatus
-        +GetMonitoringData() MonitoringData
         +UpdateStatus(status) Error
-        +Schedule(info, nodeID) Error
+        +Schedule(node, runtimeID, info) Error
         +SetError(err) Error
         +Remove() Error
         +Cache() Error
@@ -323,16 +346,23 @@ classDiagram
         +GetRequestedRAM() size_t
     }
 
+    class NodeItf {
+        <<interface>>
+        +ReserveResources(instanceIdent, runtimeID, reqCPU, reqRAM, reqResources) Error
+        +ScheduleInstance(instance) Error
+        +GetConfig() NodeConfig
+    }
+
     class Node {
         +GetInfo() NodeInfo
         +GetConfig() NodeConfig
         +UpdateAvailableResources() void
         +UpdateInfo(info) void
-        +SetRunningInstances() Error
+        +UpdateRunningInstances(statuses) Error
         +GetAvailableCPU() size_t
         +GetAvailableRAM() size_t
         +ScheduleInstance() Error
-        +SetupNetworkParams() Error
+        +SetupNetworkParams(id, exposed, netMgr) Error
         +SendScheduledInstances() Error
         +IsRunning(instance) bool
         +IsScheduled(instance) bool
@@ -342,6 +372,8 @@ classDiagram
     Instance <|-- ServiceInstance
     InstanceManager o-- Instance
     NodeManager o-- Node
+    NodeItf <|.. Node
+    Instance ..> NodeItf
 ```
 
 ### External Interfaces
@@ -379,9 +411,10 @@ The system depends on several external interfaces that provide essential functio
 **InstanceManager:**
 
 - Tracks all active instances in the system
-- Manages instance stashing (temporary storage before scheduling)
+- Manages scheduled instances
 - Updates instance statuses and monitoring data
 - Handles instance lifecycle (create, update, remove)
+- Manages storage and state partitions through `StorageState` class
 
 **NodeManager:**
 
@@ -396,7 +429,20 @@ The system depends on several external interfaces that provide essential functio
 - Performs intelligent scheduling of instances to nodes
 - Evaluates node resources, capabilities, and constraints
 - Handles both initial placement and rebalancing scenarios
-- Filters nodes based on runtime requirements, labels, and available resources
+
+**NetworkManager:**
+
+- Wrapper aroung `NetworkManagerItf` that help with managing network service data
+- Stores network service data
+- Prepares instance network parameters
+- Handles DNS server restarts and provider network updates
+
+**StorageState:**
+
+- Adapter for `StorageStateItf`
+- Manages storage and state partition allocation
+- Checks available space before allocation
+- Provides transactional setup for storage and state paths
 
 ### Instance & Node
 
@@ -414,6 +460,12 @@ The system depends on several external interfaces that provide essential functio
 - Caching for reuse
 - Error state management
 - Type-specific deployment strategies (process management vs. system entity management)
+
+**NodeItf:**
+
+- Interface for node operations used by instances
+- Allows instances to reserve resources and schedule themselves
+- Provides access to node configuration
 
 **Node:**
 
