@@ -16,13 +16,11 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 void NodeManager::Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-    InstanceRunnerItf& runner)
+    unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner)
 {
-    mNodeInfoProvider    = &nodeInfoProvider;
-    mNodeConfigProvider  = &nodeConfigProvider;
-    mStorageStateManager = &storageState;
-    mRunner              = &runner;
+    mNodeInfoProvider   = &nodeInfoProvider;
+    mNodeConfigProvider = &nodeConfigProvider;
+    mRunner             = &runner;
 }
 
 Error NodeManager::Start()
@@ -44,33 +42,12 @@ Error NodeManager::Start()
             continue;
         }
 
-        // add online provisioned node
+        // Add online provisioned node
         mNodes.EmplaceBack();
 
         mNodes.Back().Init(nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
         mNodes.Back().UpdateInfo(*nodeInfo);
     }
-
-    if (mStorageStateManager->IsSamePartition()) {
-        mAvailableState = mAvailableStorage = MakeShared<size_t>(&mAllocator, 0);
-    } else {
-        mAvailableState   = MakeShared<size_t>(&mAllocator, 0);
-        mAvailableStorage = MakeShared<size_t>(&mAllocator, 0);
-    }
-
-    const auto& [stateSize, stateErr] = mStorageStateManager->GetTotalStateSize();
-    if (!stateErr.IsNone()) {
-        return AOS_ERROR_WRAP(stateErr);
-    }
-
-    *mAvailableState = stateSize;
-
-    const auto& [storageSize, storageErr] = mStorageStateManager->GetTotalStorageSize();
-    if (!storageErr.IsNone()) {
-        return AOS_ERROR_WRAP(storageErr);
-    }
-
-    *mAvailableStorage = storageSize;
 
     return ErrorEnum::eNone;
 }
@@ -79,12 +56,18 @@ Error NodeManager::Stop()
 {
     mNodes.Clear();
 
-    mAvailableState.Reset();
-    mAvailableStorage.Reset();
-
     // Unlock waiting run requests.
     mNodesExpectedToSendStatus.Clear();
     mStatusUpdateCondVar.NotifyAll();
+
+    return ErrorEnum::eNone;
+}
+
+Error NodeManager::PrepareForBalancing(bool rebalancing)
+{
+    for (auto& node : mNodes) {
+        node.PrepareForBalancing(rebalancing);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -162,57 +145,6 @@ Node* NodeManager::FindNode(const String& nodeID)
 Array<Node>& NodeManager::GetNodes()
 {
     return mNodes;
-}
-
-Error NodeManager::SetupStateStorage(
-    const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig, gid_t gid, aos::InstanceInfo& info)
-{
-    auto reqState   = GetReqStateSize(nodeConfig, serviceConfig);
-    auto reqStorage = GetReqStorageSize(nodeConfig, serviceConfig);
-
-    storagestate::SetupParams params;
-
-    params.mUID = info.mUID;
-    params.mGID = gid;
-
-    if (serviceConfig.mQuotas.mStateLimit.HasValue()) {
-        params.mStateQuota = *serviceConfig.mQuotas.mStateLimit;
-    }
-
-    if (serviceConfig.mQuotas.mStorageLimit.HasValue()) {
-        params.mStorageQuota = *serviceConfig.mQuotas.mStorageLimit;
-    }
-
-    if (reqStorage > *mAvailableStorage && !serviceConfig.mSkipResourceLimits) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "not enough storage space"));
-    }
-
-    *mAvailableStorage -= reqStorage;
-    auto releaseStorage = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *mAvailableStorage += reqStorage; });
-
-    if (reqState > *mAvailableState && !serviceConfig.mSkipResourceLimits) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "not enough state space"));
-    }
-
-    *mAvailableState -= reqState;
-    auto releaseState = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *mAvailableState += reqState; });
-
-    if (auto err = mStorageStateManager->Setup(info, params, info.mStoragePath, info.mStatePath); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    releaseStorage.Release();
-    releaseState.Release();
-
-    LOG_DBG() << "Available storage and state" << Log::Field("state", *mAvailableState)
-              << Log::Field("storage", *mAvailableStorage);
-
-    return ErrorEnum::eNone;
-}
-
-bool NodeManager::IsRunning(const InstanceIdent& id)
-{
-    return mNodes.ContainsIf([&id](const Node& info) { return info.IsRunning(id); });
 }
 
 bool NodeManager::IsScheduled(const InstanceIdent& id)
@@ -339,82 +271,5 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
-
-size_t NodeManager::GetReqStateSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const
-{
-    size_t requestedState = 0;
-    auto   quota          = serviceConfig.mQuotas.mStateLimit;
-
-    if (serviceConfig.mRequestedResources.HasValue() && serviceConfig.mRequestedResources->mState.HasValue()) {
-        requestedState = ClampResource(*serviceConfig.mRequestedResources->mState, quota);
-    } else {
-        requestedState = GetReqStateFromNodeConfig(quota, nodeConfig.mResourceRatios);
-    }
-
-    return requestedState;
-}
-
-size_t NodeManager::GetReqStorageSize(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) const
-{
-    size_t requestedStorage = 0;
-    auto   quota            = serviceConfig.mQuotas.mStorageLimit;
-
-    if (serviceConfig.mRequestedResources.HasValue() && serviceConfig.mRequestedResources->mStorage.HasValue()) {
-        requestedStorage = ClampResource(*serviceConfig.mRequestedResources->mStorage, quota);
-    } else {
-        requestedStorage = GetReqStorageFromNodeConfig(quota, nodeConfig.mResourceRatios);
-    }
-
-    return requestedStorage;
-}
-
-size_t NodeManager::ClampResource(size_t value, const Optional<size_t>& quota) const
-{
-    if (quota.HasValue() && value > quota.GetValue()) {
-        return quota.GetValue();
-    }
-
-    return value;
-}
-
-size_t NodeManager::GetReqStateFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
-{
-    auto ratio = cDefaultResourceRation / 100.0;
-
-    if (nodeRatios.HasValue() && nodeRatios->mState.HasValue()) {
-        ratio = nodeRatios->mState.GetValue() / 100.0;
-    }
-
-    if (ratio > 1.0) {
-        ratio = 1.0;
-    }
-
-    if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
-    }
-
-    return 0;
-}
-
-size_t NodeManager::GetReqStorageFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
-{
-    auto ratio = cDefaultResourceRation / 100.0;
-
-    if (nodeRatios.HasValue() && nodeRatios->mStorage.HasValue()) {
-        ratio = nodeRatios->mStorage.GetValue() / 100.0;
-    }
-
-    if (ratio > 1.0) {
-        ratio = 1.0;
-    }
-
-    if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
-    }
-
-    return 0;
-}
 
 } // namespace aos::cm::launcher
