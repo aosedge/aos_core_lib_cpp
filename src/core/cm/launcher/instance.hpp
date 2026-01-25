@@ -19,6 +19,9 @@
 
 #include "gidpool.hpp"
 #include "imageinfoprovider.hpp"
+#include "networkmanager.hpp"
+#include "nodeitf.hpp"
+#include "storagestate.hpp"
 
 namespace aos::cm::launcher {
 
@@ -56,8 +59,10 @@ public:
      *
      * @param info instance information.
      * @param storage interface to persistent storage.
+     * @param imageInfoProvider interface for retrieving service information from image.
+     * @param allocator instance allocator.
      */
-    Instance(const InstanceInfo& info, StorageItf& storage);
+    Instance(const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
 
     /**
      * Destructor.
@@ -70,6 +75,19 @@ public:
      * @return Error.
      */
     virtual Error Init() = 0;
+
+    /**
+     * Loads image and (optionally) service configs for the specified manifest descriptor and caches pointers to them.
+     *
+     * @param imageDescriptor image descriptor.
+     * @return Error.
+     */
+    virtual Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor) = 0;
+
+    /**
+     * Resets configs.
+     */
+    virtual void ResetConfigs() = 0;
 
     /**
      * Returns instance information.
@@ -86,19 +104,11 @@ public:
     const InstanceStatus& GetStatus() const { return mStatus; }
 
     /**
-     * Returns monitoring data.
-     *
-     * @return const MonitoringData&.
-     */
-    const MonitoringData& GetMonitoringData() const { return mMonitoringData; }
-
-    /**
      * Checks whether image is valid.
      *
-     * @param imageInfoProvider interface for retrieving service information from image.
      * @return bool.
      */
-    bool IsImageValid(ImageInfoProvider& imageInfoProvider);
+    bool IsImageValid();
 
     /**
      * Updates instance status.
@@ -107,15 +117,6 @@ public:
      * @return Error.
      */
     Error UpdateStatus(const InstanceStatus& status);
-
-    /**
-     * Schedules instance to node.
-     *
-     * @param info instance information.
-     * @param nodeID node identifier.
-     * @return Error.
-     */
-    Error Schedule(const aos::InstanceInfo& info, const String& nodeID);
 
     /**
      * Sets error state.
@@ -147,35 +148,87 @@ public:
     virtual Error Cache(bool disable = false) = 0;
 
     /**
-     * Returns requested CPU.
+     * Checks whether available CPU fits instance requirements.
      *
+     * @param availableCPU available CPU.
      * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @return size_t.
+     * @param useMonitoringData whether to use monitoring data.
+     * @return bool.
      */
-    virtual size_t GetRequestedCPU(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) = 0;
+    virtual bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) = 0;
 
     /**
-     * Returns requested RAM.
+     * Checks whether available RAM fits instance requirements.
      *
+     * @param availableRAM available RAM.
      * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @return size_t.
+     * @param useMonitoringData whether to use monitoring data.
+     * @return bool.
      */
-    virtual size_t GetRequestedRAM(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) = 0;
+    virtual bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) = 0;
+
+    /**
+     * Checks whether runtime type fits instance requirements.
+     *
+     * @param runtimeType runtime type.
+     * @return bool.
+     */
+    virtual bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType) = 0;
+
+    /**
+     * Checks whether platform fits instance requirements.
+     *
+     * @param platformInfo platform info.
+     * @return bool.
+     */
+    bool IsPlatformOk(const PlatformInfo& platformInfo);
+
+    /**
+     * Checks whether node resources fit instance requirements.
+     *
+     * @param resources resources.
+     * @return bool.
+     */
+    virtual bool AreNodeResourcesOk(const ResourceInfoArray& nodeResources) = 0;
+
+    /**
+     * Checks whether node labels fit instance requirements.
+     *
+     * @param nodeLabels node labels.
+     * @return bool.
+     */
+    bool AreNodeLabelsOk(const LabelsArray& nodeLabels);
+
+    /**
+     * Returns balancing policy.
+     *
+     * @return BalancingPolicyEnum.
+     */
+    virtual oci::BalancingPolicyEnum GetBalancingPolicy() = 0;
+
+    /**
+     * Schedules instance on node.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @param[out] info preallocate instance info used as temporary location.
+     * @return Error.
+     */
+    virtual Error Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info) = 0;
 
 protected:
-    InstanceInfo mInfo;
-    StorageItf&  mStorage;
+    Error SetActive(const String& nodeID, const String& runtimeID);
 
-private:
-    static constexpr auto cAllocatorSize = sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig);
+    InstanceInfo   mInfo;
+    InstanceStatus mStatus;
 
-    InstanceStatus       mStatus;
-    MonitoringData       mMonitoringData;
-    StaticString<cIDLen> mOwnerID;
+    StorageItf&        mStorage;
+    ImageInfoProvider& mImageInfoProvider;
+    Allocator&         mAllocator;
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    MonitoringData mMonitoringData;
+
+    UniquePtr<oci::ImageConfig> mImageConfig;
 };
 
 /**
@@ -188,8 +241,11 @@ public:
      *
      * @param info instance information.
      * @param storage interface to persistent storage.
+     * @param imageInfoProvider interface for retrieving service information from image.
+     * @param allocator instance allocator.
      */
-    ComponentInstance(const InstanceInfo& info, StorageItf& storage);
+    ComponentInstance(
+        const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
 
     /**
      * Initializes component instance.
@@ -197,6 +253,21 @@ public:
      * @return Error.
      */
     Error Init() override;
+
+    /**
+     * Loads instance configs.
+     *
+     * Component instance loads only image config.
+     *
+     * @param imageDescriptor image descriptor.
+     * @return Error.
+     */
+    Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor) override;
+
+    /**
+     * Resets configs.
+     */
+    void ResetConfigs() override;
 
     /**
      * Removes component instance.
@@ -214,22 +285,57 @@ public:
     Error Cache(bool disable = false) override;
 
     /**
-     * Returns requested CPU for component instance.
+     * Checks whether available CPU fits instance requirements.
      *
+     * @param availableCPU available CPU.
      * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @return size_t.
+     * @param useMonitoringData whether to use monitoring data.
+     * @return bool.
      */
-    size_t GetRequestedCPU(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) override;
+    bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) override;
 
     /**
-     * Returns requested RAM for component instance.
+     * Checks whether available RAM fits instance requirements.
      *
+     * @param availableRAM available RAM.
      * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @return size_t.
+     * @param useMonitoringData whether to use monitoring data.
+     * @return bool.
      */
-    size_t GetRequestedRAM(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) override;
+    bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+
+    /**
+     * Checks whether runtime type fits instance requirements.
+     *
+     * @param runtimeType runtime type.
+     * @return bool.
+     */
+    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType) override;
+
+    /**
+     * Checks whether node resources fit instance requirements.
+     *
+     * @param nodeResources node resources.
+     * @return bool.
+     */
+    bool AreNodeResourcesOk(const ResourceInfoArray& nodeResources) override;
+
+    /**
+     * Returns balancing policy.
+     *
+     * @return BalancingPolicyEnum.
+     */
+    oci::BalancingPolicyEnum GetBalancingPolicy() override;
+
+    /**
+     * Schedules instance on node.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @param[out] info preallocate instance info used as temporary location.
+     * @return Error.
+     */
+    Error Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info) override;
 };
 
 /**
@@ -244,9 +350,12 @@ public:
      * @param uidPool pool for managing user identifiers.
      * @param storage interface to persistent storage.
      * @param storageState interface for managing storage and state partitions.
+     * @param networkManager interface for managing networks of service instances.
+     * @param allocator instance allocator.
      */
     ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-        storagestate::StorageStateItf& storageState);
+        StorageState& storageState, ImageInfoProvider& imageInfoProvider, NetworkManager& networkManager,
+        Allocator& allocator);
 
     /**
      * Initializes service instance.
@@ -254,6 +363,21 @@ public:
      * @return Error.
      */
     Error Init() override;
+
+    /**
+     * Loads instance configs.
+     *
+     * Service instance loads both service and image configs.
+     *
+     * @param imageDescriptor image descriptor.
+     * @return Error.
+     */
+    Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor) override;
+
+    /**
+     * Resets configs.
+     */
+    void ResetConfigs() override;
 
     /**
      * Removes service instance.
@@ -271,33 +395,84 @@ public:
     Error Cache(bool disable = false) override;
 
     /**
-     * Returns requested CPU for service instance.
+     * Checks whether available CPU fits instance requirements.
      *
+     * @param availableCPU available CPU.
      * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @return size_t.
+     * @param useMonitoringData whether to use monitoring data.
+     * @return bool.
      */
-    size_t GetRequestedCPU(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) override;
+    bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) override;
 
     /**
-     * Returns requested RAM for service instance.
+     * Checks whether available RAM fits instance requirements.
      *
+     * @param availableRAM available RAM.
      * @param nodeConfig node configuration.
-     * @param serviceConfig service configuration.
-     * @return size_t.
+     * @param useMonitoringData whether to use monitoring data.
+     * @return bool.
      */
-    size_t GetRequestedRAM(const NodeConfig& nodeConfig, const oci::ServiceConfig& serviceConfig) override;
+    bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+
+    /**
+     * Checks whether runtime type fits instance requirements.
+     *
+     * @param runtimeType runtime type.
+     * @return bool.
+     */
+    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType) override;
+
+    /**
+     * Checks whether node resources fit instance requirements.
+     *
+     * @param resources resources.
+     * @return bool.
+     */
+    bool AreNodeResourcesOk(const ResourceInfoArray& resources) override;
+
+    /**
+     * Returns balancing policy.
+     *
+     * @return BalancingPolicyEnum.
+     */
+    oci::BalancingPolicyEnum GetBalancingPolicy() override;
+
+    /**
+     * Schedules instance on node.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @param[out] info preallocate instance info used as temporary location.
+     * @return Error.
+     */
+    Error Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info) override;
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
 
+    size_t GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData);
+    size_t GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData);
+    size_t GetReqStateSize(const NodeConfig& nodeConfig);
+    size_t GetReqStorageSize(const NodeConfig& nodeConfig);
+
     size_t ClampResource(size_t value, const Optional<size_t>& quota);
     size_t GetReqCPUFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
     size_t GetReqRAMFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
+    size_t GetReqStateFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
+    size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
 
-    UIDPool&                       mUIDPool;
-    GIDPool&                       mGIDPool;
-    storagestate::StorageStateItf& mStorageState;
+    Error SetupNetworkServiceData();
+    Error ReserveRuntimeResources(NodeItf& node);
+
+    Error SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath);
+
+    UniquePtr<oci::ServiceConfig>      mServiceConfig;
+    networkmanager::NetworkServiceData mNetworkServiceData {};
+
+    UIDPool&        mUIDPool;
+    GIDPool&        mGIDPool;
+    StorageState&   mStorageState;
+    NetworkManager& mNetworkManager;
 };
 
 /** @}*/
