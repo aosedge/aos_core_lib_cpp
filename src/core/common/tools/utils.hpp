@@ -41,6 +41,15 @@ constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int))
 template <typename F, typename S>
 struct Pair {
     /**
+     * Default constructor.
+     */
+    Pair()
+        : mFirst()
+        , mSecond()
+    {
+    }
+
+    /**
      * Constructor.
      *
      * @param @f first value
