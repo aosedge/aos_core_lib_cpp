@@ -7,8 +7,6 @@
 #ifndef AOS_CORE_CM_LAUNCHER_BALANCER_HPP_
 #define AOS_CORE_CM_LAUNCHER_BALANCER_HPP_
 
-#include <core/cm/networkmanager/itf/networkmanager.hpp>
-
 #include "itf/instancerunner.hpp"
 #include "itf/launcher.hpp"
 #include "itf/monitoringprovider.hpp"
@@ -40,77 +38,67 @@ public:
      */
     void Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
         oci::OCISpecItf& ociSpec, NodeManager& nodeManager, MonitoringProviderItf& monitorProvider,
-        InstanceRunnerItf& runner, networkmanager::NetworkManagerItf& networkManager);
+        InstanceRunnerItf& runner, NetworkManager& networkManager);
 
     /**
      * Runs instances.
      *
-     * @param instances array of run requests.
+     * @param lock lock on the balancing mutex.
      * @param rebalancing flag indicating rebalancing.
      * @return Error.
      */
-    Error RunInstances(const Array<RunInstanceRequest>& instances, UniqueLock<Mutex>& lock, bool rebalancing);
-
-    /**
-     * Saves subjects and returns flag indicating whether rebalancing is required.
-     *
-     * @param subjects subjects.
-     * @return RetWithError<bool>.
-     */
-    RetWithError<bool> SetSubjects(const Array<StaticString<cIDLen>>& subjects);
+    Error RunInstances(UniqueLock<Mutex>& lock, bool rebalancing);
 
 private:
+    using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
+
     static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)
         + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig)
         + sizeof(oci::ImageIndex) + sizeof(aos::cm::networkmanager::NetworkServiceData) + sizeof(aos::InstanceInfo)
         + sizeof(StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>)
         + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>);
 
-    Error SetupInstanceInfo(const oci::ServiceConfig& servConf, const NodeConfig& nodeConf,
-        const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor, const String& runtimeID,
-        const Instance& instance, aos::InstanceInfo& info);
+    Error PerformNodeBalancing();
 
-    Error PerformNodeBalancing(const Array<RunInstanceRequest>& instances);
+    Error ScheduleInstance(Instance& instance, const oci::IndexContentDescriptor& imageDescriptor);
 
-    Error ScheduleInstance(
-        Instance& instance, const RunInstanceRequest& request, const oci::IndexContentDescriptor& imageDescriptor);
-    Error FilterNodesByStaticResources(
-        const oci::ServiceConfig& serviceConfig, const RunInstanceRequest& request, Array<Node*>& nodes);
-    void FilterNodesByRuntimes(const Array<StaticString<cRuntimeTypeLen>>& inRuntimes, Array<Node*>& nodes);
-    void FilterNodesByLabels(const Array<StaticString<cLabelNameLen>>& labels, Array<Node*>& nodes);
-    void FilterNodesByResources(const Array<StaticString<cResourceNameLen>>& resources, Array<Node*>& nodes);
+    // Selects nodes
+    Error SelectNodes(Instance& instance, Array<Node*>& nodes);
+    void  FilterNodesByLabels(Instance& instance, Array<Node*>& nodes);
+    void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
 
-    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntimeForInstance(Instance& instance,
-        const oci::ServiceConfig& serviceConfig, const oci::ImageConfig& imageConfig, Array<Node*>& nodes);
+    // Selects runtime
+    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, Array<Node*>& nodes);
 
-    Error FilterRuntimes(const oci::ImageConfig& imageConfig, const oci::ServiceConfig& serviceConfig,
-        Array<Node*>& nodes, Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
-    void  FilterByCPU(Instance& instance, const oci::ServiceConfig& serviceConfig,
-         Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
-    void  FilterByRAM(Instance& instance, const oci::ServiceConfig& serviceConfig,
-         Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
-    void  FilterByNumInstances(Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& runtimes);
-    void  FilterTopPriorityNodes(Map<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>>& nodes);
+    Error CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes);
 
-    size_t GetRequestedCPU(Instance& instance, const Node& node, const oci::ServiceConfig& serviceConfig);
-    size_t GetRequestedRAM(Instance& instance, const Node& node, const oci::ServiceConfig& serviceConfig);
+    template <typename Filter>
+    void FilterRuntimes(NodeRuntimes& runtimes, Filter& filter);
+    void FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes);
+    void FilterByPlatform(Instance& instance, NodeRuntimes& runtimes);
+    void FilterByCPU(Instance& instance, NodeRuntimes& runtimes);
+    void FilterByRAM(Instance& instance, NodeRuntimes& runtimes);
+    void FilterByNumInstances(NodeRuntimes& runtimes);
+    void FilterTopPriorityNodes(NodeRuntimes& nodes);
+    //
 
     Error UpdateNetwork();
     Error RemoveNetworkForDeletedInstances();
     Error SetNetworkParams(bool onlyWithExposedPorts);
     Error SetupNetworkForNewInstances();
 
-    Error PerformPolicyBalancing(const Array<RunInstanceRequest>& instances);
+    Error PerformPolicyBalancing();
 
-    bool IsSubjectEnabled(const Instance& instance);
+    Error PrepareForBalancing(bool rebalancing);
+    void  UpdateMonitoringData();
 
-    ImageInfoProvider                  mImageInfoProvider;
-    InstanceManager*                   mInstanceManager {};
-    NodeManager*                       mNodeManager {};
-    MonitoringProviderItf*             mMonitorProvider {};
-    networkmanager::NetworkManagerItf* mNetworkManager {};
-    InstanceRunnerItf*                 mRunner {};
-    SubjectArray                       mSubjects;
+    ImageInfoProvider      mImageInfoProvider;
+    InstanceManager*       mInstanceManager {};
+    NodeManager*           mNodeManager {};
+    MonitoringProviderItf* mMonitorProvider {};
+    NetworkManager*        mNetworkManager {};
+    InstanceRunnerItf*     mRunner {};
+    SubjectArray           mSubjects;
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };
