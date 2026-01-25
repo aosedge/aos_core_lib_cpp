@@ -16,12 +16,14 @@ namespace aos::cm::launcher {
 
 Error InstanceManager::Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
     storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-    IdentifierPoolValidator uidValidator, StorageItf& storage)
+    IdentifierPoolValidator uidValidator, StorageItf& storage, NetworkManager& networkManager)
 {
-    mConfig       = config;
-    mStorage      = &storage;
-    mStorageState = &storageState;
+    mConfig         = config;
+    mStorage        = &storage;
+    mNetworkManager = &networkManager;
+
     mImageInfoProvider.Init(itemInfoProvider, ociSpec);
+    mStorageState.Init(storageState);
 
     if (auto err = mUIDPool.Init(uidValidator); !err.IsNone()) {
         return err;
@@ -36,6 +38,10 @@ Error InstanceManager::Init(const Config& config, imagemanager::ItemInfoProvider
 
 Error InstanceManager::Start()
 {
+    if (auto err = mStorageState.Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = LoadInstancesFromStorage(); !err.IsNone()) {
         LOG_ERR() << "Can't load instances from storage " << Log::Field(err);
 
@@ -87,10 +93,23 @@ Error InstanceManager::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mStorageState.Stop(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     mActiveInstances.Clear();
-    mStashInstances.Clear();
+    mScheduledInstances.Clear();
     mCachedInstances.Clear();
     mPreinstalledComponents.Clear();
+
+    return ErrorEnum::eNone;
+}
+
+Error InstanceManager::PrepareForBalancing()
+{
+    if (auto err = mStorageState.PrepareForBalancing(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -105,9 +124,9 @@ Array<SharedPtr<Instance>>& InstanceManager::GetCachedInstances()
     return mCachedInstances;
 }
 
-Array<SharedPtr<Instance>>& InstanceManager::GetStashInstances()
+Array<SharedPtr<Instance>>& InstanceManager::GetScheduledInstances()
 {
-    return mStashInstances;
+    return mScheduledInstances;
 }
 
 Array<InstanceStatus>& InstanceManager::GetPreinstalledComponents()
@@ -133,77 +152,55 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     }
 
     auto instance = FindActiveInstance(status);
-    if (instance == nullptr) {
+    if (!instance) {
         // not expected instance received from SM.
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    return (*instance)->UpdateStatus(status);
+    return instance->UpdateStatus(status);
 }
 
-Error InstanceManager::AddInstanceToStash(const InstanceIdent& id, const RunInstanceRequest& request)
+Error InstanceManager::ScheduleInstance(const InstanceIdent& id, const RunInstanceRequest& request)
 {
-    auto instance = FindStashInstance(id);
-    if (instance != nullptr) {
-        return ErrorEnum::eNone;
-    }
-
-    instance = FindActiveInstance(id);
-    if (instance != nullptr) {
-        if (auto err = mStashInstances.PushBack(*instance); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    instance = FindCachedInstance(id);
-    if (instance != nullptr) {
-        if ((*instance)->GetInfo().mState == InstanceStateEnum::eDisabled) {
-            return ErrorEnum::eNone;
-        }
-
-        if (auto err = mStashInstances.PushBack(*instance); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        mCachedInstances.Erase(instance);
-
-        return ErrorEnum::eNone;
-    }
-
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
+    CreateInfo(id, request, *instanceInfo);
 
-    instanceInfo->mInstanceIdent = id;
-    instanceInfo->mVersion       = request.mVersion;
-    instanceInfo->mTimestamp     = Time::Now();
-    instanceInfo->mIsUnitSubject = request.mSubjectInfo.mIsUnitSubject;
-    instanceInfo->mOwnerID       = request.mOwnerID;
-    instanceInfo->mSubjectType   = request.mSubjectInfo.mSubjectType;
+    auto instance = ScheduleReadyInstance(id);
+    if (!instance) {
+        if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
-    if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        auto [newInstance, createErr] = CreateInstance(*instanceInfo);
+        if (!createErr.IsNone()) {
+            return createErr;
+        }
+
+        instance = newInstance;
+
+        if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
+            return err;
+        }
     }
 
-    auto [newInstance, createErr] = CreateInstance(*instanceInfo);
-    if (!createErr.IsNone()) {
-        return createErr;
-    }
-
-    if (auto err = mStashInstances.PushBack(newInstance); !err.IsNone()) {
-        return err;
-    }
-
-    return ErrorEnum::eNone;
+    return CheckSubjectEnabled(instance);
 }
 
-Error InstanceManager::SubmitStash()
+Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance)
+{
+    auto readyInstance = ScheduleReadyInstance(instance->GetInfo().mInstanceIdent);
+    assert(readyInstance);
+
+    return CheckSubjectEnabled(readyInstance);
+}
+
+Error InstanceManager::SubmitScheduledInstances()
 {
     for (auto& instance : mActiveInstances) {
-        auto isStashed = mStashInstances.ContainsIf(
+        auto isStashed = mScheduledInstances.ContainsIf(
             [&instance](const SharedPtr<Instance>& item) { return instance.Get() == item.Get(); });
 
-        // cache deleted instances
+        // Cache deleted instances
         if (!isStashed) {
             if (auto err = instance->Cache(); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
@@ -213,8 +210,8 @@ Error InstanceManager::SubmitStash()
         }
     }
 
-    mActiveInstances = mStashInstances;
-    mStashInstances.Clear();
+    mActiveInstances = mScheduledInstances;
+    mScheduledInstances.Clear();
 
     return ErrorEnum::eNone;
 }
@@ -227,34 +224,34 @@ Error InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
 
     mCachedInstances.PushBack(instance);
 
-    mStashInstances.Remove(instance);
+    mScheduledInstances.Remove(instance);
     mActiveInstances.Remove(instance);
 
     return ErrorEnum::eNone;
 }
 
-SharedPtr<Instance>* InstanceManager::FindActiveInstance(const InstanceIdent& id)
+SharedPtr<Instance> InstanceManager::FindActiveInstance(const InstanceIdent& id)
 {
-    auto instance = mActiveInstances.FindIf(
+    auto it = mActiveInstances.FindIf(
         [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
 
-    return instance != mActiveInstances.end() ? instance : nullptr;
+    return it != mActiveInstances.end() ? *it : SharedPtr<Instance>();
 }
 
-SharedPtr<Instance>* InstanceManager::FindStashInstance(const InstanceIdent& id)
+SharedPtr<Instance> InstanceManager::FindScheduledInstance(const InstanceIdent& id)
 {
-    auto instance = mStashInstances.FindIf(
+    auto it = mScheduledInstances.FindIf(
         [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
 
-    return instance != mStashInstances.end() ? instance : nullptr;
+    return it != mScheduledInstances.end() ? *it : SharedPtr<Instance>();
 }
 
-SharedPtr<Instance>* InstanceManager::FindCachedInstance(const InstanceIdent& id)
+SharedPtr<Instance> InstanceManager::FindCachedInstance(const InstanceIdent& id)
 {
-    auto instance = mCachedInstances.FindIf(
+    auto it = mCachedInstances.FindIf(
         [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
 
-    return instance != mCachedInstances.end() ? instance : nullptr;
+    return it != mCachedInstances.end() ? *it : SharedPtr<Instance>();
 }
 
 InstanceStatus* InstanceManager::FindPreinstalledComponent(const InstanceIdent& id)
@@ -270,7 +267,7 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
     for (const auto& instanceData : monitoringData) {
         auto instance = FindActiveInstance(instanceData.mInstanceIdent);
         if (instance) {
-            (*instance)->UpdateMonitoringData(instanceData.mMonitoringData);
+            instance->UpdateMonitoringData(instanceData.mMonitoringData);
         }
     }
 }
@@ -336,7 +333,7 @@ Error InstanceManager::RemoveOutdatedInstances()
 
     for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
         if (now.Sub((*instance)->GetInfo().mTimestamp) >= mConfig.mInstanceTTL) {
-            if (auto err = (*instance)->Remove(); !err.IsNone()) {
+            if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
                 firstErr = err;
             }
 
@@ -351,13 +348,15 @@ Error InstanceManager::RemoveOutdatedInstances()
 
 Error InstanceManager::ClearInstancesWithDeletedImages()
 {
+    Error firstErr = ErrorEnum::eNone;
+
     for (auto instance = mActiveInstances.begin(); instance != mActiveInstances.end();) {
-        if (!(*instance)->IsImageValid(mImageInfoProvider)) {
-            LOG_DBG() << "Image invalid for instance: "
+        if (!(*instance)->IsImageValid()) {
+            LOG_DBG() << "Image invalid for running instance: "
                       << Log::Field("instanceID", (*instance)->GetInfo().mInstanceIdent);
 
-            if (auto err = (*instance)->Remove(); !err.IsNone()) {
-                return err;
+            if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
+                firstErr = err;
             }
 
             instance = mActiveInstances.Erase(instance);
@@ -367,12 +366,12 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
     }
 
     for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
-        if (!(*instance)->IsImageValid(mImageInfoProvider)) {
+        if (!(*instance)->IsImageValid()) {
             LOG_DBG() << "Image invalid for cached instance: "
                       << Log::Field("instanceID", (*instance)->GetInfo().mInstanceIdent);
 
-            if (auto err = (*instance)->Remove(); !err.IsNone()) {
-                return err;
+            if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
+                firstErr = err;
             }
 
             instance = mCachedInstances.Erase(instance);
@@ -381,7 +380,7 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
         }
     }
 
-    return ErrorEnum::eNone;
+    return firstErr;
 }
 
 RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const InstanceInfo& info)
@@ -390,11 +389,13 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
 
     switch (info.mInstanceIdent.mType.GetValue()) {
     case UpdateItemTypeEnum::eService:
-        newInstance = MakeShared<ServiceInstance>(&mAllocator, info, mUIDPool, mGIDPool, *mStorage, *mStorageState);
+        newInstance = MakeShared<ServiceInstance>(&mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState,
+            mImageInfoProvider, *mNetworkManager, mInstanceAllocator);
         break;
 
     case UpdateItemTypeEnum::eComponent:
-        newInstance = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage);
+        newInstance
+            = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage, mImageInfoProvider, mInstanceAllocator);
         break;
 
     default:
@@ -406,6 +407,94 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
     }
 
     return newInstance;
+}
+
+RetWithError<bool> InstanceManager::SetSubjects(const Array<StaticString<cIDLen>>& subjects)
+{
+    if (auto err = mSubjects.Assign(subjects); !err.IsNone()) {
+        return {false, AOS_ERROR_WRAP(err)};
+    }
+
+    for (const auto& instance : mActiveInstances) {
+        if (!IsSubjectEnabled(*instance)) {
+            return {true, ErrorEnum::eNone};
+        }
+    }
+
+    for (const auto& instance : mCachedInstances) {
+        if (IsSubjectEnabled(*instance) && instance->GetInfo().mState == InstanceStateEnum::eDisabled) {
+            return {true, ErrorEnum::eNone};
+        }
+    }
+
+    return {false, ErrorEnum::eNone};
+}
+
+Error InstanceManager::CheckSubjectEnabled(SharedPtr<Instance>& instance)
+{
+    if (IsSubjectEnabled(*instance)) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = DisableInstance(instance); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "subject disabled"));
+}
+
+bool InstanceManager::IsSubjectEnabled(const Instance& instance)
+{
+    return !instance.GetInfo().mIsUnitSubject || mSubjects.Contains(instance.GetInfo().mInstanceIdent.mSubjectID);
+}
+
+SharedPtr<Instance> InstanceManager::ScheduleReadyInstance(const InstanceIdent& id)
+{
+    auto instance = FindScheduledInstance(id);
+    if (instance) {
+        return instance;
+    }
+
+    instance = FindActiveInstance(id);
+    if (instance) {
+        if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
+            return nullptr;
+        }
+
+        return instance;
+    }
+
+    instance = FindCachedInstance(id);
+    if (instance) {
+        if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
+            return nullptr;
+        }
+
+        mCachedInstances.Remove(instance);
+
+        return instance;
+    }
+
+    return nullptr;
+}
+
+void InstanceManager::CreateInfo(const InstanceIdent& id, const RunInstanceRequest& request, InstanceInfo& info)
+{
+    info.mInstanceIdent  = id;
+    info.mManifestDigest = "";
+    info.mNodeID         = "";
+    info.mPrevNodeID     = "";
+    info.mRuntimeID      = "";
+    info.mUID            = 0;
+    info.mGID            = 0;
+    info.mTimestamp      = Time::Now();
+    info.mState          = InstanceStateEnum::eActive;
+    info.mIsUnitSubject  = request.mSubjectInfo.mIsUnitSubject;
+    info.mVersion        = request.mVersion;
+    info.mOwnerID        = request.mOwnerID;
+    info.mSubjectType    = request.mSubjectInfo.mSubjectType;
+    info.mLabels         = request.mLabels;
+    info.mPriority       = request.mPriority;
 }
 
 } // namespace aos::cm::launcher

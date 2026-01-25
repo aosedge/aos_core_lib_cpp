@@ -19,6 +19,7 @@
 
 #include "config.hpp"
 #include "instance.hpp"
+#include "networkmanager.hpp"
 
 namespace aos::cm::launcher {
 
@@ -40,11 +41,12 @@ public:
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage Interface to persistent storage.
+     * @param networkManager Interface for managing networks of service instances.
      * @return Error.
      */
     Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
         storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+        IdentifierPoolValidator uidValidator, StorageItf& storage, NetworkManager& networkManager);
 
     /**
      * Starts the instance manager.
@@ -61,11 +63,25 @@ public:
     Error Stop();
 
     /**
+     * Prepares instance manager for balancing.
+     *
+     * @return Error.
+     */
+    Error PrepareForBalancing();
+
+    /**
      * Returns the collection of currently active instances.
      *
      * @return Array<SharedPtr<Instance>>&.
      */
     Array<SharedPtr<Instance>>& GetActiveInstances();
+
+    /**
+     * Returns the collection of scheduled instances.
+     *
+     * @return Array<SharedPtr<Instance>>&.
+     */
+    Array<SharedPtr<Instance>>& GetScheduledInstances();
 
     /**
      * Returns the collection of currently cached instances.
@@ -85,49 +101,25 @@ public:
      * Finds an active instance by its identifier.
      *
      * @param id instance identifier.
-     * @return SharedPtr<Instance>*.
+     * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance>* FindActiveInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindActiveInstance(const InstanceIdent& id);
 
     /**
-     * Updates the status of a managed instance.
-     *
-     * @param status new instance status.
-     * @return Error.
-     */
-    Error UpdateStatus(const InstanceStatus& status);
-
-    /**
-     * Adds a new instance to the manager's stash for later submission.
+     * Finds a scheduled instance by its identifier.
      *
      * @param id instance identifier.
-     * @param request run instance request.
-     * @return Error.
+     * @return SharedPtr<Instance>.
      */
-    Error AddInstanceToStash(const InstanceIdent& id, const RunInstanceRequest& request);
-
-    /**
-     * Returns the collection of stashed instances.
-     *
-     * @return Array<SharedPtr<Instance>>&.
-     */
-    Array<SharedPtr<Instance>>& GetStashInstances();
-
-    /**
-     * Finds a stashed instance by its identifier.
-     *
-     * @param id instance identifier.
-     * @return SharedPtr<Instance>*.
-     */
-    SharedPtr<Instance>* FindStashInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindScheduledInstance(const InstanceIdent& id);
 
     /**
      * Finds a cached instance by its identifier.
      *
      * @param id instance identifier.
-     * @return SharedPtr<Instance>*.
+     * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance>* FindCachedInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindCachedInstance(const InstanceIdent& id);
 
     /**
      * Finds a preinstalled component by its identifier.
@@ -138,11 +130,36 @@ public:
     InstanceStatus* FindPreinstalledComponent(const InstanceIdent& id);
 
     /**
+     * Updates the status of a managed instance.
+     *
+     * @param status new instance status.
+     * @return Error.
+     */
+    Error UpdateStatus(const InstanceStatus& status);
+
+    /**
+     * Schedules instance.
+     *
+     * @param id instance identifier.
+     * @param request run instance request.
+     * @return Error.
+     */
+    Error ScheduleInstance(const InstanceIdent& id, const RunInstanceRequest& request);
+
+    /**
+     * Schedules instance.
+     *
+     * @param instance instance.
+     * @return Error.
+     */
+    Error ScheduleInstance(SharedPtr<Instance>& instance);
+
+    /**
      * Submits all stashed instances for execution.
      *
      * @return Error.
      */
-    Error SubmitStash();
+    Error SubmitScheduledInstances();
 
     /**
      * Disables instance.
@@ -159,10 +176,20 @@ public:
      */
     void UpdateMonitoringData(const Array<monitoring::InstanceMonitoringData>& monitoringData);
 
+    /**
+     * Saves subjects and returns flag indicating whether rebalancing is required.
+     *
+     * @param subjects subjects.
+     * @return RetWithError<bool>.
+     */
+    RetWithError<bool> SetSubjects(const Array<StaticString<cIDLen>>& subjects);
+
 private:
     static constexpr auto cRemovePeriod  = Time::cDay;
     static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
-        + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo);
+        + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo) + sizeof(oci::ImageIndex);
+    static constexpr auto cInstanceAllocatorSize
+        = Max(sizeof(oci::ImageConfig) + sizeof(oci::ServiceConfig), sizeof(oci::ImageIndex));
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
@@ -173,22 +200,33 @@ private:
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
-    Config                         mConfig;
-    StorageItf*                    mStorage {};
-    storagestate::StorageStateItf* mStorageState {};
+    Error CheckSubjectEnabled(SharedPtr<Instance>& instance);
+    bool  IsSubjectEnabled(const Instance& instance);
+
+    SharedPtr<Instance> ScheduleReadyInstance(const InstanceIdent& id);
+    void                CreateInfo(const InstanceIdent& id, const RunInstanceRequest& request, InstanceInfo& info);
+
+    Config          mConfig;
+    StorageItf*     mStorage {};
+    NetworkManager* mNetworkManager {};
 
     ImageInfoProvider mImageInfoProvider;
-    Timer             mCleanInstancesTimer;
-    Timer             mInitTimer;
+    StorageState      mStorageState;
     UIDPool           mUIDPool;
     GIDPool           mGIDPool;
 
+    Timer mCleanInstancesTimer;
+    Timer mInitTimer;
+
     StaticAllocator<cAllocatorSize, cMaxNumInstances> mAllocator;
+    StaticAllocator<cInstanceAllocatorSize>           mInstanceAllocator;
 
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
-    StaticArray<SharedPtr<Instance>, cMaxNumInstances> mStashInstances;
+    StaticArray<SharedPtr<Instance>, cMaxNumInstances> mScheduledInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mCachedInstances;
     StaticArray<InstanceStatus, cMaxNumInstances>      mPreinstalledComponents;
+
+    SubjectArray mSubjects;
 };
 
 /** @}*/
