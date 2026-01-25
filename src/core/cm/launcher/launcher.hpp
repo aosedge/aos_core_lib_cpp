@@ -22,6 +22,7 @@
 
 #include "balancer.hpp"
 #include "instancemanager.hpp"
+#include "networkmanager.hpp"
 #include "nodemanager.hpp"
 
 namespace aos::cm::launcher {
@@ -133,42 +134,31 @@ public:
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 8;
-    static constexpr auto cAllocatorSize
-        = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>) + sizeof(monitoring::NodeMonitoringData);
+    static constexpr auto cAllocatorSize                 = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>);
 
     void SendRunStatus();
 
     void UpdateInstanceStatuses();
-    void UpdateData(bool rebalancing);
     void FailActivatingInstances();
 
     Error Rebalance(UniqueLock<Mutex>& lock);
 
     void ProcessUpdate();
 
-    //
-    // InstanceStatusReceiverItf implementation
-    //
+    void ScheduleInstances();
+    void ScheduleInstances(const Array<RunInstanceRequest>& requests);
 
+    // InstanceStatusReceiverItf implementation
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
     Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) override;
 
-    //
     // nodeinfoprovider::NodeInfoListenerItf implementation
-    //
-
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
-    //
     // alerts::AlertsListenerItf implementation
-    //
-
     Error OnAlertReceived(const AlertVariant& alert) override;
 
-    //
     // iamclient::SubjectsListenerItf implementation
-    //
-
     void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
 
     // External dependencies
@@ -179,15 +169,15 @@ private:
     InstanceRunnerItf*                                                                mRunner {};
     unitconfig::NodeConfigProviderItf*                                                mNodeConfigProvider {};
     storagestate::StorageStateItf*                                                    mStorageState {};
-    networkmanager::NetworkManagerItf*                                                mNetworkManager {};
     MonitoringProviderItf*                                                            mMonitorProvider {};
     alerts::AlertsProviderItf*                                                        mAlertsProvider {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
 
     // Managers
-    InstanceManager mInstanceManager;
-    NodeManager     mNodeManager;
-    Balancer        mBalancer;
+    NetworkManager  mNetworkManager {};
+    InstanceManager mInstanceManager {};
+    NodeManager     mNodeManager {};
+    Balancer        mBalancer {};
 
     // Process update thread
     Thread<>                                        mWorkerThread;
@@ -199,11 +189,10 @@ private:
     Optional<SubjectArray>                          mNewSubjects;
 
     // Misc
-    StaticArray<RunInstanceRequest, cMaxNumInstances> mRunRequests;
-    StaticArray<InstanceStatus, cMaxNumInstances>     mInstanceStatuses;
-    Mutex                                             mBalancingMutex;
-    bool                                              mIsRunning {};
-    StaticAllocator<cAllocatorSize>                   mAllocator;
+    StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
+    Mutex                                         mBalancingMutex;
+    bool                                          mIsRunning {};
+    StaticAllocator<cAllocatorSize>               mAllocator;
 };
 
 /** @}*/
