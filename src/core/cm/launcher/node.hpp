@@ -15,6 +15,8 @@
 #include "itf/instancerunner.hpp"
 
 #include "instance.hpp"
+#include "networkmanager.hpp"
+#include "nodeitf.hpp"
 
 namespace aos::cm::launcher {
 
@@ -25,7 +27,7 @@ namespace aos::cm::launcher {
 /**
  * Auxiliary class to manage node information.
  */
-class Node {
+class Node : public NodeItf {
 public:
     /**
      * Initializes node.
@@ -39,6 +41,21 @@ public:
         const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner);
 
     /**
+     * Prepares node for balancing.
+     *
+     * @param monitoringData node monitoring data.
+     * @param rebalancing flag indicating rebalancing.
+     */
+    void PrepareForBalancing(bool rebalancing);
+
+    /**
+     * Updates node monitoring data.
+     *
+     * @param monitoringData node monitoring data.
+     */
+    void UpdateMonitoringData(const monitoring::NodeMonitoringData& monitoringData);
+
+    /**
      * Returns node information.
      *
      * @return const UnitNodeInfo&.
@@ -46,24 +63,9 @@ public:
     const UnitNodeInfo& GetInfo() const { return mInfo; }
 
     /**
-     * Returns node configuration.
-     *
-     * @return const NodeConfig&.
-     */
-    const NodeConfig& GetConfig() const { return mConfig; }
-
-    /**
      * Indicates whether node requires rebalancing.
      */
     bool NeedBalancing() const { return mNeedBalancing; }
-
-    /**
-     * Updates available node resources.
-     *
-     * @param monitoringData node monitoring data.
-     * @param rebalancing flag indicating rebalancing.
-     */
-    void UpdateAvailableResources(const monitoring::NodeMonitoringData& monitoringData, bool rebalancing);
 
     /**
      * Updates node information.
@@ -120,14 +122,25 @@ public:
     size_t GetAvailableRAM(const String& runtimeID);
 
     /**
-     * Schedules instance on node.
+     * Reserves runtime resources for instance.
      *
-     * @param instance instance information.
-     * @param servData network service data.
+     * @param instanceIdent instance identifier (currently unused).
+     * @param runtimeID runtime identifier.
+     * @param reqCPU requested CPU.
+     * @param reqRAM requested RAM.
+     * @param reqResources requested shared resources.
      * @return Error.
      */
-    Error ScheduleInstance(const aos::InstanceInfo& instance, const networkmanager::NetworkServiceData& servData,
-        size_t reqCPU, size_t reqRAM, const Array<StaticString<cResourceNameLen>>& reqResources);
+    Error ReserveResources(const InstanceIdent& instanceIdent, const String& runtimeID, size_t reqCPU, size_t reqRAM,
+        const Array<StaticString<cResourceNameLen>>& reqResources) override;
+
+    /**
+     * Adds instance to scheduled instances map.
+     *
+     * @param instance instance information.
+     * @return Error.
+     */
+    Error ScheduleInstance(const aos::InstanceInfo& instance) override;
 
     /**
      * Sets up network parameters.
@@ -137,8 +150,7 @@ public:
      * @param instances all scheduled instances.
      * @return Error.
      */
-    Error SetupNetworkParams(
-        bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr, Array<SharedPtr<Instance>>& instances);
+    Error SetupNetworkParams(const InstanceIdent& instanceIdent, bool onlyExposedPorts, NetworkManager& networkManager);
 
     /**
      * Sends scheduled instances to node.
@@ -153,14 +165,6 @@ public:
      * @return Error.
      */
     RetWithError<bool> ResendInstances();
-
-    /**
-     * Checks whether instance is running.
-     *
-     * @param instance instance identifier.
-     * @return bool.
-     */
-    bool IsRunning(const InstanceIdent& instance) const;
 
     /**
      * Checks whether instance is scheduled.
@@ -184,9 +188,7 @@ public:
     void UpdateConfig();
 
 private:
-    static constexpr auto cMaxNumInstancesPerNode = cMaxNumInstances / cMaxNumNodes;
-    static constexpr auto cAllocatorSize
-        = sizeof(aos::InstanceInfo) + sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>);
+    static constexpr auto cAllocatorSize = sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstances>);
 
     // Returns CPU usage without Aos service instances.
     size_t GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const;
@@ -201,13 +203,16 @@ private:
     InstanceRunnerItf*                 mInstanceRunner {};
 
     UnitNodeInfo mInfo {};
-    NodeConfig   mConfig {};
     bool         mNeedBalancing {};
 
-    StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mSentInstances;
-    StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>                  mScheduledInstances;
-    StaticArray<InstanceStatus, cMaxNumInstancesPerNode>                     mRunningInstances;
-    StaticArray<networkmanager::NetworkServiceData, cMaxNumInstancesPerNode> mNetworkServiceData;
+    StaticArray<aos::InstanceInfo, cMaxNumInstances> mSentInstances;
+    StaticArray<aos::InstanceInfo, cMaxNumInstances> mScheduledInstances;
+    StaticArray<InstanceStatus, cMaxNumInstances>    mRunningInstances;
+
+    size_t mTotalCPUUsage {};
+    size_t mTotalRAMUsage {};
+    size_t mSystemCPUUsage {};
+    size_t mSystemRAMUsage {};
 
     size_t                                          mAvailableCPU {};
     size_t                                          mAvailableRAM {};

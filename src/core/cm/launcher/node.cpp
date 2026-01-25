@@ -24,11 +24,15 @@ void Node::Init(
     mInfo.mState  = NodeStateEnum::eUnprovisioned;
 }
 
-void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monitoringData, bool rebalancing)
+void Node::PrepareForBalancing(bool rebalancing)
 {
+    UpdateConfig();
+
     mRuntimeAvailableCPU.Clear();
     mRuntimeAvailableRAM.Clear();
     mMaxInstances.Clear();
+
+    mScheduledInstances.Clear();
 
     mNeedBalancing = false;
 
@@ -36,7 +40,7 @@ void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monito
         const auto& alertRules = mConfig.mAlertRules.GetValue();
         if (alertRules.mCPU.HasValue() || alertRules.mRAM.HasValue()) {
             if (alertRules.mCPU.HasValue()) {
-                const auto usedCPU = monitoringData.mMonitoringData.mCPU;
+                const auto usedCPU = mTotalCPUUsage;
                 const auto maxTreshold
                     = mInfo.mMaxDMIPS * static_cast<size_t>(alertRules.mCPU.GetValue().mMaxThreshold / 100.0);
 
@@ -46,7 +50,7 @@ void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monito
             }
 
             if (alertRules.mRAM.HasValue()) {
-                const auto usedRAM = monitoringData.mMonitoringData.mRAM;
+                const auto usedRAM = mTotalRAMUsage;
                 const auto maxTreshold
                     = mInfo.mMaxDMIPS * static_cast<size_t>(alertRules.mRAM.GetValue().mMaxThreshold / 100.0);
 
@@ -57,10 +61,8 @@ void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monito
         }
     }
 
-    auto systemCPUUsage = GetSystemCPUUsage(monitoringData);
-    auto systemRAMUsage = GetSystemRAMUsage(monitoringData);
-    auto totalCPU       = mInfo.mMaxDMIPS;
-    auto totalRAM       = mInfo.mTotalRAM;
+    auto totalCPU = mInfo.mMaxDMIPS;
+    auto totalRAM = mInfo.mTotalRAM;
 
     // For nodes requiring rebalancing, we need to decrease resource consumption below the low threshold.
     if (mNeedBalancing) {
@@ -76,28 +78,35 @@ void Node::UpdateAvailableResources(const monitoring::NodeMonitoringData& monito
         }
     }
 
-    mAvailableCPU       = systemCPUUsage > totalCPU ? 0 : totalCPU - systemCPUUsage;
-    mAvailableRAM       = systemRAMUsage > totalRAM ? 0 : totalRAM - systemRAMUsage;
+    mAvailableCPU       = mSystemCPUUsage > totalCPU ? 0 : totalCPU - mSystemCPUUsage;
+    mAvailableRAM       = mSystemRAMUsage > totalRAM ? 0 : totalRAM - mSystemRAMUsage;
     mAvailableResources = mInfo.mResources;
 
     if (mNeedBalancing) {
-        LOG_DBG() << "Node resource usage" << Log::Field("nodeID", mInfo.mNodeID) << Log::Field("RAM", systemRAMUsage)
-                  << Log::Field("CPU", systemCPUUsage);
+        LOG_DBG() << "Node resource usage" << Log::Field("nodeID", mInfo.mNodeID) << Log::Field("RAM", mSystemRAMUsage)
+                  << Log::Field("CPU", mSystemCPUUsage);
     }
 
     LOG_DBG() << "Available resources" << Log::Field("nodeID", mInfo.mNodeID) << Log::Field("RAM", mAvailableRAM)
               << Log::Field("CPU", mAvailableCPU);
 }
 
+void Node::UpdateMonitoringData(const monitoring::NodeMonitoringData& monitoringData)
+{
+    mTotalCPUUsage = monitoringData.mMonitoringData.mCPU;
+    mTotalRAMUsage = monitoringData.mMonitoringData.mRAM;
+
+    mSystemCPUUsage = GetSystemCPUUsage(monitoringData);
+    mSystemRAMUsage = GetSystemRAMUsage(monitoringData);
+}
+
 bool Node::UpdateInfo(const UnitNodeInfo& info)
 {
-    // Ignore connection status.
     mInfo.mIsConnected = info.mIsConnected;
 
     bool nodeChanged = mInfo != info;
     if (nodeChanged) {
         mInfo = info;
-        UpdateConfig();
     }
 
     return nodeChanged;
@@ -174,33 +183,39 @@ void Node::UpdateConfig()
     }
 }
 
-Error Node::ScheduleInstance(const aos::InstanceInfo& instance, const networkmanager::NetworkServiceData& servData,
-    size_t reqCPU, size_t reqRAM, const Array<StaticString<cResourceNameLen>>& reqResources)
+Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& runtimeID, size_t reqCPU, size_t reqRAM,
+    const Array<StaticString<cResourceNameLen>>& reqResources)
 {
-    if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    (void)instanceIdent;
 
-    if (auto err = mNetworkServiceData.PushBack(servData); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    // adjust available resources
-    auto availableRAM = GetPtrToAvailableRAM(instance.mRuntimeID);
+    // Adjust available RAM
+    auto availableRAM = GetPtrToAvailableRAM(runtimeID);
     if (availableRAM == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
-    *availableRAM = *availableRAM < reqRAM ? 0 : *availableRAM - reqRAM;
+    if (*availableRAM < reqRAM) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
-    auto availableCPU = GetPtrToAvailableCPU(instance.mRuntimeID);
+    *availableRAM -= reqRAM;
+    auto restoreRAM = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *availableRAM += reqRAM; });
+
+    // Adjust available CPU
+    auto availableCPU = GetPtrToAvailableCPU(runtimeID);
     if (availableCPU == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
-    *availableCPU = *availableCPU < reqCPU ? 0 : *availableCPU - reqCPU;
+    if (*availableCPU < reqCPU) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
-    auto maxNumInstances = GetPtrToMaxNumInstances(instance.mRuntimeID);
+    *availableCPU -= reqCPU;
+    auto restoreCPU = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *availableCPU += reqCPU; });
+
+    // Adjust max number of instances
+    auto maxNumInstances = GetPtrToMaxNumInstances(runtimeID);
     if (maxNumInstances == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
@@ -210,52 +225,62 @@ Error Node::ScheduleInstance(const aos::InstanceInfo& instance, const networkman
     }
 
     (*maxNumInstances)--;
+    auto restoreMaxNumInstances = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { (*maxNumInstances)++; });
 
-    for (const auto& resource : reqResources) {
+    // Adjust shared resources
+    auto curIt            = reqResources.begin();
+    auto restoreResources = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
+        for (auto restoreIt = reqResources.begin(); restoreIt != curIt; ++restoreIt) {
+            auto availableResource = mAvailableResources.FindIf(
+                [restoreIt](const ResourceInfo& info) { return info.mName == *restoreIt; });
+            assert(availableResource != mAvailableResources.end());
+
+            availableResource->mSharedCount++;
+        }
+    });
+
+    for (; curIt != reqResources.end(); ++curIt) {
         auto availableResource
-            = mAvailableResources.FindIf([&resource](const ResourceInfo& info) { return info.mName == resource; });
+            = mAvailableResources.FindIf([curIt](const ResourceInfo& info) { return info.mName == *curIt; });
 
-        if (availableResource == nullptr || availableResource->mSharedCount < 1) {
-            return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+        if (availableResource == mAvailableResources.end() || availableResource->mSharedCount < 1) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
 
         availableResource->mSharedCount--;
     }
 
-    LOG_INF() << "Available CPU & RAM" << Log::Field("nodeID", mInfo.mNodeID) << Log::Field("CPU", *availableCPU)
-              << Log::Field("RAM", *availableRAM);
+    restoreResources.Release();
+    restoreMaxNumInstances.Release();
+    restoreCPU.Release();
+    restoreRAM.Release();
 
     return ErrorEnum::eNone;
 }
 
-Error Node::SetupNetworkParams(
-    bool onlyExposedPorts, networkmanager::NetworkManagerItf& netMgr, Array<SharedPtr<Instance>>& instances)
+Error Node::ScheduleInstance(const aos::InstanceInfo& instance)
 {
-    for (size_t i = 0; i < mScheduledInstances.Size();) {
-        const auto& scheduledInstance = mScheduledInstances[i];
+    if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-        if (onlyExposedPorts && mNetworkServiceData[i].mExposedPorts.IsEmpty()) {
-            ++i;
+    return ErrorEnum::eNone;
+}
 
-            continue;
-        }
+Error Node::SetupNetworkParams(const InstanceIdent& instanceID, bool onlyExposedPorts, NetworkManager& networkManager)
+{
+    auto instance = mScheduledInstances.FindIf(
+        [&instanceID](const aos::InstanceInfo& item) { return static_cast<const InstanceIdent&>(item) == instanceID; });
+    if (instance == mScheduledInstances.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
 
-        auto netErr = netMgr.PrepareInstanceNetworkParameters(scheduledInstance, mScheduledInstances[i].mOwnerID,
-            mInfo.mNodeID, mNetworkServiceData[i], mScheduledInstances[i].mNetworkParameters.GetValue());
-        if (!netErr.IsNone()) {
-            auto instance = instances.FindIf([&scheduledInstance](const SharedPtr<Instance>& instance) {
-                return instance->GetInfo().mInstanceIdent == scheduledInstance;
-            });
+    auto netErr = networkManager.PrepareInstanceNetworkParameters(
+        instanceID, instance->mOwnerID, mInfo.mNodeID, onlyExposedPorts, instance->mNetworkParameters);
+    if (!netErr.IsNone()) {
+        return AOS_ERROR_WRAP(netErr);
 
-            if (instance != instances.end()) {
-                (*instance)->SetError(AOS_ERROR_WRAP(Error(netErr, "can't prepare instance network parameters")));
-            }
-
-            mScheduledInstances.Erase(mScheduledInstances.begin() + i);
-            mNetworkServiceData.Erase(mNetworkServiceData.begin() + i);
-        } else {
-            ++i;
-        }
+        mScheduledInstances.Erase(instance);
     }
 
     return ErrorEnum::eNone;
@@ -263,7 +288,7 @@ Error Node::SetupNetworkParams(
 
 Error Node::SendScheduledInstances()
 {
-    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>>(&mAllocator);
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(&mAllocator);
 
     for (const auto& instance : mSentInstances) {
         auto isScheduled = mScheduledInstances.ContainsIf([&instance](const aos::InstanceInfo& item) {
@@ -294,7 +319,7 @@ Error Node::SendScheduledInstances()
 
 RetWithError<bool> Node::ResendInstances()
 {
-    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstancesPerNode>>(&mAllocator);
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(&mAllocator);
 
     for (const auto& instance : mRunningInstances) {
         auto isRunningInstanceSent = mSentInstances.ContainsIf([&instance](const aos::InstanceInfo& item) {
@@ -336,12 +361,6 @@ RetWithError<bool> Node::ResendInstances()
     }
 
     return {true, ErrorEnum::eNone};
-}
-
-bool Node::IsRunning(const InstanceIdent& id) const
-{
-    return mSentInstances.ContainsIf(
-        [&id](const aos::InstanceInfo& info) { return static_cast<const InstanceIdent&>(info) == id; });
 }
 
 bool Node::IsScheduled(const InstanceIdent& id) const
@@ -433,7 +452,7 @@ size_t* Node::GetPtrToMaxNumInstances(const String& runtimeID)
         return nullptr;
     }
 
-    auto maxInstances = runtime->mMaxInstances == 0 ? cMaxNumInstancesPerNode : runtime->mMaxInstances;
+    auto maxInstances = runtime->mMaxInstances == 0 ? cMaxNumInstances : runtime->mMaxInstances;
     if (auto err = mMaxInstances.TryEmplace(runtimeID, maxInstances); !err.IsNone()) {
         return nullptr;
     }
