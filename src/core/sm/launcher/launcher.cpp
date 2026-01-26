@@ -89,6 +89,8 @@ Error Launcher::Stop()
 
         mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
 
+        lock.Unlock();
+
         StopAllInstances();
 
         for (auto& it : mRuntimes) {
@@ -96,6 +98,8 @@ Error Launcher::Stop()
                 return AOS_ERROR_WRAP(err);
             }
         }
+
+        lock.Lock();
 
         mIsRunning = false;
 
