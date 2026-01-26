@@ -122,8 +122,9 @@ public:
      * Sets error state.
      *
      * @param err error object.
+     * @param resetNodeID whether to reset node ID.
      */
-    void SetError(const Error& err);
+    void SetError(const Error& err, bool resetNodeID = true);
 
     /**
      * Updates monitoring data.

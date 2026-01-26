@@ -670,7 +670,7 @@ TEST_F(CMLauncherTest, CacheInstances)
     for (const auto& serviceID : {cService1, cService2, cService3}) {
         auto serviceConfig = std::make_unique<oci::ServiceConfig>();
 
-        CreateServiceConfig(*serviceConfig);
+        CreateServiceConfig(*serviceConfig, {cRunnerRunc});
         AddService(serviceID, cImageID1, *serviceConfig, CreateImageConfig());
     }
 
