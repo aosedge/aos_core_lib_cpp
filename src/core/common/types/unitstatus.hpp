@@ -115,6 +115,7 @@ struct UnitInstancesStatuses {
     StaticString<cIDLen>      mItemID;
     StaticString<cIDLen>      mSubjectID;
     StaticString<cVersionLen> mVersion;
+    bool                      mPreinstalled {};
     UnitInstanceStatusArray   mInstances;
 
     /**
@@ -128,11 +129,13 @@ struct UnitInstancesStatuses {
      * @param itemID    update item ID.
      * @param subjectID subject ID.
      * @param version   update item version.
+     * @param preinstalled  preinstalled flag.
      */
-    UnitInstancesStatuses(const String& itemID, const String& subjectID, const String& version)
+    UnitInstancesStatuses(const String& itemID, const String& subjectID, const String& version, bool preinstalled)
         : mItemID(itemID)
         , mSubjectID(subjectID)
         , mVersion(version)
+        , mPreinstalled(preinstalled)
     {
     }
 
@@ -145,7 +148,7 @@ struct UnitInstancesStatuses {
     bool operator==(const UnitInstancesStatuses& rhs) const
     {
         return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mVersion == rhs.mVersion
-            && mInstances == rhs.mInstances;
+            && mPreinstalled == rhs.mPreinstalled && mInstances == rhs.mInstances;
     }
 
     /**

@@ -236,7 +236,8 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
                 && instanceStatuses.mVersion == status.mVersion;
         });
         if (itemIt == mUnitStatus.mInstances->end()) {
-            if (auto err = mUnitStatus.mInstances->EmplaceBack(status.mItemID, status.mSubjectID, status.mVersion);
+            if (auto err = mUnitStatus.mInstances->EmplaceBack(
+                    status.mItemID, status.mSubjectID, status.mVersion, status.mPreinstalled);
                 !err.IsNone()) {
                 LOG_ERR() << "Failed to emplace instances statuses" << Log::Field(err);
                 return;
@@ -374,7 +375,8 @@ Error UnitStatusHandler::SetInstancesStatus()
                 && instanceStatuses.mVersion == status.mVersion;
         });
         if (it == mUnitStatus.mInstances->end()) {
-            if (auto err = mUnitStatus.mInstances->EmplaceBack(status.mItemID, status.mSubjectID, status.mVersion);
+            if (auto err = mUnitStatus.mInstances->EmplaceBack(
+                    status.mItemID, status.mSubjectID, status.mVersion, status.mPreinstalled);
                 !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
