@@ -267,7 +267,8 @@ struct Config {
      */
     bool operator==(const Config& rhs) const
     {
-        return mEnv == rhs.mEnv && mEntryPoint == rhs.mEntryPoint && mCmd == rhs.mCmd && mWorkingDir == rhs.mWorkingDir;
+        return mExposedPorts == rhs.mExposedPorts && mEnv == rhs.mEnv && mEntryPoint == rhs.mEntryPoint
+            && mCmd == rhs.mCmd && mWorkingDir == rhs.mWorkingDir;
     }
 
     /**
