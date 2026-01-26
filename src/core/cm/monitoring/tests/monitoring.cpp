@@ -312,4 +312,44 @@ TEST_F(CMMonitoring, OnInstancesStatusesChanged)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(CMMonitoring, OnPreinstalledInstancesStatusesChanged)
+{
+    const InstanceIdent ident0 {"itemID", "subjectID", 0, UpdateItemTypeEnum::eComponent};
+
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mMonitoring.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto ident0Status           = CreateInstanceStatus("node1", ident0, InstanceStateEnum::eActive);
+    ident0Status->mPreinstalled = true;
+
+    mMonitoring.OnInstancesStatusesChanged(Array<InstanceStatus> {ident0Status.get(), 1});
+
+    connectionListener->OnConnect();
+
+    auto monitoring = std::make_unique<aos::Monitoring>();
+
+    EXPECT_TRUE(mSender.WaitForMessage(*monitoring));
+
+    ASSERT_EQ(monitoring->mInstances.Size(), 1);
+    EXPECT_EQ(monitoring->mInstances[0].mNodeID, "node1");
+
+    EXPECT_EQ(monitoring->mInstances[0].mStates.Size(), 1);
+    EXPECT_EQ(monitoring->mInstances[0].mStates[0].mState.GetValue(), InstanceStateEnum::eActive);
+    EXPECT_TRUE(monitoring->mInstances[0].mPreinstalled);
+
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mMonitoring.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 } // namespace aos::cm::monitoring
