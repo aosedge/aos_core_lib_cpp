@@ -153,6 +153,15 @@ public:
     Error SetupNetworkParams(const InstanceIdent& instanceIdent, bool onlyExposedPorts, NetworkManager& networkManager);
 
     /**
+     * Removes network parameters.
+     *
+     * @param instanceIdent instance identifier.
+     * @param networkManager network manager.
+     * @return Error.
+     */
+    Error RemoveNetworkParams(const InstanceIdent& instanceIdent, NetworkManager& networkManager);
+
+    /**
      * Sends scheduled instances to node.
      *
      * @return Error.

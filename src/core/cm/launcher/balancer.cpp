@@ -379,17 +379,26 @@ Error Balancer::UpdateNetwork()
 
 Error Balancer::RemoveNetworkForDeletedInstances()
 {
-    const auto& mScheduledInstances = mInstanceManager->GetScheduledInstances();
+    const auto& scheduledInstances = mInstanceManager->GetScheduledInstances();
 
     for (const auto& instance : mInstanceManager->GetActiveInstances()) {
-        bool isScheduled = mScheduledInstances.ContainsIf(
+        bool isScheduled = scheduledInstances.ContainsIf(
             [&instance](const SharedPtr<Instance>& stashInst) { return stashInst.Get() == instance.Get(); });
 
         if (!isScheduled) {
             const auto& info = instance->GetInfo();
 
-            if (auto err = mNetworkManager->RemoveInstanceNetworkParameters(info.mInstanceIdent, info.mNodeID);
-                !err.IsNone()) {
+            if (info.mNodeID.IsEmpty()) {
+                // Instance has not been sent to any node(failed to schedule)
+                continue;
+            }
+
+            auto node = mNodeManager->FindNode(info.mNodeID);
+            if (!node) {
+                return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+            }
+
+            if (auto err = node->RemoveNetworkParams(info.mInstanceIdent, *mNetworkManager); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
