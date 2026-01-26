@@ -286,6 +286,25 @@ Error Node::SetupNetworkParams(const InstanceIdent& instanceID, bool onlyExposed
     return ErrorEnum::eNone;
 }
 
+Error Node::RemoveNetworkParams(const InstanceIdent& instanceID, NetworkManager& networkManager)
+{
+    auto sentInstance = mSentInstances.FindIf(
+        [&instanceID](const aos::InstanceInfo& item) { return static_cast<const InstanceIdent&>(item) == instanceID; });
+    if (sentInstance == mSentInstances.end()) {
+        return ErrorEnum::eNotFound;
+    }
+
+    if (sentInstance->mNetworkParameters.HasValue()) {
+        if (auto err = networkManager.RemoveInstanceNetworkParameters(instanceID, mInfo.mNodeID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        sentInstance->mNetworkParameters.Reset();
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error Node::SendScheduledInstances()
 {
     auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(&mAllocator);
