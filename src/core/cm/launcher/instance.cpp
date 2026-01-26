@@ -23,9 +23,16 @@ Instance::Instance(
     , mAllocator(allocator)
 {
     static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent;
-    mStatus.mError                       = ErrorEnum::eNone;
-    mStatus.mNodeID                      = info.mNodeID;
-    mStatus.mRuntimeID                   = info.mRuntimeID;
+
+    mStatus.mVersion        = info.mVersion;
+    mStatus.mPreinstalled   = false;
+    mStatus.mNodeID         = info.mNodeID;
+    mStatus.mRuntimeID      = info.mRuntimeID;
+    mStatus.mManifestDigest = info.mManifestDigest;
+    mStatus.mStateChecksum.Clear();
+    mStatus.mEnvVarsStatuses.Clear();
+    mStatus.mState = aos::InstanceStateEnum::eActivating;
+    mStatus.mError = ErrorEnum::eNone;
 }
 
 bool Instance::IsImageValid()

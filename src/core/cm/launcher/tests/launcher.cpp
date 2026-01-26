@@ -208,7 +208,8 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
 
 InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::string& nodeID,
     const std::string& runtimeID, aos::InstanceState state = aos::InstanceStateEnum::eFailed,
-    const Error& error = ErrorEnum::eTimeout, const std::string& version = "", bool preinstalled = false)
+    const Error& error = ErrorEnum::eTimeout, const std::string& version = "", bool preinstalled = false,
+    const std::string& manifestDigest = "")
 {
     InstanceStatus result;
 
@@ -219,6 +220,7 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::st
     result.mError                       = error;
     result.mVersion                     = version.c_str();
     result.mPreinstalled                = preinstalled;
+    result.mManifestDigest              = manifestDigest.c_str();
 
     if (!error.IsNone()) {
         result.mState = aos::InstanceStateEnum::eFailed;
@@ -1944,6 +1946,86 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
     // Stop launcher
     mLauncher.UnsubscribeListener(instanceStatusListener);
     ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
+TEST_F(CMLauncherTest, SetStatusOnStart)
+{
+    using namespace std::chrono_literals;
+
+    Config cfg;
+
+    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mNetworkManager.SetFailOnPrepare(true);
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    // Service config
+    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
+    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig(), "1.0.0");
+
+    mInstanceRunner.Init(mLauncher);
+
+    // Add two instances to storage
+    auto manifestDigest = BuildManifestDigest(cService1, cImageID1);
+    auto instance1
+        = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), manifestDigest, cRunnerRunc, cNodeIDLocalSM,
+            InstanceStateEnum::eActive, 5001, 0, Time::Now(), "1.0.0", false, "", SubjectTypeEnum::eGroup, 100);
+
+    auto instance2
+        = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 1), manifestDigest, cRunnerRunc, cNodeIDLocalSM,
+            InstanceStateEnum::eActive, 5001, 0, Time::Now(), "1.0.0", false, "", SubjectTypeEnum::eGroup, 100);
+
+    ASSERT_TRUE(mStorage.AddInstance(instance1).IsNone());
+    ASSERT_TRUE(mStorage.AddInstance(instance2).IsNone());
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
+                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    // Verify that both instances are activating
+    InstanceStatus expectedStatus1 = CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM,
+        cRunnerRunc, aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr());
+
+    InstanceStatus expectedStatus2 = CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1), cNodeIDLocalSM,
+        cRunnerRunc, aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr());
+
+    std::vector<InstanceStatus> expectedStatuses = {expectedStatus1, expectedStatus2};
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    ASSERT_TRUE(mLauncher.GetInstancesStatuses(*statuses).IsNone());
+    EXPECT_EQ(*statuses, Array<InstanceStatus>(expectedStatuses.data(), expectedStatuses.size()));
+
+    // Stop launcher and unsubscribe listener
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+    ASSERT_TRUE(mLauncher.UnsubscribeListener(instanceStatusListener).IsNone());
 }
 
 } // namespace aos::cm::launcher
