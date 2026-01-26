@@ -247,6 +247,59 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(LauncherTest, DoNotSendUpdateInstancesStatusesBeforeModuleStart)
+{
+    const std::vector cRuntime0Components = {
+        CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"), InstanceStateEnum::eInactive,
+            UpdateItemTypeEnum::eComponent, true),
+    };
+
+    const auto cPreinstalledComponent = static_cast<const InstanceIdent&>(cRuntime0Components[0]);
+
+    EXPECT_CALL(mRuntime0, Start).WillOnce(Invoke([&]() {
+        mLauncher.OnInstancesStatusesReceived(
+            Array<InstanceStatus>(cRuntime0Components.data(), cRuntime0Components.size()));
+
+        return ErrorEnum::eNone;
+    }));
+
+    std::promise<void> startInstancePromise;
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& info, InstanceStatus& status) {
+        EXPECT_EQ(static_cast<const InstanceIdent&>(info), cPreinstalledComponent);
+
+        status = cRuntime0Components[0];
+
+        if (startInstancePromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+            return ErrorEnum::eTimeout;
+        }
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, Time::cSeconds);
+    EXPECT_EQ(err, ErrorEnum::eTimeout) << tests::utils::ErrorToStr(err);
+
+    startInstancePromise.set_value();
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[0]);
+
+    EXPECT_CALL(mRuntime0, StopInstance(cPreinstalledComponent, _)).Times(0);
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 {
     const std::vector cStoredInfos = {
