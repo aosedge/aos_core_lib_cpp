@@ -61,10 +61,12 @@ Error Instance::UpdateStatus(const InstanceStatus& status)
     return ErrorEnum::eNone;
 }
 
-void Instance::SetError(const Error& err)
+void Instance::SetError(const Error& err, bool resetNodeID)
 {
-    mInfo.mPrevNodeID = mInfo.mNodeID;
-    mInfo.mNodeID     = "";
+    if (resetNodeID) {
+        mInfo.mPrevNodeID = mInfo.mNodeID;
+        mInfo.mNodeID     = "";
+    }
 
     mStatus.mError = err;
     mStatus.mState = aos::InstanceStateEnum::eFailed;

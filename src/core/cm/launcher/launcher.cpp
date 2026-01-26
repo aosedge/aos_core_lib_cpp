@@ -307,7 +307,8 @@ void Launcher::FailActivatingInstances()
 {
     for (auto& instance : mInstanceManager.GetActiveInstances()) {
         if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating) {
-            instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout));
+            // Keep node ID, because instance still scheduled, but node didn't send activating status.
+            instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout), false);
         }
     }
 }
