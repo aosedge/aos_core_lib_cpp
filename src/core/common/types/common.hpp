@@ -504,6 +504,7 @@ struct InstanceIdent {
     StaticString<cIDLen> mSubjectID;
     uint64_t             mInstance {};
     UpdateItemType       mType;
+    bool                 mPreinstalled {};
 
     /**
      * Compares instance ident.
@@ -537,7 +538,7 @@ struct InstanceIdent {
     bool operator==(const InstanceIdent& rhs) const
     {
         return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mInstance == rhs.mInstance
-            && mType == rhs.mType;
+            && mType == rhs.mType && mPreinstalled == rhs.mPreinstalled;
     }
 
     /**
@@ -558,8 +559,8 @@ struct InstanceIdent {
      */
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
-        return log << "{" << instanceIdent.mType << ":" << instanceIdent.mItemID << ":" << instanceIdent.mSubjectID
-                   << ":" << instanceIdent.mInstance << "}";
+        return log << "{" << instanceIdent.mType << ":" << instanceIdent.mPreinstalled << ":" << instanceIdent.mItemID
+                   << ":" << instanceIdent.mSubjectID << ":" << instanceIdent.mInstance << "}";
     }
 };
 
