@@ -128,6 +128,8 @@ Error Launcher::Start()
     mUpdatedNodes.Clear();
     mNewSubjects.SetValue(*subjects); // Check subjects after startup.
 
+    UpdateInstanceStatuses();
+
     if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
