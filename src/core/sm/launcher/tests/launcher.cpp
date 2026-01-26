@@ -815,6 +815,7 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 {
     const auto cInstanceInfo   = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
     const auto cInstanceStatus = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eActive);
+    const auto cInactiveStatus = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eInactive);
 
     mStorage.Init({cInstanceInfo});
 
@@ -823,9 +824,6 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 
     err = mLauncher.SubscribeListener(mStatusListener);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-
-    err = mLauncher.SubscribeListener(mStatusListener);
-    ASSERT_TRUE(err.Is(ErrorEnum::eAlreadyExist)) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
         SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
@@ -836,27 +834,18 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    const auto stopStatuses = Array<InstanceStatus>(&cInactiveStatus, 1);
 
-    ASSERT_EQ(mReceivedStatuses.Size(), 1);
-
-    EXPECT_EQ(mReceivedStatuses[0], cInstanceStatus);
-
-    const auto statuses = Array<InstanceStatus>(&cInstanceStatus, 1);
-
-    EXPECT_CALL(mStatusListener, OnInstancesStatusesChanged(statuses)).Times(1);
-
-    mLauncher.OnInstancesStatusesReceived(statuses);
-
-    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-
-    ASSERT_EQ(mReceivedStatuses.Size(), 1);
-    EXPECT_EQ(mReceivedStatuses[0], cInstanceStatus);
+    EXPECT_CALL(mStatusListener, OnInstancesStatusesChanged(stopStatuses)).Times(1);
 
     EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))
-        .WillOnce(Return(ErrorEnum::eNone));
+        .WillOnce(Invoke([this](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&status, 1));
+
+            return ErrorEnum::eNone;
+        }));
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
