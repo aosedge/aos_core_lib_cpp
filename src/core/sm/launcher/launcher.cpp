@@ -152,8 +152,10 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
             }
         }
 
-        if (auto sendErr = mSender->SendUpdateInstancesStatuses(statuses); err.IsNone() && !sendErr.IsNone()) {
-            err = AOS_ERROR_WRAP(sendErr);
+        if (!mFirstStart) {
+            if (auto sendErr = mSender->SendUpdateInstancesStatuses(statuses); err.IsNone() && !sendErr.IsNone()) {
+                err = AOS_ERROR_WRAP(sendErr);
+            }
         }
     }
 
@@ -378,7 +380,11 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
             if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
                 LOG_ERR() << "Failed to send node instances statuses" << Log::Field(err);
             }
+
+            return;
         }
+
+        LockGuard lock {mMutex};
 
         mFirstStart = false;
     });
