@@ -1090,7 +1090,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::CheckExistingBlob(const String& installPath, const BlobInfo& blobInfo)
+Error ImageManager::CheckExistingBlob(const String& installPath)
 {
     auto [installExists, checkInstallErr] = fs::FileExist(installPath);
     if (!checkInstallErr.IsNone()) {
@@ -1107,7 +1107,21 @@ Error ImageManager::CheckExistingBlob(const String& installPath, const BlobInfo&
         return AOS_ERROR_WRAP(err);
     }
 
-    if (fileInfo.mSHA256 == blobInfo.mSHA256) {
+    StaticString<oci::cDigestLen> fileName;
+    if (auto err = fs::BaseName(installPath, fileName); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
+    if (!expectedSHA256) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = fileName.HexToByteArray(*expectedSHA256); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (fileInfo.mSHA256 == *expectedSHA256) {
         return ErrorEnum::eAlreadyExist;
     }
 
@@ -1233,15 +1247,15 @@ Error ImageManager::DownloadBlob(const String& digest, const String& downloadPat
         return ErrorEnum::eCanceled;
     }
 
-    if (auto err = GetBlobInfo(digest, blobInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = CheckExistingBlob(installPath, blobInfo); !err.IsNone()) {
+    if (auto err = CheckExistingBlob(installPath); !err.IsNone()) {
         if (err == ErrorEnum::eAlreadyExist) {
             return err;
         }
 
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = GetBlobInfo(digest, blobInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

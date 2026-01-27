@@ -388,6 +388,85 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
 }
 
+TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
+{
+    StaticArray<UpdateItemInfo, 5>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 5>             statuses;
+
+    UpdateItemInfo item;
+    item.mItemID      = "service1";
+    item.mVersion     = "1.0.0";
+    item.mIndexDigest = "sha256:aabb";
+    itemsInfo.PushBack(item);
+
+    EXPECT_CALL(mStorageMock, GetItemsInfo(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    fs::MakeDirAll(blobsDir);
+
+    auto indexPath    = fs::JoinPath(blobsDir, "aabb");
+    auto manifestPath = fs::JoinPath(blobsDir, "ccdd");
+    auto configPath   = fs::JoinPath(blobsDir, "eeff");
+    auto layerPath    = fs::JoinPath(blobsDir, "1122");
+
+    std::ofstream(indexPath.CStr()).close();
+    std::ofstream(manifestPath.CStr()).close();
+    std::ofstream(configPath.CStr()).close();
+    std::ofstream(layerPath.CStr()).close();
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .Times(4)
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
+            size_t lastSlashPos = 0;
+            for (size_t i = 0; i < path.Size(); i++) {
+                if (path[i] == '/') {
+                    lastSlashPos = i;
+                }
+            }
+
+            String digest(path.CStr() + lastSlashPos + 1);
+
+            digest.HexToByteArray(info.mSHA256);
+            info.mSize = 100;
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
+        oci::IndexContentDescriptor manifest;
+        manifest.mDigest = "sha256:ccdd";
+        index.mManifests.PushBack(manifest);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
+            manifest.mConfig.mDigest = "sha256:eeff";
+
+            oci::ContentDescriptor layer;
+            layer.mDigest = "sha256:1122";
+            manifest.mLayers.PushBack(layer);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+
+    EXPECT_TRUE(err.IsNone());
+    ASSERT_EQ(statuses.Size(), 1);
+    EXPECT_EQ(statuses[0].mItemID, item.mItemID);
+    EXPECT_EQ(statuses[0].mVersion, item.mVersion);
+    EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+}
+
 TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 {
     StaticArray<UpdateItemInfo, 5>               itemsInfo;
