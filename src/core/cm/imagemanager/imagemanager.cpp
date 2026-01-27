@@ -432,11 +432,11 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
     return ErrorEnum::eNone;
 }
 
-RetWithError<size_t> ImageManager::RemoveItem(const String& id)
+RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& version)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Remove item" << Log::Field("id", id);
+    LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
 
     auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
     if (!storedItems) {
@@ -447,8 +447,9 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id)
         return {0, AOS_ERROR_WRAP(err)};
     }
 
-    auto itemIt = storedItems->FindIf(
-        [&id](const auto& item) { return item.mItemID == id && item.mState == ItemStateEnum::eRemoved; });
+    auto itemIt = storedItems->FindIf([&id, &version](const auto& item) {
+        return item.mItemID == id && item.mVersion == version && item.mState == ItemStateEnum::eRemoved;
+    });
 
     if (itemIt == storedItems->end()) {
         return {0, ErrorEnum::eNotFound};
@@ -1388,8 +1389,10 @@ void ImageManager::RegisterOutdatedItems(const Array<ItemInfo>& items)
 {
     for (const auto& item : items) {
         if (item.mState == ItemStateEnum::eRemoved) {
-            if (auto err = mInstallSpaceAllocator->AddOutdatedItem(item.mItemID, item.mTimestamp); !err.IsNone()) {
-                LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", item.mItemID) << Log::Field(err);
+            if (auto err = mInstallSpaceAllocator->AddOutdatedItem(item.mItemID, item.mVersion, item.mTimestamp);
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", item.mItemID)
+                          << Log::Field("version", item.mVersion) << Log::Field(err);
             }
         }
     }
@@ -1739,7 +1742,8 @@ Error ImageManager::SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, co
                           << Log::Field("version", storedItem.mVersion) << Log::Field(err);
             }
 
-            if (auto err = mInstallSpaceAllocator->AddOutdatedItem(storedItem.mItemID, now); !err.IsNone()) {
+            if (auto err = mInstallSpaceAllocator->AddOutdatedItem(storedItem.mItemID, storedItem.mVersion, now);
+                !err.IsNone()) {
                 LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", storedItem.mItemID)
                           << Log::Field(err);
             }

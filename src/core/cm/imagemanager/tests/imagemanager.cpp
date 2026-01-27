@@ -1359,11 +1359,13 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
             return ErrorEnum::eNone;
         }));
 
-    EXPECT_CALL(mInstallSpaceAllocatorMock, AddOutdatedItem(_, _)).WillOnce(Invoke([](const String& id, const Time&) {
-        EXPECT_EQ(id, "service1");
+    EXPECT_CALL(mInstallSpaceAllocatorMock, AddOutdatedItem(_, _, _))
+        .WillOnce(Invoke([](const String& id, const String& version, const Time&) {
+            EXPECT_EQ(id, "service1");
+            EXPECT_EQ(version, "1.0.0");
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     auto err = mImageManager.InstallUpdateItems(itemsInfo, statuses);
 
@@ -1515,7 +1517,7 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
 
     EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
 
-    auto [totalSize, err] = mImageManager.RemoveItem("service1");
+    auto [totalSize, err] = mImageManager.RemoveItem("service1", "1.0.0");
 
     EXPECT_TRUE(err.IsNone());
     EXPECT_GT(totalSize, 0);

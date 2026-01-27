@@ -164,7 +164,7 @@ public:
      * @param id item id.
      * @return RetWithError<size_t>.
      */
-    RetWithError<size_t> RemoveItem(const String& id) override;
+    RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
 
 private:
     static constexpr auto cBlobsDirName = "blobs";
