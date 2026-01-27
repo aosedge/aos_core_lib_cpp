@@ -101,9 +101,10 @@ public:
      * @param timestamp item timestamp.
      * @return Error.
      */
-    Error AddOutdatedItem(const String& id, const Time& timestamp) override
+    Error AddOutdatedItem(const String& id, const String& version, const Time& timestamp) override
     {
         (void)id;
+        (void)version;
         (void)timestamp;
 
         return ErrorEnum::eNone;
@@ -113,11 +114,13 @@ public:
      * Restores outdated item.
      *
      * @param id item id.
+     * @param version item version.
      * @return Error.
      */
-    Error RestoreOutdatedItem(const String& id) override
+    Error RestoreOutdatedItem(const String& id, const String& version) override
     {
         (void)id;
+        (void)version;
 
         return ErrorEnum::eNone;
     }

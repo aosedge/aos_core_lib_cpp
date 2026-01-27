@@ -165,8 +165,8 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 100, &mRemover).IsNone());
 
     std::vector<std::string> removedFiles;
-    EXPECT_CALL(mRemover, RemoveItem(testing::_))
-        .WillRepeatedly(testing::Invoke([&removedFiles, &outdatedFiles](const String& id) {
+    EXPECT_CALL(mRemover, RemoveItem(testing::_, testing::_))
+        .WillRepeatedly(testing::Invoke([&removedFiles, &outdatedFiles](const String& id, const String&) {
             removedFiles.push_back(id.CStr());
 
             size_t size = 0;
@@ -181,7 +181,7 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
         }));
 
     for (const auto& file : outdatedFiles) {
-        ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem(file.name, file.timestamp).IsNone());
+        ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem(file.name, "", file.timestamp).IsNone());
     }
 
     EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
@@ -220,9 +220,9 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     ASSERT_FALSE(err2.IsNone());
     ASSERT_EQ(space2.Get(), nullptr);
 
-    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[0].name).IsNone());
-    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[4].name).IsNone());
-    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[5].name).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[0].name, "").IsNone());
+    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[4].name, "").IsNone());
+    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem(outdatedFiles[5].name, "").IsNone());
 
     EXPECT_CALL(mPlatformFS, GetDirSize(mPath)).WillOnce(Return(RetWithError<size_t>(remainingSize, ErrorEnum::eNone)));
 

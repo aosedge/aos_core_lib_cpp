@@ -18,7 +18,7 @@ namespace aos::spaceallocator {
  */
 class ItemRemoverMock : public ItemRemoverItf {
 public:
-    MOCK_METHOD(RetWithError<size_t>, RemoveItem, (const String& id), (override));
+    MOCK_METHOD(RetWithError<size_t>, RemoveItem, (const String&, const String&), (override));
 };
 
 /**
@@ -28,7 +28,7 @@ class SpaceMock : public SpaceItf {
 public:
     MOCK_METHOD(Error, Accept, (), (override));
     MOCK_METHOD(Error, Release, (), (override));
-    MOCK_METHOD(Error, Resize, (size_t size), (override));
+    MOCK_METHOD(Error, Resize, (size_t), (override));
     MOCK_METHOD(size_t, Size, (), (const, override));
 };
 
@@ -37,10 +37,10 @@ public:
  */
 class SpaceAllocatorMock : public SpaceAllocatorItf {
 public:
-    MOCK_METHOD(RetWithError<UniquePtr<SpaceItf>>, AllocateSpace, (size_t size), (override));
-    MOCK_METHOD(void, FreeSpace, (size_t size), (override));
-    MOCK_METHOD(Error, AddOutdatedItem, (const String& id, const Time& timestamp), (override));
-    MOCK_METHOD(Error, RestoreOutdatedItem, (const String& id), (override));
+    MOCK_METHOD(RetWithError<UniquePtr<SpaceItf>>, AllocateSpace, (size_t), (override));
+    MOCK_METHOD(void, FreeSpace, (size_t), (override));
+    MOCK_METHOD(Error, AddOutdatedItem, (const String&, const String&, const Time&), (override));
+    MOCK_METHOD(Error, RestoreOutdatedItem, (const String&, const String&), (override));
     MOCK_METHOD(Error, AllocateDone, (), (override));
 };
 

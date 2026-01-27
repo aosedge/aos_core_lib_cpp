@@ -82,6 +82,7 @@ struct Partition;
  */
 struct OutdatedItem {
     StaticString<cIDLen>                    mID;
+    StaticString<cVersionLen>               mVersion;
     SpaceAllocatorItf*                      mAllocator {};
     StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
     Partition*                              mPartition {};
@@ -239,7 +240,7 @@ public:
 
             auto& oldestItem = mOutdatedItems[0];
 
-            auto [size, removeErr] = oldestItem.mRemover->RemoveItem(oldestItem.mID);
+            auto [size, removeErr] = oldestItem.mRemover->RemoveItem(oldestItem.mID, oldestItem.mVersion);
             if (!removeErr.IsNone()) {
                 return removeErr;
             }
@@ -259,14 +260,15 @@ public:
      * Remove outdated item.
      *
      * @param id item id.
+     * @param version item version.
      * @return void.
      */
-    void RestoreOutdatedItem(const String& id)
+    void RestoreOutdatedItem(const String& id, const String& version)
     {
         LockGuard lock {mMutex};
 
         for (size_t i = 0; i < mOutdatedItems.Size(); i++) {
-            if (mOutdatedItems[i].mID == id) {
+            if (mOutdatedItems[i].mID == id && mOutdatedItems[i].mVersion == version) {
                 mOutdatedItems.Erase(mOutdatedItems.begin() + i);
 
                 break;
@@ -296,7 +298,7 @@ private:
         for (; freedSize < size && i < mOutdatedItems.Size(); i++) {
             auto& item = mOutdatedItems[i];
 
-            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID);
+            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID, item.mVersion);
             if (!err.IsNone()) {
                 return {freedSize, err};
             }
@@ -469,17 +471,20 @@ public:
      * Adds outdated item.
      *
      * @param id item id.
+     * @param version item version.
      * @param timestamp item timestamp.
      * @return Error.
      */
-    Error AddOutdatedItem(const String& id, const Time& timestamp) override
+    Error AddOutdatedItem(const String& id, const String& version, const Time& timestamp) override
     {
         if (mRemover == nullptr) {
             return Error(ErrorEnum::eNotFound, "no item remover");
         }
 
         OutdatedItem item;
+
         item.mID        = id;
+        item.mVersion   = version;
         item.mPartition = mPartition;
         item.mRemover   = mRemover;
         item.mTimestamp = timestamp;
@@ -495,11 +500,12 @@ public:
      * Restores outdated item.
      *
      * @param id item id.
+     * @param version item version.
      * @return Error.
      */
-    Error RestoreOutdatedItem(const String& id) override
+    Error RestoreOutdatedItem(const String& id, const String& version) override
     {
-        mPartition->RestoreOutdatedItem(id);
+        mPartition->RestoreOutdatedItem(id, version);
 
         return ErrorEnum::eNone;
     }
@@ -586,7 +592,7 @@ private:
                 continue;
             }
 
-            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID);
+            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID, item.mVersion);
             if (!err.IsNone()) {
                 return {freedSize, err};
             }
