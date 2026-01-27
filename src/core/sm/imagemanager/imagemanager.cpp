@@ -42,7 +42,8 @@ Error SplitDigest(const String& digest, String& alg, String& hash)
 
 Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
-    fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler)
+    fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
+    StorageItf& storage)
 {
     LOG_DBG() << "Init image manager";
 
@@ -53,6 +54,7 @@ Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProv
     mFileInfoProvider = &fileInfoProvider;
     mOCISpec          = &ociSpec;
     mImageHandler     = &imageHandler;
+    mStorage          = &storage;
 
     LOG_DBG() << "Config" << Log::Field("imagePath", mConfig.mImagePath) << Log::Field("partLimit", mConfig.mPartLimit)
               << Log::Field("updateItemTTL", mConfig.mUpdateItemTTL)
@@ -71,10 +73,27 @@ Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProv
 
 Error ImageManager::GetAllInstalledItems(Array<UpdateItemStatus>& statuses) const
 {
+    LockGuard lock {mMutex};
+
     LOG_DBG() << "Get all installed items";
 
-    for (const auto& status : mInstalledItems) {
-        if (auto err = statuses.PushBack(status); !err.IsNone()) {
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        if (auto err
+            = statuses.PushBack(UpdateItemStatus {itemData.mID, itemData.mType, itemData.mVersion, itemData.mState});
+            !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -156,18 +175,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
         }
     }
 
-    auto it = mInstalledItems.FindIf([&itemInfo](const UpdateItemStatus& status) {
-        return status.mID == itemInfo.mID && status.mVersion == itemInfo.mVersion;
-    });
-    if (it != mInstalledItems.end()) {
-        *it = UpdateItemStatus {itemInfo.mID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eInstalled};
-
-        return ErrorEnum::eNone;
-    }
-
-    if (auto err = mInstalledItems.PushBack(
-            UpdateItemStatus {itemInfo.mID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eInstalled});
-        !err.IsNone()) {
+    if (auto err = StoreUpdateItem(itemInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -178,13 +186,22 @@ Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version
 {
     LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    auto it = mInstalledItems.FindIf([&itemID, &version](const UpdateItemStatus& status) {
-        return status.mID == itemID && status.mVersion == version;
-    });
-    if (it != mInstalledItems.end()) {
-        mInstalledItems.Erase(it);
-    } else {
+    StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
+
+    if (auto err = mStorage->GetUpdateItem(itemID, itemData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == version; });
+    if (it == itemData.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    it->mState     = ItemStateEnum::eRemoved;
+    it->mTimestamp = Time::Now();
+
+    if (auto err = mStorage->UpdateUpdateItem(*it); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -236,9 +253,9 @@ Error ImageManager::GetLayerPath(const String& digest, String& path) const
  * Private
  **********************************************************************************************************************/
 
-RetWithError<size_t> ImageManager::RemoveItem(const String& id)
+RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& version)
 {
-    LOG_DBG() << "Remove item" << Log::Field("id", id);
+    LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
 
     return 0;
 }
@@ -663,6 +680,44 @@ Error ImageManager::ReleaseInProgressBlob(const String& digest)
     }
 
     if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::AddNewUpdateItem(const UpdateItemInfo& itemInfo)
+{
+    if (auto err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+            itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
+{
+    StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
+    Error                                            err;
+
+    if (err = mStorage->GetUpdateItem(itemInfo.mID, itemData); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err.Is(ErrorEnum::eNotFound)) {
+        return AddNewUpdateItem(itemInfo);
+    }
+
+    auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
+    if (it == itemData.end()) {
+        return AddNewUpdateItem(itemInfo);
+    }
+
+    if (err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+            itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

@@ -16,6 +16,7 @@
 #include "itf/imagehandler.hpp"
 #include "itf/imagemanager.hpp"
 #include "itf/iteminfoprovider.hpp"
+#include "itf/storage.hpp"
 
 namespace aos::sm::imagemanager {
 
@@ -38,11 +39,13 @@ public:
      * @param fileInfoProvider file info provider.
      * @param ociSpec OCI spec interface.
      * @param imageHandler image handler.
+     * @param storage image manager storage.
      * @return Error.
      */
     Error Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
         spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
-        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler);
+        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
+        StorageItf& storage);
 
     /**
      * Returns all installed update items statuses.
@@ -93,10 +96,12 @@ private:
     static constexpr auto cUnpackedLayerFolder = "layer";
     static constexpr auto cDigestFile          = "digest";
     static constexpr auto cSizeFile            = "size";
+    static constexpr auto cMaxNumItemVersions  = 2;
     static constexpr auto cAllocatorSize
-        = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig));
+        = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig))
+        + sizeof(UpdateItemDataStaticArray);
 
-    RetWithError<size_t> RemoveItem(const String& id) override;
+    RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
 
     Error CreateBlobPath(const String& digest, String& path) const;
     Error CreateLayerPath(const String& digest, String& path) const;
@@ -111,6 +116,8 @@ private:
     void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
     Error WaitForInProgressBlob(const String& digest);
     Error ReleaseInProgressBlob(const String& digest);
+    Error AddNewUpdateItem(const UpdateItemInfo& itemInfo);
+    Error StoreUpdateItem(const UpdateItemInfo& itemInfo);
 
     Config                             mConfig;
     BlobInfoProviderItf*               mBlobInfoProvider {};
@@ -119,12 +126,12 @@ private:
     fs::FileInfoProviderItf*           mFileInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
     ImageHandlerItf*                   mImageHandler {};
+    StorageItf*                        mStorage {};
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    mutable StaticAllocator<cAllocatorSize> mAllocator;
 
-    Mutex                                                             mMutex;
+    mutable Mutex                                                     mMutex;
     ConditionalVariable                                               mCV;
-    StaticList<UpdateItemStatus, cMaxNumUpdateItems>                  mInstalledItems;
     StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mInProgressBlobs;
 };
 
