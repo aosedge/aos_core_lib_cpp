@@ -278,25 +278,13 @@ TEST_F(CMNodeInfoProviderTest, NodeWithSMComponent)
         EXPECT_EQ(receivedInfo->mState, NodeStateEnum::eProvisioned);
         EXPECT_TRUE(receivedInfo->mIsConnected);
 
-        // On SM disconnection, state should go back to error once timeout expires
+        // On SM disconnection, an immediate notification should be sent with isConnected = false
 
         mNodeInfoProvider.OnSMDisconnected(nodeInfo->mNodeID, ErrorEnum::eNone);
         receivedInfo = std::make_unique<UnitNodeInfo>();
         EXPECT_TRUE(mListener.Wait(Time::cSeconds * 2, *receivedInfo)) << "Timeout waiting for node info change";
         EXPECT_STREQ(receivedInfo->mNodeID.CStr(), nodeInfo->mNodeID.CStr());
-        EXPECT_EQ(receivedInfo->mState, NodeStateEnum::eError);
-
-        // Wait for SM timeout to expire
-        std::this_thread::sleep_for(std::chrono::milliseconds(mConfig.mSMConnectionTimeout.Milliseconds()));
-
-        // Now state should change to error due to SM timeout
-
-        receivedInfo = std::make_unique<UnitNodeInfo>();
-
-        err = mNodeInfoProvider.GetNodeInfo(nodeInfo->mNodeID, *receivedInfo);
-        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-        EXPECT_STREQ(receivedInfo->mNodeID.CStr(), nodeInfo->mNodeID.CStr());
-        EXPECT_EQ(receivedInfo->mState, NodeStateEnum::eError);
+        EXPECT_FALSE(receivedInfo->mIsConnected);
     }
 
     err = mNodeInfoProvider.Stop();
