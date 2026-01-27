@@ -37,6 +37,11 @@ Error NetworkManager::PrepareInstanceNetworkParameters(const InstanceIdent& inst
         return ErrorEnum::eNone;
     }
 
+    if (!onlyExposedPorts && !it->mSecond.mExposedPorts.IsEmpty()) {
+        // Skip as exposed ports are not allowed for this instance
+        return ErrorEnum::eNone;
+    }
+
     result.EmplaceValue();
 
     return mNetMgr->PrepareInstanceNetworkParameters(instanceIdent, networkID, nodeID, it->mSecond, result.GetValue());
