@@ -162,6 +162,7 @@ public:
      * Removes item.
      *
      * @param id item id.
+     * @param version item version.
      * @return RetWithError<size_t>.
      */
     RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
