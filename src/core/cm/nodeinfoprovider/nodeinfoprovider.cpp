@@ -265,7 +265,7 @@ void NodeInfoProvider::NotifyListeners(const NodeInfoCache& info)
 
 Error NodeInfoProvider::SendNotification(const NodeInfoCache& info, bool sendImmediately)
 {
-    if (sendImmediately || !info.IsConnected()) {
+    if (!sendImmediately && !info.IsConnected()) {
         if (auto err = ScheduleNotification(info.GetNodeID()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
