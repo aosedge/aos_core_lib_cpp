@@ -20,6 +20,7 @@
 
 #include "mocks/blobinfoprovidermock.hpp"
 #include "mocks/imagehandlermock.hpp"
+#include "stubs/storagestub.hpp"
 
 using namespace testing;
 
@@ -163,7 +164,7 @@ protected:
         Config config {cTestImagePath, 0, 5 * Time::cSeconds, 1 * Time::cSeconds};
 
         auto err = mImageManager.Init(config, mBlobInfoProviderMock, mSpaceAllocatorMock, mDownloaderMock,
-            mFileInfoProviderMock, mOCISpecMock, mImageHandlerMock);
+            mFileInfoProviderMock, mOCISpecMock, mImageHandlerMock, mStorageStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize image manager: " << tests::utils::ErrorToStr(err);
 
         EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfo(_, _))
@@ -211,6 +212,7 @@ protected:
     NiceMock<fs::FileInfoProviderMock>                     mFileInfoProviderMock;
     NiceMock<oci::OCISpecMock>                             mOCISpecMock;
     NiceMock<ImageHandlerMock>                             mImageHandlerMock;
+    StorageStub                                            mStorageStub;
     StaticAllocator<1 * sizeof(spaceallocator::SpaceMock)> mAllocator;
 };
 
@@ -442,7 +444,9 @@ TEST_F(ImageManagerTest, GetAllInstalledItems)
         UpdateItemStatus status
             = {installItems[i].mID, installItems[i].mType, installItems[i].mVersion, ItemStateEnum::eInstalled};
 
-        EXPECT_EQ((*installedItems)[i], status);
+        EXPECT_NE(installedItems->Find(status), installedItems->end())
+            << "Installed item not found: " << (*installedItems)[i].mID.CStr() << " "
+            << (*installedItems)[i].mVersion.CStr();
     }
 }
 
