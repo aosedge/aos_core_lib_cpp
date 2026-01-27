@@ -208,7 +208,7 @@ private:
     Error DownloadBlob(const String& digest, const String& downloadPath, const String& installPath, BlobInfo& blobInfo,
         UniquePtr<spaceallocator::SpaceItf>& downloadingSpace);
     Error GetBlobInfo(const String& digest, BlobInfo& blobInfo);
-    Error CheckExistingBlob(const String& installPath, const BlobInfo& blobInfo);
+    Error CheckExistingBlob(const String& installPath);
     Error PrepareDownloadSpace(const String& downloadPath, const BlobInfo& blobInfo, size_t& partialDownloadSize,
         UniquePtr<spaceallocator::SpaceItf>& downloadingSpace);
     Error PerformDownload(const BlobInfo& blobInfo, const String& downloadPath, size_t partialDownloadSize,
