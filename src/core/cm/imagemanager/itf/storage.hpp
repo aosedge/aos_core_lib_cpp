@@ -82,21 +82,21 @@ public:
     virtual Error UpdateItemState(const String& id, const String& version, ItemState state, Time timestamp = {}) = 0;
 
     /**
-     * Gets items info.
+     * Gets all items info.
      *
      * @param items Items info.
      * @return Error.
      */
-    virtual Error GetItemsInfo(Array<ItemInfo>& items) = 0;
+    virtual Error GetAllItemsInfos(Array<ItemInfo>& items) = 0;
 
     /**
      * Gets items info by ID.
      *
-     * @param itemID Item ID.
+     * @param id Item ID.
      * @param items Items info.
      * @return Error.
      */
-    virtual Error GetItemsInfos(const String& itemID, Array<ItemInfo>& items) = 0;
+    virtual Error GetItemInfos(const String& id, Array<ItemInfo>& items) = 0;
 };
 
 } // namespace aos::cm::imagemanager

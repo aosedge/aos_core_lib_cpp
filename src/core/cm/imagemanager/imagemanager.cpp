@@ -38,7 +38,7 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -128,7 +128,7 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -206,7 +206,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -216,7 +216,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
 
     storedItems->Clear();
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -226,7 +226,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
 
     storedItems->Clear();
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -236,7 +236,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
 
     storedItems->Clear();
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -286,7 +286,7 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
         return ErrorEnum::eNoMemory;
     }
 
-    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -343,7 +343,7 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
         return ErrorEnum::eNoMemory;
     }
 
-    if (auto err = mStorage->GetItemsInfos(itemID, *items); !err.IsNone()) {
+    if (auto err = mStorage->GetItemInfos(itemID, *items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -414,7 +414,7 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
         return ErrorEnum::eNoMemory;
     }
 
-    if (auto err = mStorage->GetItemsInfos(itemID, *items); !err.IsNone()) {
+    if (auto err = mStorage->GetItemInfos(itemID, *items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -443,7 +443,7 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
@@ -490,7 +490,7 @@ Error ImageManager::RemoveOutdatedItems()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mStorage->GetItemsInfo(*items); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*items); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1580,7 +1580,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (auto err = mStorage->GetItemsInfo(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
@@ -1745,7 +1745,7 @@ Error ImageManager::SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, co
             if (auto err = mInstallSpaceAllocator->AddOutdatedItem(storedItem.mItemID, storedItem.mVersion, now);
                 !err.IsNone()) {
                 LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", storedItem.mItemID)
-                          << Log::Field(err);
+                          << Log::Field("version", storedItem.mVersion) << Log::Field(err);
             }
 
             NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
