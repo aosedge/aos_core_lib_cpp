@@ -10,6 +10,7 @@
 #include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
+#include <core/common/tools/timer.hpp>
 
 #include "config.hpp"
 #include "itf/blobinfoprovider.hpp"
@@ -46,6 +47,20 @@ public:
         spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
         fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
         StorageItf& storage);
+
+    /**
+     * Starts image manager.
+     *
+     * @return Error.
+     */
+    Error Start();
+
+    /**
+     * Stops image manager.
+     *
+     * @return Error.
+     */
+    Error Stop();
 
     /**
      * Returns all installed update items statuses.
@@ -118,6 +133,10 @@ private:
     Error ReleaseInProgressBlob(const String& digest);
     Error AddNewUpdateItem(const UpdateItemInfo& itemInfo);
     Error StoreUpdateItem(const UpdateItemInfo& itemInfo);
+    Error RemoveUpdateItem(const UpdateItemData& itemData);
+    Error UpdateOutdatedItems();
+    Error HandleOutdatedItems();
+    void  ProcessOutdatedItems();
 
     Config                             mConfig;
     BlobInfoProviderItf*               mBlobInfoProvider {};
@@ -130,9 +149,13 @@ private:
 
     mutable StaticAllocator<cAllocatorSize> mAllocator;
 
+    Timer                                                             mTimer;
     mutable Mutex                                                     mMutex;
     ConditionalVariable                                               mCV;
     StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mInProgressBlobs;
+    Thread<>                                                          mThread;
+    bool                                                              mClose {};
+    bool                                                              mProcessOutdatedItems {};
 };
 
 /** @}*/

@@ -32,7 +32,9 @@ namespace {
  * Consts
  **********************************************************************************************************************/
 
-constexpr auto cTestImagePath = "/tmp/imagemanager_test/images";
+constexpr auto cTestImagePath        = "/tmp/imagemanager_test/images";
+constexpr auto cUpdateItemTTL        = 10 * Time::cSeconds;
+constexpr auto cRemoveOutdatedPeriod = 5 * Time::cSeconds;
 
 /***********************************************************************************************************************
  * Static
@@ -161,7 +163,7 @@ protected:
 
     void SetUp() override
     {
-        Config config {cTestImagePath, 0, 5 * Time::cSeconds, 1 * Time::cSeconds};
+        Config config {cTestImagePath, 0, cUpdateItemTTL, cRemoveOutdatedPeriod};
 
         auto err = mImageManager.Init(config, mBlobInfoProviderMock, mSpaceAllocatorMock, mDownloaderMock,
             mFileInfoProviderMock, mOCISpecMock, mImageHandlerMock, mStorageStub);
@@ -448,6 +450,98 @@ TEST_F(ImageManagerTest, GetAllInstalledItems)
             << "Installed item not found: " << (*installedItems)[i].mID.CStr() << " "
             << (*installedItems)[i].mVersion.CStr();
     }
+}
+
+TEST_F(ImageManagerTest, RemoveOutdatedItems)
+{
+    std::vector<UpdateItemData> initialItems = {
+        {"item1", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved,
+            Time::Now().Add(-(cUpdateItemTTL + 1 * Time::cSeconds))},
+        {"item2", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved,
+            Time::Now().Add(-(cUpdateItemTTL + 1 * Time::cSeconds))},
+        {"item3", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved, Time::Now()},
+        {"item4", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved, Time::Now()},
+    };
+
+    mStorageStub.Init(initialItems);
+
+    // Expect adding outdated items to space allocator for all deleted items
+
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(String("item1"), String("1.0.0"), _)).Times(1);
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(String("item2"), String("1.0.0"), _)).Times(1);
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(String("item3"), String("1.0.0"), _)).Times(1);
+    EXPECT_CALL(mSpaceAllocatorMock, AddOutdatedItem(String("item4"), String("1.0.0"), _)).Times(1);
+
+    // Expect restoring outdated items for first two removed items just after start
+
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String("item1"), String("1.0.0"))).Times(1);
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String("item2"), String("1.0.0"))).Times(1);
+
+    std::vector<std::future<UpdateItemData>> futures;
+
+    for (size_t i = 0; i < 2; ++i) {
+        futures.emplace_back(mStorageStub.GetRemoveFuture());
+    }
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.IsNone()) << "Failed to start image manager: " << tests::utils::ErrorToStr(err);
+
+    // Verify that first two removed items are removed just after start
+
+    for (size_t i = 0; i < 2; ++i) {
+        ASSERT_EQ(futures[i].wait_for(std::chrono::milliseconds(cUpdateItemTTL.Milliseconds() * 2)),
+            std::future_status::ready);
+
+        auto itemData = futures[i].get();
+
+        EXPECT_TRUE(itemData.mID == "item1" || itemData.mID == "item2")
+            << "Unexpected item ID: " << itemData.mID.CStr();
+    }
+
+    // Verify that last two removed items are still present in storage
+
+    auto storedItems = std::make_unique<UpdateItemDataStaticArray>();
+
+    err = mStorageStub.GetAllUpdateItems(*storedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all stored items: " << tests::utils::ErrorToStr(err);
+
+    for (const auto& item : *storedItems) {
+        EXPECT_TRUE(item.mID == "item3" || item.mID == "item4") << "Unexpected item ID: " << item.mID.CStr();
+    }
+
+    // Expect restoring outdated items for last two removed items after remove outdated period
+
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String("item3"), String("1.0.0"))).Times(1);
+    EXPECT_CALL(mSpaceAllocatorMock, RestoreOutdatedItem(String("item4"), String("1.0.0"))).Times(1);
+
+    // Verify that last two removed items are removed after remove outdated period
+
+    futures.clear();
+
+    for (size_t i = 0; i < 2; ++i) {
+        futures.emplace_back(mStorageStub.GetRemoveFuture());
+    }
+
+    for (size_t i = 0; i < 2; ++i) {
+        ASSERT_EQ(futures[i].wait_for(std::chrono::milliseconds(cUpdateItemTTL.Milliseconds() * 2)),
+            std::future_status::ready);
+
+        auto itemData = futures[i].get();
+
+        EXPECT_TRUE(itemData.mID == "item3" || itemData.mID == "item4")
+            << "Unexpected item ID: " << itemData.mID.CStr();
+    }
+
+    // Verify that no stored items are present in storage
+
+    storedItems->Clear();
+
+    err = mStorageStub.GetAllUpdateItems(*storedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all stored items: " << tests::utils::ErrorToStr(err);
+    EXPECT_TRUE(storedItems->IsEmpty()) << "Expected no stored items after removal";
+
+    err = mImageManager.Stop();
+    EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
 }
 
 } // namespace aos::sm::imagemanager

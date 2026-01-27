@@ -71,6 +71,64 @@ Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProv
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::Start()
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Start image manager";
+
+    if (auto err = UpdateOutdatedItems(); !err.IsNone()) {
+        LOG_ERR() << "Can't update outdated items" << Log::Field(err);
+    }
+
+    mProcessOutdatedItems = true;
+    mCV.NotifyAll();
+
+    if (auto err = mTimer.Start(
+            mConfig.mRemoveOutdatedPeriod,
+            [this](void*) {
+                LockGuard lock {mMutex};
+
+                mProcessOutdatedItems = true;
+                mCV.NotifyAll();
+            },
+            false);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto err = mThread.Run([this](void*) { ProcessOutdatedItems(); });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::Stop()
+{
+    Error stopErr;
+
+    {
+        LockGuard lock {mMutex};
+
+        LOG_DBG() << "Stop image manager";
+
+        if (auto err = mTimer.Stop(); !err.IsNone() && stopErr.IsNone()) {
+            stopErr = AOS_ERROR_WRAP(err);
+        }
+
+        mClose = true;
+        mCV.NotifyAll();
+    }
+
+    if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    return stopErr;
+}
+
 Error ImageManager::GetAllInstalledItems(Array<UpdateItemStatus>& statuses) const
 {
     LockGuard lock {mMutex};
@@ -200,6 +258,11 @@ Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version
     it->mState     = ItemStateEnum::eRemoved;
     it->mTimestamp = Time::Now();
 
+    if (auto err = mSpaceAllocator->AddOutdatedItem(itemID, version, it->mTimestamp); !err.IsNone()) {
+        LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version)
+                  << Log::Field(err);
+    }
+
     if (auto err = mStorage->UpdateUpdateItem(*it); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -255,7 +318,14 @@ Error ImageManager::GetLayerPath(const String& digest, String& path) const
 
 RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& version)
 {
+    LockGuard lock {mMutex};
+
     LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
+
+    if (auto err = mStorage->RemoveUpdateItem(id, version); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove update item" << Log::Field("itemID", id) << Log::Field("version", version)
+                  << Log::Field(err);
+    }
 
     return 0;
 }
@@ -722,6 +792,106 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     return ErrorEnum::eNone;
+}
+
+Error ImageManager::RemoveUpdateItem(const UpdateItemData& itemData)
+{
+    LOG_INF() << "Remove update item" << Log::Field("itemID", itemData.mID) << Log::Field("version", itemData.mVersion)
+              << Log::Field("state", itemData.mState);
+
+    if (auto err = mStorage->RemoveUpdateItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mSpaceAllocator->RestoreOutdatedItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::UpdateOutdatedItems()
+{
+    LOG_DBG() << "Update outdated items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eRemoved) {
+            continue;
+        }
+
+        if (auto err = mSpaceAllocator->AddOutdatedItem(itemData.mID, itemData.mVersion, itemData.mTimestamp);
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", itemData.mID) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::HandleOutdatedItems()
+{
+    LOG_DBG() << "Handle outdated items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto now = Time::Now();
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eRemoved || now.Sub(itemData.mTimestamp) < mConfig.mUpdateItemTTL) {
+            continue;
+        }
+
+        if (auto err = RemoveUpdateItem(itemData); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove outdated item" << Log::Field("itemID", itemData.mID)
+                      << Log::Field("version", itemData.mVersion) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void ImageManager::ProcessOutdatedItems()
+{
+    while (true) {
+        UniqueLock lock {mMutex};
+
+        if (auto err
+            = mCV.Wait(lock, [&]() { return (mClose || mProcessOutdatedItems) && mInProgressBlobs.IsEmpty(); });
+            !err.IsNone()) {
+            LOG_ERR() << "Wait failed" << Log::Field(err);
+            continue;
+        }
+
+        if (mClose) {
+            break;
+        }
+
+        if (!mProcessOutdatedItems) {
+            continue;
+        }
+
+        mProcessOutdatedItems = false;
+
+        if (auto err = HandleOutdatedItems(); !err.IsNone()) {
+            LOG_ERR() << "Can't handle outdated items" << Log::Field(err);
+        }
+    }
 }
 
 } // namespace aos::sm::imagemanager

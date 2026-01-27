@@ -6,7 +6,9 @@
 #ifndef AOS_SM_IMAGE_MANAGER_TESTS_STUBS_STORAGESTUB_HPP_
 #define AOS_SM_IMAGE_MANAGER_TESTS_STUBS_STORAGESTUB_HPP_
 
+#include <future>
 #include <list>
+#include <queue>
 
 #include <core/sm/imagemanager/itf/storage.hpp>
 
@@ -14,6 +16,25 @@ namespace aos::sm::imagemanager {
 
 class StorageStub : public StorageItf {
 public:
+    void Init(std::vector<UpdateItemData> initialItems)
+    {
+        for (const auto& item : initialItems) {
+            mItemsList.push_back(item);
+        }
+    }
+
+    /**
+     * Returns future to wait when item removed.
+     *
+     * @return future.
+     */
+    auto GetRemoveFuture()
+    {
+        mRemovePromises.emplace();
+
+        return mRemovePromises.back().get_future();
+    }
+
     /**
      * Adds update item to storage.
      *
@@ -69,6 +90,11 @@ public:
             [&](const UpdateItemData& item) { return item.mID == itemID && item.mVersion == version; });
         if (it == mItemsList.end()) {
             return ErrorEnum::eNotFound;
+        }
+
+        if (!mRemovePromises.empty()) {
+            mRemovePromises.front().set_value(*it);
+            mRemovePromises.pop();
         }
 
         mItemsList.erase(it);
