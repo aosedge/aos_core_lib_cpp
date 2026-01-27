@@ -443,8 +443,6 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses)
 {
     for (const auto& instance : stopInstances) {
-        LOG_DBG() << "Stop instance" << Log::Field("ident", instance);
-
         if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
             LOG_ERR() << "Stop instance failed" << Log::Field("ident", instance) << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -457,8 +455,6 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances, Array<In
 
 void Launcher::StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& status)
 {
-    LOG_DBG() << "Stop instance" << Log::Field("ident", instanceIdent);
-
     static_cast<InstanceIdent&>(status) = instanceIdent;
 
     auto itInstance = FindInstanceData(instanceIdent);
@@ -480,6 +476,8 @@ void Launcher::StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& 
     }
 
     if (auto errAddTask = mLaunchPool.AddTask([this, runtime, &instanceIdent, status = &status](void*) {
+            LOG_DBG() << "Stop instance" << Log::Field("ident", instanceIdent);
+
             if (auto err = runtime->StopInstance(instanceIdent, *status); !err.IsNone()) {
                 LOG_ERR() << "Failed to stop instance" << Log::Field("ident", instanceIdent)
                           << Log::Field(AOS_ERROR_WRAP(err));
