@@ -20,9 +20,10 @@ public:
      * Removes item.
      *
      * @param id item id.
+     * @param version item version.
      * @return RetWithError<size_t>.
      */
-    virtual RetWithError<size_t> RemoveItem(const String& id) = 0;
+    virtual RetWithError<size_t> RemoveItem(const String& id, const String& version) = 0;
 
     /**
      * Destructor.
@@ -95,18 +96,20 @@ public:
      * Adds outdated item.
      *
      * @param id item id.
+     * @param version item version.
      * @param timestamp item timestamp.
      * @return Error.
      */
-    virtual Error AddOutdatedItem(const String& id, const Time& timestamp) = 0;
+    virtual Error AddOutdatedItem(const String& id, const String& version, const Time& timestamp) = 0;
 
     /**
      * Restores outdated item.
      *
      * @param id item id.
+     * @param version item version.
      * @return Error.
      */
-    virtual Error RestoreOutdatedItem(const String& id) = 0;
+    virtual Error RestoreOutdatedItem(const String& id, const String& version) = 0;
 
     /**
      * Allocates done.
