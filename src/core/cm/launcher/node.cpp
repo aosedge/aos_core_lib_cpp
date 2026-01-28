@@ -116,6 +116,9 @@ Error Node::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
 {
     mSentInstances.Clear();
 
+    LOG_DBG() << "Load sent instances for node" << Log::Field("nodeID", mInfo.mNodeID)
+              << Log::Field("instances", instances.Size());
+
     for (const auto& instance : instances) {
         if (instance->GetStatus().mNodeID == mInfo.mNodeID) {
             if (auto err = mSentInstances.EmplaceBack(); !err.IsNone()) {
@@ -362,7 +365,9 @@ RetWithError<bool> Node::ResendInstances()
     }
 
     // Send request to node.
-    LOG_INF() << "Resend instance update" << Log::Field("nodeID", mInfo.mNodeID);
+    LOG_INF() << "Resend instance update" << Log::Field("nodeID", mInfo.mNodeID)
+              << Log::Field("stopInstances", stopInstances->Size())
+              << Log::Field("startInstances", mSentInstances.Size());
 
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, mSentInstances); !err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};
