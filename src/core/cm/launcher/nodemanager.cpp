@@ -31,6 +31,8 @@ Error NodeManager::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    LOG_DBG() << "Start node manager" << Log::Field("nodes", nodes->Size());
+
     for (const auto& nodeID : *nodes) {
         auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
 
@@ -38,7 +40,9 @@ Error NodeManager::Start()
             return AOS_ERROR_WRAP(err);
         }
 
-        if (nodeInfo->mState != NodeStateEnum::eProvisioned || !nodeInfo->mIsConnected) {
+        LOG_DBG() << "Get node info" << Log::Field("nodeID", nodeID) << Log::Field("state", nodeInfo->mState);
+
+        if (nodeInfo->mState != NodeStateEnum::eProvisioned) {
             continue;
         }
 
