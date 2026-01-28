@@ -81,7 +81,7 @@ struct AlertItem {
     {
     }
 
-    Time     mTimestamp {};
+    Time     mTimestamp {Time::Now()};
     AlertTag mTag;
 
     /**
