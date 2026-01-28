@@ -13,6 +13,13 @@
 namespace aos::sm::imagemanager {
 
 /**
+ * Maximum number of stored update items.
+ *
+ * @note The maximum number of update items is doubled to account for multiple versions of the same item.
+ */
+constexpr auto cMaxNumStoredUpdateItems = cMaxNumUpdateItems * 2;
+
+/**
  * Update item data structure.
  */
 struct UpdateItemData {
@@ -40,10 +47,8 @@ struct UpdateItemData {
 
 /**
  * Update item data static array type.
- *
- * @note The maximum number of update items is doubled to account for multiple versions of the same item.
  */
-using UpdateItemDataStaticArray = StaticArray<UpdateItemData, cMaxNumUpdateItems * 2>;
+using UpdateItemDataStaticArray = StaticArray<UpdateItemData, cMaxNumStoredUpdateItems>;
 
 /**
  * Image manager storage interface.
