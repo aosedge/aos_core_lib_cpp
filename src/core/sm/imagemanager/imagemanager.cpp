@@ -173,11 +173,14 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     StaticString<cFilePathLen> path;
 
     if (auto err = CreateBlobPath(itemInfo.mManifestDigest, path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
@@ -192,9 +195,12 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
         }
 
         auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        if (!config) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+            return err;
         }
 
         if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
@@ -234,7 +240,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     if (auto err = StoreUpdateItem(itemInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     return ErrorEnum::eNone;
@@ -275,7 +281,7 @@ Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version
 Error ImageManager::GetBlobPath(const String& digest, String& path) const
 {
     if (auto err = CreateBlobPath(digest, path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     LOG_DBG() << "Get blob path" << Log::Field("digest", digest) << Log::Field("path", path);
@@ -295,7 +301,7 @@ Error ImageManager::GetBlobPath(const String& digest, String& path) const
 Error ImageManager::GetLayerPath(const String& digest, String& path) const
 {
     if (auto err = CreateLayerPath(digest, path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     path = fs::JoinPath(path, cUnpackedLayerFolder);
@@ -418,7 +424,7 @@ Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) 
     StaticString<cFilePathLen> dstPath;
 
     if (err = CreateLayerPath(diffDigest, dstPath); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     if (err = fs::ReadFileToString(fs::JoinPath(dstPath, cDigestFile), digest); !err.IsNone()) {
@@ -491,7 +497,7 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, bool w
     StaticString<cFilePathLen> path;
 
     if (auto err = CreateBlobPath(descriptor.mDigest, path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     LOG_DBG() << "Blob path" << Log::Field("digest", descriptor.mDigest) << Log::Field("path", path);
@@ -574,7 +580,7 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
     StaticString<cFilePathLen> dstPath;
 
     if (auto err = CreateLayerPath(diffDigest, dstPath); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     LOG_DBG() << "Layer destination" << Log::Field("diffDigest", diffDigest) << Log::Field("path", dstPath);
@@ -649,7 +655,7 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
     StaticString<cFilePathLen> path;
 
     if (auto err = CreateBlobPath(descriptor.mDigest, path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     auto [exists, err] = fs::FileExist(path);
