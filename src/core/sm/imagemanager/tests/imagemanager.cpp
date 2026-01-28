@@ -240,7 +240,7 @@ TEST_F(ImageManagerTest, InstallComponent)
     imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
     imageManifest->mConfig.mSize      = 2;
     imageManifest->mLayers.EmplaceBack(
-        oci::ContentDescriptor {"application/vnd.oci.image.layer.v1.tar+gzip", cLayerDigest, 1024});
+        oci::ContentDescriptor {"vnd.aos.image.component.full.v1+gzip", cLayerDigest, 1024});
 
     // Expected calls
 
@@ -682,6 +682,91 @@ TEST_F(ImageManagerTest, MaxStoredItems)
     EXPECT_EQ(
         storedItems->FindIf([&](const UpdateItemData& item) { return item.mID == "service42"; }), storedItems->end())
         << "Unexpected installed item service42 found";
+}
+
+TEST_F(ImageManagerTest, ValidateIntegrity)
+{
+    auto itemsInfo = std::vector<UpdateItemData> {
+        {"service1", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"service2", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"component1", UpdateItemTypeEnum::eComponent, "1.0.0",
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"component2", UpdateItemTypeEnum::eComponent, "1.0.0",
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333", ItemStateEnum::eInstalled,
+            Time::Now()},
+    };
+
+    mStorageStub.Init(itemsInfo);
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(Invoke([&](const String& path, oci::ImageManifest& manifest) -> Error {
+            auto fileName = std::filesystem::path(path.CStr()).filename().string();
+
+            auto it = std::find_if(itemsInfo.begin(), itemsInfo.end(), [&](const UpdateItemData& item) {
+                return std::string(item.mManifestDigest.CStr()).compare(7, fileName.size(), fileName) == 0;
+            });
+            if (it == itemsInfo.end()) {
+                return ErrorEnum::eNotFound;
+            }
+
+            if (it->mType == UpdateItemTypeEnum::eService) {
+                manifest.mConfig = oci::ContentDescriptor {"application/vnd.oci.image.config.v1+json",
+                    "sha256:4444444444444444444444444444444444444444444444444444444444444444", 512};
+            } else {
+                manifest.mConfig = oci::ContentDescriptor {"application/vnd.oci.empty.v1+json",
+                    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", 2};
+            }
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo) -> Error {
+            auto fileName = std::filesystem::path(path.CStr()).filename().string();
+
+            auto it = std::find_if(itemsInfo.begin(), itemsInfo.end(), [&](const UpdateItemData& item) {
+                return std::string(item.mManifestDigest.CStr()).compare(7, fileName.size(), fileName) == 0;
+            });
+            if (it != itemsInfo.end()) {
+                if (it->mID == "service2" || it->mID == "component2") {
+                    fileInfo.mSHA256
+                        = Array<uint8_t>(reinterpret_cast<const uint8_t*>("invalidinvalidinvalidinvalidinva"), 32);
+                    fileInfo.mSize = 1024;
+
+                    return ErrorEnum::eNone;
+                }
+            }
+
+            fileInfo = GetFileInfoByPath(path);
+
+            return ErrorEnum::eNone;
+        }));
+
+    std::vector<std::future<UpdateItemData>> futures;
+
+    for (size_t i = 0; i < 2; ++i) {
+        futures.emplace_back(mStorageStub.GetRemoveFuture());
+    }
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.IsNone()) << "Failed to start image manager: " << tests::utils::ErrorToStr(err);
+
+    for (size_t i = 0; i < 2; ++i) {
+        ASSERT_EQ(
+            futures[i].wait_for(std::chrono::milliseconds(cUpdateItemTTL.Milliseconds())), std::future_status::ready);
+
+        auto itemData = futures[i].get();
+
+        EXPECT_TRUE(itemData.mID == "service2" || itemData.mID == "component2")
+            << "Unexpected item ID: " << itemData.mID.CStr();
+    }
+
+    err = mImageManager.Stop();
+    EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
 }
 
 } // namespace aos::sm::imagemanager

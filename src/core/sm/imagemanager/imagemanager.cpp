@@ -884,6 +884,88 @@ Error ImageManager::UpdateOutdatedItems()
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::ValidateUpdateItem(const UpdateItemData& itemData)
+{
+    LOG_DBG() << "Validate update item" << Log::Field("itemID", itemData.mID)
+              << Log::Field("version", itemData.mVersion);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(itemData.mManifestDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = ValidateBlob(path, itemData.mManifestDigest); !err.IsNone()) {
+        return err;
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (itemData.mType == UpdateItemTypeEnum::eService) {
+        if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = ValidateBlob(path, manifest->mConfig.mDigest); !err.IsNone()) {
+            return err;
+        }
+
+        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        if (!config) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (manifest->mAosService.HasValue()) {
+            if (auto err = CreateBlobPath(manifest->mAosService->mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = ValidateBlob(path, manifest->mAosService->mDigest); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
+            const auto& layer = manifest->mLayers[i];
+
+            if (i >= config->mRootfs.mDiffIDs.Size()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
+            }
+
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = ValidateLayer(path, config->mRootfs.mDiffIDs[i]); !err.IsNone()) {
+                return err;
+            }
+        }
+    } else {
+        for (const auto& layer : manifest->mLayers) {
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = ValidateBlob(path, layer.mDigest); !err.IsNone()) {
+                return err;
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::HandleOutdatedItems()
 {
     LOG_DBG() << "Handle outdated items";
@@ -907,6 +989,38 @@ Error ImageManager::HandleOutdatedItems()
         if (auto err = RemoveUpdateItem(itemData); !err.IsNone()) {
             LOG_ERR() << "Failed to remove outdated item" << Log::Field("itemID", itemData.mID)
                       << Log::Field("version", itemData.mVersion) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::HandleItemsIntegrity()
+{
+    LOG_DBG() << "Handle items integrity";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        if (auto err = ValidateUpdateItem(itemData); !err.IsNone()) {
+            LOG_ERR() << "Update item integrity error" << Log::Field("itemID", itemData.mID)
+                      << Log::Field("version", itemData.mVersion) << Log::Field(err);
+
+            if (err = RemoveUpdateItem(itemData); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove invalid item" << Log::Field("itemID", itemData.mID)
+                          << Log::Field("version", itemData.mVersion) << Log::Field(err);
+            }
         }
     }
 
@@ -937,6 +1051,10 @@ void ImageManager::ProcessOutdatedItems()
 
         if (auto err = HandleOutdatedItems(); !err.IsNone()) {
             LOG_ERR() << "Can't handle outdated items" << Log::Field(err);
+        }
+
+        if (auto err = HandleItemsIntegrity(); !err.IsNone()) {
+            LOG_ERR() << "Can't handle items integrity" << Log::Field(err);
         }
     }
 }

@@ -137,6 +137,8 @@ private:
     Error RemoveOldUpdateItem(Array<UpdateItemData>& itemsData);
     Error UpdateOutdatedItems();
     Error HandleOutdatedItems();
+    Error HandleItemsIntegrity();
+    Error ValidateUpdateItem(const UpdateItemData& itemData);
     void  ProcessOutdatedItems();
 
     Config                             mConfig;
