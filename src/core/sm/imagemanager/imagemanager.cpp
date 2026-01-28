@@ -242,6 +242,8 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 
 Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version)
 {
+    LockGuard lock {mMutex};
+
     LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
     StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
@@ -758,7 +760,27 @@ Error ImageManager::ReleaseInProgressBlob(const String& digest)
 
 Error ImageManager::AddNewUpdateItem(const UpdateItemInfo& itemInfo)
 {
-    if (auto err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+    auto [itemsCount, err] = mStorage->GetUpdateItemsCount();
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (itemsCount >= cMaxNumStoredUpdateItems) {
+        auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+        if (!itemsData) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (err = RemoveOldUpdateItem(*itemsData); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
             itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -769,6 +791,8 @@ Error ImageManager::AddNewUpdateItem(const UpdateItemInfo& itemInfo)
 
 Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
 {
+    LockGuard lock {mMutex};
+
     StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
     Error                                            err;
 
@@ -782,6 +806,12 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
 
     auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
     if (it == itemData.end()) {
+        if (itemData.Size() >= cMaxNumItemVersions) {
+            if (err = RemoveOldUpdateItem(itemData); !err.IsNone()) {
+                return err;
+            }
+        }
+
         return AddNewUpdateItem(itemInfo);
     }
 
@@ -803,11 +833,28 @@ Error ImageManager::RemoveUpdateItem(const UpdateItemData& itemData)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mSpaceAllocator->RestoreOutdatedItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (itemData.mState == ItemStateEnum::eRemoved) {
+        if (auto err = mSpaceAllocator->RestoreOutdatedItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
+}
+
+Error ImageManager::RemoveOldUpdateItem(Array<UpdateItemData>& itemsData)
+{
+    LOG_DBG() << "Remove old update item";
+
+    itemsData.Sort([](const UpdateItemData& a, const UpdateItemData& b) { return a.mTimestamp < b.mTimestamp; });
+
+    for (const auto& data : itemsData) {
+        if (data.mState == ItemStateEnum::eRemoved) {
+            return RemoveUpdateItem(data);
+        }
+    }
+
+    return RemoveUpdateItem(itemsData[0]);
 }
 
 Error ImageManager::UpdateOutdatedItems()

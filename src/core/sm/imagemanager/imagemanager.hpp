@@ -134,6 +134,7 @@ private:
     Error AddNewUpdateItem(const UpdateItemInfo& itemInfo);
     Error StoreUpdateItem(const UpdateItemInfo& itemInfo);
     Error RemoveUpdateItem(const UpdateItemData& itemData);
+    Error RemoveOldUpdateItem(Array<UpdateItemData>& itemsData);
     Error UpdateOutdatedItems();
     Error HandleOutdatedItems();
     void  ProcessOutdatedItems();

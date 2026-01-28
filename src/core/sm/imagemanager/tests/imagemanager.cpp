@@ -544,4 +544,144 @@ TEST_F(ImageManagerTest, RemoveOutdatedItems)
     EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(ImageManagerTest, MaxItemVersions)
+{
+    UpdateItemInfo itemInfo {"service1", UpdateItemTypeEnum::eService, "1.0.0",
+        "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"};
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 1024;
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo) -> Error {
+            fileInfo = GetFileInfoByPath(path);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
+
+    // Install update items
+
+    for (size_t i = 0; i < 3; ++i) {
+        auto err = itemInfo.mVersion.Format("%d.0.0", i + 1);
+        EXPECT_TRUE(err.IsNone()) << "Failed to format item version: " << tests::utils::ErrorToStr(err);
+
+        err = mImageManager.InstallUpdateItem(itemInfo);
+        EXPECT_TRUE(err.IsNone()) << "Failed to install update item: " << tests::utils::ErrorToStr(err);
+    }
+
+    auto storedItems = std::make_unique<UpdateItemDataStaticArray>();
+
+    // Expect 2 last installed items
+
+    auto err = mStorageStub.GetAllUpdateItems(*storedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all installed items: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(storedItems->Size(), 2) << "Unexpected number of installed items";
+    EXPECT_EQ(storedItems->FindIf(
+                  [&](const UpdateItemData& item) { return item.mID == "service1" && item.mVersion == "1.0.0"; }),
+        storedItems->end())
+        << "Unexpected installed item version 1.0.0 found";
+
+    // Remove specific version
+
+    err = mImageManager.RemoveUpdateItem("service1", "3.0.0");
+    EXPECT_TRUE(err.IsNone()) << "Failed to remove update item: " << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.InstallUpdateItem({"service1", UpdateItemTypeEnum::eService, "4.0.0",
+        "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"});
+    EXPECT_TRUE(err.IsNone()) << "Failed to install update item: " << tests::utils::ErrorToStr(err);
+
+    // Expect this version to be removed
+
+    storedItems->Clear();
+
+    err = mStorageStub.GetAllUpdateItems(*storedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all installed items: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(storedItems->Size(), 2) << "Unexpected number of installed items";
+    EXPECT_EQ(storedItems->FindIf(
+                  [&](const UpdateItemData& item) { return item.mID == "service1" && item.mVersion == "3.0.0"; }),
+        storedItems->end())
+        << "Unexpected installed item version 3.0.0 found";
+}
+
+TEST_F(ImageManagerTest, MaxStoredItems)
+{
+    UpdateItemInfo itemInfo {"service1", UpdateItemTypeEnum::eService, "1.0.0",
+        "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"};
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 1024;
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo) -> Error {
+            fileInfo = GetFileInfoByPath(path);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
+
+    // Install update items up to the max limit
+
+    for (size_t i = 0; i < cMaxNumStoredUpdateItems; ++i) {
+        auto err = itemInfo.mID.Format("service%d", i + 1);
+        EXPECT_TRUE(err.IsNone()) << "Failed to format item version: " << tests::utils::ErrorToStr(err);
+
+        err = mImageManager.InstallUpdateItem(itemInfo);
+        EXPECT_TRUE(err.IsNone()) << "Failed to install update item: " << tests::utils::ErrorToStr(err);
+    }
+
+    // Install one more item to exceed the limit
+
+    auto err = itemInfo.mID.Format("service%d", cMaxNumStoredUpdateItems + 1);
+    EXPECT_TRUE(err.IsNone()) << "Failed to format item version: " << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.InstallUpdateItem(itemInfo);
+    EXPECT_TRUE(err.IsNone()) << "Failed to install update item: " << tests::utils::ErrorToStr(err);
+
+    // Expect the first installed item to be removed
+
+    auto storedItems = std::make_unique<UpdateItemDataStaticArray>();
+
+    err = mStorageStub.GetAllUpdateItems(*storedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all installed items: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(storedItems->Size(), cMaxNumStoredUpdateItems) << "Unexpected number of installed items";
+    EXPECT_EQ(
+        storedItems->FindIf([&](const UpdateItemData& item) { return item.mID == "service1"; }), storedItems->end())
+        << "Unexpected installed item service1 found";
+
+    // Remove specific version and install again to verify space is freed
+
+    err = mImageManager.RemoveUpdateItem("service42", "1.0.0");
+    EXPECT_TRUE(err.IsNone()) << "Failed to remove update item: " << tests::utils::ErrorToStr(err);
+
+    err = itemInfo.mID.Format("service%d", cMaxNumStoredUpdateItems + 2);
+    EXPECT_TRUE(err.IsNone()) << "Failed to format item version: " << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.InstallUpdateItem(itemInfo);
+    EXPECT_TRUE(err.IsNone()) << "Failed to install update item: " << tests::utils::ErrorToStr(err);
+
+    // Expect the removed item to be gone
+
+    storedItems->Clear();
+
+    err = mStorageStub.GetAllUpdateItems(*storedItems);
+    EXPECT_TRUE(err.IsNone()) << "Failed to get all installed items: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(storedItems->Size(), cMaxNumStoredUpdateItems) << "Unexpected number of installed items";
+    EXPECT_EQ(
+        storedItems->FindIf([&](const UpdateItemData& item) { return item.mID == "service42"; }), storedItems->end())
+        << "Unexpected installed item service42 found";
+}
+
 } // namespace aos::sm::imagemanager
