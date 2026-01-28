@@ -149,8 +149,10 @@ Error Launcher::Stop()
     mAlertReceived         = false;
     mUpdatedNodes.Clear();
     mNewSubjects.Reset();
-    mProcessUpdatesCondVar.NotifyAll();
     mInstanceStatuses.Clear();
+
+    mProcessUpdatesCondVar.NotifyAll();
+    mAllNodesConnectedCondVar.NotifyAll();
 
     // Unsubscribe from providers.
     if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
@@ -189,6 +191,12 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 
     UniqueLock updateLock {mUpdateMutex};
     UniqueLock balancingLock {mBalancingMutex};
+
+    WaitAllNodesConnected(updateLock);
+
+    if (!mIsRunning) {
+        return AOS_ERROR_WRAP(ErrorEnum::eCanceled);
+    }
 
     // Disable node monitoring for the duration of running instances.
     mDisableProcessUpdates    = true;
@@ -351,11 +359,13 @@ void Launcher::ProcessUpdate()
                 && !mDisableProcessUpdates;
         });
 
+        WaitAllNodesConnected(updateLock);
+
+        UniqueLock balancingLock {mBalancingMutex};
+
         if (!mIsRunning) {
             return;
         }
-
-        UniqueLock balancingLock {mBalancingMutex};
 
         // Update subjects.
         Error err;
@@ -396,6 +406,17 @@ void Launcher::ProcessUpdate()
             }
         }
     }
+}
+
+void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
+{
+    auto allNodesConnected = [this]() {
+        auto notConnected = [](const Node& node) { return !node.GetInfo().mIsConnected; };
+
+        return !mNodeManager.GetNodes().ContainsIf(notConnected) || !mIsRunning;
+    };
+
+    mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
 }
 
 void Launcher::ScheduleInstances()
@@ -511,7 +532,7 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
 
-    LockGuard updateLock {mUpdateMutex};
+    UniqueLock updateLock {mUpdateMutex};
 
     if (mNodeManager.UpdateNodeInfo(info)) {
         if (auto err = PushUnique(mUpdatedNodes, info.mNodeID); !err.IsNone()) {
@@ -521,6 +542,7 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
         }
 
         mProcessUpdatesCondVar.NotifyAll();
+        mAllNodesConnectedCondVar.NotifyAll();
     }
 }
 

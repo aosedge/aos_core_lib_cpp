@@ -144,6 +144,7 @@ private:
     Error Rebalance(UniqueLock<Mutex>& lock);
 
     void ProcessUpdate();
+    void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
 
     void ScheduleInstances();
     void ScheduleInstances(const Array<RunInstanceRequest>& requests);
@@ -191,6 +192,7 @@ private:
     // Misc
     StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
     Mutex                                         mBalancingMutex;
+    ConditionalVariable                           mAllNodesConnectedCondVar;
     bool                                          mIsRunning {};
     StaticAllocator<cAllocatorSize>               mAllocator;
 };
