@@ -286,6 +286,8 @@ Error InstanceManager::LoadInstancesFromStorage()
         return AOS_ERROR_WRAP(err);
     }
 
+    LOG_DBG() << "Load active instances" << Log::Field("instances", instances->Size());
+
     for (const auto& instance : *instances) {
         if (auto err = LoadInstanceFromStorage(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -303,10 +305,16 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
     }
 
     if (info.mState == InstanceStateEnum::eActive) {
+        LOG_DBG() << "Load active instance" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent)
+                  << Log::Field("nodeID", instance->GetStatus().mNodeID);
+
         if (auto err = mActiveInstances.EmplaceBack(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     } else {
+        LOG_DBG() << "Load cached instance" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent)
+                  << Log::Field("nodeID", instance->GetStatus().mNodeID);
+
         if (auto err = mCachedInstances.EmplaceBack(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
