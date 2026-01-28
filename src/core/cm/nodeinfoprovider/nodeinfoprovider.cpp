@@ -321,7 +321,7 @@ void NodeInfoProvider::Run()
                 NotifyListeners(nodeInfo);
             }
 
-            mCondVar.Wait(lock, mConfig.mSMConnectionTimeout);
+            mCondVar.Wait(lock, mConfig.mSMConnectionTimeout, [this]() { return !mRunning; });
         }
     }
 }
