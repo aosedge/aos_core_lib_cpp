@@ -146,6 +146,16 @@ std::string ReadFileToString(const std::string& filename)
     return content;
 }
 
+void CreateFile(const std::string& path, const std::string& content = "")
+{
+    std::ofstream file(path);
+    EXPECT_TRUE(file.is_open()) << "Failed to create file: " << path;
+
+    file << content;
+
+    file.close();
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -266,13 +276,7 @@ TEST_F(ImageManagerTest, GetBlobPath)
     bool created = std::filesystem::create_directories(std::filesystem::path(blobPath.CStr()).parent_path());
     EXPECT_TRUE(created) << "Failed to create blob directory at path: " << blobPath.CStr();
 
-    std::ofstream blobFile(blobPath.CStr());
-
-    if (blobFile.is_open()) {
-        blobFile.close();
-    } else {
-        FAIL() << "Failed to create blob file at path: " << blobPath.CStr();
-    }
+    CreateFile(blobPath.CStr());
 
     StaticString<cFilePathLen> path;
 
@@ -767,6 +771,204 @@ TEST_F(ImageManagerTest, ValidateIntegrity)
 
     err = mImageManager.Stop();
     EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(ImageManagerTest, RemoveOrphanBlobs)
+{
+    auto itemsInfo = std::vector<UpdateItemData> {
+        {"service1", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"service2", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"component1", UpdateItemTypeEnum::eComponent, "1.0.0",
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"component2", UpdateItemTypeEnum::eComponent, "1.0.0",
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333", ItemStateEnum::eInstalled,
+            Time::Now()},
+    };
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 512;
+
+    mStorageStub.Init(itemsInfo);
+
+    auto blobsPath = fs::JoinPath(cTestImagePath, "blobs", "sha256");
+
+    std::filesystem::create_directories(blobsPath.CStr());
+
+    // Create image config blob
+
+    CreateFile(GetBlobPath(imageManifest->mConfig.mDigest).CStr());
+
+    // Create used blobs
+
+    for (const auto& item : itemsInfo) {
+        CreateFile(GetBlobPath(item.mManifestDigest).CStr());
+    }
+
+    // Create orphan blobs
+
+    for (size_t i = 0; i < 10; i++) {
+        StaticString<oci::cDigestLen> digest;
+
+        digest.Format("sha256:%064d", i + 1);
+
+        CreateFile(GetBlobPath(digest).CStr());
+    }
+
+    std::promise<size_t> promise;
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo) -> Error {
+            fileInfo = GetFileInfoByPath(path);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(_)).WillOnce(Invoke([&](size_t size) -> Error {
+        promise.set_value(size);
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.IsNone()) << "Failed to start image manager: " << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(promise.get_future().wait_for(std::chrono::milliseconds(cUpdateItemTTL.Milliseconds()))
+        == std::future_status::ready);
+
+    err = mImageManager.Stop();
+    EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
+
+    for (const auto& entry : std::filesystem::directory_iterator(blobsPath.CStr())) {
+        bool found = false;
+
+        for (const auto& item : itemsInfo) {
+            if (entry.path().c_str() == GetBlobPath(item.mManifestDigest)) {
+                found = true;
+
+                break;
+            }
+        }
+
+        if (!found) {
+            if (entry.path().c_str() == GetBlobPath(imageManifest->mConfig.mDigest)) {
+                found = true;
+            }
+        }
+
+        EXPECT_TRUE(found) << "Orphan blob not removed: " << entry.path().c_str();
+    }
+}
+
+TEST_F(ImageManagerTest, RemoveOrphanLayers)
+{
+    auto itemsInfo = std::vector<UpdateItemData> {
+        {"service1", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"service2", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"service3", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222", ItemStateEnum::eInstalled,
+            Time::Now()},
+        {"service4", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333", ItemStateEnum::eInstalled,
+            Time::Now()},
+    };
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 512;
+    imageManifest->mLayers.EmplaceBack(oci::ContentDescriptor {"vnd.aos.image.component.full.v1+gzip",
+        "sha256:4444444444444444444444444444444444444444444444444444444444444444", 1024});
+
+    auto imageConfig = std::make_unique<oci::ImageConfig>();
+
+    imageConfig->mRootfs.mDiffIDs.EmplaceBack(
+        "sha256:5555555555555555555555555555555555555555555555555555555555555555");
+
+    mStorageStub.Init(itemsInfo);
+
+    auto blobsPath  = fs::JoinPath(cTestImagePath, "blobs", "sha256");
+    auto layersPath = fs::JoinPath(cTestImagePath, "layers", "sha256");
+
+    std::filesystem::create_directories(blobsPath.CStr());
+    std::filesystem::create_directories(layersPath.CStr());
+
+    // Create image config blob
+
+    CreateFile(GetBlobPath(imageManifest->mConfig.mDigest).CStr());
+
+    // Create layer blob
+
+    CreateFile(GetBlobPath(imageManifest->mLayers[0].mDigest).CStr(), imageConfig->mRootfs.mDiffIDs[0].CStr());
+
+    // Create used layers
+
+    auto layerPath = GetLayerPath(imageConfig->mRootfs.mDiffIDs[0]);
+
+    std::filesystem::create_directories(layerPath.CStr());
+
+    // Create layer digest
+
+    CreateFile(fs::JoinPath(layerPath, "digest").CStr(), imageConfig->mRootfs.mDiffIDs[0].CStr());
+
+    // Create orphan layers
+
+    for (size_t i = 0; i < 10; i++) {
+        StaticString<oci::cDigestLen> digest;
+
+        digest.Format("sha256:%064d", i + 1);
+
+        auto layerPath = GetLayerPath(digest);
+
+        std::filesystem::create_directories(layerPath.CStr());
+    }
+
+    std::promise<size_t> promise;
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo) -> Error {
+            fileInfo = GetFileInfoByPath(path);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mSpaceAllocatorMock, FreeSpace(_)).WillOnce(Invoke([&](size_t size) -> Error {
+        promise.set_value(size);
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mOCISpecMock, LoadImageConfig(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageConfig), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mImageHandlerMock, GetUnpackedLayerDigest(_))
+        .WillRepeatedly(Return(StaticString<oci::cDigestLen>(imageConfig->mRootfs.mDiffIDs[0])));
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.IsNone()) << "Failed to start image manager: " << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(promise.get_future().wait_for(std::chrono::milliseconds(cUpdateItemTTL.Milliseconds()))
+        == std::future_status::ready);
+
+    err = mImageManager.Stop();
+    EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
+
+    for (const auto& entry : std::filesystem::directory_iterator(layersPath.CStr())) {
+        EXPECT_EQ(GetLayerPath(imageConfig->mRootfs.mDiffIDs[0]), entry.path().c_str())
+            << "Orphan layer not removed: " << entry.path().c_str();
+    }
 }
 
 } // namespace aos::sm::imagemanager
