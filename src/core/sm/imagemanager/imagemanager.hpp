@@ -112,9 +112,13 @@ private:
     static constexpr auto cDigestFile          = "digest";
     static constexpr auto cSizeFile            = "size";
     static constexpr auto cMaxNumItemVersions  = 2;
+    // oci::cMaxNumLayers + 3 (layers + manifest + image config + aos service)
+    static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (oci::cMaxNumLayers + 3);
+    static constexpr auto cMaxNumInstalledLayers = cMaxNumUpdateItems * oci::cMaxNumLayers;
     static constexpr auto cAllocatorSize
         = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig))
-        + sizeof(UpdateItemDataStaticArray);
+        + sizeof(UpdateItemDataStaticArray) + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>)
+        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>);
 
     RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
 
@@ -138,8 +142,13 @@ private:
     Error UpdateOutdatedItems();
     Error HandleOutdatedItems();
     Error HandleItemsIntegrity();
-    Error ValidateUpdateItem(const UpdateItemData& itemData);
-    void  ProcessOutdatedItems();
+    Error CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
+        Array<StaticString<cFilePathLen>>& itemLayers);
+    RetWithError<size_t> RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs);
+    RetWithError<size_t> RemoveOrphanLayers(const Array<StaticString<cFilePathLen>>& usedLayers);
+    RetWithError<size_t> RemoveOrphans();
+    Error                ValidateUpdateItem(const UpdateItemData& itemData);
+    void                 ProcessOutdatedItems();
 
     Config                             mConfig;
     BlobInfoProviderItf*               mBlobInfoProvider {};

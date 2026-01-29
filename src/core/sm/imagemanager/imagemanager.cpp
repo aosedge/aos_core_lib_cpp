@@ -34,6 +34,15 @@ Error SplitDigest(const String& digest, String& alg, String& hash)
     return ErrorEnum::eNone;
 }
 
+Error AddPathIfNotExist(Array<StaticString<cFilePathLen>>& list, const String& path)
+{
+    if (list.Contains(path)) {
+        return ErrorEnum::eNone;
+    }
+
+    return list.PushBack(path);
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -335,7 +344,12 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
                   << Log::Field(err);
     }
 
-    return 0;
+    auto [size, err] = RemoveOrphans();
+    if (!err.IsNone()) {
+        return RetWithError<size_t>(0, AOS_ERROR_WRAP(err));
+    }
+
+    return size;
 }
 
 Error ImageManager::CreateBlobPath(const String& digest, String& path) const
@@ -438,7 +452,7 @@ Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) 
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "Layer checksum" << Log::Field("path", path) << Log::Field("layerDigest", layerDigest);
+    LOG_DBG() << "Layer digest" << Log::Field("path", path) << Log::Field("layerDigest", layerDigest);
 
     if (layerDigest != digest) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidChecksum, "wrong layer checksum"));
@@ -854,13 +868,31 @@ Error ImageManager::RemoveOldUpdateItem(Array<UpdateItemData>& itemsData)
 
     itemsData.Sort([](const UpdateItemData& a, const UpdateItemData& b) { return a.mTimestamp < b.mTimestamp; });
 
+    Error  err;
+    bool   removed {};
+    size_t removedSize = 0;
+
     for (const auto& data : itemsData) {
         if (data.mState == ItemStateEnum::eRemoved) {
-            return RemoveUpdateItem(data);
+            err     = RemoveUpdateItem(data);
+            removed = true;
+
+            break;
         }
     }
 
-    return RemoveUpdateItem(itemsData[0]);
+    if (!removed) {
+        err = RemoveUpdateItem(itemsData[0]);
+    }
+
+    Tie(removedSize, err) = RemoveOrphans();
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to remove orphans" << Log::Field(err);
+    }
+
+    mSpaceAllocator->FreeSpace(removedSize);
+
+    return err;
 }
 
 Error ImageManager::UpdateOutdatedItems()
@@ -1033,6 +1065,231 @@ Error ImageManager::HandleItemsIntegrity()
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
+    Array<StaticString<cFilePathLen>>& itemLayers)
+{
+    LOG_DBG() << "Calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
+              << Log::Field("version", itemData.mVersion);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(itemData.mManifestDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (itemData.mType == UpdateItemTypeEnum::eService) {
+        if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        if (!config) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (manifest->mAosService.HasValue()) {
+            if (auto err = CreateBlobPath(manifest->mAosService->mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
+        for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
+            const auto& layer = manifest->mLayers[i];
+
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
+        for (const auto& diffID : config->mRootfs.mDiffIDs) {
+            if (auto err = CreateLayerPath(diffID, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemLayers, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    } else {
+        for (const auto& layer : manifest->mLayers) {
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs)
+{
+    size_t removedSize = 0;
+    auto   srcPath     = fs::JoinPath(mConfig.mImagePath, cBlobsFolder);
+    auto   algIterator = fs::DirIterator(srcPath);
+
+    LOG_DBG() << "Remove orphans blobs" << Log::Field("usedBlobsCount", usedBlobs.Size())
+              << Log::Field("path", srcPath);
+
+    while (algIterator.Next()) {
+        auto blobsPath    = fs::JoinPath(srcPath, algIterator->mPath);
+        auto blobIterator = fs::DirIterator(blobsPath);
+
+        LOG_DBG() << "Process blob algorithm folder" << Log::Field("path", blobsPath);
+
+        while (blobIterator.Next()) {
+            auto blobPath = fs::JoinPath(blobsPath, blobIterator->mPath);
+
+            if (auto it = usedBlobs.Find(blobPath); it != usedBlobs.end()) {
+                continue;
+            }
+
+            auto [blobSize, err] = fs::CalculateSize(blobPath);
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to get blob size" << Log::Field("path", blobPath) << Log::Field(err);
+            } else {
+                removedSize += blobSize;
+            }
+
+            LOG_DBG() << "Remove orphaned blob" << Log::Field("path", blobPath) << Log::Field("size", blobSize);
+
+            if (err = fs::RemoveAll(blobPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove orphaned blob" << Log::Field(err);
+            }
+        }
+    }
+
+    return removedSize;
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphanLayers(const Array<StaticString<cFilePathLen>>& usedLayers)
+{
+    size_t removedSize = 0;
+    auto   srcPath     = fs::JoinPath(mConfig.mImagePath, cLayersFolder);
+    auto   algIterator = fs::DirIterator(srcPath);
+
+    LOG_DBG() << "Remove orphans layers" << Log::Field("usedLayersCount", usedLayers.Size())
+              << Log::Field("path", srcPath);
+
+    while (algIterator.Next()) {
+        auto layersPath    = fs::JoinPath(srcPath, algIterator->mPath);
+        auto layerIterator = fs::DirIterator(layersPath);
+
+        LOG_DBG() << "Process layer algorithm folder" << Log::Field("path", layersPath);
+
+        while (layerIterator.Next()) {
+
+            auto layerPath = fs::JoinPath(layersPath, layerIterator->mPath);
+
+            if (auto it = usedLayers.Find(layerPath); it != usedLayers.end()) {
+                continue;
+            }
+
+            auto [layerSize, err] = fs::CalculateSize(layerPath);
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to get layer size" << Log::Field("path", layerPath) << Log::Field(err);
+            } else {
+                removedSize += layerSize;
+            }
+
+            LOG_DBG() << "Remove orphaned layer" << Log::Field("path", layerPath) << Log::Field("size", layerSize);
+
+            if (err = fs::RemoveAll(layerPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove orphaned layer" << Log::Field(err);
+            }
+        }
+    }
+
+    return removedSize;
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphans()
+{
+    LOG_DBG() << "Remove orphans";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    auto usedBlobs = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>>(&mAllocator);
+    if (!usedBlobs) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    auto usedLayers = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>>(&mAllocator);
+    if (!usedLayers) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        if (auto err = CalcItemBlobsAndLayers(itemData, *usedBlobs, *usedLayers); !err.IsNone()) {
+            LOG_ERR() << "Failed to calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
+                      << Log::Field("version", itemData.mVersion) << Log::Field(err);
+        }
+    }
+
+    size_t removedSize = 0;
+    size_t size        = 0;
+    Error  err;
+
+    Tie(size, err) = RemoveOrphanBlobs(*usedBlobs);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Remove orphan blobs failed" << Log::Field(err);
+    }
+
+    removedSize += size;
+
+    Tie(size, err) = RemoveOrphanLayers(*usedLayers);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Remove orphan layers failed" << Log::Field(err);
+    }
+
+    removedSize += size;
+
+    return removedSize;
+}
+
 void ImageManager::ProcessOutdatedItems()
 {
     while (true) {
@@ -1062,6 +1319,13 @@ void ImageManager::ProcessOutdatedItems()
         if (auto err = HandleItemsIntegrity(); !err.IsNone()) {
             LOG_ERR() << "Can't handle items integrity" << Log::Field(err);
         }
+
+        auto [size, err] = RemoveOrphans();
+        if (!err.IsNone()) {
+            LOG_ERR() << "Remove orphans failed" << Log::Field(err);
+        }
+
+        mSpaceAllocator->FreeSpace(size);
     }
 }
 
