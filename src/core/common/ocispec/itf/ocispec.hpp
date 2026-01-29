@@ -8,6 +8,7 @@
 #ifndef AOS_CORE_COMMON_OCISPEC_OCISPEC_HPP_
 #define AOS_CORE_COMMON_OCISPEC_OCISPEC_HPP_
 
+#include "componentconfig.hpp"
 #include "imagespec.hpp"
 #include "runtimespec.hpp"
 #include "serviceconfig.hpp"
@@ -90,6 +91,23 @@ public:
      * @return Error.
      */
     virtual Error SaveServiceConfig(const String& path, const ServiceConfig& serviceConfig) = 0;
+
+    /**
+     * Loads Aos component config.
+     *
+     * @param path file path.
+     * @param componentConfig component config.
+     * @return Error.
+     */
+    virtual Error LoadComponentConfig(const String& path, ComponentConfig& componentConfig) = 0;
+    /**
+     * Saves Aos component config.
+     *
+     * @param path file path.
+     * @param componentConfig component config.
+     * @return Error.
+     */
+    virtual Error SaveComponentConfig(const String& path, const ComponentConfig& componentConfig) = 0;
 
     /**
      * Loads OCI runtime config.

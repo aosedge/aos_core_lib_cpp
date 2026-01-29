@@ -162,6 +162,9 @@ public:
 
     Error SaveServiceConfig(const String&, const oci::ServiceConfig&) override { return ErrorEnum::eNotSupported; }
 
+    Error LoadComponentConfig(const String&, oci::ComponentConfig&) override { return ErrorEnum::eNotSupported; }
+    Error SaveComponentConfig(const String&, const oci::ComponentConfig&) override { return ErrorEnum::eNotSupported; }
+
     Error LoadRuntimeConfig(const String&, oci::RuntimeConfig&) override { return ErrorEnum::eNotSupported; }
     Error SaveRuntimeConfig(const String&, const oci::RuntimeConfig&) override { return ErrorEnum::eNotSupported; }
 

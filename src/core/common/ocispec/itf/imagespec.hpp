@@ -202,6 +202,7 @@ struct ImageManifest {
     ContentDescriptor                             mConfig;
     StaticArray<ContentDescriptor, cMaxNumLayers> mLayers;
     Optional<ContentDescriptor>                   mAosService;
+    Optional<ContentDescriptor>                   mAosComponent;
 
     /**
      * Compares image manifest.
@@ -213,7 +214,7 @@ struct ImageManifest {
     {
         return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType
             && mArtifactType == rhs.mArtifactType && mConfig == rhs.mConfig && mLayers == rhs.mLayers
-            && mAosService == rhs.mAosService;
+            && mAosService == rhs.mAosService && mAosComponent == rhs.mAosComponent;
     }
 
     /**

@@ -26,6 +26,8 @@ public:
     MOCK_METHOD(Error, SaveImageConfig, (const String&, const ImageConfig&), (override));
     MOCK_METHOD(Error, LoadServiceConfig, (const String&, ServiceConfig&), (override));
     MOCK_METHOD(Error, SaveServiceConfig, (const String&, const ServiceConfig&), (override));
+    MOCK_METHOD(Error, LoadComponentConfig, (const String&, ComponentConfig&), (override));
+    MOCK_METHOD(Error, SaveComponentConfig, (const String&, const ComponentConfig&), (override));
     MOCK_METHOD(Error, LoadRuntimeConfig, (const String&, RuntimeConfig&), (override));
     MOCK_METHOD(Error, SaveRuntimeConfig, (const String&, const RuntimeConfig&), (override));
 };
