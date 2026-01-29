@@ -18,9 +18,9 @@ namespace aos::cm::database {
  */
 
 /**
- * Database class.
+ * Database interface.
  */
-class Database : public imagemanager::StorageItf, public launcher::StorageItf, public storagestate::StorageItf { };
+class DatabaseItf : public imagemanager::StorageItf, public launcher::StorageItf, public storagestate::StorageItf { };
 
 /** @}*/
 
