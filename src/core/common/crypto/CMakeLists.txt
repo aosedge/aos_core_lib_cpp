@@ -71,7 +71,7 @@ endif()
 # Sources
 # ######################################################################################################################
 
-set(SOURCES asn1.cpp cryptohelper.cpp certloader.cpp)
+set(SOURCES asn1.cpp cryptohelper.cpp certloader.cpp cryptoutils.cpp)
 
 if(WITH_MBEDTLS)
     list(APPEND SOURCES mbedtls/cryptoprovider.cpp mbedtls/driverwrapper.cpp)
@@ -89,6 +89,7 @@ set(HEADERS
     certloader.hpp
     cryptoprovider.hpp
     cryptohelper.hpp
+    cryptoutils.hpp
     itf/rand.hpp
     itf/asn1.hpp
     itf/certloader.hpp
