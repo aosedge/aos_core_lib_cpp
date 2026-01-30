@@ -306,12 +306,7 @@ public:
     Error GetFileInfo(const String& path, FileInfo& info) override;
 
 private:
-    static constexpr auto cReadFileBufferSize = AOS_CONFIG_TYPES_READ_FILE_BUFFER_SIZE;
-
-    Error GetSHA256(const String& path, Array<uint8_t>& sha256);
-
-    crypto::HasherItf*                        mHashProvider {};
-    StaticArray<uint8_t, cReadFileBufferSize> mReadFileBuffer;
+    crypto::HasherItf* mHashProvider {};
 };
 
 using DirIteratorArray = StaticArray<DirIterator, cDirIteratorMaxSize>;
