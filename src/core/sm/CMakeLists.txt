@@ -17,7 +17,7 @@ set(HEADERS config.hpp)
 # Install targets
 # ######################################################################################################################
 
-set(INSTALL_HEADERS aos_core_sm_logging aos_core_sm_nodeconfig aos_core_sm_resourcemanager)
+set(INSTALL_HEADERS aos_core_sm_database aos_core_sm_logging aos_core_sm_nodeconfig aos_core_sm_resourcemanager)
 
 set(INSTALL_LIBRARIES aos_core_sm_imagemanager aos_core_sm_launcher)
 
@@ -42,6 +42,7 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_sm)
 # Subdirectories
 # ######################################################################################################################
 
+add_subdirectory(database)
 add_subdirectory(imagemanager)
 add_subdirectory(launcher)
 add_subdirectory(logging)
