@@ -42,8 +42,7 @@ Error ImageInfoProvider::GetImageConfig(const oci::IndexContentDescriptor& image
     return ErrorEnum::eNone;
 }
 
-Error ImageInfoProvider::GetServiceConfig(
-    const oci::IndexContentDescriptor& imageDescriptor, oci::ServiceConfig& serviceConfig)
+Error ImageInfoProvider::GetItemConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ItemConfig& itemConfig)
 {
     auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
     auto manifest     = MakeUnique<oci::ImageManifest>(&mAllocator);
@@ -57,15 +56,15 @@ Error ImageInfoProvider::GetServiceConfig(
         return AOS_ERROR_WRAP(err);
     }
 
-    if (!manifest->mAosService.HasValue()) {
+    if (!manifest->mItemConfig.HasValue()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mAosService->mDigest, *servicePath); !err.IsNone()) {
+    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mItemConfig->mDigest, *servicePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mOCISpec->LoadServiceConfig(*servicePath, serviceConfig); !err.IsNone()) {
+    if (auto err = mOCISpec->LoadItemConfig(*servicePath, itemConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

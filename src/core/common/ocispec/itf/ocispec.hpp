@@ -9,8 +9,8 @@
 #define AOS_CORE_COMMON_OCISPEC_OCISPEC_HPP_
 
 #include "imagespec.hpp"
+#include "itemconfig.hpp"
 #include "runtimespec.hpp"
-#include "serviceconfig.hpp"
 
 namespace aos::oci {
 
@@ -74,22 +74,22 @@ public:
     virtual Error SaveImageConfig(const String& path, const ImageConfig& imageConfig) = 0;
 
     /**
-     * Loads Aos service config.
+     * Loads Aos item config.
      *
      * @param path file path.
-     * @param serviceConfig service config.
+     * @param itemConfig item config.
      * @return Error.
      */
-    virtual Error LoadServiceConfig(const String& path, ServiceConfig& serviceConfig) = 0;
+    virtual Error LoadItemConfig(const String& path, ItemConfig& itemConfig) = 0;
 
     /**
-     * Saves Aos service config.
+     * Saves Aos item config.
      *
      * @param path file path.
-     * @param serviceConfig service config.
+     * @param itemConfig item config.
      * @return Error.
      */
-    virtual Error SaveServiceConfig(const String& path, const ServiceConfig& serviceConfig) = 0;
+    virtual Error SaveItemConfig(const String& path, const ItemConfig& itemConfig) = 0;
 
     /**
      * Loads OCI runtime config.

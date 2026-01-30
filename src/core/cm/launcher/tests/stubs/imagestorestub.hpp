@@ -31,11 +31,11 @@ public:
         mImageIndexes.clear();
         mImageManifests.clear();
         mImageConfigs.clear();
-        mServiceConfigs.clear();
+        mItemConfigs.clear();
         mKnownDigests.clear();
     }
 
-    void AddService(const String& itemID, const String& imageID, const oci::ServiceConfig& serviceCfg,
+    void AddItem(const String& itemID, const String& imageID, const oci::ItemConfig& itemCfg,
         const oci::ImageConfig& imageCfg, const String& version = DefaultVersion)
     {
         auto versionStr              = version.IsEmpty() ? DefaultVersion : version.CStr();
@@ -43,18 +43,18 @@ public:
 
         auto manifestDigest = EnsureImageArtifacts(itemID, versionStr, imageID);
         auto configDigest   = MakeDigest(itemID, imageID, "config");
-        auto serviceDigest  = MakeDigest(itemID, imageID, "service");
+        auto itemDigest     = MakeDigest(itemID, imageID, "item");
 
-        mImageConfigs[configDigest]    = imageCfg;
-        mServiceConfigs[serviceDigest] = serviceCfg;
+        mImageConfigs[configDigest] = imageCfg;
+        mItemConfigs[itemDigest]    = itemCfg;
 
         auto& manifest = mImageManifests[manifestDigest];
-        manifest.mAosService.EmplaceValue();
-        manifest.mAosService->mDigest    = serviceDigest.c_str();
-        manifest.mAosService->mMediaType = cServiceMediaType;
+        manifest.mItemConfig.EmplaceValue();
+        manifest.mItemConfig->mDigest    = itemDigest.c_str();
+        manifest.mItemConfig->mMediaType = cItemMediaType;
 
         mKnownDigests.insert(configDigest);
-        mKnownDigests.insert(serviceDigest);
+        mKnownDigests.insert(itemDigest);
     }
 
     StaticString<oci::cDigestLen> GetManifestDigest(const String& itemID, const String& imageID) const
@@ -149,19 +149,18 @@ public:
 
     Error SaveImageConfig(const String&, const oci::ImageConfig&) override { return ErrorEnum::eNotSupported; }
 
-    Error LoadServiceConfig(const String& path, oci::ServiceConfig& serviceConfig) override
+    Error LoadItemConfig(const String& path, oci::ItemConfig& itemConfig) override
     {
-        auto it = mServiceConfigs.find(path.CStr());
-        if (it == mServiceConfigs.end()) {
+        auto it = mItemConfigs.find(path.CStr());
+        if (it == mItemConfigs.end()) {
             return ErrorEnum::eNotFound;
         }
 
-        serviceConfig = it->second;
+        itemConfig = it->second;
         return ErrorEnum::eNone;
     }
 
-    Error SaveServiceConfig(const String&, const oci::ServiceConfig&) override { return ErrorEnum::eNotSupported; }
-
+    Error SaveItemConfig(const String&, const oci::ItemConfig&) override { return ErrorEnum::eNotSupported; }
     Error LoadRuntimeConfig(const String&, oci::RuntimeConfig&) override { return ErrorEnum::eNotSupported; }
     Error SaveRuntimeConfig(const String&, const oci::RuntimeConfig&) override { return ErrorEnum::eNotSupported; }
 
@@ -179,7 +178,7 @@ private:
     static constexpr const char* DefaultVersion     = "";
     static constexpr const char* cImageManifestType = "application/vnd.oci.image.manifest.v1+json";
     static constexpr const char* cImageConfigType   = "application/vnd.oci.image.config.v1+json";
-    static constexpr const char* cServiceMediaType  = "application/aos.service.config";
+    static constexpr const char* cItemMediaType     = "application/vnd.aos.item.config.v1+json";
 
     static std::string MakeDigest(const String& itemID, const String& suffix, const char* descriptor)
     {
@@ -225,7 +224,7 @@ private:
     std::map<std::string, oci::ImageIndex>    mImageIndexes;
     std::map<std::string, oci::ImageManifest> mImageManifests;
     std::map<std::string, oci::ImageConfig>   mImageConfigs;
-    std::map<std::string, oci::ServiceConfig> mServiceConfigs;
+    std::map<std::string, oci::ItemConfig>    mItemConfigs;
     std::set<std::string>                     mKnownDigests;
 };
 

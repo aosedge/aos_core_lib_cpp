@@ -40,13 +40,13 @@ public:
     Error GetImageConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ImageConfig& config);
 
     /**
-     * Returns Aos service config for the specified descriptor.
+     * Returns Aos item config for the specified descriptor.
      *
      * @param imageDescriptor image descriptor.
-     * @param[out] serviceConfig resolved service config.
+     * @param[out] itemConfig resolved item config.
      * @return Error.
      */
-    Error GetServiceConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ServiceConfig& serviceConfig);
+    Error GetItemConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ItemConfig& itemConfig);
 
     /**
      * Returns OCI image index for the specified instance/version.

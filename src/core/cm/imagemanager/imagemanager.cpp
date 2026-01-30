@@ -857,8 +857,8 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
             return AOS_ERROR_WRAP(err);
         }
 
-        if (manifest->mAosService.HasValue()) {
-            if (auto err = LoadBlob(*manifest->mAosService, certificates, certificateChains); !err.IsNone()) {
+        if (manifest->mItemConfig.HasValue()) {
+            if (auto err = LoadBlob(*manifest->mItemConfig, certificates, certificateChains); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1488,8 +1488,8 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
             return AOS_ERROR_WRAP(err);
         }
 
-        if (manifest->mAosService.HasValue()) {
-            if (auto err = VerifyBlobIntegrity(manifest->mAosService->mDigest); !err.IsNone()) {
+        if (manifest->mItemConfig.HasValue()) {
+            if (auto err = VerifyBlobIntegrity(manifest->mItemConfig->mDigest); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1551,7 +1551,7 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
                 return true;
             }
 
-            if (manifest->mAosService.HasValue() && manifest->mAosService->mDigest == blobDigest) {
+            if (manifest->mItemConfig.HasValue() && manifest->mItemConfig->mDigest == blobDigest) {
                 return true;
             }
 

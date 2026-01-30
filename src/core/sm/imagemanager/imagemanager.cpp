@@ -124,10 +124,10 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
             return AOS_ERROR_WRAP(err);
         }
 
-        if (manifest->mAosService.HasValue()) {
-            LOG_DBG() << "Install service config blob" << Log::Field("digest", manifest->mAosService->mDigest);
+        if (manifest->mItemConfig.HasValue()) {
+            LOG_DBG() << "Install item config blob" << Log::Field("digest", manifest->mItemConfig->mDigest);
 
-            if (auto err = InstallBlob(*manifest->mAosService); !err.IsNone()) {
+            if (auto err = InstallBlob(*manifest->mItemConfig); !err.IsNone()) {
                 return err;
             }
         }

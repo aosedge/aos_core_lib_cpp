@@ -338,12 +338,12 @@ Error ServiceInstance::Init()
 
 Error ServiceInstance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
 {
-    mServiceConfig = MakeUnique<oci::ServiceConfig>(&mAllocator);
-    mImageConfig   = MakeUnique<oci::ImageConfig>(&mAllocator);
+    mItemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
-    if (auto err = mImageInfoProvider.GetServiceConfig(imageDescriptor, *mServiceConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "get service config failed"));
+    if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(err, "get item config failed"));
     }
 
     if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *mImageConfig); !err.IsNone()) {
@@ -359,7 +359,7 @@ Error ServiceInstance::LoadConfigs(const oci::IndexContentDescriptor& imageDescr
 
 void ServiceInstance::ResetConfigs()
 {
-    mServiceConfig.Reset();
+    mItemConfig.Reset();
     mImageConfig.Reset();
 }
 
@@ -406,7 +406,7 @@ Error ServiceInstance::Cache(bool disable)
 
 bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
     auto requestedCPU = GetRequestedCPU(nodeConfig, useMonitoringData);
 
@@ -420,7 +420,7 @@ bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& no
 
 bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
     auto requestedRAM = GetRequestedRAM(nodeConfig, useMonitoringData);
 
@@ -434,16 +434,16 @@ bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& no
 
 bool ServiceInstance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
-    return mServiceConfig->mRuntimes.Contains(runtimeType);
+    return mItemConfig->mRuntimes.Contains(runtimeType);
 }
 
 bool ServiceInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResources)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
-    for (const auto& resource : mServiceConfig->mResources) {
+    for (const auto& resource : mItemConfig->mResources) {
         auto matchResource
             = [&resource](const ResourceInfo& info) { return info.mName == resource && info.mSharedCount > 0; };
 
@@ -457,17 +457,17 @@ bool ServiceInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResources)
 
 oci::BalancingPolicyEnum ServiceInstance::GetBalancingPolicy()
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
-    return mServiceConfig->mBalancingPolicy;
+    return mItemConfig->mBalancingPolicy;
 }
 
 Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
-        mServiceConfig.Reset();
+        mItemConfig.Reset();
         mImageConfig.Reset();
     });
 
@@ -492,8 +492,8 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID, aos::Ins
     }
 
     info.mMonitoringParams.EmplaceValue();
-    if (mServiceConfig->mAlertRules.HasValue()) {
-        info.mMonitoringParams.GetValue().mAlertRules = mServiceConfig->mAlertRules.GetValue();
+    if (mItemConfig->mAlertRules.HasValue()) {
+        info.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
     }
 
     if (auto err = ReserveRuntimeResources(node); !err.IsNone()) {
@@ -513,17 +513,17 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID, aos::Ins
 
 size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
-    if (mServiceConfig->mSkipResourceLimits) {
+    if (mItemConfig->mSkipResourceLimits) {
         return 0;
     }
 
     size_t requestedCPU = 0;
-    auto   quota        = mServiceConfig->mQuotas.mCPUDMIPSLimit;
+    auto   quota        = mItemConfig->mQuotas.mCPUDMIPSLimit;
 
-    if (mServiceConfig->mRequestedResources.HasValue() && mServiceConfig->mRequestedResources->mCPU.HasValue()) {
-        requestedCPU = ClampResource(*mServiceConfig->mRequestedResources->mCPU, quota);
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mCPU.HasValue()) {
+        requestedCPU = ClampResource(*mItemConfig->mRequestedResources->mCPU, quota);
     } else {
         requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
@@ -539,17 +539,17 @@ size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMo
 
 size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData)
 {
-    assert(mServiceConfig);
+    assert(mItemConfig);
 
-    if (mServiceConfig->mSkipResourceLimits) {
+    if (mItemConfig->mSkipResourceLimits) {
         return 0;
     }
 
     size_t requestedRAM = 0;
-    auto   quota        = mServiceConfig->mQuotas.mRAMLimit;
+    auto   quota        = mItemConfig->mQuotas.mRAMLimit;
 
-    if (mServiceConfig->mRequestedResources.HasValue() && mServiceConfig->mRequestedResources->mRAM.HasValue()) {
-        requestedRAM = ClampResource(*mServiceConfig->mRequestedResources->mRAM, quota);
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mRAM.HasValue()) {
+        requestedRAM = ClampResource(*mItemConfig->mRequestedResources->mRAM, quota);
     } else {
         requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
@@ -566,10 +566,10 @@ size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMo
 size_t ServiceInstance::GetReqStateSize(const NodeConfig& nodeConfig)
 {
     size_t requestedState = 0;
-    auto   quota          = mServiceConfig->mQuotas.mStateLimit;
+    auto   quota          = mItemConfig->mQuotas.mStateLimit;
 
-    if (mServiceConfig->mRequestedResources.HasValue() && mServiceConfig->mRequestedResources->mState.HasValue()) {
-        requestedState = ClampResource(*mServiceConfig->mRequestedResources->mState, quota);
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mState.HasValue()) {
+        requestedState = ClampResource(*mItemConfig->mRequestedResources->mState, quota);
     } else {
         requestedState = GetReqStateFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
@@ -580,10 +580,10 @@ size_t ServiceInstance::GetReqStateSize(const NodeConfig& nodeConfig)
 size_t ServiceInstance::GetReqStorageSize(const NodeConfig& nodeConfig)
 {
     size_t requestedStorage = 0;
-    auto   quota            = mServiceConfig->mQuotas.mStorageLimit;
+    auto   quota            = mItemConfig->mQuotas.mStorageLimit;
 
-    if (mServiceConfig->mRequestedResources.HasValue() && mServiceConfig->mRequestedResources->mStorage.HasValue()) {
-        requestedStorage = ClampResource(*mServiceConfig->mRequestedResources->mStorage, quota);
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mStorage.HasValue()) {
+        requestedStorage = ClampResource(*mItemConfig->mRequestedResources->mStorage, quota);
     } else {
         requestedStorage = GetReqStorageFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
@@ -683,10 +683,10 @@ size_t ServiceInstance::GetReqStorageFromNodeConfig(
 Error ServiceInstance::SetupNetworkServiceData()
 {
     mNetworkServiceData.mExposedPorts       = mImageConfig->mConfig.mExposedPorts;
-    mNetworkServiceData.mAllowedConnections = mServiceConfig->mAllowedConnections;
+    mNetworkServiceData.mAllowedConnections = mItemConfig->mAllowedConnections;
 
-    if (mServiceConfig->mHostname.HasValue()) {
-        mNetworkServiceData.mHosts.PushBack(mServiceConfig->mHostname.GetValue());
+    if (mItemConfig->mHostname.HasValue()) {
+        mNetworkServiceData.mHosts.PushBack(mItemConfig->mHostname.GetValue());
     }
 
     if (auto err = mNetworkManager.SetNetworkServiceData(mInfo.mInstanceIdent, mNetworkServiceData); !err.IsNone()) {
@@ -706,15 +706,15 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
     params.mUID = mInfo.mUID;
     params.mGID = mInfo.mGID;
 
-    if (mServiceConfig->mQuotas.mStorageLimit.HasValue()) {
-        params.mStorageQuota = *mServiceConfig->mQuotas.mStorageLimit;
+    if (mItemConfig->mQuotas.mStorageLimit.HasValue()) {
+        params.mStorageQuota = *mItemConfig->mQuotas.mStorageLimit;
     }
 
-    if (mServiceConfig->mQuotas.mStateLimit.HasValue()) {
-        params.mStateQuota = *mServiceConfig->mQuotas.mStateLimit;
+    if (mItemConfig->mQuotas.mStateLimit.HasValue()) {
+        params.mStateQuota = *mItemConfig->mQuotas.mStateLimit;
     }
 
-    if (mServiceConfig->mSkipResourceLimits) {
+    if (mItemConfig->mSkipResourceLimits) {
         reqState   = 0;
         reqStorage = 0;
     }
@@ -730,10 +730,10 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
 Error ServiceInstance::ReserveRuntimeResources(NodeItf& node)
 {
-    auto requestedCPU = mServiceConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
-    auto requestedRAM = mServiceConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
+    auto requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
+    auto requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
     Array<StaticString<cResourceNameLen>> requestedResources
-        = mServiceConfig->mSkipResourceLimits ? Array<StaticString<cResourceNameLen>>() : mServiceConfig->mResources;
+        = mItemConfig->mSkipResourceLimits ? Array<StaticString<cResourceNameLen>>() : mItemConfig->mResources;
 
     auto reserveErr
         = node.ReserveResources(mInfo.mInstanceIdent, mInfo.mRuntimeID, requestedCPU, requestedRAM, requestedResources);

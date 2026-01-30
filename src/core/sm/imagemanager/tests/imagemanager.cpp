@@ -302,8 +302,8 @@ TEST_F(ImageManagerTest, InstallService)
     imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
     imageManifest->mConfig.mDigest    = cImageConfigDigest;
     imageManifest->mConfig.mSize      = 512;
-    imageManifest->mAosService.EmplaceValue(
-        oci::ContentDescriptor {"application/vnd.aos.service.config.v1+json", cServiceConfigDigest, 256});
+    imageManifest->mItemConfig.EmplaceValue(
+        oci::ContentDescriptor {"application/vnd.aos.item.config.v1+json", cServiceConfigDigest, 256});
     imageManifest->mLayers.EmplaceBack(
         oci::ContentDescriptor {"application/vnd.oci.image.layer.v1.tar+gzip", cLayerDigest, 1024});
 
@@ -395,7 +395,7 @@ TEST_F(ImageManagerTest, GetAllInstalledItems)
             manifest.mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
             manifest.mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
             manifest.mConfig.mSize      = 512;
-            manifest.mAosService.EmplaceValue(oci::ContentDescriptor {"application/vnd.aos.service.config.v1+json",
+            manifest.mItemConfig.EmplaceValue(oci::ContentDescriptor {"application/vnd.aos.item.config.v1+json",
                 "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", 256});
             manifest.mLayers.EmplaceBack(oci::ContentDescriptor {"application/vnd.oci.image.layer.v1.tar+gzip",
                 "sha256:4a6f6b8f5f5e3e7b9c4d3e2f1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b", 1024});

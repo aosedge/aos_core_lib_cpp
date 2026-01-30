@@ -467,7 +467,7 @@ private:
 
     Error SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath);
 
-    UniquePtr<oci::ServiceConfig>      mServiceConfig;
+    UniquePtr<oci::ItemConfig>         mItemConfig;
     networkmanager::NetworkServiceData mNetworkServiceData {};
 
     UIDPool&        mUIDPool;
