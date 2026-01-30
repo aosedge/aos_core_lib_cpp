@@ -183,7 +183,6 @@ private:
                                    SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain);
     Error DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName);
     RetWithError<Hash> DecodeHash(const String& hashName);
-    Error              CalcHashSum(const Hash& hash, const String& fileName, Array<uint8_t>& hashSum);
     Error CreateIntermCertPool(SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool);
 
     Error UnmarshalCMS(const Array<uint8_t>& der, ContentInfo& content);
