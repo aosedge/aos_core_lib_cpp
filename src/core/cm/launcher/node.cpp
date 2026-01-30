@@ -112,22 +112,21 @@ bool Node::UpdateInfo(const UnitNodeInfo& info)
     return nodeChanged;
 }
 
-Error Node::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
+Error Node::LoadInstances()
 {
-    mSentInstances.Clear();
+    mSentInstances = mScheduledInstances;
+    mRunningInstances.Clear();
+    mScheduledInstances.Clear();
 
-    LOG_DBG() << "Load sent instances for node" << Log::Field("nodeID", mInfo.mNodeID)
-              << Log::Field("instances", instances.Size());
+    LOG_DBG() << "Load instances for node" << Log::Field("nodeID", mInfo.mNodeID)
+              << Log::Field("instances", mSentInstances.Size());
 
-    for (const auto& instance : instances) {
-        if (instance->GetStatus().mNodeID == mInfo.mNodeID) {
-            if (auto err = mSentInstances.EmplaceBack(); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            static_cast<InstanceIdent&>(mSentInstances.Back()) = instance->GetInfo().mInstanceIdent;
-            mSentInstances.Back().mRuntimeID                   = instance->GetStatus().mRuntimeID;
+    for (const auto& instance : mSentInstances) {
+        if (auto err = mRunningInstances.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
+
+        Convert(instance, mRunningInstances.Back());
     }
 
     return ErrorEnum::eNone;
@@ -328,6 +327,10 @@ Error Node::SendScheduledInstances()
         }
     }
 
+    LOG_INF() << "Send scheduled instances" << Log::Field("nodeID", mInfo.mNodeID)
+              << Log::Field("stopInstances", stopInstances->Size())
+              << Log::Field("startInstances", mScheduledInstances.Size());
+
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, mScheduledInstances);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -482,6 +485,18 @@ size_t* Node::GetPtrToMaxNumInstances(const String& runtimeID)
     }
 
     return &mMaxInstances.Find(runtimeID)->mSecond;
+}
+
+void Node::Convert(const aos::InstanceInfo& instance, InstanceStatus& status)
+{
+    static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(instance);
+    status.mRuntimeID                   = instance.mRuntimeID;
+    status.mManifestDigest              = instance.mManifestDigest;
+    status.mState                       = aos::InstanceStateEnum::eActivating;
+    status.mError                       = ErrorEnum::eNone;
+    status.mVersion                     = instance.mVersion;
+    status.mPreinstalled                = false;
+    status.mNodeID                      = mInfo.mNodeID;
 }
 
 } // namespace aos::cm::launcher

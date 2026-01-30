@@ -49,6 +49,13 @@ public:
      */
     Error RunInstances(UniqueLock<Mutex>& lock, bool rebalancing);
 
+    /**
+     * Loads instances from storage.
+     *
+     * @return Error.
+     */
+    Error LoadInstances();
+
 private:
     using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
 
