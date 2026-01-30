@@ -13,14 +13,14 @@ set(TARGET_NAME crypto_test)
 set(SOURCES asn1.cpp)
 
 if(WITH_MBEDTLS OR WITH_OPENSSL)
-    list(APPEND SOURCES certloader.cpp cryptohelper.cpp cryptoprovider.cpp)
+    list(APPEND SOURCES certloader.cpp cryptohelper.cpp cryptoprovider.cpp cryptoutils.cpp)
 endif()
 
 # ######################################################################################################################
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::common::tests::crypto GTest::gmock_main)
+set(LIBRARIES aos::core::common::tests::crypto aos::core::common::tests::utils GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
