@@ -14,7 +14,7 @@ set(TARGET_NAME ocispec)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/common.hpp itf/imagespec.hpp itf/ocispec.hpp itf/runtimespec.hpp itf/serviceconfig.hpp)
+set(HEADERS itf/common.hpp itf/itemconfig.hpp itf/imagespec.hpp itf/ocispec.hpp itf/runtimespec.hpp)
 
 # ######################################################################################################################
 # Target

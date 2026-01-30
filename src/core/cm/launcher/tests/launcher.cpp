@@ -132,10 +132,10 @@ protected:
     void TearDown() override { }
 
 protected:
-    void AddService(const std::string& id, const std::string& imageID, const oci::ServiceConfig& serviceConfig,
+    void AddItem(const std::string& id, const std::string& imageID, const oci::ItemConfig& itemConfig,
         const oci::ImageConfig& imageConfig, const std::string& version = "")
     {
-        mImageStore.AddService(id.c_str(), imageID.c_str(), serviceConfig, imageConfig, version.c_str());
+        mImageStore.AddItem(id.c_str(), imageID.c_str(), itemConfig, imageConfig, version.c_str());
     }
 
     StaticString<oci::cDigestLen> GetManifestDigest(const std::string& id, const std::string& imageID = "") const
@@ -394,7 +394,7 @@ AlertRules CreateAlertRules(double cpuRule, double ramRule)
     return rules;
 }
 
-void CreateServiceConfig(oci::ServiceConfig& config, const std::vector<std::string>& runtimes = {"linux"},
+void CreateItemConfig(oci::ItemConfig& config, const std::vector<std::string>& runtimes = {"linux"},
     const oci::BalancingPolicy& balancingPolicy = oci::BalancingPolicyEnum::eNone,
     const oci::ServiceQuotas& quotas = {}, const oci::RequestedResources& requestedResources = {},
     const Optional<AlertRules>& alertRules = {}, const std::vector<std::string>& allowedConnections = {},
@@ -589,17 +589,15 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
     cfg.mInstanceTTL            = 1 * Time::cHours;
 
     // Add services to the image provider.
-    oci::ServiceConfig serviceConfig1;
-    oci::ServiceConfig serviceConfig2;
+    oci::ItemConfig itemConfig1;
+    oci::ItemConfig itemConfig2;
 
-    CreateServiceConfig(serviceConfig1);
-    CreateServiceConfig(serviceConfig2);
-
+    CreateItemConfig(itemConfig1);
+    CreateItemConfig(itemConfig2);
     const std::string emptyImage = "";
 
-    AddService(cService1, emptyImage, serviceConfig1, CreateImageConfig());
-    AddService(cService2, emptyImage, serviceConfig2, CreateImageConfig());
-
+    AddItem(cService1, emptyImage, itemConfig1, CreateImageConfig());
+    AddItem(cService2, emptyImage, itemConfig2, CreateImageConfig());
     auto manifestService1 = GetManifestDigest(cService1, emptyImage);
     auto manifestService2 = GetManifestDigest(cService2, emptyImage);
 
@@ -670,10 +668,10 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     // Set up configs
     for (const auto& serviceID : {cService1, cService2, cService3}) {
-        auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+        auto itemConfig = std::make_unique<oci::ItemConfig>();
 
-        CreateServiceConfig(*serviceConfig, {cRunnerRunc});
-        AddService(serviceID, cImageID1, *serviceConfig, CreateImageConfig());
+        CreateItemConfig(*itemConfig, {cRunnerRunc});
+        AddItem(serviceID, cImageID1, *itemConfig, CreateImageConfig());
     }
 
     mInstanceRunner.Init(mLauncher);
@@ -760,10 +758,10 @@ TEST_F(CMLauncherTest, Components)
     mResourceManager.SetNodeConfig(cNodeIDRemoteSM1, cNodeTypeVM, *nodeConfig);
 
     // Create component config
-    auto componentConfig = std::make_unique<oci::ServiceConfig>();
+    auto componentConfig = std::make_unique<oci::ItemConfig>();
 
-    CreateServiceConfig(*componentConfig, {cRunnerRootfs});
-    AddService(cComponent1, cRootfsImageID, *componentConfig, CreateImageConfig());
+    CreateItemConfig(*componentConfig, {cRunnerRootfs});
+    AddItem(cComponent1, cRootfsImageID, *componentConfig, CreateImageConfig());
 
     mInstanceRunner.Init(mLauncher);
 
@@ -823,7 +821,7 @@ TEST_F(CMLauncherTest, Components)
 struct TestData {
     const char*                                       mTestCaseName;
     std::map<std::string, NodeConfig>                 mNodeConfigs;
-    std::map<std::string, oci::ServiceConfig>         mServiceConfigs;
+    std::map<std::string, oci::ItemConfig>            mItemConfigs;
     StaticArray<InstanceInfo, cMaxNumInstances>       mStoredInstances;
     StaticArray<RunInstanceRequest, cMaxNumInstances> mRunRequests;
 
@@ -848,10 +846,10 @@ TestDataPtr TestItemNodePriority()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 0);
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRunxSM], cNodeIDRunxSM, 0);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc});
-    CreateServiceConfig(testData->mServiceConfigs[cService2], {cRunnerRunc});
-    CreateServiceConfig(testData->mServiceConfigs[cService3], {cRunnerRunx});
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc});
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc});
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunx});
 
     // Desired instances
     testData->mRunRequests.PushBack(
@@ -913,10 +911,10 @@ TestDataPtr TestItemLabels()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 0);
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRunxSM], cNodeIDRunxSM, 0);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc});
-    CreateServiceConfig(testData->mServiceConfigs[cService2], {cRunnerRunc});
-    CreateServiceConfig(testData->mServiceConfigs[cService3], {cRunnerRunx});
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc});
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc});
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunx});
 
     // Desired instances
     testData->mRunRequests.PushBack(
@@ -973,12 +971,10 @@ TestDataPtr TestItemResources()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM1], cNodeIDRemoteSM1, 50);
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 0);
 
-    // Service configs
-    CreateServiceConfig(
-        testData->mServiceConfigs[cService1], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1", "resource2"});
-    CreateServiceConfig(testData->mServiceConfigs[cService2], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1"});
-    CreateServiceConfig(testData->mServiceConfigs[cService3], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource3"});
-
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1", "resource2"});
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1"});
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource3"});
     // Desired instances
     testData->mRunRequests.PushBack(
         CreateRunRequest(cService1, cSubject1, 100, 2, "", {}, UpdateItemTypeEnum::eService));
@@ -1037,8 +1033,8 @@ TestDataPtr TestItemStorageRatio()
     // Node configs
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDLocalSM], cNodeIDLocalSM, 100);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(500, 0, 0, 0),
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(500, 0, 0, 0),
         CreateRequestedResources(300, 0, 0, 0));
 
     // Desired instances
@@ -1082,8 +1078,8 @@ TestDataPtr TestItemStateRatio()
     // Node configs
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDLocalSM], cNodeIDLocalSM, 100);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(0, 500, 0, 0),
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(0, 500, 0, 0),
         CreateRequestedResources(0, 300, 0, 0));
 
     // Desired instances
@@ -1127,8 +1123,8 @@ TestDataPtr TestItemCpuRatio()
     // Node configs
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDLocalSM], cNodeIDLocalSM, 100);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(0, 0, 500, 0),
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(0, 0, 500, 0),
         CreateRequestedResources(0, 0, 300, 0));
 
     // Desired instances
@@ -1177,8 +1173,8 @@ TestDataPtr TestItemRamRatio()
     // Node configs
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDLocalSM], cNodeIDLocalSM, 100);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(0, 0, 0, 500),
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, CreateServiceQuotas(0, 0, 0, 500),
         CreateRequestedResources(0, 0, 0, 300));
 
     // Desired instances
@@ -1231,12 +1227,12 @@ TestDataPtr TestItemRebalancing()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 50, {}, {}, alertRules);
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRunxSM], cNodeIDRunxSM, 0, {}, {}, alertRules);
 
-    // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    // Item configs
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
         CreateServiceQuotas(0, 0, 1000, 0));
-    CreateServiceConfig(testData->mServiceConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
         CreateServiceQuotas(0, 0, 1000, 0));
-    CreateServiceConfig(testData->mServiceConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
         CreateServiceQuotas(0, 0, 1000, 0));
 
     // Desired instances with priorities
@@ -1300,12 +1296,12 @@ TestDataPtr TestItemRebalancingPolicy()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 50, {}, {}, alertRules);
 
     // Service configs
-    CreateServiceConfig(testData->mServiceConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
         CreateServiceQuotas(0, 0, 1000, 0), {}, {});
-    CreateServiceConfig(testData->mServiceConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
         CreateServiceQuotas(0, 0, 1000, 0));
-    CreateServiceConfig(testData->mServiceConfigs[cService3], {cRunnerRunc},
-        oci::BalancingPolicyEnum::eBalancingDisabled, CreateServiceQuotas(0, 0, 1000, 0));
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eBalancingDisabled,
+        CreateServiceQuotas(0, 0, 1000, 0));
 
     // Desired instances with priorities
     testData->mRunRequests.PushBack(CreateRunRequest(cService1, cSubject1, 100, 1));
@@ -1407,8 +1403,8 @@ TEST_F(CMLauncherTest, Balancing)
         mStorage.Init(testItem.mStoredInstances);
 
         // Set up configs
-        for (const auto& [serviceID, config] : testItem.mServiceConfigs) {
-            AddService(serviceID, cImageID1, config, CreateImageConfig());
+        for (const auto& [itemID, config] : testItem.mItemConfigs) {
+            AddItem(itemID, cImageID1, config, CreateImageConfig());
         }
 
         for (const auto& nodeID : nodeIDs) {
@@ -1513,22 +1509,19 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     }
 
     // Service1 requires arm32/linux - rejected (no arm32 runtime)
-    auto serviceConfig1 = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig1, {cRunnerRunc});
-    AddService(
-        cService1, cImageID1, *serviceConfig1, CreateImageConfig("arm32", "generic", "linux", "5.4.0", "feature1"));
+    auto itemConfig1 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig1, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig1, CreateImageConfig("arm32", "generic", "linux", "5.4.0", "feature1"));
 
     // Service2 requires x86_64/macos - rejected (no macos OS)
-    auto serviceConfig2 = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig2, {cRunnerRunc});
-    AddService(
-        cService2, cImageID1, *serviceConfig2, CreateImageConfig("x86_64", "generic", "macos", "5.4.0", "feature1"));
+    auto itemConfig2 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig2, {cRunnerRunc});
+    AddItem(cService2, cImageID1, *itemConfig2, CreateImageConfig("x86_64", "generic", "macos", "5.4.0", "feature1"));
 
     // Service3 requires x86_64/linux - matches remoteSM2
-    auto serviceConfig3 = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig3, {cRunnerRunc});
-    AddService(
-        cService3, cImageID1, *serviceConfig3, CreateImageConfig("x86_64", "generic", "linux", "5.4.0", "feature1"));
+    auto itemConfig3 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig3, {cRunnerRunc});
+    AddItem(cService3, cImageID1, *itemConfig3, CreateImageConfig("x86_64", "generic", "linux", "5.4.0", "feature1"));
 
     // Init launcher
     ASSERT_TRUE(mLauncher
@@ -1604,10 +1597,10 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
-    // Service config
-    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
-    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+    // Item config
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
 
     mInstanceRunner.Init(mLauncher, false);
 
@@ -1683,10 +1676,10 @@ TEST_F(CMLauncherTest, SubjectChanged)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
-    // Service config
-    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
-    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+    // Item config
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
 
     mInstanceRunner.Init(mLauncher);
 
@@ -1757,10 +1750,10 @@ TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
-    // Service config
-    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
-    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+    // Item config
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
 
     mInstanceRunner.Init(mLauncher);
 
@@ -1822,14 +1815,14 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
-    // Set up service config with alert rules and quotas
-    auto alertRules    = CreateAlertRules(75.0, 85.0);
-    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
+    // Set up item config with alert rules and quotas
+    auto alertRules = CreateAlertRules(75.0, 85.0);
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
 
-    CreateServiceConfig(*serviceConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
-        CreateServiceQuotas(500, 300, 0, 0), CreateRequestedResources(100, 50, 0, 0), alertRules);
+    CreateItemConfig(*itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone, CreateServiceQuotas(500, 300, 0, 0),
+        CreateRequestedResources(100, 50, 0, 0), alertRules);
 
-    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig(), version);
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), version);
 
     mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
@@ -1898,10 +1891,10 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
-    // Set up service config for regular instance
-    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
-    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig());
+    // Set up item config for regular instance
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
 
     mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
@@ -1977,10 +1970,10 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
-    // Service config
-    auto serviceConfig = std::make_unique<oci::ServiceConfig>();
-    CreateServiceConfig(*serviceConfig, {cRunnerRunc});
-    AddService(cService1, cImageID1, *serviceConfig, CreateImageConfig(), "1.0.0");
+    // Item config
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), "1.0.0");
 
     mInstanceRunner.Init(mLauncher);
 

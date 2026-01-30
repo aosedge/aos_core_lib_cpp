@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_COMMON_OCISPEC_SERVICECONFIG_HPP_
-#define AOS_CORE_COMMON_OCISPEC_SERVICECONFIG_HPP_
+#ifndef AOS_CORE_COMMON_OCISPEC_ITEMCONFIG_HPP_
+#define AOS_CORE_COMMON_OCISPEC_ITEMCONFIG_HPP_
 
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/optional.hpp>
@@ -111,9 +111,9 @@ using BalancingPolicyEnum = BalancingPolicyType::Enum;
 using BalancingPolicy     = EnumStringer<BalancingPolicyType>;
 
 /**
- * Service configuration.
+ * Item configuration.
  */
-struct ServiceConfig {
+struct ItemConfig {
     Time                                                                           mCreated;
     StaticString<cAuthorLen>                                                       mAuthor;
     bool                                                                           mSkipResourceLimits;
@@ -131,12 +131,12 @@ struct ServiceConfig {
     Optional<AlertRules>                                                           mAlertRules;
 
     /**
-     * Compares service config.
+     * Compares item config.
      *
-     * @param rhs service config to compare.
+     * @param rhs item config to compare.
      * @return bool.
      */
-    bool operator==(const ServiceConfig& rhs) const
+    bool operator==(const ItemConfig& rhs) const
     {
         return mCreated == rhs.mCreated && mAuthor == rhs.mAuthor && mSkipResourceLimits == rhs.mSkipResourceLimits
             && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRuntimes == rhs.mRuntimes
@@ -147,12 +147,12 @@ struct ServiceConfig {
     }
 
     /**
-     * Compares service config.
+     * Compares item config.
      *
-     * @param rhs service config to compare.
+     * @param rhs item config to compare.
      * @return bool.
      */
-    bool operator!=(const ServiceConfig& rhs) const { return !operator==(rhs); }
+    bool operator!=(const ItemConfig& rhs) const { return !operator==(rhs); }
 };
 
 } // namespace aos::oci

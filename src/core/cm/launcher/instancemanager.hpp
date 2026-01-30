@@ -189,7 +189,7 @@ private:
     static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
         + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo) + sizeof(oci::ImageIndex);
     static constexpr auto cInstanceAllocatorSize
-        = Max(sizeof(oci::ImageConfig) + sizeof(oci::ServiceConfig), sizeof(oci::ImageIndex));
+        = Max(sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig), sizeof(oci::ImageIndex));
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);

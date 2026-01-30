@@ -53,7 +53,7 @@ private:
     using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
 
     static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)
-        + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ServiceConfig) + sizeof(oci::ImageConfig)
+        + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ItemConfig) + sizeof(oci::ImageConfig)
         + sizeof(oci::ImageIndex) + sizeof(aos::cm::networkmanager::NetworkServiceData) + sizeof(aos::InstanceInfo)
         + sizeof(StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>)
         + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>);
