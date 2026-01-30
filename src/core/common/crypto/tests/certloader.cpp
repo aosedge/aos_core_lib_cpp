@@ -21,7 +21,7 @@ namespace aos::crypto {
 
 using namespace testing;
 
-class CryptoutilsTest : public Test {
+class CertloaderTest : public Test {
 protected:
     void SetUp() override
     {
@@ -106,7 +106,7 @@ protected:
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(CryptoutilsTest, ParseScheme)
+TEST_F(CertloaderTest, ParseScheme)
 {
     const char* url1 = "pkcs11:token=aoscore;object=diskencryption;id=2e2769b6-be2c-43ff-b16d-25985a04e6b2?module-path="
                        "/usr/lib/softhsm/libsofthsm2.so";
@@ -124,7 +124,7 @@ TEST_F(CryptoutilsTest, ParseScheme)
     ASSERT_EQ(ParseURLScheme(url3, scheme), ErrorEnum::eNotFound);
 }
 
-TEST_F(CryptoutilsTest, ParseFileURL)
+TEST_F(CertloaderTest, ParseFileURL)
 {
     const char* url1 = "file:/usr/share/.ssh/rsa.pub";
     const char* url2 = "pkcs11:token=aoscore";
@@ -137,7 +137,7 @@ TEST_F(CryptoutilsTest, ParseFileURL)
     ASSERT_NE(ParseFileURL(url2, path), ErrorEnum::eNone);
 }
 
-TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
+TEST_F(CertloaderTest, ParsePKCS11URLAllValues)
 {
     const auto url1 = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
                       "/usr/lib/softhsm/libsofthsm2.so&pin-source="
@@ -159,7 +159,7 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLAllValues)
     EXPECT_EQ(id, Array(expectedID, ArraySize(expectedID)));
 }
 
-TEST_F(CryptoutilsTest, ParsePKCS11URLRequiredValuesOnly)
+TEST_F(CertloaderTest, ParsePKCS11URLRequiredValuesOnly)
 {
     const char* url1 = "pkcs11:object=diskencryption;id=%AA%BB%CC";
 
@@ -179,7 +179,7 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLRequiredValuesOnly)
     EXPECT_EQ(id, Array(expectedID, ArraySize(expectedID)));
 }
 
-TEST_F(CryptoutilsTest, ParsePKCS11URLPinValue)
+TEST_F(CertloaderTest, ParsePKCS11URLPinValue)
 {
     const auto url = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
                      "/usr/lib/softhsm/libsofthsm2.so&pin-value="
@@ -196,7 +196,7 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLPinValue)
     EXPECT_EQ(userPIN, mPIN);
 }
 
-TEST_F(CryptoutilsTest, ParsePKCS11URLPinSource)
+TEST_F(CertloaderTest, ParsePKCS11URLPinSource)
 {
     const auto url = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
                      "/usr/lib/softhsm/libsofthsm2.so&pin-source="
@@ -213,7 +213,7 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLPinSource)
     EXPECT_EQ(userPIN, mPIN);
 }
 
-TEST_F(CryptoutilsTest, ParsePKCS11URLPinValueAndPinSource)
+TEST_F(CertloaderTest, ParsePKCS11URLPinValueAndPinSource)
 {
     const auto url = "pkcs11:token=aoscore;object=diskencryption;id=%00%01%02%03%04%05%06%07?module-path="
                      "/usr/lib/softhsm/libsofthsm2.so&pin-source="
@@ -228,7 +228,7 @@ TEST_F(CryptoutilsTest, ParsePKCS11URLPinValueAndPinSource)
     ASSERT_NE(ParsePKCS11URL(url.c_str(), library, token, label, id, userPIN), ErrorEnum::eNone);
 }
 
-TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
+TEST_F(CertloaderTest, FindPKCS11CertificateChain)
 {
     constexpr uint8_t caID[]     = {0x00, 0x01, 0x02};
     constexpr uint8_t clientID[] = {0x00, 0x01, 0x03};
@@ -263,7 +263,7 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChain)
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
 }
 
-TEST_F(CryptoutilsTest, FindPKCS11CertificateChainBadURL)
+TEST_F(CertloaderTest, FindPKCS11CertificateChainBadURL)
 {
     constexpr uint8_t caID[]     = {0x00, 0x01, 0x02};
     constexpr uint8_t clientID[] = {0x00, 0x01, 0x03};
@@ -281,7 +281,7 @@ TEST_F(CryptoutilsTest, FindPKCS11CertificateChainBadURL)
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
 }
 
-TEST_F(CryptoutilsTest, FindPKCS11PrivateKey)
+TEST_F(CertloaderTest, FindPKCS11PrivateKey)
 {
     constexpr uint8_t id[] = {0xAA, 0xBB, 0xCC};
 
@@ -299,7 +299,7 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKey)
     ASSERT_TRUE(privKey);
 }
 
-TEST_F(CryptoutilsTest, FindPKCS11PrivateKeyBadURL)
+TEST_F(CertloaderTest, FindPKCS11PrivateKeyBadURL)
 {
     constexpr uint8_t id[] = {0xAA, 0xBB, 0xCC};
 
@@ -316,7 +316,7 @@ TEST_F(CryptoutilsTest, FindPKCS11PrivateKeyBadURL)
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
 }
 
-TEST_F(CryptoutilsTest, FindCertificatesFromFile)
+TEST_F(CertloaderTest, FindCertificatesFromFile)
 {
     const char* url = "file:" CERTIFICATES_DIR "/client-ca-chain.pem";
 
