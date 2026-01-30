@@ -60,10 +60,11 @@ public:
     /**
      * Loads instances from storage.
      *
-     * @param instances list of sent instances.
+     * @param instances list of instances.
+     * @param imageInfoProvider image info provider.
      * @return Error.
      */
-    Error LoadSentInstances(const Array<SharedPtr<Instance>>& instances);
+    Error LoadInstances(const Array<SharedPtr<Instance>>& instances, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Updates list of running instances for a node.
@@ -134,6 +135,9 @@ private:
     static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo);
+
+    Error FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
+        ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor);
 
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};

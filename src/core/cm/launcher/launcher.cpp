@@ -91,7 +91,7 @@ Error Launcher::Start()
         return err;
     }
 
-    if (auto err = mNodeManager.LoadSentInstances(mInstanceManager.GetActiveInstances()); !err.IsNone()) {
+    if (auto err = mBalancer.LoadInstances(); !err.IsNone()) {
         return err;
     }
 

@@ -57,6 +57,18 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, bool rebalancing)
     return ErrorEnum::eNone;
 }
 
+Error Balancer::LoadInstances()
+{
+    PrepareForBalancing(false);
+
+    auto err = mNodeManager->LoadInstances(mInstanceManager->GetActiveInstances(), mImageInfoProvider);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/

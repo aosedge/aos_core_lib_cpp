@@ -76,10 +76,54 @@ Error NodeManager::PrepareForBalancing(bool rebalancing)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::LoadSentInstances(const Array<SharedPtr<Instance>>& instances)
+Error NodeManager::LoadInstances(const Array<SharedPtr<Instance>>& instances, ImageInfoProvider& imageInfoProvider)
 {
+    for (const auto& instance : instances) {
+        const auto& nodeID         = instance->GetInfo().mNodeID;
+        const auto& instanceID     = instance->GetInfo().mInstanceIdent;
+        const auto& runtimeID      = instance->GetInfo().mRuntimeID;
+        const auto& manifestDigest = instance->GetInfo().mManifestDigest;
+
+        if (nodeID.IsEmpty()) {
+            continue;
+        }
+
+        auto* node = FindNode(nodeID);
+        if (node == nullptr) {
+            LOG_ERR() << "Can't find node" << Log::Field("instanceID", instanceID) << Log::Field("nodeID", nodeID)
+                      << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNotFound));
+            continue;
+        }
+
+        auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(&mAllocator);
+        auto findDescErr     = FindImageDescriptor(
+            instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
+        if (!findDescErr.IsNone()) {
+            LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
+                      << Log::Field("manifestDigest", manifestDigest) << Log::Field(AOS_ERROR_WRAP(findDescErr));
+
+            continue;
+        }
+
+        auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+        if (auto err = instance->LoadConfigs(*imageDescriptor); !err.IsNone()) {
+            LOG_ERR() << "Can't load instance configs" << Log::Field("instanceID", instanceID)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+
+            continue;
+        }
+
+        auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
+        if (auto err = instance->Schedule(*node, runtimeID, *instanceInfo); !err.IsNone()) {
+            LOG_ERR() << "Can't load instance" << Log::Field("nodeID", nodeID) << Log::Field("instanceID", instanceID)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+
+            continue;
+        }
+    }
+
     for (auto& node : mNodes) {
-        if (auto err = node.LoadSentInstances(instances); !err.IsNone()) {
+        if (auto err = node.LoadInstances(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -275,5 +319,25 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+Error NodeManager::FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
+    ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor)
+{
+    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+
+    if (auto err = imageInfoProvider.GetImageIndex(itemID, version, *imageIndex); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto ptr = imageIndex->mManifests.FindIf(
+        [&](const oci::IndexContentDescriptor& descriptor) { return descriptor.mDigest == manifestDigest; });
+    if (ptr == nullptr) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    imageDescriptor = *ptr;
+
+    return ErrorEnum::eNone;
+}
 
 } // namespace aos::cm::launcher

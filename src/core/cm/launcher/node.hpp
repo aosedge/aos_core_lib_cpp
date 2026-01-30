@@ -76,12 +76,11 @@ public:
     bool UpdateInfo(const UnitNodeInfo& info);
 
     /**
-     * Loads sent instances from storage.
+     * Loads sent / running instance list from scheduled.
      *
-     * @param instances list of sent instances.
      * @return Error.
      */
-    Error LoadSentInstances(const Array<SharedPtr<Instance>>& instances);
+    Error LoadInstances();
 
     /**
      * Updates running instances.
@@ -207,6 +206,8 @@ private:
     size_t* GetPtrToAvailableCPU(const String& runtimeID);
     size_t* GetPtrToAvailableRAM(const String& runtimeID);
     size_t* GetPtrToMaxNumInstances(const String& runtimeID);
+
+    void Convert(const aos::InstanceInfo& instance, InstanceStatus& status);
 
     unitconfig::NodeConfigProviderItf* mNodeConfigProvider {};
     InstanceRunnerItf*                 mInstanceRunner {};
