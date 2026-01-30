@@ -8,6 +8,8 @@
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/logger.hpp>
 
+#include "cryptoutils.hpp"
+
 namespace aos::crypto {
 
 /***********************************************************************************************************************
@@ -469,8 +471,9 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
 
     // Verify sign
     auto hashSum = MakeUnique<StaticArray<uint8_t, cMaxHashSize>>(&mAllocator);
-    if (auto err = CalcHashSum(hash, file, *hashSum); !err.IsNone()) {
-        return err;
+
+    if (auto err = CalculateFileHash(file, hash, *mCryptoProvider, *hashSum); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     if (algName != "RSA") {
@@ -612,52 +615,6 @@ RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
     } else {
         return {{}, AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "unsupported hashing algorithm"))};
     }
-}
-
-Error CryptoHelper::CalcHashSum(const Hash& hash, const String& fileName, Array<uint8_t>& hashSum)
-{
-    auto [hasher, err] = mCryptoProvider->CreateHash(hash);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    fs::File file;
-
-    err = file.Open(fileName, fs::File::Mode::Read);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto buffer = MakeUnique<StaticArray<uint8_t, cReadChunkSize>>(&mAllocator);
-
-    while (true) {
-        err = file.ReadBlock(*buffer);
-        if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (buffer->IsEmpty()) {
-            break;
-        }
-
-        err = hasher->Update(*buffer);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (err.Is(ErrorEnum::eEOF)) {
-            break;
-        }
-    }
-
-    file.Close();
-
-    err = hasher->Finalize(hashSum);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
 }
 
 Error CryptoHelper::CreateIntermCertPool(
