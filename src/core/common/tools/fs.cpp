@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <core/common/crypto/cryptoutils.hpp>
+
 #include "fs.hpp"
 #include "memory.hpp"
 
@@ -111,35 +113,7 @@ Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info)
 
     info.mSize = size;
 
-    return GetSHA256(path, info.mSHA256);
-}
-
-/***********************************************************************************************************************
- * Private
- **********************************************************************************************************************/
-
-Error FileInfoProvider::GetSHA256(const String& path, Array<uint8_t>& sha256)
-{
-    auto [hasherPtr, errHash] = mHashProvider->CreateHash(crypto::HashEnum::eSHA256);
-    if (!errHash.IsNone()) {
-        return errHash;
-    }
-
-    mReadFileBuffer.Clear();
-
-    if (errHash = ReadFile(path, mReadFileBuffer); !errHash.IsNone()) {
-        return errHash;
-    }
-
-    if (errHash = hasherPtr->Update(mReadFileBuffer); !errHash.IsNone()) {
-        return errHash;
-    }
-
-    if (errHash = hasherPtr->Finalize(sha256); !errHash.IsNone()) {
-        return errHash;
-    }
-
-    return ErrorEnum::eNone;
+    return crypto::CalculateFileHash(path, crypto::HashEnum::eSHA256, *mHashProvider, info.mSHA256);
 }
 
 /***********************************************************************************************************************
