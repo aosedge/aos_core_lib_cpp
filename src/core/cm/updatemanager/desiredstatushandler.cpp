@@ -15,7 +15,8 @@ namespace aos::cm::updatemanager {
  **********************************************************************************************************************/
 
 Error DesiredStatusHandler::Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
-    imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher, UnitStatusHandler& unitStatusHandler)
+    imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher, UnitStatusHandler& unitStatusHandler,
+    StorageItf& storage)
 {
     LOG_DBG() << "Init desired status handler";
 
@@ -24,6 +25,7 @@ Error DesiredStatusHandler::Init(iamclient::NodeHandlerItf& nodeHandler, unitcon
     mUnitStatusHandler = &unitStatusHandler;
     mLauncher          = &launcher;
     mImageManager      = &imageManager;
+    mStorage           = &storage;
 
     return ErrorEnum::eNone;
 }
@@ -42,6 +44,22 @@ Error DesiredStatusHandler::Start()
 
     if (auto err = mThread.Run([this](void*) { Run(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    auto [updateState, err] = mStorage->GetUpdateState();
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to get update state" << Log::Field(err);
+    }
+
+    if (updateState != UpdateStateEnum::eNone) {
+        LOG_INF() << "Resuming update from state" << Log::Field("state", updateState);
+
+        if (err = mStorage->GetDesiredStatus(mPendingDesiredStatus); !err.IsNone()) {
+            LOG_ERR() << "Failed to get desired status" << Log::Field(err);
+        } else {
+            mHasPendingDesiredStatus = true;
+            StartUpdate(updateState);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -86,7 +104,6 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
     LogDesiredStatus(desiredStatus);
 
     if (mUpdateState != UpdateStateEnum::eNone) {
-
         if (mPendingDesiredStatus == desiredStatus) {
             LOG_DBG() << "Desired status is already being processed";
 
@@ -100,6 +117,14 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
         StartUpdate();
     }
 
+    if (auto err = mStorage->StoreDesiredStatus(desiredStatus); !err.IsNone()) {
+        LOG_ERR() << "Failed to store desired status" << Log::Field(err);
+    }
+
+    if (auto err = mStorage->StoreUpdateState(UpdateStateEnum::eDownloading); !err.IsNone()) {
+        LOG_ERR() << "Failed to store update state" << Log::Field(err);
+    }
+
     mPendingDesiredStatus    = desiredStatus;
     mHasPendingDesiredStatus = true;
 
@@ -110,9 +135,9 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
  * Private
  **********************************************************************************************************************/
 
-void DesiredStatusHandler::StartUpdate()
+void DesiredStatusHandler::StartUpdate(UpdateState state)
 {
-    SetState(UpdateStateEnum::eDownloading);
+    SetState(state);
     mCondVar.NotifyOne();
 }
 
@@ -265,6 +290,10 @@ void DesiredStatusHandler::SetState(UpdateState state)
     }
 
     LOG_DBG() << "Update state changed" << Log::Field("state", state);
+
+    if (auto err = mStorage->StoreUpdateState(state); !err.IsNone()) {
+        LOG_ERR() << "Failed to store update state" << Log::Field(err);
+    }
 
     mUpdateState = state;
 }
