@@ -10,6 +10,7 @@
 #include <core/cm/imagemanager/itf/storage.hpp>
 #include <core/cm/launcher/itf/storage.hpp>
 #include <core/cm/storagestate/itf/storage.hpp>
+#include <core/cm/updatemanager/itf/storage.hpp>
 
 namespace aos::cm::database {
 
@@ -20,7 +21,10 @@ namespace aos::cm::database {
 /**
  * Database interface.
  */
-class DatabaseItf : public imagemanager::StorageItf, public launcher::StorageItf, public storagestate::StorageItf { };
+class DatabaseItf : public updatemanager::StorageItf,
+                    public imagemanager::StorageItf,
+                    public launcher::StorageItf,
+                    public storagestate::StorageItf { };
 
 /** @}*/
 

@@ -3,9 +3,10 @@
 The database module provides persistent storage for various CM modules. It implements storage interfaces for the
 following modules:
 
-- [aos::cm::storagestate::StorageItf](../storagestate/itf/storage.hpp) - storage state storage interface;
+- [aos::cm::updatemanager::StorageItf](../updatemanager/itf/storage.hpp) - update manager storage interface;
 - [aos::cm::imagemanager::StorageItf](../imagemanager/itf/storage.hpp) - image manager storage interface;
-- [aos::cm::launcher::StorageItf](../launcher/itf/storage.hpp) - launcher storage interface.
+- [aos::cm::launcher::StorageItf](../launcher/itf/storage.hpp) - launcher storage interface;
+- [aos::cm::storagestate::StorageItf](../storagestate/itf/storage.hpp) - storage state storage interface.
 
 ```mermaid
 classDiagram
@@ -13,7 +14,7 @@ classDiagram
         <<interface>>
     }
 
-    class StorageStateStorageItf ["aos::cm::storagestate::StorageItf"] {
+    class UpdateManagerStorageItf ["aos::cm::updatemanager::StorageItf"] {
         <<interface>>
     }
 
@@ -25,7 +26,12 @@ classDiagram
         <<interface>>
     }
 
-    DatabaseItf ..|> StorageStateStorageItf
+    class StorageStateStorageItf ["aos::cm::storagestate::StorageItf"] {
+        <<interface>>
+    }
+
+    DatabaseItf ..|> UpdateManagerStorageItf
     DatabaseItf ..|> ImageManagerStorageItf
     DatabaseItf ..|> LauncherStorageItf
+    DatabaseItf ..|> StorageStateStorageItf
 ```
