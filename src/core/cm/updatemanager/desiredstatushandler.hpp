@@ -14,6 +14,7 @@
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/desiredstatus.hpp>
 
+#include "itf/storage.hpp"
 #include "unitstatushandler.hpp"
 
 namespace aos::cm::updatemanager {
@@ -21,38 +22,6 @@ namespace aos::cm::updatemanager {
 /** @addtogroup cm Communication Manager
  *  @{
  */
-
-/**
- * Update state.
- */
-class UpdateStateType {
-public:
-    enum class Enum {
-        eNone,
-        eDownloading,
-        ePending,
-        eInstalling,
-        eLaunching,
-        eFinalizing,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "none",
-            "downloading",
-            "pending",
-            "installing",
-            "launching",
-            "finalizing",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using UpdateStateEnum = UpdateStateType::Enum;
-using UpdateState     = EnumStringer<UpdateStateType>;
 
 /**
  * Desired status handler.
@@ -67,11 +36,12 @@ public:
      * @param imageManager image manager.
      * @param launcher launcher interface.
      * @param unitStatusHandler unit status handler.
+     * @param storage storage interface.
      * @return Error.
      */
     Error Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
         imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
-        UnitStatusHandler& unitStatusHandler);
+        UnitStatusHandler& unitStatusHandler, StorageItf& storage);
 
     /**
      * Starts desired status handler.
@@ -115,6 +85,7 @@ private:
     imagemanager::ImageManagerItf* mImageManager {};
     launcher::LauncherItf*         mLauncher {};
     UnitStatusHandler*             mUnitStatusHandler {};
+    StorageItf*                    mStorage {};
 
     Mutex               mMutex;
     ConditionalVariable mCondVar;

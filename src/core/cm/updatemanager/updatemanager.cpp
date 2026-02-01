@@ -17,11 +17,13 @@ namespace aos::cm::updatemanager {
 Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
     iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-    launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender)
+    launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender,
+    StorageItf& storage)
 {
     LOG_DBG() << "Init update manager";
 
-    if (auto err = mDesiredStatusHandler.Init(nodeHandler, unitConfig, imageManager, launcher, mUnitStatusHandler);
+    if (auto err
+        = mDesiredStatusHandler.Init(nodeHandler, unitConfig, imageManager, launcher, mUnitStatusHandler, storage);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

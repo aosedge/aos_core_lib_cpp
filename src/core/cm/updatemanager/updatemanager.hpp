@@ -36,12 +36,13 @@ public:
      * @param launcher launcher interface.
      * @param cloudConnection cloud connection.
      * @param sender unit status sender.
+     * @param storage storage interface.
      * @return Error.
      */
     Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, iamclient::NodeHandlerItf& nodeHandler,
         unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
-        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
+        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender, StorageItf& storage);
 
     /**
      * Starts update manager.
