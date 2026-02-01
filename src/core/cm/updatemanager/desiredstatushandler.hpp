@@ -107,8 +107,8 @@ private:
     Error InstallDesiredStatus();
     Error LaunchInstances();
     Error FinalizeUpdate();
-    Error CancelDownload();
-    void  StartUpdate();
+    void  StartUpdate(UpdateState state = UpdateStateEnum::eDownloading);
+    void  CancelUpdate();
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};
@@ -124,6 +124,7 @@ private:
 
     bool        mIsRunning {};
     bool        mHasPendingDesiredStatus {};
+    bool        mCancelCurrentUpdate {};
     UpdateState mUpdateState {};
 
     StaticAllocator<cAllocatorSize> mAllocator {};

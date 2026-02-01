@@ -34,6 +34,7 @@ namespace {
  **********************************************************************************************************************/
 
 static constexpr Duration cUnitStatusSendTimeout = 500 * Time::cMilliseconds;
+const auto                cCVTimeout             = std::chrono::seconds(5);
 
 /***********************************************************************************************************************
  * Static
@@ -711,8 +712,6 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 
     CreateRunRequest(*desiredStatus, *runRequest);
 
-    printf("Run request size: %zu\n", runRequest->Size());
-
     // Set expected node infos
 
     CreateNodeInfo(*expectedUnitStatus, "node1", "type1", NodeStateEnum::ePaused, true);
@@ -788,6 +787,115 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
     }));
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, CancelCurrentUpdate)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired update items
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eInstalled);
+
+    // Set desired instances
+
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+
+    // Set desired unit subjects
+
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    std::condition_variable cv;
+    std::mutex              mutex;
+    bool                    cancel          = false;
+    bool                    downloadStarted = false;
+
+    EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(_, _, _, _))
+        .WillOnce(Invoke([&](const Array<UpdateItemInfo>&, const Array<crypto::CertificateInfo>&,
+                             const Array<crypto::CertificateChainInfo>&, Array<UpdateItemStatus>&) -> Error {
+            std::unique_lock lock(mutex);
+
+            downloadStarted = true;
+            cv.notify_one();
+
+            EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return cancel; }));
+            cancel = false;
+
+            return ErrorEnum::eCanceled;
+        }))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, Cancel()).WillOnce(Invoke([&]() {
+        std::unique_lock lock(mutex);
+
+        cancel = true;
+        cv.notify_one();
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    // wait for download to start
+
+    {
+        std::unique_lock lock(mutex);
+
+        ASSERT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return downloadStarted; }));
+    }
+
+    // Send new desired status to cancel current update
+
+    desiredStatus->mInstances[0].mNumInstances = 2;
+
+    // Set expected instances statuses
+
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 2);
+
+    // Create launcher run request
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
+    EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
+    EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
+        .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
+        for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
+            for (const auto& instanceStatus : instancesStatuses.mInstances) {
+                InstanceStatus status;
+
+                status.mItemID         = instancesStatuses.mItemID;
+                status.mSubjectID      = instancesStatuses.mSubjectID;
+                status.mVersion        = instancesStatuses.mVersion;
+                status.mInstance       = instanceStatus.mInstance;
+                status.mNodeID         = instanceStatus.mNodeID;
+                status.mRuntimeID      = instanceStatus.mRuntimeID;
+                status.mManifestDigest = instanceStatus.mManifestDigest;
+                status.mState          = instanceStatus.mState;
+
+                instances.PushBack(status);
+            }
+        }
+
+        return ErrorEnum::eNone;
+    }));
+
+    err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);

@@ -85,14 +85,23 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 
     LogDesiredStatus(desiredStatus);
 
-    mPendingDesiredStatus    = desiredStatus;
-    mHasPendingDesiredStatus = true;
-
     if (mUpdateState != UpdateStateEnum::eNone) {
-        LOG_WRN() << "Desired status processing is already scheduled. Set new desired status as pending";
+
+        if (mPendingDesiredStatus == desiredStatus) {
+            LOG_DBG() << "Desired status is already being processed";
+
+            return ErrorEnum::eNone;
+        }
+
+        LOG_DBG() << "Cancel current update to process new desired status";
+
+        CancelUpdate();
     } else {
         StartUpdate();
     }
+
+    mPendingDesiredStatus    = desiredStatus;
+    mHasPendingDesiredStatus = true;
 
     return ErrorEnum::eNone;
 }
@@ -107,13 +116,23 @@ void DesiredStatusHandler::StartUpdate()
     mCondVar.NotifyOne();
 }
 
+void DesiredStatusHandler::CancelUpdate()
+{
+    if (mCancelCurrentUpdate) {
+        return;
+    }
+
+    mCancelCurrentUpdate = true;
+
+    if (mUpdateState == UpdateStateEnum::eDownloading || mUpdateState == UpdateStateEnum::eInstalling) {
+        if (auto err = mImageManager->Cancel(); !err.IsNone()) {
+            LOG_ERR() << "Failed to cancel current update" << Log::Field(err);
+        }
+    }
+}
+
 void DesiredStatusHandler::Run()
 {
-    // Temporarily cancel any ongoing download. Should be removed when storing current desired state in db
-    // will be added.
-
-    CancelDownload();
-
     while (true) {
         {
             UniqueLock lock {mMutex};
@@ -173,16 +192,32 @@ void DesiredStatusHandler::Run()
                 if (stateAction != nullptr) {
                     lock.Unlock();
 
-                    if (auto err = (this->*stateAction)(); !err.IsNone()) {
+                    auto err = (this->*stateAction)();
+
+                    lock.Lock();
+
+                    if (mCancelCurrentUpdate) {
+                        break;
+                    }
+
+                    if (!err.IsNone()) {
                         LOG_ERR() << "Failed to process desired status" << Log::Field(err);
 
                         nextState = UpdateStateEnum::eNone;
                     }
-
-                    lock.Lock();
                 }
 
                 SetState(nextState);
+            }
+
+            if (mCancelCurrentUpdate) {
+                LOG_INF() << "Current update canceled";
+
+                mCancelCurrentUpdate = false;
+
+                SetState(UpdateStateEnum::eDownloading);
+
+                continue;
             }
 
             mUnitStatusHandler->SendFullUnitStatus();
@@ -363,21 +398,6 @@ Error DesiredStatusHandler::FinalizeUpdate()
             LOG_ERR() << "Failed to install update item" << Log::Field("id", itemStatus.mItemID)
                       << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
         }
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error DesiredStatusHandler::CancelDownload()
-{
-    LOG_DBG() << "Cancel download";
-
-    StaticArray<UpdateItemStatus, 1> statuses;
-
-    if (auto err = mImageManager->DownloadUpdateItems(
-            Array<UpdateItemInfo>(), Array<crypto::CertificateInfo>(), Array<crypto::CertificateChainInfo>(), statuses);
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
