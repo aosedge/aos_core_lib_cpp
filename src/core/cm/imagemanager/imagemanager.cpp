@@ -443,13 +443,11 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
+    if (auto err = mStorage->GetItemInfos(id, *storedItems); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
-    auto itemIt = storedItems->FindIf([&id, &version](const auto& item) {
-        return item.mItemID == id && item.mVersion == version && item.mState == ItemStateEnum::eRemoved;
-    });
+    auto itemIt = storedItems->FindIf([](const auto& item) { return item.mState == ItemStateEnum::eRemoved; });
 
     if (itemIt == storedItems->end()) {
         return {0, ErrorEnum::eNotFound};
