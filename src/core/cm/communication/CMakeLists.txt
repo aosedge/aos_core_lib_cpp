@@ -14,7 +14,7 @@ set(TARGET_NAME communication)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/communication.hpp servicediscovery.hpp)
+set(HEADERS itf/communication.hpp)
 
 # ######################################################################################################################
 # Target
