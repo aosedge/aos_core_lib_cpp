@@ -35,6 +35,33 @@ Instance::Instance(
     mStatus.mError = ErrorEnum::eNone;
 }
 
+Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
+{
+    mItemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+
+    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
+    if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(err, "get item config failed"));
+    }
+
+    if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *mImageConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(err, "get image config failed"));
+    }
+
+    releaseConfigs.Release();
+
+    mInfo.mManifestDigest = imageDescriptor.mDigest;
+
+    return ErrorEnum::eNone;
+}
+
+void Instance::ResetConfigs()
+{
+    mItemConfig.Reset();
+    mImageConfig.Reset();
+}
+
 bool Instance::IsImageValid()
 {
     // If manifest digest is empty, instance is not running yet, so treat it as valid.
@@ -86,6 +113,13 @@ void Instance::SetError(const Error& err, bool resetNodeID)
 void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
 {
     mMonitoringData = monitoringData;
+}
+
+bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType)
+{
+    assert(mItemConfig);
+
+    return mItemConfig->mRuntimes.Contains(runtimeType);
 }
 
 bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
@@ -179,27 +213,6 @@ Error ComponentInstance::Init()
     return ErrorEnum::eNone;
 }
 
-Error ComponentInstance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
-{
-    mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
-
-    auto releaseConfig = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
-    if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *mImageConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "get image config failed"));
-    }
-
-    releaseConfig.Release();
-
-    mInfo.mManifestDigest = imageDescriptor.mDigest;
-
-    return ErrorEnum::eNone;
-}
-
-void ComponentInstance::ResetConfigs()
-{
-    mImageConfig.Reset();
-}
-
 Error ComponentInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
@@ -239,13 +252,6 @@ bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& 
     (void)availableRAM;
     (void)nodeConfig;
     (void)useMonitoringData;
-
-    return true;
-}
-
-bool ComponentInstance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType)
-{
-    (void)runtimeType;
 
     return true;
 }
@@ -336,33 +342,6 @@ Error ServiceInstance::Init()
     return ErrorEnum::eNone;
 }
 
-Error ServiceInstance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
-{
-    mItemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
-    mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
-
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
-    if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "get item config failed"));
-    }
-
-    if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *mImageConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "get image config failed"));
-    }
-
-    releaseConfigs.Release();
-
-    mInfo.mManifestDigest = imageDescriptor.mDigest;
-
-    return ErrorEnum::eNone;
-}
-
-void ServiceInstance::ResetConfigs()
-{
-    mItemConfig.Reset();
-    mImageConfig.Reset();
-}
-
 Error ServiceInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
@@ -430,13 +409,6 @@ bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& no
               << Log::Field("availableRAM", availableRAM) << Log::Field("requestedRAM", requestedRAM);
 
     return ok;
-}
-
-bool ServiceInstance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType)
-{
-    assert(mItemConfig);
-
-    return mItemConfig->mRuntimes.Contains(runtimeType);
 }
 
 bool ServiceInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResources)
