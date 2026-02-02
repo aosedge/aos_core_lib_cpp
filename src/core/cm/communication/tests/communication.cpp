@@ -5,4 +5,3 @@
  */
 
 #include <core/cm/communication/itf/communication.hpp>
-#include <core/cm/communication/servicediscovery.hpp>
