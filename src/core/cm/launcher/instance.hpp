@@ -82,12 +82,12 @@ public:
      * @param imageDescriptor image descriptor.
      * @return Error.
      */
-    virtual Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor) = 0;
+    Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor);
 
     /**
      * Resets configs.
      */
-    virtual void ResetConfigs() = 0;
+    void ResetConfigs();
 
     /**
      * Returns instance information.
@@ -174,7 +174,7 @@ public:
      * @param runtimeType runtime type.
      * @return bool.
      */
-    virtual bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType) = 0;
+    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType);
 
     /**
      * Checks whether platform fits instance requirements.
@@ -229,6 +229,7 @@ protected:
 
     MonitoringData mMonitoringData;
 
+    UniquePtr<oci::ItemConfig>  mItemConfig;
     UniquePtr<oci::ImageConfig> mImageConfig;
 };
 
@@ -254,21 +255,6 @@ public:
      * @return Error.
      */
     Error Init() override;
-
-    /**
-     * Loads instance configs.
-     *
-     * Component instance loads only image config.
-     *
-     * @param imageDescriptor image descriptor.
-     * @return Error.
-     */
-    Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor) override;
-
-    /**
-     * Resets configs.
-     */
-    void ResetConfigs() override;
 
     /**
      * Removes component instance.
@@ -304,14 +290,6 @@ public:
      * @return bool.
      */
     bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
-
-    /**
-     * Checks whether runtime type fits instance requirements.
-     *
-     * @param runtimeType runtime type.
-     * @return bool.
-     */
-    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType) override;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -366,21 +344,6 @@ public:
     Error Init() override;
 
     /**
-     * Loads instance configs.
-     *
-     * Service instance loads both service and image configs.
-     *
-     * @param imageDescriptor image descriptor.
-     * @return Error.
-     */
-    Error LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor) override;
-
-    /**
-     * Resets configs.
-     */
-    void ResetConfigs() override;
-
-    /**
      * Removes service instance.
      *
      * @return Error.
@@ -414,14 +377,6 @@ public:
      * @return bool.
      */
     bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
-
-    /**
-     * Checks whether runtime type fits instance requirements.
-     *
-     * @param runtimeType runtime type.
-     * @return bool.
-     */
-    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType) override;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -467,7 +422,6 @@ private:
 
     Error SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath);
 
-    UniquePtr<oci::ItemConfig>         mItemConfig;
     networkmanager::NetworkServiceData mNetworkServiceData {};
 
     UIDPool&        mUIDPool;
