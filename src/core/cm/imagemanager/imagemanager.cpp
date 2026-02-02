@@ -459,6 +459,11 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
         return {0, AOS_ERROR_WRAP(err)};
     }
 
+    if (auto err = mInstallSpaceAllocator->RestoreOutdatedItem(itemToRemove.mItemID, itemToRemove.mVersion);
+        !err.IsNone()) {
+        LOG_ERR() << "Failed to restore outdated item" << Log::Field("itemID", itemToRemove.mItemID) << Log::Field(err);
+    }
+
     auto [totalSize, cleanupErr] = CleanupOrphanedBlobs();
     if (!cleanupErr.IsNone()) {
         return {0, AOS_ERROR_WRAP(cleanupErr)};
@@ -504,6 +509,10 @@ Error ImageManager::RemoveOutdatedItems()
                           << Log::Field("version", item.mVersion) << Log::Field(err);
 
                 continue;
+            }
+
+            if (auto err = mInstallSpaceAllocator->RestoreOutdatedItem(item.mItemID, item.mVersion); !err.IsNone()) {
+                LOG_ERR() << "Failed to restore outdated item" << Log::Field("itemID", item.mItemID) << Log::Field(err);
             }
 
             for (auto* listener : mListeners) {
