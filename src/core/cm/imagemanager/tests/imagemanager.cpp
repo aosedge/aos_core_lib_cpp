@@ -1378,34 +1378,29 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
 
 TEST_F(ImageManagerTest, RemoveItem_Success)
 {
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_))
-        .WillOnce(Invoke([](Array<ItemInfo>& items) {
-            ItemInfo item1;
-            item1.mItemID      = "service1";
-            item1.mVersion     = "1.0.0";
-            item1.mIndexDigest = "sha256:1111";
-            item1.mState       = ItemStateEnum::eRemoved;
-            items.PushBack(item1);
+    EXPECT_CALL(mStorageMock, GetItemInfos(_, _)).WillOnce(Invoke([](const String& id, Array<ItemInfo>& items) {
+        EXPECT_EQ(id, "service1");
 
-            ItemInfo item2;
-            item2.mItemID      = "service2";
-            item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "sha256:4444";
-            item2.mState       = ItemStateEnum::eInstalled;
-            items.PushBack(item2);
+        ItemInfo item1;
+        item1.mItemID      = "service1";
+        item1.mVersion     = "1.0.0";
+        item1.mIndexDigest = "sha256:1111";
+        item1.mState       = ItemStateEnum::eRemoved;
+        items.PushBack(item1);
 
-            return ErrorEnum::eNone;
-        }))
-        .WillOnce(Invoke([](Array<ItemInfo>& items) {
-            ItemInfo item2;
-            item2.mItemID      = "service2";
-            item2.mVersion     = "1.0.0";
-            item2.mIndexDigest = "sha256:4444";
-            item2.mState       = ItemStateEnum::eInstalled;
-            items.PushBack(item2);
+        return ErrorEnum::eNone;
+    }));
 
-            return ErrorEnum::eNone;
-        }));
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).WillOnce(Invoke([](Array<ItemInfo>& items) {
+        ItemInfo item2;
+        item2.mItemID      = "service2";
+        item2.mVersion     = "1.0.0";
+        item2.mIndexDigest = "sha256:4444";
+        item2.mState       = ItemStateEnum::eInstalled;
+        items.PushBack(item2);
+
+        return ErrorEnum::eNone;
+    }));
 
     EXPECT_CALL(mStorageMock, RemoveItem(_, _)).WillOnce(Invoke([](const String& id, const String& version) {
         EXPECT_EQ(id, "service1");
@@ -1413,6 +1408,8 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
 
         return ErrorEnum::eNone;
     }));
+
+    EXPECT_CALL(mInstallSpaceAllocatorMock, RestoreOutdatedItem(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
     auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
@@ -1585,6 +1582,7 @@ TEST_F(ImageManagerTest, Start_RemovesOutdatedItems)
 
     EXPECT_TRUE(mImageManager.SubscribeListener(listener).IsNone());
 
+    EXPECT_CALL(mInstallSpaceAllocatorMock, RestoreOutdatedItem(_, _)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mInstallSpaceAllocatorMock, FreeSpace(_)).Times(1);
 
     EXPECT_TRUE(mImageManager.Start().IsNone());
