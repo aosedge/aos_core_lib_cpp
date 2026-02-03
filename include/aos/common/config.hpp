@@ -222,7 +222,7 @@
  * Host device name len.
  */
 #ifndef AOS_CONFIG_TYPES_DEVICE_NAME_LEN
-#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 16
+#define AOS_CONFIG_TYPES_DEVICE_NAME_LEN 64
 #endif
 
 /**
@@ -236,7 +236,7 @@
  * Resource name len.
  */
 #ifndef AOS_CONFIG_TYPES_RESOURCE_NAME_LEN
-#define AOS_CONFIG_TYPES_RESOURCE_NAME_LEN 16
+#define AOS_CONFIG_TYPES_RESOURCE_NAME_LEN 64
 #endif
 
 /**
