@@ -807,7 +807,7 @@ TEST_F(CMLauncherTest, Components)
 
     expectedRunStatus->PushBack(
         CreateInstanceStatus(CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent),
-            cNodeIDRemoteSM1, cRunnerRootfs));
+            cNodeIDRemoteSM1, cRunnerRootfs, aos::InstanceStateEnum::eActivating, ErrorEnum::eNone));
 
     Array<InstanceStatus> componentStatuses(expectedRunStatus->begin(), expectedRunStatus->Size());
 
