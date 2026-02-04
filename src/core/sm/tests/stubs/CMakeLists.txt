@@ -14,9 +14,7 @@ set(TARGET_NAME stubs)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS imagehandlerstub.hpp instancestatusreceiver.hpp launcherstub.hpp layermanagerstub.hpp
-            servicemanagerstub.hpp
-)
+set(HEADERS imagehandlerstub.hpp instancestatusreceiver.hpp launcherstub.hpp)
 
 # ######################################################################################################################
 # Target
