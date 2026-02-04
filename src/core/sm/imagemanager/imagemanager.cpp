@@ -196,6 +196,14 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
         return AOS_ERROR_WRAP(err);
     }
 
+    if (manifest->mItemConfig.HasValue()) {
+        LOG_DBG() << "Install item config blob" << Log::Field("digest", manifest->mItemConfig->mDigest);
+
+        if (auto err = InstallBlob(*manifest->mItemConfig); !err.IsNone()) {
+            return err;
+        }
+    }
+
     if (itemInfo.mType == UpdateItemTypeEnum::eService) {
         LOG_DBG() << "Install image config blob" << Log::Field("digest", manifest->mConfig.mDigest);
 
@@ -214,14 +222,6 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 
         if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
-        }
-
-        if (manifest->mItemConfig.HasValue()) {
-            LOG_DBG() << "Install item config blob" << Log::Field("digest", manifest->mItemConfig->mDigest);
-
-            if (auto err = InstallBlob(*manifest->mItemConfig); !err.IsNone()) {
-                return err;
-            }
         }
 
         for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
@@ -946,6 +946,16 @@ Error ImageManager::ValidateUpdateItem(const UpdateItemData& itemData)
         return AOS_ERROR_WRAP(err);
     }
 
+    if (manifest->mItemConfig.HasValue()) {
+        if (auto err = CreateBlobPath(manifest->mItemConfig->mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = ValidateBlob(path, manifest->mItemConfig->mDigest); !err.IsNone()) {
+            return err;
+        }
+    }
+
     if (itemData.mType == UpdateItemTypeEnum::eService) {
         if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
             return err;
@@ -962,16 +972,6 @@ Error ImageManager::ValidateUpdateItem(const UpdateItemData& itemData)
 
         if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
-        }
-
-        if (manifest->mAosService.HasValue()) {
-            if (auto err = CreateBlobPath(manifest->mAosService->mDigest, path); !err.IsNone()) {
-                return err;
-            }
-
-            if (auto err = ValidateBlob(path, manifest->mAosService->mDigest); !err.IsNone()) {
-                return err;
-            }
         }
 
         for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
@@ -1090,6 +1090,16 @@ Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array
         return AOS_ERROR_WRAP(err);
     }
 
+    if (manifest->mItemConfig.HasValue()) {
+        if (auto err = CreateBlobPath(manifest->mItemConfig->mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     if (itemData.mType == UpdateItemTypeEnum::eService) {
         if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
             return err;
@@ -1106,16 +1116,6 @@ Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array
 
         if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
-        }
-
-        if (manifest->mAosService.HasValue()) {
-            if (auto err = CreateBlobPath(manifest->mAosService->mDigest, path); !err.IsNone()) {
-                return err;
-            }
-
-            if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
         }
 
         for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
