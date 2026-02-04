@@ -291,7 +291,7 @@ TEST_F(ImageManagerTest, InstallService)
 
     constexpr auto cManifestDigest      = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
     constexpr auto cImageConfigDigest   = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
-    constexpr auto cServiceConfigDigest = "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+    constexpr auto cItemConfigDigest    = "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
     constexpr auto cLayerDigest         = "sha256:4a6f6b8f5f5e3e7b9c4d3e2f1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b";
     constexpr auto cDiffDigest          = "sha256:0f9e8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e";
     constexpr auto cUnpackedLayerDigest = "sha256:9e8d7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e8d";
@@ -301,7 +301,7 @@ TEST_F(ImageManagerTest, InstallService)
 
     auto manifestPath      = GetBlobPath(cManifestDigest);
     auto imageConfigPath   = GetBlobPath(cImageConfigDigest);
-    auto serviceConfigPath = GetBlobPath(cServiceConfigDigest);
+    auto itemConfigPath    = GetBlobPath(cItemConfigDigest);
     auto layerBlobPath     = GetBlobPath(cLayerDigest);
     auto layerUnpackedPath = fs::JoinPath(GetLayerPath(cDiffDigest), "layer");
 
@@ -311,7 +311,7 @@ TEST_F(ImageManagerTest, InstallService)
     imageManifest->mConfig.mDigest    = cImageConfigDigest;
     imageManifest->mConfig.mSize      = 512;
     imageManifest->mItemConfig.EmplaceValue(
-        oci::ContentDescriptor {"application/vnd.aos.item.config.v1+json", cServiceConfigDigest, 256});
+        oci::ContentDescriptor {"application/vnd.aos.item.config.v1+json", cItemConfigDigest, 256});
     imageManifest->mLayers.EmplaceBack(
         oci::ContentDescriptor {"application/vnd.oci.image.layer.v1.tar+gzip", cLayerDigest, 1024});
 
@@ -322,13 +322,13 @@ TEST_F(ImageManagerTest, InstallService)
     // Expected calls
 
     EXPECT_CALL(mDownloaderMock, Download(String(cManifestDigest), _, manifestPath)).Times(1);
+    EXPECT_CALL(mDownloaderMock, Download(String(cItemConfigDigest), _, itemConfigPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cImageConfigDigest), _, imageConfigPath)).Times(1);
-    EXPECT_CALL(mDownloaderMock, Download(String(cServiceConfigDigest), _, serviceConfigPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cLayerDigest), _, layerBlobPath)).Times(1);
     EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cItemConfigDigest)), Return(ErrorEnum::eNone)))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cImageConfigDigest)), Return(ErrorEnum::eNone)))
-        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cServiceConfigDigest)), Return(ErrorEnum::eNone)))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cLayerDigest)), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(manifestPath, _))
         .WillOnce(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));

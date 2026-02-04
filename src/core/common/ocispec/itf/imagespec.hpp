@@ -55,8 +55,9 @@ constexpr auto cRootfsTypeLen = AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN;
 /**
  * OCI layer media type constants.
  */
-constexpr auto cOCILayerTar     = "application/vnd.oci.image.layer.v1.tar";
-constexpr auto cOCILayerTarGZip = "application/vnd.oci.image.layer.v1.tar+gzip";
+constexpr auto cMediaTypeLayerTar     = "application/vnd.oci.image.layer.v1.tar";
+constexpr auto cMediaTypeLayerTarGZip = "application/vnd.oci.image.layer.v1.tar+gzip";
+constexpr auto cMediaTypeEmptyBlob    = "application/vnd.oci.empty.v1+json";
 
 /**
  * Describes the platform which the image in the manifest runs on.
