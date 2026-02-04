@@ -184,11 +184,11 @@ public:
     }
 
     /**
-     * Returns feature to wait when instances run status is received.
+     * Returns future to wait when instances run status is received.
      *
      * @return future.
      */
-    auto GetFeature()
+    auto GetFuture()
     {
         mPromise = std::promise<const Array<InstanceStatus>>();
 
