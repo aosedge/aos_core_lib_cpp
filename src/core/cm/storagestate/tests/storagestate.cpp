@@ -535,7 +535,7 @@ TEST_F(StorageStateTests, Cleanup)
     EXPECT_TRUE(err.IsNone());
 
     err = mStorageState.Cleanup(cInstanceIdent);
-    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(err.IsNone());
 
     InstanceInfo storageData;
 

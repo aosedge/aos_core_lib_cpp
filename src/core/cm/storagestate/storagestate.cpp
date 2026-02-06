@@ -531,7 +531,7 @@ Error StorageState::StopStateWatching(const InstanceIdent& instanceIdent)
 
     auto it = mStates.FindIf([&instanceIdent](const auto& item) { return item.mInstanceIdent == instanceIdent; });
     if (it == mStates.end()) {
-        return ErrorEnum::eNotFound;
+        return ErrorEnum::eNone;
     }
 
     auto err = mFSWatcher->Unsubscribe(it->mFilePath.CStr(), *this);
