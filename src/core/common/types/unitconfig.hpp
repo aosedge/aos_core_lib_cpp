@@ -49,8 +49,8 @@ struct NodeConfig {
  * Unit config.
  */
 struct UnitConfig {
-    StaticString<cVersionLen>             mVersion;
     StaticString<cVersionLen>             mFormatVersion;
+    StaticString<cVersionLen>             mVersion;
     StaticArray<NodeConfig, cMaxNumNodes> mNodes;
 
     /**
@@ -61,7 +61,7 @@ struct UnitConfig {
      */
     bool operator==(const UnitConfig& rhs) const
     {
-        return mVersion == rhs.mVersion && mFormatVersion == rhs.mFormatVersion && mNodes == rhs.mNodes;
+        return mFormatVersion == rhs.mFormatVersion && mVersion == rhs.mVersion && mNodes == rhs.mNodes;
     }
 
     /**
