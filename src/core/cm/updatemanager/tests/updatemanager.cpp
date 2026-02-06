@@ -42,12 +42,13 @@ const auto                cCVTimeout             = std::chrono::seconds(5);
  **********************************************************************************************************************/
 
 void SetNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& nodeType,
-    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
+    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true, Error error = ErrorEnum::eNone)
 {
     nodeInfo.mNodeID      = nodeID;
     nodeInfo.mNodeType    = nodeType;
     nodeInfo.mState       = state;
     nodeInfo.mIsConnected = isConnected;
+    nodeInfo.mError       = error;
 
     ResourceInfo resourceInfo1;
 
@@ -81,7 +82,7 @@ void SetNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& nod
 }
 
 void CreateNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& nodeType,
-    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
+    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true, Error error = ErrorEnum::eNone)
 {
     if (!unitStatus.mNodes.HasValue()) {
         unitStatus.mNodes.EmplaceValue();
@@ -89,16 +90,16 @@ void CreateNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& 
 
     unitStatus.mNodes->EmplaceBack();
 
-    SetNodeInfo(unitStatus.mNodes->Back(), nodeID, nodeType, state, isConnected);
+    SetNodeInfo(unitStatus.mNodes->Back(), nodeID, nodeType, state, isConnected, error);
 }
 
 void ChangeNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& nodeType,
-    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true)
+    const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true, Error error = ErrorEnum::eNone)
 {
     auto it = unitStatus.mNodes->FindIf([&nodeID](const UnitNodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
     EXPECT_NE(it, unitStatus.mNodes->end());
 
-    SetNodeInfo(*it, nodeID, nodeType, state, isConnected);
+    SetNodeInfo(*it, nodeID, nodeType, state, isConnected, error);
 }
 
 void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
@@ -694,7 +695,7 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 
     // Set desired unit config
 
-    desiredStatus->mUnitConfig.EmplaceValue(UnitConfig {"2.0.0", "1.0.0", {}});
+    desiredStatus->mUnitConfig.EmplaceValue(UnitConfig {"1.0.0", "2.0.0", {}});
 
     // Set desired update items
 
@@ -726,8 +727,6 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
     CreateNodeInfo(*expectedUnitStatus, "node2", "type2", NodeStateEnum::eProvisioned, true);
 
     // Set expected unit config status
-
-    expectedUnitStatus->mUnitConfig.EmplaceValue();
 
     CreateUnitConfigStatus(*expectedUnitStatus, "2.0.0");
 
@@ -978,6 +977,95 @@ TEST_F(UpdateManagerTest, ResumeUpdateAfterRestart)
         continueUpdate = true;
         cv.notify_one();
     }
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, SetUpdateStatuses)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired node states
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::ePaused});
+
+    // Set desired unit config
+
+    desiredStatus->mUnitConfig.EmplaceValue(UnitConfig {"1.0.0", "2.0.0", {}});
+
+    // Set expected node infos
+
+    CreateNodeInfo(*expectedUnitStatus, "node1", "type1", NodeStateEnum::eProvisioned, true, ErrorEnum::eFailed);
+
+    // Set expected unit config status
+
+    expectedUnitStatus->mUnitConfig.EmplaceValue();
+    expectedUnitStatus->mUnitConfig->EmplaceBack(
+        UnitConfigStatus {"1.0.0", UnitConfigStateEnum::eInstalled, ErrorEnum::eNone});
+    expectedUnitStatus->mUnitConfig->EmplaceBack(
+        UnitConfigStatus {"2.0.0", UnitConfigStateEnum::eFailed, ErrorEnum::eFailed});
+
+    // Expect calls
+
+    EXPECT_CALL(mNodeHandlerMock, PauseNode(String("node1"))).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mUnitConfigMock, CheckUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
+    EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(desiredStatus->mUnitConfig.GetValue()))
+        .WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& nodeIDs) {
+        nodeIDs.EmplaceBack("node1");
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mNodeInfoProviderMock, GetNodeInfo(String("node1"), _))
+        .WillOnce(DoAll(SetArgReferee<1>(expectedUnitStatus->mNodes.GetValue()[0]), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mUnitConfigMock, GetUnitConfigStatus(_))
+        .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
+
+    // Send desired status to set statuses
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Set expected node infos
+
+    CreateNodeInfo(*expectedUnitStatus, "node1", "type1", NodeStateEnum::ePaused);
+
+    // Set expected unit config status
+
+    CreateUnitConfigStatus(*expectedUnitStatus, "2.0.0");
+
+    // Expect calls
+
+    EXPECT_CALL(mNodeHandlerMock, PauseNode(String("node1"))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mUnitConfigMock, CheckUnitConfig(desiredStatus->mUnitConfig.GetValue())).Times(1);
+    EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(desiredStatus->mUnitConfig.GetValue()))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Invoke([&](Array<StaticString<cIDLen>>& nodeIDs) {
+        nodeIDs.EmplaceBack("node1");
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mNodeInfoProviderMock, GetNodeInfo(String("node1"), _))
+        .WillOnce(DoAll(SetArgReferee<1>(expectedUnitStatus->mNodes.GetValue()[0]), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mUnitConfigMock, GetUnitConfigStatus(_))
+        .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
+
+    // Send desired status again to update statuses
+
+    err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 }
