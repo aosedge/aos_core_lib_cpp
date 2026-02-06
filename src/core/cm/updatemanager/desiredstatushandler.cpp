@@ -327,13 +327,19 @@ Error DesiredStatusHandler::InstallDesiredStatus()
     for (const auto& node : mCurrentDesiredStatus.mNodes) {
         LOG_DBG() << "Set node state" << Log::Field("id", node.mNodeID) << Log::Field("state", node.mState);
 
+        Error updateErr;
+
         if (node.mState == DesiredNodeStateEnum::ePaused) {
-            if (auto err = mNodeHandler->PauseNode(node.mNodeID); !err.IsNone()) {
-                LOG_ERR() << "Failed to set node state" << Log::Field("id", node.mNodeID) << Log::Field(err);
-            }
+            updateErr = mNodeHandler->PauseNode(node.mNodeID);
         } else {
-            if (auto err = mNodeHandler->ResumeNode(node.mNodeID); !err.IsNone()) {
-                LOG_ERR() << "Failed to set node state" << Log::Field("id", node.mNodeID) << Log::Field(err);
+            updateErr = mNodeHandler->ResumeNode(node.mNodeID);
+        }
+
+        if (!updateErr.IsNone()) {
+            LOG_ERR() << "Failed to set node state" << Log::Field("id", node.mNodeID) << Log::Field(updateErr);
+
+            if (auto err = mUnitStatusHandler->SetUpdateNodeStatus(node.mNodeID, updateErr); !err.IsNone()) {
+                LOG_ERR() << "Failed to set update node status" << Log::Field("id", node.mNodeID) << Log::Field(err);
             }
         }
     }
@@ -341,14 +347,21 @@ Error DesiredStatusHandler::InstallDesiredStatus()
     if (mCurrentDesiredStatus.mUnitConfig.HasValue()) {
         LOG_DBG() << "Update unit config" << Log::Field("version", mCurrentDesiredStatus.mUnitConfig->mVersion);
 
-        auto err = mUnitConfig->CheckUnitConfig(mCurrentDesiredStatus.mUnitConfig.GetValue());
+        auto updateErr = mUnitConfig->CheckUnitConfig(mCurrentDesiredStatus.mUnitConfig.GetValue());
 
-        if (err.IsNone()) {
-            err = mUnitConfig->UpdateUnitConfig(mCurrentDesiredStatus.mUnitConfig.GetValue());
+        if (updateErr.IsNone()) {
+            updateErr = mUnitConfig->UpdateUnitConfig(mCurrentDesiredStatus.mUnitConfig.GetValue());
         }
 
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to update unit config" << Log::Field(err);
+        if (!updateErr.IsNone()) {
+            LOG_ERR() << "Failed to update unit config" << Log::Field(updateErr);
+        }
+
+        if (auto err = mUnitStatusHandler->SetUpdateUnitConfigStatus(
+                UnitConfigStatus {mCurrentDesiredStatus.mUnitConfig->mVersion,
+                    updateErr.IsNone() ? UnitConfigStateEnum::eInstalled : UnitConfigStateEnum::eFailed, updateErr});
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to set unit config status" << Log::Field(err);
         }
     }
 

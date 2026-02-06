@@ -131,8 +131,48 @@ Error UnitStatusHandler::SendFullUnitStatus()
     }
 
     ClearUnitStatus();
+    ClearUpdateStatuses();
 
     mTimer.Stop();
+
+    return ErrorEnum::eNone;
+}
+
+Error UnitStatusHandler::SetUpdateUnitConfigStatus(const UnitConfigStatus& status)
+{
+    LockGuard lock {mMutex};
+
+    LOG_INF() << "Unit config status changed" << Log::Field("version", status.mVersion)
+              << Log::Field("state", status.mState) << Log::Field(status.mError);
+
+    mUpdateUnitConfigStatus = status;
+
+    if (!mCloudConnected) {
+        return ErrorEnum::eNone;
+    }
+
+    if (!mUnitStatus.mUnitConfig.HasValue()) {
+        mUnitStatus.mUnitConfig.EmplaceValue();
+    } else {
+        mUnitStatus.mUnitConfig->Clear();
+    }
+
+    if (auto err = mUnitStatus.mUnitConfig->EmplaceBack(status); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error UnitStatusHandler::SetUpdateNodeStatus(const String& nodeID, const Error& updateErr)
+{
+    LockGuard lock {mMutex};
+
+    LOG_INF() << "Node update status changed" << Log::Field("nodeID", nodeID) << Log::Field(updateErr);
+
+    if (auto err = mUpdateNodeStatuses.Set(nodeID, updateErr); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -145,9 +185,18 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
 {
     LockGuard lock {mMutex};
 
+    auto nodeError = info.mError;
+
+    if (nodeError.IsNone()) {
+        auto updateNodeStatusIt = mUpdateNodeStatuses.Find(info.mNodeID);
+        if (updateNodeStatusIt != mUpdateNodeStatuses.end()) {
+            nodeError = updateNodeStatusIt->mSecond;
+        }
+    }
+
     LOG_INF() << "Node info changed" << Log::Field("id", info.mNodeID) << Log::Field("type", info.mNodeType)
               << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
-              << Log::Field(info.mError);
+              << Log::Field(nodeError);
 
     if (!mCloudConnected) {
         return;
@@ -323,8 +372,16 @@ Error UnitStatusHandler::SetUnitConfigStatus()
     mUnitStatus.mUnitConfig.EmplaceValue();
     mUnitStatus.mUnitConfig->EmplaceBack();
 
-    if (auto err = mUnitConfig->GetUnitConfigStatus(mUnitStatus.mUnitConfig.GetValue()[0]); !err.IsNone()) {
+    auto& unitConfigStatus = mUnitStatus.mUnitConfig->Back();
+
+    if (auto err = mUnitConfig->GetUnitConfigStatus(unitConfigStatus); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (mUpdateUnitConfigStatus.HasValue() && mUpdateUnitConfigStatus->mVersion != unitConfigStatus.mVersion) {
+        if (auto err = mUnitStatus.mUnitConfig->EmplaceBack(mUpdateUnitConfigStatus.GetValue()); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -346,6 +403,13 @@ Error UnitStatusHandler::SetNodesInfo()
 
         if (auto err = mNodeInfoProvider->GetNodeInfo(nodeIDs[i], nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
+        }
+
+        if (nodeInfo.mError.IsNone()) {
+            auto updateNodeStatusIt = mUpdateNodeStatuses.Find(nodeInfo.mNodeID);
+            if (updateNodeStatusIt != mUpdateNodeStatuses.end()) {
+                nodeInfo.mError = updateNodeStatusIt->mSecond;
+            }
         }
     }
 
@@ -463,6 +527,12 @@ void UnitStatusHandler::ClearUnitStatus()
     mUnitStatus.mInstances.Reset();
     mUnitStatus.mUnitSubjects.Reset();
 };
+
+void UnitStatusHandler::ClearUpdateStatuses()
+{
+    mUpdateUnitConfigStatus.Reset();
+    mUpdateNodeStatuses.Clear();
+}
 
 void UnitStatusHandler::StartTimer()
 {

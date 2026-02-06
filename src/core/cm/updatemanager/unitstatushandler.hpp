@@ -13,6 +13,8 @@
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/optional.hpp>
 #include <core/common/tools/timer.hpp>
 
 #include "config.hpp"
@@ -73,6 +75,21 @@ public:
      */
     Error SendFullUnitStatus();
 
+    /**
+     * Sets update unit config status.
+     *
+     * @param status unit config status.
+     */
+    Error SetUpdateUnitConfigStatus(const UnitConfigStatus& status);
+
+    /**
+     * Sets update node status.
+     *
+     * @param nodeID node ID.
+     * @param updateErr update error.
+     */
+    Error SetUpdateNodeStatus(const String& nodeID, const Error& updateErr);
+
 private:
     static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>);
 
@@ -94,6 +111,7 @@ private:
     void OnDisconnect() override;
 
     void ClearUnitStatus();
+    void ClearUpdateStatuses();
     void StartTimer();
 
     Error SetUnitConfigStatus();
@@ -119,6 +137,9 @@ private:
     Timer    mTimer;
     bool     mTimerStarted {};
     Duration mUnitStatusSendTimeout {};
+
+    Optional<UnitConfigStatus>             mUpdateUnitConfigStatus;
+    StaticMap<String, Error, cMaxNumNodes> mUpdateNodeStatuses;
 };
 
 /** @}*/
