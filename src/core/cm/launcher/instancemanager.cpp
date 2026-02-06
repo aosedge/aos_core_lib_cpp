@@ -203,7 +203,9 @@ Error InstanceManager::SubmitScheduledInstances()
         // Cache deleted instances
         if (!isStashed) {
             if (auto err = instance->Cache(); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
+                const auto& id = instance->GetInfo().mInstanceIdent;
+
+                LOG_ERR() << "Cache instance failed" << Log::Field("instanceID", id) << AOS_ERROR_WRAP(err);
             }
 
             mCachedInstances.PushBack(instance);
@@ -219,7 +221,9 @@ Error InstanceManager::SubmitScheduledInstances()
 Error InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
 {
     if (auto err = instance->Cache(true); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        const auto& id = instance->GetInfo().mInstanceIdent;
+
+        LOG_ERR() << "Disable instance failed" << Log::Field("instanceID", id) << AOS_ERROR_WRAP(err);
     }
 
     mCachedInstances.PushBack(instance);
