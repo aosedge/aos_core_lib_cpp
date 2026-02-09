@@ -222,11 +222,11 @@ Error Alerts::SendAlerts()
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Send alerts timer triggered";
-
     if (!mIsRunning || !mIsConnected || mAlerts.IsEmpty()) {
         return ErrorEnum::eNone;
     }
+
+    LOG_DBG() << "Send alerts timer triggered";
 
     if (mSkippedAlerts > 0) {
         LOG_WRN() << "Alerts skipped due to cache is full" << Log::Field("count", mSkippedAlerts);
@@ -242,6 +242,8 @@ Error Alerts::SendAlerts()
 
     while (!mAlerts.IsEmpty()) {
         auto package = CreatePackage();
+
+        LOG_INF() << "Send alerts" << Log::Field("alertsCount", package->mItems.Size());
 
         if (auto err = mSender->SendAlerts(*package); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);

@@ -124,7 +124,7 @@ protected:
     {
         tests::utils::InitLog();
 
-        LOG_INF() << "Launcher size: size=" << sizeof(Launcher);
+        LOG_INF() << "Launcher size" << Log::Field("size", sizeof(Launcher));
 
         ASSERT_TRUE(mIdentProvider.SetSubjects({cSubject1}).IsNone());
     }

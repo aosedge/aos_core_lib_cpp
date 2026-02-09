@@ -34,7 +34,7 @@ Error Launcher::Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageMana
 
 Error Launcher::Start()
 {
-    LOG_INF() << "Start launcher";
+    LOG_DBG() << "Start launcher";
 
     for (auto& it : mRuntimes) {
         if (auto err = it.mFirst->Start(); !err.IsNone()) {
@@ -85,7 +85,7 @@ Error Launcher::Stop()
     {
         UniqueLock lock {mMutex};
 
-        LOG_INF() << "Stop launcher";
+        LOG_DBG() << "Stop launcher";
 
         mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
 
@@ -147,7 +147,7 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
         LOG_DBG() << "Instances statuses received" << Log::Field("count", statuses.Size());
 
         for (const auto& status : statuses) {
-            LOG_DBG() << "Instance status received" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
+            LOG_INF() << "Instance status received" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
                       << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
                       << Log::Field("error", status.mError);
 
@@ -379,7 +379,13 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 
     auto sendStatus = DeferRelease(statuses.Get(), [this](const InstanceStatusArray* statuses) {
         if (!mFirstStart) {
-            LOG_DBG() << "Send node instances statuses" << Log::Field("count", statuses->Size());
+            LOG_INF() << "Send node instances statuses" << Log::Field("count", statuses->Size());
+
+            for (const auto& status : *statuses) {
+                LOG_INF() << "Node instance status" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
+                          << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
+                          << Log::Field("error", status.mError);
+            }
 
             if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
                 LOG_ERR() << "Failed to send node instances statuses" << Log::Field(err);
@@ -399,7 +405,7 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         return;
     }
 
-    if (auto err = ApppendInstancesWithModifiedParams(startInstances, stopInstances); !err.IsNone()) {
+    if (auto err = AppendInstancesWithModifiedParams(startInstances, stopInstances); !err.IsNone()) {
         LOG_ERR() << "Failed to append instances with modified params to stop list" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
@@ -476,7 +482,7 @@ void Launcher::StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& 
     }
 
     if (auto errAddTask = mLaunchPool.AddTask([this, runtime, &instanceIdent, status = &status](void*) {
-            LOG_DBG() << "Stop instance" << Log::Field("ident", instanceIdent);
+            LOG_INF() << "Stop instance" << Log::Field("ident", instanceIdent);
 
             if (auto err = runtime->StopInstance(instanceIdent, *status); !err.IsNone()) {
                 LOG_ERR() << "Failed to stop instance" << Log::Field("ident", instanceIdent)
@@ -557,7 +563,9 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
 
 void Launcher::StartInstance(RuntimeItf& runtime, InstanceData& instance)
 {
-    LOG_DBG() << "Start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo));
+    LOG_INF() << "Start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo))
+              << Log::Field("version", instance.mInfo.mVersion) << Log::Field("runtimeID", instance.mInfo.mRuntimeID)
+              << Log::Field("manifestDigest", instance.mInfo.mManifestDigest);
 
     instance.mStatus.mState = InstanceStateEnum::eActivating;
 
@@ -584,7 +592,7 @@ void Launcher::StartInstance(RuntimeItf& runtime, InstanceData& instance)
     }
 }
 
-Error Launcher::ApppendInstancesWithModifiedParams(
+Error Launcher::AppendInstancesWithModifiedParams(
     const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances)
 {
     for (const auto& startInstance : startInstances) {

@@ -49,7 +49,7 @@ Error CertHandler::SetOwner(const String& certType, const String& password)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Set owner: type=" << certType;
+    LOG_INF() << "Set owner" << Log::Field("type", certType);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -68,7 +68,7 @@ Error CertHandler::Clear(const String& certType)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Clear all certificates: type=" << certType;
+    LOG_INF() << "Clear" << Log::Field("type", certType);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -88,7 +88,7 @@ Error CertHandler::CreateKey(
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Create key: type=" << certType << ", subject=" << subjectCommonName;
+    LOG_INF() << "Create key" << Log::Field("type", certType) << Log::Field("subject", subjectCommonName);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -112,7 +112,7 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& pemCer
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Apply cert: type=" << certType;
+    LOG_INF() << "Apply cert" << Log::Field("type", certType);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -139,7 +139,7 @@ Error CertHandler::GetCert(
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "Get certificate: type=" << certType << ", serial=" << serialInHex;
+    LOG_DBG() << "Get certificate" << Log::Field("type", certType) << Log::Field("serial", serialInHex);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -158,7 +158,7 @@ Error CertHandler::SubscribeListener(const String& certType, iamclient::CertList
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Subscribe certificate listener: type=" << certType;
+    LOG_DBG() << "Subscribe certificate listener" << Log::Field("type", certType);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -198,7 +198,7 @@ Error CertHandler::CreateSelfSignedCert(const String& certType, const String& pa
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Create self signed cert: type=" << certType;
+    LOG_INF() << "Create self signed cert" << Log::Field("type", certType);
 
     auto* module = FindModule(certType);
     if (module == nullptr) {
@@ -256,6 +256,8 @@ Error CertHandler::UpdateCerts(CertModule& certModule)
         }
 
         if (subscription.mCertInfo != certInfo) {
+            LOG_INF() << "Cert changed" << Log::Field("type", subscription.mCertType);
+
             subscription.mCertListener->OnCertChanged(certInfo);
             subscription.mCertInfo = certInfo;
         }

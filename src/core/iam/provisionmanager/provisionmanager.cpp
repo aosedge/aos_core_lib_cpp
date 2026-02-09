@@ -27,7 +27,7 @@ Error ProvisionManager::Init(ProvisionManagerCallbackItf& callback, certhandler:
 
 Error ProvisionManager::StartProvisioning(const String& password)
 {
-    LOG_DBG() << "Start provisioning";
+    LOG_INF() << "Start provisioning";
 
     auto err = mCallback->OnStartProvisioning(password);
     if (!err.IsNone()) {
@@ -41,7 +41,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
     }
 
     for (const auto& certType : certTypes) {
-        LOG_DBG() << "Clear cert storage: type=" << certType;
+        LOG_DBG() << "Clear cert storage" << Log::Field("type", certType);
 
         if (err = mCertHandler->Clear(certType); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -49,7 +49,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
     }
 
     for (const auto& certType : certTypes) {
-        LOG_DBG() << "Set owner: type=" << certType;
+        LOG_DBG() << "Set owner" << Log::Field("type", certType);
 
         if (err = mCertHandler->SetOwner(certType, password); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -61,7 +61,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
         }
 
         if (certModuleConfig.mValue.mIsSelfSigned) {
-            LOG_DBG() << "Create self signed cert: type=" << certType;
+            LOG_DBG() << "Create self signed cert" << Log::Field("type", certType);
 
             if (err = mCertHandler->CreateSelfSignedCert(certType, password); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
@@ -78,14 +78,14 @@ Error ProvisionManager::StartProvisioning(const String& password)
 
 Error ProvisionManager::FinishProvisioning(const String& password)
 {
-    LOG_DBG() << "Finish provisioning";
+    LOG_INF() << "Finish provisioning";
 
     return AOS_ERROR_WRAP(mCallback->OnFinishProvisioning(password));
 }
 
 Error ProvisionManager::Deprovision(const String& password)
 {
-    LOG_DBG() << "Deprovision";
+    LOG_INF() << "Deprovision";
 
     return AOS_ERROR_WRAP(mCallback->OnDeprovision(password));
 }
@@ -121,14 +121,14 @@ RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
 
 Error ProvisionManager::CreateKey(const String& certType, const String& subject, const String& password, String& csr)
 {
-    LOG_DBG() << "Create key: type=" << certType;
+    LOG_DBG() << "Create key" << Log::Field("type", certType) << Log::Field("subject", subject);
 
     return AOS_ERROR_WRAP(mCertHandler->CreateKey(certType, subject, password, csr));
 }
 
 Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo)
 {
-    LOG_DBG() << "Apply cert: type=" << certType;
+    LOG_DBG() << "Apply cert" << Log::Field("type", certType);
 
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
 }

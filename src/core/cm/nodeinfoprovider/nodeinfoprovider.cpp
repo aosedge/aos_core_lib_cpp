@@ -216,7 +216,7 @@ void NodeInfoProvider::OnNodeInfoChanged(const NodeInfo& info)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID) << Log::Field("state", info.mState)
+    LOG_DBG() << "IAM node info changed" << Log::Field("nodeID", info.mNodeID) << Log::Field("state", info.mState)
               << Log::Field("isConnected", info.mIsConnected) << Log::Field(info.mError);
 
     auto it = AddOrGetCacheItem(info.mNodeID);
@@ -253,8 +253,9 @@ void NodeInfoProvider::NotifyListeners(const NodeInfoCache& info)
 
     info.GetUnitNodeInfo(*unitNodeInfo);
 
-    LOG_DBG() << "Send node info changed" << Log::Field("nodeID", unitNodeInfo->mNodeID)
-              << Log::Field("state", unitNodeInfo->mState) << Log::Field("isConnected", unitNodeInfo->mIsConnected);
+    LOG_INF() << "Node info changed" << Log::Field("nodeID", unitNodeInfo->mNodeID)
+              << Log::Field("state", unitNodeInfo->mState) << Log::Field("isConnected", unitNodeInfo->mIsConnected)
+              << Log::Field(unitNodeInfo->mError);
 
     for (auto* listener : mListeners) {
         listener->OnNodeInfoChanged(*unitNodeInfo);
