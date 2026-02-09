@@ -276,7 +276,7 @@ Error NetworkManager::RemoveInstanceFromNetwork(const String& instanceID, const 
               << Log::Field("networkID", networkID);
 
     if (auto err = IsInstanceInNetwork(instanceID, networkID); !err.IsNone()) {
-        LOG_WRN() << "Instance not found in network";
+        LOG_DBG() << "Instance not found in network";
 
         return ErrorEnum::eNone;
     }
