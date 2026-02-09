@@ -787,6 +787,8 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             }
         }
 
+        NotifyItemStatusChanged(itemInfo.mItemID, itemInfo.mVersion, ItemStateEnum::eDownloading, ErrorEnum::eNone);
+
         auto downloadErr = DownloadItem(itemInfo, certificates, certificateChains);
 
         auto finalState = downloadErr.IsNone() ? ItemStateEnum::ePending : ItemStateEnum::eFailed;
@@ -1197,8 +1199,6 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
     if (auto err = fs::MakeDirAll(downloadDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-
-    NotifyItemStatusChanged(mCurrentItemID, mCurrentItemVersion, ItemStateEnum::eDownloading, ErrorEnum::eNone);
 
     while (true) {
         auto err = mDownloader->Download(blobInfo.mDigest, blobInfo.mURLs[0], downloadPath);
