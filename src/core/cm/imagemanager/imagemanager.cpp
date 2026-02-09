@@ -156,6 +156,12 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         LOG_ERR() << "Failed to cleanup downloading items" << Log::Field(err);
     }
 
+    storedItems->Clear();
+
+    if (auto err = mStorage->GetAllItemsInfos(*storedItems); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = VerifyStoredItems(itemsInfo, *storedItems, certificates, certificateChains, statuses);
         !err.IsNone()) {
         LOG_ERR() << "Failed to verify stored items" << Log::Field(err);
@@ -675,13 +681,13 @@ Error ImageManager::CleanupDownloadingItems(
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
+Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
     Array<UpdateItemStatus>& statuses)
 {
     LOG_DBG() << "Verify stored items";
 
-    for (const auto& storedItem : storedItems) {
+    for (auto& storedItem : storedItems) {
         if (storedItem.mState == ItemStateEnum::eInstalled || storedItem.mState == ItemStateEnum::ePending) {
             auto itemIt = itemsInfo.FindIf([&storedItem](const auto& item) {
                 return item.mItemID == storedItem.mItemID && item.mVersion == storedItem.mVersion;
@@ -709,6 +715,8 @@ Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, co
                     = mStorage->UpdateItemState(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eFailed);
                     !updateErr.IsNone()) {
                     LOG_ERR() << "Failed to update item state" << Log::Field(updateErr);
+                } else {
+                    storedItem.mState = ItemStateEnum::eFailed;
                 }
 
                 NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eFailed, err);
@@ -729,7 +737,7 @@ Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, co
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
+Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
     Array<UpdateItemStatus>& statuses)
 {
@@ -764,6 +772,8 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             if (auto removeErr = mStorage->RemoveItem(oldVersionIt->mItemID, oldVersionIt->mVersion);
                 !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove old version" << Log::Field(removeErr);
+            } else {
+                storedItems.Erase(oldVersionIt);
             }
         }
 
