@@ -259,6 +259,9 @@ RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache(const NodeInfo& info)
 
 void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo)
 {
+    LOG_INF() << "Node info changed" << Log::Field("nodeID", nodeInfo.mNodeID) << Log::Field("state", nodeInfo.mState)
+              << Log::Field("connected", nodeInfo.mIsConnected) << Log::Field(nodeInfo.mError);
+
     for (auto& listener : mListeners) {
         listener->OnNodeInfoChanged(nodeInfo);
     }

@@ -331,9 +331,19 @@ Error Node::SendScheduledInstances(
         }
     }
 
-    LOG_INF() << "Send scheduled instances" << Log::Field("nodeID", mInfo.mNodeID)
+    LOG_INF() << "Update node instances" << Log::Field("nodeID", mInfo.mNodeID)
               << Log::Field("stopInstances", stopInstances->Size())
               << Log::Field("startInstances", startInstances->Size());
+
+    for (const auto& instance : *stopInstances) {
+        LOG_INF() << "Update node stop instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
+                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+    }
+
+    for (const auto& instance : *startInstances) {
+        LOG_INF() << "Update node start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
+                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+    }
 
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, *startInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -381,6 +391,16 @@ RetWithError<bool> Node::ResendInstances(
     LOG_INF() << "Resend instance update" << Log::Field("nodeID", mInfo.mNodeID)
               << Log::Field("stopInstances", stopInstances->Size())
               << Log::Field("startInstances", startInstances->Size());
+
+    for (const auto& instance : *stopInstances) {
+        LOG_INF() << "Update node stop instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
+                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+    }
+
+    for (const auto& instance : *startInstances) {
+        LOG_INF() << "Update node start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
+                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+    }
 
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, *startInstances); !err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};

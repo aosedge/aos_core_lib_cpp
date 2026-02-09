@@ -261,25 +261,27 @@ void DesiredStatusHandler::Run()
 void DesiredStatusHandler::LogDesiredStatus(const DesiredStatus& desiredStatus)
 {
     for (const auto& node : desiredStatus.mNodes) {
-        LOG_DBG() << "Node" << Log::Field("id", node.mNodeID) << Log::Field("state", node.mState);
+        LOG_INF() << "Desired status node" << Log::Field("id", node.mNodeID) << Log::Field("state", node.mState);
     }
 
     if (desiredStatus.mUnitConfig.HasValue()) {
-        LOG_DBG() << "Unit config update" << Log::Field("version", desiredStatus.mUnitConfig->mVersion);
+        LOG_INF() << "Desired status unit config update" << Log::Field("version", desiredStatus.mUnitConfig->mVersion);
     }
 
     for (const auto& item : desiredStatus.mUpdateItems) {
-        LOG_DBG() << "Update item" << Log::Field("id", item.mItemID) << Log::Field("version", item.mVersion);
+        LOG_INF() << "Desired status update item" << Log::Field("id", item.mItemID)
+                  << Log::Field("version", item.mVersion);
     }
 
     for (const auto& instance : desiredStatus.mInstances) {
-        LOG_DBG() << "Instance" << Log::Field("itemID", instance.mItemID)
+        LOG_INF() << "Desired status instance" << Log::Field("itemID", instance.mItemID)
                   << Log::Field("subjectID", instance.mSubjectID) << Log::Field("numInstances", instance.mNumInstances)
                   << Log::Field("priority", instance.mPriority);
     }
 
     for (const auto& subject : desiredStatus.mSubjects) {
-        LOG_DBG() << "Subject" << Log::Field("id", subject.mSubjectID) << Log::Field("type", subject.mSubjectType);
+        LOG_INF() << "Desired status subject" << Log::Field("id", subject.mSubjectID)
+                  << Log::Field("type", subject.mSubjectType);
     }
 }
 
@@ -289,7 +291,7 @@ void DesiredStatusHandler::SetState(UpdateState state)
         return;
     }
 
-    LOG_DBG() << "Update state changed" << Log::Field("state", state);
+    LOG_INF() << "Update state changed" << Log::Field("state", state);
 
     if (auto err = mStorage->StoreUpdateState(state); !err.IsNone()) {
         LOG_ERR() << "Failed to store update state" << Log::Field(err);

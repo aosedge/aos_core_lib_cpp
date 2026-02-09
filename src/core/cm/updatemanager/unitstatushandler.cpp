@@ -194,7 +194,7 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
         }
     }
 
-    LOG_INF() << "Node info changed" << Log::Field("id", info.mNodeID) << Log::Field("type", info.mNodeType)
+    LOG_DBG() << "Node info changed" << Log::Field("id", info.mNodeID) << Log::Field("type", info.mNodeType)
               << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
               << Log::Field(nodeError);
 
@@ -225,7 +225,7 @@ void UnitStatusHandler::OnItemsStatusesChanged(const Array<UpdateItemStatus>& st
     LockGuard lock {mMutex};
 
     for (const auto& status : statuses) {
-        LOG_INF() << "Item status changed" << Log::Field("itemID", status.mItemID)
+        LOG_DBG() << "Item status changed" << Log::Field("itemID", status.mItemID)
                   << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
                   << Log::Field(status.mError);
     }
@@ -265,7 +265,7 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
     LockGuard lock {mMutex};
 
     for (const auto& status : statuses) {
-        LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+        LOG_DBG() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
                   << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
                   << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
@@ -474,22 +474,22 @@ void UnitStatusHandler::LogUnitStatus()
 {
     if (mUnitStatus.mUnitConfig.HasValue()) {
         for (const auto& unitConfigStatus : mUnitStatus.mUnitConfig.GetValue()) {
-            LOG_DBG() << "Unit config status" << Log::Field("version", unitConfigStatus.mVersion)
+            LOG_INF() << "Unit status unit config" << Log::Field("version", unitConfigStatus.mVersion)
                       << Log::Field("state", unitConfigStatus.mState) << Log::Field(unitConfigStatus.mError);
         }
     }
 
     if (mUnitStatus.mNodes.HasValue()) {
         for (const auto& nodeInfo : mUnitStatus.mNodes.GetValue()) {
-            LOG_DBG() << "Node info" << Log::Field("id", nodeInfo.mNodeID) << Log::Field("type", nodeInfo.mNodeType)
-                      << Log::Field("isConnected", nodeInfo.mIsConnected) << Log::Field("state", nodeInfo.mState)
-                      << Log::Field(nodeInfo.mError);
+            LOG_INF() << "Unit status node info" << Log::Field("id", nodeInfo.mNodeID)
+                      << Log::Field("type", nodeInfo.mNodeType) << Log::Field("isConnected", nodeInfo.mIsConnected)
+                      << Log::Field("state", nodeInfo.mState) << Log::Field(nodeInfo.mError);
         }
     }
 
     if (mUnitStatus.mUpdateItems.HasValue()) {
         for (const auto& itemStatus : *mUnitStatus.mUpdateItems) {
-            LOG_DBG() << "Update item status" << Log::Field("id", itemStatus.mItemID)
+            LOG_INF() << "Unit status update item" << Log::Field("id", itemStatus.mItemID)
                       << Log::Field("version", itemStatus.mVersion) << Log::Field("state", itemStatus.mState)
                       << Log::Field(itemStatus.mError);
         }
@@ -497,12 +497,12 @@ void UnitStatusHandler::LogUnitStatus()
 
     if (mUnitStatus.mInstances.HasValue()) {
         for (const auto& instanceStatuses : *mUnitStatus.mInstances) {
-            LOG_DBG() << "Instances statuses" << Log::Field("itemID", instanceStatuses.mItemID)
+            LOG_INF() << "Unit status instances" << Log::Field("itemID", instanceStatuses.mItemID)
                       << Log::Field("subjectID", instanceStatuses.mSubjectID)
                       << Log::Field("version", instanceStatuses.mVersion);
 
             for (const auto& instanceStatus : instanceStatuses.mInstances) {
-                LOG_DBG() << "Instance status" << Log::Field("instance", instanceStatus.mInstance)
+                LOG_INF() << "Unit status instance" << Log::Field("instance", instanceStatus.mInstance)
                           << Log::Field("manifestDigest", instanceStatus.mManifestDigest)
                           << Log::Field("nodeID", instanceStatus.mNodeID)
                           << Log::Field("runtimeID", instanceStatus.mRuntimeID)
@@ -513,7 +513,7 @@ void UnitStatusHandler::LogUnitStatus()
 
     if (mUnitStatus.mUnitSubjects.HasValue()) {
         for (const auto& subjectID : *mUnitStatus.mUnitSubjects) {
-            LOG_DBG() << "Unit subject" << Log::Field("id", subjectID);
+            LOG_INF() << "Unit status unit subject" << Log::Field("id", subjectID);
         }
     }
 };
@@ -549,7 +549,7 @@ void UnitStatusHandler::StartTimer()
 
         mUnitStatus.mIsDeltaInfo = true;
 
-        LOG_DBG() << "Send delta unit status";
+        LOG_INF() << "Send delta unit status";
 
         LogUnitStatus();
 

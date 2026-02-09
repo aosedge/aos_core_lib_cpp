@@ -75,10 +75,10 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
 
 Error Launcher::Start()
 {
-    LOG_DBG() << "Start Launcher";
-
     LockGuard balancingLock {mBalancingMutex};
     LockGuard updateLock {mUpdateMutex};
+
+    LOG_DBG() << "Start Launcher";
 
     mIsRunning = true;
 
@@ -139,9 +139,9 @@ Error Launcher::Start()
 
 Error Launcher::Stop()
 {
-    LOG_DBG() << "Stop Launcher";
-
     UniqueLock updateLock {mUpdateMutex};
+
+    LOG_DBG() << "Stop Launcher";
 
     // Finish monitoring thread.
     mIsRunning             = false;
@@ -187,10 +187,16 @@ Error Launcher::Stop()
 
 Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<InstanceStatus>& statuses)
 {
-    LOG_DBG() << "Run instances";
-
     UniqueLock balancingLock {mBalancingMutex};
     UniqueLock updateLock {mUpdateMutex};
+
+    LOG_INF() << "Run instances" << Log::Field("numRequests", requests.Size());
+
+    for (const auto& request : requests) {
+        LOG_INF() << "Run instance request" << Log::Field("itemID", request.mItemID)
+                  << Log::Field("type", request.mUpdateItemType) << Log::Field("version", request.mVersion)
+                  << Log::Field("numInstances", request.mNumInstances);
+    }
 
     WaitAllNodesConnected(updateLock);
 
@@ -310,6 +316,13 @@ void Launcher::UpdateInstanceStatuses()
         return;
     }
 
+    for (const auto& status : mInstanceStatuses) {
+        LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
+                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
+                  << Log::Field("state", status.mState) << Log::Field(status.mError);
+    }
+
     for (auto& listener : mInstanceStatusListeners) {
         listener->OnInstancesStatusesChanged(mInstanceStatuses);
     }
@@ -403,7 +416,7 @@ void Launcher::ProcessUpdate()
                     LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
                 }
             } else {
-                LOG_INF() << "Rebalancing will be performed, skip resending instances";
+                LOG_DBG() << "Rebalancing will be performed, skip resending instances";
             }
 
             mUpdatedNodes.Clear();
@@ -514,7 +527,10 @@ void Launcher::CreateRequestedInstances(
 
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 {
-    LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status));
+    LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+              << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
+              << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
+              << Log::Field("state", status.mState) << Log::Field(status.mError);
 
     LockGuard updateLock {mUpdateMutex};
 
@@ -529,7 +545,13 @@ Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 
 Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses)
 {
-    LOG_INF() << "Node instances statuses received" << Log::Field("nodeID", nodeID);
+    for (const auto& status : statuses) {
+        LOG_INF() << "Node instance status received"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
+                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
+                  << Log::Field("state", status.mState) << Log::Field(status.mError);
+    }
 
     LockGuard updateLock {mUpdateMutex};
 

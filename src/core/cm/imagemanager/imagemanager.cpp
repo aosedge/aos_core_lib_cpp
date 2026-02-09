@@ -104,7 +104,13 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
     const Array<crypto::CertificateInfo>& certificates, const Array<crypto::CertificateChainInfo>& certificateChains,
     Array<UpdateItemStatus>& statuses)
 {
-    LOG_DBG() << "Download update items" << Log::Field("count", itemsInfo.Size());
+    LOG_INF() << "Download update items" << Log::Field("count", itemsInfo.Size());
+
+    for (const auto& itemInfo : itemsInfo) {
+        LOG_INF() << "Download update item" << Log::Field("itemID", itemInfo.mItemID)
+                  << Log::Field("type", itemInfo.mType) << Log::Field("version", itemInfo.mVersion)
+                  << Log::Field("indexDigest", itemInfo.mIndexDigest);
+    }
 
     if (!StartAction()) {
         return ErrorEnum::eCanceled;
@@ -188,7 +194,12 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
 
 Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, Array<UpdateItemStatus>& statuses)
 {
-    LOG_DBG() << "Install update items" << Log::Field("count", itemsInfo.Size());
+    LOG_INF() << "Install update items" << Log::Field("count", itemsInfo.Size());
+
+    for (const auto& itemInfo : itemsInfo) {
+        LOG_INF() << "Install update item" << Log::Field("itemID", itemInfo.mItemID)
+                  << Log::Field("type", itemInfo.mType) << Log::Field("version", itemInfo.mVersion);
+    }
 
     if (!StartAction()) {
         return ErrorEnum::eCanceled;
@@ -1089,7 +1100,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
                 return AOS_ERROR_WRAP(waitErr);
             }
 
-            LOG_INF() << "Retrying get blobs info" << Log::Field("digest", digest);
+            LOG_DBG() << "Retrying get blobs info" << Log::Field("digest", digest);
 
             continue;
         }
@@ -1242,7 +1253,7 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
                 return err;
             }
 
-            LOG_INF() << "Retrying download" << Log::Field("url", blobInfo.mURLs[0])
+            LOG_DBG() << "Retrying download" << Log::Field("url", blobInfo.mURLs[0])
                       << Log::Field("path", downloadPath);
 
             continue;
@@ -1381,6 +1392,12 @@ void ImageManager::StopAction()
 void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses)
 {
     LockGuard lock {mMutex};
+
+    for (const auto& status : statuses) {
+        LOG_DBG() << "Item status changed" << Log::Field("itemID", status.mItemID)
+                  << Log::Field("version", status.mVersion) << Log::Field("state", ItemState(status.mState))
+                  << Log::Field("error", status.mError);
+    }
 
     for (auto* listener : mListeners) {
         listener->OnItemsStatusesChanged(statuses);

@@ -87,7 +87,7 @@ Error StorageState::Start()
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Start storage state";
+    LOG_DBG() << "Start storage state";
 
     if (auto err = InitStateWatching(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -100,7 +100,7 @@ Error StorageState::Stop()
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Stop storage state";
+    LOG_DBG() << "Stop storage state";
 
     while (!mStates.IsEmpty()) {
         if (auto err = StopStateWatching(mStates.Front().mInstanceIdent);

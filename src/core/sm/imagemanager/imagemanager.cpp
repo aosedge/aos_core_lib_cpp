@@ -259,7 +259,7 @@ Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+    LOG_INF() << "Remove update item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
     StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
 
@@ -846,8 +846,8 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
 
 Error ImageManager::RemoveUpdateItem(const UpdateItemData& itemData)
 {
-    LOG_INF() << "Remove update item" << Log::Field("itemID", itemData.mID) << Log::Field("version", itemData.mVersion)
-              << Log::Field("state", itemData.mState);
+    LOG_INF() << "Remove update item from storage" << Log::Field("itemID", itemData.mID)
+              << Log::Field("version", itemData.mVersion) << Log::Field("state", itemData.mState);
 
     if (auto err = mStorage->RemoveUpdateItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

@@ -167,7 +167,7 @@ private:
     void  StopAllInstances();
     void  StartInstances(const Array<InstanceInfo>& startInstances);
     void  StartInstance(RuntimeItf& runtime, InstanceData& instance);
-    Error ApppendInstancesWithModifiedParams(
+    Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     void  PopulateInstancesStatuses(Array<InstanceStatus>& statuses) const;
     void  ClearCachedInstances();

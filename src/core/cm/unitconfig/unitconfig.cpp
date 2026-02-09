@@ -53,7 +53,7 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Check unit config" << Log::Field("version", config.mVersion);
+    LOG_INF() << "Check unit config" << Log::Field("version", config.mVersion);
 
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled) {
         LOG_WRN() << "Skip unit config version check due to state" << Log::Field("state", mUnitConfigState)
@@ -104,7 +104,7 @@ Error UnitConfig::UpdateUnitConfig(const aos::UnitConfig& unitConfig)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Update unit config" << Log::Field("version", unitConfig.mVersion);
+    LOG_INF() << "Update unit config" << Log::Field("version", unitConfig.mVersion);
 
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled && mUnitConfigState != UnitConfigStateEnum::eAbsent) {
         LOG_WRN() << "Skip unit config version check due to state" << Log::Field("state", mUnitConfigState)

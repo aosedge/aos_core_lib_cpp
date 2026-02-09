@@ -277,6 +277,9 @@ Error Monitoring::SendMonitoringData()
         return ErrorEnum::eNone;
     }
 
+    LOG_INF() << "Send monitoring data" << Log::Field("nodesCount", mMonitoring.mNodes.Size())
+              << Log::Field("instancesCount", mMonitoring.mInstances.Size());
+
     if (auto err = mSender->SendMonitoring(mMonitoring); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
