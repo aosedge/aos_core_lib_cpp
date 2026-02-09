@@ -181,7 +181,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
@@ -297,7 +297,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Invoke([&](Array<ItemInfo>& items) {
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Invoke([&](Array<ItemInfo>& items) {
         ItemInfo storedItem;
         storedItem.mItemID      = item.mItemID;
         storedItem.mVersion     = item.mVersion;
@@ -401,7 +401,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
     item.mIndexDigest = "sha256:aabb";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
     auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
@@ -481,7 +481,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
         itemsInfo.PushBack(item);
     }
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mStorageMock, AddItem(_)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
 
@@ -587,7 +587,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_BlobInfoFailed)
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
@@ -623,7 +623,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
@@ -690,7 +690,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
         ItemInfo oldItem;
         oldItem.mItemID      = "service1";
         oldItem.mVersion     = "1.0.0";
@@ -814,7 +814,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
 
-    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
         ItemInfo oldItem;
         oldItem.mItemID      = "service1";
         oldItem.mVersion     = "1.0.0";

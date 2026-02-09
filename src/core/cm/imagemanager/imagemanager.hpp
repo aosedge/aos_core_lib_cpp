@@ -180,10 +180,10 @@ private:
     Error AllocateSpaceForPartialDownloads();
     Error RemovePendingItems(const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses);
     Error CleanupDownloadingItems(const Array<UpdateItemInfo>& currentItems, const Array<ItemInfo>& storedItems);
-    Error VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
+    Error VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
         const Array<crypto::CertificateInfo>&      certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses);
-    Error ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems,
+    Error ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
         const Array<crypto::CertificateInfo>&      certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses);
     RetWithError<size_t> CleanupOrphanedBlobs();
