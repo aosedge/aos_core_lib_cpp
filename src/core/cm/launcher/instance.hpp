@@ -97,6 +97,13 @@ public:
     const InstanceInfo& GetInfo() const { return mInfo; }
 
     /**
+     * Returns SM instance information.
+     *
+     * @return const aos::InstanceInfo&.
+     */
+    const aos::InstanceInfo& GetSMInfo() const { return mSMInfo; }
+
+    /**
      * Returns instance status.
      *
      * @return const InstanceStatus&.
@@ -215,13 +222,29 @@ public:
      * @param[out] info preallocate instance info used as temporary location.
      * @return Error.
      */
-    virtual Error Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info) = 0;
+    virtual Error Schedule(NodeItf& node, const String& runtimeID) = 0;
+
+    /**
+     * Setups network parameters.
+     *
+     * @param onlyExposedPorts setup only for exposed ports.
+     * @return Error.
+     */
+    virtual Error PrepareNetworkParams(bool onlyExposedPorts) = 0;
+
+    /**
+     * Removes network parameters.
+     *
+     * @return Error.
+     */
+    virtual Error RemoveNetworkParams() = 0;
 
 protected:
     Error SetActive(const String& nodeID, const String& runtimeID);
 
-    InstanceInfo   mInfo;
-    InstanceStatus mStatus;
+    InstanceInfo      mInfo;
+    aos::InstanceInfo mSMInfo;
+    InstanceStatus    mStatus;
 
     StorageItf&        mStorage;
     ImageInfoProvider& mImageInfoProvider;
@@ -314,7 +337,22 @@ public:
      * @param[out] info preallocate instance info used as temporary location.
      * @return Error.
      */
-    Error Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info) override;
+    Error Schedule(NodeItf& node, const String& runtimeID) override;
+
+    /**
+     * Prepares network parameters.
+     *
+     * @param onlyExposedPorts prepare only for exposed ports.
+     * @return Error.
+     */
+    Error PrepareNetworkParams(bool onlyExposedPorts) override;
+
+    /**
+     * Removes network parameters.
+     *
+     * @return Error.
+     */
+    Error RemoveNetworkParams() override;
 };
 
 /**
@@ -401,7 +439,22 @@ public:
      * @param[out] info preallocate instance info used as temporary location.
      * @return Error.
      */
-    Error Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info) override;
+    Error Schedule(NodeItf& node, const String& runtimeID) override;
+
+    /**
+     * Prepares network parameters.
+     *
+     * @param onlyExposedPorts prepare only for exposed ports.
+     * @return Error.
+     */
+    Error PrepareNetworkParams(bool onlyExposedPorts) override;
+
+    /**
+     * Removes network parameters.
+     *
+     * @return Error.
+     */
+    Error RemoveNetworkParams() override;
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
