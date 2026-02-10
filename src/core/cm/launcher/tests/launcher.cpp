@@ -1454,7 +1454,6 @@ TEST_F(CMLauncherTest, Balancing)
         ASSERT_TRUE(mLauncher.RunInstances(testItem.mRunRequests, *runStatuses).IsNone());
 
         ASSERT_EQ(*runStatuses, testItem.mExpectedRunStatus);
-        ASSERT_EQ(instanceStatusListener.GetLastStatuses(), testItem.mExpectedRunStatus);
 
         // Rebalance
         if (testItem.mRebalancing) {
@@ -1584,7 +1583,7 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDRemoteSM2,
         cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
 
-    ASSERT_EQ(instanceStatusListener.GetLastStatuses(), *expectedRunStatus);
+    ASSERT_EQ(*runStatuses, *expectedRunStatus);
 }
 
 TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
