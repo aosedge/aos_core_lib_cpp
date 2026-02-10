@@ -26,19 +26,19 @@ void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProv
     mNetworkManager  = &networkManager;
 }
 
-Error Balancer::RunInstances(UniqueLock<Mutex>& lock, bool rebalancing)
+Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing)
 {
     if (auto err = PrepareForBalancing(rebalancing); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     if (rebalancing) {
-        if (auto err = PerformPolicyBalancing(); !err.IsNone()) {
+        if (auto err = PerformPolicyBalancing(instances); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    if (auto err = PerformNodeBalancing(); !err.IsNone()) {
+    if (auto err = PerformNodeBalancing(instances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -46,24 +46,31 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, bool rebalancing)
         return AOS_ERROR_WRAP(err);
     }
 
+    // Submit scheduled instances before sending instances to nodes.
+    // So following status updates will change active instances.
     if (auto err = mInstanceManager->SubmitScheduledInstances(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mNodeManager->SendScheduledInstances(lock); !err.IsNone()) {
+    if (auto err = mNodeManager->SendScheduledInstances(
+            lock, mInstanceManager->GetActiveInstances(), mInstanceManager->GetRunningInstances());
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
 }
 
-Error Balancer::LoadInstances()
+Error Balancer::LoadSMDataForActiveInstances()
 {
-    PrepareForBalancing(false);
-
-    auto err = mNodeManager->LoadInstances(mInstanceManager->GetActiveInstances(), mImageInfoProvider);
-    if (!err.IsNone()) {
+    if (auto err = PrepareForBalancing(false); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    auto loadErr
+        = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), mImageInfoProvider);
+    if (!loadErr.IsNone()) {
+        return AOS_ERROR_WRAP(loadErr);
     }
 
     return ErrorEnum::eNone;
@@ -73,18 +80,18 @@ Error Balancer::LoadInstances()
  * Private
  **********************************************************************************************************************/
 
-Error Balancer::PerformNodeBalancing()
+Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 {
     LOG_DBG() << "Perform node balancing" << Log::Field("numNodes", mNodeManager->GetNodes().Size())
-              << Log::Field("numInstances", mInstanceManager->GetScheduledInstances().Size());
+              << Log::Field("numInstances", instances.Size());
 
-    for (const auto& instance : mInstanceManager->GetScheduledInstances()) {
+    for (auto& instance : instances) {
         const auto& info = instance->GetInfo();
         const auto& id   = info.mInstanceIdent;
 
         LOG_DBG() << "Perform node balancing" << Log::Field("instance", id);
 
-        if (mNodeManager->IsScheduled(id)) {
+        if (mInstanceManager->IsScheduled(id)) {
             LOG_DBG() << "Instance aready scheduled" << Log::Field("instance", id);
 
             continue;
@@ -95,6 +102,7 @@ Error Balancer::PerformNodeBalancing()
         if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
+            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
             continue;
         }
 
@@ -104,7 +112,7 @@ Error Balancer::PerformNodeBalancing()
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            if (auto err = ScheduleInstance(*instance, manifest); err.IsNone()) {
+            if (auto err = ScheduleInstance(instance, manifest); err.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
                 break;
@@ -116,21 +124,20 @@ Error Balancer::PerformNodeBalancing()
         }
 
         if (!scheduleErr.IsNone()) {
-            instance->SetError(scheduleErr);
+            mInstanceManager->ScheduleInstance(instance, scheduleErr);
         }
     }
 
     return ErrorEnum::eNone;
 }
 
-Error Balancer::ScheduleInstance(Instance& instance, const oci::IndexContentDescriptor& imageDescriptor)
+Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor)
 {
-    auto nodes        = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
-    auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
+    auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance.ResetConfigs(); });
+    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
 
-    if (auto err = instance.LoadConfigs(imageDescriptor); !err.IsNone()) {
+    if (auto err = instance->LoadConfigs(imageDescriptor); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't load instance configs"));
     }
 
@@ -139,11 +146,11 @@ Error Balancer::ScheduleInstance(Instance& instance, const oci::IndexContentDesc
         return AOS_ERROR_WRAP(Error(err, "get connected nodes failed"));
     }
 
-    if (auto err = SelectNodes(instance, *nodes); !err.IsNone()) {
+    if (auto err = SelectNodes(*instance, *nodes); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't find node for instance"));
     }
 
-    auto [nodeRuntime, selectErr] = SelectRuntime(instance, *nodes);
+    auto [nodeRuntime, selectErr] = SelectRuntime(*instance, *nodes);
     if (!selectErr.IsNone()) {
         return AOS_ERROR_WRAP(Error(selectErr, "can't find runtime for instance"));
     }
@@ -152,7 +159,7 @@ Error Balancer::ScheduleInstance(Instance& instance, const oci::IndexContentDesc
     auto&       node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
-    if (auto err = instance.Schedule(*node, runtime->mRuntimeID, *instanceInfo); !err.IsNone()) {
+    if (auto err = mInstanceManager->ScheduleInstance(instance, *node, runtime->mRuntimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't schedule instance"));
     }
 
@@ -395,22 +402,10 @@ Error Balancer::RemoveNetworkForDeletedInstances()
 
     for (const auto& instance : mInstanceManager->GetActiveInstances()) {
         bool isScheduled = scheduledInstances.ContainsIf(
-            [&instance](const SharedPtr<Instance>& stashInst) { return stashInst.Get() == instance.Get(); });
+            [&instance](const SharedPtr<Instance>& schedInst) { return schedInst.Get() == instance.Get(); });
 
         if (!isScheduled) {
-            const auto& info = instance->GetInfo();
-
-            if (info.mNodeID.IsEmpty()) {
-                // Instance has not been sent to any node(failed to schedule)
-                continue;
-            }
-
-            auto node = mNodeManager->FindNode(info.mNodeID);
-            if (!node) {
-                return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
-            }
-
-            if (auto err = node->RemoveNetworkParams(info.mInstanceIdent, *mNetworkManager); !err.IsNone()) {
+            if (auto err = instance->RemoveNetworkParams(); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -422,21 +417,7 @@ Error Balancer::RemoveNetworkForDeletedInstances()
 Error Balancer::SetNetworkParams(bool onlyWithExposedPorts)
 {
     for (auto& instance : mInstanceManager->GetScheduledInstances()) {
-        const auto& id = instance->GetInfo().mInstanceIdent;
-
-        if (instance->GetInfo().mNodeID.IsEmpty()) {
-            continue;
-        }
-
-        auto node = mNodeManager->FindNode(instance->GetStatus().mNodeID);
-        if (!node) {
-            LOG_ERR() << "Can't find node for instance" << Log::Field("instance", id)
-                      << Log::Field("nodeID", instance->GetStatus().mNodeID);
-
-            continue;
-        }
-
-        auto err = node->SetupNetworkParams(id, onlyWithExposedPorts, *mNetworkManager);
+        auto err = instance->PrepareNetworkParams(onlyWithExposedPorts);
         if (!err.IsNone()) {
             instance->SetError(AOS_ERROR_WRAP(Error(err, "can't setup network params")));
 
@@ -470,12 +451,11 @@ Error Balancer::SetupNetworkForNewInstances()
     return ErrorEnum::eNone;
 }
 
-Error Balancer::PerformPolicyBalancing()
+Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 {
-    auto imageIndex   = MakeUnique<oci::ImageIndex>(&mAllocator);
-    auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
-    for (const auto& instance : mInstanceManager->GetScheduledInstances()) {
+    for (auto& instance : instances) {
         const auto& info    = instance->GetInfo();
         const auto& id      = info.mInstanceIdent;
         const auto& version = info.mVersion;
@@ -528,18 +508,15 @@ Error Balancer::PerformPolicyBalancing()
 
         auto node = mNodeManager->FindNode(info.mNodeID);
         if (!node) {
-            LOG_ERR() << "Can't find node for instance" << Log::Field("instance", id)
+            LOG_WRN() << "Can't find node for instance" << Log::Field("instance", id)
                       << Log::Field("nodeID", info.mNodeID);
-
-            instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eFailed));
-
             continue;
         }
 
-        if (auto err = instance->Schedule(*node, info.mRuntimeID, *instanceInfo); !err.IsNone()) {
-            LOG_ERR() << "Can't schedule instance" << Log::Field("instance", id) << Log::Field(err);
+        if (auto err = mInstanceManager->ScheduleInstance(instance, *node, info.mRuntimeID); !err.IsNone()) {
+            LOG_WRN() << "Can't schedule instance" << Log::Field("instance", id) << Log::Field(AOS_ERROR_WRAP(err));
 
-            instance->SetError(err);
+            continue;
         }
     }
 
