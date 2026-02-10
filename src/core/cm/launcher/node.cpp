@@ -10,15 +10,95 @@
 
 namespace aos::cm::launcher {
 
+template <typename T, class Cmp>
+class Filter {
+public:
+    class Iterator {
+    public:
+        Iterator(typename Array<T>::ConstIterator it, typename Array<T>::ConstIterator end, Cmp cmp)
+            : mIt(it)
+            , mEnd(end)
+            , mCmp(cmp)
+        {
+            while (mIt != mEnd && !mCmp(*mIt)) {
+                ++mIt;
+            }
+        }
+
+        Iterator& operator++()
+        {
+            assert(mIt != mEnd);
+
+            ++mIt;
+
+            while (mIt != mEnd && !mCmp(*mIt)) {
+                ++mIt;
+            }
+
+            return *this;
+        }
+
+        Iterator operator++(int)
+        {
+            assert(mIt != mEnd);
+
+            Iterator tmp = *this;
+
+            ++(*this);
+
+            return tmp;
+        }
+
+        bool operator==(const Iterator& other) const { return mIt == other.mIt; }
+        bool operator!=(const Iterator& other) const { return mIt != other.mIt; }
+
+        const T& operator*() const { return *mIt; }
+        const T* operator->() const { return mIt; }
+
+    private:
+        typename Array<T>::ConstIterator mIt;
+        typename Array<T>::ConstIterator mEnd;
+        Cmp                              mCmp;
+    };
+
+    Filter(const Array<T>& array, Cmp cmp)
+        : mArray(&array)
+        , mCmp(cmp)
+    {
+    }
+
+    Iterator begin() const { return Iterator(mArray->begin(), mArray->end(), mCmp); }
+    Iterator end() const { return Iterator(mArray->end(), mArray->end(), mCmp); }
+
+private:
+    const Array<T>* mArray;
+    Cmp             mCmp;
+};
+
+auto FilterByNode(const Array<InstanceStatus>& array, const String& nodeID)
+{
+    auto cmp = [nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; };
+
+    return Filter<InstanceStatus, decltype(cmp)>(array, cmp);
+}
+
+auto FilterByNode(const Array<SharedPtr<Instance>>& array, const String& nodeID)
+{
+    auto cmp = [nodeID](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID == nodeID; };
+
+    return Filter<SharedPtr<Instance>, decltype(cmp)>(array, cmp);
+}
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-void Node::Init(
-    const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner)
+void Node::Init(const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
+    InstanceRunnerItf& instanceRunner, Allocator* allocator)
 {
     mNodeConfigProvider = &nodeConfigProvider;
     mInstanceRunner     = &instanceRunner;
+    mAllocator          = allocator;
 
     mInfo.mNodeID = id;
     mInfo.mState  = NodeStateEnum::eUnprovisioned;
@@ -31,8 +111,6 @@ void Node::PrepareForBalancing(bool rebalancing)
     mRuntimeAvailableCPU.Clear();
     mRuntimeAvailableRAM.Clear();
     mMaxInstances.Clear();
-
-    mScheduledInstances.Clear();
 
     mNeedBalancing = false;
 
@@ -110,41 +188,6 @@ bool Node::UpdateInfo(const UnitNodeInfo& info)
     }
 
     return nodeChanged;
-}
-
-Error Node::LoadInstances()
-{
-    mSentInstances = mScheduledInstances;
-    mRunningInstances.Clear();
-    mScheduledInstances.Clear();
-
-    LOG_DBG() << "Load instances for node" << Log::Field("nodeID", mInfo.mNodeID)
-              << Log::Field("instances", mSentInstances.Size());
-
-    for (const auto& instance : mSentInstances) {
-        if (auto err = mRunningInstances.EmplaceBack(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        Convert(instance, mRunningInstances.Back());
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error Node::UpdateRunningInstances(const Array<InstanceStatus>& instances)
-{
-    mRunningInstances.Clear();
-
-    for (const auto& instance : instances) {
-        if (!instance.mPreinstalled) {
-            if (auto err = mRunningInstances.EmplaceBack(instance); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-        }
-    }
-
-    return ErrorEnum::eNone;
 }
 
 size_t Node::GetAvailableCPU()
@@ -260,61 +303,17 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     return ErrorEnum::eNone;
 }
 
-Error Node::ScheduleInstance(const aos::InstanceInfo& instance)
+Error Node::SendScheduledInstances(
+    const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances)
 {
-    if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    auto stopInstances  = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
 
-    return ErrorEnum::eNone;
-}
-
-Error Node::SetupNetworkParams(const InstanceIdent& instanceID, bool onlyExposedPorts, NetworkManager& networkManager)
-{
-    auto instance = mScheduledInstances.FindIf(
-        [&instanceID](const aos::InstanceInfo& item) { return static_cast<const InstanceIdent&>(item) == instanceID; });
-    if (instance == mScheduledInstances.end()) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
-    }
-
-    auto netErr = networkManager.PrepareInstanceNetworkParameters(
-        instanceID, instance->mOwnerID, mInfo.mNodeID, onlyExposedPorts, instance->mNetworkParameters);
-    if (!netErr.IsNone()) {
-        return AOS_ERROR_WRAP(netErr);
-
-        mScheduledInstances.Erase(instance);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error Node::RemoveNetworkParams(const InstanceIdent& instanceID, NetworkManager& networkManager)
-{
-    auto sentInstance = mSentInstances.FindIf(
-        [&instanceID](const aos::InstanceInfo& item) { return static_cast<const InstanceIdent&>(item) == instanceID; });
-    if (sentInstance == mSentInstances.end()) {
-        return ErrorEnum::eNotFound;
-    }
-
-    if (sentInstance->mNetworkParameters.HasValue()) {
-        if (auto err = networkManager.RemoveInstanceNetworkParameters(instanceID, mInfo.mNodeID); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        sentInstance->mNetworkParameters.Reset();
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error Node::SendScheduledInstances()
-{
-    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(&mAllocator);
-
-    for (const auto& instance : mSentInstances) {
-        auto isScheduled = mScheduledInstances.ContainsIf([&instance](const aos::InstanceInfo& item) {
-            return static_cast<const InstanceIdent&>(instance) == static_cast<const InstanceIdent&>(item)
-                && instance.mRuntimeID == item.mRuntimeID;
+    for (const auto& status : FilterByNode(runningInstances, mInfo.mNodeID)) {
+        // Check if the instance is scheduled on this node.
+        auto isScheduled = scheduledInstances.ContainsIf([&status, this](const SharedPtr<Instance>& item) {
+            return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
+                && status.mRuntimeID == item->GetInfo().mRuntimeID && item->GetInfo().mNodeID == mInfo.mNodeID;
         });
 
         if (!isScheduled) {
@@ -322,78 +321,72 @@ Error Node::SendScheduledInstances()
                 return AOS_ERROR_WRAP(err);
             }
 
-            static_cast<InstanceIdent&>(stopInstances->Back()) = static_cast<const InstanceIdent&>(instance);
-            stopInstances->Back().mRuntimeID                   = instance.mRuntimeID;
+            Convert(status, stopInstances->Back());
+        }
+    }
+
+    for (const auto& instance : FilterByNode(scheduledInstances, mInfo.mNodeID)) {
+        if (auto err = startInstances->PushBack(instance->GetSMInfo()); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
     }
 
     LOG_INF() << "Send scheduled instances" << Log::Field("nodeID", mInfo.mNodeID)
               << Log::Field("stopInstances", stopInstances->Size())
-              << Log::Field("startInstances", mScheduledInstances.Size());
+              << Log::Field("startInstances", startInstances->Size());
 
-    if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, mScheduledInstances);
-        !err.IsNone()) {
+    if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, *startInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-
-    mSentInstances = mScheduledInstances;
-    mScheduledInstances.Clear();
 
     return ErrorEnum::eNone;
 }
 
-RetWithError<bool> Node::ResendInstances()
+RetWithError<bool> Node::ResendInstances(
+    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances)
 {
-    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(&mAllocator);
+    auto   stopInstances        = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    auto   startInstances       = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    size_t runningNodeInstances = 0;
 
-    for (const auto& instance : mRunningInstances) {
-        auto isRunningInstanceSent = mSentInstances.ContainsIf([&instance](const aos::InstanceInfo& item) {
-            return static_cast<const InstanceIdent&>(instance) == static_cast<const InstanceIdent&>(item)
-                && instance.mRuntimeID == item.mRuntimeID;
+    for (const auto& status : FilterByNode(runningInstances, mInfo.mNodeID)) {
+        runningNodeInstances++;
+
+        auto isActive = activeInstances.ContainsIf([&status](const SharedPtr<Instance>& item) {
+            return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
+                && status.mRuntimeID == item->GetInfo().mRuntimeID;
         });
 
-        if (!isRunningInstanceSent) {
+        if (!isActive) {
             if (auto err = stopInstances->EmplaceBack(); !err.IsNone()) {
                 return {false, AOS_ERROR_WRAP(err)};
             }
 
-            static_cast<InstanceIdent&>(stopInstances->Back()) = static_cast<const InstanceIdent&>(instance);
-            stopInstances->Back().mRuntimeID                   = instance.mRuntimeID;
+            Convert(status, stopInstances->Back());
+        }
+    }
+
+    for (const auto& instance : FilterByNode(activeInstances, mInfo.mNodeID)) {
+        if (auto err = startInstances->PushBack(instance->GetSMInfo()); !err.IsNone()) {
+            return {false, AOS_ERROR_WRAP(err)};
         }
     }
 
     // Instance list didn't change, skip update.
-    if (stopInstances->IsEmpty() && mSentInstances.Size() == mRunningInstances.Size()) {
+    if (stopInstances->IsEmpty() && startInstances->Size() == runningNodeInstances) {
         return {false, ErrorEnum::eNone};
     }
 
     // Send request to node.
     LOG_INF() << "Resend instance update" << Log::Field("nodeID", mInfo.mNodeID)
               << Log::Field("stopInstances", stopInstances->Size())
-              << Log::Field("startInstances", mSentInstances.Size());
+              << Log::Field("startInstances", startInstances->Size());
 
-    if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, mSentInstances); !err.IsNone()) {
+    if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, *startInstances); !err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};
     }
 
-    // Reset running instances to sent, in order to not duplicate requests.
-    mRunningInstances.Clear();
-
-    for (const auto& instance : mSentInstances) {
-        if (auto err = mRunningInstances.EmplaceBack(); !err.IsNone()) {
-            return {false, AOS_ERROR_WRAP(err)};
-        }
-        static_cast<InstanceIdent&>(mRunningInstances.Back()) = static_cast<const InstanceIdent&>(instance);
-        mRunningInstances.Back().mRuntimeID                   = instance.mRuntimeID;
-    }
-
     return {true, ErrorEnum::eNone};
-}
-
-bool Node::IsScheduled(const InstanceIdent& id) const
-{
-    return mScheduledInstances.ContainsIf(
-        [&id](const aos::InstanceInfo& info) { return static_cast<const InstanceIdent&>(info) == id; });
 }
 
 /***********************************************************************************************************************
@@ -487,16 +480,10 @@ size_t* Node::GetPtrToMaxNumInstances(const String& runtimeID)
     return &mMaxInstances.Find(runtimeID)->mSecond;
 }
 
-void Node::Convert(const aos::InstanceInfo& instance, InstanceStatus& status)
+void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info)
 {
-    static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(instance);
-    status.mRuntimeID                   = instance.mRuntimeID;
-    status.mManifestDigest              = instance.mManifestDigest;
-    status.mState                       = aos::InstanceStateEnum::eActivating;
-    status.mError                       = ErrorEnum::eNone;
-    status.mVersion                     = instance.mVersion;
-    status.mPreinstalled                = false;
-    status.mNodeID                      = mInfo.mNodeID;
+    static_cast<InstanceIdent&>(info) = static_cast<const InstanceIdent&>(status);
+    info.mRuntimeID                   = status.mRuntimeID;
 }
 
 } // namespace aos::cm::launcher

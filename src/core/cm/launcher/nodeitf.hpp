@@ -42,14 +42,6 @@ public:
         = 0;
 
     /**
-     * Schedules instance on node.
-     *
-     * @param instance instance information.
-     * @return Error.
-     */
-    virtual Error ScheduleInstance(const aos::InstanceInfo& instance) = 0;
-
-    /**
      * Returns node configuration.
      *
      * @return const NodeConfig&
