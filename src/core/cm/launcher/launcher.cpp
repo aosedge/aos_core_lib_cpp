@@ -374,7 +374,8 @@ void Launcher::ProcessUpdate()
             UniqueLock updateLock {mUpdateMutex};
 
             mProcessUpdatesCondVar.Wait(updateLock, [this]() {
-                return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning)
+                return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
+                           || mIsNodeInfoChanged)
                     && !mDisableProcessUpdates;
             });
 
@@ -405,6 +406,12 @@ void Launcher::ProcessUpdate()
         if (mAlertReceived) {
             mAlertReceived = false;
             doRebalance    = true;
+        }
+
+        // Process node info changed.
+        if (mIsNodeInfoChanged) {
+            mIsNodeInfoChanged = false;
+            doRebalance        = true;
         }
 
         // Resend instances.
@@ -593,11 +600,7 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
     UniqueLock updateLock {mUpdateMutex};
 
     if (mNodeManager.UpdateNodeInfo(info)) {
-        if (auto err = PushUnique(mUpdatedNodes, info.mNodeID); !err.IsNone()) {
-            LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));
-
-            return;
-        }
+        mIsNodeInfoChanged = true;
 
         mProcessUpdatesCondVar.NotifyAll();
         mAllNodesConnectedCondVar.NotifyAll();
