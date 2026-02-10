@@ -268,34 +268,42 @@ oci::BalancingPolicyEnum ComponentInstance::GetBalancingPolicy()
     return oci::BalancingPolicyEnum::eBalancingDisabled;
 }
 
-Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info)
+Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
     auto releaseConfig = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { mImageConfig = nullptr; });
 
-    static_cast<InstanceIdent&>(info) = mInfo.mInstanceIdent;
-    info.mVersion                     = mInfo.mVersion;
-    info.mManifestDigest              = mInfo.mManifestDigest;
-    info.mRuntimeID                   = runtimeID;
-    info.mOwnerID                     = mInfo.mOwnerID;
-    info.mSubjectType                 = mInfo.mSubjectType;
-    info.mUID                         = mInfo.mUID;
-    info.mGID                         = mInfo.mGID;
-    info.mPriority                    = mInfo.mPriority;
+    static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
+    mSMInfo.mVersion                     = mInfo.mVersion;
+    mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
+    mSMInfo.mRuntimeID                   = runtimeID;
+    mSMInfo.mOwnerID                     = mInfo.mOwnerID;
+    mSMInfo.mSubjectType                 = mInfo.mSubjectType;
+    mSMInfo.mUID                         = mInfo.mUID;
+    mSMInfo.mGID                         = mInfo.mGID;
+    mSMInfo.mPriority                    = mInfo.mPriority;
 
-    info.mStoragePath = "";
-    info.mStatePath   = "";
-    info.mEnvVars.Clear();
-    info.mNetworkParameters.Reset();
-    info.mMonitoringParams.Reset();
-
-    if (auto err = node.ScheduleInstance(info); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    mSMInfo.mStoragePath = "";
+    mSMInfo.mStatePath   = "";
+    mSMInfo.mEnvVars.Clear();
+    mSMInfo.mNetworkParameters.Reset();
+    mSMInfo.mMonitoringParams.Reset();
 
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
+    return ErrorEnum::eNone;
+}
+
+Error ComponentInstance::PrepareNetworkParams(bool onlyExposedPorts)
+{
+    (void)onlyExposedPorts;
+
+    return ErrorEnum::eNone;
+}
+
+Error ComponentInstance::RemoveNetworkParams()
+{
     return ErrorEnum::eNone;
 }
 
@@ -434,7 +442,7 @@ oci::BalancingPolicyEnum ServiceInstance::GetBalancingPolicy()
     return mItemConfig->mBalancingPolicy;
 }
 
-Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID, aos::InstanceInfo& info)
+Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
     assert(mItemConfig);
 
@@ -443,41 +451,62 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID, aos::Ins
         mImageConfig.Reset();
     });
 
-    static_cast<InstanceIdent&>(info) = mInfo.mInstanceIdent;
-    info.mVersion                     = mInfo.mVersion;
-    info.mManifestDigest              = mInfo.mManifestDigest;
-    info.mRuntimeID                   = runtimeID;
-    info.mOwnerID                     = mInfo.mOwnerID;
-    info.mSubjectType                 = mInfo.mSubjectType;
-    info.mUID                         = mInfo.mUID;
-    info.mGID                         = mInfo.mGID;
-    info.mPriority                    = mInfo.mPriority;
+    static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
+    mSMInfo.mVersion                     = mInfo.mVersion;
+    mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
+    mSMInfo.mRuntimeID                   = runtimeID;
+    mSMInfo.mOwnerID                     = mInfo.mOwnerID;
+    mSMInfo.mSubjectType                 = mInfo.mSubjectType;
+    mSMInfo.mUID                         = mInfo.mUID;
+    mSMInfo.mGID                         = mInfo.mGID;
+    mSMInfo.mPriority                    = mInfo.mPriority;
 
-    if (auto err = SetupStateStorage(node.GetConfig(), info.mStoragePath, info.mStatePath); !err.IsNone()) {
+    if (auto err = SetupStateStorage(node.GetConfig(), mSMInfo.mStoragePath, mSMInfo.mStatePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    info.mEnvVars.Clear();
+    mSMInfo.mEnvVars.Clear();
 
     if (auto err = SetupNetworkServiceData(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    info.mMonitoringParams.EmplaceValue();
+    mSMInfo.mMonitoringParams.EmplaceValue();
     if (mItemConfig->mAlertRules.HasValue()) {
-        info.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
+        mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
     }
 
     if (auto err = ReserveRuntimeResources(node); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = node.ScheduleInstance(info); !err.IsNone()) {
+    if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::PrepareNetworkParams(bool onlyExposedPorts)
+{
+    auto err = mNetworkManager.PrepareInstanceNetworkParameters(
+        mInfo.mInstanceIdent, mInfo.mOwnerID, mInfo.mNodeID, onlyExposedPorts, mSMInfo.mNetworkParameters);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::RemoveNetworkParams()
+{
+    if (mSMInfo.mNetworkParameters.HasValue()) {
+        auto err = mNetworkManager.RemoveInstanceNetworkParameters(mInfo.mInstanceIdent, mInfo.mNodeID);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        mSMInfo.mNetworkParameters.Reset();
     }
 
     return ErrorEnum::eNone;
