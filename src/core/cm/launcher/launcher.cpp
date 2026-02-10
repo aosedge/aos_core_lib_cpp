@@ -77,8 +77,8 @@ Error Launcher::Start()
 {
     LOG_DBG() << "Start Launcher";
 
-    LockGuard updateLock {mUpdateMutex};
     LockGuard balancingLock {mBalancingMutex};
+    LockGuard updateLock {mUpdateMutex};
 
     mIsRunning = true;
 
@@ -88,10 +88,6 @@ Error Launcher::Start()
     }
 
     if (auto err = mNodeManager.Start(); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = mBalancer.LoadInstances(); !err.IsNone()) {
         return err;
     }
 
@@ -129,6 +125,10 @@ Error Launcher::Start()
     mNewSubjects.SetValue(*subjects); // Check subjects after startup.
 
     UpdateInstanceStatuses();
+
+    if (auto err = mBalancer.LoadSMDataForActiveInstances(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -189,8 +189,8 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
 {
     LOG_DBG() << "Run instances";
 
-    UniqueLock updateLock {mUpdateMutex};
     UniqueLock balancingLock {mBalancingMutex};
+    UniqueLock updateLock {mUpdateMutex};
 
     WaitAllNodesConnected(updateLock);
 
@@ -205,9 +205,11 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
         self->mProcessUpdatesCondVar.NotifyAll();
     });
 
-    ScheduleInstances(requests);
+    auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
 
-    auto runErr = mBalancer.RunInstances(updateLock, false);
+    CreateRequestedInstances(requests, *instances);
+
+    auto runErr = mBalancer.RunInstances(updateLock, *instances, false);
 
     FailActivatingInstances();
     UpdateInstanceStatuses();
@@ -335,9 +337,11 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
         self->mProcessUpdatesCondVar.NotifyAll();
     });
 
-    ScheduleInstances();
+    // Get instances that need rebalancing (from active and cached)
+    auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
+    CreateRequestedInstances(*instances);
 
-    auto runErr = mBalancer.RunInstances(lock, true);
+    auto runErr = mBalancer.RunInstances(lock, *instances, true);
 
     FailActivatingInstances();
 
@@ -353,16 +357,19 @@ Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
 void Launcher::ProcessUpdate()
 {
     while (true) {
-        UniqueLock updateLock {mUpdateMutex};
+        {
+            UniqueLock updateLock {mUpdateMutex};
 
-        mProcessUpdatesCondVar.Wait(updateLock, [this]() {
-            return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning)
-                && !mDisableProcessUpdates;
-        });
+            mProcessUpdatesCondVar.Wait(updateLock, [this]() {
+                return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning)
+                    && !mDisableProcessUpdates;
+            });
 
-        WaitAllNodesConnected(updateLock);
+            WaitAllNodesConnected(updateLock);
+        }
 
         UniqueLock balancingLock {mBalancingMutex};
+        UniqueLock updateLock {mUpdateMutex};
 
         if (!mIsRunning) {
             return;
@@ -381,10 +388,18 @@ void Launcher::ProcessUpdate()
             mNewSubjects.Reset();
         }
 
+        // Process received alert
+        if (mAlertReceived) {
+            mAlertReceived = false;
+            doRebalance    = true;
+        }
+
         // Resend instances.
         if (!mUpdatedNodes.IsEmpty()) {
             if (!doRebalance) {
-                if (err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes); !err.IsNone()) {
+                err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
+                    mInstanceManager.GetRunningInstances());
+                if (!err.IsNone()) {
                     LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
                 }
             } else {
@@ -392,12 +407,6 @@ void Launcher::ProcessUpdate()
             }
 
             mUpdatedNodes.Clear();
-        }
-
-        // Process received alert
-        if (mAlertReceived) {
-            mAlertReceived = false;
-            doRebalance    = true;
         }
 
         // Rebalance.
@@ -420,13 +429,22 @@ void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
     mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
 }
 
-void Launcher::ScheduleInstances()
+void Launcher::CreateRequestedInstances(Array<SharedPtr<Instance>>& instances)
 {
     for (auto& instance : mInstanceManager.GetActiveInstances()) {
         auto instanceIdent = instance->GetInfo().mInstanceIdent;
 
-        if (auto err = mInstanceManager.ScheduleInstance(instance); !err.IsNone()) {
-            LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+        if (!mInstanceManager.IsSubjectEnabled(*instance)) {
+            LOG_WRN() << "Subject is not enabled for instance" << Log::Field("instance", instanceIdent);
+
+            mInstanceManager.DisableInstance(instance);
+
+            continue;
+        }
+
+        if (auto err = instances.PushBack(instance); !err.IsNone()) {
+            LOG_ERR() << "Can't add instance to array" << Log::Field("instance", instanceIdent)
+                      << Log::Field(AOS_ERROR_WRAP(err));
 
             continue;
         }
@@ -439,15 +457,21 @@ void Launcher::ScheduleInstances()
             continue;
         }
 
-        if (auto err = mInstanceManager.ScheduleInstance(instance); !err.IsNone()) {
-            LOG_DBG() << "Can't schedule disabled instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+        if (!mInstanceManager.IsSubjectEnabled(*instance)) {
+            continue;
+        }
+
+        if (auto err = instances.PushBack(instance); !err.IsNone()) {
+            LOG_ERR() << "Can't add instance to array" << Log::Field("instance", instanceIdent)
+                      << Log::Field(AOS_ERROR_WRAP(err));
 
             continue;
         }
     }
 }
 
-void Launcher::ScheduleInstances(const Array<RunInstanceRequest>& requests)
+void Launcher::CreateRequestedInstances(
+    const Array<RunInstanceRequest>& requests, Array<SharedPtr<Instance>>& instances)
 {
     // Sort input requests by priority
     auto sortedRequests = MakeUnique<StaticArray<RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
@@ -457,15 +481,30 @@ void Launcher::ScheduleInstances(const Array<RunInstanceRequest>& requests)
         return left.mPriority > right.mPriority || (left.mPriority == right.mPriority && left.mItemID < right.mItemID);
     });
 
-    // Schedule instances
-    for (const auto& request : requests) {
+    // Create instances
+    for (const auto& request : *sortedRequests) {
         for (size_t i = 0; i < request.mNumInstances; i++) {
 
             InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
 
-            auto err = mInstanceManager.ScheduleInstance(instanceIdent, request);
-            if (!err.IsNone()) {
-                LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instanceIdent) << Log::Field(err);
+            auto [instance, createErr] = mInstanceManager.CreateInstance(instanceIdent, request);
+            if (!createErr.IsNone()) {
+                LOG_ERR() << "Can't create instance" << Log::Field("instance", instanceIdent) << Log::Field(createErr);
+
+                continue;
+            }
+
+            if (!mInstanceManager.IsSubjectEnabled(*instance)) {
+                LOG_WRN() << "Subject is not enabled for instance" << Log::Field("instance", instanceIdent);
+
+                mInstanceManager.DisableInstance(instance);
+
+                continue;
+            }
+
+            if (auto err = instances.PushBack(instance); !err.IsNone()) {
+                LOG_ERR() << "Can't add instance to array" << Log::Field("instance", instanceIdent)
+                          << Log::Field(AOS_ERROR_WRAP(err));
 
                 continue;
             }
@@ -500,15 +539,11 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
 
     Error firstErr;
 
-    // Update instance manager.
-    for (const auto& status : statuses) {
-        if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
-            firstErr = err;
-        }
+    if (auto err = mInstanceManager.UpdateRunningInstances(nodeID, statuses); !err.IsNone() && firstErr.IsNone()) {
+        firstErr = err;
     }
 
-    // Update node manager.
-    if (auto err = mNodeManager.UpdateRunnigInstances(nodeID, statuses); !err.IsNone() && firstErr.IsNone()) {
+    if (auto err = mNodeManager.NotifyNodeStatusReceived(nodeID); !err.IsNone() && firstErr.IsNone()) {
         firstErr = err;
     }
 
