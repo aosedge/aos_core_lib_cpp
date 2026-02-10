@@ -33,9 +33,9 @@ Error NodeManager::Start()
 
     LOG_DBG() << "Start node manager" << Log::Field("nodes", nodes->Size());
 
-    for (const auto& nodeID : *nodes) {
-        auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+    auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
 
+    for (const auto& nodeID : *nodes) {
         if (auto err = mNodeInfoProvider->GetNodeInfo(nodeID, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -49,7 +49,7 @@ Error NodeManager::Start()
         // Add online provisioned node
         mNodes.EmplaceBack();
 
-        mNodes.Back().Init(nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
+        mNodes.Back().Init(nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
         mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
@@ -76,7 +76,8 @@ Error NodeManager::PrepareForBalancing(bool rebalancing)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::LoadInstances(const Array<SharedPtr<Instance>>& instances, ImageInfoProvider& imageInfoProvider)
+Error NodeManager::LoadSMDataForActiveInstances(
+    const Array<SharedPtr<Instance>>& instances, ImageInfoProvider& imageInfoProvider)
 {
     for (const auto& instance : instances) {
         const auto& nodeID         = instance->GetInfo().mNodeID;
@@ -113,8 +114,7 @@ Error NodeManager::LoadInstances(const Array<SharedPtr<Instance>>& instances, Im
             continue;
         }
 
-        auto instanceInfo = MakeUnique<aos::InstanceInfo>(&mAllocator);
-        if (auto err = instance->Schedule(*node, runtimeID, *instanceInfo); !err.IsNone()) {
+        if (auto err = instance->Schedule(*node, runtimeID); !err.IsNone()) {
             LOG_ERR() << "Can't load instance" << Log::Field("nodeID", nodeID) << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -122,16 +122,10 @@ Error NodeManager::LoadInstances(const Array<SharedPtr<Instance>>& instances, Im
         }
     }
 
-    for (auto& node : mNodes) {
-        if (auto err = node.LoadInstances(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::UpdateRunnigInstances(const String& nodeID, const Array<InstanceStatus>& statuses)
+Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 {
     auto node = FindNode(nodeID);
     if (node == nullptr) {
@@ -140,17 +134,13 @@ Error NodeManager::UpdateRunnigInstances(const String& nodeID, const Array<Insta
             return AOS_ERROR_WRAP(err);
         }
 
-        mNodes.Back().Init(nodeID, *mNodeConfigProvider, *mRunner);
+        mNodes.Back().Init(nodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
 
         node = FindNode(nodeID);
     }
 
     if (node == nullptr) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "node not found"));
-    }
-
-    if (auto err = node->UpdateRunningInstances(statuses); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     if (node->GetInfo().mIsConnected && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
@@ -195,17 +185,14 @@ Array<Node>& NodeManager::GetNodes()
     return mNodes;
 }
 
-bool NodeManager::IsScheduled(const InstanceIdent& id)
-{
-    return mNodes.ContainsIf([&id](const Node& info) { return info.IsScheduled(id); });
-}
-
-Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock)
+Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
+    const Array<InstanceStatus>& runningInstances)
 {
     Error firstErr = ErrorEnum::eNone;
 
     for (auto& node : mNodes) {
-        if (auto err = node.SendScheduledInstances(); !err.IsNone()) {
+        auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
+        if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
                       << Log::Field(err);
 
@@ -237,7 +224,8 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock)
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes)
+Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
+    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances)
 {
     Error firstErr = ErrorEnum::eNone;
 
@@ -248,7 +236,7 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
             continue;
         }
 
-        auto [isRequestSent, sendErr] = node.ResendInstances();
+        auto [isRequestSent, sendErr] = node.ResendInstances(activeInstances, runningInstances);
         if (!sendErr.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
                       << Log::Field(sendErr);
@@ -309,7 +297,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
             return false;
         }
 
-        mNodes.Back().Init(info.mNodeID, *mNodeConfigProvider, *mRunner);
+        mNodes.Back().Init(info.mNodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
         mNodes.Back().UpdateInfo(info);
 
         return true;

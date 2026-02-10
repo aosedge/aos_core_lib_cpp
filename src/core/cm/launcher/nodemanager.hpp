@@ -58,22 +58,30 @@ public:
     Error PrepareForBalancing(bool rebalancing);
 
     /**
-     * Loads instances from storage.
+     * Loads SM data for active instances that were loaded from storage.
      *
-     * @param instances list of instances.
+     * When instances are created and scheduled normally, the SM data (aos::InstanceInfo) is populated
+     * during the Schedule() step. This includes network parameters, storage paths, monitoring params,
+     * and other information required by the Service Manager to manage the instance.
+     *
+     * However, when the system starts and loads active instances from persistent storage, these
+     * instances bypass the normal scheduling flow. As a result, their SM data is not automatically
+     * populated, even though the instances are already running on their respective nodes.
+     *
+     * @param activeInstances list of active instances.
      * @param imageInfoProvider image info provider.
      * @return Error.
      */
-    Error LoadInstances(const Array<SharedPtr<Instance>>& instances, ImageInfoProvider& imageInfoProvider);
+    Error LoadSMDataForActiveInstances(
+        const Array<SharedPtr<Instance>>& activeInstances, ImageInfoProvider& imageInfoProvider);
 
     /**
-     * Updates list of running instances for a node.
+     * Notifies that node status has been received.
      *
      * @param nodeID node identifier.
-     * @param statuses list of running instance statuses.
      * @return Error.
      */
-    Error UpdateRunnigInstances(const String& nodeID, const Array<InstanceStatus>& statuses);
+    Error NotifyNodeStatusReceived(const String& nodeID);
 
     /**
      * Updates node info.
@@ -107,34 +115,35 @@ public:
     Array<Node>& GetNodes();
 
     /**
-     * Checks whether instance is scheduled.
-     *
-     * @param instance instance identifier.
-     * @return bool.
-     */
-    bool IsScheduled(const InstanceIdent& instance);
-
-    /**
      * Sends scheduled instances to nodes and waits for instance statuses from them.
      *
      * @param lock mutex lock.
+     * @param scheduledInstances scheduled instances.
+     * @param runningInstances running instances.
      * @return Error.
      */
-    Error SendScheduledInstances(UniqueLock<Mutex>& lock);
+    Error SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
+        const Array<InstanceStatus>& runningInstances);
 
     /**
      * Resends instances to nodes and waits for instance statuses from them.
      *
      * @param lock mutex lock.
      * @param updatedNodes updated nodes.
+     * @param activeInstances active instances.
+     * @param runningInstances running instances.
      * @return Error.
      */
-    Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes);
+    Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
+        const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances);
 
 private:
     static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
+
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo);
+
+    static constexpr auto cNodeAllocatorSize = sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstances>) * 2;
 
     Error FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
         ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor);
@@ -143,7 +152,8 @@ private:
     unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
     InstanceRunnerItf*                     mRunner {};
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    StaticAllocator<cAllocatorSize>     mAllocator;
+    StaticAllocator<cNodeAllocatorSize> mNodeAllocator;
 
     StaticArray<Node, cMaxNumNodes> mNodes;
 
