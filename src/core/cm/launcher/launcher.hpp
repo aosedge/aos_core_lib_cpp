@@ -188,6 +188,7 @@ private:
     bool                                            mDisableProcessUpdates {};
     StaticArray<StaticString<cIDLen>, cMaxNumNodes> mUpdatedNodes;
     bool                                            mAlertReceived {};
+    bool                                            mIsNodeInfoChanged {};
     Optional<SubjectArray>                          mNewSubjects;
 
     // Misc
