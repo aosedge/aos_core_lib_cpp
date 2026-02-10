@@ -35,10 +35,10 @@ public:
      * @param info node information.
      * @param nodeConfigProvider node config provider.
      * @param instanceRunner instance runner interface.
-     * @return Error.
+     * @param allocator allocator.
      */
-    void Init(
-        const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& instanceRunner);
+    void Init(const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
+        InstanceRunnerItf& instanceRunner, Allocator* allocator);
 
     /**
      * Prepares node for balancing.
@@ -74,21 +74,6 @@ public:
      * @return bool.
      */
     bool UpdateInfo(const UnitNodeInfo& info);
-
-    /**
-     * Loads sent / running instance list from scheduled.
-     *
-     * @return Error.
-     */
-    Error LoadInstances();
-
-    /**
-     * Updates running instances.
-     *
-     * @param statuses array of running instance statuses.
-     * @return Error.
-     */
-    Error UpdateRunningInstances(const Array<InstanceStatus>& statuses);
 
     /**
      * Returns available CPU.
@@ -134,53 +119,22 @@ public:
         const Array<StaticString<cResourceNameLen>>& reqResources) override;
 
     /**
-     * Adds instance to scheduled instances map.
-     *
-     * @param instance instance information.
-     * @return Error.
-     */
-    Error ScheduleInstance(const aos::InstanceInfo& instance) override;
-
-    /**
-     * Sets up network parameters.
-     *
-     * @param onlyExposedPorts flag for only exposed ports.
-     * @param netMgr network manager.
-     * @param instances all scheduled instances.
-     * @return Error.
-     */
-    Error SetupNetworkParams(const InstanceIdent& instanceIdent, bool onlyExposedPorts, NetworkManager& networkManager);
-
-    /**
-     * Removes network parameters.
-     *
-     * @param instanceIdent instance identifier.
-     * @param networkManager network manager.
-     * @return Error.
-     */
-    Error RemoveNetworkParams(const InstanceIdent& instanceIdent, NetworkManager& networkManager);
-
-    /**
      * Sends scheduled instances to node.
      *
+     * @param scheduledInstances scheduled instances.
+     * @param runningInstances running instances.
      * @return Error.
      */
-    Error SendScheduledInstances();
+    Error SendScheduledInstances(
+        const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances);
 
     /**
      * Resends instances to node.
      *
      * @return Error.
      */
-    RetWithError<bool> ResendInstances();
-
-    /**
-     * Checks whether instance is scheduled.
-     *
-     * @param instance instance identifier.
-     * @return bool.
-     */
-    bool IsScheduled(const InstanceIdent& instance) const;
+    RetWithError<bool> ResendInstances(
+        const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances);
 
     /**
      * Checks whether max number of instances is reached.
@@ -196,8 +150,6 @@ public:
     void UpdateConfig();
 
 private:
-    static constexpr auto cAllocatorSize = sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstances>);
-
     // Returns CPU usage without Aos service instances.
     size_t GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const;
     // Returns CPU usage without Aos service instances.
@@ -207,17 +159,13 @@ private:
     size_t* GetPtrToAvailableRAM(const String& runtimeID);
     size_t* GetPtrToMaxNumInstances(const String& runtimeID);
 
-    void Convert(const aos::InstanceInfo& instance, InstanceStatus& status);
+    void Convert(const InstanceStatus& status, aos::InstanceInfo& info);
 
     unitconfig::NodeConfigProviderItf* mNodeConfigProvider {};
     InstanceRunnerItf*                 mInstanceRunner {};
 
     UnitNodeInfo mInfo {};
     bool         mNeedBalancing {};
-
-    StaticArray<aos::InstanceInfo, cMaxNumInstances> mSentInstances;
-    StaticArray<aos::InstanceInfo, cMaxNumInstances> mScheduledInstances;
-    StaticArray<InstanceStatus, cMaxNumInstances>    mRunningInstances;
 
     size_t mTotalCPUUsage {};
     size_t mTotalRAMUsage {};
@@ -232,7 +180,7 @@ private:
     StaticMap<StaticString<cIDLen>, size_t, cMaxNumNodeRuntimes>            mRuntimeAvailableCPU;
     StaticMap<StaticString<cResourceNameLen>, size_t, cMaxNumNodeResources> mMaxInstances;
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    Allocator* mAllocator {};
 };
 
 /** @}*/
