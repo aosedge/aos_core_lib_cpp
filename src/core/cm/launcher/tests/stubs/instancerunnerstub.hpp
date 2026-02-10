@@ -105,6 +105,8 @@ public:
                         static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);
                         status.mNodeID                      = nodeID;
                         status.mRuntimeID                   = inst.mRuntimeID;
+                        status.mManifestDigest              = inst.mManifestDigest;
+                        status.mVersion                     = inst.mVersion;
                         status.mState                       = mInitialState;
                         status.mError                       = ErrorEnum::eNone;
 
