@@ -134,7 +134,8 @@ public:
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 8;
-    static constexpr auto cAllocatorSize                 = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>);
+    static constexpr auto cAllocatorSize                 = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
+        + sizeof(StaticArray<SharedPtr<Instance>, cMaxNumInstances>);
 
     void SendRunStatus();
 
@@ -146,8 +147,8 @@ private:
     void ProcessUpdate();
     void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
 
-    void ScheduleInstances();
-    void ScheduleInstances(const Array<RunInstanceRequest>& requests);
+    void CreateRequestedInstances(Array<SharedPtr<Instance>>& instances);
+    void CreateRequestedInstances(const Array<RunInstanceRequest>& requests, Array<SharedPtr<Instance>>& instances);
 
     // InstanceStatusReceiverItf implementation
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
