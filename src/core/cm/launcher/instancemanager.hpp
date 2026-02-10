@@ -98,6 +98,13 @@ public:
     Array<InstanceStatus>& GetPreinstalledComponents();
 
     /**
+     * Returns the collection of running instances.
+     *
+     * @return Array<InstanceStatus>&.
+     */
+    Array<InstanceStatus>& GetRunningInstances();
+
+    /**
      * Finds an active instance by its identifier.
      *
      * @param id instance identifier.
@@ -138,21 +145,13 @@ public:
     Error UpdateStatus(const InstanceStatus& status);
 
     /**
-     * Schedules instance.
+     * Creates new instance object or returns existing one.
      *
      * @param id instance identifier.
      * @param request run instance request.
-     * @return Error.
+     * @return SharedPtr<Instance>.
      */
-    Error ScheduleInstance(const InstanceIdent& id, const RunInstanceRequest& request);
-
-    /**
-     * Schedules instance.
-     *
-     * @param instance instance.
-     * @return Error.
-     */
-    Error ScheduleInstance(SharedPtr<Instance>& instance);
+    RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceIdent& id, const RunInstanceRequest& request);
 
     /**
      * Submits all stashed instances for execution.
@@ -184,15 +183,59 @@ public:
      */
     RetWithError<bool> SetSubjects(const Array<StaticString<cIDLen>>& subjects);
 
+    /**
+     * Checks if instance is subject enabled.
+     * @param instance instance.
+     * @return bool.
+     */
+    bool IsSubjectEnabled(const Instance& instance);
+
+    /**
+     * Checks if instance is scheduled.
+     *
+     * @param id instance identifier.
+     * @return bool.
+     */
+    bool IsScheduled(const InstanceIdent& id);
+
+    /**
+     * Updates running instances.
+     *
+     * @param statuses list of running instance statuses.
+     * @return Error.
+     */
+    Error UpdateRunningInstances(const String& nodeID, const Array<InstanceStatus>& statuses);
+
+    /**
+     * Schedules instances on specified node and runtime.
+     *
+     * @param instance instance.
+     * @param node node.
+     * @param runtimeID runtime ID.
+     * @return Error.
+     */
+    Error ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& node, const String& runtimeID);
+
+    /**
+     * Adds instances with specified error to schedule list.
+     * It will not be sent for execution but will be available for future rebalancing.
+     *
+     * @param instance instance.
+     * @param error error.
+     * @return Error.
+     */
+    Error ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
+
 private:
     static constexpr auto cRemovePeriod  = Time::cDay;
     static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
         + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo) + sizeof(oci::ImageIndex);
     static constexpr auto cInstanceAllocatorSize
-        = Max(sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig), sizeof(oci::ImageIndex));
+        = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig) + sizeof(InstanceStatus) + sizeof(oci::ImageIndex);
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
+    Error LoadInstanceStatuses();
 
     Error SetExpiredStatus();
     Error RemoveOutdatedInstances();
@@ -200,10 +243,7 @@ private:
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
-    Error CheckSubjectEnabled(SharedPtr<Instance>& instance);
-    bool  IsSubjectEnabled(const Instance& instance);
-
-    SharedPtr<Instance> ScheduleReadyInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id);
     void                CreateInfo(const InstanceIdent& id, const RunInstanceRequest& request, InstanceInfo& info);
 
     Config          mConfig;
@@ -224,7 +264,9 @@ private:
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mScheduledInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mCachedInstances;
-    StaticArray<InstanceStatus, cMaxNumInstances>      mPreinstalledComponents;
+
+    StaticArray<InstanceStatus, cMaxNumInstances> mPreinstalledComponents;
+    StaticArray<InstanceStatus, cMaxNumInstances> mRunningInstances;
 
     SubjectArray mSubjects;
 };

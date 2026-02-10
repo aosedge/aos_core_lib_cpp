@@ -101,6 +101,7 @@ Error InstanceManager::Stop()
     mScheduledInstances.Clear();
     mCachedInstances.Clear();
     mPreinstalledComponents.Clear();
+    mRunningInstances.Clear();
 
     return ErrorEnum::eNone;
 }
@@ -110,6 +111,8 @@ Error InstanceManager::PrepareForBalancing()
     if (auto err = mStorageState.PrepareForBalancing(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    mScheduledInstances.Clear();
 
     return ErrorEnum::eNone;
 }
@@ -132,6 +135,11 @@ Array<SharedPtr<Instance>>& InstanceManager::GetScheduledInstances()
 Array<InstanceStatus>& InstanceManager::GetPreinstalledComponents()
 {
     return mPreinstalledComponents;
+}
+
+Array<InstanceStatus>& InstanceManager::GetRunningInstances()
+{
+    return mRunningInstances;
 }
 
 Error InstanceManager::UpdateStatus(const InstanceStatus& status)
@@ -160,38 +168,21 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     return instance->UpdateStatus(status);
 }
 
-Error InstanceManager::ScheduleInstance(const InstanceIdent& id, const RunInstanceRequest& request)
+RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(
+    const InstanceIdent& id, const RunInstanceRequest& request)
 {
+    if (auto instance = FindReadyInstance(id); instance) {
+        return {instance, ErrorEnum::eNone};
+    }
+
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
     CreateInfo(id, request, *instanceInfo);
 
-    auto instance = ScheduleReadyInstance(id);
-    if (!instance) {
-        if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        auto [newInstance, createErr] = CreateInstance(*instanceInfo);
-        if (!createErr.IsNone()) {
-            return createErr;
-        }
-
-        instance = newInstance;
-
-        if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
-            return err;
-        }
+    if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
+        return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
-    return CheckSubjectEnabled(instance);
-}
-
-Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance)
-{
-    auto readyInstance = ScheduleReadyInstance(instance->GetInfo().mInstanceIdent);
-    assert(readyInstance);
-
-    return CheckSubjectEnabled(readyInstance);
+    return CreateInstance(*instanceInfo);
 }
 
 Error InstanceManager::SubmitScheduledInstances()
@@ -213,6 +204,11 @@ Error InstanceManager::SubmitScheduledInstances()
     }
 
     mActiveInstances = mScheduledInstances;
+    mCachedInstances.RemoveIf([this](const SharedPtr<Instance>& instance) {
+        return mActiveInstances.ContainsIf(
+            [instance](const SharedPtr<Instance>& item) { return instance.Get() == item.Get(); });
+    });
+
     mScheduledInstances.Clear();
 
     return ErrorEnum::eNone;
@@ -298,6 +294,10 @@ Error InstanceManager::LoadInstancesFromStorage()
         }
     }
 
+    if (auto err = LoadInstanceStatuses(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -321,6 +321,19 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
 
         if (auto err = mCachedInstances.EmplaceBack(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error InstanceManager::LoadInstanceStatuses()
+{
+    for (auto& instance : mActiveInstances) {
+        if (!instance->GetInfo().mNodeID.IsEmpty()) {
+            if (auto err = mRunningInstances.EmplaceBack(instance->GetStatus()); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
         }
     }
 
@@ -442,25 +455,71 @@ RetWithError<bool> InstanceManager::SetSubjects(const Array<StaticString<cIDLen>
     return {false, ErrorEnum::eNone};
 }
 
-Error InstanceManager::CheckSubjectEnabled(SharedPtr<Instance>& instance)
-{
-    if (IsSubjectEnabled(*instance)) {
-        return ErrorEnum::eNone;
-    }
-
-    if (auto err = DisableInstance(instance); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "subject disabled"));
-}
-
 bool InstanceManager::IsSubjectEnabled(const Instance& instance)
 {
     return !instance.GetInfo().mIsUnitSubject || mSubjects.Contains(instance.GetInfo().mInstanceIdent.mSubjectID);
 }
 
-SharedPtr<Instance> InstanceManager::ScheduleReadyInstance(const InstanceIdent& id)
+bool InstanceManager::IsScheduled(const InstanceIdent& id)
+{
+    return FindScheduledInstance(id).Get() != nullptr;
+}
+
+Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<InstanceStatus>& statuses)
+{
+    mRunningInstances.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
+    mPreinstalledComponents.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
+
+    for (const auto& status : statuses) {
+        if (status.mNodeID == nodeID) {
+            if (status.mPreinstalled) {
+                if (auto err = mPreinstalledComponents.EmplaceBack(status); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            } else {
+                if (auto err = mRunningInstances.EmplaceBack(status); !err.IsNone()) {
+                    return AOS_ERROR_WRAP(err);
+                }
+            }
+        }
+    }
+
+    Error firstErr = ErrorEnum::eNone;
+
+    for (const auto& status : statuses) {
+        if (auto err = UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
+            firstErr = err;
+        }
+    }
+
+    return firstErr;
+}
+
+Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& node, const String& runtimeID)
+{
+    if (auto err = instance->Schedule(node, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mScheduledInstances.EmplaceBack(instance); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
+{
+    instance->SetError(error);
+
+    if (auto err = mScheduledInstances.EmplaceBack(instance); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id)
 {
     auto instance = FindScheduledInstance(id);
     if (instance) {
@@ -469,21 +528,11 @@ SharedPtr<Instance> InstanceManager::ScheduleReadyInstance(const InstanceIdent& 
 
     instance = FindActiveInstance(id);
     if (instance) {
-        if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
-            return nullptr;
-        }
-
         return instance;
     }
 
     instance = FindCachedInstance(id);
     if (instance) {
-        if (auto err = mScheduledInstances.PushBack(instance); !err.IsNone()) {
-            return nullptr;
-        }
-
-        mCachedInstances.Remove(instance);
-
         return instance;
     }
 
