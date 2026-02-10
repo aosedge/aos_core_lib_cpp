@@ -47,27 +47,30 @@ public:
      * @param rebalancing flag indicating rebalancing.
      * @return Error.
      */
-    Error RunInstances(UniqueLock<Mutex>& lock, bool rebalancing);
+    Error RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing);
 
     /**
-     * Loads instances from storage.
+     * Loads Service Manager (SM) data for active instances that were loaded from storage.
      *
      * @return Error.
      */
-    Error LoadInstances();
+    Error LoadSMDataForActiveInstances();
 
 private:
     using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
 
-    static constexpr auto cAllocatorSize = sizeof(StaticArray<RunInstanceRequest, cMaxNumInstances>)
-        + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(oci::ItemConfig) + sizeof(oci::ImageConfig)
-        + sizeof(oci::ImageIndex) + sizeof(aos::cm::networkmanager::NetworkServiceData) + sizeof(aos::InstanceInfo)
-        + sizeof(StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>)
-        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>);
+    static constexpr size_t cScheduleInstanceSize
+        = sizeof(oci::ImageIndex) + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(NodeRuntimes);
+    static constexpr size_t cPolicyBalancingSize = sizeof(oci::ImageIndex);
+    static constexpr size_t cNetworkSetupSize    = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>);
+    static constexpr size_t cMonitoringSize      = sizeof(monitoring::NodeMonitoringData);
 
-    Error PerformNodeBalancing();
+    static constexpr size_t cAllocatorSize
+        = Max(cScheduleInstanceSize, cPolicyBalancingSize, cNetworkSetupSize, cMonitoringSize);
 
-    Error ScheduleInstance(Instance& instance, const oci::IndexContentDescriptor& imageDescriptor);
+    Error PerformNodeBalancing(Array<SharedPtr<Instance>>& instances);
+
+    Error ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor);
 
     // Selects nodes
     Error SelectNodes(Instance& instance, Array<Node*>& nodes);
@@ -94,7 +97,7 @@ private:
     Error SetNetworkParams(bool onlyWithExposedPorts);
     Error SetupNetworkForNewInstances();
 
-    Error PerformPolicyBalancing();
+    Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
 
     Error PrepareForBalancing(bool rebalancing);
     void  UpdateMonitoringData();
