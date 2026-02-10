@@ -285,6 +285,15 @@ void Launcher::UpdateInstanceStatuses()
     const auto& preinstalledComponents = mInstanceManager.GetPreinstalledComponents();
     const auto  totalSize              = activeInstances.Size() + preinstalledComponents.Size();
 
+    // Copy old statuses.
+    auto oldInstanceStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (auto err = oldInstanceStatuses->Assign(mInstanceStatuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to copy old instance statuses" << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    // Keep current statuses.
     bool changed = mInstanceStatuses.Size() != totalSize;
 
     if (auto err = mInstanceStatuses.Resize(totalSize); !err.IsNone()) {
@@ -316,7 +325,21 @@ void Launcher::UpdateInstanceStatuses()
         return;
     }
 
-    for (const auto& status : mInstanceStatuses) {
+    // Find new statuses.
+    auto changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+
+    for (size_t i = 0; i < mInstanceStatuses.Size(); ++i) {
+        auto newStatus = !oldInstanceStatuses->Contains(mInstanceStatuses[i]);
+        if (newStatus) {
+            if (auto err = changedStatuses->PushBack(mInstanceStatuses[i]); !err.IsNone()) {
+                LOG_ERR() << "Failed to add changed status" << Log::Field(AOS_ERROR_WRAP(err));
+
+                return;
+            }
+        }
+    }
+
+    for (const auto& status : *changedStatuses) {
         LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
                   << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
                   << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
@@ -324,7 +347,7 @@ void Launcher::UpdateInstanceStatuses()
     }
 
     for (auto& listener : mInstanceStatusListeners) {
-        listener->OnInstancesStatusesChanged(mInstanceStatuses);
+        listener->OnInstancesStatusesChanged(*changedStatuses);
     }
 }
 

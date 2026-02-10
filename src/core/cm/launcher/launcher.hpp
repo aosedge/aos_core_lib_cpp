@@ -134,7 +134,7 @@ public:
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 8;
-    static constexpr auto cAllocatorSize                 = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
+    static constexpr auto cAllocatorSize                 = 2 * sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
         + sizeof(StaticArray<SharedPtr<Instance>, cMaxNumInstances>);
 
     void SendRunStatus();
