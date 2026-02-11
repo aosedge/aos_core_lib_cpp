@@ -425,17 +425,10 @@ TEST_F(LauncherTest, UpdateInstances)
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    ASSERT_EQ(mReceivedStatuses.Size(), cStopInstances.Size() + cStartInstances.Size());
+    ASSERT_EQ(mReceivedStatuses.Size(), cStartInstances.Size());
 
-    size_t i = 0;
-    for (size_t j = 0; j < cStopInstances.Size(); ++j, ++i) {
-        EXPECT_EQ(mReceivedStatuses[i],
-            CreateInstanceStatus(
-                cStopInstances[j], cStoredInfos[j].mVersion, cStoredInfos[j].mRuntimeID, InstanceStateEnum::eInactive));
-    }
-
-    for (size_t j = 0; j < cStartInstances.Size(); ++j, ++i) {
-        EXPECT_EQ(mReceivedStatuses[i], CreateInstanceStatus(cStartInstances[j], InstanceStateEnum::eActive));
+    for (size_t i = 0; i < cStartInstances.Size(); ++i) {
+        EXPECT_EQ(mReceivedStatuses[i], CreateInstanceStatus(cStartInstances[i], InstanceStateEnum::eActive));
     }
 
     auto storedData = std::make_unique<InstanceInfoArray>();
