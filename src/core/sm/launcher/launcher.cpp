@@ -147,9 +147,9 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
         LOG_DBG() << "Instances statuses received" << Log::Field("count", statuses.Size());
 
         for (const auto& status : statuses) {
-            LOG_INF() << "Instance status received" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
+            LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
                       << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
-                      << Log::Field("error", status.mError);
+                      << Log::Field(status.mError);
 
             if (auto storeErr = StoreInstalledComponent(status); err.IsNone() && !storeErr.IsNone()) {
                 err = AOS_ERROR_WRAP(storeErr);
@@ -242,7 +242,7 @@ Error Launcher::GetInstanceMonitoringParams(const InstanceIdent& instanceIdent, 
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Get instance monitoring params" << Log::Field("ident", instanceIdent);
+    LOG_DBG() << "Get instance monitoring params" << Log::Field("instance", instanceIdent);
 
     const auto instanceData = FindInstanceData(instanceIdent);
     if (!instanceData) {
@@ -375,16 +375,23 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     LOG_INF() << "Update instances" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
 
-    auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+    auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>* instances) {
+        LockGuard lock {mMutex};
 
-    auto sendStatus = DeferRelease(statuses.Get(), [this](const InstanceStatusArray* statuses) {
         if (!mFirstStart) {
-            LOG_INF() << "Send node instances statuses" << Log::Field("count", statuses->Size());
+            LOG_INF() << "Send node instances statuses" << Log::Field("count", instances->Size());
 
-            for (const auto& status : *statuses) {
-                LOG_INF() << "Node instance status" << Log::Field("ident", static_cast<const InstanceIdent&>(status))
-                          << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
-                          << Log::Field("error", status.mError);
+            auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+
+            for (const auto& instance : *instances) {
+                LOG_INF() << "Node instance status" << Log::Field("instance", instance.mInfo)
+                          << Log::Field("runtimeID", instance.mInfo.mRuntimeID)
+                          << Log::Field("state", instance.mStatus.mState) << Log::Field(instance.mStatus.mError);
+
+                if (auto err = statuses->EmplaceBack(instance.mStatus); !err.IsNone()) {
+                    LOG_ERR() << "Failed to add instance status to list" << Log::Field("instance", instance.mInfo)
+                              << Log::Field(AOS_ERROR_WRAP(err));
+                }
             }
 
             if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
@@ -393,8 +400,6 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 
             return;
         }
-
-        LockGuard lock {mMutex};
 
         mFirstStart = false;
     });
@@ -409,23 +414,20 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         LOG_ERR() << "Failed to append instances with modified params to stop list" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    StopInstances(stopInstances, *statuses);
+    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+
+    if (!mFirstStart) {
+        GetRemoveUpdateItems(stopInstances, startInstances, *removeItems);
+    }
+
+    StopInstances(stopInstances);
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     if (!mFirstStart) {
-        RemoveUpdateItems(stopInstances, startInstances);
-
-        if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-            LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    }
-
-    ClearCachedInstances();
-
-    if (!mFirstStart) {
+        RemoveUpdateItems(*removeItems);
         InstallUpdateItems(startInstances);
 
         if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
@@ -442,62 +444,58 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
-
-    PopulateInstancesStatuses(*statuses);
 }
 
-void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses)
+void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
 {
     for (const auto& instance : stopInstances) {
-        if (auto err = statuses.EmplaceBack(); !err.IsNone()) {
-            LOG_ERR() << "Stop instance failed" << Log::Field("ident", instance) << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
+        if (auto err = StopInstance(instance); !err.IsNone()) {
+            LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance) << Log::Field(err);
         }
-
-        StopInstance(instance, statuses.Back());
     }
 }
 
-void Launcher::StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& status)
+Error Launcher::StopInstance(const InstanceIdent& instanceIdent)
 {
-    static_cast<InstanceIdent&>(status) = instanceIdent;
-
     auto itInstance = FindInstanceData(instanceIdent);
     if (itInstance == mInstances.end()) {
-        status.mState = InstanceStateEnum::eFailed;
-        status.mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
-
-        return;
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
     }
 
-    status = itInstance->mStatus;
+    SetInstanceState(*itInstance, InstanceStateEnum::eInactive);
 
     auto runtime = FindInstanceRuntime(itInstance->mStatus.mRuntimeID);
     if (runtime == nullptr) {
-        status.mState = InstanceStateEnum::eFailed;
-        status.mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
+        SetInstanceState(
+            *itInstance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found")));
 
-        return;
+        return itInstance->mStatus.mError;
     }
 
-    if (auto errAddTask = mLaunchPool.AddTask([this, runtime, &instanceIdent, status = &status](void*) {
-            LOG_INF() << "Stop instance" << Log::Field("ident", instanceIdent);
+    if (auto err = mLaunchPool.AddTask([this, runtime, itInstance](void*) {
+            LOG_INF() << "Stop instance" << Log::Field("instance", itInstance->mInfo)
+                      << Log::Field("version", itInstance->mInfo.mVersion)
+                      << Log::Field("runtimeID", itInstance->mInfo.mRuntimeID);
 
-            if (auto err = runtime->StopInstance(instanceIdent, *status); !err.IsNone()) {
-                LOG_ERR() << "Failed to stop instance" << Log::Field("ident", instanceIdent)
+            if (auto err = runtime->StopInstance(itInstance->mInfo, itInstance->mStatus); !err.IsNone()) {
+                LOG_ERR() << "Failed to stop instance" << Log::Field("instance", itInstance->mInfo)
                           << Log::Field(AOS_ERROR_WRAP(err));
 
-                if (status->mState != InstanceStateEnum::eFailed) {
-                    status->mState = InstanceStateEnum::eFailed;
-                    status->mError = AOS_ERROR_WRAP(err);
+                SetInstanceState(*itInstance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            } else {
+                if (err = RemoveInstanceData(*itInstance); !err.IsNone()) {
+                    LOG_ERR() << "Failed to remove instance data" << Log::Field("instance", itInstance->mInfo)
+                              << Log::Field(AOS_ERROR_WRAP(err));
                 }
             }
         });
-        !errAddTask.IsNone()) {
-        LOG_ERR() << "Stop instance failed" << Log::Field("ident", instanceIdent)
-                  << Log::Field(AOS_ERROR_WRAP(errAddTask));
+        !err.IsNone()) {
+        SetInstanceState(*itInstance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+
+        return itInstance->mStatus.mError;
     }
+
+    return ErrorEnum::eNone;
 }
 
 void Launcher::StopAllInstances()
@@ -508,13 +506,16 @@ void Launcher::StopAllInstances()
         return;
     }
 
-    for (auto& instance : mInstances) {
+    for (const auto& instance : mInstances) {
         if (instance.mStatus.mState != InstanceStateEnum::eActive
             || instance.mInfo.mType == UpdateItemTypeEnum::eComponent) {
             continue;
         }
 
-        StopInstance(static_cast<const InstanceIdent&>(instance.mInfo), instance.mStatus);
+        if (auto err = StopInstance(static_cast<const InstanceIdent&>(instance.mInfo)); !err.IsNone()) {
+            LOG_ERR() << "Failed to stop instance"
+                      << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo)) << Log::Field(err);
+        }
     }
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
@@ -529,67 +530,58 @@ void Launcher::StopAllInstances()
 void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
 {
     for (const auto& instance : startInstances) {
-        if (auto err = mInstances.EmplaceBack(); !err.IsNone()) {
-            LOG_ERR() << "Start instance failed" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
+        if (auto err = StartInstance(instance); !err.IsNone()) {
+            LOG_ERR() << "Failed to start instance"
+                      << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
                       << Log::Field(AOS_ERROR_WRAP(err));
-        }
-
-        mInstances.Back().mInfo                                = instance;
-        static_cast<InstanceIdent&>(mInstances.Back().mStatus) = static_cast<const InstanceIdent&>(instance);
-        mInstances.Back().mStatus.mVersion                     = instance.mVersion;
-        mInstances.Back().mStatus.mRuntimeID                   = instance.mRuntimeID;
-        mInstances.Back().mStatus.mState                       = InstanceStateEnum::eInactive;
-    }
-
-    for (auto& instance : mInstances) {
-        auto runtime = FindInstanceRuntime(instance.mInfo.mRuntimeID);
-        if (runtime == nullptr) {
-            instance.mStatus.mState = InstanceStateEnum::eFailed;
-            instance.mStatus.mError = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "Runtime not found"));
-
-            continue;
-        }
-
-        if (auto err = mLaunchPool.AddTask([this, runtime, &instance](void*) { StartInstance(*runtime, instance); });
-            !err.IsNone()) {
-            LOG_ERR() << "Start instance failed"
-                      << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo))
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
         }
     }
 }
 
-void Launcher::StartInstance(RuntimeItf& runtime, InstanceData& instance)
+Error Launcher::StartInstance(const InstanceInfo& instance)
 {
-    LOG_INF() << "Start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo))
-              << Log::Field("version", instance.mInfo.mVersion) << Log::Field("runtimeID", instance.mInfo.mRuntimeID)
-              << Log::Field("manifestDigest", instance.mInfo.mManifestDigest);
+    auto itInstance = FindInstanceData(static_cast<const InstanceIdent&>(instance));
+    if (itInstance == nullptr) {
+        Error err;
 
-    instance.mStatus.mState = InstanceStateEnum::eActivating;
-
-    if (auto err = runtime.StartInstance(instance.mInfo, instance.mStatus); !err.IsNone()) {
-        LOG_ERR() << "Start instance failed"
-                  << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo)) << Log::Field(err);
-
-        if (instance.mStatus.mState != InstanceStateEnum::eFailed) {
-            instance.mStatus.mState = InstanceStateEnum::eFailed;
-            instance.mStatus.mError = AOS_ERROR_WRAP(err);
-        }
-
-        return;
-    }
-
-    if (auto err = mStorage->UpdateInstanceInfo(instance.mInfo); !err.IsNone()) {
-        LOG_ERR() << "Start instance failed"
-                  << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo)) << Log::Field(err);
-
-        if (instance.mStatus.mState != InstanceStateEnum::eFailed) {
-            instance.mStatus.mState = InstanceStateEnum::eFailed;
-            instance.mStatus.mError = AOS_ERROR_WRAP(err);
+        Tie(itInstance, err) = AddInstanceData(instance);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
     }
+
+    SetInstanceState(*itInstance, InstanceStateEnum::eActivating);
+
+    auto runtime = FindInstanceRuntime(itInstance->mInfo.mRuntimeID);
+    if (runtime == nullptr) {
+        SetInstanceState(
+            *itInstance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found")));
+
+        return itInstance->mStatus.mError;
+    }
+
+    if (auto err = mLaunchPool.AddTask([this, runtime, itInstance](void*) {
+            LOG_INF() << "Start instance"
+                      << Log::Field("instance", static_cast<const InstanceIdent&>(itInstance->mInfo))
+                      << Log::Field("version", itInstance->mInfo.mVersion)
+                      << Log::Field("runtimeID", itInstance->mInfo.mRuntimeID)
+                      << Log::Field("manifestDigest", itInstance->mInfo.mManifestDigest);
+
+            if (auto err = runtime->StartInstance(itInstance->mInfo, itInstance->mStatus); !err.IsNone()) {
+                LOG_ERR() << "Failed to start instance"
+                          << Log::Field("instance", static_cast<const InstanceIdent&>(itInstance->mInfo))
+                          << Log::Field(AOS_ERROR_WRAP(err));
+
+                SetInstanceState(*itInstance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            }
+        });
+        !err.IsNone()) {
+        SetInstanceState(*itInstance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+
+        return itInstance->mStatus.mError;
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error Launcher::AppendInstancesWithModifiedParams(
@@ -610,7 +602,7 @@ Error Launcher::AppendInstancesWithModifiedParams(
         }
 
         LOG_DBG() << "Instance parameters modified, adding to stop list"
-                  << Log::Field("ident", static_cast<const InstanceIdent&>(startInstance));
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(startInstance));
 
         if (auto err = stopInstances.EmplaceBack(static_cast<const InstanceIdent&>(startInstance)); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -618,47 +610,6 @@ Error Launcher::AppendInstancesWithModifiedParams(
     }
 
     return ErrorEnum::eNone;
-}
-
-void Launcher::PopulateInstancesStatuses(Array<InstanceStatus>& statuses) const
-{
-    for (const auto& status : mInstances) {
-        if (auto itStatus = statuses.FindIf([&status](const auto& item) {
-                return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status.mStatus)
-                    && item.mVersion == status.mStatus.mVersion;
-            });
-            itStatus != statuses.end()) {
-            statuses.Erase(itStatus);
-        }
-
-        if (auto err = statuses.EmplaceBack(status.mStatus); !err.IsNone()) {
-            LOG_ERR() << "Failed to add instance status to statuses array"
-                      << Log::Field("ident", static_cast<const InstanceIdent&>(status.mStatus))
-                      << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    }
-}
-
-void Launcher::ClearCachedInstances()
-{
-    LockGuard lock {mMutex};
-
-    const auto removedCount = mInstances.RemoveIf([this](const auto& instance) {
-        if (IsPreinstalledInstance(instance.mStatus)) {
-            return false;
-        }
-
-        if (auto err = mStorage->RemoveInstanceInfo(static_cast<const InstanceIdent&>(mInstances.Back().mInfo));
-            !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-            LOG_ERR() << "Remove instance info failed"
-                      << Log::Field("ident", static_cast<const InstanceIdent&>(mInstances.Back().mInfo))
-                      << Log::Field(AOS_ERROR_WRAP(err));
-        }
-
-        return true;
-    });
-
-    LOG_DBG() << "Removed instances count" << Log::Field("count", removedCount);
 }
 
 Error Launcher::StartLaunch()
@@ -680,11 +631,6 @@ void Launcher::FinishLaunch()
 
     mLaunchInProgress = false;
     mCondVar.NotifyAll();
-}
-
-bool Launcher::IsPreinstalledInstance(const InstanceStatus& status) const
-{
-    return status.mPreinstalled;
 }
 
 Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent)
@@ -735,10 +681,9 @@ RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent) co
     return const_cast<Launcher*>(this)->FindInstanceRuntime(instanceIdent);
 }
 
-void Launcher::RemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
+void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
+    const Array<InstanceInfo>& startInstances, Array<UpdateItemInfo>& removeItems)
 {
-    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
-
     for (const auto& instanceIdent : stopInstances) {
         auto instanceData = FindInstanceData(instanceIdent);
         if (!instanceData) {
@@ -754,15 +699,18 @@ void Launcher::RemoveUpdateItems(const Array<InstanceIdent>& stopInstances, cons
             continue;
         }
 
-        if (auto it = removeItems->FindIf([&instanceData](const auto& item) {
+        if (auto it = removeItems.FindIf([&instanceData](const auto& item) {
                 return item.mItemID == instanceData->mInfo.mItemID && item.mVersion == instanceData->mInfo.mVersion;
             });
-            it == removeItems->end()) {
-            removeItems->EmplaceBack(UpdateItemInfo {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
+            it == removeItems.end()) {
+            removeItems.EmplaceBack(UpdateItemInfo {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
         }
     }
+}
 
-    for (const auto& updateItem : *removeItems) {
+void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
+{
+    for (const auto& updateItem : removeItems) {
         if (auto err = mLaunchPool.AddTask([this, &updateItem](void*) {
                 if (auto err = mImageManager->RemoveUpdateItem(updateItem.mItemID, updateItem.mVersion);
                     !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
@@ -819,6 +767,67 @@ void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
             continue;
         }
     }
+}
+
+RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)
+{
+    LockGuard lock {mMutex};
+
+    if (auto err = mStorage->UpdateInstanceInfo(instanceInfo); !err.IsNone()) {
+        LOG_ERR() << "Failed to update instance info in storage" << Log::Field("instance", instanceInfo)
+                  << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mInstances.EmplaceBack(); !err.IsNone()) {
+        return {nullptr, AOS_ERROR_WRAP(err)};
+    }
+
+    auto itInstance = &mInstances.Back();
+
+    itInstance->mInfo                                = instanceInfo;
+    static_cast<InstanceIdent&>(itInstance->mStatus) = static_cast<const InstanceIdent&>(instanceInfo);
+    itInstance->mStatus.mVersion                     = instanceInfo.mVersion;
+    itInstance->mStatus.mRuntimeID                   = instanceInfo.mRuntimeID;
+    itInstance->mStatus.mState                       = InstanceStateEnum::eInactive;
+
+    return itInstance;
+}
+
+Error Launcher::RemoveInstanceData(const InstanceData& instance)
+{
+    LockGuard lock {mMutex};
+
+    if (IsPreinstalledInstance(instance.mStatus)) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mStorage->RemoveInstanceInfo(static_cast<const InstanceIdent&>(instance.mInfo)); !err.IsNone()) {
+        LOG_ERR() << "Remove instance info from storage failed"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(instance.mInfo))
+                  << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto count = mInstances.RemoveIf([this, &instance](const auto& instanceData) {
+            return static_cast<const InstanceIdent&>(instanceData.mInfo)
+                == static_cast<const InstanceIdent&>(instance.mInfo);
+        });
+        count == 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void Launcher::SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error)
+{
+    LockGuard lock {mMutex};
+
+    if (instance.mStatus.mState == state) {
+        return;
+    }
+
+    instance.mStatus.mState = state;
+    instance.mStatus.mError = error;
 }
 
 } // namespace aos::sm::launcher

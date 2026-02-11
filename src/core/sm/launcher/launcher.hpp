@@ -162,21 +162,24 @@ private:
     void  RunRebootThread();
     Error StoreInstalledComponent(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
-    void  StopInstances(const Array<InstanceIdent>& stopInstances, Array<InstanceStatus>& statuses);
-    void  StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& status);
+    void  StopInstances(const Array<InstanceIdent>& stopInstances);
+    Error StopInstance(const InstanceIdent& instanceIdent);
     void  StopAllInstances();
     void  StartInstances(const Array<InstanceInfo>& startInstances);
-    void  StartInstance(RuntimeItf& runtime, InstanceData& instance);
+    Error StartInstance(const InstanceInfo& instance);
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
-    void  PopulateInstancesStatuses(Array<InstanceStatus>& statuses) const;
-    void  ClearCachedInstances();
     Error StartStoredInstances();
     Error StartLaunch();
     void  FinishLaunch();
-    bool  IsPreinstalledInstance(const InstanceStatus& status) const;
-    void  RemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
+    bool  IsPreinstalledInstance(const InstanceStatus& status) const { return status.mPreinstalled; }
+    void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
+         Array<UpdateItemInfo>& removeItems);
+    void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
     void  InstallUpdateItems(const Array<InstanceInfo>& startInstances);
+    RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
+    Error                       RemoveInstanceData(const InstanceData& instance);
+    void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
 
     InstanceData* FindInstanceData(const InstanceIdent& instanceIdent);
     InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
