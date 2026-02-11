@@ -75,9 +75,11 @@ private:
     Cmp             mCmp;
 };
 
-auto FilterByNode(const Array<InstanceStatus>& array, const String& nodeID)
+auto FilterActiveNodeInstances(const Array<InstanceStatus>& array, const String& nodeID)
 {
-    auto cmp = [nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; };
+    auto cmp = [nodeID](const InstanceStatus& status) {
+        return status.mNodeID == nodeID && status.mState != aos::InstanceStateEnum::eInactive;
+    };
 
     return Filter<InstanceStatus, decltype(cmp)>(array, cmp);
 }
@@ -309,7 +311,7 @@ Error Node::SendScheduledInstances(
     auto stopInstances  = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
     auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
 
-    for (const auto& status : FilterByNode(runningInstances, mInfo.mNodeID)) {
+    for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {
         // Check if the instance is scheduled on this node.
         auto isScheduled = scheduledInstances.ContainsIf([&status, this](const SharedPtr<Instance>& item) {
             return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
@@ -359,7 +361,7 @@ RetWithError<bool> Node::ResendInstances(
     auto   startInstances       = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
     size_t runningNodeInstances = 0;
 
-    for (const auto& status : FilterByNode(runningInstances, mInfo.mNodeID)) {
+    for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {
         runningNodeInstances++;
 
         auto isActive = activeInstances.ContainsIf([&status](const SharedPtr<Instance>& item) {

@@ -161,7 +161,12 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
 
     auto instance = FindActiveInstance(status);
     if (!instance) {
-        // not expected instance received from SM.
+        // Ignore inactive instance, SM sometimes sends inactive status for stopped instances.
+        if (status.mState == aos::InstanceStateEnum::eInactive) {
+            return ErrorEnum::eNone;
+        }
+
+        // Not expected instance received from SM.
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
