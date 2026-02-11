@@ -575,12 +575,15 @@ Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 
 Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses)
 {
+    LOG_INF() << "Node instances statuses received" << Log::Field("nodeID", nodeID)
+              << Log::Field("numStatuses", statuses.Size());
+
     for (const auto& status : statuses) {
         LOG_INF() << "Node instance status received"
                   << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
-                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
-                  << Log::Field("state", status.mState) << Log::Field(status.mError);
+                  << Log::Field("version", status.mVersion) << Log::Field("runtimeID", status.mRuntimeID)
+                  << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
+                  << Log::Field(status.mError);
     }
 
     LockGuard updateLock {mUpdateMutex};
