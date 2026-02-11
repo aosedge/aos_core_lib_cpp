@@ -46,8 +46,8 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>
         return AOS_ERROR_WRAP(err);
     }
 
-    // Submit scheduled instances before sending instances to nodes.
-    // So following status updates will change active instances.
+    // Submit scheduled instances before sending them to nodes.
+    // So status updates expecting by SendScheduledInstances will be assigned to active instances.
     if (auto err = mInstanceManager->SubmitScheduledInstances(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
