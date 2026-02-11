@@ -790,7 +790,8 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
 
         auto sameVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
             return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion
-                && (stored.mState == ItemStateEnum::eDownloading || stored.mState == ItemStateEnum::eFailed);
+                && (stored.mState == ItemStateEnum::eDownloading || stored.mState == ItemStateEnum::eFailed
+                    || stored.mState == ItemStateEnum::eRemoved);
         });
 
         if (sameVersionIt == storedItems.end()) {
@@ -805,6 +806,20 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
                 LOG_ERR() << "Failed to add new item" << Log::Field(addErr);
 
                 continue;
+            }
+        } else if (sameVersionIt->mState == ItemStateEnum::eRemoved) {
+            if (auto updateErr
+                = mStorage->UpdateItemState(itemInfo.mItemID, itemInfo.mVersion, ItemStateEnum::eDownloading);
+                !updateErr.IsNone()) {
+                LOG_ERR() << "Failed to update removed item state" << Log::Field(updateErr);
+
+                continue;
+            }
+
+            if (auto err = mInstallSpaceAllocator->RestoreOutdatedItem(itemInfo.mItemID, itemInfo.mVersion);
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to restore outdated item" << Log::Field("itemID", itemInfo.mItemID)
+                          << Log::Field("version", itemInfo.mVersion) << Log::Field(err);
             }
         }
 
