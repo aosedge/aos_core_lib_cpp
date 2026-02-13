@@ -523,7 +523,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
     return ErrorEnum::eNone;
 }
 
-void Balancer::UpdateMonitoringData()
+Error Balancer::UpdateMonitoringData()
 {
     for (auto& node : mNodeManager->GetNodes()) {
         const auto& nodeID = node.GetInfo().mNodeID;
@@ -531,16 +531,21 @@ void Balancer::UpdateMonitoringData()
         auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
 
         if (auto err = mMonitorProvider->GetAverageMonitoring(nodeID, *nodeMonitoring); !err.IsNone()) {
-            mInstanceManager->UpdateMonitoringData(nodeMonitoring->mInstances);
+            return AOS_ERROR_WRAP(err);
         }
 
+        mInstanceManager->UpdateMonitoringData(nodeMonitoring->mInstances);
         node.UpdateMonitoringData(*nodeMonitoring);
     }
+
+    return ErrorEnum::eNone;
 }
 
 Error Balancer::PrepareForBalancing(bool rebalancing)
 {
-    UpdateMonitoringData();
+    if (auto err = UpdateMonitoringData(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     mNetworkManager->PrepareForBalancing();
 
