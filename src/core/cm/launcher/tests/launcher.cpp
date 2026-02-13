@@ -637,6 +637,7 @@ TEST_F(CMLauncherTest, CacheInstances)
     mStorageState.SetTotalStorageSize(1024);
 
     mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
 
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
         {CreateResource("resource1", 2), CreateResource("resource3", 2)});
@@ -648,6 +649,12 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
+    }
 
     for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
         auto nodeConfig = std::make_unique<NodeConfig>();
@@ -730,6 +737,8 @@ TEST_F(CMLauncherTest, Components)
 
     // Create node info
     mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
+
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
         {CreateResource("resource1", 2), CreateResource("resource3", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
@@ -737,6 +746,12 @@ TEST_F(CMLauncherTest, Components)
     auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRootfs, 1)},
         {CreateResource("resource1", 2), CreateResource("resource2", 2)});
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
+    }
 
     // Create node config
     auto nodeConfig = std::make_unique<NodeConfig>();
@@ -1437,6 +1452,17 @@ TEST_F(CMLauncherTest, Balancing)
 
         mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
+        for (const auto& nodeID : nodeIDs) {
+            auto monitoringIt = testItem.mMonitoring.find(nodeID);
+            if (monitoringIt != testItem.mMonitoring.end()) {
+                mMonitoringProvider.SetAverageMonitoring(nodeID, monitoringIt->second);
+            } else {
+                auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+                CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+                mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
+            }
+        }
+
         // Init launcher
         ASSERT_TRUE(mLauncher
                         .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
@@ -1520,6 +1546,12 @@ TEST_F(CMLauncherTest, PlatformFiltering)
 
         CreateNodeConfig(*nodeConfig, nodeID);
         mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, *nodeConfig);
+    }
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
     }
 
     // Service1 requires arm32/linux - rejected (no arm32 runtime)
@@ -1613,6 +1645,10 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
     // Item config
     auto itemConfig = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig, {cRunnerRunc});
@@ -1693,6 +1729,10 @@ TEST_F(CMLauncherTest, SubjectChanged)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
     // Item config
     auto itemConfig = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig, {cRunnerRunc});
@@ -1761,6 +1801,10 @@ TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
 
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
     // Item config
     auto itemConfig = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig, {cRunnerRunc});
@@ -1819,12 +1863,18 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
     mStorageState.SetTotalStorageSize(1024);
 
     mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
+
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
     mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
 
     auto nodeConfig = std::make_unique<NodeConfig>();
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
 
     // Set up item config with alert rules and quotas
     auto alertRules = CreateAlertRules(75.0, 85.0);
@@ -1895,12 +1945,18 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
     mStorageState.SetTotalStorageSize(1024);
 
     mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
+
     auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
     mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
 
     auto nodeConfig = std::make_unique<NodeConfig>();
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
 
     // Set up item config for regular instance
     auto itemConfig = std::make_unique<oci::ItemConfig>();
@@ -1982,6 +2038,10 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
     auto nodeConfig = std::make_unique<NodeConfig>();
     CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
     mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
 
     // Item config
     auto itemConfig = std::make_unique<oci::ItemConfig>();

@@ -100,7 +100,7 @@ private:
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
 
     Error PrepareForBalancing(bool rebalancing);
-    void  UpdateMonitoringData();
+    Error UpdateMonitoringData();
 
     ImageInfoProvider      mImageInfoProvider;
     InstanceManager*       mInstanceManager {};
