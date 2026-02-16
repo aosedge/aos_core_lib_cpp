@@ -182,8 +182,16 @@ void Node::UpdateMonitoringData(const monitoring::NodeMonitoringData& monitoring
 
 bool Node::UpdateInfo(const UnitNodeInfo& info)
 {
+    // Skip checking resources and runtimes if connection status is changed.
+    if (mInfo.mIsConnected != info.mIsConnected) {
+        mInfo.mResources = info.mResources;
+        mInfo.mRuntimes  = info.mRuntimes;
+    }
+
+    // Skip connection status change.
     mInfo.mIsConnected = info.mIsConnected;
 
+    // Check if node info has changed.
     bool nodeChanged = mInfo != info;
     if (nodeChanged) {
         mInfo = info;
