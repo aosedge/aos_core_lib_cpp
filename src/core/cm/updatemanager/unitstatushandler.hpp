@@ -91,7 +91,8 @@ public:
     Error SetUpdateNodeStatus(const String& nodeID, const Error& updateErr);
 
 private:
-    static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceStatus, cMaxNumInstances>);
+    static constexpr auto cAllocatorSize
+        = Max(sizeof(StaticArray<InstanceStatus, cMaxNumInstances>), sizeof(UpdateItemStatusArray));
 
     // nodeinfoprovider::NodeInfoListenerItf implementation
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
