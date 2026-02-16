@@ -90,6 +90,12 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitor
 NetworkManager::~NetworkManager()
 {
     mNetworkData.Clear();
+
+    for (const auto& provider : mNetworkProviders) {
+        if (auto err = ClearNetwork(provider.mSecond); !err.IsNone()) {
+            LOG_ERR() << "Can't clear network" << Log::Field(err);
+        }
+    }
 }
 
 Error NetworkManager::Start()
@@ -505,12 +511,6 @@ Error NetworkManager::RemoveInstanceFromCache(const String& instanceID, const St
     }
 
     if (network->mSecond.IsEmpty()) {
-        if (auto providerIt = mNetworkProviders.Find(networkID); providerIt == mNetworkProviders.end()) {
-            if (auto err = ClearNetwork(networkID); !err.IsNone()) {
-                return err;
-            }
-        }
-
         if (auto err = mNetworkData.Remove(networkID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -519,25 +519,23 @@ Error NetworkManager::RemoveInstanceFromCache(const String& instanceID, const St
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::ClearNetwork(const String& networkID)
+Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
 {
-    LOG_DBG() << "Clear network" << Log::Field("networkID", networkID);
+    LOG_DBG() << "Clear network" << Log::Field("networkID", networkInfo.mNetworkID);
 
-    if (auto itProvider = mNetworkProviders.Find(networkID); itProvider != mNetworkProviders.end()) {
-        if (!itProvider->mSecond.mBridgeIfName.IsEmpty()) {
-            if (auto err = mNetIf->DeleteLink(itProvider->mSecond.mBridgeIfName); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-        }
-
-        if (!itProvider->mSecond.mVlanIfName.IsEmpty()) {
-            if (auto err = mNetIf->DeleteLink(itProvider->mSecond.mVlanIfName); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
+    if (!networkInfo.mBridgeIfName.IsEmpty()) {
+        if (auto err = mNetIf->DeleteLink(networkInfo.mBridgeIfName); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
     }
 
-    if (auto err = fs::RemoveAll(fs::JoinPath(mCNINetworkCacheDir, networkID)); !err.IsNone()) {
+    if (!networkInfo.mVlanIfName.IsEmpty()) {
+        if (auto err = mNetIf->DeleteLink(networkInfo.mVlanIfName); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (auto err = fs::RemoveAll(fs::JoinPath(mCNINetworkCacheDir, networkInfo.mNetworkID)); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1008,7 +1006,7 @@ Error NetworkManager::RemoveNetworks(const Array<aos::NetworkParameters>& networ
 
             lock.Lock();
 
-            if (auto errClearNetwork = ClearNetwork(it->mFirst); !errClearNetwork.IsNone() && err.IsNone()) {
+            if (auto errClearNetwork = ClearNetwork(it->mSecond); !errClearNetwork.IsNone() && err.IsNone()) {
                 err = errClearNetwork;
             }
 
