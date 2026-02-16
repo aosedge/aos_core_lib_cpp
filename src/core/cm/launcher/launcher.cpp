@@ -464,7 +464,7 @@ void Launcher::ProcessUpdate()
 void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
 {
     auto allNodesConnected = [this]() {
-        auto notConnected = [](const Node& node) { return !node.GetInfo().mIsConnected; };
+        auto notConnected = [](const Node& node) { return !node.IsConnected(); };
 
         return !mNodeManager.GetNodes().ContainsIf(notConnected) || !mIsRunning;
     };
@@ -615,6 +615,9 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
     }
 
     mProcessUpdatesCondVar.NotifyAll();
+    // Node is not connected untill it receives instance statuses.
+    // So, we need to trigger notification for waiting nodes after we handled statuses.
+    mAllNodesConnectedCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }

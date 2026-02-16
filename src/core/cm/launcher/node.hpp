@@ -149,6 +149,18 @@ public:
      */
     void UpdateConfig();
 
+    /**
+     * Indicates whether node is connected.
+     *
+     * @return bool.
+     */
+    bool IsConnected() const { return mInfo.mIsConnected && mIsNodeStatusReceived; }
+
+    /**
+     * Notifies the node that its instance status has been received.
+     */
+    void NotifyInstanceStatusReceived() { mIsNodeStatusReceived = true; }
+
 private:
     // Returns CPU usage without Aos service instances.
     size_t GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const;
@@ -165,7 +177,9 @@ private:
     InstanceRunnerItf*                 mInstanceRunner {};
 
     UnitNodeInfo mInfo {};
-    bool         mNeedBalancing {};
+    bool         mIsNodeStatusReceived {};
+
+    bool mNeedBalancing {};
 
     size_t mTotalCPUUsage {};
     size_t mTotalRAMUsage {};

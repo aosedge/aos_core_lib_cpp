@@ -682,6 +682,10 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
 
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        mInstanceRunner.SendInitialStatuses(nodeID);
+    }
+
     // Run instances 1
     auto runRequest1 = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
 
@@ -778,6 +782,10 @@ TEST_F(CMLauncherTest, Components)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
+        mInstanceRunner.SendInitialStatuses(nodeID);
+    }
 
     auto instanceStatusListener = std::make_unique<InstanceStatusListenerStub>();
 
@@ -1475,6 +1483,10 @@ TEST_F(CMLauncherTest, Balancing)
 
         ASSERT_TRUE(mLauncher.Start().IsNone());
 
+        for (const auto& nodeID : nodeIDs) {
+            mInstanceRunner.SendInitialStatuses(nodeID);
+        }
+
         // Run instances
         auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
         ASSERT_TRUE(mLauncher.RunInstances(testItem.mRunRequests, *runStatuses).IsNone());
@@ -1578,6 +1590,10 @@ TEST_F(CMLauncherTest, PlatformFiltering)
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
 
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        mInstanceRunner.SendInitialStatuses(nodeID);
+    }
+
     InstanceStatusListenerStub instanceStatusListener;
     mLauncher.SubscribeListener(instanceStatusListener);
 
@@ -1672,6 +1688,8 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
 
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
     InstanceStatusListenerStub instanceStatusListener;
     mLauncher.SubscribeListener(instanceStatusListener);
 
@@ -1752,6 +1770,8 @@ TEST_F(CMLauncherTest, SubjectChanged)
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
 
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
     // 1) Run a single instance with a single subject.
     auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
     runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
@@ -1824,6 +1844,8 @@ TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
 
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
     // Run a single instance.
     auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
     runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
@@ -1895,6 +1917,8 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
 
     InstanceStatusListenerStub instanceStatusListener;
     mLauncher.SubscribeListener(instanceStatusListener);
@@ -1979,6 +2003,8 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
 
     InstanceStatusListenerStub instanceStatusListener;
     mLauncher.SubscribeListener(instanceStatusListener);
@@ -2074,6 +2100,8 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
     mLauncher.SubscribeListener(instanceStatusListener);
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
 
     // Verify that both instances are activating
     InstanceStatus expectedStatus1 = CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM,

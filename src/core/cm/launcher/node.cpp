@@ -189,6 +189,10 @@ bool Node::UpdateInfo(const UnitNodeInfo& info)
         mInfo = info;
     }
 
+    if (!info.mIsConnected) {
+        mIsNodeStatusReceived = false;
+    }
+
     return nodeChanged;
 }
 
