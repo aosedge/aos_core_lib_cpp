@@ -418,9 +418,21 @@ Error UnitStatusHandler::SetNodesInfo()
 
 Error UnitStatusHandler::SetUpdateItemsStatus()
 {
+    auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(&mAllocator);
+
+    mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses);
+
     mUnitStatus.mUpdateItems.EmplaceValue();
 
-    mItemStatusProvider->GetUpdateItemsStatuses(*mUnitStatus.mUpdateItems);
+    for (const auto& status : *itemsStatuses) {
+        if (status.mState == ItemStateEnum::eRemoved) {
+            continue;
+        }
+
+        if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     return ErrorEnum::eNone;
 }
