@@ -177,7 +177,7 @@ private:
     Error UpdateInstanceNetworkCache(const String& instanceID, const String& networkID, const String& instanceIP,
         const Array<StaticString<cHostNameLen>>& hosts);
     Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
-    Error ClearNetwork(const String& networkID);
+    Error ClearNetwork(const NetworkInfo& networkInfo);
     Error PrepareHosts(const String& instanceID, const String& networkID, const InstanceNetworkParameters& network,
         Array<StaticString<cHostNameLen>>& hosts) const;
     Error IsHostnameExist(const InstanceCache& instanceCache, const Array<StaticString<cHostNameLen>>& hosts) const;

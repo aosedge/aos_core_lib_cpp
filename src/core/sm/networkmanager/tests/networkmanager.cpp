@@ -59,6 +59,9 @@ protected:
         EXPECT_CALL(mTrafficMonitor, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
         ASSERT_EQ(mNetManager->Stop(), aos::ErrorEnum::eNone);
 
+        EXPECT_CALL(mNetIf, DeleteLink(_)).Times(AnyNumber()).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        mNetManager.reset();
+
         std::filesystem::remove_all(mWorkingDir.CStr());
     }
 
