@@ -356,7 +356,14 @@ void Launcher::FailActivatingInstances()
     for (auto& instance : mInstanceManager.GetActiveInstances()) {
         if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating
             && instance->GetStatus().mType != UpdateItemTypeEnum::eComponent) {
+            const auto& instanceInfo = instance->GetInfo();
+
             // Keep node ID, because instance still scheduled, but node didn't send activating status.
+            LOG_ERR() << "Instance failed to activate" << Log::Field("instance", instanceInfo.mInstanceIdent)
+                      << Log::Field("version", instanceInfo.mVersion)
+                      << Log::Field("runtimeID", instanceInfo.mRuntimeID)
+                      << Log::Field("manifestDigest", instanceInfo.mManifestDigest);
+
             instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout), false);
         }
     }
