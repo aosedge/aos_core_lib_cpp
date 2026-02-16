@@ -143,7 +143,9 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "node not found"));
     }
 
-    if (node->GetInfo().mIsConnected && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
+    node->NotifyInstanceStatusReceived();
+
+    if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
             mStatusUpdateCondVar.NotifyAll();
         }

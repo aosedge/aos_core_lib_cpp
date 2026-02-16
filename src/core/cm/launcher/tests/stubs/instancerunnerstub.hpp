@@ -70,6 +70,13 @@ public:
         mPreinstalledComponents = preinstalledComponents;
     }
 
+    void SendInitialStatuses(const String& nodeID)
+    {
+        if (mStatusReceiver != nullptr) {
+            mStatusReceiver->OnNodeInstancesStatusesReceived(nodeID, Array<InstanceStatus>());
+        }
+    }
+
     MOCK_METHOD(void, OnRunRequest, ());
 
     // InstanceRunnerItf
