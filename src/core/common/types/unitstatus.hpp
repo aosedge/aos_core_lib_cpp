@@ -53,6 +53,7 @@ using UnitNodeInfoArray = StaticArray<UnitNodeInfo, cMaxNumNodes>;
  */
 struct UpdateItemStatus {
     StaticString<cIDLen>      mItemID;
+    UpdateItemType            mType;
     StaticString<cVersionLen> mVersion;
     ItemState                 mState;
     Error                     mError;
@@ -65,7 +66,8 @@ struct UpdateItemStatus {
      */
     bool operator==(const UpdateItemStatus& rhs) const
     {
-        return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mState == rhs.mState && mError == rhs.mError;
+        return mItemID == rhs.mItemID && mType == rhs.mType && mVersion == rhs.mVersion && mState == rhs.mState
+            && mError == rhs.mError;
     }
 
     /**

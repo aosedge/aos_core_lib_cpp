@@ -225,7 +225,7 @@ void UnitStatusHandler::OnItemsStatusesChanged(const Array<UpdateItemStatus>& st
     LockGuard lock {mMutex};
 
     for (const auto& status : statuses) {
-        LOG_DBG() << "Item status changed" << Log::Field("itemID", status.mItemID)
+        LOG_DBG() << "Item status changed" << Log::Field("id", status.mItemID) << Log::Field("type", status.mType)
                   << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
                   << Log::Field(status.mError);
     }
@@ -502,8 +502,8 @@ void UnitStatusHandler::LogUnitStatus()
     if (mUnitStatus.mUpdateItems.HasValue()) {
         for (const auto& itemStatus : *mUnitStatus.mUpdateItems) {
             LOG_INF() << "Unit status update item" << Log::Field("id", itemStatus.mItemID)
-                      << Log::Field("version", itemStatus.mVersion) << Log::Field("state", itemStatus.mState)
-                      << Log::Field(itemStatus.mError);
+                      << Log::Field("type", itemStatus.mType) << Log::Field("version", itemStatus.mVersion)
+                      << Log::Field("state", itemStatus.mState) << Log::Field(itemStatus.mError);
         }
     }
 

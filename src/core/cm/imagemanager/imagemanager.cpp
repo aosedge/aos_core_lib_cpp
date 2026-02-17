@@ -124,6 +124,7 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
 
     for (size_t i = 0; i < itemsInfo.Size(); i++) {
         statuses[i].mItemID  = itemsInfo[i].mItemID;
+        statuses[i].mType    = itemsInfo[i].mType;
         statuses[i].mVersion = itemsInfo[i].mVersion;
         statuses[i].mState   = ItemStateEnum::eDownloading;
         statuses[i].mError   = ErrorEnum::eNone;
@@ -213,6 +214,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
 
     for (size_t i = 0; i < itemsInfo.Size(); i++) {
         statuses[i].mItemID  = itemsInfo[i].mItemID;
+        statuses[i].mType    = itemsInfo[i].mType;
         statuses[i].mVersion = itemsInfo[i].mVersion;
         statuses[i].mState   = ItemStateEnum::eInstalled;
         statuses[i].mError   = ErrorEnum::eNone;
@@ -311,6 +313,7 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
         UpdateItemStatus status;
 
         status.mItemID  = item.mItemID;
+        status.mType    = item.mType;
         status.mVersion = item.mVersion;
         status.mState   = item.mState;
         status.mError   = ErrorEnum::eNone;
@@ -635,7 +638,9 @@ Error ImageManager::RemovePendingItems(const Array<ItemInfo>& storedItems, Array
         }
 
         UpdateItemStatus status;
+
         status.mItemID  = storedItem.mItemID;
+        status.mType    = storedItem.mType;
         status.mVersion = storedItem.mVersion;
         status.mState   = ItemStateEnum::eRemoved;
         status.mError   = ErrorEnum::eNone;
@@ -644,7 +649,8 @@ Error ImageManager::RemovePendingItems(const Array<ItemInfo>& storedItems, Array
             LOG_ERR() << "Failed to add status to statuses array" << Log::Field(err);
         }
 
-        NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
+        NotifyItemStatusChanged(
+            storedItem.mItemID, storedItem.mType, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
     }
 
     return ErrorEnum::eNone;
@@ -730,7 +736,8 @@ Error ImageManager::VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, Ar
                     storedItem.mState = ItemStateEnum::eFailed;
                 }
 
-                NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eFailed, err);
+                NotifyItemStatusChanged(
+                    storedItem.mItemID, storedItem.mType, storedItem.mVersion, ItemStateEnum::eFailed, err);
 
                 if (err == ErrorEnum::eCanceled) {
                     return err;
@@ -823,7 +830,8 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             }
         }
 
-        NotifyItemStatusChanged(itemInfo.mItemID, itemInfo.mVersion, ItemStateEnum::eDownloading, ErrorEnum::eNone);
+        NotifyItemStatusChanged(
+            itemInfo.mItemID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eDownloading, ErrorEnum::eNone);
 
         auto downloadErr = DownloadItem(itemInfo, certificates, certificateChains);
 
@@ -833,7 +841,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             LOG_ERR() << "Failed to update item state" << Log::Field(updateErr);
         }
 
-        NotifyItemStatusChanged(itemInfo.mItemID, itemInfo.mVersion, finalState, downloadErr);
+        NotifyItemStatusChanged(itemInfo.mItemID, itemInfo.mType, itemInfo.mVersion, finalState, downloadErr);
 
         if (!downloadErr.IsNone()) {
             LOG_ERR() << "Failed to download item" << Log::Field("id", itemInfo.mItemID)
@@ -1409,7 +1417,7 @@ void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& sta
     LockGuard lock {mMutex};
 
     for (const auto& status : statuses) {
-        LOG_DBG() << "Item status changed" << Log::Field("itemID", status.mItemID)
+        LOG_DBG() << "Item status changed" << Log::Field("id", status.mItemID) << Log::Field("type", status.mType)
                   << Log::Field("version", status.mVersion) << Log::Field("state", ItemState(status.mState))
                   << Log::Field("error", status.mError);
     }
@@ -1420,13 +1428,14 @@ void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& sta
 }
 
 void ImageManager::NotifyItemStatusChanged(
-    const String& itemID, const String& version, ItemStateEnum state, const Error& error)
+    const String& itemID, const UpdateItemType& type, const String& version, ItemStateEnum state, const Error& error)
 {
     StaticArray<UpdateItemStatus, 1> status;
 
     status.Resize(1);
 
     status[0].mItemID  = itemID;
+    status[0].mType    = type;
     status[0].mVersion = version;
     status[0].mState   = state;
     status[0].mError   = error;
@@ -1694,7 +1703,8 @@ Error ImageManager::RemoveDifferentVersions(const Array<UpdateItemInfo>& itemsIn
                           << Log::Field("version", storedItem.mVersion) << Log::Field(err);
             }
 
-            NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
+            NotifyItemStatusChanged(
+                storedItem.mItemID, storedItem.mType, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
         }
     }
 
@@ -1734,7 +1744,7 @@ Error ImageManager::VerifyBlobsIntegrity(
                 LOG_ERR() << "Failed to remove invalid item" << Log::Field(removeErr);
             }
 
-            NotifyItemStatusChanged(itemInfo.mItemID, itemInfo.mVersion, ItemStateEnum::eFailed, err);
+            NotifyItemStatusChanged(itemInfo.mItemID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eFailed, err);
         }
     }
 
@@ -1759,8 +1769,8 @@ Error ImageManager::SetItemsToInstalled(const Array<UpdateItemInfo>& itemsInfo, 
                               << Log::Field("version", storedIt->mVersion) << Log::Field(err);
                 }
 
-                NotifyItemStatusChanged(
-                    storedIt->mItemID, storedIt->mVersion, ItemStateEnum::eInstalled, ErrorEnum::eNone);
+                NotifyItemStatusChanged(storedIt->mItemID, storedIt->mType, storedIt->mVersion,
+                    ItemStateEnum::eInstalled, ErrorEnum::eNone);
             }
         }
     }
@@ -1797,7 +1807,8 @@ Error ImageManager::SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, co
                           << Log::Field("version", storedItem.mVersion) << Log::Field(err);
             }
 
-            NotifyItemStatusChanged(storedItem.mItemID, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
+            NotifyItemStatusChanged(
+                storedItem.mItemID, storedItem.mType, storedItem.mVersion, ItemStateEnum::eRemoved, ErrorEnum::eNone);
         }
     }
 

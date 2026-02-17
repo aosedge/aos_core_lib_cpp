@@ -315,7 +315,8 @@ Error DesiredStatusHandler::DownloadUpdateItems()
     for (const auto& itemStatus : *itemsStatuses) {
         if (itemStatus.mState == ItemStateEnum::eFailed) {
             LOG_ERR() << "Failed to download update item" << Log::Field("id", itemStatus.mItemID)
-                      << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
+                      << Log::Field("type", itemStatus.mType) << Log::Field("version", itemStatus.mVersion)
+                      << Log::Field(itemStatus.mError);
         }
     }
 
@@ -440,7 +441,8 @@ Error DesiredStatusHandler::FinalizeUpdate()
     for (const auto& itemStatus : *itemsStatuses) {
         if (itemStatus.mState == ItemStateEnum::eFailed) {
             LOG_ERR() << "Failed to install update item" << Log::Field("id", itemStatus.mItemID)
-                      << Log::Field("version", itemStatus.mVersion) << Log::Field(itemStatus.mError);
+                      << Log::Field("type", itemStatus.mType) << Log::Field("version", itemStatus.mVersion)
+                      << Log::Field(itemStatus.mError);
         }
     }
 
