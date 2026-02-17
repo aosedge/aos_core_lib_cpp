@@ -130,8 +130,9 @@ void ChangeUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const 
     it->mState = state;
 }
 
-void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const String& subjectID,
-    const String& version, size_t numInstances, const InstanceState& state = InstanceStateEnum::eActive)
+void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const UpdateItemType& type,
+    const String& subjectID, const String& version, size_t numInstances,
+    const InstanceState& state = InstanceStateEnum::eActive)
 {
 
     if (!unitStatus.mInstances.HasValue()) {
@@ -143,6 +144,7 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
     auto& instancesStatuses = unitStatus.mInstances->Back();
 
     instancesStatuses.mItemID    = itemID;
+    instancesStatuses.mType      = type;
     instancesStatuses.mSubjectID = subjectID;
     instancesStatuses.mVersion   = version;
 
@@ -288,6 +290,7 @@ void ConvertInstancesStatuses(
             InstanceStatus status;
 
             status.mItemID         = unitInstanceStatus.mItemID;
+            status.mType           = unitInstanceStatus.mType;
             status.mSubjectID      = unitInstanceStatus.mSubjectID;
             status.mVersion        = unitInstanceStatus.mVersion;
             status.mInstance       = instanceStatus.mInstance;
@@ -479,15 +482,17 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
 
     CreateUpdateItemStatus(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
     CreateUpdateItemStatus(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item3", UpdateItemTypeEnum::eComponent, "1.0.0");
 
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
 
     // Set instances statuses
 
-    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 2);
-    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject1", "1.0.0", 1);
-    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject2", "1.0.0", 3);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject2", "1.0.0", 3);
+    CreateInstancesStatuses(*expectedUnitStatus, "item3", UpdateItemTypeEnum::eComponent, "subject3", "1.0.0", 1);
 
     EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
         ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
@@ -587,8 +592,10 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
 
     expectedUnitStatus->mIsDeltaInfo = true;
 
-    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 4, InstanceStateEnum::eActivating);
-    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject1", "1.0.0", 3, InstanceStateEnum::eActivating);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 4,
+        InstanceStateEnum::eActivating);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 3,
+        InstanceStateEnum::eActivating);
 
     auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
 
@@ -744,9 +751,9 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 
     // Set expected instances statuses
 
-    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 1);
-    CreateInstancesStatuses(*expectedUnitStatus, "item2", "subject2", "1.0.0", 2);
-    CreateInstancesStatuses(*expectedUnitStatus, "item3", "subject3", "1.0.0", 3);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject2", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item3", UpdateItemTypeEnum::eService, "subject3", "1.0.0", 3);
 
     EXPECT_CALL(mNodeHandlerMock, PauseNode(String("node1"))).Times(1);
     EXPECT_CALL(mNodeHandlerMock, ResumeNode(String("node2"))).Times(1);
@@ -875,7 +882,7 @@ TEST_F(UpdateManagerTest, CancelCurrentUpdate)
 
     // Set expected instances statuses
 
-    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
 
     // Create launcher run request
 
@@ -959,7 +966,7 @@ TEST_F(UpdateManagerTest, ResumeUpdateAfterRestart)
 
     CreateUpdateItemStatus(
         *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
-    CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
 
     // Create launcher run request
 

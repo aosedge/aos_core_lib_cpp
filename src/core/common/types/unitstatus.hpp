@@ -115,6 +115,7 @@ using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus, cMaxNumUpdateIte
  */
 struct UnitInstancesStatuses {
     StaticString<cIDLen>      mItemID;
+    UpdateItemType            mType;
     StaticString<cIDLen>      mSubjectID;
     StaticString<cVersionLen> mVersion;
     bool                      mPreinstalled {};
@@ -133,8 +134,10 @@ struct UnitInstancesStatuses {
      * @param version   update item version.
      * @param preinstalled  preinstalled flag.
      */
-    UnitInstancesStatuses(const String& itemID, const String& subjectID, const String& version, bool preinstalled)
+    UnitInstancesStatuses(const String& itemID, const UpdateItemType& type, const String& subjectID,
+        const String& version, bool preinstalled)
         : mItemID(itemID)
+        , mType(type)
         , mSubjectID(subjectID)
         , mVersion(version)
         , mPreinstalled(preinstalled)
@@ -149,7 +152,7 @@ struct UnitInstancesStatuses {
      */
     bool operator==(const UnitInstancesStatuses& rhs) const
     {
-        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mVersion == rhs.mVersion
+        return mItemID == rhs.mItemID && mType == rhs.mType && mSubjectID == rhs.mSubjectID && mVersion == rhs.mVersion
             && mPreinstalled == rhs.mPreinstalled && mInstances == rhs.mInstances;
     }
 
