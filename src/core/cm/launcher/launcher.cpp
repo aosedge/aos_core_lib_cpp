@@ -127,7 +127,7 @@ Error Launcher::Start()
     UpdateInstanceStatuses();
 
     if (auto err = mBalancer.LoadSMDataForActiveInstances(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        LOG_ERR() << "Can't load SM data for active instances" << Log::Field(err);
     }
 
     if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
