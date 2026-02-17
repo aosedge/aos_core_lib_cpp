@@ -17,6 +17,7 @@ namespace aos::cm::imagemanager {
  */
 struct ItemInfo {
     StaticString<cIDLen>          mItemID;
+    UpdateItemType                mType;
     StaticString<cVersionLen>     mVersion;
     StaticString<oci::cDigestLen> mIndexDigest;
     ItemState                     mState {};

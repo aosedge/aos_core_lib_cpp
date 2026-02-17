@@ -223,7 +223,8 @@ private:
     Error VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo);
     bool  IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items);
     void  NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses);
-    void  NotifyItemStatusChanged(const String& itemID, const String& version, ItemStateEnum state, const Error& error);
+    void  NotifyItemStatusChanged(const String& itemID, const UpdateItemType& type, const String& version,
+         ItemStateEnum state, const Error& error);
     void  RegisterOutdatedItems(const Array<ItemInfo>& items);
     bool  StartAction();
     void  StopAction();

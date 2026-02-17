@@ -102,8 +102,8 @@ void ChangeNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& 
     SetNodeInfo(*it, nodeID, nodeType, state, isConnected, error);
 }
 
-void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
-    const ItemState& state = ItemStateEnum::eInstalled)
+void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const UpdateItemType& type,
+    const String& version, const ItemState& state = ItemStateEnum::eInstalled)
 {
     if (!unitStatus.mUpdateItems.HasValue()) {
         unitStatus.mUpdateItems.EmplaceValue();
@@ -114,6 +114,7 @@ void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const 
     auto& itemStatus = unitStatus.mUpdateItems->Back();
 
     itemStatus.mItemID  = itemID;
+    itemStatus.mType    = type;
     itemStatus.mVersion = version;
     itemStatus.mState   = state;
 }
@@ -476,8 +477,8 @@ TEST_F(UpdateManagerTest, SendUnitStatusOnCloudConnect)
 
     // Set update items
 
-    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0");
-    CreateUpdateItemStatus(*expectedUnitStatus, "item2", "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0");
 
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
@@ -562,8 +563,10 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
 
     expectedUnitStatus->mIsDeltaInfo = true;
 
-    CreateUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalling);
-    CreateUpdateItemStatus(*expectedUnitStatus, "item4", "1.0.0", ItemStateEnum::eInstalling);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item3", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalling);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item4", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalling);
 
     // Notify items statuses changed
 
@@ -732,9 +735,12 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 
     // Set expected update items status
 
-    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eInstalled);
-    CreateUpdateItemStatus(*expectedUnitStatus, "item2", "1.0.0", ItemStateEnum::eInstalled);
-    CreateUpdateItemStatus(*expectedUnitStatus, "item3", "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item3", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
 
     // Set expected instances statuses
 
@@ -814,7 +820,8 @@ TEST_F(UpdateManagerTest, CancelCurrentUpdate)
     // Set desired update items
 
     CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
-    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
 
     // Set desired instances
 
@@ -950,7 +957,8 @@ TEST_F(UpdateManagerTest, ResumeUpdateAfterRestart)
     mConnectionListener->OnConnect();
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 
-    CreateUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
     CreateInstancesStatuses(*expectedUnitStatus, "item1", "subject1", "1.0.0", 2);
 
     // Create launcher run request

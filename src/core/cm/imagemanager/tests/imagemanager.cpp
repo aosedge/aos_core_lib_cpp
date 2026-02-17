@@ -106,6 +106,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_EmptyList_RemovesPendingItems)
     EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(2).WillRepeatedly(Invoke([](Array<ItemInfo>& items) {
         ItemInfo pendingItem1;
         pendingItem1.mItemID      = "service1";
+        pendingItem1.mType        = UpdateItemTypeEnum::eService;
         pendingItem1.mVersion     = "1.0.0";
         pendingItem1.mIndexDigest = "sha256:abc123";
         pendingItem1.mState       = ItemStateEnum::ePending;
@@ -113,6 +114,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_EmptyList_RemovesPendingItems)
 
         ItemInfo pendingItem2;
         pendingItem2.mItemID      = "service2";
+        pendingItem2.mType        = UpdateItemTypeEnum::eService;
         pendingItem2.mVersion     = "2.0.0";
         pendingItem2.mIndexDigest = "sha256:def456";
         pendingItem2.mState       = ItemStateEnum::ePending;
@@ -120,6 +122,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_EmptyList_RemovesPendingItems)
 
         ItemInfo installedItem;
         installedItem.mItemID      = "service3";
+        installedItem.mType        = UpdateItemTypeEnum::eService;
         installedItem.mVersion     = "3.0.0";
         installedItem.mIndexDigest = "sha256:ghi789";
         installedItem.mState       = ItemStateEnum::eInstalled;
@@ -157,10 +160,12 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_EmptyList_RemovesPendingItems)
     EXPECT_TRUE(err.IsNone());
     ASSERT_EQ(statuses.Size(), 2);
     EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eRemoved);
     EXPECT_TRUE(statuses[0].mError.IsNone());
     EXPECT_EQ(statuses[1].mItemID, "service2");
+    EXPECT_EQ(statuses[1].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[1].mVersion, "2.0.0");
     EXPECT_EQ(statuses[1].mState, ItemStateEnum::eRemoved);
     EXPECT_TRUE(statuses[1].mError.IsNone());
@@ -177,6 +182,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
 
     UpdateItemInfo item;
     item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
     item.mVersion     = "1.0.0";
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
@@ -277,6 +283,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_TRUE(err.IsNone());
     ASSERT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, item.mItemID);
+    EXPECT_EQ(statuses[0].mType, item.mType);
     EXPECT_EQ(statuses[0].mVersion, item.mVersion);
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
     EXPECT_EQ(lastState, ItemStateEnum::ePending);
@@ -293,6 +300,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
 
     UpdateItemInfo item;
     item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
     item.mVersion     = "1.0.0";
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
@@ -384,6 +392,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     EXPECT_TRUE(err.IsNone());
     ASSERT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, item.mItemID);
+    EXPECT_EQ(statuses[0].mType, item.mType);
     EXPECT_EQ(statuses[0].mVersion, item.mVersion);
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
 }
@@ -397,6 +406,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
 
     UpdateItemInfo item;
     item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
     item.mVersion     = "1.0.0";
     item.mIndexDigest = "sha256:aabb";
     itemsInfo.PushBack(item);
@@ -462,6 +472,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
     EXPECT_TRUE(err.IsNone());
     ASSERT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, item.mItemID);
+    EXPECT_EQ(statuses[0].mType, item.mType);
     EXPECT_EQ(statuses[0].mVersion, item.mVersion);
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
 }
@@ -922,6 +933,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
     UpdateItemInfo item;
     item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
     item.mVersion     = "1.0.0";
     item.mIndexDigest = "sha256:1111";
     itemsInfo.PushBack(item);
@@ -1003,6 +1015,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
         .WillRepeatedly(Invoke([&lastState](const Array<UpdateItemStatus>& statuses) {
             ASSERT_EQ(statuses.Size(), 1);
             EXPECT_EQ(statuses[0].mItemID, "service1");
+            EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
             EXPECT_EQ(statuses[0].mVersion, "1.0.0");
             lastState = statuses[0].mState;
         }));
@@ -1014,6 +1027,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
     EXPECT_TRUE(statuses[0].mError.IsNone());
@@ -1029,6 +1043,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
 
     UpdateItemInfo item;
     item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
     item.mVersion     = "1.0.0";
     item.mIndexDigest = "sha256:abc123";
     itemsInfo.PushBack(item);
@@ -1038,6 +1053,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
         .WillOnce(Invoke([](Array<ItemInfo>& items) {
             ItemInfo storedItem;
             storedItem.mItemID      = "service1";
+            storedItem.mType        = UpdateItemTypeEnum::eService;
             storedItem.mVersion     = "1.0.0";
             storedItem.mIndexDigest = "sha256:abc123";
             storedItem.mState       = ItemStateEnum::ePending;
@@ -1048,6 +1064,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
         .WillOnce(Invoke([](Array<ItemInfo>& items) {
             ItemInfo storedItem;
             storedItem.mItemID      = "service1";
+            storedItem.mType        = UpdateItemTypeEnum::eService;
             storedItem.mVersion     = "1.0.0";
             storedItem.mIndexDigest = "sha256:abc123";
             storedItem.mState       = ItemStateEnum::ePending;
@@ -1073,6 +1090,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eFailed);
     EXPECT_TRUE(!statuses[0].mError.IsNone());
@@ -1085,6 +1103,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
 
     UpdateItemInfo item;
     item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
     item.mVersion     = "2.0.0";
     item.mIndexDigest = "sha256:4444";
     itemsInfo.PushBack(item);
@@ -1094,6 +1113,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
         .WillOnce(Invoke([](Array<ItemInfo>& items) {
             ItemInfo oldItem;
             oldItem.mItemID      = "service1";
+            oldItem.mType        = UpdateItemTypeEnum::eService;
             oldItem.mVersion     = "1.0.0";
             oldItem.mIndexDigest = "sha256:1111";
             oldItem.mState       = ItemStateEnum::eInstalled;
@@ -1104,6 +1124,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
         .WillOnce(Invoke([](Array<ItemInfo>& items) {
             ItemInfo newItem;
             newItem.mItemID      = "service1";
+            newItem.mType        = UpdateItemTypeEnum::eService;
             newItem.mVersion     = "2.0.0";
             newItem.mIndexDigest = "sha256:4444";
             newItem.mState       = ItemStateEnum::ePending;
@@ -1114,6 +1135,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
         .WillOnce(Invoke([](Array<ItemInfo>& items) {
             ItemInfo newItem;
             newItem.mItemID      = "service1";
+            newItem.mType        = UpdateItemTypeEnum::eService;
             newItem.mVersion     = "2.0.0";
             newItem.mIndexDigest = "sha256:4444";
             newItem.mState       = ItemStateEnum::ePending;
@@ -1124,6 +1146,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
         .WillOnce(Invoke([](Array<ItemInfo>& items) {
             ItemInfo newItem;
             newItem.mItemID      = "service1";
+            newItem.mType        = UpdateItemTypeEnum::eService;
             newItem.mVersion     = "2.0.0";
             newItem.mIndexDigest = "sha256:4444";
             newItem.mState       = ItemStateEnum::eInstalled;
@@ -1203,6 +1226,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[0].mVersion, "2.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
     EXPECT_TRUE(statuses[0].mError.IsNone());
@@ -1371,6 +1395,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
     EXPECT_TRUE(err.IsNone());
     EXPECT_EQ(statuses.Size(), 1);
     EXPECT_EQ(statuses[0].mItemID, "service2");
+    EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
     EXPECT_TRUE(statuses[0].mError.IsNone());
@@ -1766,12 +1791,14 @@ TEST_F(ImageManagerTest, GetUpdateItemsStatuses_Success)
 
     ItemInfo item1;
     item1.mItemID  = "service1";
+    item1.mType    = UpdateItemTypeEnum::eService;
     item1.mVersion = "1.0.0";
     item1.mState   = ItemStateEnum::eInstalled;
     items.PushBack(item1);
 
     ItemInfo item2;
     item2.mItemID  = "service2";
+    item2.mType    = UpdateItemTypeEnum::eService;
     item2.mVersion = "2.0.0";
     item2.mState   = ItemStateEnum::ePending;
     items.PushBack(item2);
@@ -1785,10 +1812,12 @@ TEST_F(ImageManagerTest, GetUpdateItemsStatuses_Success)
     ASSERT_EQ(statuses.Size(), 2);
 
     EXPECT_EQ(statuses[0].mItemID, "service1");
+    EXPECT_EQ(statuses[0].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[0].mVersion, "1.0.0");
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::eInstalled);
 
     EXPECT_EQ(statuses[1].mItemID, "service2");
+    EXPECT_EQ(statuses[1].mType, UpdateItemTypeEnum::eService);
     EXPECT_EQ(statuses[1].mVersion, "2.0.0");
     EXPECT_EQ(statuses[1].mState, ItemStateEnum::ePending);
 }
