@@ -72,11 +72,11 @@ public:
      * Sets user quota for the given path.
      *
      * @param path path to set quota for.
-     * @param quota quota size in bytes.
      * @param uid user ID.
+     * @param quota quota size in bytes.
      * @return Error.
      */
-    virtual Error SetUserQuota(const String& path, size_t quota, size_t uid) const = 0;
+    virtual Error SetUserQuota(const String& path, uid_t uid, size_t quota) const = 0;
 
     /**
      * Changes the owner of a file or directory.
