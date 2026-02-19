@@ -22,7 +22,7 @@ public:
     MOCK_METHOD(RetWithError<size_t>, GetTotalSize, (const String& dir), (const, override));
     MOCK_METHOD(RetWithError<size_t>, GetDirSize, (const String& dir), (const, override));
     MOCK_METHOD(RetWithError<size_t>, GetAvailableSize, (const String& dir), (const, override));
-    MOCK_METHOD(Error, SetUserQuota, (const String& path, size_t quota, size_t uid), (const, override));
+    MOCK_METHOD(Error, SetUserQuota, (const String& path, uid_t uid, size_t quota), (const, override));
     MOCK_METHOD(Error, ChangeOwner, (const String& path, uint32_t uid, uint32_t gid), (const, override));
     MOCK_METHOD(RetWithError<StaticString<cDeviceNameLen>>, GetBlockDevice, (const String& path), (const, override));
 };

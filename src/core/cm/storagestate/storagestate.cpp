@@ -547,7 +547,7 @@ Error StorageState::SetQuotas(const SetupParams& setupParams)
 
     if (mStateAndStorageOnSamePartition) {
         if (auto err = mFSPlatform->SetUserQuota(
-                mConfig.mStorageDir, setupParams.mStorageQuota + setupParams.mStateQuota, setupParams.mUID);
+                mConfig.mStorageDir, setupParams.mUID, setupParams.mStorageQuota + setupParams.mStateQuota);
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -555,12 +555,12 @@ Error StorageState::SetQuotas(const SetupParams& setupParams)
         return ErrorEnum::eNone;
     }
 
-    if (auto err = mFSPlatform->SetUserQuota(mConfig.mStateDir, setupParams.mStateQuota, setupParams.mUID);
+    if (auto err = mFSPlatform->SetUserQuota(mConfig.mStateDir, setupParams.mUID, setupParams.mStateQuota);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mFSPlatform->SetUserQuota(mConfig.mStorageDir, setupParams.mStorageQuota, setupParams.mUID);
+    if (auto err = mFSPlatform->SetUserQuota(mConfig.mStorageDir, setupParams.mUID, setupParams.mStorageQuota);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -289,7 +289,7 @@ TEST_F(StorageStateTests, StorageQuotaNotSet)
 
     StaticString<cFilePathLen> storagePath, statePath;
 
-    EXPECT_CALL(mFSPlatformMock, SetUserQuota(_, setupParams.mStateQuota, setupParams.mUID)).Times(1);
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota(_, setupParams.mUID, setupParams.mStateQuota)).Times(1);
 
     auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
@@ -323,7 +323,7 @@ TEST_F(StorageStateTests, StateQuotaNotSet)
     err = mStorageState.Start();
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mFSPlatformMock, SetUserQuota(_, setupParams.mStorageQuota, setupParams.mUID)).Times(1);
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota(_, setupParams.mUID, setupParams.mStorageQuota)).Times(1);
     EXPECT_CALL(mSenderMock, SendStateRequest).Times(0);
     EXPECT_CALL(mFSWatcherMock, Subscribe).Times(0);
 
@@ -382,10 +382,10 @@ TEST_F(StorageStateTests, SetupOnDifferentPartitions)
     EXPECT_TRUE(err.IsNone()) << "Failed to start storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(
-        mFSPlatformMock, SetUserQuota(String(cStorageDir.c_str()), cSetupParams.mStorageQuota, cSetupParams.mUID))
+        mFSPlatformMock, SetUserQuota(String(cStorageDir.c_str()), cSetupParams.mUID, cSetupParams.mStorageQuota))
         .WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mFSPlatformMock, SetUserQuota(String(cStateDir.c_str()), cSetupParams.mStateQuota, cSetupParams.mUID))
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota(String(cStateDir.c_str()), cSetupParams.mUID, cSetupParams.mStateQuota))
         .WillOnce(Return(ErrorEnum::eNone));
 
     EXPECT_CALL(mSenderMock, SendStateRequest).WillOnce(Return(ErrorEnum::eNone));
@@ -455,8 +455,8 @@ TEST_F(StorageStateTests, SetupSameInstance)
 
         if (testParam.mExpectSetQuota) {
             EXPECT_CALL(mFSPlatformMock,
-                SetUserQuota(_, testParam.mSetupParams.mStateQuota + testParam.mSetupParams.mStorageQuota,
-                    testParam.mSetupParams.mUID))
+                SetUserQuota(_, testParam.mSetupParams.mUID,
+                    testParam.mSetupParams.mStateQuota + testParam.mSetupParams.mStorageQuota))
                 .WillOnce(Return(ErrorEnum::eNone));
         }
 
