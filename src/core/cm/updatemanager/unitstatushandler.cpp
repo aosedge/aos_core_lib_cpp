@@ -161,6 +161,8 @@ Error UnitStatusHandler::SetUpdateUnitConfigStatus(const UnitConfigStatus& statu
         return AOS_ERROR_WRAP(err);
     }
 
+    StartTimer();
+
     return ErrorEnum::eNone;
 }
 
