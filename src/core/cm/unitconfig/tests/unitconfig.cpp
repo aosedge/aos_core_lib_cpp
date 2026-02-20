@@ -83,7 +83,7 @@ protected:
         return config;
     }
 
-    aos::UnitConfig CreateTestUnitConfigWithNodeID(const String& version = "1.0.0", const String& nodeID = "node0")
+    aos::UnitConfig CreateTestUnitConfigWithNodeID(const String& version = "1.0.0", const String& nodeID = cTestNodeID)
     {
         aos::UnitConfig config;
         config.mVersion = version;
@@ -96,10 +96,10 @@ protected:
         return config;
     }
 
-    UnitNodeInfo CreateTestNodeInfo()
+    UnitNodeInfo CreateTestNodeInfo(const String& nodeID = cTestNodeID)
     {
         UnitNodeInfo nodeInfo;
-        nodeInfo.mNodeID   = cTestNodeID;
+        nodeInfo.mNodeID   = nodeID;
         nodeInfo.mNodeType = cTestNodeType;
         return nodeInfo;
     }
@@ -257,20 +257,22 @@ TEST_F(UnitConfigTest, CheckUnitConfigValidVersion)
 {
     CreateTestConfigFile(cNode0TestUnitConfig);
 
-    auto config = CreateTestUnitConfigWithNodeID("1.0.0", cTestNodeID);
+    auto config = CreateTestUnitConfigWithNodeID("1.0.0");
 
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _))
         .WillOnce(DoAll(SetArgReferee<1>(config), Return(ErrorEnum::eNone)));
 
     ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
-    auto newUnitConfig = CreateTestUnitConfigWithNodeID("2.0.0", cTestNodeID);
+    auto newUnitConfig = CreateTestUnitConfigWithNodeID("2.0.0");
 
     StaticArray<StaticString<cIDLen>, cMaxNumNodes> nodeIds;
     nodeIds.PushBack(cTestNodeID);
 
     EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_))
         .WillOnce(DoAll(SetArgReferee<0>(nodeIds), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
 
     NodeConfigStatus nodeConfigStatus;
     nodeConfigStatus.mVersion = "1.0.0";
@@ -459,6 +461,10 @@ TEST_F(UnitConfigTest, CheckUnitConfigMultipleNodes)
 
     EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_))
         .WillOnce(DoAll(SetArgReferee<0>(nodeIds), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(_, _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo("node1")), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo("node2")), Return(ErrorEnum::eNone)))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo("node3")), Return(ErrorEnum::eNone)));
 
     NodeConfigStatus status1, status2, status3;
     status1.mVersion = "1.0.0";
