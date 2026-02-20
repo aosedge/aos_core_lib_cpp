@@ -273,7 +273,7 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
     }
 
-    if (!mCloudConnected && statuses.Size() == 0) {
+    if (!mCloudConnected || statuses.Size() == 0) {
         return;
     }
 
