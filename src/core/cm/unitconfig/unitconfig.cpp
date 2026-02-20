@@ -53,7 +53,7 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Check unit config" << Log::Field("version", config.mVersion);
+    LOG_DBG() << "Check unit config" << Log::Field("version", config.mVersion);
 
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled) {
         LOG_WRN() << "Skip unit config version check due to state" << Log::Field("state", mUnitConfigState)
@@ -77,8 +77,13 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
 
         if (nodeConfigStatus.mVersion != config.mVersion || !nodeConfigStatus.mError.IsNone()) {
             auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
+            auto nodeInfo   = MakeUnique<UnitNodeInfo>(&mAllocator);
 
-            if (auto err = FindNodeConfig(id, "", config, *nodeConfig); !err.IsNone()) {
+            if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (auto err = FindNodeConfig(nodeInfo->mNodeID, nodeInfo->mNodeType, config, *nodeConfig); !err.IsNone()) {
                 return err;
             }
 
@@ -138,8 +143,13 @@ Error UnitConfig::UpdateUnitConfig(const aos::UnitConfig& unitConfig)
 
     for (const auto& id : nodeIds) {
         auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
+        auto nodeInfo   = MakeUnique<UnitNodeInfo>(&mAllocator);
 
-        if (auto err = FindNodeConfig(id, "", unitConfig, *nodeConfig); !err.IsNone()) {
+        if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = FindNodeConfig(nodeInfo->mNodeID, nodeInfo->mNodeType, unitConfig, *nodeConfig); !err.IsNone()) {
             return err;
         }
 

@@ -100,7 +100,9 @@ private:
     Error           mUnitConfigError;
     UnitConfigState mUnitConfigState {UnitConfigStateEnum::eAbsent};
 
-    StaticAllocator<sizeof(NodeInfo) + sizeof(StaticString<cUnitConfigJSONLen>) + sizeof(NodeConfig)> mAllocator;
+    StaticAllocator<sizeof(NodeInfo) + sizeof(StaticString<cUnitConfigJSONLen>) + sizeof(NodeConfig)
+        + sizeof(UnitNodeInfo)>
+        mAllocator;
 
     StaticArray<NodeConfigStatus, cMaxNumNodes> mNodeConfigStatuses;
 
