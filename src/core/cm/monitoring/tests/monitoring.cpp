@@ -277,6 +277,7 @@ TEST_F(CMMonitoring, OnInstancesStatusesChanged)
 
     std::array statuses = {
         CreateInstanceStatus("node1", ident0, InstanceStateEnum::eActivating),
+        CreateInstanceStatus("node1", ident0, InstanceStateEnum::eActivating),
         CreateInstanceStatus("node1", ident0, InstanceStateEnum::eActive),
         CreateInstanceStatus("node1", ident0, InstanceStateEnum::eInactive),
         CreateInstanceStatus("node2", ident0, InstanceStateEnum::eActivating),
