@@ -204,15 +204,15 @@ TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
 {
     const std::vector cRuntime0Components = {
-        CreateInstanceStatus(CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
+        CreateInstanceStatus(CreateInstanceInfo("item0", 0, "1.0.1", "runtime0"), InstanceStateEnum::eActive,
             UpdateItemTypeEnum::eComponent),
-        CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"), InstanceStateEnum::eInactive,
+        CreateInstanceStatus(CreateInstanceInfo("item1", 0, "1.0.0", "runtime0"), InstanceStateEnum::eInactive,
             UpdateItemTypeEnum::eComponent, true),
         CreateInstanceStatus(CreateInstanceInfo("item2", 2, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
             UpdateItemTypeEnum::eService),
     };
 
-    const auto cPreinstalledComponent = static_cast<const InstanceIdent&>(cRuntime0Components[1]);
+    const auto cActiveComponent = static_cast<const InstanceIdent&>(cRuntime0Components[0]);
 
     EXPECT_CALL(mRuntime0, Start).WillOnce(Invoke([&]() {
         mLauncher.OnInstancesStatusesReceived(
@@ -222,9 +222,9 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
     }));
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& info, InstanceStatus& status) {
-        EXPECT_EQ(static_cast<const InstanceIdent&>(info), cPreinstalledComponent);
+        EXPECT_EQ(static_cast<const InstanceIdent&>(info), cActiveComponent);
 
-        status = cRuntime0Components[1];
+        status = cRuntime0Components[0];
 
         return ErrorEnum::eNone;
     }));
@@ -239,9 +239,9 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
-    EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[1]);
+    EXPECT_EQ(mReceivedStatuses[0], cRuntime0Components[0]);
 
-    EXPECT_CALL(mRuntime0, StopInstance(cPreinstalledComponent, _)).Times(0);
+    EXPECT_CALL(mRuntime0, StopInstance(cActiveComponent, _)).Times(0);
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -250,7 +250,7 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
 TEST_F(LauncherTest, DoNotSendUpdateInstancesStatusesBeforeModuleStart)
 {
     const std::vector cRuntime0Components = {
-        CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"), InstanceStateEnum::eInactive,
+        CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
             UpdateItemTypeEnum::eComponent, true),
     };
 

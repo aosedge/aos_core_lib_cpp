@@ -160,7 +160,7 @@ private:
                 + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
 
     void  RunRebootThread();
-    Error StoreInstalledComponent(const aos::InstanceStatus& status);
+    Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances);
     Error StopInstance(InstanceData& instanceData);
