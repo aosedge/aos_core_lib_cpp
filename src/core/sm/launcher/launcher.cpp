@@ -151,7 +151,7 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
                       << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("state", status.mState)
                       << Log::Field(status.mError);
 
-            if (auto storeErr = StoreInstalledComponent(status); err.IsNone() && !storeErr.IsNone()) {
+            if (auto storeErr = HandleComponentStatus(status); err.IsNone() && !storeErr.IsNone()) {
                 err = AOS_ERROR_WRAP(storeErr);
             }
         }
@@ -343,10 +343,14 @@ void Launcher::RunRebootThread()
     }
 }
 
-Error Launcher::StoreInstalledComponent(const aos::InstanceStatus& status)
+Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 {
-    if (!IsPreinstalledInstance(status)) {
+    if (status.mType != UpdateItemTypeEnum::eComponent) {
         return ErrorEnum::eNone;
+    }
+
+    if (status.mState == InstanceStateEnum::eInactive) {
+        return RemoveInstanceData(status);
     }
 
     if (mInstances.ContainsIf([&status](const auto& instance) {
@@ -790,9 +794,8 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
 
 Error Launcher::RemoveInstanceData(const InstanceIdent& instanceIdent)
 {
-    LockGuard lock {mMutex};
-
     LOG_DBG() << "Remove instance data" << Log::Field("instance", instanceIdent);
+
     if (auto err = mStorage->RemoveInstanceInfo(instanceIdent); !err.IsNone()) {
         LOG_ERR() << "Remove instance info from storage failed" << Log::Field("instance", instanceIdent)
                   << Log::Field(AOS_ERROR_WRAP(err));
@@ -810,6 +813,8 @@ Error Launcher::RemoveInstanceData(const InstanceIdent& instanceIdent)
 
 void Launcher::RemoveInstancesData(const Array<InstanceIdent>& instances)
 {
+    LockGuard lock {mMutex};
+
     for (const auto& instanceIdent : instances) {
         auto instanceData = FindInstanceData(instanceIdent);
         if (!instanceData) {
