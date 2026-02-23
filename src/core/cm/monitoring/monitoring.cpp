@@ -177,6 +177,10 @@ void Monitoring::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuse
             it->mNodeID                      = status.mNodeID;
         }
 
+        if (!it->mStates.IsEmpty() && it->mStates.Back().mState == status.mState) {
+            continue;
+        }
+
         if (it->mStates.IsFull()) {
             it->mStates.Erase(it->mStates.begin());
         }
