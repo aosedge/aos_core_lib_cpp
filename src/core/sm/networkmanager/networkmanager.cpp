@@ -1041,15 +1041,30 @@ Error NetworkManager::RemoveNetwork(const String& networkID)
         }
     }
 
+    auto instanceIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+    if (!instanceIDs) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& instance : provider->mSecond) {
+            if (auto err = instanceIDs->PushBack(instance.mFirst); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
     Error err;
 
-    for (const auto& instance : provider->mSecond) {
-        if (auto errRemoveInstance = CleanupInstanceNetworkResources(instance.mFirst, networkID);
+    for (const auto& instanceID : *instanceIDs) {
+        if (auto errRemoveInstance = CleanupInstanceNetworkResources(instanceID, networkID);
             !errRemoveInstance.IsNone() && err.IsNone()) {
             err = errRemoveInstance;
         }
 
-        if (auto errRemoveFromCache = RemoveInstanceFromCache(instance.mFirst, networkID);
+        if (auto errRemoveFromCache = RemoveInstanceFromCache(instanceID, networkID);
             !errRemoveFromCache.IsNone() && err.IsNone()) {
             err = errRemoveFromCache;
         }

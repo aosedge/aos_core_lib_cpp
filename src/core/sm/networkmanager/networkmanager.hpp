@@ -235,7 +235,8 @@ private:
 
     mutable Mutex mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))
-            * cMaxNumConcurrentItems,
+                * cMaxNumConcurrentItems
+            + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>),
         cNumAllocations>
                                                                                           mAllocator;
     mutable StaticAllocator<(sizeof(Host) * 3) * cMaxNumConcurrentItems, cNumAllocations> mHostAllocator;
