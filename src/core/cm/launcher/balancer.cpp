@@ -63,7 +63,7 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>
 
 Error Balancer::LoadSMDataForActiveInstances()
 {
-    if (auto err = PrepareForBalancing(false); !err.IsNone()) {
+    if (auto err = PrepareForBalancing(false, true); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -523,15 +523,19 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
     return ErrorEnum::eNone;
 }
 
-Error Balancer::UpdateMonitoringData()
+Error Balancer::UpdateMonitoringData(bool isInitialUpdate)
 {
     for (auto& node : mNodeManager->GetNodes()) {
         const auto& nodeID = node.GetInfo().mNodeID;
 
         auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
 
-        if (auto err = mMonitorProvider->GetAverageMonitoring(nodeID, *nodeMonitoring); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        // Monitoring data immediately after startup is not availble.
+        // Assign zero consumption on start.
+        if (!isInitialUpdate) {
+            if (auto err = mMonitorProvider->GetAverageMonitoring(nodeID, *nodeMonitoring); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
         }
 
         mInstanceManager->UpdateMonitoringData(nodeMonitoring->mInstances);
@@ -541,9 +545,9 @@ Error Balancer::UpdateMonitoringData()
     return ErrorEnum::eNone;
 }
 
-Error Balancer::PrepareForBalancing(bool rebalancing)
+Error Balancer::PrepareForBalancing(bool rebalancing, bool isInitialUpdate)
 {
-    if (auto err = UpdateMonitoringData(); !err.IsNone()) {
+    if (auto err = UpdateMonitoringData(isInitialUpdate); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

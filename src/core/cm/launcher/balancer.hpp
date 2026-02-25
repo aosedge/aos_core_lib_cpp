@@ -99,8 +99,8 @@ private:
 
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
 
-    Error PrepareForBalancing(bool rebalancing);
-    Error UpdateMonitoringData();
+    Error PrepareForBalancing(bool rebalancing, bool isInitialUpdate = false);
+    Error UpdateMonitoringData(bool isInitialUpdate = false);
 
     ImageInfoProvider      mImageInfoProvider;
     InstanceManager*       mInstanceManager {};
