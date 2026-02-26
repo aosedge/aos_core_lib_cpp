@@ -85,6 +85,10 @@ Error InstanceManager::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mInitTimer.Stop(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mUIDPool.Clear(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
