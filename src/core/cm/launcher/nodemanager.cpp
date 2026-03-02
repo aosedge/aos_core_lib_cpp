@@ -227,7 +227,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
 }
 
 Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
-    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances)
+    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
     Error firstErr = ErrorEnum::eNone;
 
@@ -238,7 +238,7 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
             continue;
         }
 
-        auto [isRequestSent, sendErr] = node.ResendInstances(activeInstances, runningInstances);
+        auto [isRequestSent, sendErr] = node.ResendInstances(activeInstances, runningInstances, forceRestart);
         if (!sendErr.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
                       << Log::Field(sendErr);

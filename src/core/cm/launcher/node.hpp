@@ -131,10 +131,13 @@ public:
     /**
      * Resends instances to node.
      *
+     * @param scheduledInstances scheduled instances.
+     * @param runningInstances running instances.
+     * @param forceRestart force restart instances.
      * @return Error.
      */
-    RetWithError<bool> ResendInstances(
-        const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances);
+    RetWithError<bool> ResendInstances(const Array<SharedPtr<Instance>>& scheduledInstances,
+        const Array<InstanceStatus>& runningInstances, bool forceRestart);
 
     /**
      * Checks whether max number of instances is reached.

@@ -226,12 +226,20 @@ public:
      */
     Error ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
 
+    /**
+     * Overrides environment variables.
+     *
+     * @param envVars environment variables.
+     * @return bool true if env vars changed, false otherwise.
+     */
+    bool OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
+
 private:
     static constexpr auto cRemovePeriod  = Time::cDay;
     static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
         + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo) + sizeof(oci::ImageIndex);
-    static constexpr auto cInstanceAllocatorSize
-        = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig) + sizeof(InstanceStatus) + sizeof(oci::ImageIndex);
+    static constexpr auto cInstanceAllocatorSize = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
+        + sizeof(InstanceStatus) + sizeof(oci::ImageIndex) + sizeof(EnvVarArray);
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
@@ -268,7 +276,8 @@ private:
     StaticArray<InstanceStatus, cMaxNumInstances> mPreinstalledComponents;
     StaticArray<InstanceStatus, cMaxNumInstances> mRunningInstances;
 
-    SubjectArray mSubjects;
+    SubjectArray           mSubjects;
+    OverrideEnvVarsRequest mEnvVarsOverrides;
 };
 
 /** @}*/

@@ -18,6 +18,7 @@ namespace aos::cm::launcher {
 struct Config {
     Duration mNodesConnectionTimeout;
     Duration mInstanceTTL;
+    Duration mCheckOverrideEnvVarsPeriod;
 };
 
 } // namespace aos::cm::launcher
