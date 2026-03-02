@@ -239,6 +239,14 @@ public:
      */
     virtual Error RemoveNetworkParams() = 0;
 
+    /**
+     * Overrides environment variables.
+     *
+     * @param envVars environment variables.
+     * @return RetWithError<bool> true if env vars changed, false otherwise.
+     */
+    RetWithError<bool> OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
+
 protected:
     Error SetActive(const String& nodeID, const String& runtimeID);
 

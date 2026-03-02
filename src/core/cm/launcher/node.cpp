@@ -367,7 +367,7 @@ Error Node::SendScheduledInstances(
 }
 
 RetWithError<bool> Node::ResendInstances(
-    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances)
+    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
     auto   stopInstances        = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
     auto   startInstances       = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
@@ -381,7 +381,7 @@ RetWithError<bool> Node::ResendInstances(
                 && status.mRuntimeID == item->GetInfo().mRuntimeID;
         });
 
-        if (!isActive) {
+        if (!isActive || forceRestart) {
             if (auto err = stopInstances->EmplaceBack(); !err.IsNone()) {
                 return {false, AOS_ERROR_WRAP(err)};
             }

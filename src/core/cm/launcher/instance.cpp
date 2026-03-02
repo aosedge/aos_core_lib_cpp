@@ -175,6 +175,37 @@ bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
     return true;
 }
 
+RetWithError<bool> Instance::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
+{
+    auto newEnvVars = MakeUnique<EnvVarArray>(&mAllocator);
+
+    for (const auto& item : envVars.mItems) {
+        if (!item.Match(mInfo.mInstanceIdent)) {
+            continue;
+        }
+
+        for (const auto& overrideVar : item.mVariables) {
+            auto existingVar = newEnvVars->FindIf(
+                [&overrideVar](const EnvVar& envVar) { return envVar.mName == overrideVar.mName; });
+
+            if (existingVar != newEnvVars->end()) {
+                existingVar->mValue = overrideVar.mValue;
+            } else {
+                if (auto err = newEnvVars->PushBack(static_cast<const EnvVar&>(overrideVar)); !err.IsNone()) {
+                    return {false, AOS_ERROR_WRAP(err)};
+                }
+            }
+        }
+    }
+
+    bool changed = *newEnvVars != mSMInfo.mEnvVars;
+    if (changed) {
+        mSMInfo.mEnvVars = *newEnvVars;
+    }
+
+    return {changed, ErrorEnum::eNone};
+}
+
 Error Instance::SetActive(const String& nodeID, const String& runtimeID)
 {
     mInfo.mPrevNodeID = mInfo.mNodeID;
@@ -284,7 +315,7 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
 
     mSMInfo.mStoragePath = "";
     mSMInfo.mStatePath   = "";
-    mSMInfo.mEnvVars.Clear();
+    // mSMInfo.mEnvVars is set in OverrideEnvVars().
     mSMInfo.mNetworkParameters.Reset();
     mSMInfo.mMonitoringParams.Reset();
 
@@ -465,7 +496,7 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
         return AOS_ERROR_WRAP(err);
     }
 
-    mSMInfo.mEnvVars.Clear();
+    // mSMInfo.mEnvVars is set in OverrideEnvVars().
 
     if (auto err = SetupNetworkServiceData(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

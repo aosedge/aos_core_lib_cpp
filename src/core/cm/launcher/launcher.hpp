@@ -150,6 +150,9 @@ private:
     void CreateRequestedInstances(Array<SharedPtr<Instance>>& instances);
     void CreateRequestedInstances(const Array<RunInstanceRequest>& requests, Array<SharedPtr<Instance>>& instances);
 
+    Error LoadEnvVarsOverrides();
+    Error ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars);
+
     // InstanceStatusReceiverItf implementation
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
     Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) override;
@@ -190,6 +193,11 @@ private:
     bool                                            mAlertReceived {};
     bool                                            mIsNodeInfoChanged {};
     Optional<SubjectArray>                          mNewSubjects;
+
+    // Override environment variables
+    OverrideEnvVarsRequest mOverrideEnvVars;
+    Timer                  mEnvVarsTTLTimer;
+    bool                   mIsOverrideEnvVarsChanged {};
 
     // Misc
     StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;

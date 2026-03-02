@@ -132,10 +132,12 @@ public:
      * @param updatedNodes updated nodes.
      * @param activeInstances active instances.
      * @param runningInstances running instances.
+     * @param forceRestart force restart instances.
      * @return Error.
      */
     Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
-        const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances);
+        const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances,
+        bool forceRestart = false);
 
 private:
     static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
