@@ -28,6 +28,7 @@ class CloudConnectionMock : public CloudConnectionItf {
 public:
     MOCK_METHOD(Error, SubscribeListener, (ConnectionListenerItf & listener), (override));
     MOCK_METHOD(Error, UnsubscribeListener, (ConnectionListenerItf & listener), (override));
+    MOCK_METHOD(bool, IsConnected, (), (const, override));
 };
 
 } // namespace aos::cloudconnection
