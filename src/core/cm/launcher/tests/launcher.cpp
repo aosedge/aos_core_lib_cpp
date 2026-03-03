@@ -267,7 +267,8 @@ StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, con
 aos::InstanceInfo CreateServiceRunInfo(const InstanceIdent& id, const std::string& imageID,
     const std::string& runtimeID, uint32_t uid, gid_t gid, const String& ip, uint64_t priority,
     const std::string& version = "", const Optional<AlertRules>& alertRules = {},
-    SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup, const std::string& ownerID = "")
+    SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup, const std::string& ownerID = "",
+    const EnvVarArray& envVars = {})
 {
     aos::InstanceInfo result;
 
@@ -283,6 +284,7 @@ aos::InstanceInfo CreateServiceRunInfo(const InstanceIdent& id, const std::strin
     result.mSubjectType    = subjectType;
     result.mStoragePath    = "storage_path";
     result.mStatePath      = "state_path";
+    result.mEnvVars        = envVars;
 
     if (!ip.IsEmpty()) {
         result.mNetworkParameters.EmplaceValue();
@@ -294,6 +296,24 @@ aos::InstanceInfo CreateServiceRunInfo(const InstanceIdent& id, const std::strin
     if (alertRules.HasValue()) {
         result.mMonitoringParams.GetValue().mAlertRules = alertRules;
     }
+
+    return result;
+}
+
+aos::InstanceInfo CreateRunInfoForStoppedService(const InstanceIdent& id, const std::string& imageID,
+    const std::string& runtimeID, uint32_t uid, gid_t gid, const String& ip, uint64_t priority,
+    const std::string& version = "", const Optional<AlertRules>& alertRules = {},
+    SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup, const std::string& ownerID = "",
+    const EnvVarArray& envVars = {})
+{
+    aos::InstanceInfo result = CreateServiceRunInfo(
+        id, imageID, runtimeID, uid, gid, ip, priority, version, alertRules, subjectType, ownerID, envVars);
+
+    result.mStoragePath    = "";
+    result.mStatePath      = "";
+    result.mManifestDigest = "";
+    result.mNetworkParameters.Reset();
+    result.mMonitoringParams.Reset();
 
     return result;
 }
@@ -534,17 +554,39 @@ UnitNodeInfo CreateNodeInfo(const std::string& nodeID, size_t maxDMIPS, size_t t
     return nodeInfo;
 }
 
+Config CreateConfig()
+{
+    Config cfg;
+
+    cfg.mNodesConnectionTimeout     = 1 * Time::cMinutes;
+    cfg.mInstanceTTL                = 1 * Time::cSeconds;
+    cfg.mCheckOverrideEnvVarsPeriod = 1 * Time::cMinutes;
+
+    return cfg;
+}
+
+EnvVar CreateEnvVar(const std::string& name, const std::string& value)
+{
+    EnvVar var;
+
+    var.mName  = name.c_str();
+    var.mValue = value.c_str();
+
+    return var;
+}
+
+template <typename T>
+Array<T> ConvertToArray(const std::initializer_list<T>& list)
+{
+    return Array<T>(list.begin(), list.size());
+}
+
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
 TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
 {
-    Config cfg;
-
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-    cfg.mInstanceTTL            = 1 * Time::cSeconds;
-
     // Store instance with non-empty manifest digest so image validity check is executed.
 
     ASSERT_TRUE(mStorage
@@ -556,9 +598,9 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -573,11 +615,6 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
 
 TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
 {
-    Config cfg;
-
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-    cfg.mInstanceTTL            = 1 * Time::cHours;
-
     // Add services to the image provider.
     oci::ItemConfig itemConfig1;
     oci::ItemConfig itemConfig2;
@@ -607,9 +644,9 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -628,9 +665,6 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
 
 TEST_F(CMLauncherTest, CacheInstances)
 {
-    Config cfg;
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize all stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -675,9 +709,9 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -731,9 +765,6 @@ TEST_F(CMLauncherTest, CacheInstances)
 
 TEST_F(CMLauncherTest, Components)
 {
-    Config cfg;
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize all stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -776,9 +807,9 @@ TEST_F(CMLauncherTest, Components)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1388,10 +1419,6 @@ TestDataPtr TestItemRebalancingPolicy()
 
 TEST_F(CMLauncherTest, Balancing)
 {
-    Config cfg;
-
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     const std::vector<const char*> nodeIDs = {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2, cNodeIDRunxSM};
 
     std::vector<TestDataPtr> testItems = {
@@ -1473,9 +1500,9 @@ TEST_F(CMLauncherTest, Balancing)
 
         // Init launcher
         ASSERT_TRUE(mLauncher
-                        .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                            mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                            ValidateGID, ValidateUID, mStorage)
+                        .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                            mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                            mIdentProvider, ValidateGID, ValidateUID, mStorage)
                         .IsNone());
 
         InstanceStatusListenerStub instanceStatusListener;
@@ -1520,10 +1547,6 @@ TEST_F(CMLauncherTest, Balancing)
 
 TEST_F(CMLauncherTest, PlatformFiltering)
 {
-    Config cfg;
-
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize all stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -1583,9 +1606,9 @@ TEST_F(CMLauncherTest, PlatformFiltering)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1638,9 +1661,6 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
 {
     using namespace std::chrono_literals;
 
-    Config cfg;
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -1681,9 +1701,9 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1724,9 +1744,6 @@ TEST_F(CMLauncherTest, SubjectChanged)
 {
     using namespace std::chrono_literals;
 
-    Config cfg;
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -1760,9 +1777,9 @@ TEST_F(CMLauncherTest, SubjectChanged)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     InstanceStatusListenerStub instanceStatusListener;
@@ -1795,10 +1812,6 @@ TEST_F(CMLauncherTest, SubjectChanged)
 TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
 {
     using namespace std::chrono_literals;
-
-    Config cfg;
-
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
 
     // Initialize stubs
     mStorageState.Init();
@@ -1834,9 +1847,9 @@ TEST_F(CMLauncherTest, PrepareNetworkParamsFails)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     InstanceStatusListenerStub instanceStatusListener;
@@ -1876,9 +1889,6 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
     const std::string version = "1.2.3";
     const std::string ownerID = "owner123";
 
-    Config cfg;
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize all stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -1911,9 +1921,9 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -1960,9 +1970,6 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
 
 TEST_F(CMLauncherTest, PreinstalledComponents)
 {
-    Config cfg;
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
-
     // Initialize all stubs
     mStorageState.Init();
     mStorageState.SetTotalStateSize(1024);
@@ -1997,9 +2004,9 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
@@ -2039,10 +2046,6 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
 TEST_F(CMLauncherTest, SetStatusOnStart)
 {
     using namespace std::chrono_literals;
-
-    Config cfg;
-
-    cfg.mNodesConnectionTimeout = 1 * Time::cMinutes;
 
     // Initialize stubs
     mStorageState.Init();
@@ -2091,9 +2094,9 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(cfg, mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
-                        mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider, mIdentProvider,
-                        ValidateGID, ValidateUID, mStorage)
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
                     .IsNone());
 
     InstanceStatusListenerStub instanceStatusListener;
@@ -2120,6 +2123,113 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
     // Stop launcher and unsubscribe listener
     ASSERT_TRUE(mLauncher.Stop().IsNone());
     ASSERT_TRUE(mLauncher.UnsubscribeListener(instanceStatusListener).IsNone());
+}
+
+TEST_F(CMLauncherTest, OverrideEnvVars)
+{
+    using namespace std::chrono_literals;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    // Service config
+    oci::ItemConfig itemConfig;
+    CreateItemConfig(itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, itemConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    // Mark node as connected so RunInstances doesn't hang in WaitAllNodesConnected
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    // 1) Run a single instance
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    // Wait until we have at least some statuses recorded
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(1, 2s));
+
+    // 2) Change override env vars with different TTLs
+    EnvVarsInstanceInfo envVarsInfo;
+    EnvVarInfo          envVar1, envVar2, envVar3;
+
+    envVarsInfo.mItemID.EmplaceValue(cService1);
+
+    // Env var 1: with expired TTL
+    static_cast<EnvVar&>(envVar1) = CreateEnvVar("OVERRIDE_VAR1", "override_value1");
+    envVar1.mTTL.SetValue(Time::Now().Add(-1 * Time::cHours));
+    envVarsInfo.mVariables.PushBack(envVar1);
+
+    // Env var 2: with non-expired TTL
+    static_cast<EnvVar&>(envVar2) = CreateEnvVar("OVERRIDE_VAR2", "override_value2");
+    envVar2.mTTL.SetValue(Time::Now().Add(1 * Time::cHours));
+    envVarsInfo.mVariables.PushBack(envVar2);
+
+    // Env var 3: without TTL
+    static_cast<EnvVar&>(envVar3) = CreateEnvVar("OVERRIDE_VAR3", "override_value3");
+    envVarsInfo.mVariables.PushBack(envVar3);
+
+    OverrideEnvVarsRequest overrideRequest;
+
+    overrideRequest.mItems.PushBack(envVarsInfo);
+
+    ASSERT_TRUE(mLauncher.OverrideEnvVars(overrideRequest).IsNone());
+
+    // 3) Wait for resend finish
+    // Expect one more notification caused by resend after override env vars update
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(2, 2s));
+
+    // 4) Check result - non-expired and no-TTL env vars are sent to instance runner
+    // (envVar1 with expired TTL should be filtered out)
+    auto expectedEnvVarsList
+        = {CreateEnvVar("OVERRIDE_VAR2", "override_value2"), CreateEnvVar("OVERRIDE_VAR3", "override_value3")};
+    auto stopInstance = CreateRunInfoForStoppedService(
+        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 0, 0, String(""), 0);
+    auto startInstance = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc,
+        5000, 5000, String("2"), 50, "", {}, SubjectTypeEnum::eGroup, "", ConvertToArray(expectedEnvVarsList));
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
+        = {{cNodeIDLocalSM, {{stopInstance}, {startInstance}}}};
+
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
 } // namespace aos::cm::launcher

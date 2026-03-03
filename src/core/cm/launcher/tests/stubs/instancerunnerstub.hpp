@@ -7,6 +7,7 @@
 #ifndef AOS_CM_LAUNCHER_STUBS_INSTANCERUNNERSTUB_HPP_
 #define AOS_CM_LAUNCHER_STUBS_INSTANCERUNNERSTUB_HPP_
 
+#include <cassert>
 #include <gmock/gmock.h>
 #include <map>
 #include <memory>
@@ -117,6 +118,8 @@ public:
                         status.mState                       = mInitialState;
                         status.mError                       = ErrorEnum::eNone;
 
+                        ConvertEnvVarsToStatuses(inst.mEnvVars, status.mEnvVarsStatuses);
+
                         mInstanceStatuses.push_back(status);
                     }
 
@@ -140,6 +143,19 @@ public:
     }
 
 private:
+    void ConvertEnvVarsToStatuses(const aos::EnvVarArray& envVars, aos::EnvVarStatusArray& envVarsStatuses) const
+    {
+        envVarsStatuses.Clear();
+
+        for (const auto& envVar : envVars) {
+            aos::EnvVarStatus envVarStatus;
+
+            envVarStatus.mName  = envVar.mName;
+            envVarStatus.mError = ErrorEnum::eNone;
+            assert(envVarsStatuses.PushBack(envVarStatus).IsNone());
+        }
+    }
+
     mutable std::mutex mMutex;
 
     std::map<std::string, NodeRunRequest> mNodeInstances {};

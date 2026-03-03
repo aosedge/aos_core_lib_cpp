@@ -18,6 +18,7 @@ public:
     void Init(const Array<InstanceInfo>& instances = Array<InstanceInfo>())
     {
         mInstanceInfo.clear();
+        mOverrideEnvVarsRequest->mItems.Clear();
 
         for (const auto& instance : instances) {
             mInstanceInfo[instance.mInstanceIdent] = instance;
