@@ -107,7 +107,8 @@ struct InstanceStatusData {
     bool operator==(const InstanceStatusData& rhs) const
     {
         return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mManifestDigest == rhs.mManifestDigest
-            && mStateChecksum == rhs.mStateChecksum && mState == rhs.mState && mError == rhs.mError;
+            && mStateChecksum == rhs.mStateChecksum && mEnvVarsStatuses == rhs.mEnvVarsStatuses && mState == rhs.mState
+            && mError == rhs.mError;
     }
 
     /**
