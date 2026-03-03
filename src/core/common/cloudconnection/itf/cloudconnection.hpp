@@ -53,6 +53,13 @@ public:
      * @param listener listener reference.
      */
     virtual Error UnsubscribeListener(ConnectionListenerItf& listener) = 0;
+
+    /**
+     * Checks if the connection is established.
+     *
+     * @return true if connected, false otherwise.
+     */
+    virtual bool IsConnected() const = 0;
 };
 
 } // namespace aos::cloudconnection
