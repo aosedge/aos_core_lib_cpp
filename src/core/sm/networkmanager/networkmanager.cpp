@@ -997,27 +997,31 @@ Error NetworkManager::RemoveNetworks(const Array<aos::NetworkParameters>& networ
     for (auto it = mNetworkProviders.begin(); it != mNetworkProviders.end();) {
         auto itNetwork = networks.FindIf([&](const auto& network) { return it->mFirst == network.mNetworkID; });
         if (itNetwork == networks.end()) {
+            // Save data before erase to avoid use-after-erase and minimize lock time
+            auto networkID   = it->mFirst;
+            auto networkInfo = it->mSecond;
+
+            it = mNetworkProviders.Erase(it);
+
             lock.Unlock();
 
-            if (auto errRemoveNetwork = RemoveNetwork(it->mFirst);
+            if (auto errRemoveNetwork = RemoveNetwork(networkID);
                 !errRemoveNetwork.IsNone() && !errRemoveNetwork.Is(ErrorEnum::eNotFound) && err.IsNone()) {
                 err = errRemoveNetwork;
             }
 
-            lock.Lock();
-
-            if (auto errClearNetwork = ClearNetwork(it->mSecond); !errClearNetwork.IsNone() && err.IsNone()) {
+            if (auto errClearNetwork = ClearNetwork(networkInfo); !errClearNetwork.IsNone() && err.IsNone()) {
                 err = errClearNetwork;
             }
 
-            it = mNetworkProviders.Erase(it);
+            LOG_DBG() << "Remove network from storage" << Log::Field("networkID", networkID);
 
-            LOG_DBG() << "Remove network from storage" << Log::Field("networkID", it->mFirst);
-
-            if (auto errRemoveStorage = mStorage->RemoveNetworkInfo(it->mFirst);
+            if (auto errRemoveStorage = mStorage->RemoveNetworkInfo(networkID);
                 !errRemoveStorage.IsNone() && err.IsNone()) {
                 err = errRemoveStorage;
             }
+
+            lock.Lock();
         } else {
             ++it;
         }
