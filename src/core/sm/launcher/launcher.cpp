@@ -82,6 +82,8 @@ Error Launcher::Start()
 
 Error Launcher::Stop()
 {
+    Error stopErr;
+
     {
         UniqueLock lock {mMutex};
 
@@ -94,8 +96,8 @@ Error Launcher::Stop()
         StopAllInstances();
 
         for (auto& it : mRuntimes) {
-            if (auto err = it.mFirst->Stop(); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
+            if (auto err = it.mFirst->Stop(); !err.IsNone() && stopErr.IsNone()) {
+                stopErr = AOS_ERROR_WRAP(err);
             }
         }
 
@@ -109,7 +111,7 @@ Error Launcher::Stop()
     mThread.Join();
     mRebootThread.Join();
 
-    return ErrorEnum::eNone;
+    return stopErr;
 }
 
 Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
