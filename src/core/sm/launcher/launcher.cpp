@@ -821,6 +821,8 @@ void Launcher::RemoveInstancesData(const Array<InstanceIdent>& instances)
         auto instanceData = FindInstanceData(instanceIdent);
         if (!instanceData) {
             LOG_ERR() << "Instance data not found, skip removing" << Log::Field("instance", instanceIdent);
+
+            continue;
         } else if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
             LOG_ERR() << "Instance is not inactive, skip removing" << Log::Field("instance", instanceIdent)
                       << Log::Field("state", instanceData->mStatus.mState);
