@@ -120,6 +120,7 @@ private:
     Error SetUpdateItemsStatus();
     Error SetInstancesStatus();
     Error SetUnitSubjects();
+    Error SetItemsForPreinstalledInstances();
     void  LogUnitStatus();
 
     iamclient::IdentProviderItf*           mIdentProvider {};

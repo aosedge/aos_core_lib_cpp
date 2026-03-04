@@ -103,7 +103,7 @@ void ChangeNodeInfo(UnitStatus& unitStatus, const String& nodeID, const String& 
 }
 
 void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const UpdateItemType& type,
-    const String& version, const ItemState& state = ItemStateEnum::eInstalled)
+    const String& version, const ItemState& state = ItemStateEnum::eInstalled, bool preinstalled = false)
 {
     if (!unitStatus.mUpdateItems.HasValue()) {
         unitStatus.mUpdateItems.EmplaceValue();
@@ -113,10 +113,11 @@ void CreateUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const 
 
     auto& itemStatus = unitStatus.mUpdateItems->Back();
 
-    itemStatus.mItemID  = itemID;
-    itemStatus.mType    = type;
-    itemStatus.mVersion = version;
-    itemStatus.mState   = state;
+    itemStatus.mItemID       = itemID;
+    itemStatus.mType         = type;
+    itemStatus.mVersion      = version;
+    itemStatus.mState        = state;
+    itemStatus.mPreinstalled = preinstalled;
 }
 
 void ChangeUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const String& version,
@@ -132,7 +133,7 @@ void ChangeUpdateItemStatus(UnitStatus& unitStatus, const String& itemID, const 
 
 void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const UpdateItemType& type,
     const String& subjectID, const String& version, size_t numInstances,
-    const InstanceState& state = InstanceStateEnum::eActive)
+    const InstanceState& state = InstanceStateEnum::eActive, bool preinstalled = false)
 {
 
     if (!unitStatus.mInstances.HasValue()) {
@@ -143,10 +144,11 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
 
     auto& instancesStatuses = unitStatus.mInstances->Back();
 
-    instancesStatuses.mItemID    = itemID;
-    instancesStatuses.mType      = type;
-    instancesStatuses.mSubjectID = subjectID;
-    instancesStatuses.mVersion   = version;
+    instancesStatuses.mItemID       = itemID;
+    instancesStatuses.mType         = type;
+    instancesStatuses.mSubjectID    = subjectID;
+    instancesStatuses.mVersion      = version;
+    instancesStatuses.mPreinstalled = preinstalled;
 
     for (size_t i = 0; i < numInstances; i++) {
         UnitInstanceStatus instanceStatus;
@@ -298,6 +300,7 @@ void ConvertInstancesStatuses(
             status.mRuntimeID      = instanceStatus.mRuntimeID;
             status.mManifestDigest = instanceStatus.mManifestDigest;
             status.mState          = instanceStatus.mState;
+            status.mPreinstalled   = unitInstanceStatus.mPreinstalled;
 
             instancesStatuses.PushBack(status);
         }
@@ -662,6 +665,41 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 
     ClearUnitStatus(*expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, SendUnitStatusWithPreinstalledItems)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Set update items
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled, true);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled, true);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item3", UpdateItemTypeEnum::eComponent, "1.0.0", ItemStateEnum::eInstalled, true);
+
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1,
+        InstanceStateEnum::eActive, true);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1,
+        InstanceStateEnum::eActive, true);
+    CreateInstancesStatuses(*expectedUnitStatus, "item3", UpdateItemTypeEnum::eComponent, "subject2", "1.0.0", 1,
+        InstanceStateEnum::eActive, true);
+
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 }
 
 TEST_F(UpdateManagerTest, ProcessEmptyDesiredStatus)
