@@ -124,6 +124,10 @@ Error UnitStatusHandler::SendFullUnitStatus()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = SetItemsForPreinstalledInstances(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     LogUnitStatus();
 
     if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
@@ -565,17 +569,56 @@ void UnitStatusHandler::StartTimer()
 
         LOG_INF() << "Send delta unit status";
 
+        if (auto err = SetItemsForPreinstalledInstances(); !err.IsNone()) {
+            LOG_ERR() << "Failed to set items for preinstalled instances" << Log::Field(err);
+        }
+
         LogUnitStatus();
 
         if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
             LOG_ERR() << "Failed to send unit status" << Log::Field(err);
-            return;
         }
 
         ClearUnitStatus();
 
         mTimerStarted = false;
     });
+}
+
+Error UnitStatusHandler::SetItemsForPreinstalledInstances()
+{
+    if (!mUnitStatus.mInstances.HasValue()) {
+        return ErrorEnum::eNone;
+    }
+
+    for (auto& instanceStatuses : *mUnitStatus.mInstances) {
+        if (!instanceStatuses.mPreinstalled) {
+            continue;
+        }
+
+        if (!mUnitStatus.mUpdateItems.HasValue()) {
+            mUnitStatus.mUpdateItems.EmplaceValue();
+        }
+
+        auto itemIt = mUnitStatus.mUpdateItems->FindIf([&instanceStatuses](const UpdateItemStatus& itemStatus) {
+            return itemStatus.mItemID == instanceStatuses.mItemID && itemStatus.mVersion == instanceStatuses.mVersion;
+        });
+        if (itemIt != mUnitStatus.mUpdateItems->end()) {
+            itemIt->mPreinstalled = true;
+        } else {
+            LOG_DBG() << "Add item for preinstalled instance" << Log::Field("itemID", instanceStatuses.mItemID)
+                      << Log::Field("type", instanceStatuses.mType) << Log::Field("version", instanceStatuses.mVersion);
+
+            if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(
+                    UpdateItemStatus {instanceStatuses.mItemID, instanceStatuses.mType, instanceStatuses.mVersion, true,
+                        ItemStateEnum::eInstalled, ErrorEnum::eNone});
+                !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::cm::updatemanager
