@@ -752,7 +752,7 @@ void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
     }
 
     for (const auto& installItem : *installItems) {
-        if (auto err = mLaunchPool.AddTask([this, &installItem](void*) {
+        if (auto err = mLaunchPool.AddTask([this, installItem](void*) {
                 if (auto err = mImageManager->InstallUpdateItem(installItem); !err.IsNone()) {
                     LOG_ERR() << "Install update item failed" << Log::Field("itemID", installItem.mID)
                               << Log::Field("version", installItem.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
