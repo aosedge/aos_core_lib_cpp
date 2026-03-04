@@ -169,7 +169,6 @@ private:
     Error StartInstance(InstanceData& instanceData);
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
-    Error StartStoredInstances();
     Error StartLaunch();
     void  FinishLaunch();
     bool  IsPreinstalledInstance(const InstanceStatus& status) const { return status.mPreinstalled; }
