@@ -10,13 +10,10 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/string.hpp>
 
-using namespace aos;
+#include <core/common/tests/utils/utils.hpp>
 
-template <typename T>
-Array<T> static ConvertToArray(const std::initializer_list<T>& list)
-{
-    return Array<T>(list.begin(), list.size());
-}
+using namespace aos;
+using namespace aos::tests::utils;
 
 TEST(MapTest, FindByKey)
 {
