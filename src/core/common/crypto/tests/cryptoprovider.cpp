@@ -8,6 +8,7 @@
 
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
 
 #if defined(WITH_MBEDTLS)
@@ -77,12 +78,6 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CryptoProviderTest);
 /***********************************************************************************************************************
  * Statics
  **********************************************************************************************************************/
-
-template <typename T>
-Array<T> ConvertToArray(std::vector<T>& src)
-{
-    return Array<T> {src.data(), src.size()};
-}
 
 RetWithError<x509::Certificate> CreateCertTemplate(const char* name, x509::ProviderItf& mCryptoProvider)
 {
@@ -179,7 +174,7 @@ TEST_P(CryptoProviderTest, DERToX509Certs)
     // Convert DER to aos x509 certificates
     x509::Certificate cert;
 
-    ASSERT_TRUE(mCryptoProvider->DERToX509Cert(ConvertToArray(derCert), cert).IsNone());
+    ASSERT_TRUE(mCryptoProvider->DERToX509Cert(tests::utils::ConvertToArray(derCert), cert).IsNone());
 
     ASSERT_TRUE(cert.mSubjectKeyId == cert.mAuthorityKeyId);
 

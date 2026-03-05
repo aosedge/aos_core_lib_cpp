@@ -575,12 +575,6 @@ EnvVar CreateEnvVar(const std::string& name, const std::string& value)
     return var;
 }
 
-template <typename T>
-Array<T> ConvertToArray(const std::initializer_list<T>& list)
-{
-    return Array<T>(list.begin(), list.size());
-}
-
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
@@ -2221,8 +2215,9 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
         = {CreateEnvVar("OVERRIDE_VAR2", "override_value2"), CreateEnvVar("OVERRIDE_VAR3", "override_value3")};
     auto stopInstance = CreateRunInfoForStoppedService(
         CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 0, 0, String(""), 0);
-    auto startInstance = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc,
-        5000, 5000, String("2"), 50, "", {}, SubjectTypeEnum::eGroup, "", ConvertToArray(expectedEnvVarsList));
+    auto startInstance
+        = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000,
+            String("2"), 50, "", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
         = {{cNodeIDLocalSM, {{stopInstance}, {startInstance}}}};
