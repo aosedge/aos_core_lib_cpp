@@ -171,7 +171,6 @@ private:
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     Error StartLaunch();
     void  FinishLaunch();
-    bool  IsPreinstalledInstance(const InstanceStatus& status) const { return status.mPreinstalled; }
     void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
          Array<UpdateItemInfo>& removeItems);
     void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
