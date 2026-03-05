@@ -55,7 +55,9 @@ conan_setup() {
     conan install ./conan/ --output-folder build --settings=build_type="$ARG_BUILD_TYPE" --build=missing
 }
 
-build_project() {
+cmake_configure() {
+    conan_setup
+
     print_next_step "Run cmake configure"
 
     cmake -S . -B build \
@@ -68,6 +70,10 @@ build_project() {
         -DWITH_COVERAGE=ON \
         -DWITH_MBEDTLS=ON \
         -DWITH_OPENSSL=ON
+}
+
+build_project() {
+    cmake_configure
 
     if [ "$ARG_CI_FLAG" == "true" ]; then
         print_next_step "Run build-wrapper and build (CI mode)"
@@ -118,7 +124,6 @@ build_target() {
         clean_build
     fi
 
-    conan_setup
     build_project
 }
 
@@ -141,6 +146,8 @@ run_coverage() {
 }
 
 run_lint() {
+    cmake_configure
+
     print_next_step "Run static analysis (cppcheck)"
 
     cppcheck --enable=all --inline-suppr --std=c++17 --error-exitcode=1 \
