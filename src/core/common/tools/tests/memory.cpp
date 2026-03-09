@@ -208,6 +208,41 @@ TEST(MemoryTest, DeferReleaseNoOpForNull)
     }
 }
 
+TEST(MemoryTest, UniquePtrDeallocAfterMove)
+{
+    int                               dummy = 0x42;
+    testing::MockFunction<void(int*)> deleter1;
+    testing::MockFunction<void(int*)> deleter2;
+
+    EXPECT_CALL(deleter1, Call(&dummy)).Times(1);
+    EXPECT_CALL(deleter2, Call(&dummy)).Times(1);
+
+    {
+        auto ptr1 = DeferRelease(&dummy, deleter1.AsStdFunction());
+        ptr1      = Move(DeferRelease(&dummy, deleter2.AsStdFunction()));
+    }
+}
+
+TEST(MemoryTest, UniquePtrDeallocAfterMoveDifferentTypes)
+{
+    struct Base { };
+    struct Derived : public Base { };
+
+    Base    base;
+    Derived derived;
+
+    testing::MockFunction<void(Base*)> deleter1;
+    testing::MockFunction<void(Base*)> deleter2;
+
+    EXPECT_CALL(deleter1, Call(&base)).Times(1);
+    EXPECT_CALL(deleter2, Call(&derived)).Times(1);
+
+    {
+        auto ptr1 = DeferRelease(&base, deleter1.AsStdFunction());
+        ptr1      = DeferRelease(&derived, deleter2.AsStdFunction());
+    }
+}
+
 TEST(MemoryTest, SharedPtrDerivedValueClass)
 {
     using namespace testing;

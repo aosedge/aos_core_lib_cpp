@@ -256,10 +256,10 @@ public:
      */
     UniquePtr& operator=(UniquePtr&& ptr)
     {
-        mObject  = ptr.mObject;
-        mDeleter = Move(ptr.mDeleter);
+        Reset();
 
-        ptr.Release();
+        mDeleter = Move(ptr.GetDeleter());
+        mObject  = ptr.Release();
 
         return *this;
     }
@@ -284,8 +284,10 @@ public:
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
     UniquePtr& operator=(UniquePtr<P, D>&& ptr)
     {
-        mObject  = ptr.Release();
+        Reset();
+
         mDeleter = Move(ptr.GetDeleter());
+        mObject  = ptr.Release();
 
         return *this;
     }
