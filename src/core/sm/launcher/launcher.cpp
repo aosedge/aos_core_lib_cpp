@@ -15,7 +15,8 @@ namespace aos::sm::launcher {
  **********************************************************************************************************************/
 
 Error Launcher::Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
-    StorageItf& storage)
+    StorageItf& storage, oci::OCISpecItf& ociSpec, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    cloudconnection::CloudConnectionItf& cloudConnection)
 {
     LOG_DBG() << "Init launcher";
 
@@ -25,9 +26,12 @@ Error Launcher::Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageMana
         }
     }
 
-    mImageManager = &imageManager;
-    mStorage      = &storage;
-    mSender       = &sender;
+    mImageManager     = &imageManager;
+    mStorage          = &storage;
+    mSender           = &sender;
+    mOCISpec          = &ociSpec;
+    mItemInfoProvider = &itemInfoProvider;
+    mCloudConnection  = &cloudConnection;
 
     return ErrorEnum::eNone;
 }
@@ -77,12 +81,24 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!mCloudConnection->IsConnected()) {
+        OnDisconnect();
+    }
+
     return ErrorEnum::eNone;
 }
 
 Error Launcher::Stop()
 {
     Error stopErr;
+
+    if (auto err = mCloudConnection->UnsubscribeListener(*this); !err.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
 
     {
         UniqueLock lock {mMutex};
@@ -110,6 +126,7 @@ Error Launcher::Stop()
 
     mThread.Join();
     mRebootThread.Join();
+    mOfflineTTLHandler.Stop();
 
     return stopErr;
 }
@@ -307,6 +324,26 @@ Error Launcher::GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const
  * Private
  **********************************************************************************************************************/
 
+void Launcher::OnConnect()
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Cloud connected event";
+
+    mOfflineTime.Reset();
+}
+
+void Launcher::OnDisconnect()
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Cloud disconnected event";
+
+    mOfflineTime = Time::Now();
+
+    StartTTLTimer();
+}
+
 void Launcher::RunRebootThread()
 {
     while (true) {
@@ -345,6 +382,139 @@ void Launcher::RunRebootThread()
     }
 }
 
+void Launcher::HandleOfflineTTLs()
+{
+    UniqueLock lock {mMutex};
+
+    LOG_DBG() << "Start offline TTL handler";
+
+    mCondVar.Wait(lock, [this]() { return !mIsRunning || !mLaunchInProgress; });
+
+    if (!mIsRunning || !mOfflineTime.HasValue()) {
+        return;
+    }
+
+    mLaunchInProgress = true;
+
+    StopExpiredInstances(lock);
+
+    mLaunchInProgress = false;
+    mCondVar.NotifyAll();
+
+    StartTTLTimer();
+}
+
+Optional<Duration> Launcher::GetMinOfflineTTL() const
+{
+    Optional<Duration> earliest;
+
+    for (const auto& instance : mInstances) {
+        if (!instance.mOfflineTTL
+            || (instance.mStatus.mState != InstanceStateEnum::eActive
+                && instance.mStatus.mState != InstanceStateEnum::eActivating)) {
+            continue;
+        }
+
+        if (!earliest.HasValue()) {
+            earliest = instance.mOfflineTTL;
+
+            continue;
+        }
+
+        earliest = Min(*earliest, instance.mOfflineTTL);
+    }
+
+    return earliest;
+}
+
+void Launcher::StartTTLTimer()
+{
+    if (!mOfflineTime.HasValue()) {
+        return;
+    }
+
+    auto earliestDeadline = GetMinOfflineTTL();
+    if (!earliestDeadline.HasValue()) {
+        return;
+    }
+
+    const auto deadline  = mOfflineTime->Add(*earliestDeadline);
+    const auto now       = Time::Now();
+    const auto remaining = deadline > now ? deadline.Sub(now) : Time::cMilliseconds;
+
+    if (auto err = mOfflineTTLHandler.Start(remaining, [this](void*) { HandleOfflineTTLs(); }); !err.IsNone()) {
+        LOG_ERR() << "Can't start offline TTL handler" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+}
+
+void Launcher::StopExpiredInstances(UniqueLock<Mutex>& lock)
+{
+    if (auto err = mOfflineTTLPool.Run(); !err.IsNone()) {
+        LOG_ERR() << "Can't start offline TTL thread pool" << Log::Field(AOS_ERROR_WRAP(err));
+        return;
+    }
+
+    for (auto& instance : mInstances) {
+        if ((instance.mStatus.mState != InstanceStateEnum::eActive
+                && instance.mStatus.mState != InstanceStateEnum::eActivating)
+            || !instance.mOfflineTTL || mOfflineTime->Add(instance.mOfflineTTL) > Time::Now()) {
+            continue;
+        }
+
+        auto* runtime = FindInstanceRuntime(instance.mStatus.mRuntimeID);
+        if (!runtime) {
+            LOG_ERR() << "Runtime not found for expired TTL instance" << Log::Field("instance", instance.mInfo);
+            continue;
+        }
+
+        if (auto err = mOfflineTTLPool.AddTask([runtime, &instance](void*) {
+                if (auto err = runtime->StopInstance(instance.mInfo, instance.mStatus); !err.IsNone()) {
+                    LOG_ERR() << "Failed to stop instance after offline TTL expired"
+                              << Log::Field("instance", instance.mInfo)
+                              << Log::Field("offlineTTL", instance.mOfflineTTL) << Log::Field(AOS_ERROR_WRAP(err));
+                }
+            });
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to schedule stop for expired TTL instance" << Log::Field("instance", instance.mInfo)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+
+    lock.Unlock();
+
+    if (auto err = mOfflineTTLPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Offline TTL thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mOfflineTTLPool.Shutdown(); !err.IsNone()) {
+        LOG_ERR() << "Offline TTL thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    lock.Lock();
+}
+
+void Launcher::SendNodeInstancesStatuses()
+{
+    LOG_INF() << "Send node instances statuses" << Log::Field("count", mInstances.Size());
+
+    auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+
+    for (const auto& instance : mInstances) {
+        LOG_INF() << "Node instance status" << Log::Field("instance", instance.mInfo)
+                  << Log::Field("runtimeID", instance.mInfo.mRuntimeID) << Log::Field("state", instance.mStatus.mState)
+                  << Log::Field(instance.mStatus.mError);
+
+        if (auto err = statuses->EmplaceBack(instance.mStatus); !err.IsNone()) {
+            LOG_ERR() << "Failed to add instance status to list" << Log::Field("instance", instance.mInfo)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+
+    if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to send node instances statuses" << Log::Field(err);
+    }
+}
+
 Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 {
     if (status.mType != UpdateItemTypeEnum::eComponent) {
@@ -352,7 +522,7 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
     }
 
     if (status.mState == InstanceStateEnum::eInactive) {
-        return RemoveInstanceData(status);
+        return mStorage->RemoveInstanceInfo(status);
     }
 
     if (mInstances.ContainsIf([&status](const auto& instance) {
@@ -381,28 +551,11 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     LOG_INF() << "Update instances" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
 
-    auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>* instances) {
+    auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>*) {
         LockGuard lock {mMutex};
 
         if (!mFirstStart) {
-            LOG_INF() << "Send node instances statuses" << Log::Field("count", instances->Size());
-
-            auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
-
-            for (const auto& instance : *instances) {
-                LOG_INF() << "Node instance status" << Log::Field("instance", instance.mInfo)
-                          << Log::Field("runtimeID", instance.mInfo.mRuntimeID)
-                          << Log::Field("state", instance.mStatus.mState) << Log::Field(instance.mStatus.mError);
-
-                if (auto err = statuses->EmplaceBack(instance.mStatus); !err.IsNone()) {
-                    LOG_ERR() << "Failed to add instance status to list" << Log::Field("instance", instance.mInfo)
-                              << Log::Field(AOS_ERROR_WRAP(err));
-                }
-            }
-
-            if (auto err = mSender->SendNodeInstancesStatuses(*statuses); !err.IsNone()) {
-                LOG_ERR() << "Failed to send node instances statuses" << Log::Field(err);
-            }
+            SendNodeInstancesStatuses();
 
             return;
         }
@@ -679,6 +832,37 @@ RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent) co
     return const_cast<Launcher*>(this)->FindInstanceRuntime(instanceIdent);
 }
 
+RetWithError<Duration> Launcher::GetOfflineTTL(const InstanceInfo& instanceInfo)
+{
+    auto path = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+
+    if (auto err = mItemInfoProvider->GetBlobPath(instanceInfo.mManifestDigest, *path); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+
+    if (auto err = mOCISpec->LoadImageManifest(*path, *manifest); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    if (!manifest->mItemConfig.HasValue()) {
+        return {0};
+    }
+
+    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mItemConfig->mDigest, *path); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    auto itemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+
+    if (auto err = mOCISpec->LoadItemConfig(*path, *itemConfig); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    return itemConfig->mOfflineTTL;
+}
+
 void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
     const Array<InstanceInfo>& startInstances, Array<UpdateItemInfo>& removeItems)
 {
@@ -779,7 +963,16 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
                   << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    if (auto err = mInstances.EmplaceBack(); !err.IsNone()) {
+    auto [offlineTTL, err] = GetOfflineTTL(instanceInfo);
+    if (!err.IsNone()) {
+        return {nullptr, AOS_ERROR_WRAP(err)};
+    }
+
+    LOG_DBG() << "Got offline TTL for instance" << Log::Field("instance", instanceInfo)
+              << Log::Field("offlineTTL", offlineTTL);
+
+    err = mInstances.EmplaceBack();
+    if (!err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
 
@@ -790,6 +983,7 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     itInstance->mStatus.mVersion                     = instanceInfo.mVersion;
     itInstance->mStatus.mRuntimeID                   = instanceInfo.mRuntimeID;
     itInstance->mStatus.mState                       = InstanceStateEnum::eInactive;
+    itInstance->mOfflineTTL                          = offlineTTL;
 
     return itInstance;
 }

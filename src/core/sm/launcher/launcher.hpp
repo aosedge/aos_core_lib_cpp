@@ -6,8 +6,10 @@
 #ifndef AOS_CORE_SM_LAUNCHER_LAUNCHER_HPP_
 #define AOS_CORE_SM_LAUNCHER_LAUNCHER_HPP_
 
+#include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/instanceinfoprovider.hpp>
+#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/allocator.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/thread.hpp>
@@ -33,7 +35,8 @@ namespace aos::sm::launcher {
 class Launcher : public LauncherItf,
                  public InstanceStatusReceiverItf,
                  public RuntimeInfoProviderItf,
-                 public monitoring::InstanceInfoProviderItf {
+                 public monitoring::InstanceInfoProviderItf,
+                 private cloudconnection::ConnectionListenerItf {
 public:
     /**
      * Initializes launcher.
@@ -42,11 +45,15 @@ public:
      * @param imageManager image manager.
      * @param statusSender sender.
      * @param storage storage.
+     * @param ociSpec OCI spec.
+     * @param itemInfoProvider item info provider.
+     * @param cloudConnection cloud connection.
      *
      * @return Error.
      */
     Error Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
-        StorageItf& storage);
+        StorageItf& storage, oci::OCISpecItf& ociSpec, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+        cloudconnection::CloudConnectionItf& cloudConnection);
 
     /**
      * Starts launcher.
@@ -144,6 +151,7 @@ private:
     struct InstanceData {
         InstanceInfo   mInfo;
         InstanceStatus mStatus;
+        Duration       mOfflineTTL;
     };
 
     struct UpdateItemInfo {
@@ -153,13 +161,17 @@ private:
 
     static constexpr auto cThreadTaskSize    = 512;
     static constexpr auto cMaxNumSubscribers = 4;
-    static constexpr auto cAllocatorSize     = sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
-        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray)
+    static constexpr auto cAllocatorSize     = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
+        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray) + sizeof(oci::ImageManifest)
+        + sizeof(oci::ItemConfig) + sizeof(StaticString<cFilePathLen>)
         + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
             sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
                 + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
 
+    void  OnConnect() override;
+    void  OnDisconnect() override;
     void  RunRebootThread();
+    void  HandleOfflineTTLs();
     Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances);
@@ -180,18 +192,25 @@ private:
     void                        RemoveInstancesData(const Array<InstanceIdent>& instances);
     void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
 
-    InstanceData* FindInstanceData(const InstanceIdent& instanceIdent);
-    InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
-    RuntimeItf*   FindInstanceRuntime(const String& runtimeID);
-    RuntimeItf*   FindInstanceRuntime(const String& runtimeID) const;
-    RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent);
-    RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
+    InstanceData*          FindInstanceData(const InstanceIdent& instanceIdent);
+    InstanceData*          FindInstanceData(const InstanceIdent& instanceIdent) const;
+    RuntimeItf*            FindInstanceRuntime(const String& runtimeID);
+    RuntimeItf*            FindInstanceRuntime(const String& runtimeID) const;
+    RuntimeItf*            FindInstanceRuntime(const InstanceIdent& instanceIdent);
+    RuntimeItf*            FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
+    RetWithError<Duration> GetOfflineTTL(const InstanceInfo& instanceInfo);
+    Optional<Duration>     GetMinOfflineTTL() const;
+    void                   StartTTLTimer();
+    void                   StopExpiredInstances(UniqueLock<Mutex>& lock);
+    void                   SendNodeInstancesStatuses();
 
     mutable StaticAllocator<cAllocatorSize>                               mAllocator;
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
     Thread<cThreadTaskSize>                                               mThread;
     Thread<cThreadTaskSize>                                               mRebootThread;
+    Timer                                                                 mOfflineTTLHandler;
     ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mLaunchPool;
+    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mOfflineTTLPool;
     mutable Mutex                                                         mMutex;
     Mutex                                                                 mSubscribersMutex;
     mutable ConditionalVariable                                           mCondVar;
@@ -201,9 +220,13 @@ private:
     imagemanager::ImageManagerItf*                                        mImageManager {};
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};
+    oci::OCISpecItf*                                                      mOCISpec {};
+    imagemanager::ItemInfoProviderItf*                                    mItemInfoProvider {};
+    cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};
+    Optional<Time>                                                        mOfflineTime {};
 };
 
 } // namespace aos::sm::launcher
