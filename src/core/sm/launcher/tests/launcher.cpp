@@ -11,9 +11,12 @@
 #include <gtest/gtest.h>
 
 #include <core/common/monitoring/monitoring.hpp>
+#include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/mocks/instancestatusprovidermock.hpp>
+#include <core/common/tests/mocks/ocispecmock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/sm/imagemanager/tests/mocks/iteminfoprovidermock.hpp>
 #include <core/sm/launcher/itf/rebooter.hpp>
 #include <core/sm/launcher/itf/updatechecker.hpp>
 #include <core/sm/launcher/launcher.hpp>
@@ -159,6 +162,25 @@ protected:
         EXPECT_CALL(mRuntime1, Stop).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mRuntime1, GetRuntimeInfo)
             .WillRepeatedly(DoAll(SetArgReferee<0>(CreateRuntimeInfo("runtime1")), Return(ErrorEnum::eNone)));
+
+        mImageManifest.mItemConfig.EmplaceValue();
+
+        EXPECT_CALL(mItemInfoProvider, GetBlobPath).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mOCISpec, LoadImageManifest)
+            .WillRepeatedly(DoAll(SetArgReferee<1>(mImageManifest), Return(ErrorEnum::eNone)));
+        EXPECT_CALL(mOCISpec, LoadImageConfig)
+            .WillRepeatedly(DoAll(SetArgReferee<1>(mImageConfig), Return(ErrorEnum::eNone)));
+        EXPECT_CALL(mOCISpec, LoadItemConfig)
+            .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+
+        EXPECT_CALL(mCloudConnection, SubscribeListener)
+            .WillRepeatedly(Invoke([&](cloudconnection::ConnectionListenerItf& listener) {
+                mCloudConnectionListener = &listener;
+
+                return ErrorEnum::eNone;
+            }));
+        EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mCloudConnection, IsConnected).WillRepeatedly(Return(true));
     }
 
     StaticArray<RuntimeItf*, cMaxNumNodeRuntimes> GetRuntimesArray()
@@ -173,13 +195,21 @@ protected:
 
     Launcher mLauncher;
 
-    StrictMock<RuntimeMock>                  mRuntime0;
-    StrictMock<RuntimeMock>                  mRuntime1;
-    NiceMock<imagemanager::ImageManagerMock> mImageManager;
-    StorageStub                              mStorage;
-    SenderStub                               mSender;
-    instancestatusprovider::ListenerMock     mStatusListener;
-    InstanceStatusArray                      mReceivedStatuses;
+    StrictMock<RuntimeMock>                          mRuntime0;
+    StrictMock<RuntimeMock>                          mRuntime1;
+    NiceMock<imagemanager::ImageManagerMock>         mImageManager;
+    StorageStub                                      mStorage;
+    SenderStub                                       mSender;
+    StrictMock<oci::OCISpecMock>                     mOCISpec;
+    StrictMock<imagemanager::ItemInfoProviderMock>   mItemInfoProvider;
+    StrictMock<cloudconnection::CloudConnectionMock> mCloudConnection;
+    instancestatusprovider::ListenerMock             mStatusListener;
+    InstanceStatusArray                              mReceivedStatuses;
+    cloudconnection::ConnectionListenerItf*          mCloudConnectionListener {};
+
+    oci::ImageManifest mImageManifest;
+    oci::ImageConfig   mImageConfig;
+    oci::ItemConfig    mItemConfig;
 };
 
 /***********************************************************************************************************************
@@ -188,7 +218,8 @@ protected:
 
 TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -229,7 +260,8 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
         return ErrorEnum::eNone;
     }));
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -277,7 +309,8 @@ TEST_F(LauncherTest, DoNotSendUpdateInstancesStatusesBeforeModuleStart)
         return ErrorEnum::eNone;
     }));
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -313,7 +346,8 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -349,6 +383,82 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(LauncherTest, StopInstancesWithExpiredOfflineTTL)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+    };
+    const std::vector cExpectedStatuses = {
+        CreateInstanceStatus(cStoredInfos[0], InstanceStateEnum::eActive),
+        CreateInstanceStatus(cStoredInfos[1], InstanceStateEnum::eActive),
+    };
+
+    mItemConfig.mOfflineTTL = Time::cMilliseconds;
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+
+    mStorage.Init(cStoredInfos);
+
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mRuntime1, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
+
+    for (size_t i = 0; i < mReceivedStatuses.Size(); ++i) {
+        EXPECT_EQ(mReceivedStatuses[i], cExpectedStatuses[i]);
+    }
+
+    std::promise<void> stop0promise;
+    std::promise<void> stop1promise;
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            stop0promise.set_value();
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[1]), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            stop1promise.set_value();
+
+            return ErrorEnum::eNone;
+        }));
+
+    mCloudConnectionListener->OnDisconnect();
+
+    ASSERT_TRUE(stop0promise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+        << "Runtime0 StopInstance was not called";
+    ASSERT_TRUE(stop1promise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+        << "Runtime1 StopInstance was not called";
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(LauncherTest, UpdateInstances)
 {
     const std::vector cStoredInfos = {
@@ -363,7 +473,8 @@ TEST_F(LauncherTest, UpdateInstances)
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -472,7 +583,8 @@ TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
 
     mStorage.Init(cStoredInfos);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
@@ -545,7 +657,8 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
     const Array<InstanceInfo> cStartFirstInstance(&cStartInstanceInfos.front(), 1);
     const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -590,7 +703,8 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 
 TEST_F(LauncherTest, GetInstancesStatusesReturnsEmptyArray)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     auto storedData = std::make_unique<InstanceInfoArray>();
@@ -616,7 +730,8 @@ TEST_F(LauncherTest, GetInstancesStatuses)
     };
     const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance(cStartInstanceInfos[0], _))
@@ -677,7 +792,8 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
 
     const Array<InstanceInfo> cStartInstances(&startInstance, 1);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance(startInstance, _))
@@ -734,7 +850,8 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
     const Array<InstanceInfo> cStartInstances(&cInstanceInfo, 1);
     const auto                cMonitoringData = CreateMonitoringData(cInstanceInfo);
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -780,7 +897,8 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
 
 TEST_F(LauncherTest, GetRuntimesInfos)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.Start();
@@ -812,7 +930,8 @@ TEST_F(LauncherTest, OnInstanceStatusChanged)
 
     mStorage.Init({cInstanceInfo});
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.SubscribeListener(mStatusListener);
@@ -857,7 +976,8 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
 
     mStorage.Init({cInstanceInfo});
 
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& instance, InstanceStatus& status) {
@@ -909,7 +1029,8 @@ TEST_F(LauncherTest, RebootRuntimeOnStartInstance)
 
 TEST_F(LauncherTest, RebootRuntime)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.SubscribeListener(mStatusListener);
@@ -946,7 +1067,8 @@ TEST_F(LauncherTest, RebootRuntime)
 
 TEST_F(LauncherTest, OnInstancesStatusesReceived)
 {
-    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage);
+    auto err = mLauncher.Init(
+        GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mLauncher.SubscribeListener(mStatusListener);
