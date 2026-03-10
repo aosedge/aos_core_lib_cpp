@@ -8,49 +8,15 @@
 #define AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
-#include <core/common/types/desiredstatus.hpp>
 #include <core/common/types/instance.hpp>
+
+#include <core/cm/launcher/itf/types.hpp>
 
 namespace aos::cm::launcher {
 
-/** @addtogroup cm Communication Manager
+/** @addtogroup CM Launcher
  *  @{
  */
-
-/*
- * Instance info.
- */
-struct RunInstanceRequest {
-    StaticString<cIDLen>      mItemID;
-    UpdateItemType            mUpdateItemType;
-    StaticString<cVersionLen> mVersion;
-    StaticString<cIDLen>      mOwnerID;
-    SubjectInfo               mSubjectInfo;
-    size_t                    mPriority {};
-    size_t                    mNumInstances {};
-    LabelsArray               mLabels;
-
-    /**
-     * Compares instance info.
-     *
-     * @param other instance info to compare.
-     * @return bool.
-     */
-    bool operator==(const RunInstanceRequest& other) const
-    {
-        return mItemID == other.mItemID && mUpdateItemType == other.mUpdateItemType && mVersion == other.mVersion
-            && mOwnerID == other.mOwnerID && mSubjectInfo == other.mSubjectInfo && mPriority == other.mPriority
-            && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
-    }
-
-    /**
-     * Compares instance info.
-     *
-     * @param other instance info to compare.
-     * @return bool.
-     */
-    bool operator!=(const RunInstanceRequest& other) const { return !operator==(other); }
-};
 
 /**
  * Instance launcher interface.

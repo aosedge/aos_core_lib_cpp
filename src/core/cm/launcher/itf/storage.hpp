@@ -7,140 +7,15 @@
 #ifndef AOS_CM_LAUNCHER_STORAGE_HPP_
 #define AOS_CM_LAUNCHER_STORAGE_HPP_
 
-#include <core/common/ocispec/itf/imagespec.hpp>
-#include <core/common/types/common.hpp>
-#include <core/common/types/desiredstatus.hpp>
 #include <core/common/types/envvars.hpp>
+
+#include <core/cm/launcher/itf/types.hpp>
 
 namespace aos::cm::launcher {
 
-/** @addtogroup CM Storage
+/** @addtogroup CM Launcher
  *  @{
  */
-
-/**
- * Supported hash functions.
- */
-class InstanceStateType {
-public:
-    enum class Enum { eActive, eDisabled, eCached };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sInstanceStateStrings[] = {
-            "active",
-            "disabled",
-            "cached",
-        };
-        return Array<const char* const>(sInstanceStateStrings, ArraySize(sInstanceStateStrings));
-    };
-};
-
-using InstanceStateEnum = InstanceStateType::Enum;
-using InstanceState     = EnumStringer<InstanceStateType>;
-
-/**
- * Persisted instance information.
- */
-struct InstanceInfo {
-    /**
-     * Instance identifier.
-     */
-    InstanceIdent mInstanceIdent;
-
-    /**
-     * Manifest digest.
-     */
-    StaticString<oci::cDigestLen> mManifestDigest;
-
-    /**
-     * ID of the node hosting the instance.
-     */
-    StaticString<cIDLen> mNodeID;
-
-    /**
-     * ID of the node that hosted the instance earlier.
-     */
-    StaticString<cIDLen> mPrevNodeID;
-
-    /**
-     * Runtime identifier.
-     */
-    StaticString<cIDLen> mRuntimeID;
-
-    /**
-     * User ID.
-     */
-    uid_t mUID {};
-
-    /**
-     * Group ID.
-     */
-    gid_t mGID {};
-
-    /**
-     * Timestamp.
-     */
-    Time mTimestamp;
-
-    /**
-     * Instance state.
-     */
-    InstanceState mState {};
-
-    /**
-     * Indicates whether instance uses unit subject.
-     */
-    bool mIsUnitSubject {};
-
-    /**
-     * Instance version.
-     */
-    StaticString<cVersionLen> mVersion;
-
-    /**
-     * Owner ID.
-     */
-    StaticString<cIDLen> mOwnerID;
-
-    /**
-     * Subject type.
-     */
-    SubjectType mSubjectType;
-
-    /**
-     * Labels.
-     */
-    LabelsArray mLabels;
-
-    /**
-     * Instance priority.
-     */
-    size_t mPriority {};
-
-    /**
-     * Compares instance info.
-     *
-     * @param other instance info to compare with.
-     * @return bool.
-     */
-    bool operator==(const InstanceInfo& rhs) const
-    {
-        return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
-            && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
-            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
-            && mVersion == rhs.mVersion && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType
-            && mLabels == rhs.mLabels && mPriority == rhs.mPriority;
-    }
-
-    /**
-     * Compares instance info.
-     *
-     * @param rhs instance info to compare with.
-     * @return bool.
-     */
-    bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
-};
 
 /**
  * Interface for service instance storage.
