@@ -34,13 +34,13 @@ TEST(CommonTest, Types)
 
     // InstanceInfo comparison
     EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc", "",
-                    {}, 2, 3, 4, "state", "storage", {}, {}, {}})
+                    {}, 2, 3, 4, "state", "storage", {}, {}, {}, {}, ""})
         == (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc", "", {},
-            2, 3, 4, "state", "storage", {}, {}, {}}));
+            2, 3, 4, "state", "storage", {}, {}, {}, {}, ""}));
     EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc",
-                     "", {}, 2, 3, 4, "state", "storage", {}, {}, {}})
+                     "", {}, 2, 3, 4, "state", "storage", {}, {}, {}, {}, ""})
         != (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc", "", {},
-            2, 3, 4, "state", "storage", {}, {}, {}}));
+            2, 3, 4, "state", "storage", {}, {}, {}, {}, ""}));
 
     // InstanceStatus comparison
     EXPECT_TRUE((InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc",

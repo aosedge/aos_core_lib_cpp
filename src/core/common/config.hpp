@@ -597,6 +597,20 @@
 #endif
 
 /**
+ * Max number of runtime dependencies.
+ */
+#ifndef AOS_CONFIG_TYPES_MAX_NUM_RUNTIME_DEPS
+#define AOS_CONFIG_TYPES_MAX_NUM_RUNTIME_DEPS 16
+#endif
+
+/**
+ * Unit state dependencies len.
+ */
+#ifndef AOS_CONFIG_TYPES_UNIT_STATE_DEPS_LEN
+#define AOS_CONFIG_TYPES_UNIT_STATE_DEPS_LEN 256
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS
