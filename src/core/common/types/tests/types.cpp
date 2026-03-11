@@ -44,13 +44,13 @@ TEST(CommonTest, Types)
 
     // InstanceStatus comparison
     EXPECT_TRUE((InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc",
-                    "image0", {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
+                    "image0", {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"})
         == (InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc", "image0",
-            {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"}));
+            {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"}));
     EXPECT_FALSE((InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc",
-                     "image0", {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"})
+                     "image0", {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"})
         != (InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc", "image0",
-            {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"}));
+            {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"}));
 }
 
 TEST(CommonTest, IsMainNodeReturnsFalseOnEmptyAttrs)

@@ -282,6 +282,9 @@ void Monitoring::HandleInstanceStatuses(const Array<InstanceStatus>& statuses)
         case InstanceStateEnum::eFailed:
             StopWatchingInstance(status);
             break;
+
+        default:
+            break;
         }
     }
 }
