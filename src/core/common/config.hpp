@@ -611,6 +611,13 @@
 #endif
 
 /**
+ * Info len.
+ */
+#ifndef AOS_CONFIG_TYPES_INFO_LEN
+#define AOS_CONFIG_TYPES_INFO_LEN 256
+#endif
+
+/**
  * Max number of outdated items.
  */
 #ifndef AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS

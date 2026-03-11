@@ -270,6 +270,11 @@ constexpr auto cMaxNumRuntimeDeps = AOS_CONFIG_TYPES_MAX_NUM_RUNTIME_DEPS;
 constexpr auto cUnitStateDepsLen = AOS_CONFIG_TYPES_UNIT_STATE_DEPS_LEN;
 
 /**
+ * Info len.
+ */
+constexpr auto cInfoLen = AOS_CONFIG_TYPES_INFO_LEN;
+
+/**
  * System info.
  */
 struct SystemInfo {
@@ -421,11 +426,25 @@ using ItemState     = EnumStringer<ItemStateType>;
  */
 class InstanceStateType {
 public:
-    enum class Enum { eActivating, eActive, eInactive, eFailed };
+    enum class Enum {
+        eScheduled,
+        eDependency,
+        eActivating,
+        eActive,
+        eInactive,
+        eFailed,
+    };
 
     static const Array<const char* const> GetStrings()
     {
-        static const char* const sStrings[] = {"activating", "active", "inactive", "failed"};
+        static const char* const sStrings[] = {
+            "scheduled",
+            "dependency",
+            "activating",
+            "active",
+            "inactive",
+            "failed",
+        };
 
         return Array<const char* const>(sStrings, ArraySize(sStrings));
     };
