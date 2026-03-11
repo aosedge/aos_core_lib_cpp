@@ -129,6 +129,8 @@ struct ItemConfig {
     StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
     Optional<AlertRules>                                                           mAlertRules;
+    StaticArray<RuntimeDependency, cMaxNumRuntimeDeps>                             mRuntimesDeps;
+    StaticString<cUnitStateDepsLen>                                                mUnitStateDeps;
 
     /**
      * Compares item config.
