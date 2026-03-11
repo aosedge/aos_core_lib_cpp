@@ -99,6 +99,7 @@ struct InstanceStatusData {
     StaticArray<uint8_t, crypto::cSHA256Size> mStateChecksum;
     EnvVarStatusArray                         mEnvVarsStatuses;
     InstanceState                             mState;
+    StaticString<cInfoLen>                    mInfo;
     Error                                     mError;
 
     /**
@@ -111,7 +112,7 @@ struct InstanceStatusData {
     {
         return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mManifestDigest == rhs.mManifestDigest
             && mStateChecksum == rhs.mStateChecksum && mEnvVarsStatuses == rhs.mEnvVarsStatuses && mState == rhs.mState
-            && mError == rhs.mError;
+            && mInfo == rhs.mInfo && mError == rhs.mError;
     }
 
     /**
