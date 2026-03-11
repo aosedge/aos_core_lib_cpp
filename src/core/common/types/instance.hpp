@@ -20,19 +20,21 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
-    StaticString<cVersionLen>           mVersion;
-    StaticString<oci::cDigestLen>       mManifestDigest;
-    StaticString<cIDLen>                mRuntimeID;
-    StaticString<cIDLen>                mOwnerID;
-    SubjectType                         mSubjectType;
-    uid_t                               mUID {};
-    gid_t                               mGID {};
-    uint64_t                            mPriority {};
-    StaticString<cFilePathLen>          mStoragePath;
-    StaticString<cFilePathLen>          mStatePath;
-    EnvVarArray                         mEnvVars;
-    Optional<InstanceNetworkParameters> mNetworkParameters;
-    Optional<InstanceMonitoringParams>  mMonitoringParams;
+    StaticString<cVersionLen>                          mVersion;
+    StaticString<oci::cDigestLen>                      mManifestDigest;
+    StaticString<cIDLen>                               mRuntimeID;
+    StaticString<cIDLen>                               mOwnerID;
+    SubjectType                                        mSubjectType;
+    uid_t                                              mUID {};
+    gid_t                                              mGID {};
+    uint64_t                                           mPriority {};
+    StaticString<cFilePathLen>                         mStoragePath;
+    StaticString<cFilePathLen>                         mStatePath;
+    EnvVarArray                                        mEnvVars;
+    Optional<InstanceNetworkParameters>                mNetworkParameters;
+    Optional<InstanceMonitoringParams>                 mMonitoringParams;
+    StaticArray<RuntimeDependency, cMaxNumRuntimeDeps> mRuntimeDeps;
+    StaticString<cUnitStateDepsLen>                    mUnitStateDeps;
 
     /**
      * Compares instance info data.
@@ -46,7 +48,8 @@ struct InstanceInfoData {
             && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType && mUID == rhs.mUID && mGID == rhs.mGID
             && mPriority == rhs.mPriority && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
             && mEnvVars == rhs.mEnvVars && mNetworkParameters == rhs.mNetworkParameters
-            && mMonitoringParams == rhs.mMonitoringParams;
+            && mMonitoringParams == rhs.mMonitoringParams && mRuntimeDeps == rhs.mRuntimeDeps
+            && mUnitStateDeps == rhs.mUnitStateDeps;
     }
 
     /**
