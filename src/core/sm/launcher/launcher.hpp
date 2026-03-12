@@ -70,14 +70,12 @@ public:
     Error Stop();
 
     /**
-     * Update running instances.
+     * Runs instances.
      *
-     * @param stopInstances instances to stop.
-     * @param startInstances instances to start.
+     * @param instances instances to run.
      * @return Error.
      */
-    Error UpdateInstances(
-        const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances) override;
+    Error RunInstances(const Array<InstanceInfo>& instances) override;
 
     /**
      * Receives instances statuses.
@@ -173,7 +171,9 @@ private:
     void  RunRebootThread();
     void  HandleOfflineTTLs();
     Error HandleComponentStatus(const aos::InstanceStatus& status);
-    void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
+    void  SortStartInstances();
+    void  RunInstancesImpl();
+    Error SetStopInstances();
     void  StopInstances(const Array<InstanceIdent>& stopInstances);
     Error StopInstance(InstanceData& instanceData);
     void  StopAllInstances();
@@ -227,6 +227,8 @@ private:
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};
     Optional<Time>                                                        mOfflineTime {};
+    StaticArray<InstanceIdent, cMaxNumInstances>                          mStopInstances;
+    InstanceInfoArray                                                     mStartInstances;
 };
 
 } // namespace aos::sm::launcher

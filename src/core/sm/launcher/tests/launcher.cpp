@@ -287,7 +287,7 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(LauncherTest, DoNotSendUpdateInstancesStatusesBeforeModuleStart)
+TEST_F(LauncherTest, DoNotSendRunInstancesStatusesBeforeModuleStart)
 {
     const std::vector cRuntime0Components = {
         CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
@@ -467,7 +467,7 @@ TEST_F(LauncherTest, StopInstancesWithExpiredOfflineTTL)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(LauncherTest, UpdateInstances)
+TEST_F(LauncherTest, RunInstances)
 {
     const std::vector cStoredInfos = {
         CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
@@ -476,8 +476,7 @@ TEST_F(LauncherTest, UpdateInstances)
         CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"),
         CreateInstanceInfo("item2", 2, "1.0.0", "runtime1"),
     };
-    const Array<InstanceInfo>  cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
-    const Array<InstanceIdent> cStopInstances(&static_cast<const InstanceIdent&>(cStoredInfos.front()), 1);
+    const Array<InstanceInfo> cStartInstances(&cStartInstanceInfos.front(), cStartInstanceInfos.size());
 
     mStorage.Init(cStoredInfos);
 
@@ -538,7 +537,7 @@ TEST_F(LauncherTest, UpdateInstances)
             return ErrorEnum::eNone;
         }));
 
-    err = mLauncher.UpdateInstances(cStopInstances, cStartInstances);
+    err = mLauncher.RunInstances(cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
@@ -575,7 +574,7 @@ TEST_F(LauncherTest, UpdateInstances)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
+TEST_F(LauncherTest, RunInstancesRestartsInstancesWithModifiedParams)
 {
     const std::vector cStoredInfos = {
         CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
@@ -625,7 +624,7 @@ TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
         return ErrorEnum::eNone;
     }));
 
-    err = mLauncher.UpdateInstances({}, cStartInstances);
+    err = mLauncher.RunInstances(cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
@@ -654,7 +653,7 @@ TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
+TEST_F(LauncherTest, ParallelRunInstancesDoesNotInterfere)
 {
     const std::vector cStartInstanceInfos = {
         CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
@@ -686,10 +685,10 @@ TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
             return ErrorEnum::eNone;
         }));
 
-    err = mLauncher.UpdateInstances({}, cStartFirstInstance);
+    err = mLauncher.RunInstances(cStartFirstInstance);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mLauncher.UpdateInstances({}, cStartInstances);
+    err = mLauncher.RunInstances(cStartInstances);
     ASSERT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
 
     launchPromise.set_value();
@@ -760,7 +759,7 @@ TEST_F(LauncherTest, GetInstancesStatuses)
     err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mLauncher.UpdateInstances({}, cStartInstances);
+    err = mLauncher.RunInstances(cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
@@ -817,7 +816,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
     err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mLauncher.UpdateInstances({}, cStartInstances);
+    err = mLauncher.RunInstances(cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
@@ -873,7 +872,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
             return ErrorEnum::eNone;
         }));
 
-    err = mLauncher.UpdateInstances({}, cStartInstances);
+    err = mLauncher.RunInstances(cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);

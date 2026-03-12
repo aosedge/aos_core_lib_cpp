@@ -19,8 +19,7 @@ namespace aos::sm::launcher {
  */
 class LauncherMock : public LauncherItf {
 public:
-    MOCK_METHOD(Error, UpdateInstances,
-        (const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances), (override));
+    MOCK_METHOD(Error, RunInstances, (const Array<InstanceInfo>& instances), (override));
 };
 
 } // namespace aos::sm::launcher
