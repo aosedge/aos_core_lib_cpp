@@ -77,7 +77,7 @@ Error Launcher::Start()
 
     lock.Unlock();
 
-    if (auto err = UpdateInstances({}, *storedInstances); !err.IsNone()) {
+    if (auto err = RunInstances(*storedInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -131,8 +131,10 @@ Error Launcher::Stop()
     return stopErr;
 }
 
-Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
+Error Launcher::RunInstances(const Array<InstanceInfo>& instances)
 {
+    LOG_DBG() << "Run instances" << Log::Field("count", instances.Size());
+
     if (auto err = StartLaunch(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -140,16 +142,32 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     // Wait in case previous request is not yet finished
     mThread.Join();
 
-    auto stop  = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(&mAllocator, stopInstances);
-    auto start = MakeShared<InstanceInfoArray>(&mAllocator, startInstances);
+    mStopInstances.Clear();
+    mStartInstances.Clear();
 
-    if (auto err = mThread.Run([this, stop, start](void*) {
-            UpdateInstancesImpl(*stop, *start);
+    auto err = mStartInstances.Assign(instances);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    SortStartInstances();
+
+    auto clear = DeferRelease(&err, [this](const Error* err) {
+        if (!err->IsNone()) {
             FinishLaunch();
-        });
-        !err.IsNone()) {
-        FinishLaunch();
+        }
+    });
 
+    err = SetStopInstances();
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = mThread.Run([this](void*) {
+        RunInstancesImpl();
+        FinishLaunch();
+    });
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -546,10 +564,27 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
     return ErrorEnum::eNone;
 }
 
-void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
+void Launcher::SortStartInstances()
 {
-    LOG_INF() << "Update instances" << Log::Field("stopCount", stopInstances.Size())
-              << Log::Field("startCount", startInstances.Size());
+    auto sortTmpValue = MakeUnique<InstanceInfo>(&mAllocator);
+
+    // Sort instances by priority and instance ID to have deterministic order
+    // of start/stop in case of same priority.
+    mStartInstances.Sort(
+        [](const InstanceInfo& a, const InstanceInfo& b) {
+            if (a.mPriority != b.mPriority) {
+                return a.mPriority > b.mPriority;
+            }
+
+            return static_cast<const InstanceIdent&>(a) < static_cast<const InstanceIdent&>(b);
+        },
+        *sortTmpValue);
+}
+
+void Launcher::RunInstancesImpl()
+{
+    LOG_INF() << "Update instances" << Log::Field("stopCount", mStopInstances.Size())
+              << Log::Field("startCount", mStartInstances.Size());
 
     auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>*) {
         LockGuard lock {mMutex};
@@ -569,34 +604,30 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         return;
     }
 
-    if (auto err = AppendInstancesWithModifiedParams(startInstances, stopInstances); !err.IsNone()) {
-        LOG_ERR() << "Failed to append instances with modified params to stop list" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
     auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
 
     if (!mFirstStart) {
-        GetRemoveUpdateItems(stopInstances, startInstances, *removeItems);
+        GetRemoveUpdateItems(mStopInstances, mStartInstances, *removeItems);
     }
 
-    StopInstances(stopInstances);
+    StopInstances(mStopInstances);
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    RemoveInstancesData(stopInstances);
+    RemoveInstancesData(mStopInstances);
 
     if (!mFirstStart) {
         RemoveUpdateItems(*removeItems);
-        InstallUpdateItems(startInstances);
+        InstallUpdateItems(mStartInstances);
 
         if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
             LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
-    StartInstances(startInstances);
+    StartInstances(mStartInstances);
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
@@ -605,6 +636,32 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
+}
+
+Error Launcher::SetStopInstances()
+{
+    mStopInstances.Clear();
+
+    for (const auto& instance : mInstances) {
+        if (mStartInstances.ContainsIf([&instance](const auto& startInstance) {
+                return static_cast<const InstanceIdent&>(startInstance)
+                    == static_cast<const InstanceIdent&>(instance.mInfo)
+                    && (startInstance.mVersion == instance.mInfo.mVersion
+                        || startInstance.mManifestDigest == instance.mInfo.mManifestDigest);
+            })) {
+            continue;
+        }
+
+        if (auto err = mStopInstances.EmplaceBack(instance.mStatus); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (auto err = AppendInstancesWithModifiedParams(mStartInstances, mStopInstances); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
@@ -766,6 +823,8 @@ Error Launcher::AppendInstancesWithModifiedParams(
 Error Launcher::StartLaunch()
 {
     LockGuard lock {mMutex};
+
+    LOG_DBG() << "Start launch" << Log::Field("launchInProgress", mLaunchInProgress);
 
     if (mLaunchInProgress) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
