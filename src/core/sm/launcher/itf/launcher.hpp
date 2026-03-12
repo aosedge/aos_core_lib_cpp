@@ -27,14 +27,12 @@ public:
     virtual ~LauncherItf() = default;
 
     /**
-     * Update running instances.
+     * Runs instances.
      *
-     * @param stopInstances instances to stop.
-     * @param startInstances instances to start.
+     * @param instances instances to run.
      * @return Error.
      */
-    virtual Error UpdateInstances(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
-        = 0;
+    virtual Error RunInstances(const Array<InstanceInfo>& instances) = 0;
 };
 
 /** @}*/
