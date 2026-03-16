@@ -963,13 +963,18 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
                   << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    auto [offlineTTL, err] = GetOfflineTTL(instanceInfo);
-    if (!err.IsNone()) {
-        return {nullptr, AOS_ERROR_WRAP(err)};
-    }
+    Duration offlineTTL = 0;
+    Error    err;
 
-    LOG_DBG() << "Got offline TTL for instance" << Log::Field("instance", instanceInfo)
-              << Log::Field("offlineTTL", offlineTTL);
+    if (!instanceInfo.mPreinstalled) {
+        Tie(offlineTTL, err) = GetOfflineTTL(instanceInfo);
+        if (!err.IsNone()) {
+            return {nullptr, AOS_ERROR_WRAP(err)};
+        }
+
+        LOG_DBG() << "Offline TTL for instance" << Log::Field("instance", instanceInfo)
+                  << Log::Field("offlineTTL", offlineTTL);
+    }
 
     err = mInstances.EmplaceBack();
     if (!err.IsNone()) {
