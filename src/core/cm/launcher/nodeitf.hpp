@@ -7,7 +7,6 @@
 #ifndef AOS_CORE_CM_LAUNCHER_NODEITF_HPP_
 #define AOS_CORE_CM_LAUNCHER_NODEITF_HPP_
 
-#include <core/cm/networkmanager/itf/networkmanager.hpp>
 #include <core/common/types/instance.hpp>
 #include <core/common/types/unitconfig.hpp>
 
