@@ -280,6 +280,24 @@ private:
     OverrideEnvVarsRequest mEnvVarsOverrides;
 };
 
+/**
+ * Pushes a value to an array if it is not already present.
+ *
+ * @tparam T type of the value to push.
+ * @param array array to push the value to.
+ * @param value value to push.
+ * @return Error.
+ */
+template <typename Container, typename T>
+Error PushUnique(Container& array, const T& value)
+{
+    if (array.Contains(value)) {
+        return ErrorEnum::eNone;
+    }
+
+    return array.PushBack(value);
+}
+
 /** @}*/
 
 } // namespace aos::cm::launcher
