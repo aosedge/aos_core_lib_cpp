@@ -34,10 +34,9 @@ public:
      * @param nodeManager node manager.
      * @param monitorProvider monitoring provider.
      * @param runner instance runner interface.
-     * @param networkManager network manager.
      */
     void Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner, NetworkManager& networkManager);
+        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner);
 
     /**
      * Runs instances.
@@ -61,11 +60,9 @@ private:
     static constexpr size_t cScheduleInstanceSize
         = sizeof(oci::ImageIndex) + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(NodeRuntimes);
     static constexpr size_t cPolicyBalancingSize = sizeof(oci::ImageIndex);
-    static constexpr size_t cNetworkSetupSize    = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>);
     static constexpr size_t cMonitoringSize      = sizeof(monitoring::NodeMonitoringData);
 
-    static constexpr size_t cAllocatorSize
-        = Max(cScheduleInstanceSize, cPolicyBalancingSize, cNetworkSetupSize, cMonitoringSize);
+    static constexpr size_t cAllocatorSize = Max(cScheduleInstanceSize, cPolicyBalancingSize, cMonitoringSize);
 
     Error PerformNodeBalancing(Array<SharedPtr<Instance>>& instances);
 
@@ -90,15 +87,8 @@ private:
     void FilterByRAM(Instance& instance, NodeRuntimes& runtimes);
     void FilterByNumInstances(NodeRuntimes& runtimes);
     void FilterTopPriorityNodes(NodeRuntimes& nodes);
-    //
-
-    Error UpdateNetwork();
-    Error SetupNetworkForNewInstances();
-    void  RemoveNetworkForDeletedInstances();
-    void  SetNetworkParams(bool onlyWithExposedPorts);
 
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
-
     Error PrepareForBalancing(bool rebalancing, bool isInitialUpdate = false);
     Error UpdateMonitoringData(bool isInitialUpdate = false);
 
@@ -106,7 +96,6 @@ private:
     InstanceManager*       mInstanceManager {};
     NodeManager*           mNodeManager {};
     MonitoringProviderItf* mMonitorProvider {};
-    NetworkManager*        mNetworkManager {};
     InstanceRunnerItf*     mRunner {};
     SubjectArray           mSubjects;
 
