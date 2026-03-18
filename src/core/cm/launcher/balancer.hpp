@@ -17,7 +17,7 @@
 
 namespace aos::cm::launcher {
 
-/** @addtogroup CM Launcher
+/** @addtogroup cm Communication Manager
  *  @{
  */
 
