@@ -601,7 +601,7 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
 
     StaticArray<InstanceInfo, cMaxNumInstances> instances;
 
-    ASSERT_TRUE(mStorage.GetActiveInstances(instances).IsNone());
+    ASSERT_TRUE(mStorage.LoadActiveInstances(instances).IsNone());
     EXPECT_EQ(instances.Size(), 0);
 
     ASSERT_TRUE(mLauncher.Stop().IsNone());
@@ -650,7 +650,7 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
 
     StaticArray<InstanceInfo, cMaxNumInstances> instances;
 
-    ASSERT_TRUE(mStorage.GetActiveInstances(instances).IsNone());
+    ASSERT_TRUE(mStorage.LoadActiveInstances(instances).IsNone());
     ASSERT_EQ(instances.Size(), 1);
     ASSERT_EQ(instances[0].mInstanceIdent, CreateInstanceIdent(cService2));
 
@@ -727,7 +727,7 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     auto instances = std::make_unique<StaticArray<InstanceInfo, cMaxNumInstances>>();
 
-    EXPECT_TRUE(mStorage.GetActiveInstances(*instances).IsNone());
+    EXPECT_TRUE(mStorage.LoadActiveInstances(*instances).IsNone());
     ASSERT_EQ(instances->Size(), 3);
     EXPECT_EQ((*instances)[0].mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
     EXPECT_EQ((*instances)[1].mInstanceIdent, CreateInstanceIdent(cService2, cSubject1, 0));
@@ -743,7 +743,7 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     ASSERT_TRUE(mLauncher.RunInstances(*runRequest2, *runStatuses).IsNone());
 
-    EXPECT_TRUE(mStorage.GetActiveInstances(*instances).IsNone());
+    EXPECT_TRUE(mStorage.LoadActiveInstances(*instances).IsNone());
     ASSERT_EQ(instances->Size(), 3);
 
     EXPECT_EQ((*instances)[0].mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
@@ -967,7 +967,7 @@ TestDataPtr TestItemLabels()
     testData->mRunRequests.PushBack(
         CreateRunRequest(cService2, cSubject1, 50, 2, "", {"label1"}, UpdateItemTypeEnum::eService));
     testData->mRunRequests.PushBack(
-        CreateRunRequest(cService3, cSubject1, 0, 2, "", {"label1"}, UpdateItemTypeEnum::eService));
+        CreateRunRequest(cService3, cSubject1, 0, 2, "", {"label3"}, UpdateItemTypeEnum::eService));
     // Expected run requests
     std::vector<aos::InstanceInfo> localSMRequests;
     localSMRequests.push_back(CreateServiceRunInfo(
@@ -1796,9 +1796,13 @@ TEST_F(CMLauncherTest, SubjectChanged)
     // 2) Change subjects (remove all of them).
     ASSERT_TRUE(mIdentProvider.SetSubjects({}).IsNone());
 
-    // Wait until we receive notification caused by rebalance after subjects update.
-    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2000ms));
-    ASSERT_EQ(instanceStatusListener.GetLastStatuses(), Array<InstanceStatus>());
+    // Expect to receive 0 statuses after subjects update.
+    std::this_thread::sleep_for(300ms);
+
+    StaticArray<InstanceStatus, 1> statuses;
+
+    ASSERT_TRUE(mLauncher.GetInstancesStatuses(statuses).IsNone());
+    ASSERT_TRUE(statuses.IsEmpty());
 
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
@@ -1946,15 +1950,18 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
     };
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
-    auto storedInstanceInfo = std::make_unique<InstanceInfo>();
-    ASSERT_TRUE(mStorage.GetInstance(CreateInstanceIdent(cService1, cSubject1, 0), *storedInstanceInfo).IsNone());
-
     // Verify stored instance
-    auto expectedStoredInstanceInfo = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0),
-        BuildManifestDigest(cService1, cImageID1), cRunnerRunc, cNodeIDLocalSM, InstanceStateEnum::eActive, 5000, 5000,
-        storedInstanceInfo->mTimestamp, version.c_str(), true, ownerID.c_str(), SubjectTypeEnum::eUser, 100);
+    auto storedInstances = std::make_unique<StaticArray<InstanceInfo, cMaxNumInstances>>();
+    ASSERT_TRUE(mStorage.LoadActiveInstances(*storedInstances).IsNone());
 
-    EXPECT_EQ(*storedInstanceInfo, expectedStoredInstanceInfo);
+    ASSERT_EQ(storedInstances->Size(), 1);
+    const auto& storedInstance = (*storedInstances)[0];
+
+    auto expectedStoredInstance = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0),
+        BuildManifestDigest(cService1, cImageID1), cRunnerRunc, cNodeIDLocalSM, InstanceStateEnum::eActive, 5000, 5000,
+        storedInstance.mTimestamp, version.c_str(), true, ownerID.c_str(), SubjectTypeEnum::eUser, 100);
+
+    EXPECT_EQ((*storedInstances)[0], expectedStoredInstance);
 
     // Stop launcher
     mLauncher.UnsubscribeListener(instanceStatusListener);
@@ -2224,6 +2231,105 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
+TEST_F(CMLauncherTest, MultiNodeInstance)
+{
+    // Initialize all stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceRunner.Init(mLauncher);
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+
+    // Create node info
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
+
+    auto nodeInfoRemoteSM2 = CreateNodeInfo(cNodeIDRemoteSM2, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM2, nodeInfoRemoteSM2);
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
+    }
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        auto nodeConfig = std::make_unique<NodeConfig>();
+
+        CreateNodeConfig(*nodeConfig, nodeID);
+        mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, *nodeConfig);
+    }
+
+    // Create component config
+    auto componentConfig = std::make_unique<oci::ItemConfig>();
+
+    CreateItemConfig(*componentConfig, {cRunnerRunc});
+    AddItem(cComponent1, cImageID1, *componentConfig, CreateImageConfig());
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1, cNodeIDRemoteSM2}) {
+        mInstanceRunner.SendInitialStatuses(nodeID);
+    }
+
+    auto instanceStatusListener = std::make_unique<InstanceStatusListenerStub>();
+
+    mLauncher.SubscribeListener(*instanceStatusListener);
+
+    // Run component instance with numInstances = 0 (should create multi-node instance)
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+
+    runRequest->PushBack(CreateRunRequest(cComponent1, cSubject1, 50, 0, "", {}, UpdateItemTypeEnum::eComponent));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    // Check expectations
+    auto manifestDigest    = BuildManifestDigest(cComponent1, cImageID1);
+    auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    auto instanceIdent0 = CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent);
+    auto instanceIdent1 = CreateInstanceIdent(cComponent1, cSubject1, 1, UpdateItemTypeEnum::eComponent);
+    auto instanceIdent2 = CreateInstanceIdent(cComponent1, cSubject1, 2, UpdateItemTypeEnum::eComponent);
+
+    expectedRunStatus->PushBack(CreateInstanceStatus(instanceIdent0, cNodeIDLocalSM, cRunnerRunc,
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+    expectedRunStatus->PushBack(CreateInstanceStatus(instanceIdent1, cNodeIDRemoteSM1, cRunnerRunc,
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+    expectedRunStatus->PushBack(CreateInstanceStatus(instanceIdent2, cNodeIDRemoteSM2, cRunnerRunc,
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+
+    EXPECT_EQ(*runStatuses, *expectedRunStatus);
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
+
+    expectedRunRequests[cNodeIDLocalSM]   = {{}, {CreateComponentRunInfo(instanceIdent0, cImageID1, cRunnerRunc, 50)}};
+    expectedRunRequests[cNodeIDRemoteSM1] = {{}, {CreateComponentRunInfo(instanceIdent1, cImageID1, cRunnerRunc, 50)}};
+    expectedRunRequests[cNodeIDRemoteSM2] = {{}, {CreateComponentRunInfo(instanceIdent2, cImageID1, cRunnerRunc, 50)}};
+
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    mLauncher.UnsubscribeListener(*instanceStatusListener);
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
