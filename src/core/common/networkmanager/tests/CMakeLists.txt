@@ -1,42 +1,33 @@
 #
-# Copyright (C) 2025 EPAM Systems, Inc.
+# Copyright (C) 2026 EPAM Systems, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 
-# ######################################################################################################################
-# Target name
-# ######################################################################################################################
-
-set(TARGET_NAME mocks)
+set(TARGET_NAME networkprovider_test)
 
 # ######################################################################################################################
-# Headers
+# Sources
 # ######################################################################################################################
 
-set(HEADERS
-    alertsmock.hpp
-    certprovidermock.hpp
-    cloudconnectionmock.hpp
-    cryptomock.hpp
-    downloadermock.hpp
-    fileinfoprovidermock.hpp
-    fsmock.hpp
-    identprovidermock.hpp
-    instancestatusprovidermock.hpp
-    logprovidermock.hpp
-    monitoringmock.hpp
-    nodehandlermock.hpp
-    networkprovidermock.hpp
-    nodeinfoprovidermock.hpp
-    ocispecmock.hpp
-    permhandlermock.hpp
-    permprovidermock.hpp
-    spaceallocatormock.hpp
-)
+set(SOURCES networkprovider.cpp)
+
+# ######################################################################################################################
+# Libraries
+# ######################################################################################################################
+
+set(LIBRARIES aos::core::common::tools GTest::gmock_main)
 
 # ######################################################################################################################
 # Target
 # ######################################################################################################################
 
-add_module(TARGET_NAME ${TARGET_NAME} HEADERS ${HEADERS})
+add_test(
+    TARGET_NAME
+    ${TARGET_NAME}
+    LOG_MODULE
+    SOURCES
+    ${SOURCES}
+    LIBRARIES
+    ${LIBRARIES}
+)
