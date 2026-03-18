@@ -240,24 +240,8 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
         return AOS_ERROR_WRAP(ErrorEnum::eCanceled);
     }
 
-    // Disable node monitoring for the duration of running instances.
-    mDisableProcessUpdates    = true;
-    auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
-        self->mDisableProcessUpdates = false;
-        self->mProcessUpdatesCondVar.NotifyAll();
-    });
-
-    auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
-
-    CreateRequestedInstances(requests, *instances);
-
-    auto runErr = mBalancer.RunInstances(updateLock, *instances, false);
-
-    FailActivatingInstances();
-    UpdateInstanceStatuses();
-
-    if (!runErr.IsNone()) {
-        return AOS_ERROR_WRAP(runErr);
+    if (auto err = BalanceInstances(updateLock, false); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     if (auto err = statuses.Assign(mInstanceStatuses); !err.IsNone()) {
@@ -405,30 +389,22 @@ void Launcher::FailActivatingInstances()
     }
 }
 
-Error Launcher::Rebalance(UniqueLock<Mutex>& lock)
+Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
 {
-    LOG_DBG() << "Rebalance instances";
+    LOG_DBG() << "Balance instances" << Log::Field("rebalance", rebalance);
 
-    // Disable node monitoring for the duration of rebalancing.
-    mDisableProcessUpdates    = true;
-    auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
-        self->mDisableProcessUpdates = false;
-        self->mProcessUpdatesCondVar.NotifyAll();
-    });
-
-    // Get instances that need rebalancing (from active and cached)
+    // Create instances from run requests.
     auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
-    CreateRequestedInstances(*instances);
+    mRunRequestsLoader.CreateInstances(mNodeManager.GetNodes(), *instances);
 
-    auto runErr = mBalancer.RunInstances(lock, *instances, true);
+    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance);
 
     FailActivatingInstances();
+    UpdateInstanceStatuses();
 
     if (!runErr.IsNone()) {
         return AOS_ERROR_WRAP(runErr);
     }
-
-    UpdateInstanceStatuses();
 
     return ErrorEnum::eNone;
 }
@@ -524,7 +500,7 @@ void Launcher::ProcessUpdate()
 
         // Rebalance.
         if (doRebalance) {
-            if (err = Rebalance(updateLock); !err.IsNone()) {
+            if (err = BalanceInstances(updateLock, true); !err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
@@ -545,7 +521,7 @@ void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
 Error Launcher::LoadEnvVarsOverrides()
 {
     // Restore override environment variables without TTL check, so we can detect changes in ProcessOverrideEnvVars().
-    if (auto err = mStorage->GetOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+    if (auto err = mStorage->LoadOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

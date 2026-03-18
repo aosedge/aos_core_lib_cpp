@@ -143,7 +143,7 @@ private:
     void UpdateInstanceStatuses();
     void FailActivatingInstances();
 
-    Error Rebalance(UniqueLock<Mutex>& lock);
+    Error BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance);
 
     void ProcessUpdate();
     void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
