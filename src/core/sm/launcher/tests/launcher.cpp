@@ -578,8 +578,6 @@ TEST_F(LauncherTest, UpdateInstancesRestartsInstancesWithModifiedParams)
     // Modify first instance parameters to force restart
     startInstanceInfos[0].mMonitoringParams.EmplaceValue();
     startInstanceInfos[0].mMonitoringParams->mAlertRules.EmplaceValue();
-    startInstanceInfos[0].mNetworkParameters.EmplaceValue();
-    startInstanceInfos[0].mNetworkParameters->mIP = "newIP";
 
     mStorage.Init(cStoredInfos);
 
