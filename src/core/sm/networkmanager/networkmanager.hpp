@@ -12,6 +12,8 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/thread.hpp>
 
+#include <core/common/networkmanager/itf/networkprovider.hpp>
+
 #include "itf/cni.hpp"
 #include "itf/networkmanager.hpp"
 
@@ -49,7 +51,7 @@ public:
      */
     Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
         InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
-        const String& workingDir);
+        const String& workingDir, aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
 
     /**
      * Starts network manager.
@@ -72,44 +74,6 @@ public:
      * @return RetWithError<StaticString<cFilePathLen>>.
      */
     RetWithError<StaticString<cFilePathLen>> GetNetnsPath(const String& instanceID) const override;
-
-    /**
-     * Updates networks.
-     *
-     * @param networks network parameters.
-     * @return Error.
-     */
-    Error UpdateNetworks(const Array<aos::NetworkParameters>& networks) override;
-
-    /**
-     * Adds instance to network.
-     *
-     * @param instanceID instance ID.
-     * @param networkID network ID.
-     * @param instanceNetworkParameters instance network parameters.
-     * @return Error.
-     */
-    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
-        const InstanceNetworkParameters& instanceNetworkParameters) override;
-
-    /**
-     * Removes instance from network.
-     *
-     * @param instanceID instance ID.
-     * @param networkID network ID.
-     * @return Error.
-     */
-    Error RemoveInstanceFromNetwork(const String& instanceID, const String& networkID) override;
-
-    /**
-     * Returns instance's IP address.
-     *
-     * @param instanceID instance ID.
-     * @param networkID network ID.
-     * @param[out] ip instance's IP address.
-     * @return Error.
-     */
-    Error GetInstanceIP(const String& instanceID, const String& networkID, String& ip) const override;
 
     /**
      * Returns instance's traffic.
@@ -138,13 +102,56 @@ public:
      */
     Error SetTrafficPeriod(TrafficPeriod period) override;
 
-private:
-    struct NetworkData {
-        StaticString<cIPLen>                                  mIPAddr;
-        StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> mHost;
-    };
+    /**
+     * Creates instance network.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @param networkConfig instance network config.
+     * @return Error.
+     */
+    Error CreateInstanceNetwork(
+        const String& instanceID, const String& networkID, const InstanceNetworkConfig& networkConfig) override;
 
-    using InstanceCache = StaticMap<StaticString<cIDLen>, NetworkData, cMaxNumInstances>;
+    /**
+     * Starts instance network.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @param runtimeParams runtime parameters.
+     * @return Error.
+     */
+    Error StartInstanceNetwork(
+        const String& instanceID, const String& networkID, const InstanceNetworkRuntimeParams& runtimeParams) override;
+
+    /**
+     * Stops instance network.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @return Error.
+     */
+    Error StopInstanceNetwork(const String& instanceID, const String& networkID) override;
+
+    /**
+     * Releases instance network.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @return Error.
+     */
+    Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) override;
+
+private:
+    Error EnsureNodeNetwork(const String& networkID);
+    Error EnsureNodeNetworkPhysical(const String& networkID);
+
+    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
+        const InstanceNetworkRuntimeParams& runtimeParams);
+
+    using InstanceHosts = StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>;
+    using InstanceCache = StaticMap<StaticString<cIDLen>, InstanceHosts, cMaxNumInstances>;
     using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumOwners>;
 
     static constexpr uint64_t cBurstLen              = 12800;
@@ -160,47 +167,48 @@ private:
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
-    Error PrepareCNIConfig(const String& instanceID, const String& networkID, const InstanceNetworkParameters& network,
-        cni::NetworkConfigList& net, cni::RuntimeConf& rt, Array<StaticString<cHostNameLen>>& hosts) const;
+    Error PrepareCNIConfig(const String& instanceID, const String& networkID, const InstanceNetworkConfig& network,
+        const aos::InstanceNetworkAllocation& networkParams, cni::NetworkConfigList& net, cni::RuntimeConf& rt,
+        Array<StaticString<cHostNameLen>>& hosts) const;
     Error PrepareNetworkConfigList(const String& instanceID, const String& networkID,
-        const InstanceNetworkParameters& network, cni::NetworkConfigList& net) const;
+        const InstanceNetworkConfig& network, const aos::InstanceNetworkAllocation& networkParams,
+        cni::NetworkConfigList& net) const;
     Error PrepareRuntimeConfig(
         const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const;
 
-    Error CreateBridgePluginConfig(
-        const String& networkID, const InstanceNetworkParameters& network, cni::BridgePluginConf& config) const;
-    Error CreateFirewallPluginConfig(
-        const String& instanceID, const InstanceNetworkParameters& network, cni::FirewallPluginConf& config) const;
-    Error CreateBandwidthPluginConfig(const InstanceNetworkParameters& network, cni::BandwidthNetConf& config) const;
+    Error CreateBridgePluginConfig(const String& networkID, const aos::InstanceNetworkAllocation& networkParams,
+        cni::BridgePluginConf& config) const;
+    Error CreateFirewallPluginConfig(const String& instanceID, const InstanceNetworkConfig& network,
+        const aos::InstanceNetworkAllocation& networkParams, cni::FirewallPluginConf& config) const;
+    Error CreateBandwidthPluginConfig(const InstanceNetworkConfig& network, cni::BandwidthNetConf& config) const;
     Error CreateDNSPluginConfig(
-        const String& networkID, const InstanceNetworkParameters& network, cni::DNSPluginConf& config) const;
-    Error UpdateInstanceNetworkCache(const String& instanceID, const String& networkID, const String& instanceIP,
-        const Array<StaticString<cHostNameLen>>& hosts);
+        const String& networkID, const aos::InstanceNetworkAllocation& networkParams, cni::DNSPluginConf& config) const;
+    Error UpdateInstanceNetworkCache(
+        const String& instanceID, const String& networkID, const Array<StaticString<cHostNameLen>>& hosts);
     Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
     Error ClearNetwork(const NetworkInfo& networkInfo);
-    Error PrepareHosts(const String& instanceID, const String& networkID, const InstanceNetworkParameters& network,
+    Error PrepareUpdateItemNetworkParams(const InstanceNetworkConfig& instanceNetworkParameters,
+        const String& networkID, UpdateItemNetworkParams& serviceData) const;
+    Error PrepareHosts(const String& instanceID, const String& networkID, const InstanceNetworkConfig& network,
         Array<StaticString<cHostNameLen>>& hosts) const;
     Error IsHostnameExist(const InstanceCache& instanceCache, const Array<StaticString<cHostNameLen>>& hosts) const;
     Error PushHostWithDomain(
         const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
-    Error CreateHostsFile(
-        const String& networkID, const String& instanceIP, const InstanceNetworkParameters& network) const;
+    Error CreateHostsFile(const String& networkID, const String& instanceIP, const InstanceNetworkConfig& network,
+        const String& hostsFilePath) const;
     Error WriteHost(const Host& host, int fd) const;
     Error WriteHosts(const Array<SharedPtr<Host>>& hosts, int fd) const;
     Error WriteHosts(const Array<Host>& hosts, int fd) const;
     Error WriteHostsFile(
-        const String& filePath, const Array<SharedPtr<Host>>& hosts, const InstanceNetworkParameters& network) const;
+        const String& filePath, const Array<SharedPtr<Host>>& hosts, const Array<Host>& additionalHosts) const;
 
-    Error CreateResolvConfFile(const String& networkID, const InstanceNetworkParameters& network,
-        const Array<StaticString<cIPLen>>& dns) const;
+    Error CreateResolvConfFile(const String& networkID, const String& resolvConfFilePath,
+        const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cIPLen>>& dns) const;
     Error WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
-        const InstanceNetworkParameters& network) const;
+        const aos::InstanceNetworkAllocation& networkParams) const;
 
-    Error RemoveNetworks(const Array<aos::NetworkParameters>& networks);
-    Error RemoveNetwork(const String& networkID);
     Error CreateNetwork(const NetworkInfo& network);
     Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
-    Error CleanupInstanceNetworkResources(const String& instanceID, const String& networkID);
     Error GenerateIfName(String& ifName, const String& ifPrefix);
 
     template <typename P>
@@ -219,22 +227,27 @@ private:
         return ErrorEnum::eNotFound;
     }
 
-    StorageItf*                                                                 mStorage {};
-    cni::CNIItf*                                                                mCNI {};
-    TrafficMonitorItf*                                                          mNetMonitor {};
-    NamespaceManagerItf*                                                        mNetns {};
-    InterfaceManagerItf*                                                        mNetIf {};
-    crypto::RandomItf*                                                          mRandom {};
-    InterfaceFactoryItf*                                                        mNetIfFactory {};
-    StaticString<cFilePathLen>                                                  mCNINetworkCacheDir;
-    NetworkCache                                                                mNetworkData;
-    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                 mNetworkProviders;
-    StaticAllocator<sizeof(NetworkInfo)>                                        mNetworkInfoAllocator;
-    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>            mNetworkInfosAllocator;
+    StorageItf*                                                                            mStorage {};
+    cni::CNIItf*                                                                           mCNI {};
+    TrafficMonitorItf*                                                                     mNetMonitor {};
+    NamespaceManagerItf*                                                                   mNetns {};
+    InterfaceManagerItf*                                                                   mNetIf {};
+    crypto::RandomItf*                                                                     mRandom {};
+    InterfaceFactoryItf*                                                                   mNetIfFactory {};
+    aos::networkmanager::NetworkProviderItf*                                               mNetworkProvider {};
+    StaticString<cIDLen>                                                                   mNodeID;
+    StaticString<cFilePathLen>                                                             mCNINetworkCacheDir;
+    NetworkCache                                                                           mRuntimeCache;
+    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                            mNetworkProviders;
+    StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances * cMaxNumOwners> mInstanceNetworkInfos;
+    StaticArray<StaticString<cIDLen>, cMaxNumOwners>                                       mPhysicalNetworks;
+    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
     mutable Mutex mMutex;
-    StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result))
+    StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result)
+                        + sizeof(UpdateItemNetworkParams) + sizeof(aos::InstanceNetworkAllocation)
+                        + sizeof(InstanceNetworkInfo))
                 * cMaxNumConcurrentItems
             + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>),
         cNumAllocations>
