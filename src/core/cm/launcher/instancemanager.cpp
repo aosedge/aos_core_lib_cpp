@@ -177,15 +177,34 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     return instance->UpdateStatus(status);
 }
 
-RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(
-    const InstanceIdent& id, const RunInstanceRequest& request)
+RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInstanceRequest& request, uint64_t index)
 {
+    auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
     if (auto instance = FindReadyInstance(id); instance) {
         return {instance, ErrorEnum::eNone};
     }
 
-    auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
-    CreateInfo(id, request, *instanceInfo);
+    auto instanceInfo = CreateInfo(id, "", request);
+
+    if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
+        return {nullptr, AOS_ERROR_WRAP(err)};
+    }
+
+    return CreateInstance(*instanceInfo);
+}
+
+RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(
+    const RunInstanceRequest& request, const String& nodeID, const Array<SharedPtr<Instance>>& newInstances)
+{
+    if (auto instance = FindReadyInstance(request.mItemID, request.mSubjectInfo.mSubjectID, nodeID); instance) {
+        return {instance, ErrorEnum::eNone};
+    }
+
+    auto index = FindIndexForNewInstance(request.mItemID, request.mSubjectInfo.mSubjectID);
+    index      = Max(index, FindIndexForNewInstance(newInstances, request.mItemID, request.mSubjectInfo.mSubjectID));
+
+    auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
+    auto instanceInfo = CreateInfo(id, nodeID, request);
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -241,26 +260,17 @@ Error InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
 
 SharedPtr<Instance> InstanceManager::FindActiveInstance(const InstanceIdent& id)
 {
-    auto it = mActiveInstances.FindIf(
-        [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
-
-    return it != mActiveInstances.end() ? *it : SharedPtr<Instance>();
+    return FindInstance(mActiveInstances, id);
 }
 
 SharedPtr<Instance> InstanceManager::FindScheduledInstance(const InstanceIdent& id)
 {
-    auto it = mScheduledInstances.FindIf(
-        [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
-
-    return it != mScheduledInstances.end() ? *it : SharedPtr<Instance>();
+    return FindInstance(mScheduledInstances, id);
 }
 
 SharedPtr<Instance> InstanceManager::FindCachedInstance(const InstanceIdent& id)
 {
-    auto it = mCachedInstances.FindIf(
-        [&id](SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
-
-    return it != mCachedInstances.end() ? *it : SharedPtr<Instance>();
+    return FindInstance(mCachedInstances, id);
 }
 
 InstanceStatus* InstanceManager::FindPreinstalledComponent(const InstanceIdent& id)
@@ -291,7 +301,7 @@ Error InstanceManager::LoadInstancesFromStorage()
     mCachedInstances.Clear();
 
     auto instances = MakeUnique<StaticArray<InstanceInfo, cMaxNumInstances>>(&mAllocator);
-    if (auto err = mStorage->GetActiveInstances(*instances); !err.IsNone()) {
+    if (auto err = mStorage->LoadActiveInstances(*instances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -567,23 +577,93 @@ SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id)
     return nullptr;
 }
 
-void InstanceManager::CreateInfo(const InstanceIdent& id, const RunInstanceRequest& request, InstanceInfo& info)
+SharedPtr<Instance> InstanceManager::FindReadyInstance(
+    const String& itemID, const String& subjectID, const String& nodeID)
 {
-    info.mInstanceIdent  = id;
-    info.mManifestDigest = "";
-    info.mNodeID         = "";
-    info.mPrevNodeID     = "";
-    info.mRuntimeID      = "";
-    info.mUID            = 0;
-    info.mGID            = 0;
-    info.mTimestamp      = Time::Now();
-    info.mState          = InstanceStateEnum::eActive;
-    info.mIsUnitSubject  = request.mSubjectInfo.mIsUnitSubject;
-    info.mVersion        = request.mVersion;
-    info.mOwnerID        = request.mOwnerID;
-    info.mSubjectType    = request.mSubjectInfo.mSubjectType;
-    info.mLabels         = request.mLabels;
-    info.mPriority       = request.mPriority;
+    auto instance = FindInstance(mScheduledInstances, itemID, subjectID, nodeID);
+    if (instance) {
+        return instance;
+    }
+
+    instance = FindInstance(mActiveInstances, itemID, subjectID, nodeID);
+    if (instance) {
+        return instance;
+    }
+
+    instance = FindInstance(mCachedInstances, itemID, subjectID, nodeID);
+    if (instance) {
+        return instance;
+    }
+
+    return nullptr;
+}
+
+uint64_t InstanceManager::FindIndexForNewInstance(const String& itemID, const String& subjectID)
+{
+    uint64_t schedInstance  = FindIndexForNewInstance(mScheduledInstances, itemID, subjectID);
+    uint64_t activeInstance = FindIndexForNewInstance(mActiveInstances, itemID, subjectID);
+    uint64_t cachedInstance = FindIndexForNewInstance(mCachedInstances, itemID, subjectID);
+
+    return Max(schedInstance, activeInstance, cachedInstance);
+}
+
+UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
+    const InstanceIdent& id, const String& nodeID, const RunInstanceRequest& request)
+{
+    auto info = MakeUnique<InstanceInfo>(&mAllocator);
+
+    info->mInstanceIdent      = id;
+    info->mManifestDigest     = "";
+    info->mNodeID             = nodeID;
+    info->mPrevNodeID         = "";
+    info->mRuntimeID          = "";
+    info->mUID                = 0;
+    info->mGID                = 0;
+    info->mTimestamp          = Time::Now();
+    info->mState              = InstanceStateEnum::eActive;
+    info->mIsUnitSubject      = request.mSubjectInfo.mIsUnitSubject;
+    info->mVersion            = request.mVersion;
+    info->mOwnerID            = request.mOwnerID;
+    info->mSubjectType        = request.mSubjectInfo.mSubjectType;
+    info->mLabels             = request.mLabels;
+    info->mPriority           = request.mPriority;
+    info->mDisableRebalancing = !nodeID.IsEmpty();
+
+    return info;
+}
+
+SharedPtr<Instance> InstanceManager::FindInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id)
+{
+    auto it = instances.FindIf(
+        [&id](const SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
+
+    return it != instances.end() ? *it : SharedPtr<Instance>();
+}
+
+SharedPtr<Instance> InstanceManager::FindInstance(
+    const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID, const String& nodeID)
+{
+    auto it = instances.FindIf([&itemID, &subjectID, &nodeID](const SharedPtr<Instance>& instance) {
+        return instance->GetInfo().mInstanceIdent.mItemID == itemID
+            && instance->GetInfo().mInstanceIdent.mSubjectID == subjectID && instance->GetInfo().mNodeID == nodeID;
+    });
+
+    return it != instances.end() ? *it : SharedPtr<Instance>();
+}
+
+uint64_t InstanceManager::FindIndexForNewInstance(
+    const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID)
+{
+    uint64_t newIndex = 0;
+
+    for (auto it = instances.begin(); it != instances.end(); ++it) {
+        if ((*it)->GetInfo().mInstanceIdent.mItemID == itemID
+            && (*it)->GetInfo().mInstanceIdent.mSubjectID == subjectID) {
+            newIndex = Max(newIndex, (*it)->GetInfo().mInstanceIdent.mInstance + 1);
+        }
+    }
+
+    return newIndex;
 }
 
 } // namespace aos::cm::launcher
