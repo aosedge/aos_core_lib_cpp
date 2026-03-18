@@ -8,6 +8,7 @@
 
 #include <map>
 #include <memory>
+#include <vector>
 
 #include <core/cm/launcher/itf/storage.hpp>
 
@@ -19,6 +20,7 @@ public:
     {
         mInstanceInfo.clear();
         mOverrideEnvVarsRequest->mItems.Clear();
+        mRunRequests.clear();
 
         for (const auto& instance : instances) {
             mInstanceInfo[instance.mInstanceIdent] = instance;
@@ -61,33 +63,7 @@ public:
         return Error();
     }
 
-    Error GetInstance(const InstanceIdent& instanceID, InstanceInfo& info) const override
-    {
-        auto it = mInstanceInfo.find(instanceID);
-        if (it == mInstanceInfo.end()) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound));
-        }
-
-        info = it->second;
-
-        return Error();
-    }
-
-    Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) override
-    {
-        *mOverrideEnvVarsRequest = envVars;
-
-        return Error();
-    }
-
-    Error GetOverrideEnvVars(OverrideEnvVarsRequest& envVars) override
-    {
-        envVars = *mOverrideEnvVarsRequest;
-
-        return Error();
-    }
-
-    Error GetActiveInstances(Array<InstanceInfo>& instances) const override
+    Error LoadActiveInstances(Array<InstanceInfo>& instances) const override
     {
         instances.Clear();
 
@@ -100,6 +76,33 @@ public:
         return Error();
     }
 
+    Error LoadOverrideEnvVars(OverrideEnvVarsRequest& envVars) const override
+    {
+        envVars = *mOverrideEnvVarsRequest;
+
+        return Error();
+    }
+
+    Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) override
+    {
+        *mOverrideEnvVarsRequest = envVars;
+
+        return Error();
+    }
+
+    Error LoadRunRequests(Array<RunInstanceRequest>& requests) const override
+    {
+        return requests.Assign(Array<RunInstanceRequest>(mRunRequests.data(), mRunRequests.size()));
+    }
+
+    Error SaveRunRequests(const Array<RunInstanceRequest>& requests) override
+    {
+        mRunRequests.clear();
+        mRunRequests.insert(mRunRequests.end(), requests.begin(), requests.end());
+
+        return ErrorEnum::eNone;
+    }
+
     bool HasInstance(const InstanceIdent& instanceID) const
     {
         return mInstanceInfo.find(instanceID) != mInstanceInfo.end();
@@ -110,6 +113,7 @@ public:
 private:
     std::map<InstanceIdent, InstanceInfo>   mInstanceInfo;
     std::unique_ptr<OverrideEnvVarsRequest> mOverrideEnvVarsRequest = std::make_unique<OverrideEnvVarsRequest>();
+    std::vector<RunInstanceRequest>         mRunRequests;
 };
 
 } // namespace aos::cm::launcher

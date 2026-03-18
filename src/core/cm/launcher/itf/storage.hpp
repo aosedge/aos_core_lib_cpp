@@ -52,21 +52,20 @@ public:
     virtual Error RemoveInstance(const InstanceIdent& instanceID) = 0;
 
     /**
-     * Get information about a stored instance.
-     *
-     * @param instanceID instance identifier.
-     * @param[out] info instance info.
-     * @return Error.
-     */
-    virtual Error GetInstance(const InstanceIdent& instanceID, InstanceInfo& info) const = 0;
-
-    /**
-     * Get all stored instances.
+     * Loads all active instances from storage.
      *
      * @param[out] instances all stored instances.
      * @return Error.
      */
-    virtual Error GetActiveInstances(Array<InstanceInfo>& instances) const = 0;
+    virtual Error LoadActiveInstances(Array<InstanceInfo>& instances) const = 0;
+
+    /**
+     * Returns override environment variables.
+     *
+     * @param[out] envVars override environment variables.
+     * @return Error.
+     */
+    virtual Error LoadOverrideEnvVars(OverrideEnvVarsRequest& envVars) const = 0;
 
     /**
      * Saves override environment variables.
@@ -77,12 +76,20 @@ public:
     virtual Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) = 0;
 
     /**
-     * Returns override environment variables.
+     * Loads all run requests from storage.
      *
-     * @param[out] envVars override environment variables.
+     * @param requests run requests to load.
      * @return Error.
      */
-    virtual Error GetOverrideEnvVars(OverrideEnvVarsRequest& envVars) = 0;
+    virtual Error LoadRunRequests(Array<RunInstanceRequest>& requests) const = 0;
+
+    /**
+     * Saves all run requests to storage.
+     *
+     * @param requests run requests to save.
+     * @return Error.
+     */
+    virtual Error SaveRunRequests(const Array<RunInstanceRequest>& requests) = 0;
 };
 
 /** @}*/
