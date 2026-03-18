@@ -164,6 +164,11 @@ bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
     return true;
 }
 
+bool Instance::IsNodeIDOk(const String& nodeID)
+{
+    return !mInfo.mDisableRebalancing || mInfo.mNodeID == nodeID;
+}
+
 bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
 {
     for (const auto& label : mInfo.mLabels) {

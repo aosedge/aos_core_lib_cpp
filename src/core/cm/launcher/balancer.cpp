@@ -168,6 +168,11 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
 
 Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
 {
+    FilterNodesByID(instance, nodes);
+    if (nodes.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no nodes with given ID"));
+    }
+
     FilterNodesByLabels(instance, nodes);
     if (nodes.IsEmpty()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no nodes with instance labels"));
@@ -179,6 +184,11 @@ Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
     }
 
     return ErrorEnum::eNone;
+}
+
+void Balancer::FilterNodesByID(Instance& instance, Array<Node*>& nodes)
+{
+    nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
 }
 
 void Balancer::FilterNodesByLabels(Instance& instance, Array<Node*>& nodes)
