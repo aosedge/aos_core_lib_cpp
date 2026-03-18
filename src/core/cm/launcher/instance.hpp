@@ -25,7 +25,7 @@
 
 namespace aos::cm::launcher {
 
-/** @addtogroup CM Launcher
+/** @addtogroup cm Communication Manager
  *  @{
  */
 
@@ -192,9 +192,9 @@ public:
     bool IsPlatformOk(const PlatformInfo& platformInfo);
 
     /**
-     * Checks whether node resources fit instance requirements.
+     * Checks whether node ID fits instance requirements.
      *
-     * @param resources resources.
+     * @param nodeID node ID.
      * @return bool.
      */
     virtual bool AreNodeResourcesOk(const ResourceInfoArray& nodeResources) = 0;

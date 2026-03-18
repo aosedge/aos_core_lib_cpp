@@ -44,6 +44,8 @@ public:
     virtual Error OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses) = 0;
 };
 
+/** @}*/
+
 } // namespace aos::cm::launcher
 
 #endif

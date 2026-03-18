@@ -34,6 +34,8 @@ public:
     virtual Error SendOverrideEnvsStatuses(const OverrideEnvVarsStatuses& statuses) = 0;
 };
 
+/** @}*/
+
 } // namespace aos::cm::launcher
 
 #endif

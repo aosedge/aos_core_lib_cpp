@@ -34,6 +34,8 @@ public:
     virtual Error OverrideEnvVars(const OverrideEnvVarsRequest& envVars) = 0;
 };
 
+/** @}*/
+
 } // namespace aos::cm::launcher
 
 #endif
