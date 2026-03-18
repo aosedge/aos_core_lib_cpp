@@ -18,70 +18,13 @@
 #include "storage.hpp"
 #include "systemtrafficprovider.hpp"
 #include "trafficmonitor.hpp"
+#include "types.hpp"
 
 namespace aos::sm::networkmanager {
 
 /** @addtogroup sm Service Manager
  *  @{
  */
-
-/**
- * Max number of network manager aliases.
- */
-static constexpr auto cMaxNumAliases = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES;
-
-/**
- * Max number of hosts.
- */
-static constexpr auto cMaxNumHosts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS;
-
-/**
- * Instance network parameters.
- */
-struct InstanceNetworkParameters {
-    InstanceIdent                                                   mInstanceIdent;
-    aos::InstanceNetworkParameters                                  mNetworkParameters;
-    StaticString<cHostNameLen>                                      mHostname;
-    StaticArray<StaticString<cHostNameLen>, cMaxNumAliases>         mAliases;
-    uint64_t                                                        mIngressKbit {};
-    uint64_t                                                        mEgressKbit {};
-    StaticArray<StaticString<cExposedPortLen>, cMaxNumExposedPorts> mExposedPorts;
-    StaticArray<Host, cMaxNumHosts>                                 mHosts;
-    StaticString<cFilePathLen>                                      mHostsFilePath;
-    StaticString<cFilePathLen>                                      mResolvConfFilePath;
-    uint64_t                                                        mUploadLimit {};
-    uint64_t                                                        mDownloadLimit {};
-
-    /**
-     * Compares network parameters.
-     *
-     * @param instanceNetworkParams instance network parameters to compare.
-     * @return bool.
-     */
-    bool operator==(const InstanceNetworkParameters& instanceNetworkParams) const
-    {
-        return mInstanceIdent == instanceNetworkParams.mInstanceIdent
-            && mNetworkParameters == instanceNetworkParams.mNetworkParameters
-            && mHostname == instanceNetworkParams.mHostname && mAliases == instanceNetworkParams.mAliases
-            && mIngressKbit == instanceNetworkParams.mIngressKbit && mEgressKbit == instanceNetworkParams.mEgressKbit
-            && mExposedPorts == instanceNetworkParams.mExposedPorts && mHosts == instanceNetworkParams.mHosts
-            && mHostsFilePath == instanceNetworkParams.mHostsFilePath
-            && mResolvConfFilePath == instanceNetworkParams.mResolvConfFilePath
-            && mUploadLimit == instanceNetworkParams.mUploadLimit
-            && mDownloadLimit == instanceNetworkParams.mDownloadLimit;
-    }
-
-    /**
-     * Compares instance network parameters.
-     *
-     * @param instanceNetworkParameters instance network parameters to compare.
-     * @return bool.
-     */
-    bool operator!=(const InstanceNetworkParameters& instanceNetworkParameters) const
-    {
-        return !operator==(instanceNetworkParameters);
-    }
-};
 
 /**
  * Network manager interface.
@@ -102,51 +45,62 @@ public:
     virtual RetWithError<StaticString<cFilePathLen>> GetNetnsPath(const String& instanceID) const = 0;
 
     /**
-     * Updates networks.
-     *
-     * @param networks network parameters.
-     * @return Error.
-     */
-    virtual Error UpdateNetworks(const Array<aos::NetworkParameters>& networks) = 0;
-
-    /**
-     * Adds instance to network.
-     *
-     * @param instanceID instance id.
-     * @param networkID network id.
-     * @param instanceNetworkParameters instance network parameters.
-     * @return Error.
-     */
-    virtual Error AddInstanceToNetwork(
-        const String& instanceID, const String& networkID, const InstanceNetworkParameters& instanceNetworkParameters)
-        = 0;
-
-    /**
-     * Removes instance from network.
-     *
-     * @param instanceID instance id.
-     * @param networkID network id.
-     * @return Error.
-     */
-    virtual Error RemoveInstanceFromNetwork(const String& instanceID, const String& networkID) = 0;
-
-    /**
-     * Returns instance's IP address.
-     *
-     * @param instanceID instance id.
-     * @param networkID network id.
-     * @param[out] ip instance's IP address.
-     * @return Error.
-     */
-    virtual Error GetInstanceIP(const String& instanceID, const String& networkID, String& ip) const = 0;
-
-    /**
      * Sets the traffic period.
      *
      * @param period traffic period.
-     * @return Error
+     * @return Error.
      */
     virtual Error SetTrafficPeriod(TrafficPeriod period) = 0;
+
+    /**
+     * Creates instance network: requests node network from CM, allocates IP, stores in DB.
+     * Returns eAlreadyExist if instance network already created.
+     * Does NOT create bridge/VLAN, namespace, or CNI.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @param networkConfig instance network config.
+     * @return Error.
+     */
+    virtual Error CreateInstanceNetwork(
+        const String& instanceID, const String& networkID, const InstanceNetworkConfig& networkConfig)
+        = 0;
+
+    /**
+     * Starts instance network: creates bridge/VLAN if needed, namespace, CNI,
+     * monitoring, hosts/resolv.conf. Reads network params from DB.
+     * Does NOT call CM.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @param runtimeParams runtime parameters (file paths).
+     * @return Error.
+     */
+    virtual Error StartInstanceNetwork(
+        const String& instanceID, const String& networkID, const InstanceNetworkRuntimeParams& runtimeParams)
+        = 0;
+
+    /**
+     * Stops instance network: removes CNI, namespace, monitoring.
+     * If last running instance on network — clears bridge/VLAN.
+     * Does NOT remove from DB, does NOT call CM.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @return Error.
+     */
+    virtual Error StopInstanceNetwork(const String& instanceID, const String& networkID) = 0;
+
+    /**
+     * Releases instance network: removes from DB, calls CM ReleaseInstanceNetwork.
+     * If last instance on network — removes node network info from DB, releases on CM.
+     * Requires Stop to be called first.
+     *
+     * @param instanceID instance ID.
+     * @param networkID network ID.
+     * @return Error.
+     */
+    virtual Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) = 0;
 };
 
 /** @}*/
