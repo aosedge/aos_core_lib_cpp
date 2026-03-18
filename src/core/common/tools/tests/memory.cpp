@@ -219,7 +219,9 @@ TEST(MemoryTest, UniquePtrDeallocAfterMove)
 
     {
         auto ptr1 = DeferRelease(&dummy, deleter1.AsStdFunction());
-        ptr1      = Move(DeferRelease(&dummy, deleter2.AsStdFunction()));
+        // cppcheck-suppress redundantInitialization
+        // cppcheck-suppress unreadVariable
+        ptr1 = DeferRelease(&dummy, deleter2.AsStdFunction());
     }
 }
 
@@ -239,7 +241,9 @@ TEST(MemoryTest, UniquePtrDeallocAfterMoveDifferentTypes)
 
     {
         auto ptr1 = DeferRelease(&base, deleter1.AsStdFunction());
-        ptr1      = DeferRelease(&derived, deleter2.AsStdFunction());
+        // cppcheck-suppress redundantInitialization
+        // cppcheck-suppress unreadVariable
+        ptr1 = DeferRelease(&derived, deleter2.AsStdFunction());
     }
 }
 
