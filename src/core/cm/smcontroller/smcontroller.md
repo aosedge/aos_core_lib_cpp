@@ -8,7 +8,8 @@ It implements the following interfaces:
 * [aos::cm::launcher::InstanceRunnerItf](../launcher/itf/instancerunner.hpp) - starts/stops instances on specified node;
 * [aos::cm::launcher::MonitoringProviderItf](../launcher/itf/monitoringprovider.hpp) - gets average node and instances
   monitoring data;
-* [aos::cm::networkmanager::NodeNetworkItf](../networkmanager/itf/nodenetwork.hpp) - updates network on specified node;
+* [aos::network::NetworkProviderItf](../../common/network/itf/networkprovider.hpp) - provides network parameters for
+  specified node;
 * [aos::cm::smcontroller::LogProviderItf](itf/logprovider.hpp) - requests log on specified node.
 
 It requires the following interfaces:
@@ -46,7 +47,7 @@ classDiagram
         <<interface>>
     }
 
-    class NodeNetworkItf["aos::cm::networkmanager::NodeNetworkItf"] {
+    class NetworkProviderItf["aos::network::NetworkProviderItf"] {
         <<interface>>
     }
 
@@ -101,7 +102,7 @@ classDiagram
     SMController ..|> NodeConfigHandlerItf
     SMController ..|> InstanceRunnerItf
     SMController ..|> MonitoringProviderItf
-    SMController ..|> NodeNetworkItf
+    SMController ..|> NetworkProviderItf
     SMController ..|> LogProviderItf
 
     SMController ..> CloudConnectionItf
