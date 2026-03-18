@@ -66,6 +66,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
         return AOS_ERROR_WRAP(err);
     }
 
+    mRunRequestsLoader.Init(storage, mInstanceManager);
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
     mBalancer.Init(
         mInstanceManager, itemInfoProvider, ociSpec, mNodeManager, *mMonitorProvider, *mRunner, mNetworkManager);
@@ -117,6 +118,11 @@ Error Launcher::Start()
     }
 
     if (auto [_, err] = mInstanceManager.SetSubjects(*subjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Load run requests.
+    if (auto err = mRunRequestsLoader.Load(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -218,12 +224,23 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     UniqueLock balancingLock {mBalancingMutex};
     UniqueLock updateLock {mUpdateMutex};
 
+    // Disable process updates for the duration of balancing.
+    mDisableProcessUpdates    = true;
+    auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
+        self->mDisableProcessUpdates = false;
+        self->mProcessUpdatesCondVar.NotifyAll();
+    });
+
     LOG_INF() << "Run instances" << Log::Field("numRequests", requests.Size());
 
     for (const auto& request : requests) {
         LOG_INF() << "Run instance request" << Log::Field("itemID", request.mItemID)
                   << Log::Field("type", request.mUpdateItemType) << Log::Field("version", request.mVersion)
                   << Log::Field("numInstances", request.mNumInstances);
+    }
+
+    if (auto err = mRunRequestsLoader.Save(requests); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     WaitAllNodesConnected(updateLock);
@@ -532,89 +549,6 @@ void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
     };
 
     mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
-}
-
-void Launcher::CreateRequestedInstances(Array<SharedPtr<Instance>>& instances)
-{
-    for (auto& instance : mInstanceManager.GetActiveInstances()) {
-        auto instanceIdent = instance->GetInfo().mInstanceIdent;
-
-        if (!mInstanceManager.IsSubjectEnabled(*instance)) {
-            LOG_WRN() << "Subject is not enabled for instance" << Log::Field("instance", instanceIdent);
-
-            mInstanceManager.DisableInstance(instance);
-
-            continue;
-        }
-
-        if (auto err = instances.PushBack(instance); !err.IsNone()) {
-            LOG_ERR() << "Can't add instance to array" << Log::Field("instance", instanceIdent)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
-        }
-    }
-
-    for (auto& instance : mInstanceManager.GetCachedInstances()) {
-        auto instanceIdent = instance->GetInfo().mInstanceIdent;
-
-        if (instance->GetInfo().mState != InstanceStateEnum::eDisabled) {
-            continue;
-        }
-
-        if (!mInstanceManager.IsSubjectEnabled(*instance)) {
-            continue;
-        }
-
-        if (auto err = instances.PushBack(instance); !err.IsNone()) {
-            LOG_ERR() << "Can't add instance to array" << Log::Field("instance", instanceIdent)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
-        }
-    }
-}
-
-void Launcher::CreateRequestedInstances(
-    const Array<RunInstanceRequest>& requests, Array<SharedPtr<Instance>>& instances)
-{
-    // Sort input requests by priority
-    auto sortedRequests = MakeUnique<StaticArray<RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
-    *sortedRequests     = requests;
-
-    sortedRequests->Sort([](const RunInstanceRequest& left, const RunInstanceRequest& right) {
-        return left.mPriority > right.mPriority || (left.mPriority == right.mPriority && left.mItemID < right.mItemID);
-    });
-
-    // Create instances
-    for (const auto& request : *sortedRequests) {
-        for (size_t i = 0; i < request.mNumInstances; i++) {
-
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
-
-            auto [instance, createErr] = mInstanceManager.CreateInstance(instanceIdent, request);
-            if (!createErr.IsNone()) {
-                LOG_ERR() << "Can't create instance" << Log::Field("instance", instanceIdent) << Log::Field(createErr);
-
-                continue;
-            }
-
-            if (!mInstanceManager.IsSubjectEnabled(*instance)) {
-                LOG_WRN() << "Subject is not enabled for instance" << Log::Field("instance", instanceIdent);
-
-                mInstanceManager.DisableInstance(instance);
-
-                continue;
-            }
-
-            if (auto err = instances.PushBack(instance); !err.IsNone()) {
-                LOG_ERR() << "Can't add instance to array" << Log::Field("instance", instanceIdent)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                continue;
-            }
-        }
-    }
 }
 
 Error Launcher::LoadEnvVarsOverrides()

@@ -24,6 +24,7 @@ set(SOURCES
     networkmanager.cpp
     node.cpp
     nodemanager.cpp
+    runrequestsloader.cpp
     storagestate.cpp
 )
 
@@ -34,6 +35,7 @@ set(SOURCES
 set(HEADERS
     gidpool.hpp
     imageinfoprovider.hpp
+    runrequestsloader.hpp
     itf/instancerunner.hpp
     itf/instancestatusreceiver.hpp
     itf/launcher.hpp
