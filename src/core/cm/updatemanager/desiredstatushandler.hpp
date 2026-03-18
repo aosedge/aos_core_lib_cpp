@@ -79,6 +79,7 @@ private:
     Error FinalizeUpdate();
     void  StartUpdate(UpdateState state = UpdateStateEnum::eDownloading);
     void  CancelUpdate();
+    bool  UpdateRequired(const DesiredStatus& desiredStatus) const;
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};

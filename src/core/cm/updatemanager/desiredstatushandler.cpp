@@ -46,6 +46,10 @@ Error DesiredStatusHandler::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mStorage->GetDesiredStatus(mPendingDesiredStatus); !err.IsNone()) {
+        LOG_ERR() << "Failed to get desired status" << Log::Field(err);
+    }
+
     auto [updateState, err] = mStorage->GetUpdateState();
     if (!err.IsNone()) {
         LOG_ERR() << "Failed to get update state" << Log::Field(err);
@@ -54,12 +58,8 @@ Error DesiredStatusHandler::Start()
     if (updateState != UpdateStateEnum::eNone) {
         LOG_INF() << "Resuming update from state" << Log::Field("state", updateState);
 
-        if (err = mStorage->GetDesiredStatus(mPendingDesiredStatus); !err.IsNone()) {
-            LOG_ERR() << "Failed to get desired status" << Log::Field(err);
-        } else {
-            mHasPendingDesiredStatus = true;
-            StartUpdate(updateState);
-        }
+        mHasPendingDesiredStatus = true;
+        StartUpdate(updateState);
     }
 
     return ErrorEnum::eNone;
@@ -103,13 +103,13 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 
     LogDesiredStatus(desiredStatus);
 
+    if (!UpdateRequired(desiredStatus)) {
+        LOG_INF() << "No update is required";
+
+        return ErrorEnum::eNone;
+    }
+
     if (mUpdateState != UpdateStateEnum::eNone) {
-        if (mPendingDesiredStatus == desiredStatus) {
-            LOG_DBG() << "Desired status is already being processed";
-
-            return ErrorEnum::eNone;
-        }
-
         LOG_DBG() << "Cancel current update to process new desired status";
 
         CancelUpdate();
@@ -447,6 +447,27 @@ Error DesiredStatusHandler::FinalizeUpdate()
     }
 
     return ErrorEnum::eNone;
+}
+
+bool DesiredStatusHandler::UpdateRequired(const DesiredStatus& desiredStatus) const
+{
+    if (!desiredStatus.mNodes.IsEmpty()) {
+        return true;
+    }
+
+    if (desiredStatus.mUnitConfig.HasValue()) {
+        return true;
+    }
+
+    if (desiredStatus.mUpdateItems != mPendingDesiredStatus.mUpdateItems) {
+        return true;
+    }
+
+    if (desiredStatus.mInstances != mPendingDesiredStatus.mInstances) {
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace aos::cm::updatemanager
