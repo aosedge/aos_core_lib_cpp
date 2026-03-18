@@ -12,7 +12,6 @@
 
 #include "envvars.hpp"
 #include "monitoring.hpp"
-#include "network.hpp"
 
 namespace aos {
 
@@ -31,7 +30,6 @@ struct InstanceInfoData {
     StaticString<cFilePathLen>                         mStoragePath;
     StaticString<cFilePathLen>                         mStatePath;
     EnvVarArray                                        mEnvVars;
-    Optional<InstanceNetworkParameters>                mNetworkParameters;
     Optional<InstanceMonitoringParams>                 mMonitoringParams;
     StaticArray<RuntimeDependency, cMaxNumRuntimeDeps> mRuntimeDeps;
     StaticString<cUnitStateDepsLen>                    mUnitStateDeps;
@@ -47,8 +45,8 @@ struct InstanceInfoData {
         return mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID && mOwnerID == rhs.mOwnerID
             && mSubjectType == rhs.mSubjectType && mGID == rhs.mGID && mUID == rhs.mUID && mPriority == rhs.mPriority
             && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath && mEnvVars == rhs.mEnvVars
-            && mNetworkParameters == rhs.mNetworkParameters && mMonitoringParams == rhs.mMonitoringParams
-            && mRuntimeDeps == rhs.mRuntimeDeps && mUnitStateDeps == rhs.mUnitStateDeps;
+            && mMonitoringParams == rhs.mMonitoringParams && mRuntimeDeps == rhs.mRuntimeDeps
+            && mUnitStateDeps == rhs.mUnitStateDeps;
     }
 
     /**
