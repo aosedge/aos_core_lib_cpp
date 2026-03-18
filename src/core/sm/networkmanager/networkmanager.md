@@ -1,37 +1,45 @@
 # Network manager
 
-Network manager creates, updates and manages instances networks using CNI plugins. It handles network
-namespace creation, IP address allocation, traffic monitoring, and CNI plugin configuration for service
-instances.
+Network manager creates, manages and releases instance networks using CNI plugins. It separates
+network lifecycle into logical (CM communication, DB persistence) and physical (bridge/VLAN,
+namespace, CNI) operations to support offline SM operation and clean reboot recovery.
 
 ## Functionality
 
 The network manager provides the following functionality:
 
-### Network management
-
-- **UpdateNetworks**: Updates the list of available networks based on network parameters. Creates new
-  networks (bridges, VLANs) or removes existing ones as needed. Manages network storage and interface
-  configuration.
-
 ### Instance network operations
 
-- **AddInstanceToNetwork**: Adds a service instance to a specific network. This method:
+- **CreateInstanceNetwork**: Logical network creation (CM + DB). This method:
+  - Ensures node network exists (requests parameters from CM via NetworkProviderItf, stores in DB)
+  - Allocates instance IP address from CM via NetworkProviderItf
+  - Stores network config and allocated parameters in DB and internal cache
+  - Returns eAlreadyExist if instance network already created
+  - Does NOT create bridge/VLAN, namespace, or CNI
+
+- **StartInstanceNetwork**: Physical network setup (local, no CM calls). This method:
+  - Creates bridge/VLAN interfaces if not already created (EnsureNodeNetworkPhysical)
   - Creates a network namespace for the instance
   - Configures CNI plugins (bridge, firewall, bandwidth, DNS)
-  - Allocates an IP address from the network subnet
   - Sets up network interfaces and routing
   - Configures traffic shaping (ingress/egress bandwidth limits)
   - Creates host files and resolv.conf for DNS resolution
   - Starts traffic monitoring for the instance
+  - Reads network config and allocated parameters from internal cache
 
-- **RemoveInstanceFromNetwork**: Removes an instance from a network. This method:
+- **StopInstanceNetwork**: Physical network teardown (local, no CM calls). This method:
   - Stops traffic monitoring for the instance
   - Executes CNI plugin DEL command to tear down network configuration
   - Removes network namespace
-  - Cleans up host files and network cache
+  - Cleans up network cache
+  - Clears bridge/VLAN if last running instance on network
+  - Does NOT remove from DB, does NOT call CM
 
-- **GetInstanceIP**: Retrieves the IP address assigned to an instance on a specific network.
+- **ReleaseInstanceNetwork**: Logical network release (DB + CM). This method:
+  - Requires StopInstanceNetwork to be called first
+  - Removes instance network info from DB and internal cache
+  - Releases instance network on CM via NetworkProviderItf
+  - Removes node network info from DB and releases on CM if last created instance on network
 
 - **GetNetnsPath**: Returns the filesystem path to the network namespace for a given instance.
 
@@ -54,23 +62,27 @@ It implements the following interfaces:
 
 It requires the following interfaces:
 
+- [aos::networkmanager::NetworkProviderItf][networkprovider-itf] - provides network parameters from CM
+  (node network params, instance IP allocation/release).
 - [aos::sm::networkmanager::StorageItf][storage-itf] - stores and retrieves network configuration data.
 - [aos::sm::cni::CNIItf][cni-itf] - provides CNI plugin management functionality.
-- [aos::sm::networkmanager::TrafficMonitorItf][trafficmonitor-itf] - monitors network traffic for instances.
+- [aos::sm::networkmanager::TrafficMonitorItf][trafficmonitor-itf] - monitors network traffic for
+  instances.
 - [aos::sm::networkmanager::NamespaceManagerItf][namespacemanager-itf] - manages network namespaces.
 - [aos::sm::networkmanager::InterfaceManagerItf][interfacemanager-itf] - manages network interfaces.
-- [aos::sm::networkmanager::InterfaceFactoryItf][interfacefactory-itf] - creates network interfaces (bridges,
-  VLANs).
+- [aos::sm::networkmanager::InterfaceFactoryItf][interfacefactory-itf] - creates network interfaces
+  (bridges, VLANs).
 - [aos::common::crypto::RandomItf][random-itf] - generates random values.
 
-[networkmanager-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/networkmanager.hpp
-[storage-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/storage.hpp
-[cni-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/cni.hpp
-[trafficmonitor-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/trafficmonitor.hpp
-[namespacemanager-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/namespacemanager.hpp
-[interfacemanager-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/interfacemanager.hpp
-[interfacefactory-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/sm/networkmanager/itf/interfacefactory.hpp
-[random-itf]: https://github.com/aosedge/aos_core_lib_cpp/blob/feature_unification/src/core/common/crypto/itf/rand.hpp
+[networkmanager-itf]: itf/networkmanager.hpp
+[networkprovider-itf]: ../../common/networkmanager/itf/networkprovider.hpp
+[storage-itf]: itf/storage.hpp
+[cni-itf]: itf/cni.hpp
+[trafficmonitor-itf]: itf/trafficmonitor.hpp
+[namespacemanager-itf]: itf/namespacemanager.hpp
+[interfacemanager-itf]: itf/interfacemanager.hpp
+[interfacefactory-itf]: itf/interfacefactory.hpp
+[random-itf]: ../../../common/crypto/itf/rand.hpp
 
 ```mermaid
 classDiagram
@@ -78,6 +90,10 @@ classDiagram
     }
 
     class NetworkManagerItf ["aos::sm::networkmanager::NetworkManagerItf"] {
+        <<interface>>
+    }
+
+    class NetworkProviderItf ["aos::networkmanager::NetworkProviderItf"] {
         <<interface>>
     }
 
@@ -111,6 +127,7 @@ classDiagram
 
     NetworkManager ..|> NetworkManagerItf
 
+    NetworkManager ..> NetworkProviderItf
     NetworkManager ..> StorageItf
     NetworkManager ..> CNIItf
     NetworkManager ..> TrafficMonitorItf
