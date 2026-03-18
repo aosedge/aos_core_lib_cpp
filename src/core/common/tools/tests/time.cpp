@@ -131,7 +131,7 @@ TEST_F(TimeTest, GetDateTime)
 
 TEST_F(TimeTest, FromUTCString)
 {
-    constexpr auto cUTCString = "2024-01-31T12:00:00Z";
+    constexpr auto cUTCString = "2024-01-31T12:00:00.000000Z";
 
     auto [time, timeErr] = Time::UTC(cUTCString);
     ASSERT_EQ(timeErr, ErrorEnum::eNone);
@@ -151,7 +151,7 @@ TEST_F(TimeTest, FromUTCString)
     auto [utcString, stringErr] = time.ToUTCString();
     ASSERT_EQ(stringErr, ErrorEnum::eNone);
 
-    EXPECT_STREQ(utcString.CStr(), "2024-01-31T12:00:00Z");
+    EXPECT_STREQ(utcString.CStr(), "2024-01-31T12:00:00.000000Z");
 }
 
 TEST_F(TimeTest, ToUTCString)
@@ -173,5 +173,5 @@ TEST_F(TimeTest, ToUTCString)
     auto [utcString, err] = t.ToUTCString();
     ASSERT_EQ(err, ErrorEnum::eNone);
 
-    EXPECT_STREQ(utcString.CStr(), "2024-01-31T12:00:00Z");
+    EXPECT_STREQ(utcString.CStr(), "2024-01-31T12:00:00.000000Z");
 }

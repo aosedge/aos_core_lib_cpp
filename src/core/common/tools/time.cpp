@@ -83,7 +83,7 @@ const char* ConsumeDate(const char* s, struct tm* tm_time)
     return s;
 }
 
-const char* ConsumeTime(const char* s, struct tm* tm_time)
+const char* ConsumeTime(const char* s, struct tm* tm_time, int64_t* nsec)
 {
     char hour[2 + 1];
     char minute[2 + 1];
@@ -118,10 +118,28 @@ const char* ConsumeTime(const char* s, struct tm* tm_time)
     tm_time->tm_min  = atoi(minute);
     tm_time->tm_sec  = atoi(second);
 
+    if (*s == '.') {
+        s++;
+
+        char   fracBuf[7] = "000000";
+        size_t i          = 0;
+
+        while (*s >= '0' && *s <= '9' && i < 6) {
+            fracBuf[i++] = *s++;
+        }
+
+        // skip remaining fractional digits
+        while (*s >= '0' && *s <= '9') {
+            s++;
+        }
+
+        *nsec = static_cast<int64_t>(atoi(fracBuf)) * 1000;
+    }
+
     return s;
 }
 
-Error ParseDateTime(const char* s, const char* format, struct tm* tm_time)
+Error ParseDateTime(const char* s, const char* format, struct tm* tm_time, int64_t* nsec)
 {
     if (strcmp(format, cUTCFormat) != 0) {
         return Error(ErrorEnum::eInvalidArgument, "unsupported format");
@@ -137,7 +155,7 @@ Error ParseDateTime(const char* s, const char* format, struct tm* tm_time)
         return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse date"));
     }
 
-    s = ConsumeTime(s, tm_time);
+    s = ConsumeTime(s, tm_time, nsec);
     if (!s) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse time"));
     }
@@ -246,8 +264,9 @@ StaticString<cTimeStrLen> Duration::ToISO8601String() const
 RetWithError<Time> Time::UTC(const String& utcTimeStr)
 {
     struct tm timeInfo = {};
+    int64_t   nsec     = 0;
 
-    if (auto err = ParseDateTime(utcTimeStr.CStr(), cUTCFormat, &timeInfo); !err.IsNone()) {
+    if (auto err = ParseDateTime(utcTimeStr.CStr(), cUTCFormat, &timeInfo, &nsec); !err.IsNone()) {
         return {{}, err};
     }
 
@@ -257,7 +276,7 @@ RetWithError<Time> Time::UTC(const String& utcTimeStr)
     auto seconds = timegm(&timeInfo);
 #endif
 
-    return Time::Unix(seconds);
+    return Time::Unix(seconds, nsec);
 }
 
 RetWithError<StaticString<cTimeStrLen>> Time::ToUTCString() const
@@ -271,10 +290,14 @@ RetWithError<StaticString<cTimeStrLen>> Time::ToUTCString() const
 
     utcTimeStr.Resize(utcTimeStr.MaxSize());
 
-    size_t size = strftime(utcTimeStr.Get(), utcTimeStr.Size(), "%FT%TZ", time);
+    size_t size = strftime(utcTimeStr.Get(), utcTimeStr.Size(), "%FT%T", time);
     if (size == 0) {
         return {{}, Error(ErrorEnum::eFailed, "failed to format time")};
     }
+
+    auto usec = unixTime.tv_nsec / 1000;
+
+    size += snprintf(utcTimeStr.Get() + size, utcTimeStr.Size() - size, ".%06ldZ", usec);
 
     if (auto err = utcTimeStr.Resize(size); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
