@@ -145,13 +145,24 @@ public:
     Error UpdateStatus(const InstanceStatus& status);
 
     /**
-     * Creates new instance object or returns existing one.
+     * Creates new instance object.
      *
-     * @param id instance identifier.
      * @param request run instance request.
-     * @return SharedPtr<Instance>.
+     * @param index index of the instance.
+     * @return RetWithError<SharedPtr<Instance>>.
      */
-    RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceIdent& id, const RunInstanceRequest& request);
+    RetWithError<SharedPtr<Instance>> CreateInstance(const RunInstanceRequest& request, uint64_t index);
+
+    /**
+     * Creates new instance object.
+     *
+     * @param request run instance request.
+     * @param nodeID bound node ID.
+     * @param newInstances array of new instances.
+     * @return RetWithError<SharedPtr<Instance>>.
+     */
+    RetWithError<SharedPtr<Instance>> CreateInstance(
+        const RunInstanceRequest& request, const String& nodeID, const Array<SharedPtr<Instance>>& newInstances);
 
     /**
      * Submits all stashed instances for execution.
@@ -252,7 +263,17 @@ private:
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
     SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id);
-    void                CreateInfo(const InstanceIdent& id, const RunInstanceRequest& request, InstanceInfo& info);
+    SharedPtr<Instance> FindReadyInstance(const String& itemID, const String& subjectID, const String& nodeID);
+    uint64_t            FindIndexForNewInstance(const String& itemID, const String& subjectID);
+
+    UniquePtr<InstanceInfo> CreateInfo(
+        const InstanceIdent& id, const String& nodeID, const RunInstanceRequest& request);
+
+    SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
+    SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
+        const String& subjectID, const String& nodeID);
+    uint64_t            FindIndexForNewInstance(
+                   const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID);
 
     Config          mConfig;
     StorageItf*     mStorage {};
