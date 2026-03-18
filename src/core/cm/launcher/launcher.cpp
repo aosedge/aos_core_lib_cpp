@@ -26,15 +26,6 @@ public:
     }
 };
 
-Error PushUnique(Array<StaticString<cIDLen>>& array, const StaticString<cIDLen>& value)
-{
-    if (array.Contains(value)) {
-        return ErrorEnum::eNone;
-    }
-
-    return array.PushBack(value);
-}
-
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
