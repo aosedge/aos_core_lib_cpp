@@ -33,9 +33,9 @@ public:
 Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-    networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
-    alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider,
-    IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator, StorageItf& storage)
+    MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
+    iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
+    IdentifierPoolValidator uidValidator, StorageItf& storage)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -49,10 +49,8 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mAlertsProvider     = &alertsProvider;
     mIdentProvider      = &identProvider;
 
-    mNetworkManager.Init(networkManager);
-
-    auto err = mInstanceManager.Init(
-        config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage, mNetworkManager);
+    auto err
+        = mInstanceManager.Init(config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -61,7 +59,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
 
     mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
-    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner, mNetworkManager);
+    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
 
     return ErrorEnum::eNone;
 }

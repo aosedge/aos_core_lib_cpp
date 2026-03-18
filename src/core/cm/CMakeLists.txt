@@ -22,7 +22,6 @@ set(INSTALL_HEADERS
     aos_core_cm_fileserver
     aos_core_cm_iamclient
     aos_core_cm_imagemanager
-    aos_core_cm_networkmanager
     aos_core_cm_nodeinfoprovider
     aos_core_cm_smcontroller
     aos_core_cm_storagestate
@@ -60,7 +59,6 @@ add_subdirectory(iamclient)
 add_subdirectory(imagemanager)
 add_subdirectory(launcher)
 add_subdirectory(monitoring)
-add_subdirectory(networkmanager)
 add_subdirectory(nodeinfoprovider)
 add_subdirectory(smcontroller)
 add_subdirectory(storagestate)

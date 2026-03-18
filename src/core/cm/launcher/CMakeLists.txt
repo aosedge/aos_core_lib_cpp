@@ -21,7 +21,6 @@ set(SOURCES
     instance.cpp
     instancemanager.cpp
     launcher.cpp
-    networkmanager.cpp
     node.cpp
     nodemanager.cpp
     runrequestsloader.cpp

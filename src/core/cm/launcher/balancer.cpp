@@ -15,14 +15,13 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner, NetworkManager& networkManager)
+    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
 {
     mInstanceManager   = &instanceManager;
     mImageInfoProvider = &imageInfoProvider;
     mNodeManager       = &nodeManager;
     mMonitorProvider   = &monitorProvider;
     mRunner            = &runner;
-    mNetworkManager    = &networkManager;
 }
 
 Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing)
@@ -38,10 +37,6 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>
     }
 
     if (auto err = PerformNodeBalancing(instances); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = UpdateNetwork(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -387,77 +382,6 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
         [topPriority](const NodeRuntimes& item) { return item.mFirst->GetConfig().mPriority != topPriority; });
 }
 
-Error Balancer::UpdateNetwork()
-{
-    RemoveNetworkForDeletedInstances();
-
-    if (auto err = SetupNetworkForNewInstances(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    SetNetworkParams(true);
-    SetNetworkParams(false);
-
-    if (auto err = mNetworkManager->RestartDNSServer(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-void Balancer::RemoveNetworkForDeletedInstances()
-{
-    const auto& scheduledInstances = mInstanceManager->GetScheduledInstances();
-
-    for (const auto& instance : mInstanceManager->GetActiveInstances()) {
-        bool isScheduled = scheduledInstances.ContainsIf(
-            [&instance](const SharedPtr<Instance>& schedInst) { return schedInst.Get() == instance.Get(); });
-
-        if (!isScheduled) {
-            if (auto err = instance->RemoveNetworkParams(); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-                LOG_ERR() << "Can't remove network params" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
-                          << Log::Field(err);
-            }
-        }
-    }
-}
-
-void Balancer::SetNetworkParams(bool onlyWithExposedPorts)
-{
-    for (auto& instance : mInstanceManager->GetScheduledInstances()) {
-        auto err = instance->PrepareNetworkParams(onlyWithExposedPorts);
-        if (!err.IsNone()) {
-            instance->SetError(AOS_ERROR_WRAP(Error(err, "can't setup network params")));
-
-            continue;
-        }
-    }
-}
-
-Error Balancer::SetupNetworkForNewInstances()
-{
-    for (const auto& node : mNodeManager->GetNodes()) {
-        const auto& nodeID = node.GetInfo().mNodeID;
-
-        auto providers = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
-
-        for (const auto& instance : mInstanceManager->GetScheduledInstances()) {
-            if (nodeID == instance->GetInfo().mNodeID
-                && instance->GetInfo().mInstanceIdent.mType == UpdateItemTypeEnum::eService) {
-                if (auto err = providers->PushBack(instance->GetInfo().mOwnerID); !err.IsNone()) {
-                    instance->SetError(AOS_ERROR_WRAP(Error(err, "can't add owner ID")));
-                }
-            }
-        }
-
-        if (auto err = mNetworkManager->UpdateProviderNetwork(*providers, nodeID); !err.IsNone()) {
-            return AOS_ERROR_WRAP(Error(err, "can't update provider network"));
-        }
-    }
-
-    return ErrorEnum::eNone;
-}
-
 Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 {
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
@@ -557,8 +481,6 @@ Error Balancer::PrepareForBalancing(bool rebalancing, bool isInitialUpdate)
     if (auto err = UpdateMonitoringData(isInitialUpdate); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-
-    mNetworkManager->PrepareForBalancing();
 
     if (auto err = mInstanceManager->PrepareForBalancing(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
