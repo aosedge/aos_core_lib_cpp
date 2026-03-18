@@ -306,7 +306,7 @@
  * Max number of hosts.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_HOSTS
-#define AOS_CONFIG_TYPES_MAX_NUM_HOSTS 4
+#define AOS_CONFIG_TYPES_MAX_NUM_HOSTS 8
 #endif
 
 /**
