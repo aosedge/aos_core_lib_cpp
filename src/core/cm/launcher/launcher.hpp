@@ -24,6 +24,7 @@
 #include "instancemanager.hpp"
 #include "networkmanager.hpp"
 #include "nodemanager.hpp"
+#include "runrequestsloader.hpp"
 
 namespace aos::cm::launcher {
 
@@ -147,9 +148,6 @@ private:
     void ProcessUpdate();
     void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
 
-    void CreateRequestedInstances(Array<SharedPtr<Instance>>& instances);
-    void CreateRequestedInstances(const Array<RunInstanceRequest>& requests, Array<SharedPtr<Instance>>& instances);
-
     Error LoadEnvVarsOverrides();
     Error ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars);
 
@@ -179,10 +177,11 @@ private:
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
 
     // Managers
-    NetworkManager  mNetworkManager {};
-    InstanceManager mInstanceManager {};
-    NodeManager     mNodeManager {};
-    Balancer        mBalancer {};
+    RunRequestsLoader mRunRequestsLoader {};
+    NetworkManager    mNetworkManager {};
+    InstanceManager   mInstanceManager {};
+    NodeManager       mNodeManager {};
+    Balancer          mBalancer {};
 
     // Process update thread
     Thread<>                                        mWorkerThread;
