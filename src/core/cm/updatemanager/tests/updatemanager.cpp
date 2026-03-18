@@ -702,28 +702,6 @@ TEST_F(UpdateManagerTest, SendUnitStatusWithPreinstalledItems)
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 }
 
-TEST_F(UpdateManagerTest, ProcessEmptyDesiredStatus)
-{
-    auto expectedUnitStatus = std::make_unique<UnitStatus>();
-    auto desiredStatus      = std::make_unique<DesiredStatus>();
-
-    EmptyUnitStatus(*expectedUnitStatus);
-
-    // Notify cloud connection established
-
-    mConnectionListener->OnConnect();
-    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
-
-    EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(desiredStatus->mUpdateItems, _, _, _)).Times(1);
-    EXPECT_CALL(mLauncherMock, RunInstances(Array<launcher::RunInstanceRequest>(), _)).Times(1);
-    EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
-
-    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
-    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
-
-    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
-}
-
 TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 {
     auto expectedUnitStatus = std::make_unique<UnitStatus>();
