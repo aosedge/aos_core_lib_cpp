@@ -74,6 +74,7 @@ private:
 
     // Selects nodes
     Error SelectNodes(Instance& instance, Array<Node*>& nodes);
+    void  FilterNodesByID(Instance& instance, Array<Node*>& nodes);
     void  FilterNodesByLabels(Instance& instance, Array<Node*>& nodes);
     void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
 

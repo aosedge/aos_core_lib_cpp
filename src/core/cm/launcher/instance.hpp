@@ -197,6 +197,14 @@ public:
      * @param nodeID node ID.
      * @return bool.
      */
+    bool IsNodeIDOk(const String& nodeID);
+
+    /**
+     * Checks whether node resources fit instance requirements.
+     *
+     * @param resources resources.
+     * @return bool.
+     */
     virtual bool AreNodeResourcesOk(const ResourceInfoArray& nodeResources) = 0;
 
     /**
