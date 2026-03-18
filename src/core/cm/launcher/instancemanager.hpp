@@ -19,7 +19,6 @@
 
 #include "config.hpp"
 #include "instance.hpp"
-#include "networkmanager.hpp"
 
 namespace aos::cm::launcher {
 
@@ -41,12 +40,11 @@ public:
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage Interface to persistent storage.
-     * @param networkManager Interface for managing networks of service instances.
      * @return Error.
      */
     Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
         storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage, NetworkManager& networkManager);
+        IdentifierPoolValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts the instance manager.
@@ -275,9 +273,8 @@ private:
     uint64_t            FindIndexForNewInstance(
                    const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID);
 
-    Config          mConfig;
-    StorageItf*     mStorage {};
-    NetworkManager* mNetworkManager {};
+    Config      mConfig;
+    StorageItf* mStorage {};
 
     ImageInfoProvider mImageInfoProvider;
     StorageState      mStorageState;
