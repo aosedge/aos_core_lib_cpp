@@ -22,7 +22,6 @@
 
 #include "balancer.hpp"
 #include "instancemanager.hpp"
-#include "networkmanager.hpp"
 #include "nodemanager.hpp"
 #include "runrequestsloader.hpp"
 
@@ -52,7 +51,6 @@ public:
      * @param ociSpec OCI spec interface.
      * @param nodeConfigProvider node config provider interface.
      * @param storageState interface to manage storage and state partitions.
-     * @param networkManager interface to manage networks of service instances.
      * @param monitorProvider monitoring provider.
      * @param alertsProvider alerts provider.
      * @param identProvider ident provider.
@@ -64,9 +62,9 @@ public:
     Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
         imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-        networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
-        alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider,
-        IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator, StorageItf& storage);
+        MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
+        iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
+        IdentifierPoolValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts launcher instance.
@@ -179,7 +177,6 @@ private:
 
     // Managers
     RunRequestsLoader mRunRequestsLoader {};
-    NetworkManager    mNetworkManager {};
     InstanceManager   mInstanceManager {};
     NodeManager       mNodeManager {};
     Balancer          mBalancer {};

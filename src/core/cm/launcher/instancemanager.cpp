@@ -16,11 +16,10 @@ namespace aos::cm::launcher {
 
 Error InstanceManager::Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
     storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-    IdentifierPoolValidator uidValidator, StorageItf& storage, NetworkManager& networkManager)
+    IdentifierPoolValidator uidValidator, StorageItf& storage)
 {
-    mConfig         = config;
-    mStorage        = &storage;
-    mNetworkManager = &networkManager;
+    mConfig  = config;
+    mStorage = &storage;
 
     mImageInfoProvider.Init(itemInfoProvider, ociSpec);
     mStorageState.Init(storageState);
@@ -433,8 +432,8 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
 
     switch (info.mInstanceIdent.mType.GetValue()) {
     case UpdateItemTypeEnum::eService:
-        newInstance = MakeShared<ServiceInstance>(&mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState,
-            mImageInfoProvider, *mNetworkManager, mInstanceAllocator);
+        newInstance = MakeShared<ServiceInstance>(
+            &mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState, mImageInfoProvider, mInstanceAllocator);
         break;
 
     case UpdateItemTypeEnum::eComponent:

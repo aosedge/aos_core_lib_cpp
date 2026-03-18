@@ -359,7 +359,6 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
     mSMInfo.mStoragePath = "";
     mSMInfo.mStatePath   = "";
     // mSMInfo.mEnvVars is set in OverrideEnvVars().
-    mSMInfo.mNetworkParameters.Reset();
     mSMInfo.mMonitoringParams.Reset();
 
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
@@ -369,30 +368,16 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
     return ErrorEnum::eNone;
 }
 
-Error ComponentInstance::PrepareNetworkParams(bool onlyExposedPorts)
-{
-    (void)onlyExposedPorts;
-
-    return ErrorEnum::eNone;
-}
-
-Error ComponentInstance::RemoveNetworkParams()
-{
-    return ErrorEnum::eNone;
-}
-
 /***********************************************************************************************************************
  * ServiceInstance implementation
  **********************************************************************************************************************/
 
 ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-    StorageState& storageState, ImageInfoProvider& imageInfoProvider, NetworkManager& networkManager,
-    Allocator& allocator)
+    StorageState& storageState, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
     : Instance(info, storage, imageInfoProvider, allocator)
     , mUIDPool(uidPool)
     , mGIDPool(gidPool)
     , mStorageState(storageState)
-    , mNetworkManager(networkManager)
 {
 }
 
@@ -541,10 +526,6 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 
     // mSMInfo.mEnvVars is set in OverrideEnvVars().
 
-    if (auto err = SetupNetworkServiceData(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     mSMInfo.mMonitoringParams.EmplaceValue();
     if (mItemConfig->mAlertRules.HasValue()) {
         mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
@@ -556,31 +537,6 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error ServiceInstance::PrepareNetworkParams(bool onlyExposedPorts)
-{
-    auto err = mNetworkManager.PrepareInstanceNetworkParameters(
-        mInfo.mInstanceIdent, mInfo.mOwnerID, mInfo.mNodeID, onlyExposedPorts, mSMInfo.mNetworkParameters);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error ServiceInstance::RemoveNetworkParams()
-{
-    if (mSMInfo.mNetworkParameters.HasValue()) {
-        auto err = mNetworkManager.RemoveInstanceNetworkParameters(mInfo.mInstanceIdent, mInfo.mNodeID);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        mSMInfo.mNetworkParameters.Reset();
     }
 
     return ErrorEnum::eNone;
@@ -753,22 +709,6 @@ size_t ServiceInstance::GetReqStorageFromNodeConfig(
     }
 
     return 0;
-}
-
-Error ServiceInstance::SetupNetworkServiceData()
-{
-    mNetworkServiceData.mExposedPorts       = mImageConfig->mConfig.mExposedPorts;
-    mNetworkServiceData.mAllowedConnections = mItemConfig->mAllowedConnections;
-
-    if (mItemConfig->mHostname.HasValue()) {
-        mNetworkServiceData.mHosts.PushBack(mItemConfig->mHostname.GetValue());
-    }
-
-    if (auto err = mNetworkManager.SetNetworkServiceData(mInfo.mInstanceIdent, mNetworkServiceData); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
 }
 
 Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath)
