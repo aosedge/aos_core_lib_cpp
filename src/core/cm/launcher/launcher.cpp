@@ -763,7 +763,7 @@ void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
 
     LockGuard updateLock {mUpdateMutex};
 
-    mNewSubjects.SetValue(subjects);
+    mNewSubjects.EmplaceValue(subjects);
 
     mProcessUpdatesCondVar.NotifyAll();
 }
