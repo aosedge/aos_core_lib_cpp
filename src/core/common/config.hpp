@@ -110,7 +110,7 @@
  * Max number of subjects.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS
-#define AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS 4
+#define AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS 64
 #endif
 
 /**
