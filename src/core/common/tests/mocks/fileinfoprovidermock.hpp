@@ -18,7 +18,7 @@ namespace aos::fs {
  */
 class FileInfoProviderMock : public FileInfoProviderItf {
 public:
-    MOCK_METHOD(Error, GetFileInfo, (const String& path, FileInfo& info), (override));
+    MOCK_METHOD(Error, GetFileInfo, (const String& path, FileInfo& info, crypto::Hash hashAlg), (override));
 };
 
 } // namespace aos::fs

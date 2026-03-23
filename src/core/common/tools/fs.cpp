@@ -104,7 +104,7 @@ Error FileInfoProvider::Init(crypto::HasherItf& hashProvider)
     return ErrorEnum::eNone;
 }
 
-Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info)
+Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg)
 {
     auto [size, err] = CalculateSize(path);
     if (!err.IsNone()) {
@@ -113,7 +113,7 @@ Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info)
 
     info.mSize = size;
 
-    return crypto::CalculateFileHash(path, crypto::HashEnum::eSHA256, *mHashProvider, info.mSHA256);
+    return crypto::CalculateFileHash(path, hashAlg, *mHashProvider, info.mCheckSum);
 }
 
 /***********************************************************************************************************************

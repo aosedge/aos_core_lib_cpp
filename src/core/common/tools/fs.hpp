@@ -259,8 +259,8 @@ struct FileInfo {
      */
     FileInfo() = default;
 
-    StaticArray<uint8_t, crypto::cSHA256Size> mSHA256;
-    size_t                                    mSize {};
+    StaticArray<uint8_t, Max(crypto::cSHA256Size, crypto::cSHA384Size, crypto::cSHA512Size)> mCheckSum;
+    size_t                                                                                   mSize {};
 };
 
 /**
@@ -280,7 +280,7 @@ public:
      * @param[out] info file info.
      * @return Error.
      */
-    virtual Error GetFileInfo(const String& path, FileInfo& info) = 0;
+    virtual Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) = 0;
 };
 
 /**
@@ -303,7 +303,7 @@ public:
      * @param[out] info file info.
      * @return Error.
      */
-    Error GetFileInfo(const String& path, FileInfo& info) override;
+    Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) override;
 
 private:
     crypto::HasherItf* mHashProvider {};
