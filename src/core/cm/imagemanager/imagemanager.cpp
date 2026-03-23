@@ -1082,13 +1082,36 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
     BlobInfo                            blobInfo;
     UniquePtr<spaceallocator::SpaceItf> downloadingSpace;
 
-    if (auto err = DownloadBlob(digest, downloadPath, installPath, blobInfo, downloadingSpace); !err.IsNone()) {
-        if (err == ErrorEnum::eAlreadyExist) {
-            return ErrorEnum::eNone;
+    do {
+        if (auto err = DownloadBlob(digest, downloadPath, installPath, blobInfo, downloadingSpace); !err.IsNone()) {
+            if (err == ErrorEnum::eAlreadyExist) {
+                return ErrorEnum::eNone;
+            }
+
+            return AOS_ERROR_WRAP(err);
         }
 
-        return AOS_ERROR_WRAP(err);
-    }
+        fs::FileInfo downloadFileInfo;
+
+        if (auto err = mFileInfoProvider->GetFileInfo(downloadPath, downloadFileInfo, crypto::HashEnum::eSHA3_256);
+            !err.IsNone()) {
+            downloadingSpace->Release();
+
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (downloadFileInfo.mCheckSum == blobInfo.mSHA256) {
+            break;
+        }
+
+        LOG_WRN() << "Download checksum mismatch, retrying download" << Log::Field("digest", digest);
+
+        downloadingSpace->Release();
+
+        if (auto removeErr = fs::RemoveAll(downloadPath); !removeErr.IsNone()) {
+            LOG_ERR() << "Failed to remove download path" << Log::Field("path", downloadPath) << Log::Field(removeErr);
+        }
+    } while (true);
 
     auto err = DecryptAndValidateBlob(downloadPath, installPath, blobInfo, certificates, certificateChains, space);
 
@@ -1175,7 +1198,7 @@ Error ImageManager::CheckExistingBlob(const String& installPath)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (fileInfo.mSHA256 == *expectedSHA256) {
+    if (fileInfo.mCheckSum == *expectedSHA256) {
         return ErrorEnum::eAlreadyExist;
     }
 
@@ -1378,8 +1401,8 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
         return AOS_ERROR_WRAP(err);
     }
 
-    if (fileInfo.mSHA256 != blobInfo.mSHA256) {
-        return ErrorEnum::eInvalidChecksum;
+    if (err = VerifyBlobChecksum(blobInfo.mDigest, fileInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     LOG_DBG() << "Validated successfully" << Log::Field("path", installPath);
@@ -1497,7 +1520,7 @@ Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo&
         return AOS_ERROR_WRAP(err);
     }
 
-    if (fileInfo.mSHA256 != *expectedSHA256) {
+    if (fileInfo.mCheckSum != *expectedSHA256) {
         return ErrorEnum::eInvalidChecksum;
     }
 
