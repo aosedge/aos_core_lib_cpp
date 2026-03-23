@@ -194,7 +194,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "sha256:abc123";
+            info.mDigest = "sha256:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
             info.mDecryptInfo.EmplaceValue();
@@ -252,15 +252,16 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Success_NewItem)
     EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
-        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-            info.mSHA256.PushBack(static_cast<uint8_t>(i));
-        }
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String&, fs::FileInfo& info, crypto::Hash) {
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mCheckSum.PushBack(static_cast<uint8_t>(i));
+            }
 
-        info.mSize = 1024;
+            info.mSize = 1024;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
         .WillOnce(Return(ErrorEnum::eNone));
@@ -319,7 +320,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "sha256:abc123";
+            info.mDigest = "sha256:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
             info.mDecryptInfo.EmplaceValue();
@@ -355,15 +356,16 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_AlreadyInstalled)
 
     EXPECT_CALL(mDownloaderMock, Download(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
-        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-            info.mSHA256.PushBack(static_cast<uint8_t>(i));
-        }
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String&, fs::FileInfo& info, crypto::Hash) {
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mCheckSum.PushBack(static_cast<uint8_t>(i));
+            }
 
-        info.mSize = 1024;
+            info.mSize = 1024;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
@@ -427,9 +429,9 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
     std::ofstream(configPath.CStr()).close();
     std::ofstream(layerPath.CStr()).close();
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
         .Times(4)
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info, crypto::Hash) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
                 if (path[i] == '/') {
@@ -439,7 +441,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
 
             String digest(path.CStr() + lastSlashPos + 1);
 
-            digest.HexToByteArray(info.mSHA256);
+            digest.HexToByteArray(info.mCheckSum);
             info.mSize = 100;
 
             return ErrorEnum::eNone;
@@ -488,7 +490,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
         UpdateItemInfo item;
         item.mItemID      = ("service" + std::to_string(i)).c_str();
         item.mVersion     = "1.0.0";
-        item.mIndexDigest = ("sha256:digest" + std::to_string(i)).c_str();
+        item.mIndexDigest = ("sha256:" + std::string(64, '1' + i)).c_str();
         itemsInfo.PushBack(item);
     }
 
@@ -506,9 +508,9 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
                 info.mDecryptInfo.EmplaceValue();
                 info.mSignInfo.EmplaceValue();
 
-                for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-                    info.mSHA256.PushBack(static_cast<uint8_t>(i));
-                }
+                auto [colonPos, findErr] = digest.FindSubstr(0, ":");
+                String hash(digest.CStr() + colonPos + 1);
+                hash.HexToByteArray(info.mSHA256);
 
                 blobsInfo.PushBack(info);
             }
@@ -539,7 +541,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillRepeatedly(Invoke([](const String&, oci::ImageIndex& index) {
         oci::IndexContentDescriptor manifest;
-        manifest.mDigest = "sha256:manifest";
+        manifest.mDigest = "sha256:4444444444444444444444444444444444444444444444444444444444444444";
         index.mManifests.PushBack(manifest);
 
         return ErrorEnum::eNone;
@@ -547,10 +549,10 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
 
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
         .WillRepeatedly(Invoke([](const String&, oci::ImageManifest& manifest) {
-            manifest.mConfig.mDigest = "sha256:configlayer";
+            manifest.mConfig.mDigest = "sha256:5555555555555555555555555555555555555555555555555555555555555555";
 
             oci::ContentDescriptor layer;
-            layer.mDigest = "sha256:layer";
+            layer.mDigest = "sha256:6666666666666666666666666666666666666666666666666666666666666666";
             manifest.mLayers.PushBack(layer);
 
             return ErrorEnum::eNone;
@@ -559,15 +561,21 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_MultipleItems_Success)
     EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
-        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-            info.mSHA256.PushBack(static_cast<uint8_t>(i));
-        }
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info, crypto::Hash) {
+            size_t lastSlashPos = 0;
+            for (size_t i = 0; i < path.Size(); i++) {
+                if (path[i] == '/') {
+                    lastSlashPos = i;
+                }
+            }
 
-        info.mSize = 1024;
+            String hexPart(path.CStr() + lastSlashPos + 1);
+            hexPart.HexToByteArray(info.mCheckSum);
+            info.mSize = 1024;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
         .Times(3)
@@ -732,7 +740,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "sha256:abc123";
+            info.mDigest = "sha256:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
             info.mDecryptInfo.EmplaceValue();
@@ -790,15 +798,16 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldPendingVersion)
     EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
-        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-            info.mSHA256.PushBack(static_cast<uint8_t>(i));
-        }
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String&, fs::FileInfo& info, crypto::Hash) {
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mCheckSum.PushBack(static_cast<uint8_t>(i));
+            }
 
-        info.mSize = 1024;
+            info.mSize = 1024;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
         .WillOnce(Return(ErrorEnum::eNone));
@@ -848,7 +857,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
     EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
         .WillRepeatedly(Invoke([](const auto&, Array<BlobInfo>& blobsInfo) {
             BlobInfo info;
-            info.mDigest = "sha256:abc123";
+            info.mDigest = "sha256:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
             info.mSize   = 1024;
             info.mURLs.PushBack("http://test.com/blob");
             info.mDecryptInfo.EmplaceValue();
@@ -906,15 +915,16 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_RemovesOldFailedVersion)
     EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillRepeatedly(Return(ErrorEnum::eNone));
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillRepeatedly(Invoke([](const String&, fs::FileInfo& info) {
-        for (size_t i = 0; i < crypto::cSHA256Size; i++) {
-            info.mSHA256.PushBack(static_cast<uint8_t>(i));
-        }
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String&, fs::FileInfo& info, crypto::Hash) {
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mCheckSum.PushBack(static_cast<uint8_t>(i));
+            }
 
-        info.mSize = 1024;
+            info.mSize = 1024;
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
         .WillOnce(Return(ErrorEnum::eNone));
@@ -962,9 +972,9 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
     std::ofstream(configPath.CStr()).close();
     std::ofstream(layerPath.CStr()).close();
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
         .Times(4)
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info, crypto::Hash) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
                 if (path[i] == '/') {
@@ -974,7 +984,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
 
             String digest(path.CStr() + lastSlashPos + 1);
 
-            digest.HexToByteArray(info.mSHA256);
+            digest.HexToByteArray(info.mCheckSum);
             info.mSize = 100;
 
             return ErrorEnum::eNone;
@@ -1076,7 +1086,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_VerifyBlobsIntegrity_IndexNotFound)
         .WillOnce(Invoke([](Array<ItemInfo>&) { return ErrorEnum::eNone; }))
         .WillOnce(Invoke([](Array<ItemInfo>&) { return ErrorEnum::eNone; }));
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _)).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _)).WillOnce(Return(ErrorEnum::eNotFound));
 
     EXPECT_CALL(mStorageMock, RemoveItem(_, _)).WillOnce(Invoke([](const String& id, const String& version) {
         EXPECT_EQ(id, "service1");
@@ -1175,9 +1185,9 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
     std::ofstream(configPath.CStr()).close();
     std::ofstream(layerPath.CStr()).close();
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
         .Times(4)
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info, crypto::Hash) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
                 if (path[i] == '/') {
@@ -1187,7 +1197,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
 
             String digest(path.CStr() + lastSlashPos + 1);
 
-            digest.HexToByteArray(info.mSHA256);
+            digest.HexToByteArray(info.mCheckSum);
             info.mSize = 100;
 
             return ErrorEnum::eNone;
@@ -1329,9 +1339,9 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
     std::ofstream(service2Config.CStr()).close();
     std::ofstream(service2Layer.CStr()).close();
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
         .Times(4)
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info) {
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& info, crypto::Hash) {
             size_t lastSlashPos = 0;
             for (size_t i = 0; i < path.Size(); i++) {
                 if (path[i] == '/') {
@@ -1341,7 +1351,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
 
             String digest(path.CStr() + lastSlashPos + 1);
 
-            digest.HexToByteArray(info.mSHA256);
+            digest.HexToByteArray(info.mCheckSum);
             info.mSize = 100;
 
             return ErrorEnum::eNone;

@@ -408,7 +408,7 @@ Error ImageManager::ValidateBlob(const String& path, const String& digest) const
         return AOS_ERROR_WRAP(err);
     }
 
-    if (fileInfo.mSHA256 != hashBytes) {
+    if (fileInfo.mCheckSum != hashBytes) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidChecksum);
     }
 
