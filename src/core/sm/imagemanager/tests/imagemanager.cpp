@@ -67,7 +67,7 @@ fs::FileInfo GetFileInfoByDigest(const String& digest, size_t size = 1024)
     auto err = SplitDigest(digest, alg, hash);
     EXPECT_TRUE(err.IsNone()) << "Failed to split digest: " << tests::utils::ErrorToStr(err);
 
-    err = hash.HexToByteArray(fileInfo.mSHA256);
+    err = hash.HexToByteArray(fileInfo.mCheckSum);
     EXPECT_TRUE(err.IsNone()) << "Failed to convert hash to byte array: " << tests::utils::ErrorToStr(err);
 
     fileInfo.mSize = size;
@@ -83,7 +83,7 @@ fs::FileInfo GetFileInfoByPath(const String& path, size_t size = 1024)
     auto err = fs::BaseName(path, hash);
     EXPECT_TRUE(err.IsNone()) << "Failed to get base name: " << tests::utils::ErrorToStr(err);
 
-    err = hash.HexToByteArray(fileInfo.mSHA256);
+    err = hash.HexToByteArray(fileInfo.mCheckSum);
     EXPECT_TRUE(err.IsNone()) << "Failed to convert hash to byte array: " << tests::utils::ErrorToStr(err);
 
     fileInfo.mSize = size;
@@ -256,7 +256,7 @@ TEST_F(ImageManagerTest, InstallComponent)
 
     EXPECT_CALL(mDownloaderMock, Download(String(cManifestDigest), _, manifestPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cLayerDigest), _, layerPath)).Times(1);
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cLayerDigest)), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mOCISpecMock, LoadImageManifest(manifestPath, _))
@@ -325,7 +325,7 @@ TEST_F(ImageManagerTest, InstallService)
     EXPECT_CALL(mDownloaderMock, Download(String(cItemConfigDigest), _, itemConfigPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cImageConfigDigest), _, imageConfigPath)).Times(1);
     EXPECT_CALL(mDownloaderMock, Download(String(cLayerDigest), _, layerBlobPath)).Times(1);
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cItemConfigDigest)), Return(ErrorEnum::eNone)))
         .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cImageConfigDigest)), Return(ErrorEnum::eNone)))
@@ -390,8 +390,8 @@ TEST_F(ImageManagerTest, GetAllInstalledItems)
             {"service3", UpdateItemTypeEnum::eService, "3.0.0",
                 "sha256:7c6b5a4b3c2b1a0b9c8d7e6f5e4d3c2b1a0f9e8d7c6b5a4b3c2b1a0f9e8d7c6b"}};
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo) -> Error {
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo, crypto::Hash) -> Error {
             fileInfo = GetFileInfoByPath(path);
 
             return ErrorEnum::eNone;
@@ -559,8 +559,8 @@ TEST_F(ImageManagerTest, MaxItemVersions)
     imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
     imageManifest->mConfig.mSize      = 1024;
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo) -> Error {
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo, crypto::Hash) -> Error {
             fileInfo = GetFileInfoByPath(path);
 
             return ErrorEnum::eNone;
@@ -625,8 +625,8 @@ TEST_F(ImageManagerTest, MaxStoredItems)
     imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
     imageManifest->mConfig.mSize      = 1024;
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo) -> Error {
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([](const String& path, fs::FileInfo& fileInfo, crypto::Hash) -> Error {
             fileInfo = GetFileInfoByPath(path);
 
             return ErrorEnum::eNone;
@@ -728,8 +728,8 @@ TEST_F(ImageManagerTest, ValidateIntegrity)
 
             return ErrorEnum::eNone;
         }));
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo) -> Error {
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo, crypto::Hash) -> Error {
             auto fileName = std::filesystem::path(path.CStr()).filename().string();
 
             auto it = std::find_if(itemsInfo.begin(), itemsInfo.end(), [&](const UpdateItemData& item) {
@@ -737,7 +737,7 @@ TEST_F(ImageManagerTest, ValidateIntegrity)
             });
             if (it != itemsInfo.end()) {
                 if (it->mID == "service2" || it->mID == "component2") {
-                    fileInfo.mSHA256
+                    fileInfo.mCheckSum
                         = Array<uint8_t>(reinterpret_cast<const uint8_t*>("invalidinvalidinvalidinvalidinva"), 32);
                     fileInfo.mSize = 1024;
 
@@ -824,8 +824,8 @@ TEST_F(ImageManagerTest, RemoveOrphanBlobs)
 
     std::promise<size_t> promise;
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo) -> Error {
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo, crypto::Hash) -> Error {
             fileInfo = GetFileInfoByPath(path);
 
             return ErrorEnum::eNone;
@@ -938,8 +938,8 @@ TEST_F(ImageManagerTest, RemoveOrphanLayers)
 
     std::promise<size_t> promise;
 
-    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _))
-        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo) -> Error {
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillRepeatedly(Invoke([&](const String& path, fs::FileInfo& fileInfo, crypto::Hash) -> Error {
             fileInfo = GetFileInfoByPath(path);
 
             return ErrorEnum::eNone;
