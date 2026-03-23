@@ -39,6 +39,11 @@ constexpr auto cSHA256Size = 32;
 constexpr auto cSHA384Size = 48;
 
 /**
+ * SHA512 size.
+ */
+constexpr auto cSHA512Size = 64;
+
+/**
  * SHA3-224 size.
  */
 constexpr auto cSHA3_224Size = 28;
