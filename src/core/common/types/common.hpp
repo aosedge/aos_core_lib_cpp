@@ -310,7 +310,9 @@ public:
         eSubject,
         eOEM,
         eSP,
+        eFleet,
         eNode,
+        eNodeSubject,
         eRuntime,
     };
 
@@ -323,7 +325,9 @@ public:
             "subject",
             "oem",
             "sp",
+            "fleet",
             "node",
+            "node-subject",
             "runtime",
         };
 
