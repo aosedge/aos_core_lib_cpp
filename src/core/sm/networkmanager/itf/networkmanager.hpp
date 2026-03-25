@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_SM_NETWORKMANAGER_ITF_NETWORKMANAGER_HPP_
 #define AOS_CORE_SM_NETWORKMANAGER_ITF_NETWORKMANAGER_HPP_
 
+#include <core/common/networkmanager/itf/pendingupdatehandler.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/types/network.hpp>
 #include <core/sm/config.hpp>
@@ -29,7 +30,9 @@ namespace aos::sm::networkmanager {
 /**
  * Network manager interface.
  */
-class NetworkManagerItf : public SystemTrafficProviderItf, public InstanceTrafficProviderItf {
+class NetworkManagerItf : public SystemTrafficProviderItf,
+                          public InstanceTrafficProviderItf,
+                          public aos::networkmanager::PendingUpdateHandlerItf {
 public:
     /**
      * Destructor.
