@@ -288,6 +288,21 @@ public:
      * @return Error.
      */
     virtual Error GetNetworkListCachedConfig(NetworkConfigList& net, RuntimeConf& rt) = 0;
+
+    /**
+     * Updates only the firewall plugin configuration.
+     *
+     * Executes firewall DEL with old config and ADD with new config from net.mFirewall,
+     * while preserving all other plugin configs in the cache.
+     *
+     * @param oldFirewall Old firewall plugin configuration (for DEL).
+     * @param net Full network configuration list with updated firewall config (for ADD + cache).
+     * @param rt Runtime configuration parameters.
+     * @return Error.
+     */
+    virtual Error UpdateFirewall(
+        const FirewallPluginConf& oldFirewall, const NetworkConfigList& net, const RuntimeConf& rt)
+        = 0;
 };
 
 } // namespace aos::sm::cni
