@@ -21,9 +21,9 @@
 #include "mocks/interfacefactorymock.hpp"
 #include "mocks/interfacemanagermock.hpp"
 #include "mocks/namespacemanagermock.hpp"
-#include <core/common/tests/mocks/networkprovidermock.hpp>
 #include "mocks/randommock.hpp"
 #include "mocks/trafficmonitormock.hpp"
+#include <core/common/tests/mocks/networkprovidermock.hpp>
 
 using namespace aos::sm::networkmanager;
 using namespace aos::sm::cni;
@@ -1143,4 +1143,84 @@ TEST_F(NetworkManagerTest, CreateInstanceNetwork_VerifyUpdateItemNetworkParams)
     EXPECT_EQ(capturedServiceData.mHosts[2], "0.test-subject.test-item.test-network");
     EXPECT_EQ(capturedServiceData.mHosts[3], "test-subject.test-item");
     EXPECT_EQ(capturedServiceData.mHosts[4], "test-subject.test-item.test-network");
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_UpdatesFirewallRules)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    auto err = mNetManager->CreateInstanceNetwork("test-instance", "test-network", params);
+    ASSERT_EQ(err, aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.5";
+    rule.mDstPort = "8080";
+    rule.mProto   = "tcp";
+    rule.mSrcIP   = "192.168.1.2";
+    update.mFirewallRules.PushBack(rule);
+
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(aos::String("test-instance")))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsCNIUpdate)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    auto err = mNetManager->CreateInstanceNetwork("test-instance", "test-network", params);
+    ASSERT_EQ(err, aos::ErrorEnum::eNone);
+
+    SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", "192.168.1.0/24", 100);
+
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
+        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    InstanceNetworkRuntimeParams runtimeParams;
+    runtimeParams.mHostsFilePath      = "/tmp/networkmanager_test/hosts";
+    runtimeParams.mResolvConfFilePath = "/tmp/networkmanager_test/resolv.conf";
+
+    err = mNetManager->StartInstanceNetwork("test-instance", "test-network", runtimeParams);
+    ASSERT_EQ(err, aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.5";
+    rule.mDstPort = "8080";
+    rule.mProto   = "tcp";
+    rule.mSrcIP   = "192.168.1.2";
+    update.mFirewallRules.PushBack(rule);
+
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(aos::String("test-instance")))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCNI, UpdateFirewall(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
