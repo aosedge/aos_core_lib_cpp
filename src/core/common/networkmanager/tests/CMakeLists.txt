@@ -10,7 +10,7 @@ set(TARGET_NAME networkprovider_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES networkprovider.cpp)
+set(SOURCES networkprovider.cpp pendingupdatehandler.cpp)
 
 # ######################################################################################################################
 # Libraries
