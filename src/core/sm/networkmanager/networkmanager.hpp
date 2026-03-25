@@ -13,6 +13,7 @@
 #include <core/common/tools/thread.hpp>
 
 #include <core/common/networkmanager/itf/networkprovider.hpp>
+#include <core/common/networkmanager/itf/pendingupdatehandler.hpp>
 
 #include "itf/cni.hpp"
 #include "itf/networkmanager.hpp"
@@ -142,9 +143,20 @@ public:
      */
     Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) override;
 
+    /**
+     * Called when pending firewall rules are resolved for an instance.
+     *
+     * @param nodeID node ID where the instance resides.
+     * @param update pending firewall update.
+     */
+    void OnPendingFirewallUpdate(
+        const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update) override;
+
 private:
     Error EnsureNodeNetwork(const String& networkID);
     Error EnsureNodeNetworkPhysical(const String& networkID);
+    Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
 
     Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
@@ -246,8 +258,8 @@ private:
 
     mutable Mutex mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result)
-                        + sizeof(UpdateItemNetworkParams) + sizeof(aos::InstanceNetworkAllocation)
-                        + sizeof(InstanceNetworkInfo))
+                        + sizeof(cni::FirewallPluginConf) + sizeof(UpdateItemNetworkParams)
+                        + sizeof(aos::InstanceNetworkAllocation) + sizeof(InstanceNetworkInfo))
                 * cMaxNumConcurrentItems
             + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>),
         cNumAllocations>
