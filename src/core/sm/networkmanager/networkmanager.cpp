@@ -1271,4 +1271,125 @@ Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
     return ErrorEnum::eNone;
 }
 
+void NetworkManager::OnPendingFirewallUpdate(
+    const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update)
+{
+    if (nodeID != mNodeID) {
+        LOG_WRN() << "Ignoring pending firewall update for different node" << Log::Field("expectedNodeID", mNodeID)
+                  << Log::Field("receivedNodeID", nodeID);
+
+        return;
+    }
+
+    LOG_DBG() << "Received pending firewall update" << Log::Field("instanceIdent", update.mInstanceIdent)
+              << Log::Field("rulesCount", update.mFirewallRules.Size());
+
+    StaticString<cIDLen> instanceID;
+    StaticString<cIDLen> networkID;
+    bool                 isRunning = false;
+
+    auto networkConfig   = MakeUnique<InstanceNetworkConfig>(&mAllocator);
+    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& [id, info] : mInstanceNetworkInfos) {
+            if (info.mNetworkConfig.mInstanceIdent == update.mInstanceIdent) {
+                instanceID       = id;
+                networkID        = info.mNetworkID;
+                *networkConfig   = info.mNetworkConfig;
+                *allocatedParams = info.mAllocatedParams;
+
+                auto network = mRuntimeCache.Find(networkID);
+                if (network != mRuntimeCache.end()) {
+                    isRunning = network->mSecond.Find(instanceID) != network->mSecond.end();
+                }
+
+                break;
+            }
+        }
+
+        if (instanceID.IsEmpty()) {
+            LOG_WRN() << "Instance not found for pending firewall update"
+                      << Log::Field("instanceIdent", update.mInstanceIdent);
+
+            return;
+        }
+
+        allocatedParams->mFirewallRules = update.mFirewallRules;
+
+        if (auto err = mStorage->RemoveInstanceNetworkInfo(instanceID); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove instance network info" << Log::Field("instanceID", instanceID)
+                      << Log::Field(err);
+
+            return;
+        }
+
+        auto info = MakeUnique<InstanceNetworkInfo>(
+            &mInstanceNetworkInfosAllocator, instanceID, networkID, *networkConfig, *allocatedParams);
+
+        if (auto err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
+            auto rollbackInfo = MakeUnique<InstanceNetworkInfo>(&mInstanceNetworkInfosAllocator, instanceID, networkID,
+                *networkConfig, mInstanceNetworkInfos.Find(instanceID)->mSecond.mAllocatedParams);
+
+            if (auto rollbackErr = mStorage->AddInstanceNetworkInfo(*rollbackInfo); !rollbackErr.IsNone()) {
+                LOG_ERR() << "Failed to rollback instance network info" << Log::Field("instanceID", instanceID)
+                          << Log::Field(rollbackErr);
+            }
+
+            LOG_ERR() << "Failed to add instance network info" << Log::Field("instanceID", instanceID)
+                      << Log::Field(err);
+
+            return;
+        }
+
+        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+            it->mSecond.mAllocatedParams.mFirewallRules = update.mFirewallRules;
+        }
+    }
+
+    if (isRunning) {
+        if (auto err = UpdateInstanceFirewall(instanceID, networkID, *networkConfig, *allocatedParams); !err.IsNone()) {
+            LOG_ERR() << "Failed to update instance firewall" << Log::Field("instanceID", instanceID)
+                      << Log::Field(err);
+        }
+    }
+}
+
+Error NetworkManager::UpdateInstanceFirewall(const String& instanceID, const String& networkID,
+    const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams)
+{
+    LOG_DBG() << "Updating instance firewall" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
+
+    auto cachedNet         = MakeUnique<cni::NetworkConfigList>(&mAllocator);
+    auto cachedRt          = MakeUnique<cni::RuntimeConf>(&mAllocator);
+    cachedNet->mName       = networkID;
+    cachedNet->mVersion    = cni::cVersion;
+    cachedRt->mContainerID = instanceID;
+
+    if (auto err = mCNI->GetNetworkListCachedConfig(*cachedNet, *cachedRt); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto oldFirewall = MakeUnique<cni::FirewallPluginConf>(&mAllocator);
+    *oldFirewall     = cachedNet->mFirewall;
+
+    // Clear before rebuilding to avoid accumulation of rules
+    cachedNet->mFirewall = {};
+
+    if (auto err = CreateFirewallPluginConfig(instanceID, networkConfig, networkParams, cachedNet->mFirewall);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Execute firewall-only update (DEL old + ADD new, preserving cache)
+    if (auto err = mCNI->UpdateFirewall(*oldFirewall, *cachedNet, *cachedRt); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::sm::networkmanager
