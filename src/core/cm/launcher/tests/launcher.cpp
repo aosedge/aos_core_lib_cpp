@@ -405,7 +405,7 @@ AlertRules CreateAlertRules(double cpuRule, double ramRule)
 }
 
 void CreateItemConfig(oci::ItemConfig& config, const std::vector<std::string>& runtimes = {"linux"},
-    const oci::BalancingPolicy& balancingPolicy = oci::BalancingPolicyEnum::eNone,
+    const oci::BalancingPolicy& balancingPolicy = oci::BalancingPolicyEnum::eEnabled,
     const oci::ServiceQuotas& quotas = {}, const oci::RequestedResources& requestedResources = {},
     const Optional<AlertRules>& alertRules = {}, const std::vector<std::string>& allowedConnections = {},
     const std::vector<std::string>& resources = {})
@@ -1284,11 +1284,11 @@ TestDataPtr TestItemRebalancing()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRunxSM], cNodeIDRunxSM, 0, {}, {}, alertRules);
 
     // Item configs
-    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
         CreateServiceQuotas(0, 0, 1000, 0));
-    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
         CreateServiceQuotas(0, 0, 1000, 0));
-    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
         CreateServiceQuotas(0, 0, 1000, 0));
 
     // Desired instances with priorities
@@ -1356,11 +1356,11 @@ TestDataPtr TestItemRebalancingPolicy()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 50, {}, {}, alertRules);
 
     // Service configs
-    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
         CreateServiceQuotas(0, 0, 1000, 0), {}, {});
-    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eNone,
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
         CreateServiceQuotas(0, 0, 1000, 0));
-    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eBalancingDisabled,
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, oci::BalancingPolicyEnum::eDisabled,
         CreateServiceQuotas(0, 0, 1000, 0));
 
     // Desired instances with priorities
@@ -1910,8 +1910,8 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
     auto alertRules = CreateAlertRules(75.0, 85.0);
     auto itemConfig = std::make_unique<oci::ItemConfig>();
 
-    CreateItemConfig(*itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone, CreateServiceQuotas(500, 300, 0, 0),
-        CreateRequestedResources(100, 50, 0, 0), alertRules);
+    CreateItemConfig(*itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
+        CreateServiceQuotas(500, 300, 0, 0), CreateRequestedResources(100, 50, 0, 0), alertRules);
 
     AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), version);
 

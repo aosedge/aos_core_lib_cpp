@@ -510,7 +510,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Check balancing policy
-        if (instance->GetBalancingPolicy() != oci::BalancingPolicyEnum::eBalancingDisabled) {
+        if (instance->GetBalancingPolicy() != oci::BalancingPolicyEnum::eDisabled) {
             continue;
         }
 
