@@ -333,7 +333,7 @@ bool ComponentInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResource
 
 oci::BalancingPolicyEnum ComponentInstance::GetBalancingPolicy()
 {
-    return oci::BalancingPolicyEnum::eBalancingDisabled;
+    return oci::BalancingPolicyEnum::eDisabled;
 }
 
 Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)

@@ -94,12 +94,15 @@ struct RequestedResources {
  */
 class BalancingPolicyType {
 public:
-    enum class Enum { eNone, eBalancingDisabled };
+    enum class Enum {
+        eEnabled,
+        eDisabled,
+    };
 
     static const Array<const char* const> GetStrings()
     {
         static const char* const sBalancingPolicyStrings[] = {
-            "none",
+            "enabled",
             "disabled",
         };
 
