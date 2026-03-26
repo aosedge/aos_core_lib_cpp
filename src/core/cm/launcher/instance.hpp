@@ -257,6 +257,7 @@ public:
 
 protected:
     Error SetActive(const String& nodeID, const String& runtimeID);
+    Error SetDefaultRuntimes();
 
     InstanceInfo      mInfo;
     aos::InstanceInfo mSMInfo;

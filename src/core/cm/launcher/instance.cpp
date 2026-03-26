@@ -45,6 +45,10 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(Error(err, "get item config failed"));
     }
 
+    if (auto err = SetDefaultRuntimes(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *mImageConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "get image config failed"));
     }
@@ -229,6 +233,32 @@ Error Instance::SetActive(const String& nodeID, const String& runtimeID)
 
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Instance::SetDefaultRuntimes()
+{
+    static const char* cDefaultRuntimes[] = {
+        "crun",
+        "runc",
+    };
+
+    assert(mItemConfig);
+
+    auto& runtimes = mItemConfig->mRuntimes;
+
+    if (runtimes.IsEmpty()) {
+        for (const auto& runtime : cDefaultRuntimes) {
+            if (auto err = runtimes.EmplaceBack(); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (auto err = runtimes.Back().Assign(runtime); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
     }
 
     return ErrorEnum::eNone;
