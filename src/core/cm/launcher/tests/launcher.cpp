@@ -2333,4 +2333,114 @@ TEST_F(CMLauncherTest, MultiNodeInstance)
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
+TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
+{
+    using namespace std::chrono_literals;
+
+    // Initialize all stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)},
+        {CreateResource("resource1", 2), CreateResource("resource3", 2)});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRunc)},
+        {CreateResource("resource1", 2), CreateResource("resource2", 2)});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
+
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mAlertsProvider.Init();
+    mResourceManager.Init();
+
+    // Prepare stored instances: one scheduled and one not scheduled.
+    auto digest1 = BuildManifestDigest(cService1, cImageID1);
+    auto digest2 = BuildManifestDigest(cService2, cImageID1);
+
+    auto storedInstances = std::make_unique<StaticArray<InstanceInfo, cMaxNumInstances>>();
+    storedInstances->PushBack(
+        CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), digest1, cRunnerRunc, cNodeIDLocalSM,
+            InstanceStateEnum::eActive, 5000, 5000, Time::Now(), "", false, "", SubjectTypeEnum::eGroup, 100));
+    storedInstances->PushBack(CreateInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), digest2, "", "",
+        InstanceStateEnum::eActive, 5001, 5001, Time::Now(), "", false, "", SubjectTypeEnum::eGroup, 50));
+
+    auto storedRunRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    storedRunRequests->PushBack(CreateRunRequest(cService1, cSubject1, 100, 1));
+    storedRunRequests->PushBack(CreateRunRequest(cService2, cSubject1, 50, 1));
+    mStorage.Init(*storedInstances, *storedRunRequests);
+
+    // Configure services.
+    auto itemConfigService1 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(
+        *itemConfigService1, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone, CreateServiceQuotas(0, 0, 1000, 0));
+    AddItem(cService1, cImageID1, *itemConfigService1, CreateImageConfig());
+
+    auto itemConfigService2 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(
+        *itemConfigService2, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone, CreateServiceQuotas(0, 0, 1000, 0));
+    AddItem(cService2, cImageID1, *itemConfigService2, CreateImageConfig());
+
+    // Configure nodes and balancing policy.
+    auto alertRules = CreateAlertRules(75.0, 85.0);
+
+    NodeConfig localNodeConfig;
+    CreateNodeConfig(localNodeConfig, cNodeIDLocalSM, 100, {}, {}, alertRules);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, localNodeConfig);
+
+    NodeConfig remoteNodeConfig;
+    CreateNodeConfig(remoteNodeConfig, cNodeIDRemoteSM1, 50, {}, {}, alertRules);
+    mResourceManager.SetNodeConfig(cNodeIDRemoteSM1, cNodeTypeVM, remoteNodeConfig);
+
+    // Configure monitoring.
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    monitoring::NodeMonitoringData localMonitoring;
+    CreateNodeMonitoring(localMonitoring, cNodeIDLocalSM, 1000,
+        {CreateInstanceMonitoring(CreateInstanceIdent(cService1, cSubject1, 0), 500),
+            CreateInstanceMonitoring(CreateInstanceIdent(cService2, cSubject1, 0), 500)});
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, localMonitoring);
+
+    auto remoteMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*remoteMonitoring, cNodeIDRemoteSM1, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDRemoteSM1, *remoteMonitoring);
+
+    // Init launcher.
+    ASSERT_TRUE(mLauncher
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+    mInstanceRunner.SendInitialStatuses(cNodeIDRemoteSM1);
+
+    // Wait until initial statuses are processed and rebalance is completed.
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(3, 2s));
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+    mLauncher.UnsubscribeListener(instanceStatusListener);
+
+    // Check sent run requests.
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
+
+    expectedRunRequests[cNodeIDLocalSM]   = {{},
+          {CreateServiceRunInfo(
+            CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, "2", 100)}};
+    expectedRunRequests[cNodeIDRemoteSM1] = {{},
+        {CreateServiceRunInfo(
+            CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, "3", 50)}};
+
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+}
+
 } // namespace aos::cm::launcher

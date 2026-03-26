@@ -150,6 +150,7 @@ private:
 
     Error LoadEnvVarsOverrides();
     Error ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars);
+    void  ProcessNotScheduledInstances();
 
     // InstanceStatusReceiverItf implementation
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
@@ -192,6 +193,7 @@ private:
     bool                                            mAlertReceived {};
     bool                                            mIsNodeInfoChanged {};
     Optional<SubjectArray>                          mNewSubjects;
+    bool                                            mForceRebalance {};
 
     // Override environment variables
     OverrideEnvVarsRequest mOverrideEnvVars;

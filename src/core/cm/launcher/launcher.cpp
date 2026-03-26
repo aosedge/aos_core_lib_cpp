@@ -146,10 +146,13 @@ Error Launcher::Start()
     mNewSubjects.SetValue(*subjects); // Check subjects after startup.
 
     UpdateInstanceStatuses();
+
     // Check for override env var TTL and setup update if needed.
     if (auto err = ProcessOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    ProcessNotScheduledInstances();
 
     if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -417,7 +420,7 @@ void Launcher::ProcessUpdate()
 
             mProcessUpdatesCondVar.Wait(updateLock, [this]() {
                 return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
-                           || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged)
+                           || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged || mForceRebalance)
                     && !mDisableProcessUpdates;
             });
 
@@ -433,7 +436,7 @@ void Launcher::ProcessUpdate()
 
         // Update subjects.
         Error err;
-        bool  doRebalance = false;
+        bool  doRebalance = mForceRebalance;
 
         if (mNewSubjects.HasValue()) {
             Tie(doRebalance, err) = mInstanceManager.SetSubjects(mNewSubjects.GetValue());
@@ -500,6 +503,8 @@ void Launcher::ProcessUpdate()
 
         // Rebalance.
         if (doRebalance) {
+            mForceRebalance = false;
+
             if (err = BalanceInstances(updateLock, true); !err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
@@ -559,6 +564,15 @@ Error Launcher::ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars)
     mProcessUpdatesCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
+}
+
+void Launcher::ProcessNotScheduledInstances()
+{
+    bool hasNotScheduledInstance = mInstanceManager.GetActiveInstances().ContainsIf(
+        [](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID.IsEmpty(); });
+
+    mForceRebalance = hasNotScheduledInstance;
+    mProcessUpdatesCondVar.NotifyAll();
 }
 
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
