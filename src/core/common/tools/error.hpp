@@ -102,7 +102,7 @@ public:
             mLineNumber = err.mLineNumber;
         }
 
-        if (msg) {
+        if (err.mMessage[0] == '\0') {
             CopyMessage(msg);
         } else {
             CopyMessage(err.mMessage);
