@@ -16,7 +16,8 @@ namespace aos::cm::launcher {
 
 class StorageStub : public StorageItf {
 public:
-    void Init(const Array<InstanceInfo>& instances = Array<InstanceInfo>())
+    void Init(const Array<InstanceInfo>& instances   = Array<InstanceInfo>(),
+        const Array<RunInstanceRequest>& runRequests = Array<RunInstanceRequest>())
     {
         mInstanceInfo.clear();
         mOverrideEnvVarsRequest->mItems.Clear();
@@ -25,6 +26,8 @@ public:
         for (const auto& instance : instances) {
             mInstanceInfo[instance.mInstanceIdent] = instance;
         }
+
+        mRunRequests.insert(mRunRequests.end(), runRequests.begin(), runRequests.end());
     }
 
     Error AddInstance(const InstanceInfo& info) override

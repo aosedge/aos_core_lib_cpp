@@ -240,16 +240,18 @@ Error Instance::SetActive(const String& nodeID, const String& runtimeID)
 
 Error Instance::SetDefaultRuntimes()
 {
-    static const char* cDefaultRuntimes[] = {
-        "crun",
-        "runc",
-    };
-
-    assert(mItemConfig);
+    if (!mItemConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
 
     auto& runtimes = mItemConfig->mRuntimes;
 
     if (runtimes.IsEmpty()) {
+        static const char* cDefaultRuntimes[] = {
+            "crun",
+            "runc",
+        };
+
         for (const auto& runtime : cDefaultRuntimes) {
             if (auto err = runtimes.EmplaceBack(); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
