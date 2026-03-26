@@ -131,12 +131,18 @@ bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
     assert(mImageConfig);
 
     // Required params: OS, architecture
-    if (platformInfo.mOSInfo.mOS != mImageConfig->mOS
-        || platformInfo.mArchInfo.mArchitecture != mImageConfig->mArchitecture) {
+    if (platformInfo.mArchInfo.mArchitecture != mImageConfig->mArchitecture) {
         return false;
     }
 
-    // Optional params: architecture variant, OS version, OS features
+    // Optional params: architecture variant, OS, OS version, OS features
+
+    if (!mImageConfig->mOS.IsEmpty()) {
+        if (platformInfo.mOSInfo.mOS != mImageConfig->mOS) {
+            return false;
+        }
+    }
+
     if (!mImageConfig->mVariant.IsEmpty()) {
         if (platformInfo.mArchInfo.mVariant != mImageConfig->mVariant) {
             return false;
