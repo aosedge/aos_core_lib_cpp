@@ -26,16 +26,13 @@ public:
     virtual ~InstanceRunnerItf() = default;
 
     /**
-     * Updates instances on specified node.
+     * Runs instances on specified node.
      *
      * @param nodeID node ID.
-     * @param stopInstances instance list to stop.
-     * @param startInstances instance list to start.
+     * @param instances instance list to run.
      * @return Error.
      */
-    virtual Error UpdateInstances(const String& nodeID, const Array<aos::InstanceInfo>& stopInstances,
-        const Array<aos::InstanceInfo>& startInstances)
-        = 0;
+    virtual Error RunInstances(const String& nodeID, const Array<aos::InstanceInfo>& instances) = 0;
 };
 
 /** @}*/
