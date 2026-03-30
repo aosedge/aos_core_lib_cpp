@@ -26,13 +26,9 @@ namespace aos::cm::launcher {
 class InstanceRunnerStub : public InstanceRunnerItf {
 public:
     struct NodeRunRequest {
-        std::vector<aos::InstanceInfo> mStopInstances;
-        std::vector<aos::InstanceInfo> mStartInstances;
+        std::vector<aos::InstanceInfo> mInstances;
 
-        bool operator==(const NodeRunRequest& other) const
-        {
-            return mStopInstances == other.mStopInstances && mStartInstances == other.mStartInstances;
-        }
+        bool operator==(const NodeRunRequest& other) const { return mInstances == other.mInstances; }
 
         bool operator!=(const NodeRunRequest& other) const { return !(*this == other); }
     };
@@ -81,20 +77,13 @@ public:
     MOCK_METHOD(void, OnRunRequest, ());
 
     // InstanceRunnerItf
-    Error UpdateInstances(const String& nodeID, const Array<aos::InstanceInfo>& stopInstances,
-        const Array<aos::InstanceInfo>& startInstances) override
+    Error RunInstances(const String& nodeID, const Array<aos::InstanceInfo>& instances) override
     {
-        // Update the map with nodeID -> node run request
         NodeRunRequest& nodeRequest = mNodeInstances[nodeID.CStr()];
-        nodeRequest.mStopInstances.clear();
-        nodeRequest.mStartInstances.clear();
+        nodeRequest.mInstances.clear();
 
-        for (const auto& inst : stopInstances) {
-            nodeRequest.mStopInstances.push_back(inst);
-        }
-
-        for (const auto& inst : startInstances) {
-            nodeRequest.mStartInstances.push_back(inst);
+        for (const auto& inst : instances) {
+            nodeRequest.mInstances.push_back(inst);
         }
 
         if (mStatusReceiver != nullptr) {
@@ -105,9 +94,9 @@ public:
 
                 if (mAutoUpdateStatuses) {
                     mInstanceStatuses.clear();
-                    mInstanceStatuses.reserve(startInstances.Size() + mPreinstalledComponents.size());
+                    mInstanceStatuses.reserve(instances.Size() + mPreinstalledComponents.size());
 
-                    for (const auto& inst : startInstances) {
+                    for (const auto& inst : instances) {
                         InstanceStatus status;
 
                         static_cast<InstanceIdent&>(status) = static_cast<const InstanceIdent&>(inst);

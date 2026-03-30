@@ -324,16 +324,6 @@ aos::InstanceInfo CreateComponentRunInfo(const InstanceIdent& id, const std::str
     return result;
 }
 
-aos::InstanceInfo CreateAosStopInstanceInfo(const InstanceIdent& id, const std::string& runtimeID)
-{
-    aos::InstanceInfo result;
-
-    static_cast<InstanceIdent&>(result) = id;
-    result.mRuntimeID                   = runtimeID.c_str();
-
-    return result;
-}
-
 monitoring::InstanceMonitoringData CreateInstanceMonitoring(const InstanceIdent& instance, double cpuUsage)
 {
     monitoring::InstanceMonitoringData monitoring(instance);
@@ -823,7 +813,7 @@ TEST_F(CMLauncherTest, Components)
         = CreateComponentRunInfo(CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent),
             cRootfsImageID, cRunnerRootfs, 50);
 
-    InstanceRunnerStub::NodeRunRequest remoteRunRequest = {{}, {expectedStartInstances}};
+    InstanceRunnerStub::NodeRunRequest remoteRunRequest = {{expectedStartInstances}};
     expectedRunRequests[cNodeIDLocalSM]                 = {};
     expectedRunRequests[cNodeIDRemoteSM1]               = remoteRunRequest;
 
@@ -900,16 +890,16 @@ TestDataPtr TestItemNodePriority()
     remoteSM2Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 1), cImageID1, cRunnerRunc, 5003, 5001, 50));
 
-    testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances   = std::vector<aos::InstanceInfo>();
-    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances = remoteSM1Requests;
-    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances = remoteSM2Requests;
+    testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances   = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances = remoteSM1Requests;
+    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances = remoteSM2Requests;
 
     std::vector<aos::InstanceInfo> runxSMRequests;
     runxSMRequests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunx, 5004, 5002, 0));
     runxSMRequests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 1), cImageID1, cRunnerRunx, 5005, 5002, 0));
-    testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances = runxSMRequests;
+    testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances = runxSMRequests;
 
     // Expected run status
     auto digest1 = BuildManifestDigest(cService1, cImageID1);
@@ -963,18 +953,18 @@ TestDataPtr TestItemLabels()
         CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5001, 50));
     localSMRequests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 1), cImageID1, cRunnerRunc, 5003, 5001, 50));
-    testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances = localSMRequests;
+    testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances = localSMRequests;
 
     std::vector<aos::InstanceInfo> remoteSM1Requests;
     remoteSM1Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
     remoteSM1Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5001, 5000, 100));
-    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances = remoteSM1Requests;
+    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances = remoteSM1Requests;
 
-    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances = std::vector<aos::InstanceInfo>();
 
-    testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances = std::vector<aos::InstanceInfo>();
 
     // Expected run status
     auto digest1 = BuildManifestDigest(cService1, cImageID1);
@@ -1031,17 +1021,17 @@ TestDataPtr TestItemResources()
         CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5004, 5002, 0));
     localSMRequests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 1), cImageID1, cRunnerRunc, 5005, 5002, 0));
-    testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances = localSMRequests;
+    testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances = localSMRequests;
 
     remoteSMRequests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
     remoteSMRequests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5001, 5000, 100));
-    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances = remoteSMRequests;
+    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances = remoteSMRequests;
 
-    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances = std::vector<aos::InstanceInfo>();
 
-    testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances = std::vector<aos::InstanceInfo>();
 
     // Expected run status
     auto digest1 = BuildManifestDigest(cService1, cImageID1);
@@ -1083,7 +1073,7 @@ TestDataPtr TestItemStorageRatio()
 
     // Expected run requests - only successfully scheduled instances (0, 1, 2) are sent to nodes
     // Instances 3 and 4 fail before being sent due to storage quota limits
-    auto& localSMRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances;
+    auto& localSMRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances;
     auto  digest1         = BuildManifestDigest(cService1, cImageID1);
 
     for (size_t i = 0; i < 3; ++i) {
@@ -1102,9 +1092,9 @@ TestDataPtr TestItemStorageRatio()
     }
 
     // Initialize empty requests for other nodes
-    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances = std::vector<aos::InstanceInfo>();
-    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances = std::vector<aos::InstanceInfo>();
-    testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances    = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances    = std::vector<aos::InstanceInfo>();
 
     return testData;
 }
@@ -1128,7 +1118,7 @@ TestDataPtr TestItemStateRatio()
 
     // Expected run requests - only successfully scheduled instances (0, 1, 2) are sent to nodes
     // Instances 3 and 4 fail before being sent due to state quota limits
-    auto& stateLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances;
+    auto& stateLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances;
     auto  digest1            = BuildManifestDigest(cService1, cImageID1);
 
     for (size_t i = 0; i < 3; ++i) {
@@ -1147,9 +1137,9 @@ TestDataPtr TestItemStateRatio()
     }
 
     // Initialize empty requests for other nodes
-    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances = std::vector<aos::InstanceInfo>();
-    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances = std::vector<aos::InstanceInfo>();
-    testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances    = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances    = std::vector<aos::InstanceInfo>();
 
     return testData;
 }
@@ -1172,7 +1162,7 @@ TestDataPtr TestItemCpuRatio()
     testData->mRunRequests.PushBack(CreateRunRequest(cService1, cSubject1, 100, 5));
 
     // Expected run requests - all 5 instances are scheduled and distributed across nodes
-    auto& cpuLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances;
+    auto& cpuLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances;
     auto  digest1          = BuildManifestDigest(cService1, cImageID1);
 
     // Instances 0, 1, 2 on localSM
@@ -1185,21 +1175,21 @@ TestDataPtr TestItemCpuRatio()
     }
 
     // Instance 3 on remoteSM1
-    auto& cpuRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances;
+    auto& cpuRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances;
     cpuRemoteSM1Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 3), cImageID1, cRunnerRunc, 5003, 5000, 100));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 3),
         cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
 
     // Instance 4 on remoteSM2
-    auto& cpuRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances;
+    auto& cpuRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances;
     cpuRemoteSM2Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 4), cImageID1, cRunnerRunc, 5004, 5000, 100));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 4),
         cNodeIDRemoteSM2, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
 
     // Initialize empty requests for runxSM
-    testData->mExpectedRunRequests[cNodeIDRunxSM].mStartInstances = std::vector<aos::InstanceInfo>();
+    testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances = std::vector<aos::InstanceInfo>();
 
     return testData;
 }
@@ -1222,7 +1212,7 @@ TestDataPtr TestItemRamRatio()
     testData->mRunRequests.PushBack(CreateRunRequest(cService1, cSubject1, 100, 5));
 
     // Expected run requests - instances distributed across nodes
-    auto& ramLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mStartInstances;
+    auto& ramLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM].mInstances;
     auto  digest1          = BuildManifestDigest(cService1, cImageID1);
 
     // Instances 0, 1, 2 on localSM
@@ -1235,14 +1225,14 @@ TestDataPtr TestItemRamRatio()
     }
 
     // Instance 3 on remoteSM1
-    auto& ramRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1].mStartInstances;
+    auto& ramRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances;
     ramRemoteSM1Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 3), cImageID1, cRunnerRunc, 5003, 5000, 100));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 3),
         cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
 
     // Instance 4 on remoteSM2
-    auto& ramRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2].mStartInstances;
+    auto& ramRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances;
     ramRemoteSM2Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 4), cImageID1, cRunnerRunc, 5004, 5000, 100));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 4),
@@ -1286,25 +1276,20 @@ TestDataPtr TestItemRebalancing()
     // Initial: service1 and service2 on localSM, service3 on remoteSM1
     // During rebalancing: service2 moves from localSM to remoteSM1, service3 moves from remoteSM1 to remoteSM2
 
-    // localSM: starts service1, stops service2 (which was initially scheduled there)
-    // stopInstances come from mSentInstances which now have mManifestDigest from GetInfo()
+    // localSM: service1 after rebalancing
     auto& rebalancingLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM];
-    rebalancingLocalRequests.mStartInstances.push_back(
-        CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
-    rebalancingLocalRequests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cRunnerRunc));
+    rebalancingLocalRequests.mInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "5"));
 
-    // remoteSM1: starts service2, stops service3 (which was initially scheduled there)
+    // remoteSM1: service2 after rebalancing
     auto& rebalancingRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
-    rebalancingRemoteSM1Requests.mStartInstances.push_back(
-        CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50));
-    rebalancingRemoteSM1Requests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService3, cSubject1, 0), cRunnerRunc));
+    rebalancingRemoteSM1Requests.mInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "6"));
 
-    // remoteSM2: starts service3, no stops
+    // remoteSM2: service3 after rebalancing
     auto& rebalancingRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
-    rebalancingRemoteSM2Requests.mStartInstances.push_back(
-        CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50));
+    rebalancingRemoteSM2Requests.mInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50, "7"));
     testData->mExpectedRunRequests[cNodeIDRunxSM] = {};
 
     // Expected run status
@@ -1357,22 +1342,20 @@ TestDataPtr TestItemRebalancingPolicy()
     // Initial: service1 and service2 on localSM, service3 on remoteSM1
     // After rebalancing: service1 on localSM, service2 on remoteSM2, service3 on remoteSM1(policy is applied)
 
-    // localSM: starts service1, stops service2 (which was initially scheduled there)
+    // localSM: service1 after rebalancing
     auto& policyLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM];
-    policyLocalRequests.mStartInstances.push_back(
-        CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
-    policyLocalRequests.mStopInstances.push_back(
-        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cRunnerRunc));
+    policyLocalRequests.mInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "6"));
 
-    // remoteSM1: starts service3 (stays there, no stops since service3 has BalancingDisabled)
+    // remoteSM1: service3 (BalancingDisabled)
     auto& policyRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
-    policyRemoteSM1Requests.mStartInstances.push_back(
-        CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50));
+    policyRemoteSM1Requests.mInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50, "5"));
 
-    // remoteSM2: starts service2, no stops
+    // remoteSM2: service2 after rebalancing
     auto& policyRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
-    policyRemoteSM2Requests.mStartInstances.push_back(
-        CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50));
+    policyRemoteSM2Requests.mInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "7"));
     testData->mExpectedRunRequests[cNodeIDRunxSM] = {};
 
     // Expected run status (sorted by priority desc, then itemID asc: service1(100), service2(50), service3(50))
@@ -1608,7 +1591,7 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 
     // Check sent run requests - only service3 should be scheduled
-    InstanceRunnerStub::NodeRunRequest remoteSM2Request = {{},
+    InstanceRunnerStub::NodeRunRequest remoteSM2Request = {
         {CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 25)}};
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
@@ -1851,7 +1834,7 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
         cRunnerRunc, 5000, 5000, 100, version, alertRules, SubjectTypeEnum::eUser, ownerID);
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests = {
-        {cNodeIDLocalSM, {{}, {expectedInstanceInfo}}},
+        {cNodeIDLocalSM, {{expectedInstanceInfo}}},
     };
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
@@ -2122,13 +2105,11 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
     // (envVar1 with expired TTL should be filtered out)
     auto expectedEnvVarsList
         = {CreateEnvVar("OVERRIDE_VAR2", "override_value2"), CreateEnvVar("OVERRIDE_VAR3", "override_value3")};
-    auto stopInstance
-        = CreateRunInfoForStoppedService(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 0, 0, 0);
     auto startInstance = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc,
         5000, 5000, 50, "2", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
-        = {{cNodeIDLocalSM, {{stopInstance}, {startInstance}}}};
+        = {{cNodeIDLocalSM, {{startInstance}}}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
@@ -2223,9 +2204,9 @@ TEST_F(CMLauncherTest, MultiNodeInstance)
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
 
-    expectedRunRequests[cNodeIDLocalSM]   = {{}, {CreateComponentRunInfo(instanceIdent0, cImageID1, cRunnerRunc, 50)}};
-    expectedRunRequests[cNodeIDRemoteSM1] = {{}, {CreateComponentRunInfo(instanceIdent1, cImageID1, cRunnerRunc, 50)}};
-    expectedRunRequests[cNodeIDRemoteSM2] = {{}, {CreateComponentRunInfo(instanceIdent2, cImageID1, cRunnerRunc, 50)}};
+    expectedRunRequests[cNodeIDLocalSM]   = {{CreateComponentRunInfo(instanceIdent0, cImageID1, cRunnerRunc, 50)}};
+    expectedRunRequests[cNodeIDRemoteSM1] = {{CreateComponentRunInfo(instanceIdent1, cImageID1, cRunnerRunc, 50)}};
+    expectedRunRequests[cNodeIDRemoteSM2] = {{CreateComponentRunInfo(instanceIdent2, cImageID1, cRunnerRunc, 50)}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 
@@ -2332,12 +2313,10 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     // Check sent run requests.
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
 
-    expectedRunRequests[cNodeIDLocalSM]   = {{},
-          {CreateServiceRunInfo(
-            CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "2")}};
-    expectedRunRequests[cNodeIDRemoteSM1] = {{},
-        {CreateServiceRunInfo(
-            CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "3")}};
+    expectedRunRequests[cNodeIDLocalSM]   = {{CreateServiceRunInfo(
+        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "2")}};
+    expectedRunRequests[cNodeIDRemoteSM1] = {{CreateServiceRunInfo(
+        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "3")}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
