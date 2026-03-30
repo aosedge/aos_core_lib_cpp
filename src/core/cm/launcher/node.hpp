@@ -168,11 +168,12 @@ private:
     // Returns CPU usage without Aos service instances.
     size_t GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringData) const;
 
+    bool AreInstancesChanged(
+        const Array<aos::InstanceInfo>& instancesToRun, const Array<InstanceStatus>& runningInstances) const;
+
     size_t* GetPtrToAvailableCPU(const String& runtimeID);
     size_t* GetPtrToAvailableRAM(const String& runtimeID);
     size_t* GetPtrToMaxNumInstances(const String& runtimeID);
-
-    void Convert(const InstanceStatus& status, aos::InstanceInfo& info);
 
     unitconfig::NodeConfigProviderItf* mNodeConfigProvider {};
     InstanceRunnerItf*                 mInstanceRunner {};
