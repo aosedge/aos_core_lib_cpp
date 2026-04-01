@@ -1360,6 +1360,32 @@ void NetworkManager::OnPendingFirewallUpdate(
 void NetworkManager::OnConnect()
 {
     LOG_DBG() << "SM connected to CM, synchronizing network state";
+
+    auto instances = MakeUnique<StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& [id, info] : mInstanceNetworkInfos) {
+            // Only sync running instances (present in runtime cache)
+            auto network = mRuntimeCache.Find(info.mNetworkID);
+            if (network == mRuntimeCache.end() || network->mSecond.Find(id) == network->mSecond.end()) {
+                continue;
+            }
+
+            if (auto err = instances->EmplaceBack(info.mNetworkConfig.mInstanceIdent, info.mNetworkID,
+                    info.mAllocatedParams.mIP, info.mAllocatedParams.mFirewallRules);
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to add instance to sync state" << Log::Field(err);
+
+                return;
+            }
+        }
+    }
+
+    if (auto err = mNetworkProvider->SyncNetworkState(mNodeID, *instances); !err.IsNone()) {
+        LOG_ERR() << "Failed to sync network state with CM" << Log::Field(err);
+    }
 }
 
 Error NetworkManager::UpdateInstanceFirewall(const String& instanceID, const String& networkID,
