@@ -1357,6 +1357,11 @@ void NetworkManager::OnPendingFirewallUpdate(
     }
 }
 
+void NetworkManager::OnConnect()
+{
+    LOG_DBG() << "SM connected to CM, synchronizing network state";
+}
+
 Error NetworkManager::UpdateInstanceFirewall(const String& instanceID, const String& networkID,
     const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams)
 {
