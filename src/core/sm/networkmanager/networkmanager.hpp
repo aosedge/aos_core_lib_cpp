@@ -152,6 +152,11 @@ public:
     void OnPendingFirewallUpdate(
         const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update) override;
 
+    /**
+     * Called when SM successfully connects/reconnects to CM.
+     */
+    void OnConnect() override;
+
 private:
     Error EnsureNodeNetwork(const String& networkID);
     Error EnsureNodeNetworkPhysical(const String& networkID);
