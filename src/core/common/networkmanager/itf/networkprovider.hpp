@@ -66,6 +66,15 @@ public:
      * @return Error.
      */
     virtual Error ReleaseNodeNetwork(const String& networkID, const String& nodeID) = 0;
+
+    /**
+     * Sends current instance network state to CM for reconciliation.
+     *
+     * @param nodeID node identifier.
+     * @param instances array of instance network state info.
+     * @return Error.
+     */
+    virtual Error SyncNetworkState(const String& nodeID, const Array<InstanceNetworkStateInfo>& instances) = 0;
 };
 
 /** @}*/
