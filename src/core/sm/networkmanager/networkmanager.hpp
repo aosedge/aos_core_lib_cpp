@@ -264,9 +264,11 @@ private:
     mutable Mutex mMutex;
     StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result)
                         + sizeof(cni::FirewallPluginConf) + sizeof(UpdateItemNetworkParams)
-                        + sizeof(aos::InstanceNetworkAllocation) + sizeof(InstanceNetworkInfo))
+                        + sizeof(aos::InstanceNetworkAllocation) + sizeof(InstanceNetworkInfo)
+                        + sizeof(InstanceNetworkStateInfo))
                 * cMaxNumConcurrentItems
-            + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>),
+            + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>)
+            + sizeof(StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>),
         cNumAllocations>
                                                                                           mAllocator;
     mutable StaticAllocator<(sizeof(Host) * 3) * cMaxNumConcurrentItems, cNumAllocations> mHostAllocator;
