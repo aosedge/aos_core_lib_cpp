@@ -11,6 +11,7 @@
 #include <core/common/tools/memory.hpp>
 #include <core/common/types/network.hpp>
 #include <core/sm/config.hpp>
+#include <core/sm/smclient/itf/connection.hpp>
 
 #include "instancetrafficprovider.hpp"
 #include "interfacefactory.hpp"
@@ -32,7 +33,8 @@ namespace aos::sm::networkmanager {
  */
 class NetworkManagerItf : public SystemTrafficProviderItf,
                           public InstanceTrafficProviderItf,
-                          public aos::networkmanager::PendingUpdateHandlerItf {
+                          public aos::networkmanager::PendingUpdateHandlerItf,
+                          public aos::sm::smclient::ConnectListenerItf {
 public:
     /**
      * Destructor.

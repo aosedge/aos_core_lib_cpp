@@ -4,4 +4,5 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <core/sm/smclient/itf/connection.hpp>
 #include <core/sm/smclient/itf/smclient.hpp>
