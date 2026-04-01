@@ -246,6 +246,58 @@ struct Host {
     bool operator!=(const Host& rhs) const { return !operator==(rhs); }
 };
 
+/**
+ * Instance network state info for sync on (re)connect.
+ */
+struct InstanceNetworkStateInfo {
+    InstanceIdent                                   mInstanceIdent;
+    StaticString<cIDLen>                            mNetworkID;
+    StaticString<cIPLen>                            mIP;
+    StaticArray<FirewallRule, cMaxNumFirewallRules> mFirewallRules;
+
+    /**
+     * Default constructor.
+     */
+    InstanceNetworkStateInfo() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param instanceIdent instance identifier.
+     * @param networkID network identifier.
+     * @param ip IP address.
+     * @param firewallRules firewall rules.
+     */
+    InstanceNetworkStateInfo(const InstanceIdent& instanceIdent, const String& networkID, const String& ip,
+        const Array<FirewallRule>& firewallRules)
+        : mInstanceIdent(instanceIdent)
+        , mNetworkID(networkID)
+        , mIP(ip)
+        , mFirewallRules(firewallRules)
+    {
+    }
+
+    /**
+     * Compares instance network state info.
+     *
+     * @param rhs instance network state info to compare.
+     * @return bool.
+     */
+    bool operator==(const InstanceNetworkStateInfo& rhs) const
+    {
+        return mInstanceIdent == rhs.mInstanceIdent && mNetworkID == rhs.mNetworkID && mIP == rhs.mIP
+            && mFirewallRules == rhs.mFirewallRules;
+    }
+
+    /**
+     * Compares instance network state info.
+     *
+     * @param rhs instance network state info to compare.
+     * @return bool.
+     */
+    bool operator!=(const InstanceNetworkStateInfo& rhs) const { return !operator==(rhs); }
+};
+
 } // namespace aos
 
 #endif
