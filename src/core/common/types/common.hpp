@@ -260,16 +260,6 @@ static constexpr auto cAttrMainNode = "MainNode";
 static constexpr auto cAttrAosComponents = "AosComponents";
 
 /**
- * Max number of runtime dependencies.
- */
-constexpr auto cMaxNumRuntimeDeps = AOS_CONFIG_TYPES_MAX_NUM_RUNTIME_DEPS;
-
-/**
- * Unit state dependencies len.
- */
-constexpr auto cUnitStateDepsLen = AOS_CONFIG_TYPES_UNIT_STATE_DEPS_LEN;
-
-/**
  * Info len.
  */
 constexpr auto cInfoLen = AOS_CONFIG_TYPES_INFO_LEN;
@@ -1303,60 +1293,6 @@ struct Protocol {
      * @return bool.
      */
     bool operator!=(const Protocol& rhs) const { return !operator==(rhs); }
-};
-
-/**
- * Runtime  dependency condition.
- */
-class DependencyConditionType {
-public:
-    enum class Enum {
-        eStarted,
-        eHealthy,
-        eCompleted,
-    };
-
-    static const Array<const char* const> GetStrings()
-    {
-        static const char* const sStrings[] = {
-            "started",
-            "healthy",
-            "completed",
-        };
-
-        return Array<const char* const>(sStrings, ArraySize(sStrings));
-    };
-};
-
-using DependencyConditionEnum = DependencyConditionType::Enum;
-using DependencyCondition     = EnumStringer<DependencyConditionType>;
-
-/**
- * Runtime dependency.
- */
-struct RuntimeDependency {
-    StaticString<cIDLen>      mItemID;
-    StaticString<cVersionLen> mVersion;
-    DependencyCondition       mCondition;
-
-    /**
-     * Compares runtime dependency.
-     *
-     * @param rhs dependency to compare.
-     * @return bool.
-     */
-    bool operator==(const RuntimeDependency& rhs) const
-    {
-        return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mCondition == rhs.mCondition;
-    }
-
-    /**
-     * Compares runtime dependency.
-     *
-     * @param rhs dependency to compare.
-     * @return bool.
-     */
-    bool operator!=(const RuntimeDependency& rhs) const { return !operator==(rhs); }
 };
 
 } // namespace aos
