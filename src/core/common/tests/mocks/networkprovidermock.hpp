@@ -26,6 +26,8 @@ public:
         (override));
     MOCK_METHOD(Error, ReleaseInstanceNetwork, (const InstanceIdent& instance, const String& nodeID), (override));
     MOCK_METHOD(Error, ReleaseNodeNetwork, (const String& networkID, const String& nodeID), (override));
+    MOCK_METHOD(
+        Error, SyncNetworkState, (const String& nodeID, const Array<InstanceNetworkStateInfo>& instances), (override));
 };
 
 } // namespace aos::networkmanager
