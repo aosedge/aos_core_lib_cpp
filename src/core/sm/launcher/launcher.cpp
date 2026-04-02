@@ -191,11 +191,11 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
             if (auto storeErr = HandleComponentStatus(status); err.IsNone() && !storeErr.IsNone()) {
                 err = AOS_ERROR_WRAP(storeErr);
             }
-        }
 
-        if (!mFirstStart) {
-            if (auto sendErr = mSender->SendUpdateInstancesStatuses(statuses); err.IsNone() && !sendErr.IsNone()) {
-                err = AOS_ERROR_WRAP(sendErr);
+            if (!mFirstStart) {
+                if (auto sendErr = mSender->SendInstanceStatus(status); err.IsNone() && !sendErr.IsNone()) {
+                    err = AOS_ERROR_WRAP(sendErr);
+                }
             }
         }
     }

@@ -181,9 +181,9 @@ Marks runtime for reboot. Reboot will be performed after current launch is compl
 
 Sends node instances statuses once update is completed.
 
-### SendUpdateInstancesStatuses
+### SendInstanceStatus
 
-Propagates updated instances statuses received from runtimes.
+Propagates updated instance status received from a runtime.
 
 ## aos::sm::launcher::LauncherItf
 

@@ -24,17 +24,17 @@ public:
     {
         std::lock_guard lock {mMutex};
 
-        mStatusesQueue.push(statuses);
+        mStatusesQueue.emplace(statuses);
         mCondVar.notify_one();
 
         return ErrorEnum::eNone;
     }
 
-    Error SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
+    Error SendInstanceStatus(const aos::InstanceStatus& status) override
     {
         std::lock_guard lock {mMutex};
 
-        mStatusesQueue.push(statuses);
+        mStatusesQueue.emplace(Array<InstanceStatus> {&status, 1});
         mCondVar.notify_one();
 
         return ErrorEnum::eNone;
