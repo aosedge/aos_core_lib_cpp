@@ -1224,3 +1224,46 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsCNIUpdat
 
     mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
+
+TEST_F(NetworkManagerTest, OnConnect_SyncsNetworkStateWithCM)
+{
+    const aos::String instanceID = "test-instance";
+    const aos::String networkID  = "test-network";
+    auto              params     = CreateTestInstanceNetworkConfig();
+    auto              allocated  = CreateTestAllocatedParams();
+
+    // Create instance network (populates mInstanceNetworkInfos)
+    SetupEnsureNodeNetworkCreateMocks(networkID, allocated.mSubnet, "192.168.1.1", 100ULL);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, networkID, aos::String("test-node"), _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocated), Return(aos::ErrorEnum::eNone)));
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+
+    // Start instance network (populates mRuntimeCache)
+    SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocated.mSubnet, 100ULL);
+
+    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
+        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {
+            {"/var/run/netns/test-instance"}, aos::ErrorEnum::eNone}));
+
+    InstanceNetworkRuntimeParams runtimeParams;
+    ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID, networkID, runtimeParams), aos::ErrorEnum::eNone);
+
+    // OnConnect should sync only running instances
+    EXPECT_CALL(mNetworkProvider, SyncNetworkState(aos::String("test-node"), _))
+        .WillOnce(Invoke([&](const aos::String&, const aos::Array<aos::InstanceNetworkStateInfo>& instances) {
+            EXPECT_EQ(instances.Size(), 1);
+            EXPECT_EQ(instances[0].mInstanceIdent, params.mInstanceIdent);
+            EXPECT_EQ(instances[0].mIP, allocated.mIP);
+
+            return aos::ErrorEnum::eNone;
+        }));
+
+    mNetManager->OnConnect();
+}
