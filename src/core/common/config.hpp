@@ -597,20 +597,6 @@
 #endif
 
 /**
- * Max number of runtime dependencies.
- */
-#ifndef AOS_CONFIG_TYPES_MAX_NUM_RUNTIME_DEPS
-#define AOS_CONFIG_TYPES_MAX_NUM_RUNTIME_DEPS 16
-#endif
-
-/**
- * Unit state dependencies len.
- */
-#ifndef AOS_CONFIG_TYPES_UNIT_STATE_DEPS_LEN
-#define AOS_CONFIG_TYPES_UNIT_STATE_DEPS_LEN 256
-#endif
-
-/**
  * Info len.
  */
 #ifndef AOS_CONFIG_TYPES_INFO_LEN
@@ -1087,6 +1073,27 @@
  */
 #ifndef AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES
 #define AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES 4
+#endif
+
+/**
+ * Runtime dependency versions len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_VERSIONS_DEPS_LEN
+#define AOS_CONFIG_OCISPEC_VERSIONS_DEPS_LEN 128
+#endif
+
+/**
+ * Max number of runtime dependencies.
+ */
+#ifndef AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIME_DEPS
+#define AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIME_DEPS 16
+#endif
+
+/**
+ * Unit state dependencies len.
+ */
+#ifndef AOS_CONFIG_OCISPEC_UNIT_STATE_DEPS_LEN
+#define AOS_CONFIG_OCISPEC_UNIT_STATE_DEPS_LEN 256
 #endif
 
 /**
