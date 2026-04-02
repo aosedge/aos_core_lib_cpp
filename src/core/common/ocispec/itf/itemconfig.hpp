@@ -21,6 +21,21 @@ namespace aos::oci {
 constexpr auto cMaxNumRunners = AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES;
 
 /**
+ * Runtime dependency versions len.
+ */
+constexpr auto cVersionsDepsLen = AOS_CONFIG_OCISPEC_VERSIONS_DEPS_LEN;
+
+/**
+ * Unit state dependencies len.
+ */
+constexpr auto cUnitStateDepsLen = AOS_CONFIG_OCISPEC_UNIT_STATE_DEPS_LEN;
+
+/**
+ * Max number of runtime dependencies.
+ */
+constexpr auto cMaxNumRuntimeDeps = AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIME_DEPS;
+
+/**
  * Service quotas.
  */
 struct ServiceQuotas {
@@ -112,6 +127,62 @@ public:
 
 using BalancingPolicyEnum = BalancingPolicyType::Enum;
 using BalancingPolicy     = EnumStringer<BalancingPolicyType>;
+
+/**
+ * Runtime  dependency condition.
+ */
+class DependencyConditionType {
+public:
+    enum class Enum {
+        eStarted,
+        eHealthy,
+        eCompleted,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "started",
+            "healthy",
+            "completed",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using DependencyConditionEnum = DependencyConditionType::Enum;
+using DependencyCondition     = EnumStringer<DependencyConditionType>;
+
+/**
+ * Runtime dependency.
+ */
+struct RuntimeDependency {
+    StaticString<cIDLen>           mItemID;
+    StaticString<cVersionsDepsLen> mVersions;
+    bool                           mAllowPrereleases {};
+    DependencyCondition            mCondition;
+
+    /**
+     * Compares runtime dependency.
+     *
+     * @param rhs dependency to compare.
+     * @return bool.
+     */
+    bool operator==(const RuntimeDependency& rhs) const
+    {
+        return mItemID == rhs.mItemID && mVersions == rhs.mVersions && mAllowPrereleases == rhs.mAllowPrereleases
+            && mCondition == rhs.mCondition;
+    }
+
+    /**
+     * Compares runtime dependency.
+     *
+     * @param rhs dependency to compare.
+     * @return bool.
+     */
+    bool operator!=(const RuntimeDependency& rhs) const { return !operator==(rhs); }
+};
 
 /**
  * Item configuration.
