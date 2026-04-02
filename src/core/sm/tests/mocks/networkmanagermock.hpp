@@ -29,6 +29,7 @@ public:
     MOCK_METHOD(Error, ReleaseInstanceNetwork, (const String& instanceID, const String& networkID), (override));
     MOCK_METHOD(void, OnPendingFirewallUpdate,
         (const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update), (override));
+    MOCK_METHOD(void, OnConnect, (), (override));
 };
 
 } // namespace aos::sm::networkmanager

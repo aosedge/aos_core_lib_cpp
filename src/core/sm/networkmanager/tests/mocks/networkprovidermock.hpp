@@ -21,6 +21,8 @@ public:
         (override));
     MOCK_METHOD(aos::Error, ReleaseInstanceNetwork, (const aos::InstanceIdent&, const aos::String&), (override));
     MOCK_METHOD(aos::Error, ReleaseNodeNetwork, (const aos::String&, const aos::String&), (override));
+    MOCK_METHOD(aos::Error, SyncNetworkState, (const aos::String&, const aos::Array<aos::InstanceNetworkStateInfo>&),
+        (override));
 };
 
 #endif
