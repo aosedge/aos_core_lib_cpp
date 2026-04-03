@@ -8,6 +8,8 @@
 
 #include <map>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <core/cm/launcher/itf/storage.hpp>
@@ -24,7 +26,7 @@ public:
         mRunRequests.clear();
 
         for (const auto& instance : instances) {
-            mInstanceInfo[instance.mInstanceIdent] = instance;
+            mInstanceInfo[StorageKey {instance.mInstanceIdent, std::string(instance.mVersion.CStr())}] = instance;
         }
 
         mRunRequests.insert(mRunRequests.end(), runRequests.begin(), runRequests.end());
@@ -32,31 +34,32 @@ public:
 
     Error AddInstance(const InstanceInfo& info) override
     {
-        auto it = mInstanceInfo.find(info.mInstanceIdent);
+        StorageKey key {info.mInstanceIdent, std::string(info.mVersion.CStr())};
+        auto       it = mInstanceInfo.find(key);
         if (it != mInstanceInfo.end()) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist));
         }
 
-        mInstanceInfo[info.mInstanceIdent] = info;
+        mInstanceInfo.emplace(std::move(key), info);
 
         return Error();
     }
 
     Error UpdateInstance(const InstanceInfo& info) override
     {
-        auto it = mInstanceInfo.find(info.mInstanceIdent);
+        auto it = mInstanceInfo.find(StorageKey {info.mInstanceIdent, std::string(info.mVersion.CStr())});
         if (it == mInstanceInfo.end()) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound));
         }
 
-        mInstanceInfo[info.mInstanceIdent] = info;
+        it->second = info;
 
         return Error();
     }
 
-    Error RemoveInstance(const InstanceIdent& instanceID) override
+    Error RemoveInstance(const InstanceIdent& instanceID, const String& version) override
     {
-        auto it = mInstanceInfo.find(instanceID);
+        auto it = mInstanceInfo.find(StorageKey {instanceID, std::string(version.CStr())});
         if (it == mInstanceInfo.end()) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound));
         }
@@ -106,15 +109,17 @@ public:
         return ErrorEnum::eNone;
     }
 
-    bool HasInstance(const InstanceIdent& instanceID) const
+    bool HasInstance(const InstanceIdent& instanceID, const String& version) const
     {
-        return mInstanceInfo.find(instanceID) != mInstanceInfo.end();
+        return mInstanceInfo.find(StorageKey {instanceID, std::string(version.CStr())}) != mInstanceInfo.end();
     }
 
     void ClearInstances() { mInstanceInfo.clear(); }
 
 private:
-    std::map<InstanceIdent, InstanceInfo>   mInstanceInfo;
+    using StorageKey = std::pair<InstanceIdent, std::string>;
+
+    std::map<StorageKey, InstanceInfo>      mInstanceInfo;
     std::unique_ptr<OverrideEnvVarsRequest> mOverrideEnvVarsRequest = std::make_unique<OverrideEnvVarsRequest>();
     std::vector<RunInstanceRequest>         mRunRequests;
 };

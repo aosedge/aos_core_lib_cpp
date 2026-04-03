@@ -324,10 +324,11 @@ Error Node::SendScheduledInstances(
     auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
 
     for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {
-        // Check if the instance is scheduled on this node.
+        // Check if the instance is scheduled on this node (ident, runtime, node, and service version must match).
         auto isScheduled = scheduledInstances.ContainsIf([&status, this](const SharedPtr<Instance>& item) {
             return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
-                && status.mRuntimeID == item->GetInfo().mRuntimeID && item->GetInfo().mNodeID == mInfo.mNodeID;
+                && status.mRuntimeID == item->GetInfo().mRuntimeID && item->GetInfo().mNodeID == mInfo.mNodeID
+                && status.mVersion == item->GetInfo().mVersion;
         });
 
         if (!isScheduled) {
@@ -378,7 +379,7 @@ RetWithError<bool> Node::ResendInstances(
 
         auto isActive = activeInstances.ContainsIf([&status](const SharedPtr<Instance>& item) {
             return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
-                && status.mRuntimeID == item->GetInfo().mRuntimeID;
+                && status.mRuntimeID == item->GetInfo().mRuntimeID && status.mVersion == item->GetInfo().mVersion;
         });
 
         if (!isActive || forceRestart) {
@@ -518,6 +519,7 @@ void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info)
 {
     static_cast<InstanceIdent&>(info) = static_cast<const InstanceIdent&>(status);
     info.mRuntimeID                   = status.mRuntimeID;
+    info.mVersion                     = status.mVersion;
 }
 
 } // namespace aos::cm::launcher

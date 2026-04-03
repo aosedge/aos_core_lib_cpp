@@ -105,36 +105,40 @@ public:
     Array<InstanceStatus>& GetRunningInstances();
 
     /**
-     * Finds an active instance by its identifier.
+     * Finds an active instance by its identifier and service version.
      *
      * @param id instance identifier.
+     * @param version instance version (same logical instance at different versions are distinct).
      * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance> FindActiveInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindActiveInstance(const InstanceIdent& id, const String& version);
 
     /**
-     * Finds a scheduled instance by its identifier.
+     * Finds a scheduled instance by its identifier and service version.
      *
      * @param id instance identifier.
+     * @param version instance version.
      * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance> FindScheduledInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindScheduledInstance(const InstanceIdent& id, const String& version);
 
     /**
-     * Finds a cached instance by its identifier.
+     * Finds a cached instance by its identifier and service version.
      *
      * @param id instance identifier.
+     * @param version instance version.
      * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance> FindCachedInstance(const InstanceIdent& id);
+    SharedPtr<Instance> FindCachedInstance(const InstanceIdent& id, const String& version);
 
     /**
-     * Finds a preinstalled component by its identifier.
+     * Finds a preinstalled component by its identifier and version.
      *
      * @param id instance identifier.
+     * @param version instance version.
      * @return InstanceStatus*.
      */
-    InstanceStatus* FindPreinstalledComponent(const InstanceIdent& id);
+    InstanceStatus* FindPreinstalledComponent(const InstanceIdent& id, const String& version);
 
     /**
      * Updates the status of a managed instance.
@@ -205,9 +209,10 @@ public:
      * Checks if instance is scheduled.
      *
      * @param id instance identifier.
+     * @param version instance version.
      * @return bool.
      */
-    bool IsScheduled(const InstanceIdent& id);
+    bool IsScheduled(const InstanceIdent& id, const String& version);
 
     /**
      * Updates running instances.
@@ -262,18 +267,22 @@ private:
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
-    SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id);
-    SharedPtr<Instance> FindReadyInstance(const String& itemID, const String& subjectID, const String& nodeID);
-    uint64_t            FindIndexForNewInstance(const String& itemID, const String& subjectID);
+    SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id, const String& version);
+    SharedPtr<Instance> FindReadyInstance(
+        const String& itemID, const String& subjectID, const String& nodeID, const String& version);
+    uint64_t FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version);
 
     UniquePtr<InstanceInfo> CreateInfo(
         const InstanceIdent& id, const String& nodeID, const RunInstanceRequest& request);
 
-    SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
+    SharedPtr<Instance> FindInstance(
+        const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id, const String& version);
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
-        const String& subjectID, const String& nodeID);
-    uint64_t            FindIndexForNewInstance(
-                   const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID);
+        const String& subjectID, const String& nodeID, const String& version);
+    uint64_t            FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
+                   const String& subjectID, const String& version);
+
+    SharedPtr<Instance> FindActiveInstanceByRuntime(const InstanceIdent& id, const String& runtimeID);
 
     Config          mConfig;
     StorageItf*     mStorage {};

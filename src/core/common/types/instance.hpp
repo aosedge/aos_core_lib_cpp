@@ -42,10 +42,11 @@ struct InstanceInfoData {
      */
     bool operator==(const InstanceInfoData& rhs) const
     {
-        return mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID && mOwnerID == rhs.mOwnerID
-            && mSubjectType == rhs.mSubjectType && mGID == rhs.mGID && mUID == rhs.mUID && mPriority == rhs.mPriority
-            && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath && mEnvVars == rhs.mEnvVars
-            && mNetworkParameters == rhs.mNetworkParameters && mMonitoringParams == rhs.mMonitoringParams;
+        return mVersion == rhs.mVersion && mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID
+            && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType && mUID == rhs.mUID && mGID == rhs.mGID
+            && mPriority == rhs.mPriority && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
+            && mEnvVars == rhs.mEnvVars && mNetworkParameters == rhs.mNetworkParameters
+            && mMonitoringParams == rhs.mMonitoringParams;
     }
 
     /**

@@ -291,7 +291,8 @@ Error ComponentInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -432,7 +433,8 @@ Error ServiceInstance::Remove()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 

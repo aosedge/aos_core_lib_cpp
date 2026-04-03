@@ -2443,4 +2443,102 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
 
+TEST_F(CMLauncherTest, ServiceUpdate)
+{
+    using namespace std::chrono_literals;
+
+    // Initialize stubs
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    // Service config: register two image versions for the same service
+    oci::ItemConfig itemConfig;
+    CreateItemConfig(itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, itemConfig, CreateImageConfig(), "1.0.0");
+    AddItem(cService1, cImageID1, itemConfig, CreateImageConfig(), "1.0.1");
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    // Init launcher
+    ASSERT_TRUE(mLauncher
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    // Mark node as connected so RunInstances doesn't hang in WaitAllNodesConnected
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    // 1) Run service with two instances at version 1.0.0
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 2, "", {}, UpdateItemTypeEnum::eService, "1.0.0"));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(1, 2s));
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedAfterV100 = {{cNodeIDLocalSM,
+        {{},
+            {CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000,
+                 String("2"), 50, "1.0.0"),
+                CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5001, 5000,
+                    String("3"), 50, "1.0.0")}}}};
+
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedAfterV100);
+
+    // 2) Run the same service with two instances at version 1.0.1
+    runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 2, "", {}, UpdateItemTypeEnum::eService, "1.0.1"));
+
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    EXPECT_TRUE(instanceStatusListener.WaitForNotifyCount(2, 2s));
+
+    // New version replaces the old one on the node: SM is told to stop 1.0.0 instances, then start 1.0.1.
+    // Cached v1.0.0 instances still hold the first UID pool allocation; v1.0.1 gets the next UIDs and IPs.
+    auto stopV100Inst0     = CreateAosStopInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), cRunnerRunc);
+    stopV100Inst0.mVersion = "1.0.0";
+    auto stopV100Inst1     = CreateAosStopInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 1), cRunnerRunc);
+    stopV100Inst1.mVersion = "1.0.0";
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedAfterV101 = {{cNodeIDLocalSM,
+        {{stopV100Inst0, stopV100Inst1},
+            {CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5000,
+                 String("4"), 50, "1.0.1"),
+                CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5003, 5000,
+                    String("5"), 50, "1.0.1")}}}};
+
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedAfterV101);
+
+    // Stop launcher
+    mLauncher.UnsubscribeListener(instanceStatusListener);
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
 } // namespace aos::cm::launcher
