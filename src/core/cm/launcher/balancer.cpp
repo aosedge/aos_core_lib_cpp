@@ -91,7 +91,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
         LOG_DBG() << "Perform node balancing" << Log::Field("instance", id);
 
-        if (mInstanceManager->IsScheduled(id)) {
+        if (mInstanceManager->IsScheduled(id, info.mVersion)) {
             LOG_DBG() << "Instance aready scheduled" << Log::Field("instance", id);
 
             continue;
