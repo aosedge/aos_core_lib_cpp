@@ -2377,12 +2377,12 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     // Configure services.
     auto itemConfigService1 = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(
-        *itemConfigService1, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone, CreateServiceQuotas(0, 0, 1000, 0));
+        *itemConfigService1, {cRunnerRunc}, oci::BalancingPolicyEnum::eDisabled, CreateServiceQuotas(0, 0, 1000, 0));
     AddItem(cService1, cImageID1, *itemConfigService1, CreateImageConfig());
 
     auto itemConfigService2 = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(
-        *itemConfigService2, {cRunnerRunc}, oci::BalancingPolicyEnum::eNone, CreateServiceQuotas(0, 0, 1000, 0));
+        *itemConfigService2, {cRunnerRunc}, oci::BalancingPolicyEnum::eDisabled, CreateServiceQuotas(0, 0, 1000, 0));
     AddItem(cService2, cImageID1, *itemConfigService2, CreateImageConfig());
 
     // Configure nodes and balancing policy.
