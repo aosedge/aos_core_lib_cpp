@@ -2494,7 +2494,7 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::Init(
     return ErrorEnum::eNone;
 }
 
-Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Block& input, Block& output)
+Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
     if (!mCipherCtx) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
@@ -2507,7 +2507,7 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Block& input, 
     output.Resize(output.MaxSize());
 
     int outLen = 0;
-    if (EVP_EncryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), input.Size()) != 1) {
+    if (EVP_EncryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int>(input.Size())) != 1) {
         return OPENSSL_ERROR();
     }
 
@@ -2516,20 +2516,20 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Block& input, 
     return ErrorEnum::eNone;
 }
 
-Error OpenSSLCryptoProvider::OpenSSLAESCipher::DecryptBlock(const Block& input, Block& output)
+Error OpenSSLCryptoProvider::OpenSSLAESCipher::DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
     if (!mCipherCtx) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    if (input.Size() != input.MaxSize()) {
+    if ((input.Size() % AESCipherItf::cBlockSize) != 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
     output.Resize(output.MaxSize());
 
     int outLen = 0;
-    if (EVP_DecryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), input.Size()) != 1) {
+    if (EVP_DecryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int>(input.Size())) != 1) {
         return OPENSSL_ERROR();
     }
 
@@ -2538,7 +2538,7 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::DecryptBlock(const Block& input, 
     return ErrorEnum::eNone;
 }
 
-Error OpenSSLCryptoProvider::OpenSSLAESCipher::Finalize(Block& output)
+Error OpenSSLCryptoProvider::OpenSSLAESCipher::Finalize(Array<uint8_t>& output)
 {
     if (!mCipherCtx || !mCipherType) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);

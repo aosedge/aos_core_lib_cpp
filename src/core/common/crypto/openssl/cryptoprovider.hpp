@@ -368,9 +368,9 @@ private:
     public:
         Error Init(
             struct ossl_lib_ctx_st* libCtx, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt = true);
-        Error EncryptBlock(const Block& input, Block& output) override;
-        Error DecryptBlock(const Block& input, Block& output) override;
-        Error Finalize(Block& output);
+        Error EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) override;
+        Error DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) override;
+        Error Finalize(Array<uint8_t>& output) override;
         ~OpenSSLAESCipher();
 
     private:

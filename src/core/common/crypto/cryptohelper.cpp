@@ -328,8 +328,10 @@ Error CryptoHelper::CheckSessionKey(
 
 Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder)
 {
-    AESCipherItf::Block inBlock, outBlock;
-    fs::File            inputFile, outputFile;
+    auto inBlock  = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(&mAllocator);
+    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(&mAllocator);
+
+    fs::File inputFile, outputFile;
 
     Error err = inputFile.Open(encryptedFile, fs::File::Mode::Read);
     if (!err.IsNone()) {
@@ -342,36 +344,36 @@ Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryp
     }
 
     while (true) {
-        err = inputFile.ReadBlock(inBlock);
+        err = inputFile.ReadBlock(*inBlock);
         if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
             return AOS_ERROR_WRAP(err);
         }
 
-        if (inBlock.IsEmpty()) {
+        if (inBlock->IsEmpty()) {
             break;
         }
 
-        if (inBlock.Size() != inBlock.MaxSize()) {
+        if ((inBlock->Size() % AESCipherItf::cBlockSize) != 0) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "file size is incorrect"));
         }
 
-        err = decoder.DecryptBlock(inBlock, outBlock);
+        err = decoder.DecryptBlock(*inBlock, *outBlock);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        err = outputFile.WriteBlock(outBlock);
+        err = outputFile.WriteBlock(*outBlock);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    err = decoder.Finalize(outBlock);
+    err = decoder.Finalize(*outBlock);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = outputFile.WriteBlock(outBlock);
+    err = outputFile.WriteBlock(*outBlock);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -915,10 +917,9 @@ Error CryptoHelper::DecryptMessage(
 
 Error CryptoHelper::DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& input, Array<uint8_t>& message)
 {
-    AESCipherItf::Block inBlock, outBlock;
-    const auto          cBlockSize = inBlock.MaxSize();
+    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(&mAllocator);
 
-    if (input.Size() % cBlockSize != 0) {
+    if (input.Size() % AESCipherItf::cBlockSize != 0) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "message should be a multiple of CBC block size"));
     }
 
@@ -928,23 +929,24 @@ Error CryptoHelper::DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& i
 
     message.Clear();
 
-    for (size_t i = 0; i < input.Size(); i += cBlockSize) {
-        inBlock = Array<uint8_t>(input.begin() + i, cBlockSize);
+    for (size_t i = 0; i < input.Size(); i += cFileChunkSize) {
+        auto blockSize = Min<size_t>(cFileChunkSize, input.Size() - i);
+        auto inBlock   = Array<uint8_t>(input.Get() + i, blockSize);
 
-        auto err = decoder.DecryptBlock(inBlock, outBlock);
+        auto err = decoder.DecryptBlock(inBlock, *outBlock);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        message.Insert(message.end(), outBlock.begin(), outBlock.end());
+        message.Insert(message.end(), outBlock->begin(), outBlock->end());
     }
 
-    auto err = decoder.Finalize(outBlock);
+    auto err = decoder.Finalize(*outBlock);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    message.Insert(message.end(), outBlock.begin(), outBlock.end());
+    message.Insert(message.end(), outBlock->begin(), outBlock->end());
 
     return ErrorEnum::eNone;
 }

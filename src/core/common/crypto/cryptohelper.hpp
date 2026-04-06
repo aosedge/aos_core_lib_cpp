@@ -157,12 +157,10 @@ private:
     static constexpr auto cRSAEncryptionOid = "1.2.840.113549.1.1.1";
     static constexpr auto cAES256CBCOid     = "2.16.840.1.101.3.4.1.42";
 
-    static constexpr size_t cReadChunkSize = 1024;
-
     static constexpr auto cThreadHeapUsage = 2 * sizeof(CertInfo) + sizeof(StaticString<cCertSubjSize>)
         + sizeof(StaticArray<uint8_t, cCertPEMLen>) + sizeof(SignContext) + sizeof(x509::Certificate)
         + sizeof(StaticArray<uint8_t, cMaxHashSize>) + sizeof(StaticArray<x509::Certificate, cMaxNumCertificates>)
-        + sizeof(StaticArray<uint8_t, cReadChunkSize>);
+        + sizeof(StaticArray<uint8_t, cFileChunkSize>) * 2;
 
     RetWithError<SharedPtr<x509::CertificateChain>> GetOnlineCert();
     Error                                           SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls);

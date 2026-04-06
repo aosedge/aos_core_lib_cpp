@@ -753,25 +753,24 @@ TEST_P(CryptoProviderTest, AES_CBC_Encryption)
     ASSERT_TRUE(err.IsNone());
     ASSERT_NE(cipherPtr.Get(), nullptr);
 
-    AESCipherItf::Block      inBlock {};
-    AESCipherItf::Block      outBlock {};
+    auto                     outBuf   = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
+    auto                     finalBuf = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
     StaticArray<uint8_t, 64> ciphertext;
 
     size_t offset = 0;
     while (offset < plain.Size()) {
         size_t chunk = std::min<size_t>(16, plain.Size() - offset);
 
-        inBlock = Array<uint8_t>(plain.Get() + offset, chunk);
+        *inBuf = Array<uint8_t>(plain.Get() + offset, chunk);
 
-        ASSERT_TRUE(cipherPtr->EncryptBlock(inBlock, outBlock).IsNone());
+        ASSERT_TRUE(cipherPtr->EncryptBlock(*inBuf, *outBuf).IsNone());
 
-        ciphertext.Append(outBlock);
+        ciphertext.Append(*outBuf);
         offset += chunk;
     }
 
-    AESCipherItf::Block finalBlock {};
-    ASSERT_TRUE(cipherPtr->Finalize(finalBlock).IsNone());
-    ciphertext.Append(finalBlock);
+    ASSERT_TRUE(cipherPtr->Finalize(*finalBuf).IsNone());
+    ciphertext.Append(*finalBuf);
 
     const uint8_t expectedCiphertext[]
         = {0x01, 0x9e, 0x49, 0x04, 0x91, 0x6a, 0x71, 0x84, 0x72, 0xdf, 0xf5, 0x8a, 0x94, 0x2a, 0x18, 0xa7, 0x11, 0xe1,
@@ -800,22 +799,22 @@ TEST_P(CryptoProviderTest, AES_CBC_Decryption)
     ASSERT_TRUE(err.IsNone());
     ASSERT_NE(cipherPtr.Get(), nullptr);
 
-    AESCipherItf::Block      inBlock {};
-    AESCipherItf::Block      outBlock {};
+    auto                     inBuf    = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
+    auto                     outBuf   = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
+    auto                     finalBuf = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
     StaticArray<uint8_t, 64> plaintext;
 
     size_t offset = 0;
     while (offset < ciphertext.Size()) {
-        inBlock = Array<uint8_t>(ciphertext.Get() + offset, 16);
+        *inBuf = Array<uint8_t>(ciphertext.Get() + offset, 16);
 
-        ASSERT_TRUE(cipherPtr->DecryptBlock(inBlock, outBlock).IsNone());
-        plaintext.Append(outBlock);
+        ASSERT_TRUE(cipherPtr->DecryptBlock(*inBuf, *outBuf).IsNone());
+        plaintext.Append(*outBuf);
         offset += 16;
     }
 
-    AESCipherItf::Block finalBlock {};
-    ASSERT_TRUE(cipherPtr->Finalize(finalBlock).IsNone());
-    plaintext.Append(finalBlock);
+    ASSERT_TRUE(cipherPtr->Finalize(*finalBuf).IsNone());
+    plaintext.Append(*finalBuf);
 
     const char*    expectedRaw = "TWO BLOCK AES RAW MESSAGE";
     Array<uint8_t> expected(reinterpret_cast<const uint8_t*>(expectedRaw), strlen(expectedRaw));
