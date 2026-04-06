@@ -76,6 +76,8 @@ Error CryptoHelper::GetServiceDiscoveryURLs(Array<StaticString<cURLLen>>& urls)
 
 Error CryptoHelper::Decrypt(const String& encryptedFile, const String& decryptedFile, const DecryptInfo& decryptInfo)
 {
+    LockGuard lock {mSemaphore};
+
     const auto& symmetricAlgName = decryptInfo.mBlockAlg;
     const auto& sessionKey       = decryptInfo.mBlockKey;
     const auto& sessionIV        = decryptInfo.mBlockIV;
