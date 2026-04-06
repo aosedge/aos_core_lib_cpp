@@ -166,7 +166,7 @@
  * File chunk size.
  */
 #ifndef AOS_CONFIG_TYPES_FILE_CHUNK_SIZE
-#define AOS_CONFIG_TYPES_FILE_CHUNK_SIZE 1024
+#define AOS_CONFIG_TYPES_FILE_CHUNK_SIZE 64 * 1024
 #endif
 
 /**
