@@ -753,8 +753,9 @@ TEST_P(CryptoProviderTest, AES_CBC_Encryption)
     ASSERT_TRUE(err.IsNone());
     ASSERT_NE(cipherPtr.Get(), nullptr);
 
-    auto                     outBuf   = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
-    auto                     finalBuf = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
+    auto                     inBuf    = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+    auto                     outBuf   = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+    auto                     finalBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
     StaticArray<uint8_t, 64> ciphertext;
 
     size_t offset = 0;
@@ -799,9 +800,9 @@ TEST_P(CryptoProviderTest, AES_CBC_Decryption)
     ASSERT_TRUE(err.IsNone());
     ASSERT_NE(cipherPtr.Get(), nullptr);
 
-    auto                     inBuf    = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
-    auto                     outBuf   = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
-    auto                     finalBuf = std::make_unique<StaticArray<uint8_t, cReadChunkSize>>();
+    auto                     inBuf    = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+    auto                     outBuf   = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+    auto                     finalBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
     StaticArray<uint8_t, 64> plaintext;
 
     size_t offset = 0;
