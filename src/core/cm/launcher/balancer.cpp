@@ -383,21 +383,14 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 
 Error Balancer::UpdateNetwork()
 {
-    if (auto err = RemoveNetworkForDeletedInstances(); !err.IsNone()) {
-        return err;
-    }
+    RemoveNetworkForDeletedInstances();
 
     if (auto err = SetupNetworkForNewInstances(); !err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = SetNetworkParams(true); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = SetNetworkParams(false); !err.IsNone()) {
-        return err;
-    }
+    SetNetworkParams(true);
+    SetNetworkParams(false);
 
     if (auto err = mNetworkManager->RestartDNSServer(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -406,7 +399,7 @@ Error Balancer::UpdateNetwork()
     return ErrorEnum::eNone;
 }
 
-Error Balancer::RemoveNetworkForDeletedInstances()
+void Balancer::RemoveNetworkForDeletedInstances()
 {
     const auto& scheduledInstances = mInstanceManager->GetScheduledInstances();
 
@@ -415,16 +408,15 @@ Error Balancer::RemoveNetworkForDeletedInstances()
             [&instance](const SharedPtr<Instance>& schedInst) { return schedInst.Get() == instance.Get(); });
 
         if (!isScheduled) {
-            if (auto err = instance->RemoveNetworkParams(); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
+            if (auto err = instance->RemoveNetworkParams(); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+                LOG_ERR() << "Can't remove network params" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
+                          << Log::Field(err);
             }
         }
     }
-
-    return ErrorEnum::eNone;
 }
 
-Error Balancer::SetNetworkParams(bool onlyWithExposedPorts)
+void Balancer::SetNetworkParams(bool onlyWithExposedPorts)
 {
     for (auto& instance : mInstanceManager->GetScheduledInstances()) {
         auto err = instance->PrepareNetworkParams(onlyWithExposedPorts);
@@ -434,8 +426,6 @@ Error Balancer::SetNetworkParams(bool onlyWithExposedPorts)
             continue;
         }
     }
-
-    return ErrorEnum::eNone;
 }
 
 Error Balancer::SetupNetworkForNewInstances()

@@ -94,9 +94,9 @@ private:
     //
 
     Error UpdateNetwork();
-    Error RemoveNetworkForDeletedInstances();
-    Error SetNetworkParams(bool onlyWithExposedPorts);
     Error SetupNetworkForNewInstances();
+    void  RemoveNetworkForDeletedInstances();
+    void  SetNetworkParams(bool onlyWithExposedPorts);
 
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
 
