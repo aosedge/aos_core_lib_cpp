@@ -44,7 +44,15 @@ Error NetworkManager::PrepareInstanceNetworkParameters(const InstanceIdent& inst
 
     result.EmplaceValue();
 
-    return mNetMgr->PrepareInstanceNetworkParameters(instanceIdent, networkID, nodeID, it->mSecond, result.GetValue());
+    auto err
+        = mNetMgr->PrepareInstanceNetworkParameters(instanceIdent, networkID, nodeID, it->mSecond, result.GetValue());
+    if (!err.IsNone()) {
+        result.Reset();
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error NetworkManager::RemoveInstanceNetworkParameters(const InstanceIdent& instanceIdent, const String& nodeID)
