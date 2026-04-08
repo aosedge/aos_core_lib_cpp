@@ -135,6 +135,7 @@ private:
     UnitStatus                      mUnitStatus;
     StaticAllocator<cAllocatorSize> mAllocator;
     bool                            mCloudConnected {};
+    bool                            mIsStatusProcessing {};
 
     Timer    mTimer;
     bool     mTimerStarted {};
