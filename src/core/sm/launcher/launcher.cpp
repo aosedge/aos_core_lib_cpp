@@ -622,6 +622,8 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
             LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance) << Log::Field(err);
 
             SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+        } else {
+            SetInstanceState(*instanceData, InstanceStateEnum::eInactive);
         }
     }
 }
@@ -696,6 +698,12 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
 
                 continue;
             }
+        } else {
+            SetInstanceState(*instanceData, InstanceStateEnum::eInactive);
+        }
+
+        if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
+            continue;
         }
 
         if (auto err = StartInstance(*instanceData); !err.IsNone()) {
@@ -966,16 +974,6 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     Duration offlineTTL = 0;
     Error    err;
 
-    if (!instanceInfo.mPreinstalled) {
-        Tie(offlineTTL, err) = GetOfflineTTL(instanceInfo);
-        if (!err.IsNone()) {
-            return {nullptr, AOS_ERROR_WRAP(err)};
-        }
-
-        LOG_DBG() << "Offline TTL for instance" << Log::Field("instance", instanceInfo)
-                  << Log::Field("offlineTTL", offlineTTL);
-    }
-
     err = mInstances.EmplaceBack();
     if (!err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -988,7 +986,22 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     itInstance->mStatus.mVersion                     = instanceInfo.mVersion;
     itInstance->mStatus.mRuntimeID                   = instanceInfo.mRuntimeID;
     itInstance->mStatus.mState                       = InstanceStateEnum::eInactive;
-    itInstance->mOfflineTTL                          = offlineTTL;
+
+    if (!instanceInfo.mPreinstalled) {
+        Tie(offlineTTL, err) = GetOfflineTTL(instanceInfo);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to get offline TTL for instance" << Log::Field("instance", instanceInfo)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+
+            itInstance->mStatus.mState = InstanceStateEnum::eFailed;
+            itInstance->mStatus.mError = AOS_ERROR_WRAP(err);
+        } else {
+            LOG_DBG() << "Offline TTL for instance" << Log::Field("instance", instanceInfo)
+                      << Log::Field("offlineTTL", offlineTTL);
+        }
+    }
+
+    itInstance->mOfflineTTL = offlineTTL;
 
     return itInstance;
 }
