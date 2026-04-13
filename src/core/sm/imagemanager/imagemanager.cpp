@@ -778,35 +778,40 @@ Error ImageManager::ReleaseInProgressBlob(const String& digest)
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::AddNewUpdateItem(const UpdateItemInfo& itemInfo)
+RetWithError<size_t> ImageManager::RemoveOldItemVersions(Array<UpdateItemData>& itemData)
+{
+    if (itemData.Size() < cMaxNumItemVersions) {
+        return 0;
+    }
+
+    LOG_DBG() << "Remove old item versions" << Log::Field("itemID", itemData[0].mID);
+
+    return RemoveOldUpdateItems(itemData);
+}
+
+RetWithError<size_t> ImageManager::CropUpdateItems()
 {
     auto [itemsCount, err] = mStorage->GetUpdateItemsCount();
     if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return {0, AOS_ERROR_WRAP(err)};
     }
 
-    if (itemsCount >= cMaxNumStoredUpdateItems) {
-        auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
-        if (!itemsData) {
-            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-        }
-
-        if (err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (err = RemoveOldUpdateItem(*itemsData); !err.IsNone()) {
-            return err;
-        }
+    if (itemsCount < cMaxNumStoredUpdateItems) {
+        return 0;
     }
 
-    if (err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
-            itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    LOG_DBG() << "Crop update items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    return ErrorEnum::eNone;
+    if (err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    return RemoveOldUpdateItems(*itemsData);
 }
 
 Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
@@ -820,25 +825,46 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err.Is(ErrorEnum::eNotFound)) {
-        return AddNewUpdateItem(itemInfo);
-    }
-
     auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
-    if (it == itemData.end()) {
-        if (itemData.Size() >= cMaxNumItemVersions) {
-            if (err = RemoveOldUpdateItem(itemData); !err.IsNone()) {
-                return err;
-            }
+    if (it != itemData.end()) {
+        if (err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+                itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
-        return AddNewUpdateItem(itemInfo);
+        return ErrorEnum::eNone;
     }
 
-    if (err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+    size_t removedItems = 0;
+
+    Tie(removedItems, err) = RemoveOldItemVersions(itemData);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to remove old item versions" << Log::Field("itemID", itemInfo.mID) << Log::Field(err);
+    }
+
+    if (!removedItems) {
+        Tie(removedItems, err) = CropUpdateItems();
+        if (!err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
             itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (removedItems) {
+        size_t removedSize = 0;
+
+        Tie(removedSize, err) = RemoveOrphans();
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to remove orphans" << Log::Field(err);
+        }
+
+        mSpaceAllocator->FreeSpace(removedSize);
     }
 
     return ErrorEnum::eNone;
@@ -862,37 +888,38 @@ Error ImageManager::RemoveUpdateItem(const UpdateItemData& itemData)
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::RemoveOldUpdateItem(Array<UpdateItemData>& itemsData)
+RetWithError<size_t> ImageManager::RemoveOldUpdateItems(Array<UpdateItemData>& itemsData)
 {
-    LOG_DBG() << "Remove old update item";
+    LOG_DBG() << "Remove old update items";
 
     itemsData.Sort([](const UpdateItemData& a, const UpdateItemData& b) { return a.mTimestamp < b.mTimestamp; });
 
     Error  err;
-    bool   removed {};
-    size_t removedSize = 0;
+    size_t removed = 0;
 
     for (const auto& data : itemsData) {
         if (data.mState == ItemStateEnum::eRemoved) {
-            err     = RemoveUpdateItem(data);
-            removed = true;
+            if (auto removeErr = RemoveUpdateItem(data); !removeErr.IsNone() && err.IsNone()) {
+                err = removeErr;
+            } else {
+                removed++;
+            }
+
+            removed++;
 
             break;
         }
     }
 
     if (!removed) {
-        err = RemoveUpdateItem(itemsData[0]);
+        if (auto removeErr = RemoveUpdateItem(itemsData[0]); !removeErr.IsNone() && err.IsNone()) {
+            err = removeErr;
+        } else {
+            removed++;
+        }
     }
 
-    Tie(removedSize, err) = RemoveOrphans();
-    if (!err.IsNone()) {
-        LOG_ERR() << "Failed to remove orphans" << Log::Field(err);
-    }
-
-    mSpaceAllocator->FreeSpace(removedSize);
-
-    return err;
+    return {removed, err};
 }
 
 Error ImageManager::UpdateOutdatedItems()
@@ -1259,10 +1286,6 @@ RetWithError<size_t> ImageManager::RemoveOrphans()
     }
 
     for (const auto& itemData : *itemsData) {
-        if (itemData.mState != ItemStateEnum::eInstalled) {
-            continue;
-        }
-
         if (auto err = CalcItemBlobsAndLayers(itemData, *usedBlobs, *usedLayers); !err.IsNone()) {
             LOG_ERR() << "Failed to calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
                       << Log::Field("version", itemData.mVersion) << Log::Field(err);
