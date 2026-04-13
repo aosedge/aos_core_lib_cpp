@@ -90,8 +90,6 @@ Error Instance::UpdateStatus(const InstanceStatus& status)
 {
     mStatus = status;
 
-    mInfo.mNodeID = status.mNodeID;
-
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -104,6 +102,10 @@ void Instance::SetError(const Error& err, bool resetNodeID)
     if (resetNodeID) {
         mInfo.mPrevNodeID = mInfo.mNodeID;
         mInfo.mNodeID     = "";
+        mInfo.mRuntimeID  = "";
+
+        mStatus.mNodeID    = "";
+        mStatus.mRuntimeID = "";
     }
 
     mStatus.mError = err;
