@@ -138,10 +138,12 @@ private:
     Error AddNewUpdateItem(const UpdateItemInfo& itemInfo);
     Error StoreUpdateItem(const UpdateItemInfo& itemInfo);
     Error RemoveUpdateItem(const UpdateItemData& itemData);
-    Error RemoveOldUpdateItem(Array<UpdateItemData>& itemsData);
-    Error UpdateOutdatedItems();
-    Error HandleOutdatedItems();
-    Error HandleItemsIntegrity();
+    RetWithError<size_t> RemoveOldUpdateItems(Array<UpdateItemData>& itemsData);
+    RetWithError<size_t> RemoveOldItemVersions(Array<UpdateItemData>& itemData);
+    RetWithError<size_t> CropUpdateItems();
+    Error                UpdateOutdatedItems();
+    Error                HandleOutdatedItems();
+    Error                HandleItemsIntegrity();
     Error CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
         Array<StaticString<cFilePathLen>>& itemLayers);
     RetWithError<size_t> RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs);
