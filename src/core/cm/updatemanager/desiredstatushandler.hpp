@@ -67,8 +67,10 @@ public:
 
 private:
     static constexpr auto cAllocatorSize = Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
-        sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>)
-            + sizeof(StaticArray<InstanceStatus, cMaxNumInstances>));
+                                               sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>)
+                                                   + sizeof(StaticArray<InstanceStatus, cMaxNumInstances>))
+        + Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
+            sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>));
 
     void  Run();
     void  LogDesiredStatus(const DesiredStatus& desiredStatus);
