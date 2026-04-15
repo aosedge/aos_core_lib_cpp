@@ -247,7 +247,15 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
             return left.mFirst->GetAvailableCPU() > right.mFirst->GetAvailableCPU();
         }
 
-        return left.mFirst->GetAvailableRAM() > right.mFirst->GetAvailableRAM();
+        if (left.mFirst->GetAvailableRAM() != right.mFirst->GetAvailableRAM()) {
+            return left.mFirst->GetAvailableRAM() > right.mFirst->GetAvailableRAM();
+        }
+
+        if (left.mFirst->GetConfig().mPriority != right.mFirst->GetConfig().mPriority) {
+            return left.mFirst->GetConfig().mPriority > right.mFirst->GetConfig().mPriority;
+        }
+
+        return left.mFirst->GetConfig().mNodeID < right.mFirst->GetConfig().mNodeID;
     };
 
     auto& bestNode = *nodeRuntimes->Min(nodeCmp);
@@ -480,7 +488,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         };
         auto imageDescriptor = imageIndex->mManifests.FindIf(cmpDigest);
 
-        if (!imageDescriptor) {
+        if (imageDescriptor == imageIndex->mManifests.end()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instance", id);
 
             instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eNotFound));

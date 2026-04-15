@@ -460,10 +460,10 @@ size_t Node::GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringD
 
 size_t* Node::GetPtrToAvailableCPU(const String& runtimeID)
 {
-    auto* runtime = mInfo.mRuntimes.FindIf(
+    auto runtime = mInfo.mRuntimes.FindIf(
         [&runtimeID](const RuntimeInfo& runtimeInfo) { return runtimeInfo.mRuntimeID == runtimeID; });
 
-    if (!runtime) {
+    if (runtime == mInfo.mRuntimes.end()) {
         return nullptr;
     }
 
@@ -480,10 +480,10 @@ size_t* Node::GetPtrToAvailableCPU(const String& runtimeID)
 
 size_t* Node::GetPtrToAvailableRAM(const String& runtimeID)
 {
-    auto* runtime = mInfo.mRuntimes.FindIf(
+    auto runtime = mInfo.mRuntimes.FindIf(
         [&runtimeID](const RuntimeInfo& runtimeInfo) { return runtimeInfo.mRuntimeID == runtimeID; });
 
-    if (!runtime) {
+    if (runtime == mInfo.mRuntimes.end()) {
         return nullptr;
     }
 
@@ -500,10 +500,10 @@ size_t* Node::GetPtrToAvailableRAM(const String& runtimeID)
 
 size_t* Node::GetPtrToMaxNumInstances(const String& runtimeID)
 {
-    auto* runtime = mInfo.mRuntimes.FindIf(
+    auto runtime = mInfo.mRuntimes.FindIf(
         [&runtimeID](const RuntimeInfo& runtimeInfo) { return runtimeInfo.mRuntimeID == runtimeID; });
 
-    if (!runtime) {
+    if (runtime == mInfo.mRuntimes.end()) {
         return nullptr;
     }
 

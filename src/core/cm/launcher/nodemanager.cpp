@@ -321,7 +321,7 @@ Error NodeManager::FindImageDescriptor(const String& itemID, const String& versi
 
     auto ptr = imageIndex->mManifests.FindIf(
         [&](const oci::IndexContentDescriptor& descriptor) { return descriptor.mDigest == manifestDigest; });
-    if (ptr == nullptr) {
+    if (ptr == imageIndex->mManifests.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 

@@ -83,7 +83,7 @@ bool Instance::IsImageValid()
     auto imageDescriptor = imageIndex->mManifests.FindIf(
         [&](const oci::IndexContentDescriptor& descriptor) { return descriptor.mDigest == mInfo.mManifestDigest; });
 
-    return imageDescriptor != nullptr;
+    return imageDescriptor != imageIndex->mManifests.end();
 }
 
 Error Instance::UpdateStatus(const InstanceStatus& status)
@@ -554,7 +554,7 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
         mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
     }
 
-    if (auto err = ReserveRuntimeResources(node); !err.IsNone()) {
+    if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -807,7 +807,7 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
     return ErrorEnum::eNone;
 }
 
-Error ServiceInstance::ReserveRuntimeResources(NodeItf& node)
+Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
 {
     auto requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
     auto requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
@@ -815,7 +815,7 @@ Error ServiceInstance::ReserveRuntimeResources(NodeItf& node)
         = mItemConfig->mSkipResourceLimits ? Array<StaticString<cResourceNameLen>>() : mItemConfig->mResources;
 
     auto reserveErr
-        = node.ReserveResources(mInfo.mInstanceIdent, mInfo.mRuntimeID, requestedCPU, requestedRAM, requestedResources);
+        = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);
     if (!reserveErr.IsNone()) {
         return AOS_ERROR_WRAP(reserveErr);
     }
