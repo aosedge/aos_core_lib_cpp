@@ -488,7 +488,7 @@ private:
     size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
 
     Error SetupNetworkServiceData();
-    Error ReserveRuntimeResources(NodeItf& node);
+    Error ReserveRuntimeResources(NodeItf& node, const String& runtimeID);
 
     Error SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath);
 
