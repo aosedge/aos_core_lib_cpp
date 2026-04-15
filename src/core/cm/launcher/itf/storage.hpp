@@ -47,9 +47,10 @@ public:
      * Removes an instance from the storage.
      *
      * @param instanceID instance identifier.
+     * @param version instance version (ident may repeat across versions).
      * @return Error.
      */
-    virtual Error RemoveInstance(const InstanceIdent& instanceID) = 0;
+    virtual Error RemoveInstance(const InstanceIdent& instanceID, const String& version) = 0;
 
     /**
      * Loads all active instances from storage.

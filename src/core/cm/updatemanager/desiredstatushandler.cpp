@@ -46,10 +46,6 @@ Error DesiredStatusHandler::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorage->GetDesiredStatus(mPendingDesiredStatus); !err.IsNone()) {
-        LOG_ERR() << "Failed to get desired status" << Log::Field(err);
-    }
-
     auto [updateState, err] = mStorage->GetUpdateState();
     if (!err.IsNone()) {
         LOG_ERR() << "Failed to get update state" << Log::Field(err);
@@ -57,6 +53,10 @@ Error DesiredStatusHandler::Start()
 
     if (updateState != UpdateStateEnum::eNone) {
         LOG_INF() << "Resuming update from state" << Log::Field("state", updateState);
+
+        if (err = mStorage->GetDesiredStatus(mPendingDesiredStatus); !err.IsNone()) {
+            LOG_ERR() << "Failed to get desired status" << Log::Field(err);
+        }
 
         mHasPendingDesiredStatus = true;
         StartUpdate(updateState);
@@ -103,7 +103,7 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 
     LogDesiredStatus(desiredStatus);
 
-    if (!UpdateRequired(desiredStatus)) {
+    if (!IsUpdateRequired(desiredStatus)) {
         LOG_INF() << "No update is required";
 
         return ErrorEnum::eNone;
@@ -449,7 +449,7 @@ Error DesiredStatusHandler::FinalizeUpdate()
     return ErrorEnum::eNone;
 }
 
-bool DesiredStatusHandler::UpdateRequired(const DesiredStatus& desiredStatus) const
+bool DesiredStatusHandler::IsUpdateRequired(const DesiredStatus& desiredStatus) const
 {
     if (!desiredStatus.mNodes.IsEmpty()) {
         return true;
@@ -459,12 +459,109 @@ bool DesiredStatusHandler::UpdateRequired(const DesiredStatus& desiredStatus) co
         return true;
     }
 
-    if (desiredStatus.mUpdateItems != mPendingDesiredStatus.mUpdateItems) {
+    if (IsUpdateItemsRequired(desiredStatus)) {
         return true;
     }
 
-    if (desiredStatus.mInstances != mPendingDesiredStatus.mInstances) {
+    if (IsUpdateInstancesRequired(desiredStatus)) {
         return true;
+    }
+
+    return false;
+}
+
+bool DesiredStatusHandler::IsUpdateItemsRequired(const DesiredStatus& desiredStatus) const
+{
+    auto itemsStatuses = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+
+    if (auto err = mImageManager->GetUpdateItemsStatuses(*itemsStatuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to get update items statuses" << Log::Field(err);
+
+        return true;
+    }
+
+    for (const auto& desiredItem : desiredStatus.mUpdateItems) {
+        if (auto it = itemsStatuses->FindIf([&desiredItem](const UpdateItemStatus& itemStatus) {
+                return itemStatus.mItemID == desiredItem.mItemID && itemStatus.mType == desiredItem.mType
+                    && itemStatus.mVersion == desiredItem.mVersion && itemStatus.mState == ItemStateEnum::eInstalled;
+            });
+            it == itemsStatuses->end()) {
+            return true;
+        }
+    }
+
+    for (const auto& itemStatus : *itemsStatuses) {
+        if (itemStatus.mState == ItemStateEnum::eInstalled) {
+            if (auto it = desiredStatus.mUpdateItems.FindIf([&itemStatus](const UpdateItemInfo& desiredItem) {
+                    return desiredItem.mItemID == itemStatus.mItemID && desiredItem.mType == itemStatus.mType
+                        && desiredItem.mVersion == itemStatus.mVersion;
+                });
+                it == desiredStatus.mUpdateItems.end()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const
+{
+    auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+
+    if (auto err = mLauncher->GetInstancesStatuses(*instancesStatuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to get instances statuses" << Log::Field(err);
+
+        return true;
+    }
+
+    for (const auto& desiredInstance : desiredStatus.mInstances) {
+        if (desiredInstance.mNumInstances == 0) {
+            continue;
+        }
+
+        for (size_t i = 0; i < desiredInstance.mNumInstances; ++i) {
+            if (auto it = instancesStatuses->FindIf([&desiredInstance, i](const InstanceStatus& instanceStatus) {
+                    return instanceStatus.mItemID == desiredInstance.mItemID
+                        && instanceStatus.mSubjectID == desiredInstance.mSubjectID && instanceStatus.mInstance == i;
+                });
+                it == instancesStatuses->end()) {
+                return true;
+            }
+        }
+    }
+
+    for (const auto& instanceStatus : *instancesStatuses) {
+        if (instanceStatus.mType == UpdateItemTypeEnum::eService) {
+            if (auto it
+                = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
+                      return desiredInstance.mItemID == instanceStatus.mItemID
+                          && desiredInstance.mSubjectID == instanceStatus.mSubjectID
+                          && instanceStatus.mInstance < desiredInstance.mNumInstances;
+                  });
+                it == desiredStatus.mInstances.end()) {
+                return true;
+            }
+        } else {
+            if (auto it
+                = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
+                      return desiredInstance.mItemID == instanceStatus.mItemID
+                          && desiredInstance.mSubjectID == instanceStatus.mSubjectID;
+                  });
+                it != desiredStatus.mInstances.end()) {
+
+                if (auto itemIt = desiredStatus.mUpdateItems.FindIf([&instanceStatus](const UpdateItemInfo& item) {
+                        return item.mItemID == instanceStatus.mItemID && item.mVersion == instanceStatus.mVersion;
+                    });
+                    itemIt == desiredStatus.mUpdateItems.end()) {
+                    return true;
+                }
+
+                if (instanceStatus.mState != InstanceStateEnum::eActive) {
+                    return true;
+                }
+            }
+        }
     }
 
     return false;

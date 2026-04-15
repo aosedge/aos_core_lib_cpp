@@ -90,8 +90,6 @@ Error Instance::UpdateStatus(const InstanceStatus& status)
 {
     mStatus = status;
 
-    mInfo.mNodeID = status.mNodeID;
-
     if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -104,6 +102,10 @@ void Instance::SetError(const Error& err, bool resetNodeID)
     if (resetNodeID) {
         mInfo.mPrevNodeID = mInfo.mNodeID;
         mInfo.mNodeID     = "";
+        mInfo.mRuntimeID  = "";
+
+        mStatus.mNodeID    = "";
+        mStatus.mRuntimeID = "";
     }
 
     mStatus.mError = err;
@@ -291,7 +293,8 @@ Error ComponentInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -417,7 +420,8 @@ Error ServiceInstance::Remove()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 

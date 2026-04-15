@@ -909,6 +909,7 @@ TEST_F(UpdateManagerTest, CancelCurrentUpdate)
     EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
     EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
+        .WillOnce(DoAll(SetArgReferee<0>(UpdateItemStatusArray()), Return(ErrorEnum::eNone)))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
         ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);

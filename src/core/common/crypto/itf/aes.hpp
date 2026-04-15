@@ -18,9 +18,9 @@ namespace aos::crypto {
 class AESCipherItf {
 public:
     /**
-     * AES block.
+     * AES block size.
      */
-    using Block = StaticArray<uint8_t, 16>;
+    static constexpr size_t cBlockSize = 16;
 
     /**
      * Destructor.
@@ -34,7 +34,7 @@ public:
      * @param[out] output encrypted block.
      * @return Error.
      */
-    virtual Error EncryptBlock(const Block& input, Block& output) = 0;
+    virtual Error EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) = 0;
 
     /**
      * Decrypts a 16-byte block.
@@ -43,7 +43,7 @@ public:
      * @param[out] output decrypted block.
      * @return Error.
      */
-    virtual Error DecryptBlock(const Block& input, Block& output) = 0;
+    virtual Error DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) = 0;
 
     /**
      * Finalizes encription/decryption.
@@ -51,7 +51,7 @@ public:
      * @param[out] output final block.
      * @return Error.
      */
-    virtual Error Finalize(Block& output) = 0;
+    virtual Error Finalize(Array<uint8_t>& output) = 0;
 };
 
 /**

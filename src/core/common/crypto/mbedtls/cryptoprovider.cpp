@@ -1640,7 +1640,7 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::Init(const Array<uint8_t>& key, c
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::MbedTLSAESCipher::EncryptBlock(const Block& input, Block& output)
+Error MbedTLSCryptoProvider::MbedTLSAESCipher::EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
     if (!mInitialized) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
@@ -1667,7 +1667,7 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::EncryptBlock(const Block& input, 
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::MbedTLSAESCipher::DecryptBlock(const Block& input, Block& output)
+Error MbedTLSCryptoProvider::MbedTLSAESCipher::DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
     if (!mInitialized) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
@@ -1677,7 +1677,7 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::DecryptBlock(const Block& input, 
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    if (input.Size() != input.MaxSize()) {
+    if ((input.Size() % AESCipherItf::cBlockSize) != 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
@@ -1694,7 +1694,7 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::DecryptBlock(const Block& input, 
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::MbedTLSAESCipher::Finalize(Block& output)
+Error MbedTLSCryptoProvider::MbedTLSAESCipher::Finalize(Array<uint8_t>& output)
 {
     if (!mInitialized || mInfo == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);

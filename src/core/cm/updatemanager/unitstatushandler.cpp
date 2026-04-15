@@ -94,10 +94,14 @@ Error UnitStatusHandler::Stop()
 
 Error UnitStatusHandler::SendFullUnitStatus()
 {
-    LockGuard lock {mMutex};
+    {
+        LockGuard lock {mMutex};
 
-    if (!mCloudConnected) {
-        return ErrorEnum::eNone;
+        if (!mCloudConnected) {
+            return ErrorEnum::eNone;
+        }
+
+        mIsStatusProcessing = true;
     }
 
     LOG_INF() << "Send full unit status";
@@ -128,16 +132,22 @@ Error UnitStatusHandler::SendFullUnitStatus()
         return AOS_ERROR_WRAP(err);
     }
 
-    LogUnitStatus();
+    {
+        LogUnitStatus();
 
-    if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        ClearUnitStatus();
+        ClearUpdateStatuses();
+
+        mTimer.Stop();
+
+        LockGuard lock {mMutex};
+
+        mIsStatusProcessing = false;
     }
-
-    ClearUnitStatus();
-    ClearUpdateStatuses();
-
-    mTimer.Stop();
 
     return ErrorEnum::eNone;
 }
@@ -204,7 +214,7 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
               << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
               << Log::Field(nodeError);
 
-    if (!mCloudConnected) {
+    if (!mCloudConnected || mIsStatusProcessing) {
         return;
     }
 
@@ -236,7 +246,7 @@ void UnitStatusHandler::OnItemsStatusesChanged(const Array<UpdateItemStatus>& st
                   << Log::Field(status.mError);
     }
 
-    if (!mCloudConnected) {
+    if (!mCloudConnected || mIsStatusProcessing) {
         return;
     }
 
@@ -277,7 +287,7 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
     }
 
-    if (!mCloudConnected || statuses.Size() == 0) {
+    if (!mCloudConnected || mIsStatusProcessing || statuses.Size() == 0) {
         return;
     }
 
@@ -330,7 +340,7 @@ void UnitStatusHandler::SubjectsChanged(const Array<StaticString<cIDLen>>& subje
         LOG_INF() << "New subject" << Log::Field("subjectID", subjectID);
     }
 
-    if (!mCloudConnected) {
+    if (!mCloudConnected || mIsStatusProcessing) {
         return;
     }
 
@@ -355,10 +365,14 @@ void UnitStatusHandler::OnConnect()
     {
         LockGuard lock {mMutex};
 
-        mCloudConnected = true;
-    }
+        LOG_DBG() << "Cloud connected";
 
-    LOG_DBG() << "Cloud connected";
+        mCloudConnected = true;
+
+        if (mIsStatusProcessing) {
+            return;
+        }
+    }
 
     if (auto err = SendFullUnitStatus(); !err.IsNone()) {
         LOG_ERR() << "Failed to send full unit status on cloud connect" << Log::Field(err);

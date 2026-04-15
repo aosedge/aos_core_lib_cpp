@@ -88,7 +88,6 @@ private:
     void FilterByRAM(Instance& instance, NodeRuntimes& runtimes);
     void FilterByNumInstances(NodeRuntimes& runtimes);
     void FilterTopPriorityNodes(NodeRuntimes& nodes);
-    //
 
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
 

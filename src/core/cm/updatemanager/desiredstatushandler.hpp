@@ -79,7 +79,9 @@ private:
     Error FinalizeUpdate();
     void  StartUpdate(UpdateState state = UpdateStateEnum::eDownloading);
     void  CancelUpdate();
-    bool  UpdateRequired(const DesiredStatus& desiredStatus) const;
+    bool  IsUpdateRequired(const DesiredStatus& desiredStatus) const;
+    bool  IsUpdateItemsRequired(const DesiredStatus& desiredStatus) const;
+    bool  IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const;
 
     iamclient::NodeHandlerItf*     mNodeHandler {};
     unitconfig::UnitConfigItf*     mUnitConfig {};
@@ -99,7 +101,7 @@ private:
     bool        mCancelCurrentUpdate {};
     UpdateState mUpdateState {};
 
-    StaticAllocator<cAllocatorSize> mAllocator {};
+    mutable StaticAllocator<cAllocatorSize> mAllocator {};
 };
 
 /** @}*/
