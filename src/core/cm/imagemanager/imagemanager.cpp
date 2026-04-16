@@ -804,6 +804,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
         if (sameVersionIt == storedItems.end()) {
             ItemInfo newItem;
             newItem.mItemID      = itemInfo.mItemID;
+            newItem.mType        = itemInfo.mType;
             newItem.mVersion     = itemInfo.mVersion;
             newItem.mIndexDigest = itemInfo.mIndexDigest;
             newItem.mState       = ItemStateEnum::eDownloading;
