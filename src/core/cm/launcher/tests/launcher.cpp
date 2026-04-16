@@ -132,7 +132,7 @@ protected:
 
 protected:
     void AddItem(const std::string& id, const std::string& imageID, const oci::ItemConfig& itemConfig,
-        const oci::ImageConfig& imageConfig, const std::string& version = "")
+        const oci::ImageConfig& imageConfig, const std::string& version = "1.0.0")
     {
         mImageStore.AddItem(id.c_str(), imageID.c_str(), itemConfig, imageConfig, version.c_str());
     }
@@ -181,7 +181,7 @@ uint32_t GenerateUID()
 InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci::cDigestLen> manifestDigest = {},
     const String& runtimeID = "runc", const String& nodeID = "",
     InstanceState instanceState = InstanceStateEnum::eActive, uint32_t uid = 0, gid_t gid = 0, Time timestamp = {},
-    const String& version = "", bool isUnitSubject = false, const String& ownerID = "",
+    const String& version = "1.0.0", bool isUnitSubject = false, const String& ownerID = "",
     SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup, size_t priority = 0)
 {
     InstanceInfo result;
@@ -206,7 +206,7 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
 
 InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::string& nodeID,
     const std::string& runtimeID, aos::InstanceState state = aos::InstanceStateEnum::eFailed,
-    const Error& error = ErrorEnum::eTimeout, const std::string& version = "", bool preinstalled = false,
+    const Error& error = ErrorEnum::eTimeout, const std::string& version = "1.0.0", bool preinstalled = false,
     const std::string& manifestDigest = "")
 {
     InstanceStatus result;
@@ -235,7 +235,7 @@ InstanceIdent CreateInstanceIdent(const std::string& itemID, const std::string& 
 
 RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string& subjectID = "", uint64_t priority = 0,
     size_t numInstances = 1, const std::string& ownerID = "", const std::vector<std::string>& labels = {},
-    UpdateItemType updateItemType = UpdateItemTypeEnum::eService, const std::string& version = "",
+    UpdateItemType updateItemType = UpdateItemTypeEnum::eService, const std::string& version = "1.0.0",
     SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup)
 {
     RunInstanceRequest request;
@@ -263,7 +263,7 @@ StaticString<oci::cDigestLen> BuildManifestDigest(const std::string& itemID, con
 }
 
 aos::InstanceInfo CreateServiceRunInfo(const InstanceIdent& id, const std::string& imageID,
-    const std::string& runtimeID, uint32_t uid, gid_t gid, uint64_t priority, const std::string& version = "",
+    const std::string& runtimeID, uint32_t uid, gid_t gid, uint64_t priority, const std::string& version = "1.0.0",
     const Optional<AlertRules>& alertRules = {}, SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup,
     const std::string& ownerID = "", const EnvVarArray& envVars = {})
 {
@@ -292,7 +292,7 @@ aos::InstanceInfo CreateServiceRunInfo(const InstanceIdent& id, const std::strin
 }
 
 aos::InstanceInfo CreateRunInfoForStoppedService(const InstanceIdent& id, const std::string& imageID,
-    const std::string& runtimeID, uint32_t uid, gid_t gid, uint64_t priority, const std::string& version = "",
+    const std::string& runtimeID, uint32_t uid, gid_t gid, uint64_t priority, const std::string& version = "1.0.0",
     const Optional<AlertRules>& alertRules = {}, SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup,
     const std::string& ownerID = "", const EnvVarArray& envVars = {})
 {
@@ -308,7 +308,7 @@ aos::InstanceInfo CreateRunInfoForStoppedService(const InstanceIdent& id, const 
 }
 
 aos::InstanceInfo CreateComponentRunInfo(const InstanceIdent& id, const std::string& imageID,
-    const std::string& runtimeID, uint64_t priority, const std::string& version = "",
+    const std::string& runtimeID, uint64_t priority, const std::string& version = "1.0.0",
     SubjectTypeEnum subjectType = SubjectTypeEnum::eGroup)
 {
     aos::InstanceInfo result;
@@ -696,9 +696,9 @@ TEST_F(CMLauncherTest, CacheInstances)
     // Run instances 1
     auto runRequest1 = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
 
-    runRequest1->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService));
-    runRequest1->PushBack(CreateRunRequest(cService2, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService));
-    runRequest1->PushBack(CreateRunRequest(cService3, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService));
+    runRequest1->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+    runRequest1->PushBack(CreateRunRequest(cService2, cSubject1, 50, 1));
+    runRequest1->PushBack(CreateRunRequest(cService3, cSubject1, 50, 1));
 
     auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
 
@@ -718,7 +718,7 @@ TEST_F(CMLauncherTest, CacheInstances)
     // Run instances 2
     auto runRequest2 = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
 
-    runRequest2->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService));
+    runRequest2->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
 
     ASSERT_TRUE(mLauncher.RunInstances(*runRequest2, *runStatuses).IsNone());
 
@@ -826,7 +826,7 @@ TEST_F(CMLauncherTest, Components)
 
     expectedRunStatus->PushBack(CreateInstanceStatus(
         CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent), cNodeIDRemoteSM1, cRunnerRootfs,
-        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr()));
 
     Array<InstanceStatus> componentStatuses(expectedRunStatus->begin(), expectedRunStatus->Size());
 
@@ -871,11 +871,9 @@ TestDataPtr TestItemNodePriority()
     CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunx}, {}, {}, CreateRequestedResources(0, 0, 100, 0));
 
     // Desired instances
-    testData->mRunRequests.PushBack(
-        CreateRunRequest(cService1, cSubject1, 100, 2, "", {}, UpdateItemTypeEnum::eService));
-    testData->mRunRequests.PushBack(
-        CreateRunRequest(cService2, cSubject1, 50, 2, "", {}, UpdateItemTypeEnum::eService));
-    testData->mRunRequests.PushBack(CreateRunRequest(cService3, cSubject1, 0, 2, "", {}, UpdateItemTypeEnum::eService));
+    testData->mRunRequests.PushBack(CreateRunRequest(cService1, cSubject1, 100, 2));
+    testData->mRunRequests.PushBack(CreateRunRequest(cService2, cSubject1, 50, 2));
+    testData->mRunRequests.PushBack(CreateRunRequest(cService3, cSubject1, 0, 2));
 
     // Expected run requests
     std::vector<aos::InstanceInfo> remoteSM1Requests;
@@ -906,18 +904,22 @@ TestDataPtr TestItemNodePriority()
     auto digest2 = BuildManifestDigest(cService2, cImageID1);
     auto digest3 = BuildManifestDigest(cService3, cImageID1);
 
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1),
-        cNodeIDRemoteSM2, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1),
-        cNodeIDRemoteSM2, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1), cNodeIDRemoteSM2, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1), cNodeIDRemoteSM2, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0),
-        cNodeIDRunxSM, cRunnerRunx, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest3.CStr()));
+        cNodeIDRunxSM, cRunnerRunx, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest3.CStr()));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 1),
-        cNodeIDRunxSM, cRunnerRunx, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest3.CStr()));
+        cNodeIDRunxSM, cRunnerRunx, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest3.CStr()));
 
     return testData;
 }
@@ -970,18 +972,22 @@ TestDataPtr TestItemLabels()
     auto digest1 = BuildManifestDigest(cService1, cImageID1);
     auto digest2 = BuildManifestDigest(cService2, cImageID1);
 
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), "", "",
-        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
+        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels"), "1.0.0"));
     testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 1), "", "",
-        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels")));
+        aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNotFound, "no nodes with instance labels"), "1.0.0"));
 
     return testData;
 }
@@ -1003,11 +1009,9 @@ TestDataPtr TestItemResources()
     CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1"});
     CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource3"});
     // Desired instances
-    testData->mRunRequests.PushBack(
-        CreateRunRequest(cService1, cSubject1, 100, 2, "", {}, UpdateItemTypeEnum::eService));
-    testData->mRunRequests.PushBack(
-        CreateRunRequest(cService2, cSubject1, 50, 2, "", {}, UpdateItemTypeEnum::eService));
-    testData->mRunRequests.PushBack(CreateRunRequest(cService3, cSubject1, 0, 2, "", {}, UpdateItemTypeEnum::eService));
+    testData->mRunRequests.PushBack(CreateRunRequest(cService1, cSubject1, 100, 2));
+    testData->mRunRequests.PushBack(CreateRunRequest(cService2, cSubject1, 50, 2));
+    testData->mRunRequests.PushBack(CreateRunRequest(cService3, cSubject1, 0, 2));
 
     // Expected run requests
     std::vector<aos::InstanceInfo> localSMRequests;
@@ -1038,18 +1042,24 @@ TestDataPtr TestItemResources()
     auto digest2 = BuildManifestDigest(cService2, cImageID1);
     auto digest3 = BuildManifestDigest(cService3, cImageID1);
 
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest3.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 1),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest3.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 1), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 1), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest3.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 1), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest3.CStr()));
 
     return testData;
 }
@@ -1081,14 +1091,14 @@ TestDataPtr TestItemStorageRatio()
             CreateInstanceIdent(cService1, cSubject1, i), cImageID1, cRunnerRunc, 5000 + i, 5000, 100));
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), cNodeIDLocalSM,
-                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
     }
 
     // Failed instances (3, 4) - not sent to nodes, fail immediately
     for (size_t i = 3; i < 5; ++i) {
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), "", "",
-                aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
+                aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory), "1.0.0"));
     }
 
     // Initialize empty requests for other nodes
@@ -1126,14 +1136,14 @@ TestDataPtr TestItemStateRatio()
             CreateInstanceIdent(cService1, cSubject1, i), cImageID1, cRunnerRunc, 5000 + i, 5000, 100));
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), cNodeIDLocalSM,
-                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
     }
 
     // Failed instances (3, 4) - not sent to nodes, fail immediately
     for (size_t i = 3; i < 5; ++i) {
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), "", "",
-                aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory)));
+                aos::InstanceStateEnum::eFailed, Error(ErrorEnum::eNoMemory), "1.0.0"));
     }
 
     // Initialize empty requests for other nodes
@@ -1171,22 +1181,24 @@ TestDataPtr TestItemCpuRatio()
             CreateInstanceIdent(cService1, cSubject1, i), cImageID1, cRunnerRunc, 5000 + i, 5000, 100));
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), cNodeIDLocalSM,
-                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
     }
 
     // Instance 3 on remoteSM1
     auto& cpuRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances;
     cpuRemoteSM1Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 3), cImageID1, cRunnerRunc, 5003, 5000, 100));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 3),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 3), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
 
     // Instance 4 on remoteSM2
     auto& cpuRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances;
     cpuRemoteSM2Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 4), cImageID1, cRunnerRunc, 5004, 5000, 100));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 4),
-        cNodeIDRemoteSM2, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 4), cNodeIDRemoteSM2, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
 
     // Initialize empty requests for runxSM
     testData->mExpectedRunRequests[cNodeIDRunxSM].mInstances = std::vector<aos::InstanceInfo>();
@@ -1221,22 +1233,24 @@ TestDataPtr TestItemRamRatio()
             CreateInstanceIdent(cService1, cSubject1, i), cImageID1, cRunnerRunc, 5000 + i, 5000, 100));
         testData->mExpectedRunStatus.PushBack(
             CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, static_cast<uint64_t>(i)), cNodeIDLocalSM,
-                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+                cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
     }
 
     // Instance 3 on remoteSM1
     auto& ramRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1].mInstances;
     ramRemoteSM1Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 3), cImageID1, cRunnerRunc, 5003, 5000, 100));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 3),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 3), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
 
     // Instance 4 on remoteSM2
     auto& ramRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2].mInstances;
     ramRemoteSM2Requests.push_back(
         CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 4), cImageID1, cRunnerRunc, 5004, 5000, 100));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 4),
-        cNodeIDRemoteSM2, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 4), cNodeIDRemoteSM2, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
 
     // runxSM is present in the test environment; expect an empty request for it
     testData->mExpectedRunRequests[cNodeIDRunxSM] = {};
@@ -1278,18 +1292,18 @@ TestDataPtr TestItemRebalancing()
 
     // localSM: service1 after rebalancing
     auto& rebalancingLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM];
-    rebalancingLocalRequests.mInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "5"));
+    rebalancingLocalRequests.mInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
 
     // remoteSM1: service2 after rebalancing
     auto& rebalancingRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
-    rebalancingRemoteSM1Requests.mInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "6"));
+    rebalancingRemoteSM1Requests.mInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50));
 
     // remoteSM2: service3 after rebalancing
     auto& rebalancingRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
-    rebalancingRemoteSM2Requests.mInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50, "7"));
+    rebalancingRemoteSM2Requests.mInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50));
     testData->mExpectedRunRequests[cNodeIDRunxSM] = {};
 
     // Expected run status
@@ -1297,12 +1311,15 @@ TestDataPtr TestItemRebalancing()
     auto digest2 = BuildManifestDigest(cService2, cImageID1);
     auto digest3 = BuildManifestDigest(cService3, cImageID1);
 
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest3.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest3.CStr()));
 
     // Monitoring data
     CreateNodeMonitoring(testData->mMonitoring[cNodeIDLocalSM], cNodeIDLocalSM, 1000,
@@ -1344,18 +1361,18 @@ TestDataPtr TestItemRebalancingPolicy()
 
     // localSM: service1 after rebalancing
     auto& policyLocalRequests = testData->mExpectedRunRequests[cNodeIDLocalSM];
-    policyLocalRequests.mInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "6"));
+    policyLocalRequests.mInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
 
     // remoteSM1: service3 (BalancingDisabled)
     auto& policyRemoteSM1Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM1];
-    policyRemoteSM1Requests.mInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50, "5"));
+    policyRemoteSM1Requests.mInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService3, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5002, 50));
 
     // remoteSM2: service2 after rebalancing
     auto& policyRemoteSM2Requests = testData->mExpectedRunRequests[cNodeIDRemoteSM2];
-    policyRemoteSM2Requests.mInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "7"));
+    policyRemoteSM2Requests.mInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50));
     testData->mExpectedRunRequests[cNodeIDRunxSM] = {};
 
     // Expected run status (sorted by priority desc, then itemID asc: service1(100), service2(50), service3(50))
@@ -1364,12 +1381,15 @@ TestDataPtr TestItemRebalancingPolicy()
     auto digest2 = BuildManifestDigest(cService2, cImageID1);
     auto digest3 = BuildManifestDigest(cService3, cImageID1);
 
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0),
-        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
-    testData->mExpectedRunStatus.PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0),
-        cNodeIDRemoteSM1, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest3.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest1.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest2.CStr()));
+    testData->mExpectedRunStatus.PushBack(
+        CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDRemoteSM1, cRunnerRunc,
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, digest3.CStr()));
 
     // Monitoring data
     CreateNodeMonitoring(testData->mMonitoring[cNodeIDLocalSM], cNodeIDLocalSM, 1000,
@@ -1430,7 +1450,7 @@ TEST_F(CMLauncherTest, Balancing)
 
         // Set up configs
         for (const auto& [itemID, config] : testItem.mItemConfigs) {
-            AddItem(itemID, cImageID1, config, CreateImageConfig());
+            AddItem(itemID, cImageID1, config, CreateImageConfig(), "1.0.0");
         }
 
         for (const auto& nodeID : nodeIDs) {
@@ -1552,17 +1572,20 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     // Service1 requires arm32/linux - rejected (no arm32 runtime)
     auto itemConfig1 = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig1, {cRunnerRunc});
-    AddItem(cService1, cImageID1, *itemConfig1, CreateImageConfig("arm32", "generic", "linux", "5.4.0", "feature1"));
+    AddItem(cService1, cImageID1, *itemConfig1, CreateImageConfig("arm32", "generic", "linux", "5.4.0", "feature1"),
+        "1.0.0");
 
     // Service2 requires x86_64/macos - rejected (no macos OS)
     auto itemConfig2 = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig2, {cRunnerRunc});
-    AddItem(cService2, cImageID1, *itemConfig2, CreateImageConfig("x86_64", "generic", "macos", "5.4.0", "feature1"));
+    AddItem(cService2, cImageID1, *itemConfig2, CreateImageConfig("x86_64", "generic", "macos", "5.4.0", "feature1"),
+        "1.0.0");
 
     // Service3 requires x86_64/linux - matches remoteSM2
     auto itemConfig3 = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig3, {cRunnerRunc});
-    AddItem(cService3, cImageID1, *itemConfig3, CreateImageConfig("x86_64", "generic", "linux", "5.4.0", "feature1"));
+    AddItem(cService3, cImageID1, *itemConfig3, CreateImageConfig("x86_64", "generic", "linux", "5.4.0", "feature1"),
+        "1.0.0");
 
     // Init launcher
     ASSERT_TRUE(
@@ -1606,12 +1629,12 @@ TEST_F(CMLauncherTest, PlatformFiltering)
     auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
     auto manifestDigest    = BuildManifestDigest(cService3, cImageID1);
 
-    expectedRunStatus->PushBack(CreateInstanceStatus(
-        CreateInstanceIdent(cService1, cSubject1, 0), "", "", aos::InstanceStateEnum::eFailed, ErrorEnum::eNotFound));
-    expectedRunStatus->PushBack(CreateInstanceStatus(
-        CreateInstanceIdent(cService2, cSubject1, 0), "", "", aos::InstanceStateEnum::eFailed, ErrorEnum::eNotFound));
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), "", "",
+        aos::InstanceStateEnum::eFailed, ErrorEnum::eNotFound, "1.0.0"));
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), "", "",
+        aos::InstanceStateEnum::eFailed, ErrorEnum::eNotFound, "1.0.0"));
     expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), cNodeIDRemoteSM2,
-        cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+        cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr()));
 
     ASSERT_EQ(*runStatuses, *expectedRunStatus);
 }
@@ -1646,7 +1669,7 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
     // Item config
     auto itemConfig = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig, {cRunnerRunc});
-    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), "1.0.0");
 
     mInstanceRunner.Init(mLauncher, false, aos::InstanceStateEnum::eActive);
 
@@ -1691,7 +1714,7 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
     auto                        manifestDigest   = BuildManifestDigest(cService1, cImageID1);
     std::vector<InstanceStatus> expectedStatuses = {
         CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
-            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, manifestDigest.CStr()),
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr()),
     };
 
     ASSERT_EQ(instanceStatusListener.GetLastStatuses(),
@@ -1728,7 +1751,7 @@ TEST_F(CMLauncherTest, SubjectChanged)
     // Item config
     auto itemConfig = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig, {cRunnerRunc});
-    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), "1.0.0");
 
     mInstanceRunner.Init(mLauncher);
 
@@ -1881,7 +1904,7 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
     // Set up item config for regular instance
     auto itemConfig = std::make_unique<oci::ItemConfig>();
     CreateItemConfig(*itemConfig, {cRunnerRunc});
-    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), "1.0.0");
 
     mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
@@ -1921,7 +1944,7 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
     auto           manifestDigest = BuildManifestDigest(cService1, cImageID1);
     InstanceStatus expectedRegularStatus
         = CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
-            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, manifestDigest.CStr());
+            aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr());
 
     std::vector<InstanceStatus> expectedStatuses = {expectedRegularStatus, preinstalledStatus};
 
@@ -2106,7 +2129,7 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
     auto expectedEnvVarsList
         = {CreateEnvVar("OVERRIDE_VAR2", "override_value2"), CreateEnvVar("OVERRIDE_VAR3", "override_value3")};
     auto startInstance = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc,
-        5000, 5000, 50, "2", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
+        5000, 5000, 50, "1.0.0", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
         = {{cNodeIDLocalSM, {{startInstance}}}};
@@ -2157,7 +2180,7 @@ TEST_F(CMLauncherTest, MultiNodeInstance)
     auto componentConfig = std::make_unique<oci::ItemConfig>();
 
     CreateItemConfig(*componentConfig, {cRunnerRunc});
-    AddItem(cComponent1, cImageID1, *componentConfig, CreateImageConfig());
+    AddItem(cComponent1, cImageID1, *componentConfig, CreateImageConfig(), "1.0.0");
 
     // Init launcher
     ASSERT_TRUE(
@@ -2194,11 +2217,11 @@ TEST_F(CMLauncherTest, MultiNodeInstance)
     auto instanceIdent2 = CreateInstanceIdent(cComponent1, cSubject1, 2, UpdateItemTypeEnum::eComponent);
 
     expectedRunStatus->PushBack(CreateInstanceStatus(instanceIdent0, cNodeIDLocalSM, cRunnerRunc,
-        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr()));
     expectedRunStatus->PushBack(CreateInstanceStatus(instanceIdent1, cNodeIDRemoteSM1, cRunnerRunc,
-        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr()));
     expectedRunStatus->PushBack(CreateInstanceStatus(instanceIdent2, cNodeIDRemoteSM2, cRunnerRunc,
-        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "", false, manifestDigest.CStr()));
+        aos::InstanceStateEnum::eActivating, ErrorEnum::eNone, "1.0.0", false, manifestDigest.CStr()));
 
     EXPECT_EQ(*runStatuses, *expectedRunStatus);
 
@@ -2245,9 +2268,9 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     auto storedInstances = std::make_unique<StaticArray<InstanceInfo, cMaxNumInstances>>();
     storedInstances->PushBack(
         CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), digest1, cRunnerRunc, cNodeIDLocalSM,
-            InstanceStateEnum::eActive, 5000, 5000, Time::Now(), "", false, "", SubjectTypeEnum::eGroup, 100));
+            InstanceStateEnum::eActive, 5000, 5000, Time::Now(), "1.0.0", false, "", SubjectTypeEnum::eGroup, 100));
     storedInstances->PushBack(CreateInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), digest2, "", "",
-        InstanceStateEnum::eActive, 5001, 5001, Time::Now(), "", false, "", SubjectTypeEnum::eGroup, 50));
+        InstanceStateEnum::eActive, 5001, 5001, Time::Now(), "1.0.0", false, "", SubjectTypeEnum::eGroup, 50));
 
     auto storedRunRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
     storedRunRequests->PushBack(CreateRunRequest(cService1, cSubject1, 100, 1));
@@ -2313,10 +2336,10 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     // Check sent run requests.
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
 
-    expectedRunRequests[cNodeIDLocalSM]   = {{CreateServiceRunInfo(
-        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "2")}};
-    expectedRunRequests[cNodeIDRemoteSM1] = {{CreateServiceRunInfo(
-        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "3")}};
+    expectedRunRequests[cNodeIDLocalSM] = {
+        {CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100)}};
+    expectedRunRequests[cNodeIDRemoteSM1] = {
+        {CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50)}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
@@ -2373,7 +2396,7 @@ TEST_F(CMLauncherTest, ServiceUpdate)
 
     // 1) Run service with two instances at version 1.0.0
     auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
-    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 2, "", {}, UpdateItemTypeEnum::eService, "1.0.0"));
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 2));
 
     auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
     ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
@@ -2381,11 +2404,9 @@ TEST_F(CMLauncherTest, ServiceUpdate)
     ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(1, 2s));
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedAfterV100 = {{cNodeIDLocalSM,
-        {{},
-            {CreateServiceRunInfo(
-                 CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 50, "1.0.0"),
-                CreateServiceRunInfo(
-                    CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5001, 5000, 50, "1.0.0")}}}};
+        {{CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 50),
+            CreateServiceRunInfo(
+                CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5001, 5000, 50)}}}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedAfterV100);
 
@@ -2397,19 +2418,11 @@ TEST_F(CMLauncherTest, ServiceUpdate)
 
     EXPECT_TRUE(instanceStatusListener.WaitForNotifyCount(2, 2s));
 
-    // New version replaces the old one on the node: SM is told to stop 1.0.0 instances, then start 1.0.1.
-    // Cached v1.0.0 instances still hold the first UID pool allocation; v1.0.1 gets the next UIDs and IPs.
-    auto stopV100Inst0     = CreateAosStopInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), cRunnerRunc);
-    stopV100Inst0.mVersion = "1.0.0";
-    auto stopV100Inst1     = CreateAosStopInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 1), cRunnerRunc);
-    stopV100Inst1.mVersion = "1.0.0";
-
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedAfterV101 = {{cNodeIDLocalSM,
-        {{stopV100Inst0, stopV100Inst1},
-            {CreateServiceRunInfo(
-                 CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5000, 50, "1.0.1"),
-                CreateServiceRunInfo(
-                    CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5003, 5000, 50, "1.0.1")}}}};
+        {{CreateServiceRunInfo(
+              CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5000, 50, "1.0.1"),
+            CreateServiceRunInfo(
+                CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5003, 5000, 50, "1.0.1")}}}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedAfterV101);
 
