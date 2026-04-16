@@ -103,17 +103,23 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 
     LogDesiredStatus(desiredStatus);
 
-    if (!IsUpdateRequired(desiredStatus)) {
-        LOG_INF() << "No update is required";
-
-        return ErrorEnum::eNone;
-    }
-
     if (mUpdateState != UpdateStateEnum::eNone) {
+        if (IsSameUpdate(desiredStatus)) {
+            LOG_DBG() << "No update is required";
+
+            return ErrorEnum::eNone;
+        }
+
         LOG_DBG() << "Cancel current update to process new desired status";
 
         CancelUpdate();
     } else {
+        if (!IsUpdateRequired(desiredStatus)) {
+            LOG_INF() << "No update is required";
+
+            return ErrorEnum::eNone;
+        }
+
         StartUpdate();
     }
 
@@ -503,6 +509,31 @@ bool DesiredStatusHandler::IsUpdateItemsRequired(const DesiredStatus& desiredSta
     }
 
     return false;
+}
+
+bool DesiredStatusHandler::IsSameUpdate(const DesiredStatus& desiredStatus) const
+{
+    if (desiredStatus.mNodes != mPendingDesiredStatus.mNodes) {
+        return false;
+    }
+
+    if (desiredStatus.mUnitConfig != mPendingDesiredStatus.mUnitConfig) {
+        return false;
+    }
+
+    if (desiredStatus.mUpdateItems != mPendingDesiredStatus.mUpdateItems) {
+        return false;
+    }
+
+    if (desiredStatus.mInstances != mPendingDesiredStatus.mInstances) {
+        return false;
+    }
+
+    if (desiredStatus.mSubjects != mPendingDesiredStatus.mSubjects) {
+        return false;
+    }
+
+    return true;
 }
 
 bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const
