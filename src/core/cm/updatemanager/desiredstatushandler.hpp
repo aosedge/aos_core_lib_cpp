@@ -81,6 +81,7 @@ private:
     Error FinalizeUpdate();
     void  StartUpdate(UpdateState state = UpdateStateEnum::eDownloading);
     void  CancelUpdate();
+    bool  IsSameUpdate(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateRequired(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateItemsRequired(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const;
