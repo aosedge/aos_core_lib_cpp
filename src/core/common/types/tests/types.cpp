@@ -27,30 +27,30 @@ using namespace aos;
 TEST(CommonTest, Types)
 {
     // InstanceIdent comparison
-    EXPECT_TRUE((InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService})
-        == (InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService}));
-    EXPECT_FALSE((InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService})
-        != (InstanceIdent {"service1", "subject1", 2, UpdateItemTypeEnum::eService}));
+    EXPECT_TRUE((InstanceIdent {"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService})
+        == (InstanceIdent {"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService}));
+    EXPECT_FALSE((InstanceIdent {"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService})
+        != (InstanceIdent {"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService}));
 
     // InstanceInfo comparison
-    EXPECT_TRUE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc", "",
-                    {}, 2, 3, 4, "state", "storage", {}, {}})
-        == (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc", "", {},
-            2, 3, 4, "state", "storage", {}, {}}));
-    EXPECT_FALSE((InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc",
-                     "", {}, 2, 3, 4, "state", "storage", {}, {}})
-        != (InstanceInfo {{"service1", "subject1", 2, UpdateItemTypeEnum::eService}, "1.0.0", "image1", "runc", "", {},
-            2, 3, 4, "state", "storage", {}, {}}));
+    EXPECT_TRUE((InstanceInfo {{"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "",
+                    SubjectTypeEnum::eUser, 2, 3, 4, "state", "storage", {}, {}, false})
+        == (InstanceInfo {{"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "",
+            SubjectTypeEnum::eUser, 2, 3, 4, "state", "storage", {}, {}, false}));
+    EXPECT_FALSE((InstanceInfo {{"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc",
+                     "", SubjectTypeEnum::eUser, 2, 3, 4, "state", "storage", {}, {}, false})
+        != (InstanceInfo {{"service1", "1.0.0", "subject1", 2, UpdateItemTypeEnum::eService}, "image1", "runc", "",
+            SubjectTypeEnum::eUser, 2, 3, 4, "state", "storage", {}, {}, false}));
 
     // InstanceStatus comparison
-    EXPECT_TRUE((InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc",
-                    "image0", {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"})
-        == (InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc", "image0",
-            {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"}));
-    EXPECT_FALSE((InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc",
-                     "image0", {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"})
-        != (InstanceStatus {"service1", "subject1", 2, UpdateItemTypeEnum::eService, false, "node0", "runc", "image0",
-            {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, "3.0.0"}));
+    EXPECT_TRUE((InstanceStatus {"service1", "3.0.0", "subject1", 2, UpdateItemTypeEnum::eService, "node0", "runc",
+                    "image0", {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, false})
+        == (InstanceStatus {"service1", "3.0.0", "subject1", 2, UpdateItemTypeEnum::eService, "node0", "runc", "image0",
+            {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, false}));
+    EXPECT_FALSE((InstanceStatus {"service1", "3.0.0", "subject1", 2, UpdateItemTypeEnum::eService, "node0", "runc",
+                     "image0", {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, false})
+        != (InstanceStatus {"service1", "3.0.0", "subject1", 2, UpdateItemTypeEnum::eService, "node0", "runc", "image0",
+            {}, {}, InstanceStateEnum::eActive, "", ErrorEnum::eNone, false}));
 }
 
 TEST(CommonTest, IsMainNodeReturnsFalseOnEmptyAttrs)
