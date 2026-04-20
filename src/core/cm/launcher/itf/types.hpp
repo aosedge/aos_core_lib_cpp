@@ -52,7 +52,6 @@ struct InstanceInfo {
     Time                          mTimestamp;
     InstanceState                 mState {};
     bool                          mIsUnitSubject {};
-    StaticString<cVersionLen>     mVersion;
     StaticString<cIDLen>          mOwnerID;
     SubjectType                   mSubjectType;
     LabelsArray                   mLabels;
@@ -70,8 +69,8 @@ struct InstanceInfo {
         return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
             && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
             && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
-            && mVersion == rhs.mVersion && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType
-            && mLabels == rhs.mLabels && mPriority == rhs.mPriority && mDisableRebalancing == rhs.mDisableRebalancing;
+            && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType && mLabels == rhs.mLabels
+            && mPriority == rhs.mPriority && mDisableRebalancing == rhs.mDisableRebalancing;
     }
 
     /**
