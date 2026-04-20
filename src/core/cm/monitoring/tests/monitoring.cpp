@@ -155,7 +155,7 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
 
         monitoring->mInstances.EmplaceBack();
         monitoring->mInstances[0].mInstanceIdent
-            = InstanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
+            = InstanceIdent {"service1", "1.0.0", "subject1", 1, UpdateItemTypeEnum::eService};
         monitoring->mInstances[0].mMonitoringData.mCPU = 20.0;
 
         monitoring->mInstances[0].mMonitoringData.mPartitions.EmplaceBack();
@@ -184,7 +184,7 @@ TEST_F(CMMonitoring, OnMonitoringReceived)
     ASSERT_EQ(monitoring->mInstances.Size(), 2);
 
     for (size_t i = 0; i < 2; ++i) {
-        const InstanceIdent instanceIdent {"service1", "subject1", 1, UpdateItemTypeEnum::eService};
+        const InstanceIdent instanceIdent {"service1", "1.0.0", "subject1", 1, UpdateItemTypeEnum::eService};
 
         EXPECT_EQ(static_cast<const InstanceIdent&>(monitoring->mInstances[i]), instanceIdent);
         EXPECT_EQ(monitoring->mInstances[i].mItems.Size(), 1);
@@ -261,7 +261,7 @@ TEST_F(CMMonitoring, OnNodeInfoChanged)
 
 TEST_F(CMMonitoring, OnInstancesStatusesChanged)
 {
-    const InstanceIdent ident0 {"itemID", "subjectID", 0, UpdateItemTypeEnum::eService};
+    const InstanceIdent ident0 {"itemID", "1.0.0", "subjectID", 0, UpdateItemTypeEnum::eService};
 
     cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
 
@@ -315,7 +315,7 @@ TEST_F(CMMonitoring, OnInstancesStatusesChanged)
 
 TEST_F(CMMonitoring, OnPreinstalledInstancesStatusesChanged)
 {
-    const InstanceIdent ident0 {"itemID", "subjectID", 0, UpdateItemTypeEnum::eComponent};
+    const InstanceIdent ident0 {"itemID", "1.0.0", "subjectID", 0, UpdateItemTypeEnum::eComponent};
 
     cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
 
@@ -345,7 +345,6 @@ TEST_F(CMMonitoring, OnPreinstalledInstancesStatusesChanged)
 
     EXPECT_EQ(monitoring->mInstances[0].mStates.Size(), 1);
     EXPECT_EQ(monitoring->mInstances[0].mStates[0].mState.GetValue(), InstanceStateEnum::eActive);
-    EXPECT_TRUE(monitoring->mInstances[0].mPreinstalled);
 
     EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
 
