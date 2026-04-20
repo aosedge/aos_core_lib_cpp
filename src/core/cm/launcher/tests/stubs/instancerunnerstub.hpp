@@ -103,7 +103,6 @@ public:
                         status.mNodeID                      = nodeID;
                         status.mRuntimeID                   = inst.mRuntimeID;
                         status.mManifestDigest              = inst.mManifestDigest;
-                        status.mVersion                     = inst.mVersion;
                         status.mState                       = mInitialState;
                         status.mError                       = ErrorEnum::eNone;
 
