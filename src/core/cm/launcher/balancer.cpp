@@ -399,9 +399,8 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Load image descriptor
-        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, version, *imageIndex); !err.IsNone()) {
-            LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field("version", version)
-                      << Log::Field(err);
+        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, id.mVersion, *imageIndex); !err.IsNone()) {
+            LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field(err);
 
             continue;
         }

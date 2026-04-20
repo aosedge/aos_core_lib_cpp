@@ -363,9 +363,9 @@ void Launcher::UpdateInstanceStatuses()
 
     for (const auto& status : *changedStatuses) {
         LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
-                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
-                  << Log::Field("state", status.mState) << Log::Field(status.mError);
+                  << Log::Field("nodeID", status.mNodeID) << Log::Field("runtimeID", status.mRuntimeID)
+                  << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
+                  << Log::Field(status.mError);
     }
 
     for (auto& listener : mInstanceStatusListeners) {
@@ -382,7 +382,6 @@ void Launcher::FailActivatingInstances()
 
             // Keep node ID, because instance still scheduled, but node didn't send activating status.
             LOG_ERR() << "Instance failed to activate" << Log::Field("instance", instanceInfo.mInstanceIdent)
-                      << Log::Field("version", instanceInfo.mVersion)
                       << Log::Field("runtimeID", instanceInfo.mRuntimeID)
                       << Log::Field("manifestDigest", instanceInfo.mManifestDigest);
 
@@ -577,9 +576,9 @@ void Launcher::ProcessNotScheduledInstances()
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
 {
     LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-              << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
-              << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
-              << Log::Field("state", status.mState) << Log::Field(status.mError);
+              << Log::Field("nodeID", status.mNodeID) << Log::Field("runtimeID", status.mRuntimeID)
+              << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
+              << Log::Field(status.mError);
 
     LockGuard updateLock {mUpdateMutex};
 
@@ -600,9 +599,8 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
     for (const auto& status : statuses) {
         LOG_INF() << "Node instance status received"
                   << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("version", status.mVersion) << Log::Field("runtimeID", status.mRuntimeID)
-                  << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
-                  << Log::Field(status.mError);
+                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
+                  << Log::Field("state", status.mState) << Log::Field(status.mError);
     }
 
     LockGuard updateLock {mUpdateMutex};
