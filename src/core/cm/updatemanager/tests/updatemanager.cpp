@@ -158,6 +158,7 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
         instanceStatus.mNodeID         = "node1";
         instanceStatus.mRuntimeID      = "runtime1";
         instanceStatus.mState          = state;
+        instanceStatus.mPreinstalled   = preinstalled;
 
         auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
         EXPECT_TRUE(err.IsNone());
@@ -186,6 +187,7 @@ void ChangeInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
         instanceStatus.mNodeID         = "node1";
         instanceStatus.mRuntimeID      = "runtime1";
         instanceStatus.mState          = state;
+        instanceStatus.mPreinstalled   = instancesStatuses.mPreinstalled;
 
         auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
         EXPECT_TRUE(err.IsNone());
@@ -236,6 +238,7 @@ void CreateInstanceStatus(InstanceStatus& instanceStatus, const String& itemID, 
     instanceStatus.mManifestDigest = unitInstanceStatus.mManifestDigest;
     instanceStatus.mState          = unitInstanceStatus.mState;
     instanceStatus.mError          = unitInstanceStatus.mError;
+    instanceStatus.mPreinstalled   = unitInstanceStatus.mPreinstalled;
 };
 
 void CreateUpdateItemInfo(
