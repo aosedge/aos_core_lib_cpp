@@ -507,7 +507,6 @@ struct InstanceAlert : AlertItem, InstanceIdent {
     {
     }
 
-    StaticString<cVersionLen>      mVersion;
     StaticString<cAlertMessageLen> mMessage;
 
     /**
@@ -518,8 +517,7 @@ struct InstanceAlert : AlertItem, InstanceIdent {
      */
     bool operator==(const InstanceAlert& rhs) const
     {
-        return AlertItem::operator==(rhs) && InstanceIdent::operator==(rhs) && mVersion == rhs.mVersion
-            && mMessage == rhs.mMessage;
+        return AlertItem::operator==(rhs) && InstanceIdent::operator==(rhs) && mMessage == rhs.mMessage;
     }
 
     /**
@@ -541,7 +539,7 @@ struct InstanceAlert : AlertItem, InstanceIdent {
     friend Log& operator<<(Log& log, const InstanceAlert& alert)
     {
         return log << "{" << static_cast<const AlertItem&>(alert) << ":" << static_cast<const InstanceIdent&>(alert)
-                   << ":" << alert.mVersion << ":" << alert.mMessage << "}";
+                   << ":" << alert.mMessage << "}";
     }
 };
 
