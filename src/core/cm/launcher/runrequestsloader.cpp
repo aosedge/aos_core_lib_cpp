@@ -44,7 +44,7 @@ void RunRequestsLoader::CreateInstances(const Array<Node>& nodes, Array<SharedPt
         if (request.mNumInstances == 0 && request.mUpdateItemType == UpdateItemTypeEnum::eComponent) {
             for (const auto& node : nodes) {
                 InstanceIdent instanceIdent {
-                    request.mItemID, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
+                    request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
 
                 auto [instance, createErr]
                     = mInstanceManager->CreateInstance(request, node.GetInfo().mNodeID, instances);
@@ -74,7 +74,8 @@ void RunRequestsLoader::CreateInstances(const Array<Node>& nodes, Array<SharedPt
         }
 
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
+            InstanceIdent instanceIdent {
+                request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
 
             auto [instance, createErr] = mInstanceManager->CreateInstance(request, i);
             if (!createErr.IsNone()) {
