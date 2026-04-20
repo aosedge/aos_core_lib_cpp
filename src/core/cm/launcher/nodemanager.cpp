@@ -97,8 +97,8 @@ Error NodeManager::LoadSMDataForActiveInstances(
         }
 
         auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(&mAllocator);
-        auto findDescErr     = FindImageDescriptor(
-            instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
+        auto findDescErr     = FindImageDescriptor(instanceID.mItemID, instance->GetInfo().mInstanceIdent.mVersion,
+                manifestDigest, imageInfoProvider, *imageDescriptor);
         if (!findDescErr.IsNone()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
                       << Log::Field("manifestDigest", manifestDigest) << Log::Field(AOS_ERROR_WRAP(findDescErr));

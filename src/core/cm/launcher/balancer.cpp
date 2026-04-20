@@ -85,7 +85,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
         LOG_DBG() << "Perform node balancing" << Log::Field("instance", id);
 
-        if (mInstanceManager->IsScheduled(id, info.mVersion)) {
+        if (mInstanceManager->IsScheduled(id)) {
             LOG_DBG() << "Instance aready scheduled" << Log::Field("instance", id);
 
             continue;
@@ -93,7 +93,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
         auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
-        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, id.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
@@ -387,9 +387,8 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
     for (auto& instance : instances) {
-        const auto& info    = instance->GetInfo();
-        const auto& id      = info.mInstanceIdent;
-        const auto& version = info.mVersion;
+        const auto& info = instance->GetInfo();
+        const auto& id   = info.mInstanceIdent;
 
         // Check for running instance
         bool isInstanceRunning

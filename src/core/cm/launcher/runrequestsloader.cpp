@@ -44,7 +44,8 @@ void RunRequestsLoader::CreateInstances(const Array<Node>& nodes, Array<SharedPt
 
     for (const auto& request : mRunRequests) {
         if (request.mNumInstances == 0 && request.mUpdateItemType == UpdateItemTypeEnum::eComponent) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
+            InstanceIdent instanceIdent {
+                request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
 
             if (auto err = mInstanceManager->RemoveGeneratedInstances(request); !err.IsNone()) {
                 LOG_ERR() << "Can't remove generated instances" << Log::Field("instance", instanceIdent)
@@ -59,7 +60,8 @@ void RunRequestsLoader::CreateInstances(const Array<Node>& nodes, Array<SharedPt
         }
 
         for (size_t i = 0; i < request.mNumInstances; i++) {
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
+            InstanceIdent instanceIdent {
+                request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, i, request.mUpdateItemType};
 
             auto [instance, createErr] = mInstanceManager->CreateInstance(request, i);
             if (!createErr.IsNone()) {
@@ -140,7 +142,8 @@ void RunRequestsLoader::CreateGeneratedInstances(const RunInstanceRequest& reque
                 continue;
             }
 
-            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
+            InstanceIdent instanceIdent {
+                request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
 
             auto [instance, createErr]
                 = mInstanceManager->CreateInstance(request, node.GetInfo().mNodeID, runtimeInfo.mRuntimeID, instances);

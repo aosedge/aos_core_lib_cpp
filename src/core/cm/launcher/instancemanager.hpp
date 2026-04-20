@@ -103,40 +103,36 @@ public:
     Array<InstanceStatus>& GetRunningInstances();
 
     /**
-     * Finds an active instance by its identifier and service version.
+     * Finds an active instance by its identifier.
      *
      * @param id instance identifier.
-     * @param version instance version (same logical instance at different versions are distinct).
      * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance> FindActiveInstance(const InstanceIdent& id, const String& version);
+    SharedPtr<Instance> FindActiveInstance(const InstanceIdent& id);
 
     /**
-     * Finds a scheduled instance by its identifier and service version.
+     * Finds a scheduled instance by its identifier.
      *
      * @param id instance identifier.
-     * @param version instance version.
      * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance> FindScheduledInstance(const InstanceIdent& id, const String& version);
+    SharedPtr<Instance> FindScheduledInstance(const InstanceIdent& id);
 
     /**
-     * Finds a cached instance by its identifier and service version.
+     * Finds a cached instance by its identifier.
      *
      * @param id instance identifier.
-     * @param version instance version.
      * @return SharedPtr<Instance>.
      */
-    SharedPtr<Instance> FindCachedInstance(const InstanceIdent& id, const String& version);
+    SharedPtr<Instance> FindCachedInstance(const InstanceIdent& id);
 
     /**
-     * Finds a preinstalled component by its identifier and version.
+     * Finds a preinstalled component by its identifier.
      *
      * @param id instance identifier.
-     * @param version instance version.
      * @return InstanceStatus*.
      */
-    InstanceStatus* FindPreinstalledComponent(const InstanceIdent& id, const String& version);
+    InstanceStatus* FindPreinstalledComponent(const InstanceIdent& id);
 
     /**
      * Updates the status of a managed instance.
@@ -216,10 +212,9 @@ public:
      * Checks if instance is scheduled.
      *
      * @param id instance identifier.
-     * @param version instance version.
      * @return bool.
      */
-    bool IsScheduled(const InstanceIdent& id, const String& version);
+    bool IsScheduled(const InstanceIdent& id);
 
     /**
      * Updates running instances.
@@ -276,20 +271,18 @@ private:
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
-    SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id, const String& version);
+    SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id);
     SharedPtr<Instance> FindReadyInstance(const String& itemID, const String& subjectID, const String& nodeID,
         const String& runtimeID, const String& version);
-    uint64_t            FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version);
+    uint64_t            FindIndexForNewInstance(const InstanceIdent& id);
 
     UniquePtr<InstanceInfo> CreateInfo(
         const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request);
 
-    SharedPtr<Instance> FindInstance(
-        const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id, const String& version);
+    SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
         const String& subjectID, const String& nodeID, const String& runtimeID, const String& version);
-    uint64_t            FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
-                   const String& subjectID, const String& version);
+    uint64_t FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
 
     SharedPtr<Instance> FindActiveInstanceByRuntime(const InstanceIdent& id, const String& runtimeID);
 

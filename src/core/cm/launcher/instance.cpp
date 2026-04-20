@@ -24,7 +24,6 @@ Instance::Instance(
 {
     static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent;
 
-    mStatus.mVersion        = info.mVersion;
     mStatus.mPreinstalled   = false;
     mStatus.mNodeID         = info.mNodeID;
     mStatus.mRuntimeID      = info.mRuntimeID;
@@ -75,7 +74,8 @@ bool Instance::IsImageValid()
 
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
-    auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
+    auto err
+        = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mInstanceIdent.mVersion, *imageIndex);
     if (!err.IsNone()) {
         return false;
     }
@@ -294,8 +294,7 @@ Error ComponentInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
-        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -351,7 +350,6 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
     auto releaseConfig = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { mImageConfig = nullptr; });
 
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
-    mSMInfo.mVersion                     = mInfo.mVersion;
     mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
     mSMInfo.mRuntimeID                   = runtimeID;
     mSMInfo.mOwnerID                     = mInfo.mOwnerID;
@@ -421,8 +419,7 @@ Error ServiceInstance::Remove()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
-        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -516,7 +513,6 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
     });
 
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
-    mSMInfo.mVersion                     = mInfo.mVersion;
     mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
     mSMInfo.mRuntimeID                   = runtimeID;
     mSMInfo.mOwnerID                     = mInfo.mOwnerID;
