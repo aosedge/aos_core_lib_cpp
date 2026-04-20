@@ -335,7 +335,7 @@ Error Node::SendScheduledInstances(
 
     for (const auto& instance : *instancesToRun) {
         LOG_INF() << "Run node instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
-                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+                  << Log::Field("runtimeID", instance.mRuntimeID);
     }
 
     if (auto err = mInstanceRunner->RunInstances(mInfo.mNodeID, *instancesToRun); !err.IsNone()) {
@@ -370,7 +370,7 @@ RetWithError<bool> Node::ResendInstances(
 
     for (const auto& instance : *instancesToRun) {
         LOG_INF() << "Resend node instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
-                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+                  << Log::Field("runtimeID", instance.mRuntimeID);
     }
 
     if (forceRestart) {
@@ -409,8 +409,8 @@ bool Node::AreInstancesChanged(
     for (const auto& desired : instancesToRun) {
         const auto found = runningInstances.ContainsIf([&](const InstanceStatus& status) {
             return static_cast<const InstanceIdent&>(status) == static_cast<const InstanceIdent&>(desired)
-                && status.mVersion == desired.mVersion && status.mNodeID == mInfo.mNodeID
-                && status.mState != aos::InstanceStateEnum::eInactive && status.mRuntimeID == desired.mRuntimeID;
+                && status.mNodeID == mInfo.mNodeID && status.mState != aos::InstanceStateEnum::eInactive
+                && status.mRuntimeID == desired.mRuntimeID;
         });
 
         if (!found) {
