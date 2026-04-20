@@ -282,9 +282,9 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
 
     for (const auto& status : statuses) {
         LOG_DBG() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
-                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
-                  << Log::Field("state", status.mState) << Log::Field(status.mError);
+                  << Log::Field("nodeID", status.mNodeID) << Log::Field("runtimeID", status.mRuntimeID)
+                  << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
+                  << Log::Field(status.mError);
     }
 
     if (!mCloudConnected || mIsStatusProcessing || statuses.Size() == 0) {
