@@ -218,8 +218,9 @@ private:
     StaticString<pkcs11::cPINLen>   mUserPIN;
 
     mutable StaticAllocator<aos::Max(sizeof(crypto::x509::Certificate) + sizeof(DERCert) + sizeof(CertInfo),
-        sizeof(StaticArray<SearchObject, cCertsPerModule * 3>) + sizeof(SearchObject) + sizeof(pkcs11::TokenInfo)
-            + sizeof(pkcs11::SessionInfo))>
+                                sizeof(StaticArray<SearchObject, cCertsPerModule * 3>) + sizeof(SearchObject)
+                                    + sizeof(pkcs11::TokenInfo) + sizeof(pkcs11::SessionInfo))
+        + sizeof(StaticString<cURLLen>) * 2>
         mTmpObjAllocator;
     StaticAllocator<pkcs11::cPrivateKeyMaxSize * cCertsPerModule + pkcs11::Utils::cLocalObjectsMaxSize>
         mLocalCacheAllocator;

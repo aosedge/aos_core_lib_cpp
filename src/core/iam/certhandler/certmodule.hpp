@@ -143,7 +143,7 @@ private:
     StaticAllocator<Max(2U * sizeof(ModuleCertificates),
         sizeof(SelfSignedCertificate) + sizeof(CertInfo) + sizeof(crypto::x509::CertificateChain)
             + sizeof(ModuleCertificates) + sizeof(crypto::x509::Certificate),
-        sizeof(crypto::x509::CSR))>
+        sizeof(crypto::x509::CSR) + sizeof(CertInfo))>
         mAllocator;
 };
 

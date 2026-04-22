@@ -165,14 +165,14 @@ Error CertHandler::SubscribeListener(const String& certType, iamclient::CertList
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    CertInfo certInfo;
+    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
 
-    auto err = module->GetCertificate(Array<uint8_t>(), Array<uint8_t>(), certInfo);
+    auto err = module->GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mCertListenerSubscriptions.EmplaceBack(certType, certInfo, &certListener);
+    err = mCertListenerSubscriptions.EmplaceBack(certType, *certInfo, &certListener);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -243,9 +243,9 @@ CertModule* CertHandler::FindModule(const String& certType) const
 
 Error CertHandler::UpdateCerts(CertModule& certModule)
 {
-    CertInfo certInfo;
+    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
 
-    auto err = certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), certInfo);
+    auto err = certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -255,11 +255,11 @@ Error CertHandler::UpdateCerts(CertModule& certModule)
             continue;
         }
 
-        if (subscription.mCertInfo != certInfo) {
+        if (subscription.mCertInfo != *certInfo) {
             LOG_INF() << "Cert changed" << Log::Field("type", subscription.mCertType);
 
-            subscription.mCertListener->OnCertChanged(certInfo);
-            subscription.mCertInfo = certInfo;
+            subscription.mCertListener->OnCertChanged(*certInfo);
+            subscription.mCertInfo = *certInfo;
         }
     }
 

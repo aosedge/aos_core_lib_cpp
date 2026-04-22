@@ -160,7 +160,7 @@ private:
     static constexpr auto cThreadHeapUsage = 2 * sizeof(CertInfo) + sizeof(StaticString<cCertSubjSize>)
         + sizeof(StaticArray<uint8_t, cCertPEMLen>) + sizeof(SignContext) + sizeof(x509::Certificate)
         + sizeof(StaticArray<uint8_t, cMaxHashSize>) + sizeof(StaticArray<x509::Certificate, cMaxNumCertificates>)
-        + sizeof(StaticArray<uint8_t, cFileChunkSize>) * 2;
+        + sizeof(StaticArray<uint8_t, cFileChunkSize>) * 2 + sizeof(StaticString<cURLLen>) * 2;
 
     RetWithError<SharedPtr<x509::CertificateChain>> GetOnlineCert();
     Error                                           SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls);

@@ -253,9 +253,9 @@ private:
     ConditionalVariable           mCondVar;
     bool                          mCancel {};
     bool                          mInProgress {};
-    mutable StaticAllocator<((sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) * 2) + sizeof(oci::ImageIndex)
+    mutable StaticAllocator<(sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) * 2) + sizeof(oci::ImageIndex)
         + sizeof(oci::ImageManifest) + sizeof(StaticArray<BlobInfo, 1>)
-        + sizeof(StaticArray<uint8_t, crypto::cSHA256Size>))>
+        + sizeof(StaticArray<uint8_t, crypto::cSHA256Size>) + sizeof(BlobInfo)>
         mAllocator;
 };
 

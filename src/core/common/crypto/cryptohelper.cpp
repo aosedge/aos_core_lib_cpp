@@ -221,22 +221,23 @@ Error CryptoHelper::GetServiceDiscoveryFromOrganization(
     auto valueStart    = orgPos + orgKey.Size();
     auto [valueEnd, _] = subject->FindSubstr(valueStart, ",");
 
-    StaticString<cURLLen> orgName, url;
+    auto orgName = MakeUnique<StaticString<cURLLen>>(&mAllocator);
+    auto url     = MakeUnique<StaticString<cURLLen>>(&mAllocator);
 
-    auto assignErr = orgName.Insert(orgName.begin(), subject->begin() + valueStart, subject->begin() + valueEnd);
+    auto assignErr = orgName->Insert(orgName->begin(), subject->begin() + valueStart, subject->begin() + valueEnd);
     if (!assignErr.IsNone()) {
         return AOS_ERROR_WRAP(assignErr);
     }
 
-    if (orgName.IsEmpty()) {
+    if (orgName->IsEmpty()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    if (auto err = url.Format("https://%s:%d", orgName.CStr(), cServiceDiscoveryDefaultPort); !err.IsNone()) {
+    if (auto err = url->Format("https://%s:%d", orgName->CStr(), cServiceDiscoveryDefaultPort); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = urls.EmplaceBack(url); !err.IsNone()) {
+    if (auto err = urls.EmplaceBack(*url); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

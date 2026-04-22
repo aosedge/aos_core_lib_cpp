@@ -58,7 +58,8 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
             return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
-        resCert = {};
+        resCert = *MakeUnique<CertInfo>(&mAllocator);
+
         for (const auto& item : *certsInStorage) {
             if (resCert.mNotAfter.IsZero() || resCert.mNotAfter < item.mNotAfter) {
                 resCert = item;
