@@ -160,6 +160,7 @@ private:
     };
 
     StaticArray<CertListenerSubscription, cIAMCertSubsMaxCount> mCertListenerSubscriptions;
+    StaticAllocator<sizeof(CertInfo)>                           mAllocator;
 };
 
 /** @}*/

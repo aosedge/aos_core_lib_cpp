@@ -1080,11 +1080,11 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 {
     LOG_DBG() << "Ensure blob" << Log::Field("digest", digest);
 
-    BlobInfo                            blobInfo;
+    auto                                blobInfo = MakeUnique<BlobInfo>(&mAllocator);
     UniquePtr<spaceallocator::SpaceItf> downloadingSpace;
 
     do {
-        if (auto err = DownloadBlob(digest, downloadPath, installPath, blobInfo, downloadingSpace); !err.IsNone()) {
+        if (auto err = DownloadBlob(digest, downloadPath, installPath, *blobInfo, downloadingSpace); !err.IsNone()) {
             if (err == ErrorEnum::eAlreadyExist) {
                 return ErrorEnum::eNone;
             }
@@ -1101,7 +1101,7 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
             return AOS_ERROR_WRAP(err);
         }
 
-        if (downloadFileInfo.mCheckSum == blobInfo.mSHA256) {
+        if (downloadFileInfo.mCheckSum == blobInfo->mSHA256) {
             break;
         }
 
@@ -1114,7 +1114,7 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
         }
     } while (true);
 
-    auto err = DecryptAndValidateBlob(downloadPath, installPath, blobInfo, certificates, certificateChains, space);
+    auto err = DecryptAndValidateBlob(downloadPath, installPath, *blobInfo, certificates, certificateChains, space);
 
     downloadingSpace->Release();
 

@@ -817,13 +817,14 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
         paramList.Append(name).Append("=").Append(param);
     };
 
-    StaticString<cURLLen> opaque, query;
+    auto opaque = MakeUnique<StaticString<cURLLen>>(&mTmpObjAllocator);
+    auto query  = MakeUnique<StaticString<cURLLen>>(&mTmpObjAllocator);
 
     // create opaque part of url
-    AddParam("token", mTokenLabel.CStr(), true, opaque);
+    AddParam("token", mTokenLabel.CStr(), true, *opaque);
 
     if (!label.IsEmpty()) {
-        AddParam("object", label.CStr(), true, opaque);
+        AddParam("object", label.CStr(), true, *opaque);
     }
 
     if (!id.IsEmpty()) {
@@ -834,20 +835,20 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
             return AOS_ERROR_WRAP(err);
         }
 
-        AddParam("id", idStr, true, opaque);
+        AddParam("id", idStr, true, *opaque);
     }
 
     // create query part of url
     if (mConfig.mModulePathInURL) {
-        AddParam("module-path", mConfig.mLibrary.CStr(), false, query);
+        AddParam("module-path", mConfig.mLibrary.CStr(), false, *query);
     }
 
     if (!mUserPIN.IsEmpty()) {
-        AddParam("pin-source", mConfig.mUserPINPath, false, query);
+        AddParam("pin-source", mConfig.mUserPINPath, false, *query);
     }
 
     // combine opaque & query parts of url
-    auto err = url.Format("%s:%s?%s", cPKCS11Scheme, opaque.CStr(), query.CStr());
+    auto err = url.Format("%s:%s?%s", cPKCS11Scheme, opaque->CStr(), query->CStr());
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
