@@ -588,7 +588,8 @@ bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desire
                     return true;
                 }
 
-                if (instanceStatus.mState != InstanceStateEnum::eActive) {
+                if (instanceStatus.mState != InstanceStateEnum::eActive
+                    && instanceStatus.mState != InstanceStateEnum::eActivating) {
                     return true;
                 }
             }
