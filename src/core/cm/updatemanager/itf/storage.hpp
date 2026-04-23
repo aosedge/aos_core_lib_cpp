@@ -27,6 +27,7 @@ public:
         ePending,
         eInstalling,
         eLaunching,
+        eWaitingActive,
         eFinalizing,
     };
 
@@ -38,6 +39,7 @@ public:
             "pending",
             "installing",
             "launching",
+            "activating",
             "finalizing",
         };
 

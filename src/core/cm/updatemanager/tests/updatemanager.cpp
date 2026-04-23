@@ -801,26 +801,28 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
-    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
-        for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
-            for (const auto& instanceStatus : instancesStatuses.mInstances) {
-                InstanceStatus status;
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .Times(2)
+        .WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+            for (const auto& instancesStatuses : expectedUnitStatus->mInstances.GetValue()) {
+                for (const auto& instanceStatus : instancesStatuses.mInstances) {
+                    InstanceStatus status;
 
-                status.mItemID         = instancesStatuses.mItemID;
-                status.mSubjectID      = instancesStatuses.mSubjectID;
-                status.mVersion        = instancesStatuses.mVersion;
-                status.mInstance       = instanceStatus.mInstance;
-                status.mNodeID         = instanceStatus.mNodeID;
-                status.mRuntimeID      = instanceStatus.mRuntimeID;
-                status.mManifestDigest = instanceStatus.mManifestDigest;
-                status.mState          = instanceStatus.mState;
+                    status.mItemID         = instancesStatuses.mItemID;
+                    status.mSubjectID      = instancesStatuses.mSubjectID;
+                    status.mVersion        = instancesStatuses.mVersion;
+                    status.mInstance       = instanceStatus.mInstance;
+                    status.mNodeID         = instanceStatus.mNodeID;
+                    status.mRuntimeID      = instanceStatus.mRuntimeID;
+                    status.mManifestDigest = instanceStatus.mManifestDigest;
+                    status.mState          = instanceStatus.mState;
 
-                instances.PushBack(status);
+                    instances.PushBack(status);
+                }
             }
-        }
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
@@ -910,11 +912,13 @@ TEST_F(UpdateManagerTest, CancelCurrentUpdate)
     EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
-    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
-        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .Times(2)
+        .WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+            ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
@@ -994,11 +998,13 @@ TEST_F(UpdateManagerTest, ResumeUpdateAfterRestart)
     EXPECT_CALL(mImageManagerMock, InstallUpdateItems(desiredStatus->mUpdateItems, _)).Times(1);
     EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
-    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
-        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .Times(2)
+        .WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+            ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
 
-        return ErrorEnum::eNone;
-    }));
+            return ErrorEnum::eNone;
+        }));
 
     // Continue update
 

@@ -26,7 +26,7 @@ namespace aos::cm::updatemanager {
 /**
  * Desired status handler.
  */
-class DesiredStatusHandler {
+class DesiredStatusHandler : private instancestatusprovider::ListenerItf {
 public:
     /**
      * Initializes desired status handler.
@@ -66,11 +66,15 @@ public:
     Error ProcessDesiredStatus(const DesiredStatus& desiredStatus);
 
 private:
-    static constexpr auto cAllocatorSize = Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
-                                               sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>)
-                                                   + sizeof(StaticArray<InstanceStatus, cMaxNumInstances>))
+    static constexpr auto cWaitActiveTimeout = Time::cMinutes * 10;
+    static constexpr auto cAllocatorSize     = Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
+                                                   sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>)
+                                                       + sizeof(StaticArray<InstanceStatus, cMaxNumInstances>))
         + Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
             sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>));
+
+    // instancestatusprovider::ListenerItf implementation
+    void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
 
     void  Run();
     void  LogDesiredStatus(const DesiredStatus& desiredStatus);
@@ -78,6 +82,7 @@ private:
     Error DownloadUpdateItems();
     Error InstallDesiredStatus();
     Error LaunchInstances();
+    Error WaitInstancesActive();
     Error FinalizeUpdate();
     void  StartUpdate(UpdateState state = UpdateStateEnum::eDownloading);
     void  CancelUpdate();
