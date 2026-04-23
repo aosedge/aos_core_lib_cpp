@@ -40,9 +40,15 @@ Error DesiredStatusHandler::Start()
         return ErrorEnum::eWrongState;
     }
 
+    if (auto err = mLauncher->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     mIsRunning = true;
 
     if (auto err = mThread.Run([this](void*) { Run(); }); !err.IsNone()) {
+        mIsRunning = false;
+
         return AOS_ERROR_WRAP(err);
     }
 
@@ -141,6 +147,15 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
  * Private
  **********************************************************************************************************************/
 
+void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses)
+{
+    (void)statuses;
+
+    LockGuard lock {mMutex};
+
+    mCondVar.NotifyOne();
+}
+
 void DesiredStatusHandler::StartUpdate(UpdateState state)
 {
     SetState(state);
@@ -206,6 +221,12 @@ void DesiredStatusHandler::Run()
 
                 case UpdateStateEnum::eLaunching:
                     stateAction = &DesiredStatusHandler::LaunchInstances;
+                    nextState   = UpdateStateEnum::eWaitingActive;
+
+                    break;
+
+                case UpdateStateEnum::eWaitingActive:
+                    stateAction = &DesiredStatusHandler::WaitInstancesActive;
                     nextState   = UpdateStateEnum::eFinalizing;
 
                     break;
@@ -217,6 +238,10 @@ void DesiredStatusHandler::Run()
                     break;
 
                 default:
+                    break;
+                }
+
+                if (!mIsRunning) {
                     break;
                 }
 
@@ -427,6 +452,39 @@ Error DesiredStatusHandler::LaunchInstances()
             LOG_ERR() << "Failed to launch instance"
                       << Log::Field("item", static_cast<const InstanceIdent&>(instanceStatus))
                       << Log::Field("err", instanceStatus.mError);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error DesiredStatusHandler::WaitInstancesActive()
+{
+    UniqueLock lock {mMutex};
+
+    auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+
+    while (mIsRunning) {
+        if (auto err = mLauncher->GetInstancesStatuses(*instancesStatuses); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto allActive = true;
+
+        for (const auto& instanceStatus : *instancesStatuses) {
+            if (instanceStatus.mState == InstanceStateEnum::eActivating) {
+                allActive = false;
+
+                break;
+            }
+        }
+
+        if (allActive) {
+            break;
+        }
+
+        if (auto err = mCondVar.Wait(lock, cWaitActiveTimeout); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
     }
 
