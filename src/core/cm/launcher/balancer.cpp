@@ -106,24 +106,23 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
-        Error scheduleErr = ErrorEnum::eNone;
+        Error scheduleErr = ErrorEnum::eNotFound;
 
         for (const auto& manifest : imageIndex->mManifests) {
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            if (auto err = ScheduleInstance(instance, manifest); err.IsNone()) {
+            scheduleErr = ScheduleInstance(instance, manifest);
+            if (scheduleErr.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
                 break;
-            } else {
-                LOG_ERR() << "Can't schedule instance" << Log::Field(err);
-
-                scheduleErr = err;
             }
         }
 
         if (!scheduleErr.IsNone()) {
+            LOG_ERR() << "Can't schedule instance" << Log::Field(scheduleErr);
+
             mInstanceManager->ScheduleInstance(instance, scheduleErr);
         }
     }
