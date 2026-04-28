@@ -10,7 +10,7 @@ set(TARGET_NAME networkmanager_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES networkmanager.cpp)
+set(SOURCES bandwidth.cpp bridgenetwork.cpp dnsname.cpp firewall.cpp networkmanager.cpp)
 
 # ######################################################################################################################
 # Libraries
