@@ -443,7 +443,8 @@ Error Balancer::SetupNetworkForNewInstances()
         auto providers = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
 
         for (const auto& instance : mInstanceManager->GetScheduledInstances()) {
-            if (nodeID == instance->GetInfo().mNodeID) {
+            if (nodeID == instance->GetInfo().mNodeID
+                && instance->GetInfo().mInstanceIdent.mType == UpdateItemTypeEnum::eService) {
                 if (auto err = providers->PushBack(instance->GetInfo().mOwnerID); !err.IsNone()) {
                     instance->SetError(AOS_ERROR_WRAP(Error(err, "can't add owner ID")));
                 }
