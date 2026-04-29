@@ -44,7 +44,12 @@ void RunRequestsLoader::CreateInstances(const Array<Node>& nodes, Array<SharedPt
 
     for (const auto& request : mRunRequests) {
         if (request.mNumInstances == 0 && request.mUpdateItemType == UpdateItemTypeEnum::eComponent) {
-            GenerateInstances(request, nodes, instances);
+            InstanceIdent instanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, 0, request.mUpdateItemType};
+
+            if (auto err = mInstanceManager->RemoveGeneratedInstances(request); !err.IsNone()) {
+                LOG_ERR() << "Can't remove generated instances" << Log::Field("instance", instanceIdent)
+                          << Log::Field(err);
+            }
 
             if (auto err = GenerateInstances(request, nodes, instances); !err.IsNone()) {
                 LOG_ERR() << "Can't generate instances" << Log::Field("instance", instanceIdent) << Log::Field(err);
