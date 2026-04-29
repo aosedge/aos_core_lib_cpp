@@ -11,6 +11,30 @@
 namespace aos::cm::launcher {
 
 /***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+template <typename Predicate>
+Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Predicate predicate) const
+{
+    Error firstErr = ErrorEnum::eNone;
+
+    for (auto instance = instances.begin(); instance != instances.end();) {
+        if (predicate(*instance)) {
+            if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
+                firstErr = err;
+            }
+
+            instance = instances.Erase(instance);
+        } else {
+            instance++;
+        }
+    }
+
+    return firstErr;
+}
+
+/***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
@@ -217,6 +241,31 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
     return CreateInstance(*instanceInfo);
 }
 
+Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& request)
+{
+    if (request.mUpdateItemType != UpdateItemTypeEnum::eComponent) {
+        return ErrorEnum::eNone;
+    }
+
+    auto matchRequest = [&request](const SharedPtr<Instance>& instance) {
+        const auto& info = instance->GetInfo();
+
+        return info.mInstanceIdent.mType == UpdateItemTypeEnum::eComponent
+            && info.mInstanceIdent.mItemID == request.mItemID
+            && info.mInstanceIdent.mSubjectID == request.mSubjectInfo.mSubjectID && info.mVersion == request.mVersion
+            && info.mDisableRebalancing;
+    };
+
+    auto firstErr = RemoveInstances(mActiveInstances, matchRequest);
+
+    auto cachedErr = RemoveInstances(mCachedInstances, matchRequest);
+    if (firstErr.IsNone() && !cachedErr.IsNone()) {
+        firstErr = cachedErr;
+    }
+
+    return firstErr;
+}
+
 Error InstanceManager::SubmitScheduledInstances()
 {
     for (auto& instance : mActiveInstances) {
@@ -406,36 +455,32 @@ Error InstanceManager::RemoveOutdatedInstances()
 
 Error InstanceManager::ClearInstancesWithDeletedImages()
 {
-    Error firstErr = ErrorEnum::eNone;
-
-    for (auto instance = mActiveInstances.begin(); instance != mActiveInstances.end();) {
-        if (!(*instance)->IsImageValid()) {
-            LOG_DBG() << "Image invalid for running instance: "
-                      << Log::Field("instanceID", (*instance)->GetInfo().mInstanceIdent);
-
-            if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
-                firstErr = err;
-            }
-
-            instance = mActiveInstances.Erase(instance);
-        } else {
-            instance++;
+    auto activeCmp = [](const SharedPtr<Instance>& instance) {
+        if (instance->IsImageValid()) {
+            return false;
         }
-    }
 
-    for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
-        if (!(*instance)->IsImageValid()) {
-            LOG_DBG() << "Image invalid for cached instance: "
-                      << Log::Field("instanceID", (*instance)->GetInfo().mInstanceIdent);
+        LOG_DBG() << "Image invalid for running instance: "
+                  << Log::Field("instanceID", instance->GetInfo().mInstanceIdent);
 
-            if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
-                firstErr = err;
-            }
+        return true;
+    };
 
-            instance = mCachedInstances.Erase(instance);
-        } else {
-            instance++;
+    auto cachedCmp = [](const SharedPtr<Instance>& instance) {
+        if (instance->IsImageValid()) {
+            return false;
         }
+
+        LOG_DBG() << "Image invalid for cached instance: "
+                  << Log::Field("instanceID", instance->GetInfo().mInstanceIdent);
+
+        return true;
+    };
+
+    Error firstErr  = RemoveInstances(mActiveInstances, activeCmp);
+    Error cachedErr = RemoveInstances(mCachedInstances, cachedCmp);
+    if (firstErr.IsNone() && !cachedErr.IsNone()) {
+        firstErr = cachedErr;
     }
 
     return firstErr;
