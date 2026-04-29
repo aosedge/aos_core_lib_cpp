@@ -14,16 +14,15 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    oci::OCISpecItf& ociSpec, NodeManager& nodeManager, MonitoringProviderItf& monitorProvider,
-    InstanceRunnerItf& runner, NetworkManager& networkManager)
+void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
+    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner, NetworkManager& networkManager)
 {
-    mInstanceManager = &instanceManager;
-    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
-    mNodeManager     = &nodeManager;
-    mMonitorProvider = &monitorProvider;
-    mRunner          = &runner;
-    mNetworkManager  = &networkManager;
+    mInstanceManager   = &instanceManager;
+    mImageInfoProvider = &imageInfoProvider;
+    mNodeManager       = &nodeManager;
+    mMonitorProvider   = &monitorProvider;
+    mRunner            = &runner;
+    mNetworkManager    = &networkManager;
 }
 
 Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing)
@@ -68,7 +67,7 @@ Error Balancer::LoadSMDataForActiveInstances()
     }
 
     auto loadErr
-        = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), mImageInfoProvider);
+        = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), *mImageInfoProvider);
     if (!loadErr.IsNone()) {
         return AOS_ERROR_WRAP(loadErr);
     }
@@ -99,7 +98,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
         auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
-        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
@@ -323,7 +322,7 @@ void Balancer::FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes)
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         (void)node;
 
-        return instance.IsRuntimeTypeOk(runtime->mRuntimeType);
+        return instance.IsRuntimeTypeOk(runtime->mRuntimeType, runtime->mRuntimeID);
     };
 
     FilterRuntimes(runtimes, filter);
@@ -476,7 +475,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Load image descriptor
-        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, version, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, version, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field("version", version)
                       << Log::Field(err);
 

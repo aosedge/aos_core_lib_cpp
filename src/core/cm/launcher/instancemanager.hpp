@@ -162,11 +162,12 @@ public:
      *
      * @param request run instance request.
      * @param nodeID bound node ID.
+     * @param runtimeID bound runtime ID.
      * @param newInstances array of new instances.
      * @return RetWithError<SharedPtr<Instance>>.
      */
-    RetWithError<SharedPtr<Instance>> CreateInstance(
-        const RunInstanceRequest& request, const String& nodeID, const Array<SharedPtr<Instance>>& newInstances);
+    RetWithError<SharedPtr<Instance>> CreateInstance(const RunInstanceRequest& request, const String& nodeID,
+        const String& runtimeID, const Array<SharedPtr<Instance>>& newInstances);
 
     /**
      * Submits all stashed instances for execution.
@@ -268,17 +269,17 @@ private:
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
     SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id, const String& version);
-    SharedPtr<Instance> FindReadyInstance(
-        const String& itemID, const String& subjectID, const String& nodeID, const String& version);
-    uint64_t FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version);
+    SharedPtr<Instance> FindReadyInstance(const String& itemID, const String& subjectID, const String& nodeID,
+        const String& runtimeID, const String& version);
+    uint64_t            FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version);
 
     UniquePtr<InstanceInfo> CreateInfo(
-        const InstanceIdent& id, const String& nodeID, const RunInstanceRequest& request);
+        const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request);
 
     SharedPtr<Instance> FindInstance(
         const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id, const String& version);
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
-        const String& subjectID, const String& nodeID, const String& version);
+        const String& subjectID, const String& nodeID, const String& runtimeID, const String& version);
     uint64_t            FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
                    const String& subjectID, const String& version);
 

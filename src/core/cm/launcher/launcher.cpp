@@ -57,10 +57,11 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
         return AOS_ERROR_WRAP(err);
     }
 
-    mRunRequestsLoader.Init(storage, mInstanceManager);
+    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
+
+    mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
-    mBalancer.Init(
-        mInstanceManager, itemInfoProvider, ociSpec, mNodeManager, *mMonitorProvider, *mRunner, mNetworkManager);
+    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner, mNetworkManager);
 
     return ErrorEnum::eNone;
 }

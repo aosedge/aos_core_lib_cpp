@@ -30,15 +30,14 @@ public:
      * Initializes runner with required managers and providers.
      *
      * @param instanceManager instance manager.
-     * @param imageInfoProvider interface for retrieving service information from image.
+     * @param imageInfoProvider image info provider.
      * @param nodeManager node manager.
      * @param monitorProvider monitoring provider.
      * @param runner instance runner interface.
      * @param networkManager network manager.
      */
-    void Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        oci::OCISpecItf& ociSpec, NodeManager& nodeManager, MonitoringProviderItf& monitorProvider,
-        InstanceRunnerItf& runner, NetworkManager& networkManager);
+    void Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
+        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner, NetworkManager& networkManager);
 
     /**
      * Runs instances.
@@ -103,7 +102,7 @@ private:
     Error PrepareForBalancing(bool rebalancing, bool isInitialUpdate = false);
     Error UpdateMonitoringData(bool isInitialUpdate = false);
 
-    ImageInfoProvider      mImageInfoProvider;
+    ImageInfoProvider*     mImageInfoProvider {};
     InstanceManager*       mInstanceManager {};
     NodeManager*           mNodeManager {};
     MonitoringProviderItf* mMonitorProvider {};
