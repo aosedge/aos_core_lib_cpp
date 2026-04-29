@@ -182,6 +182,7 @@ private:
     NetworkManager    mNetworkManager {};
     InstanceManager   mInstanceManager {};
     NodeManager       mNodeManager {};
+    ImageInfoProvider mImageInfoProvider {};
     Balancer          mBalancer {};
 
     // Process update thread

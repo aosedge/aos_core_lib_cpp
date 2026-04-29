@@ -121,11 +121,12 @@ void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
     mMonitoringData = monitoringData;
 }
 
-bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType)
+bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID)
 {
     assert(mItemConfig);
 
-    return mItemConfig->mRuntimes.Contains(runtimeType);
+    return (mInfo.mDisableRebalancing && mInfo.mRuntimeID == runtimeID)
+        || (!mInfo.mDisableRebalancing && mItemConfig->mRuntimes.Contains(runtimeType));
 }
 
 bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)

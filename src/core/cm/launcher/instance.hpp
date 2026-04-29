@@ -179,9 +179,10 @@ public:
      * Checks whether runtime type fits instance requirements.
      *
      * @param runtimeType runtime type.
+     * @param runtimeID runtime identifier.
      * @return bool.
      */
-    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType);
+    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID);
 
     /**
      * Checks whether platform fits instance requirements.
