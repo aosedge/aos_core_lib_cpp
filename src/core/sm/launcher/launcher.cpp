@@ -525,6 +525,10 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
         return mStorage->RemoveInstanceInfo(status);
     }
 
+    if (!status.mPreinstalled) {
+        return ErrorEnum::eNone;
+    }
+
     if (mInstances.ContainsIf([&status](const auto& instance) {
             return static_cast<const InstanceIdent&>(instance.mStatus) == static_cast<const InstanceIdent&>(status);
         })) {

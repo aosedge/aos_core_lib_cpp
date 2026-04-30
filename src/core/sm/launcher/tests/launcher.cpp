@@ -66,7 +66,8 @@ namespace {
  * Static
  **********************************************************************************************************************/
 
-InstanceInfo CreateInstanceInfo(const String& itemID, uint64_t instance, const String& version, const String& runtimeID)
+InstanceInfo CreateInstanceInfo(const String& itemID, uint64_t instance, const String& version, const String& runtimeID,
+    const UpdateItemType& type = UpdateItemTypeEnum::eService)
 {
     InstanceInfo info;
 
@@ -75,6 +76,7 @@ InstanceInfo CreateInstanceInfo(const String& itemID, uint64_t instance, const S
     info.mInstance  = instance;
     info.mVersion   = version;
     info.mRuntimeID = runtimeID;
+    info.mType      = type;
 
     return info;
 }
@@ -242,6 +244,12 @@ TEST_F(LauncherTest, SendActiveComponentNodeInstancesStatusOnModuleStart)
         CreateInstanceStatus(CreateInstanceInfo("item2", 2, "1.0.0", "runtime0"), InstanceStateEnum::eActive,
             UpdateItemTypeEnum::eService),
     };
+
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.1", "runtime0", UpdateItemTypeEnum::eComponent),
+    };
+
+    mStorage.Init(cStoredInfos);
 
     const auto cActiveComponent = static_cast<const InstanceIdent&>(cRuntime0Components[0]);
 
