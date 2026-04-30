@@ -241,16 +241,16 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
     using NodeRuntimesItem = NodeRuntimes::ValueType;
 
     auto nodeCmp = [](const NodeRuntimesItem& left, const NodeRuntimesItem& right) {
+        if (left.mFirst->GetConfig().mPriority != right.mFirst->GetConfig().mPriority) {
+            return left.mFirst->GetConfig().mPriority > right.mFirst->GetConfig().mPriority;
+        }
+
         if (left.mFirst->GetAvailableCPU() != right.mFirst->GetAvailableCPU()) {
             return left.mFirst->GetAvailableCPU() > right.mFirst->GetAvailableCPU();
         }
 
         if (left.mFirst->GetAvailableRAM() != right.mFirst->GetAvailableRAM()) {
             return left.mFirst->GetAvailableRAM() > right.mFirst->GetAvailableRAM();
-        }
-
-        if (left.mFirst->GetConfig().mPriority != right.mFirst->GetConfig().mPriority) {
-            return left.mFirst->GetConfig().mPriority > right.mFirst->GetConfig().mPriority;
         }
 
         return left.mFirst->GetConfig().mNodeID < right.mFirst->GetConfig().mNodeID;
