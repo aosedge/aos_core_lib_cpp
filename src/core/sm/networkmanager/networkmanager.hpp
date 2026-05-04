@@ -17,7 +17,6 @@
 
 #include "itf/bandwidth.hpp"
 #include "itf/bridgenetwork.hpp"
-#include "itf/cni.hpp"
 #include "itf/dnsname.hpp"
 #include "itf/firewall.hpp"
 #include "itf/networkmanager.hpp"
@@ -47,7 +46,6 @@ public:
      * Initializes network manager.
      *
      * @param storage storage interface.
-     * @param cni CNI interface.
      * @param bridgeNet bridge network interface.
      * @param firewall firewall interface.
      * @param bandwidth bandwidth interface.
@@ -55,13 +53,12 @@ public:
      * @param netMonitor traffic monitor.
      * @param netns namespace manager.
      * @param netIf network interface manager.
-     * @param workingDir working directory.
      * @return Error.
      */
-    Error Init(StorageItf& storage, cni::CNIItf& cni, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
-        BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
-        InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
-        const String& workingDir, aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
+    Error Init(StorageItf& storage, BridgeNetworkItf& bridgeNet, FirewallItf& firewall, BandwidthItf& bandwidth,
+        DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns, InterfaceManagerItf& netIf,
+        crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
+        aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
 
     /**
      * Starts network manager.
@@ -184,8 +181,6 @@ private:
     static constexpr auto     cMaxExposedPort        = 2;
     static constexpr auto     cCountRetriesIfNameGen = 10;
     static constexpr auto     cMaxNetworkIDLen       = 8;
-    static constexpr auto     cAdminChainPrefix      = "INSTANCE_";
-    static constexpr auto     cInstanceInterfaceName = "eth0";
     static constexpr auto     cBridgePrefix          = "br-";
     static constexpr auto     cVlanIfPrefix          = "vlan-";
     static constexpr auto     cNumAllocations        = 8 * cMaxNumConcurrentItems;
@@ -193,22 +188,7 @@ private:
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
-    Error PrepareCNIConfig(const String& instanceID, const String& networkID, const InstanceNetworkConfig& network,
-        const aos::InstanceNetworkAllocation& networkParams, cni::NetworkConfigList& net, cni::RuntimeConf& rt,
-        Array<StaticString<cHostNameLen>>& hosts) const;
-    Error PrepareNetworkConfigList(const String& instanceID, const String& networkID,
-        const InstanceNetworkConfig& network, const aos::InstanceNetworkAllocation& networkParams,
-        cni::NetworkConfigList& net) const;
-    Error PrepareRuntimeConfig(
-        const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const;
-
-    Error CreateBridgePluginConfig(const String& networkID, const aos::InstanceNetworkAllocation& networkParams,
-        cni::BridgePluginConf& config) const;
-    Error CreateFirewallPluginConfig(const String& instanceID, const InstanceNetworkConfig& network,
-        const aos::InstanceNetworkAllocation& networkParams, cni::FirewallPluginConf& config) const;
-    Error CreateBandwidthPluginConfig(const InstanceNetworkConfig& network, cni::BandwidthNetConf& config) const;
-    Error CreateDNSPluginConfig(
-        const String& networkID, const aos::InstanceNetworkAllocation& networkParams, cni::DNSPluginConf& config) const;
+    Error CleanupLeftoverInstances();
     Error PrepareBridgeParams(
         const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const;
     Error PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
@@ -261,7 +241,6 @@ private:
     }
 
     StorageItf*                                                                            mStorage {};
-    cni::CNIItf*                                                                           mCNI {};
     BridgeNetworkItf*                                                                      mBridgeNetwork {};
     FirewallItf*                                                                           mFirewall {};
     BandwidthItf*                                                                          mBandwidth {};
@@ -273,7 +252,6 @@ private:
     InterfaceFactoryItf*                                                                   mNetIfFactory {};
     aos::networkmanager::NetworkProviderItf*                                               mNetworkProvider {};
     StaticString<cIDLen>                                                                   mNodeID;
-    StaticString<cFilePathLen>                                                             mCNINetworkCacheDir;
     NetworkCache                                                                           mRuntimeCache;
     StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                            mNetworkProviders;
     StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances * cMaxNumOwners> mInstanceNetworkInfos;
@@ -282,8 +260,7 @@ private:
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
     mutable Mutex mMutex;
-    StaticAllocator<(sizeof(cni::NetworkConfigList) + sizeof(cni::RuntimeConf) + sizeof(cni::Result)
-                        + sizeof(cni::FirewallPluginConf) + sizeof(UpdateItemNetworkParams)
+    StaticAllocator<(sizeof(InstanceFirewallParams) + sizeof(UpdateItemNetworkParams)
                         + sizeof(aos::InstanceNetworkAllocation) + sizeof(InstanceNetworkInfo)
                         + sizeof(InstanceNetworkStateInfo))
                 * cMaxNumConcurrentItems

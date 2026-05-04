@@ -18,15 +18,14 @@ namespace aos::sm::networkmanager {
  * Public
  **********************************************************************************************************************/
 
-Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
+Error NetworkManager::Init(StorageItf& storage, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
     BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
-    InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory, const String& workingDir,
+    InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
     aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID)
 {
     LOG_DBG() << "Init network manager";
 
     mStorage         = &storage;
-    mCNI             = &cni;
     mBridgeNetwork   = &bridgeNet;
     mFirewall        = &firewall;
     mBandwidth       = &bandwidth;
@@ -39,15 +38,6 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, BridgeNetworkI
     mNetworkProvider = &networkProvider;
     mNodeID          = nodeID;
 
-    auto cniDir      = fs::JoinPath(workingDir, "cni");
-    auto cniCacheDir = fs::JoinPath(cniDir, "results");
-
-    mCNINetworkCacheDir = fs::JoinPath(cniDir, "networks");
-
-    if (auto err = mCNI->SetConfDir(cniCacheDir); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     auto instanceNetworkInfos
         = MakeUnique<StaticArray<InstanceNetworkInfo, cMaxNumInstances>>(&mInstanceNetworkInfosAllocator);
 
@@ -56,22 +46,7 @@ Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, BridgeNetworkI
     }
 
     for (const auto& instanceNetworkInfo : *instanceNetworkInfos) {
-        if (auto err = DeleteInstanceNetworkConfig(instanceNetworkInfo.mInstanceID, instanceNetworkInfo.mNetworkID);
-            !err.IsNone()) {
-            LOG_WRN() << "Failed to delete instance network config"
-                      << Log::Field("instanceID", instanceNetworkInfo.mInstanceID)
-                      << Log::Field("networkID", instanceNetworkInfo.mNetworkID) << Log::Field(err);
-        }
-
         mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo);
-    }
-
-    if (auto err = fs::RemoveAll(cniDir); !err.IsNone()) {
-        LOG_ERR() << "Failed to remove cni directory: " << cniDir;
-    }
-
-    if (auto err = fs::MakeDirAll(cniCacheDir); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(&mNetworkInfosAllocator);
@@ -130,6 +105,18 @@ Error NetworkManager::Start()
 
     if (err = mNetMonitor->Start(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupNetMonitor = DeferRelease(&err, [this](const Error* err) {
+        if (!err->IsNone()) {
+            if (auto errStop = mNetMonitor->Stop(); !errStop.IsNone()) {
+                LOG_ERR() << "Failed to stop traffic monitor" << Log::Field(errStop);
+            }
+        }
+    });
+
+    if (err = CleanupLeftoverInstances(); !err.IsNone()) {
+        return err;
     }
 
     return ErrorEnum::eNone;
@@ -843,6 +830,44 @@ Error NetworkManager::UpdateInstanceNetworkCache(
     return ErrorEnum::eNone;
 }
 
+Error NetworkManager::CleanupLeftoverInstances()
+{
+    StaticArray<StaticString<cIDLen>, cMaxNumInstances * cMaxNumOwners> instanceIDs;
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& [id, _] : mInstanceNetworkInfos) {
+            if (auto err = instanceIDs.PushBack(id); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    for (const auto& instanceID : instanceIDs) {
+        StaticString<cIDLen> networkID;
+
+        {
+            LockGuard lock {mMutex};
+
+            if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+                networkID = it->mSecond.mNetworkID;
+            }
+        }
+
+        if (networkID.IsEmpty()) {
+            continue;
+        }
+
+        if (auto err = DeleteInstanceNetworkConfig(instanceID, networkID); !err.IsNone()) {
+            LOG_WRN() << "Failed to delete leftover instance network config" << Log::Field("instanceID", instanceID)
+                      << Log::Field("networkID", networkID) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error NetworkManager::AddInstanceToCache(const String& instanceID, const String& networkID)
 {
     LockGuard lock {mMutex};
@@ -908,31 +933,6 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
         if (auto err = mNetIf->DeleteLink(networkInfo.mVlanIfName); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::PrepareCNIConfig(const String& instanceID, const String& networkID,
-    const InstanceNetworkConfig& network, const aos::InstanceNetworkAllocation& networkParams,
-    cni::NetworkConfigList& netConfigList, cni::RuntimeConf& rtConfig, Array<StaticString<cHostNameLen>>& hosts) const
-{
-    LOG_DBG() << "Prepare CNI config" << Log::Field("instanceID", instanceID) << Log::Field("networkID", networkID);
-
-    if (auto err = PrepareHosts(instanceID, networkID, network, hosts); !err.IsNone()) {
-        return err;
-    }
-
-    netConfigList.mName    = networkID;
-    netConfigList.mVersion = cni::cVersion;
-
-    if (auto err = PrepareNetworkConfigList(instanceID, networkID, network, networkParams, netConfigList);
-        !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = PrepareRuntimeConfig(instanceID, rtConfig, hosts); !err.IsNone()) {
-        return err;
     }
 
     return ErrorEnum::eNone;
@@ -1194,174 +1194,6 @@ Error NetworkManager::WriteHosts(const Array<Host>& hosts, int fd) const
 
     return ErrorEnum::eNone;
 };
-
-Error NetworkManager::PrepareRuntimeConfig(
-    const String& instanceID, cni::RuntimeConf& rt, const Array<StaticString<cHostNameLen>>& hosts) const
-{
-    LOG_DBG() << "Prepare runtime config" << Log::Field("instanceID", instanceID);
-
-    rt.mContainerID = instanceID;
-
-    Error err;
-
-    Tie(rt.mNetNS, err) = GetNetnsPath(instanceID);
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    rt.mIfName = cInstanceInterfaceName;
-
-    rt.mArgs.PushBack({"IgnoreUnknown", "1"});
-    rt.mArgs.PushBack({"K8S_POD_NAME", instanceID});
-
-    if (!hosts.IsEmpty()) {
-        rt.mCapabilityArgs.mHost = hosts;
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::PrepareNetworkConfigList(const String& instanceID, const String& networkID,
-    const InstanceNetworkConfig& network, const aos::InstanceNetworkAllocation& networkParams,
-    cni::NetworkConfigList& net) const
-{
-    LOG_DBG() << "Prepare network config list" << Log::Field("instanceID", instanceID)
-              << Log::Field("networkID", networkID);
-
-    if (auto err = CreateBridgePluginConfig(networkID, networkParams, net.mBridge); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = CreateFirewallPluginConfig(instanceID, network, networkParams, net.mFirewall); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = CreateBandwidthPluginConfig(network, net.mBandwidth); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = CreateDNSPluginConfig(networkID, networkParams, net.mDNS); !err.IsNone()) {
-        return err;
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::CreateBridgePluginConfig(
-    const String& networkID, const aos::InstanceNetworkAllocation& networkParams, cni::BridgePluginConf& config) const
-{
-    LOG_DBG() << "Create bridge plugin config";
-
-    LockGuard lock {mMutex};
-
-    auto it = mNetworkProviders.Find(networkID);
-    if (it == mNetworkProviders.end()) {
-        return ErrorEnum::eNotFound;
-    }
-
-    config.mType        = "bridge";
-    config.mBridge      = it->mSecond.mBridgeIfName;
-    config.mIsGateway   = true;
-    config.mIPMasq      = true;
-    config.mHairpinMode = true;
-
-    config.mIPAM.mType              = "host-local";
-    config.mIPAM.mDataDir           = mCNINetworkCacheDir;
-    config.mIPAM.mRange.mRangeStart = networkParams.mIP;
-    config.mIPAM.mRange.mRangeEnd   = networkParams.mIP;
-    config.mIPAM.mRange.mSubnet     = networkParams.mSubnet;
-    config.mIPAM.mRange.mGateway    = it->mSecond.mIP;
-
-    if (auto err = config.mIPAM.mRouters.Resize(1); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    config.mIPAM.mRouters.Back().mDst = "0.0.0.0/0";
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::CreateFirewallPluginConfig(const String& instanceID, const InstanceNetworkConfig& network,
-    const aos::InstanceNetworkAllocation& networkParams, cni::FirewallPluginConf& config) const
-{
-    LOG_DBG() << "Create firewall plugin config";
-
-    config.mType = "aos-firewall";
-    config.mIptablesAdminChainName.Append(cAdminChainPrefix).Append(instanceID);
-    config.mUUID                   = instanceID;
-    config.mAllowPublicConnections = true;
-
-    StaticArray<StaticString<cPortLen>, cMaxExposedPort> portConfig;
-
-    for (const auto& port : network.mExposedPorts) {
-        if (auto err = port.Split(portConfig, '/'); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (portConfig.IsEmpty()) {
-            return ErrorEnum::eInvalidArgument;
-        }
-
-        if (auto err
-            = config.mInputAccess.PushBack({portConfig[0], portConfig.Size() > 1 ? portConfig[1] : String("tcp")});
-            !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    for (const auto& rule : networkParams.mFirewallRules) {
-        if (auto err = config.mOutputAccess.PushBack({rule.mDstIP, rule.mDstPort, rule.mProto, rule.mSrcIP});
-            !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::CreateBandwidthPluginConfig(
-    const InstanceNetworkConfig& network, cni::BandwidthNetConf& config) const
-{
-    if (network.mIngressKbit == 0 && network.mEgressKbit == 0) {
-        return ErrorEnum::eNone;
-    }
-
-    LOG_DBG() << "Create bandwidth plugin config";
-
-    config.mType = "bandwidth";
-
-    if (network.mIngressKbit > 0) {
-        config.mIngressRate  = network.mIngressKbit * 1000;
-        config.mIngressBurst = cBurstLen;
-    }
-
-    if (network.mEgressKbit > 0) {
-        config.mEgressRate  = network.mEgressKbit * 1000;
-        config.mEgressBurst = cBurstLen;
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::CreateDNSPluginConfig(
-    const String& networkID, const aos::InstanceNetworkAllocation& networkParams, cni::DNSPluginConf& config) const
-{
-    LOG_DBG() << "Create DNS plugin config";
-
-    config.mType        = "dnsname";
-    config.mMultiDomain = true;
-    config.mDomainName  = networkID;
-
-    for (const auto& dnsServer : networkParams.mDNSServers) {
-        if (auto err = config.mRemoteServers.PushBack(dnsServer); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    config.mCapabilities.mAliases = true;
-
-    return ErrorEnum::eNone;
-}
 
 Error NetworkManager::PrepareBridgeParams(
     const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const
