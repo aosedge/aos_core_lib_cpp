@@ -15,7 +15,11 @@
 #include <core/common/networkmanager/itf/networkprovider.hpp>
 #include <core/common/networkmanager/itf/pendingupdatehandler.hpp>
 
+#include "itf/bandwidth.hpp"
+#include "itf/bridgenetwork.hpp"
 #include "itf/cni.hpp"
+#include "itf/dnsname.hpp"
+#include "itf/firewall.hpp"
 #include "itf/networkmanager.hpp"
 
 namespace aos::sm::networkmanager {
@@ -44,13 +48,18 @@ public:
      *
      * @param storage storage interface.
      * @param cni CNI interface.
+     * @param bridgeNet bridge network interface.
+     * @param firewall firewall interface.
+     * @param bandwidth bandwidth interface.
+     * @param dnsName DNS name interface.
      * @param netMonitor traffic monitor.
      * @param netns namespace manager.
      * @param netIf network interface manager.
      * @param workingDir working directory.
      * @return Error.
      */
-    Error Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
+    Error Init(StorageItf& storage, cni::CNIItf& cni, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
+        BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
         InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
         const String& workingDir, aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
 
@@ -246,6 +255,10 @@ private:
 
     StorageItf*                                                                            mStorage {};
     cni::CNIItf*                                                                           mCNI {};
+    BridgeNetworkItf*                                                                      mBridgeNetwork {};
+    FirewallItf*                                                                           mFirewall {};
+    BandwidthItf*                                                                          mBandwidth {};
+    DNSNameItf*                                                                            mDNSName {};
     TrafficMonitorItf*                                                                     mNetMonitor {};
     NamespaceManagerItf*                                                                   mNetns {};
     InterfaceManagerItf*                                                                   mNetIf {};
