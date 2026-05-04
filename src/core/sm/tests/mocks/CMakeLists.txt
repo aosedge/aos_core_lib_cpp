@@ -15,7 +15,6 @@ set(TARGET_NAME mocks)
 # ######################################################################################################################
 
 set(HEADERS
-    cnimock.hpp
     instancestatusreceivermock.hpp
     iteminfoprovidermock.hpp
     launchermock.hpp
