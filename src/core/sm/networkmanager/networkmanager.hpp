@@ -209,6 +209,13 @@ private:
     Error CreateBandwidthPluginConfig(const InstanceNetworkConfig& network, cni::BandwidthNetConf& config) const;
     Error CreateDNSPluginConfig(
         const String& networkID, const aos::InstanceNetworkAllocation& networkParams, cni::DNSPluginConf& config) const;
+    Error PrepareBridgeParams(
+        const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const;
+    Error PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
+        const aos::InstanceNetworkAllocation& networkParams, InstanceFirewallParams& params) const;
+    Error PrepareBandwidthParams(const InstanceNetworkConfig& networkConfig, BandwidthParams& params) const;
+    Error PrepareDNSAliasesParams(const String& networkID, const aos::InstanceNetworkAllocation& networkParams,
+        const Array<StaticString<cHostNameLen>>& aliases, DNSAliasesParams& params) const;
     Error UpdateInstanceNetworkCache(
         const String& instanceID, const String& networkID, const Array<StaticString<cHostNameLen>>& hosts);
     Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
