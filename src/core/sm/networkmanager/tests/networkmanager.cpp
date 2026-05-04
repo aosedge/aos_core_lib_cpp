@@ -163,7 +163,13 @@ protected:
 
     void ExpectAddInstanceCalls(int times = 1)
     {
-        EXPECT_CALL(mBridgeNetwork, Attach(_, _, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        BridgeAttachResult attachResult;
+        attachResult.mHostIfName      = "veth-test";
+        attachResult.mContainerIfName = "eth0";
+
+        EXPECT_CALL(mBridgeNetwork, Attach(_, _, _))
+            .Times(times)
+            .WillRepeatedly(DoAll(SetArgReferee<2>(attachResult), Return(aos::ErrorEnum::eNone)));
         EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mFirewall, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mBandwidth, Apply(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
@@ -371,6 +377,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_ValidateAllPluginConfig
     EXPECT_CALL(mBridgeNetwork, Attach(_, _, _))
         .WillOnce(DoAll(
             SaveArg<0>(&capturedAttachInstance), SaveArg<1>(&capturedBridgeParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mFirewall, AddInstance(_, _))
         .WillOnce(DoAll(
             SaveArg<0>(&capturedFirewallInstance), SaveArg<1>(&capturedFirewallParams), Return(aos::ErrorEnum::eNone)));
@@ -400,7 +407,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_ValidateAllPluginConfig
     EXPECT_EQ(capturedBridgeParams.mSubnet, allocatedParams.mSubnet);
     EXPECT_TRUE(capturedBridgeParams.mHairpin);
     EXPECT_TRUE(capturedBridgeParams.mIPMasq);
-    EXPECT_EQ(capturedBridgeParams.mIPWithMask, aos::String(std::string(allocatedParams.mIP.CStr()) + "/24").c_str());
+    EXPECT_EQ(std::string(capturedBridgeParams.mIPWithMask.CStr()), std::string(allocatedParams.mIP.CStr()) + "/24");
 
     EXPECT_EQ(capturedFirewallInstance, instanceID);
     EXPECT_EQ(capturedFirewallParams.mIP, allocatedParams.mIP);
@@ -645,7 +652,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork)
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
-        .Times(2)
+        .Times(1)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
     InstanceNetworkRuntimeParams runtimeParams;
@@ -704,7 +711,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork_MultipleInstances)
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
-        .Times(3)
+        .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
@@ -778,7 +785,7 @@ TEST_F(NetworkManagerTest, StopReleaseAndRecreateInstance)
         .WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
-        .Times(3)
+        .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
     ASSERT_EQ(mNetManager->CreateInstanceNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
@@ -832,7 +839,7 @@ TEST_F(NetworkManagerTest, StopInstanceNetwork_FailOnCNIError)
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
-        .Times(2)
+        .Times(1)
         .WillRepeatedly(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
 
     InstanceNetworkRuntimeParams runtimeParams;

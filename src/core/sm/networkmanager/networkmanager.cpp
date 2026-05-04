@@ -832,19 +832,19 @@ Error NetworkManager::UpdateInstanceNetworkCache(
 
 Error NetworkManager::CleanupLeftoverInstances()
 {
-    StaticArray<StaticString<cIDLen>, cMaxNumInstances * cMaxNumOwners> instanceIDs;
+    auto instanceIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
 
     {
         LockGuard lock {mMutex};
 
         for (const auto& [id, _] : mInstanceNetworkInfos) {
-            if (auto err = instanceIDs.PushBack(id); !err.IsNone()) {
+            if (auto err = instanceIDs->PushBack(id); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
     }
 
-    for (const auto& instanceID : instanceIDs) {
+    for (const auto& instanceID : *instanceIDs) {
         StaticString<cIDLen> networkID;
 
         {
@@ -1287,7 +1287,7 @@ Error NetworkManager::PrepareDNSAliasesParams(const String& networkID,
     params.mNetworkID = networkID;
     params.mIP        = networkParams.mIP;
 
-    if (auto err = params.mAliases.Assign(aliases.begin(), aliases.end()); !err.IsNone()) {
+    if (auto err = params.mAliases.Assign(aliases); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
