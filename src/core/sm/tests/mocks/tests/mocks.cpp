@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <core/sm/tests/mocks/cnimock.hpp>
 #include <core/sm/tests/mocks/instancestatusreceivermock.hpp>
 #include <core/sm/tests/mocks/iteminfoprovidermock.hpp>
 #include <core/sm/tests/mocks/launchermock.hpp>
