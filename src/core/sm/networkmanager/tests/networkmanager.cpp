@@ -18,6 +18,10 @@
 #include <core/sm/tests/mocks/cnimock.hpp>
 #include <core/sm/tests/mocks/storagemock.hpp>
 
+#include "mocks/bandwidthmock.hpp"
+#include "mocks/bridgenetworkmock.hpp"
+#include "mocks/dnsnamemock.hpp"
+#include "mocks/firewallmock.hpp"
 #include "mocks/interfacefactorymock.hpp"
 #include "mocks/interfacemanagermock.hpp"
 #include "mocks/namespacemanagermock.hpp"
@@ -50,8 +54,8 @@ protected:
         EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
             .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
-        ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory,
-                      mWorkingDir, mNetworkProvider, "test-node"),
+        ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
+                      mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir, mNetworkProvider, "test-node"),
             aos::ErrorEnum::eNone);
         ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
     }
@@ -158,6 +162,10 @@ protected:
 
     StrictMock<StorageMock>                                                               mStorage;
     StrictMock<CNIMock>                                                                   mCNI;
+    StrictMock<BridgeNetworkMock>                                                         mBridgeNetwork;
+    StrictMock<FirewallMock>                                                              mFirewall;
+    StrictMock<BandwidthMock>                                                             mBandwidth;
+    StrictMock<DNSNameMock>                                                               mDNSName;
     TrafficMonitorMock                                                                    mTrafficMonitor;
     std::unique_ptr<NetworkManager>                                                       mNetManager;
     StrictMock<NamespaceManagerMock>                                                      mNetns;
@@ -1072,8 +1080,8 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
         .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
     mNetManager = std::make_unique<NetworkManager>();
-    ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir,
-                  mNetworkProvider, "test-node"),
+    ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
+                  mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir, mNetworkProvider, "test-node"),
         aos::ErrorEnum::eNone);
 
     const aos::String instanceID      = "test-instance";
