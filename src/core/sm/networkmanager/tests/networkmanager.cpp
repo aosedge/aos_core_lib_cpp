@@ -15,7 +15,6 @@
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/sm/networkmanager/networkmanager.hpp>
-#include <core/sm/tests/mocks/cnimock.hpp>
 #include <core/sm/tests/mocks/storagemock.hpp>
 
 #include "mocks/bandwidthmock.hpp"
@@ -30,7 +29,6 @@
 #include <core/common/tests/mocks/networkprovidermock.hpp>
 
 using namespace aos::sm::networkmanager;
-using namespace aos::sm::cni;
 using namespace aos::networkmanager;
 using namespace testing;
 
@@ -43,7 +41,6 @@ protected:
         mWorkingDir = "/tmp/networkmanager_test";
         std::filesystem::create_directories(mWorkingDir.CStr());
 
-        EXPECT_CALL(mCNI, SetConfDir(_)).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mFirewall, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mDNSName, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mTrafficMonitor, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
@@ -56,8 +53,8 @@ protected:
         EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
             .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
-        ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
-                      mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir, mNetworkProvider, "test-node"),
+        ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
+                      mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
             aos::ErrorEnum::eNone);
         ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
     }
@@ -182,7 +179,6 @@ protected:
     }
 
     StrictMock<StorageMock>                                                               mStorage;
-    StrictMock<CNIMock>                                                                   mCNI;
     StrictMock<BridgeNetworkMock>                                                         mBridgeNetwork;
     StrictMock<FirewallMock>                                                              mFirewall;
     StrictMock<BandwidthMock>                                                             mBandwidth;
@@ -1030,7 +1026,6 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
     existingNetwork.mBridgeIfName = "br-ef567890";
     mNetworkInfos.PushBack(existingNetwork);
 
-    EXPECT_CALL(mCNI, SetConfDir(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mStorage, GetNetworksInfo(_))
         .WillOnce(DoAll(SetArgReferee<0>(mNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
@@ -1046,8 +1041,8 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
         .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
     mNetManager = std::make_unique<NetworkManager>();
-    ASSERT_EQ(mNetManager->Init(mStorage, mCNI, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
-                  mNetns, mNetIf, mRandom, mNetIfFactory, mWorkingDir, mNetworkProvider, "test-node"),
+    ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
+                  mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
         aos::ErrorEnum::eNone);
 
     const aos::String instanceID      = "test-instance";
