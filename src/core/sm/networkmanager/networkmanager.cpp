@@ -576,6 +576,25 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
+    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mInstanceNetworkInfos.Find(instanceID);
+        if (it == mInstanceNetworkInfos.end()) {
+            err = AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+            return err;
+        }
+
+        it->mSecond.mHostIfName = attachResult.mHostIfName;
+        *info                   = it->mSecond;
+    }
+
+    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
 
     if (err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams); !err.IsNone()) {
@@ -687,36 +706,57 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
 
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
 {
-    auto netConfig = MakeUnique<cni::NetworkConfigList>(&mAllocator);
-    auto rtConfig  = MakeUnique<cni::RuntimeConf>(&mAllocator);
+    StaticString<cInterfaceLen> bridgeIfName;
+    StaticString<cSubnetLen>    subnet;
+    StaticString<cInterfaceLen> hostIfName;
 
-    netConfig->mName    = networkID;
-    netConfig->mVersion = cni::cVersion;
+    {
+        LockGuard lock {mMutex};
 
-    rtConfig->mContainerID = instanceID;
+        if (auto it = mNetworkProviders.Find(networkID); it != mNetworkProviders.end()) {
+            bridgeIfName = it->mSecond.mBridgeIfName;
+        } else {
+            LOG_WRN() << "Network provider not found for cleanup" << Log::Field("networkID", networkID);
+        }
+
+        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+            subnet     = it->mSecond.mAllocatedParams.mSubnet;
+            hostIfName = it->mSecond.mHostIfName;
+        } else {
+            LOG_WRN() << "Instance network info not found for cleanup" << Log::Field("instanceID", instanceID);
+        }
+    }
 
     Error err;
 
-    Tie(rtConfig->mNetNS, err) = GetNetnsPath(instanceID);
-    if (!err.IsNone()) {
-        return err;
+    if (!hostIfName.IsEmpty()) {
+        if (auto errRemove = mDNSName->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errRemove);
+        }
+
+        if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errClear);
+        }
+
+        if (auto errRemove = mFirewall->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errRemove);
+        }
+
+        if (!bridgeIfName.IsEmpty()) {
+            if (auto errDetach = mBridgeNetwork->Detach(instanceID, bridgeIfName, subnet);
+                !errDetach.IsNone() && err.IsNone()) {
+                err = AOS_ERROR_WRAP(errDetach);
+            }
+        }
+    } else {
+        LOG_DBG() << "Instance was never started, skipping itf cleanup" << Log::Field("instanceID", instanceID);
     }
 
-    rtConfig->mIfName = cInstanceInterfaceName;
-
-    if (err = mCNI->GetNetworkListCachedConfig(*netConfig, *rtConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto errDel = mNetns->DeleteNetworkNamespace(instanceID); !errDel.IsNone() && err.IsNone()) {
+        err = errDel;
     }
 
-    if (err = mCNI->DeleteNetworkList(*netConfig, *rtConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (err = mNetns->DeleteNetworkNamespace(instanceID); !err.IsNone()) {
-        return err;
-    }
-
-    return ErrorEnum::eNone;
+    return err;
 }
 
 Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String& networkID) const
@@ -828,10 +868,6 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
         if (auto err = mNetIf->DeleteLink(networkInfo.mVlanIfName); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
-    }
-
-    if (auto err = fs::RemoveAll(fs::JoinPath(mCNINetworkCacheDir, networkInfo.mNetworkID)); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;

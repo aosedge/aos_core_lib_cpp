@@ -86,6 +86,7 @@ struct InstanceNetworkInfo {
     StaticString<cIDLen>           mNetworkID;
     InstanceNetworkConfig          mNetworkConfig;
     aos::InstanceNetworkAllocation mAllocatedParams;
+    StaticString<cInterfaceLen>    mHostIfName;
 
     /**
      * Default constructor.
@@ -146,6 +147,14 @@ public:
      * @return Error.
      */
     virtual Error AddInstanceNetworkInfo(const InstanceNetworkInfo& info) = 0;
+
+    /**
+     * Updates instance network info in storage.
+     *
+     * @param info instance network information.
+     * @return Error.
+     */
+    virtual Error UpdateInstanceNetworkInfo(const InstanceNetworkInfo& info) = 0;
 
     /**
      * Removes instance network info from storage.
