@@ -1139,9 +1139,7 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_UpdatesFirewallRules)
     rule.mSrcIP   = "192.168.1.2";
     update.mFirewallRules.PushBack(rule);
 
-    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(aos::String("test-instance")))
-        .WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
@@ -1185,12 +1183,9 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsCNIUpdat
     rule.mSrcIP   = "192.168.1.2";
     update.mFirewallRules.PushBack(rule);
 
-    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(aos::String("test-instance")))
-        .WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
-    EXPECT_CALL(mCNI, GetNetworkListCachedConfig(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mCNI, UpdateFirewall(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
