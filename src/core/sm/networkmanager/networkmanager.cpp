@@ -18,15 +18,19 @@ namespace aos::sm::networkmanager {
  * Public
  **********************************************************************************************************************/
 
-Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, TrafficMonitorItf& netMonitor,
-    NamespaceManagerItf& netns, InterfaceManagerItf& netIf, crypto::RandomItf& random,
-    InterfaceFactoryItf& netIfFactory, const String& workingDir,
+Error NetworkManager::Init(StorageItf& storage, cni::CNIItf& cni, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
+    BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
+    InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory, const String& workingDir,
     aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID)
 {
     LOG_DBG() << "Init network manager";
 
     mStorage         = &storage;
     mCNI             = &cni;
+    mBridgeNetwork   = &bridgeNet;
+    mFirewall        = &firewall;
+    mBandwidth       = &bandwidth;
+    mDNSName         = &dnsName;
     mNetMonitor      = &netMonitor;
     mNetns           = &netns;
     mNetIf           = &netIf;
