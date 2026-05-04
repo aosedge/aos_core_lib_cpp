@@ -1497,6 +1497,8 @@ void NetworkManager::OnPendingFirewallUpdate(
     auto networkConfig   = MakeUnique<InstanceNetworkConfig>(&mAllocator);
     auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(&mAllocator);
 
+    StaticString<cInterfaceLen> hostIfName;
+
     {
         LockGuard lock {mMutex};
 
@@ -1506,6 +1508,7 @@ void NetworkManager::OnPendingFirewallUpdate(
                 networkID        = info.mNetworkID;
                 *networkConfig   = info.mNetworkConfig;
                 *allocatedParams = info.mAllocatedParams;
+                hostIfName       = info.mHostIfName;
 
                 auto network = mRuntimeCache.Find(networkID);
                 if (network != mRuntimeCache.end()) {
@@ -1525,26 +1528,11 @@ void NetworkManager::OnPendingFirewallUpdate(
 
         allocatedParams->mFirewallRules = update.mFirewallRules;
 
-        if (auto err = mStorage->RemoveInstanceNetworkInfo(instanceID); !err.IsNone()) {
-            LOG_ERR() << "Failed to remove instance network info" << Log::Field("instanceID", instanceID)
-                      << Log::Field(err);
-
-            return;
-        }
-
         auto info = MakeUnique<InstanceNetworkInfo>(
-            &mInstanceNetworkInfosAllocator, instanceID, networkID, *networkConfig, *allocatedParams);
+            &mInstanceNetworkInfosAllocator, instanceID, networkID, *networkConfig, *allocatedParams, hostIfName);
 
-        if (auto err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
-            auto rollbackInfo = MakeUnique<InstanceNetworkInfo>(&mInstanceNetworkInfosAllocator, instanceID, networkID,
-                *networkConfig, mInstanceNetworkInfos.Find(instanceID)->mSecond.mAllocatedParams);
-
-            if (auto rollbackErr = mStorage->AddInstanceNetworkInfo(*rollbackInfo); !rollbackErr.IsNone()) {
-                LOG_ERR() << "Failed to rollback instance network info" << Log::Field("instanceID", instanceID)
-                          << Log::Field(rollbackErr);
-            }
-
-            LOG_ERR() << "Failed to add instance network info" << Log::Field("instanceID", instanceID)
+        if (auto err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+            LOG_ERR() << "Failed to update instance network info" << Log::Field("instanceID", instanceID)
                       << Log::Field(err);
 
             return;
@@ -1600,29 +1588,13 @@ Error NetworkManager::UpdateInstanceFirewall(const String& instanceID, const Str
     LOG_DBG() << "Updating instance firewall" << Log::Field("instanceID", instanceID)
               << Log::Field("networkID", networkID);
 
-    auto cachedNet         = MakeUnique<cni::NetworkConfigList>(&mAllocator);
-    auto cachedRt          = MakeUnique<cni::RuntimeConf>(&mAllocator);
-    cachedNet->mName       = networkID;
-    cachedNet->mVersion    = cni::cVersion;
-    cachedRt->mContainerID = instanceID;
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
 
-    if (auto err = mCNI->GetNetworkListCachedConfig(*cachedNet, *cachedRt); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams); !err.IsNone()) {
+        return err;
     }
 
-    auto oldFirewall = MakeUnique<cni::FirewallPluginConf>(&mAllocator);
-    *oldFirewall     = cachedNet->mFirewall;
-
-    // Clear before rebuilding to avoid accumulation of rules
-    cachedNet->mFirewall = {};
-
-    if (auto err = CreateFirewallPluginConfig(instanceID, networkConfig, networkParams, cachedNet->mFirewall);
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    // Execute firewall-only update (DEL old + ADD new, preserving cache)
-    if (auto err = mCNI->UpdateFirewall(*oldFirewall, *cachedNet, *cachedRt); !err.IsNone()) {
+    if (auto err = mFirewall->UpdateInstance(instanceID, *firewallParams); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
