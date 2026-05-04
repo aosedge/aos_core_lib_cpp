@@ -553,8 +553,6 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 
     static_cast<InstanceIdent&>(*instanceInfo) = status;
     instanceInfo->mRuntimeID                   = status.mRuntimeID;
-    instanceInfo->mType                        = status.mType;
-    instanceInfo->mVersion                     = status.mVersion;
     instanceInfo->mManifestDigest              = status.mManifestDigest;
 
     if (auto err = mStorage->UpdateInstanceInfo(*instanceInfo); !err.IsNone()) {
@@ -644,8 +642,10 @@ Error Launcher::SetStopInstances()
 
     for (const auto& instance : mInstances) {
         if (mStartInstances.ContainsIf([&instance](const auto& startInstance) {
-                return static_cast<const InstanceIdent&>(startInstance)
-                    == static_cast<const InstanceIdent&>(instance.mInfo)
+                return startInstance.mItemID == instance.mInfo.mItemID
+                    && startInstance.mSubjectID == instance.mInfo.mSubjectID
+                    && startInstance.mInstance == instance.mInfo.mInstance
+                    && startInstance.mType == instance.mInfo.mType
                     && (startInstance.mVersion == instance.mInfo.mVersion
                         || startInstance.mManifestDigest == instance.mInfo.mManifestDigest);
             })) {
@@ -1042,7 +1042,6 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
 
     itInstance->mInfo                                = instanceInfo;
     static_cast<InstanceIdent&>(itInstance->mStatus) = instanceInfo;
-    itInstance->mStatus.mVersion                     = instanceInfo.mVersion;
     itInstance->mStatus.mRuntimeID                   = instanceInfo.mRuntimeID;
     itInstance->mStatus.mState                       = InstanceStateEnum::eInactive;
 
