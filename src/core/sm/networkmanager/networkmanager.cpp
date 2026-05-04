@@ -102,18 +102,58 @@ Error NetworkManager::Start()
 {
     LOG_DBG() << "Start network manager";
 
-    auto err = mNetMonitor->Start();
+    Error err;
 
-    return AOS_ERROR_WRAP(err);
+    if (err = mFirewall->Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupFirewall = DeferRelease(&err, [this](const Error* err) {
+        if (!err->IsNone()) {
+            if (auto errStop = mFirewall->Stop(); !errStop.IsNone()) {
+                LOG_ERR() << "Failed to stop firewall" << Log::Field(errStop);
+            }
+        }
+    });
+
+    if (err = mDNSName->Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupDNSName = DeferRelease(&err, [this](const Error* err) {
+        if (!err->IsNone()) {
+            if (auto errStop = mDNSName->Stop(); !errStop.IsNone()) {
+                LOG_ERR() << "Failed to stop DNS name on Start rollback" << Log::Field(errStop);
+            }
+        }
+    });
+
+    if (err = mNetMonitor->Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error NetworkManager::Stop()
 {
     LOG_DBG() << "Stop network manager";
 
-    auto err = mNetMonitor->Stop();
+    Error err;
 
-    return AOS_ERROR_WRAP(err);
+    if (auto errStop = mNetMonitor->Stop(); !errStop.IsNone()) {
+        err = AOS_ERROR_WRAP(errStop);
+    }
+
+    if (auto errStop = mDNSName->Stop(); !errStop.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(errStop);
+    }
+
+    if (auto errStop = mFirewall->Stop(); !errStop.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(errStop);
+    }
+
+    return err;
 }
 
 RetWithError<StaticString<cFilePathLen>> NetworkManager::GetNetnsPath(const String& instanceID) const
