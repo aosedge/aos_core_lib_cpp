@@ -44,6 +44,8 @@ protected:
         std::filesystem::create_directories(mWorkingDir.CStr());
 
         EXPECT_CALL(mCNI, SetConfDir(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mFirewall, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSName, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mTrafficMonitor, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
 
         mNetManager = std::make_unique<NetworkManager>();
@@ -63,6 +65,8 @@ protected:
     void TearDown() override
     {
         EXPECT_CALL(mTrafficMonitor, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSName, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mFirewall, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
         ASSERT_EQ(mNetManager->Stop(), aos::ErrorEnum::eNone);
 
         EXPECT_CALL(mNetIf, DeleteLink(_)).Times(AnyNumber()).WillRepeatedly(Return(aos::ErrorEnum::eNone));
