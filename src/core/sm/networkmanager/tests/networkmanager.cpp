@@ -170,10 +170,14 @@ protected:
         EXPECT_CALL(mBridgeNetwork, Attach(_, _, _))
             .Times(times)
             .WillRepeatedly(DoAll(SetArgReferee<2>(attachResult), Return(aos::ErrorEnum::eNone)));
-        EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mFirewall, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mBandwidth, Apply(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mDNSName, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    }
+
+    void ExpectPersistInstanceCalls(int times = 1)
+    {
+        EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     }
 
     void ExpectDeleteInstanceCalls(int times = 1)
@@ -290,6 +294,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyHostsFile)
     EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
     ExpectAddInstanceCalls(numInstances);
+    ExpectPersistInstanceCalls(numInstances);
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
         .Times(numInstances)
@@ -453,6 +458,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyResolvConfFile)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -494,6 +500,7 @@ TEST_F(NetworkManagerTest, StartInstanceNetwork_NoConfigFiles)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -546,7 +553,7 @@ TEST_F(NetworkManagerTest, StartInstanceNetwork_FileCreationError)
     EXPECT_NE(mNetManager->StartInstanceNetwork(instanceID, networkID, runtimeParams), aos::ErrorEnum::eNone);
 }
 
-TEST_F(NetworkManagerTest, StartInstanceNetwork_FailOnCNIError)
+TEST_F(NetworkManagerTest, StartInstanceNetwork_FailOnAttachError)
 {
     const aos::String instanceID      = "test-instance";
     const aos::String networkID       = "test-network";
@@ -648,6 +655,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
@@ -660,6 +668,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork)
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
     ExpectDeleteInstanceCalls();
+    ExpectPersistInstanceCalls();
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, DeleteLink(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
@@ -708,6 +717,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork_MultipleInstances)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls(2);
+    ExpectPersistInstanceCalls(2);
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -725,6 +735,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork_MultipleInstances)
     // Stop instance1
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID1)).WillOnce(Return(aos::ErrorEnum::eNone));
     ExpectDeleteInstanceCalls();
+    ExpectPersistInstanceCalls();
     EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     EXPECT_EQ(mNetManager->StopInstanceNetwork(instanceID1, networkID), aos::ErrorEnum::eNone);
@@ -779,6 +790,7 @@ TEST_F(NetworkManagerTest, StopReleaseAndRecreateInstance)
     EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
     ExpectAddInstanceCalls(2);
+    ExpectPersistInstanceCalls(3);
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
         .Times(2)
@@ -815,7 +827,7 @@ TEST_F(NetworkManagerTest, StopReleaseAndRecreateInstance)
     ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID, networkID, runtimeParams), aos::ErrorEnum::eNone);
 }
 
-TEST_F(NetworkManagerTest, StopInstanceNetwork_FailOnCNIError)
+TEST_F(NetworkManagerTest, StopInstanceNetwork_FailOnDetachError)
 {
     const aos::String instanceID      = "test-instance";
     const aos::String networkID       = "test-network";
@@ -834,6 +846,7 @@ TEST_F(NetworkManagerTest, StopInstanceNetwork_FailOnCNIError)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -915,6 +928,7 @@ TEST_F(NetworkManagerTest, ReleaseInstanceNetwork_WithoutStop)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -1007,6 +1021,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_EnsureNodeNetworkCreate
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams1.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls(2);
+    ExpectPersistInstanceCalls(2);
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -1064,6 +1079,7 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
     ASSERT_EQ(mNetManager->CreateInstanceNetwork(instanceID, "network1", params), aos::ErrorEnum::eNone);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
@@ -1150,7 +1166,7 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_UpdatesFirewallRules)
     mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
 
-TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsCNIUpdate)
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsFirewallUpdate)
 {
     auto params          = CreateTestInstanceNetworkConfig();
     auto allocatedParams = CreateTestAllocatedParams();
@@ -1170,6 +1186,7 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsCNIUpdat
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     InstanceNetworkRuntimeParams runtimeParams;
@@ -1217,6 +1234,7 @@ TEST_F(NetworkManagerTest, OnConnect_SyncsNetworkStateWithCM)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocated.mSubnet, 100ULL);
 
     ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))

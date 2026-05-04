@@ -603,25 +603,6 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
-
-    {
-        LockGuard lock {mMutex};
-
-        auto it = mInstanceNetworkInfos.Find(instanceID);
-        if (it == mInstanceNetworkInfos.end()) {
-            err = AOS_ERROR_WRAP(ErrorEnum::eNotFound);
-            return err;
-        }
-
-        it->mSecond.mHostIfName = attachResult.mHostIfName;
-        *info                   = it->mSecond;
-    }
-
-    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
 
     if (err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams); !err.IsNone()) {
@@ -684,6 +665,15 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return AOS_ERROR_WRAP(err);
     }
 
+    auto cleanupMonitoring = DeferRelease(&instanceID, [this, &err](const String* id) {
+        if (!err.IsNone()) {
+            if (auto errStop = mNetMonitor->StopInstanceMonitoring(*id); !errStop.IsNone()) {
+                LOG_ERR() << "Failed to stop instance monitoring on rollback" << Log::Field("instanceID", *id)
+                          << Log::Field(errStop);
+            }
+        }
+    });
+
     if (err = CreateHostsFile(networkID, networkParams.mIP, networkConfig, runtimeParams.mHostsFilePath);
         !err.IsNone()) {
         return err;
@@ -697,6 +687,34 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     if (err = UpdateInstanceNetworkCache(instanceID, networkID, host); !err.IsNone()) {
         return err;
+    }
+
+    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mInstanceNetworkInfos.Find(instanceID);
+        if (it == mInstanceNetworkInfos.end()) {
+            err = AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+            return err;
+        }
+
+        *info = it->mSecond;
+    }
+
+    info->mHostIfName = attachResult.mHostIfName;
+
+    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+            it->mSecond.mHostIfName = attachResult.mHostIfName;
+        }
     }
 
     LOG_DBG() << "Instance added to network" << Log::Field("instanceID", instanceID)
@@ -783,6 +801,36 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
         err = errDel;
     }
 
+    if (err.IsNone() && !hostIfName.IsEmpty()) {
+        auto info        = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+        bool needPersist = false;
+
+        {
+            LockGuard lock {mMutex};
+
+            if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+                *info = it->mSecond;
+                info->mHostIfName.Clear();
+                needPersist = true;
+            }
+        }
+
+        if (needPersist) {
+            if (auto errUpd = mStorage->UpdateInstanceNetworkInfo(*info); !errUpd.IsNone()) {
+                LOG_ERR() << "Failed to clear host interface in storage" << Log::Field("instanceID", instanceID)
+                          << Log::Field(errUpd);
+
+                err = AOS_ERROR_WRAP(errUpd);
+            } else {
+                LockGuard lock {mMutex};
+
+                if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+                    it->mSecond.mHostIfName.Clear();
+                }
+            }
+        }
+    }
+
     return err;
 }
 
@@ -832,36 +880,30 @@ Error NetworkManager::UpdateInstanceNetworkCache(
 
 Error NetworkManager::CleanupLeftoverInstances()
 {
-    auto instanceIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+    LOG_DBG() << "Cleanup leftover instances";
+
+    struct Entry {
+        StaticString<cIDLen> mInstanceID;
+        StaticString<cIDLen> mNetworkID;
+    };
+
+    auto entries = MakeUnique<StaticArray<Entry, cMaxNumInstances>>(&mAllocator);
 
     {
         LockGuard lock {mMutex};
 
-        for (const auto& [id, _] : mInstanceNetworkInfos) {
-            if (auto err = instanceIDs->PushBack(id); !err.IsNone()) {
+        for (const auto& [id, info] : mInstanceNetworkInfos) {
+            if (auto err = entries->PushBack({id, info.mNetworkID}); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
     }
 
-    for (const auto& instanceID : *instanceIDs) {
-        StaticString<cIDLen> networkID;
-
-        {
-            LockGuard lock {mMutex};
-
-            if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-                networkID = it->mSecond.mNetworkID;
-            }
-        }
-
-        if (networkID.IsEmpty()) {
-            continue;
-        }
-
-        if (auto err = DeleteInstanceNetworkConfig(instanceID, networkID); !err.IsNone()) {
-            LOG_WRN() << "Failed to delete leftover instance network config" << Log::Field("instanceID", instanceID)
-                      << Log::Field("networkID", networkID) << Log::Field(err);
+    for (const auto& entry : *entries) {
+        if (auto err = DeleteInstanceNetworkConfig(entry.mInstanceID, entry.mNetworkID); !err.IsNone()) {
+            LOG_WRN() << "Failed to delete leftover instance network config"
+                      << Log::Field("instanceID", entry.mInstanceID) << Log::Field("networkID", entry.mNetworkID)
+                      << Log::Field(err);
         }
     }
 
