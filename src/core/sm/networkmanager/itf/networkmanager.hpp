@@ -60,7 +60,7 @@ public:
     /**
      * Creates instance network: requests node network from CM, allocates IP, stores in DB.
      * Returns eAlreadyExist if instance network already created.
-     * Does NOT create bridge/VLAN, namespace, or CNI.
+     * Does NOT create bridge/VLAN, namespace, or attach the instance to the bridge.
      *
      * @param instanceID instance ID.
      * @param networkID network ID.
@@ -72,7 +72,8 @@ public:
         = 0;
 
     /**
-     * Starts instance network: creates bridge/VLAN if needed, namespace, CNI,
+     * Starts instance network: creates bridge/VLAN if needed, namespace,
+     * attaches via BridgeNetworkItf and installs firewall/bandwidth/DNS,
      * monitoring, hosts/resolv.conf. Reads network params from DB.
      * Does NOT call CM.
      *
@@ -86,7 +87,8 @@ public:
         = 0;
 
     /**
-     * Stops instance network: removes CNI, namespace, monitoring.
+     * Stops instance network: tears down DNS/bandwidth/firewall/bridge for the
+     * instance, deletes its namespace and monitoring.
      * If last running instance on network — clears bridge/VLAN.
      * Does NOT remove from DB, does NOT call CM.
      *
