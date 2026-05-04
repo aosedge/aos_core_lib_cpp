@@ -100,13 +100,15 @@ struct InstanceNetworkInfo {
      * @param networkID network ID.
      * @param networkConfig instance network config.
      * @param allocatedParams CM-allocated network parameters.
+     * @param hostIfName host-side veth interface name produced on attach.
      */
     InstanceNetworkInfo(const String& instanceID, const String& networkID, const InstanceNetworkConfig& networkConfig,
-        const aos::InstanceNetworkAllocation& allocatedParams)
+        const aos::InstanceNetworkAllocation& allocatedParams, const String& hostIfName = {})
         : mInstanceID(instanceID)
         , mNetworkID(networkID)
         , mNetworkConfig(networkConfig)
         , mAllocatedParams(allocatedParams)
+        , mHostIfName(hostIfName)
     {
     }
 };
