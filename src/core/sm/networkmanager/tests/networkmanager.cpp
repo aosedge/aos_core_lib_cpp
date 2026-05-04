@@ -160,6 +160,14 @@ protected:
         SetupEnsureNodeNetworkPhysicalMocks(ip, subnet, vlanID);
     }
 
+    void ExpectAddInstanceCalls(int times = 1)
+    {
+        EXPECT_CALL(mBridgeNetwork, Attach(_, _, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mFirewall, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mBandwidth, Apply(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSName, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    }
+
     StrictMock<StorageMock>                                                               mStorage;
     StrictMock<CNIMock>                                                                   mCNI;
     StrictMock<BridgeNetworkMock>                                                         mBridgeNetwork;
@@ -266,12 +274,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyHostsFile)
     EXPECT_CALL(mNetIfFactory, CreateVlan(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .Times(numInstances)
-        .WillRepeatedly(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls(numInstances);
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
         .Times(numInstances)
@@ -347,11 +350,27 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_ValidateAllPluginConfig
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    NetworkConfigList capturedNetConfig;
-    RuntimeConf       capturedRuntime;
+    aos::StaticString<aos::cIDLen>        capturedAttachInstance;
+    BridgeParams                          capturedBridgeParams;
+    aos::StaticString<aos::cIDLen>        capturedFirewallInstance;
+    InstanceFirewallParams                capturedFirewallParams;
+    aos::StaticString<aos::cInterfaceLen> capturedBandwidthIfName;
+    BandwidthParams                       capturedBandwidthParams;
+    aos::StaticString<aos::cIDLen>        capturedDNSInstance;
+    DNSAliasesParams                      capturedDNSParams;
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SaveArg<0>(&capturedNetConfig), SaveArg<1>(&capturedRuntime), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mBridgeNetwork, Attach(_, _, _))
+        .WillOnce(DoAll(
+            SaveArg<0>(&capturedAttachInstance), SaveArg<1>(&capturedBridgeParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mFirewall, AddInstance(_, _))
+        .WillOnce(DoAll(
+            SaveArg<0>(&capturedFirewallInstance), SaveArg<1>(&capturedFirewallParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mBandwidth, Apply(_, _))
+        .WillOnce(DoAll(
+            SaveArg<0>(&capturedBandwidthIfName), SaveArg<1>(&capturedBandwidthParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mDNSName, AddInstance(_, _))
+        .WillOnce(
+            DoAll(SaveArg<0>(&capturedDNSInstance), SaveArg<1>(&capturedDNSParams), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -364,75 +383,39 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_ValidateAllPluginConfig
     InstanceNetworkRuntimeParams runtimeParams;
     ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID, networkID, runtimeParams), aos::ErrorEnum::eNone);
 
-    {
-        const auto& bridge = capturedNetConfig.mBridge;
-        EXPECT_EQ(bridge.mType, "bridge");
-        EXPECT_EQ(std::string(bridge.mBridge.CStr()).substr(0, 3), "br-");
-        EXPECT_TRUE(bridge.mIsGateway);
-        EXPECT_TRUE(bridge.mIPMasq);
-        EXPECT_TRUE(bridge.mHairpinMode);
+    EXPECT_EQ(capturedAttachInstance, instanceID);
+    EXPECT_EQ(std::string(capturedBridgeParams.mBridgeIfName.CStr()).substr(0, 3), "br-");
+    EXPECT_EQ(capturedBridgeParams.mNetNSPath, aos::String("/var/run/netns/test-instance"));
+    EXPECT_EQ(capturedBridgeParams.mContainerIfName, aos::String("eth0"));
+    EXPECT_EQ(capturedBridgeParams.mGateway, aos::String("192.168.1.1"));
+    EXPECT_EQ(capturedBridgeParams.mSubnet, allocatedParams.mSubnet);
+    EXPECT_TRUE(capturedBridgeParams.mHairpin);
+    EXPECT_TRUE(capturedBridgeParams.mIPMasq);
+    EXPECT_EQ(capturedBridgeParams.mIPWithMask, aos::String(std::string(allocatedParams.mIP.CStr()) + "/24").c_str());
 
-        EXPECT_EQ(bridge.mIPAM.mType, "host-local");
-        EXPECT_EQ(bridge.mIPAM.mRange.mSubnet, allocatedParams.mSubnet);
-        EXPECT_EQ(bridge.mIPAM.mRange.mRangeStart, allocatedParams.mIP);
-        EXPECT_EQ(bridge.mIPAM.mRange.mRangeEnd, allocatedParams.mIP);
+    EXPECT_EQ(capturedFirewallInstance, instanceID);
+    EXPECT_EQ(capturedFirewallParams.mIP, allocatedParams.mIP);
+    EXPECT_TRUE(capturedFirewallParams.mAllowPublic);
 
-        ASSERT_FALSE(bridge.mIPAM.mRouters.IsEmpty());
-        EXPECT_EQ(bridge.mIPAM.mRouters[0].mDst, "0.0.0.0/0");
-    }
+    ASSERT_EQ(capturedFirewallParams.mInput.Size(), 2);
+    EXPECT_EQ(capturedFirewallParams.mInput[0].mPort, aos::String("8080"));
+    EXPECT_EQ(capturedFirewallParams.mInput[0].mProtocol, aos::String("tcp"));
+    EXPECT_EQ(capturedFirewallParams.mInput[1].mPort, aos::String("9090"));
+    EXPECT_EQ(capturedFirewallParams.mInput[1].mProtocol, aos::String("udp"));
 
-    {
-        const auto& firewall = capturedNetConfig.mFirewall;
-        EXPECT_EQ(firewall.mType, "aos-firewall");
-        EXPECT_EQ(std::string(firewall.mIptablesAdminChainName.CStr()), "INSTANCE_" + std::string(instanceID.CStr()));
-        EXPECT_EQ(firewall.mUUID, instanceID);
-        EXPECT_TRUE(firewall.mAllowPublicConnections);
+    ASSERT_EQ(capturedFirewallParams.mOutput.Size(), 1);
+    EXPECT_EQ(capturedFirewallParams.mOutput[0].mDstIP, aos::String("10.0.0.1/32"));
+    EXPECT_EQ(capturedFirewallParams.mOutput[0].mDstPort, aos::String("80"));
+    EXPECT_EQ(capturedFirewallParams.mOutput[0].mProto, aos::String("tcp"));
 
-        ASSERT_EQ(firewall.mInputAccess.Size(), 2);
-        EXPECT_EQ(firewall.mInputAccess[0].mPort, "8080");
-        EXPECT_EQ(firewall.mInputAccess[0].mProtocol, "tcp");
-        EXPECT_EQ(firewall.mInputAccess[1].mPort, "9090");
-        EXPECT_EQ(firewall.mInputAccess[1].mProtocol, "udp");
+    EXPECT_EQ(capturedBandwidthParams.mIngressRate, params.mIngressKbit * 1000);
+    EXPECT_EQ(capturedBandwidthParams.mEgressRate, params.mEgressKbit * 1000);
+    EXPECT_EQ(capturedBandwidthParams.mIngressBurst, 12800u);
+    EXPECT_EQ(capturedBandwidthParams.mEgressBurst, 12800u);
 
-        ASSERT_EQ(firewall.mOutputAccess.Size(), 1);
-        EXPECT_EQ(firewall.mOutputAccess[0].mDstIP, "10.0.0.1/32");
-        EXPECT_EQ(firewall.mOutputAccess[0].mDstPort, "80");
-        EXPECT_EQ(firewall.mOutputAccess[0].mProto, "tcp");
-    }
-
-    {
-        const auto& bandwidth = capturedNetConfig.mBandwidth;
-        EXPECT_EQ(bandwidth.mType, "bandwidth");
-        EXPECT_EQ(bandwidth.mIngressRate, params.mIngressKbit * 1000);
-        EXPECT_EQ(bandwidth.mEgressRate, params.mEgressKbit * 1000);
-        EXPECT_EQ(bandwidth.mIngressBurst, 12800);
-        EXPECT_EQ(bandwidth.mEgressBurst, 12800);
-    }
-
-    {
-        const auto& dns = capturedNetConfig.mDNS;
-        EXPECT_EQ(dns.mType, "dnsname");
-        EXPECT_TRUE(dns.mMultiDomain);
-        EXPECT_EQ(dns.mDomainName, networkID);
-        EXPECT_TRUE(dns.mCapabilities.mAliases);
-
-        ASSERT_EQ(dns.mRemoteServers.Size(), 2);
-        EXPECT_EQ(dns.mRemoteServers[0], "8.8.8.8");
-        EXPECT_EQ(dns.mRemoteServers[1], "8.8.4.4");
-    }
-
-    {
-        EXPECT_EQ(capturedRuntime.mContainerID, instanceID);
-        EXPECT_EQ(capturedRuntime.mIfName, "eth0");
-
-        ASSERT_GE(capturedRuntime.mArgs.Size(), 2);
-        EXPECT_EQ(capturedRuntime.mArgs[0].mName, "IgnoreUnknown");
-        EXPECT_EQ(capturedRuntime.mArgs[0].mValue, "1");
-        EXPECT_EQ(capturedRuntime.mArgs[1].mName, "K8S_POD_NAME");
-        EXPECT_EQ(capturedRuntime.mArgs[1].mValue, instanceID);
-
-        EXPECT_EQ(capturedRuntime.mNetNS, aos::String("/var/run/netns/test-instance"));
-    }
+    EXPECT_EQ(capturedDNSInstance, instanceID);
+    EXPECT_EQ(capturedDNSParams.mNetworkID, networkID);
+    EXPECT_EQ(capturedDNSParams.mIP, allocatedParams.mIP);
 }
 
 TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyResolvConfFile)
@@ -453,12 +436,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyResolvConfFile)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("1.1.1.1");
-    cniResult.mDNSServers.PushBack("10.0.0.1");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -499,11 +477,7 @@ TEST_F(NetworkManagerTest, StartInstanceNetwork_NoConfigFiles)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -539,11 +513,7 @@ TEST_F(NetworkManagerTest, StartInstanceNetwork_FileCreationError)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -578,7 +548,7 @@ TEST_F(NetworkManagerTest, StartInstanceNetwork_FailOnCNIError)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eInvalidArgument));
+    EXPECT_CALL(mBridgeNetwork, Attach(_, _, _)).WillOnce(Return(aos::ErrorEnum::eInvalidArgument));
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -608,11 +578,7 @@ TEST_F(NetworkManagerTest, StartInstanceNetwork_FailOnTrafficMonitorError)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor,
         StartInstanceMonitoring(instanceID, allocatedParams.mIP, params.mDownloadLimit, params.mUploadLimit))
@@ -665,11 +631,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
@@ -730,7 +692,7 @@ TEST_F(NetworkManagerTest, StopAndReleaseInstanceNetwork_MultipleInstances)
     ASSERT_EQ(mNetManager->CreateInstanceNetwork(instanceID2, networkID, params), aos::ErrorEnum::eNone);
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    ExpectAddInstanceCalls(2);
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -802,12 +764,7 @@ TEST_F(NetworkManagerTest, StopReleaseAndRecreateInstance)
     EXPECT_CALL(mNetIfFactory, CreateVlan(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .Times(2)
-        .WillRepeatedly(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls(2);
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _))
         .Times(2)
@@ -863,11 +820,7 @@ TEST_F(NetworkManagerTest, StopInstanceNetwork_FailOnCNIError)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    Result cniResult;
-    cniResult.mDNSServers.PushBack("8.8.8.8");
-
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _))
-        .WillOnce(DoAll(SetArgReferee<2>(cniResult), Return(aos::ErrorEnum::eNone)));
+    ExpectAddInstanceCalls();
 
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
@@ -945,7 +898,7 @@ TEST_F(NetworkManagerTest, ReleaseInstanceNetwork_WithoutStop)
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ExpectAddInstanceCalls();
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -1037,7 +990,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_EnsureNodeNetworkCreate
 
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams1.mSubnet, 100ULL);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    ExpectAddInstanceCalls(2);
 
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
@@ -1095,7 +1048,7 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
 
     ASSERT_EQ(mNetManager->CreateInstanceNetwork(instanceID, "network1", params), aos::ErrorEnum::eNone);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ExpectAddInstanceCalls();
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
@@ -1203,7 +1156,7 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsCNIUpdat
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
         .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ExpectAddInstanceCalls();
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     InstanceNetworkRuntimeParams runtimeParams;
@@ -1253,7 +1206,7 @@ TEST_F(NetworkManagerTest, OnConnect_SyncsNetworkStateWithCM)
     // Start instance network (populates mRuntimeCache)
     SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocated.mSubnet, 100ULL);
 
-    EXPECT_CALL(mCNI, AddNetworkList(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ExpectAddInstanceCalls();
     EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))

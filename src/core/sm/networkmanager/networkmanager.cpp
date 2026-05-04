@@ -540,27 +540,93 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto netConfigList = MakeUnique<cni::NetworkConfigList>(&mAllocator);
-    auto rtConfig      = MakeUnique<cni::RuntimeConf>(&mAllocator);
-
     StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> host;
 
-    if (err = PrepareCNIConfig(instanceID, networkID, networkConfig, networkParams, *netConfigList, *rtConfig, host);
-        !err.IsNone()) {
+    if (err = PrepareHosts(instanceID, networkID, networkConfig, host); !err.IsNone()) {
         return err;
     }
 
-    auto result = MakeUnique<cni::Result>(&mAllocator);
+    StaticString<cFilePathLen> netNSPath;
 
-    if (err = mCNI->AddNetworkList(*netConfigList, *rtConfig, *result); !err.IsNone()) {
+    Tie(netNSPath, err) = GetNetnsPath(instanceID);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    BridgeParams bridgeParams;
+
+    if (err = PrepareBridgeParams(networkID, networkParams, bridgeParams); !err.IsNone()) {
+        return err;
+    }
+
+    bridgeParams.mNetNSPath = netNSPath;
+
+    BridgeAttachResult attachResult;
+
+    if (err = mBridgeNetwork->Attach(instanceID, bridgeParams, attachResult); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    auto cleanupCNI = DeferRelease(&instanceID, [this, &netConfigList, &rtConfig, &err](const String* instanceID) {
+    auto cleanupBridge = DeferRelease(&instanceID, [this, &bridgeParams, &err](const String* id) {
         if (!err.IsNone()) {
-            if (auto errCleanCNI = mCNI->DeleteNetworkList(*netConfigList, *rtConfig); !errCleanCNI.IsNone()) {
-                LOG_ERR() << "Failed to delete network list" << Log::Field("instanceID", *instanceID)
-                          << Log::Field(errCleanCNI);
+            if (auto errDetach = mBridgeNetwork->Detach(*id, bridgeParams.mBridgeIfName, bridgeParams.mSubnet);
+                !errDetach.IsNone()) {
+                LOG_ERR() << "Failed to detach bridge" << Log::Field("instanceID", *id) << Log::Field(errDetach);
+            }
+        }
+    });
+
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
+
+    if (err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = mFirewall->AddInstance(instanceID, *firewallParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupFirewall = DeferRelease(&instanceID, [this, &err](const String* id) {
+        if (!err.IsNone()) {
+            if (auto errRemove = mFirewall->RemoveInstance(*id); !errRemove.IsNone()) {
+                LOG_ERR() << "Failed to remove firewall instance" << Log::Field("instanceID", *id)
+                          << Log::Field(errRemove);
+            }
+        }
+    });
+
+    BandwidthParams bandwidthParams;
+
+    if (err = PrepareBandwidthParams(networkConfig, bandwidthParams); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = mBandwidth->Apply(attachResult.mHostIfName, bandwidthParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupBandwidth = DeferRelease(&attachResult.mHostIfName, [this, &err](const String* ifName) {
+        if (!err.IsNone()) {
+            if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
+                LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
+            }
+        }
+    });
+
+    DNSAliasesParams dnsParams;
+
+    if (err = PrepareDNSAliasesParams(networkID, networkParams, host, dnsParams); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = mDNSName->AddInstance(instanceID, dnsParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupDNSName = DeferRelease(&instanceID, [this, &err](const String* id) {
+        if (!err.IsNone()) {
+            if (auto errRemove = mDNSName->RemoveInstance(*id); !errRemove.IsNone()) {
+                LOG_ERR() << "Failed to remove DNS instance" << Log::Field("instanceID", *id) << Log::Field(errRemove);
             }
         }
     });
@@ -577,7 +643,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, networkParams, result->mDNSServers);
+    if (err
+        = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, networkParams, networkParams.mDNSServers);
         !err.IsNone()) {
         return err;
     }
@@ -1216,6 +1283,105 @@ Error NetworkManager::CreateDNSPluginConfig(
     }
 
     config.mCapabilities.mAliases = true;
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::PrepareBridgeParams(
+    const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const
+{
+    StaticString<cInterfaceLen> bridgeIfName;
+    StaticString<cIPLen>        gateway;
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mNetworkProviders.Find(networkID);
+        if (it == mNetworkProviders.end()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+        }
+
+        bridgeIfName = it->mSecond.mBridgeIfName;
+        gateway      = it->mSecond.mIP;
+    }
+
+    params.mBridgeIfName    = bridgeIfName;
+    params.mContainerIfName = cDefaultContainerIfName;
+    params.mGateway         = gateway;
+    params.mSubnet          = networkParams.mSubnet;
+    params.mHairpin         = true;
+    params.mIPMasq          = true;
+
+    if (auto slash = networkParams.mSubnet.Find('/'); slash != networkParams.mSubnet.end()) {
+        if (auto err = params.mIPWithMask.Format("%s%s", networkParams.mIP.CStr(),
+                networkParams.mSubnet.CStr() + (slash - networkParams.mSubnet.begin()));
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    } else {
+        params.mIPWithMask = networkParams.mIP;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
+    const aos::InstanceNetworkAllocation& networkParams, InstanceFirewallParams& params) const
+{
+    params.mIP          = networkParams.mIP;
+    params.mAllowPublic = true;
+
+    StaticArray<StaticString<cPortLen>, cMaxExposedPort> portConfig;
+
+    for (const auto& port : networkConfig.mExposedPorts) {
+        if (auto err = port.Split(portConfig, '/'); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (portConfig.IsEmpty()) {
+            return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+        }
+
+        if (auto err = params.mInput.PushBack({portConfig[0], portConfig.Size() > 1 ? portConfig[1] : String("tcp")});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& rule : networkParams.mFirewallRules) {
+        if (auto err = params.mOutput.PushBack({rule.mDstIP, rule.mDstPort, rule.mProto, rule.mSrcIP}); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::PrepareBandwidthParams(const InstanceNetworkConfig& networkConfig, BandwidthParams& params) const
+{
+    if (networkConfig.mIngressKbit > 0) {
+        params.mIngressRate  = networkConfig.mIngressKbit * 1000;
+        params.mIngressBurst = cBurstLen;
+    }
+
+    if (networkConfig.mEgressKbit > 0) {
+        params.mEgressRate  = networkConfig.mEgressKbit * 1000;
+        params.mEgressBurst = cBurstLen;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::PrepareDNSAliasesParams(const String& networkID,
+    const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cHostNameLen>>& aliases,
+    DNSAliasesParams& params) const
+{
+    params.mNetworkID = networkID;
+    params.mIP        = networkParams.mIP;
+
+    if (auto err = params.mAliases.Assign(aliases.begin(), aliases.end()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
