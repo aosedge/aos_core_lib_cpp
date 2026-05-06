@@ -332,6 +332,37 @@ TEST_F(CMNodeInfoProviderTest, NodeSetToOnlineIfBothIAMAndSMAreReceived)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(CMNodeInfoProviderTest, NodeSetToUnprovisionedIfSMNotConnectedButNodeInfoReceivedFromIAM)
+{
+    mConfig.mSMConnectionTimeout = 2 * Time::cSeconds;
+
+    const auto cWaitTimedout = mConfig.mSMConnectionTimeout + Time::cSeconds;
+
+    auto cNodeInfo = CreateNodeInfo("node1", NodeStateEnum::eUnprovisioned, true);
+
+    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.SubscribeListener(mListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto receivedInfo = std::make_unique<UnitNodeInfo>();
+
+    mIAMNodeInfoProvider.SetNodeInfo(*cNodeInfo);
+    mIAMNodeInfoProvider.NotifyNodeInfoChanged(*cNodeInfo);
+
+    EXPECT_TRUE(mListener.Wait(cWaitTimedout, *receivedInfo)) << "Timeout waiting for node info change";
+    EXPECT_STREQ(receivedInfo->mNodeID.CStr(), cNodeInfo->mNodeID.CStr());
+    EXPECT_EQ(receivedInfo->mState, NodeStateEnum::eUnprovisioned);
+    EXPECT_TRUE(receivedInfo->mIsConnected);
+
+    err = mNodeInfoProvider.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(CMNodeInfoProviderTest, NotifySubscribersOnceSMInfoReceived)
 {
     const auto cNodeInfo = CreateNodeInfo("node1", NodeStateEnum::eProvisioned, false);

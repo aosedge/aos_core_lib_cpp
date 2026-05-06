@@ -79,7 +79,7 @@ bool NodeInfoCache::IsConnected() const
         return false;
     }
 
-    if (!mHasSMComponent) {
+    if (!mHasSMComponent || mNodeInfo->mState == NodeStateEnum::eUnprovisioned) {
         return true;
     }
 
