@@ -54,13 +54,19 @@ public:
         LockGuard lock {mMutex};
 
         const auto wrappedCallback = [this, callback](void* arg) {
-            callback(arg);
+            bool oneshot = false;
 
-            LockGuard lock {mMutex};
+            {
+                LockGuard lock {mMutex};
 
-            if (mOneShot) {
+                oneshot = mOneShot;
+            }
+
+            if (oneshot) {
                 Stop();
             }
+
+            callback(arg);
         };
 
         if (auto err = mFunction.Capture(wrappedCallback, arg); !err.IsNone()) {
