@@ -40,6 +40,19 @@ public:
     virtual Error CreateVlan(const String& name, uint64_t vlanID) = 0;
 
     /**
+     * Creates a parameter-less link of the given kind (e.g. "ifb", "dummy").
+     *
+     * For link kinds that need only a name and a type. Other typed factories
+     * (CreateBridge, CreateVlan, ...) remain the preferred entry point when
+     * extra attributes are required.
+     *
+     * @param name link name.
+     * @param kind link kind (rtnetlink link-type string).
+     * @return Error.
+     */
+    virtual Error CreateLink(const String& name, const String& kind) = 0;
+
+    /**
      * Destructor.
      */
     virtual ~InterfaceFactoryItf() = default;
