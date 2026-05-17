@@ -91,18 +91,6 @@ Error NetworkManager::Start()
         }
     });
 
-    if (err = mDNSName->Start(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto cleanupDNSName = DeferRelease(&err, [this](const Error* err) {
-        if (!err->IsNone()) {
-            if (auto errStop = mDNSName->Stop(); !errStop.IsNone()) {
-                LOG_ERR() << "Failed to stop DNS name on Start rollback" << Log::Field(errStop);
-            }
-        }
-    });
-
     if (err = mNetMonitor->Start(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -114,6 +102,10 @@ Error NetworkManager::Start()
             }
         }
     });
+
+    if (err = RemoveDNSOrphans(); !err.IsNone()) {
+        return err;
+    }
 
     if (err = CleanupLeftoverInstances(); !err.IsNone()) {
         return err;
@@ -129,10 +121,6 @@ Error NetworkManager::Stop()
     Error err;
 
     if (auto errStop = mNetMonitor->Stop(); !errStop.IsNone()) {
-        err = AOS_ERROR_WRAP(errStop);
-    }
-
-    if (auto errStop = mDNSName->Stop(); !errStop.IsNone() && err.IsNone()) {
         err = AOS_ERROR_WRAP(errStop);
     }
 
@@ -640,20 +628,35 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
+    DNSServerItf* dnsServer = nullptr;
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mDNSServers.Find(networkID);
+        if (it == mDNSServers.end()) {
+            err = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "DNS server not found"));
+
+            return err;
+        }
+
+        dnsServer = it->mSecond;
+    }
+
     DNSAliasesParams dnsParams;
 
-    if (err = PrepareDNSAliasesParams(networkID, networkParams, host, dnsParams); !err.IsNone()) {
+    if (err = PrepareDNSAliasesParams(networkParams, host, dnsParams); !err.IsNone()) {
         return err;
     }
 
-    if (err = mDNSName->AddInstance(instanceID, dnsParams); !err.IsNone()) {
+    if (err = dnsServer->AddHost(instanceID, dnsParams); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    auto cleanupDNSName = DeferRelease(&instanceID, [this, &err](const String* id) {
+    auto cleanupDNSHost = DeferRelease(&instanceID, [dnsServer, &err](const String* id) {
         if (!err.IsNone()) {
-            if (auto errRemove = mDNSName->RemoveInstance(*id); !errRemove.IsNone()) {
-                LOG_ERR() << "Failed to remove DNS instance" << Log::Field("instanceID", *id) << Log::Field(errRemove);
+            if (auto errRemove = dnsServer->RemoveHost(*id); !errRemove.IsNone()) {
+                LOG_ERR() << "Failed to remove DNS host" << Log::Field("instanceID", *id) << Log::Field(errRemove);
             }
         }
     });
@@ -679,8 +682,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err
-        = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, networkParams, networkParams.mDNSServers);
+    if (err = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, bridgeParams.mGateway, networkParams,
+            networkParams.mDNSServers);
         !err.IsNone()) {
         return err;
     }
@@ -754,6 +757,7 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
     StaticString<cInterfaceLen> bridgeIfName;
     StaticString<cSubnetLen>    subnet;
     StaticString<cInterfaceLen> hostIfName;
+    DNSServerItf*               dnsServer = nullptr;
 
     {
         LockGuard lock {mMutex};
@@ -762,6 +766,10 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
             bridgeIfName = it->mSecond.mBridgeIfName;
         } else {
             LOG_WRN() << "Network provider not found for cleanup" << Log::Field("networkID", networkID);
+        }
+
+        if (auto it = mDNSServers.Find(networkID); it != mDNSServers.end()) {
+            dnsServer = it->mSecond;
         }
 
         if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
@@ -775,8 +783,13 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
     Error err;
 
     if (!hostIfName.IsEmpty()) {
-        if (auto errRemove = mDNSName->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
-            err = AOS_ERROR_WRAP(errRemove);
+        if (dnsServer != nullptr) {
+            if (auto errRemove = dnsServer->RemoveHost(instanceID); !errRemove.IsNone() && err.IsNone()) {
+                err = AOS_ERROR_WRAP(errRemove);
+            }
+        } else {
+            LOG_WRN() << "DNS server not found for cleanup" << Log::Field("instanceID", instanceID)
+                      << Log::Field("networkID", networkID);
         }
 
         if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
@@ -899,12 +912,86 @@ Error NetworkManager::CleanupLeftoverInstances()
         }
     }
 
+    // Adopt a DNS handle for each network with leftover instances, so the
+    // RemoveHost call inside DeleteInstanceNetworkConfig has a backend to
+    // talk to (CreateInstance is idempotent — it adopts a surviving dnsmasq
+    // for this networkID or respawns a fresh one).
+    for (const auto& entry : *entries) {
+        if (auto err = AdoptDNSServer(entry.mNetworkID); !err.IsNone()) {
+            LOG_WRN() << "Failed to adopt DNS server for leftover cleanup" << Log::Field("networkID", entry.mNetworkID)
+                      << Log::Field(err);
+        }
+    }
+
     for (const auto& entry : *entries) {
         if (auto err = DeleteInstanceNetworkConfig(entry.mInstanceID, entry.mNetworkID); !err.IsNone()) {
             LOG_WRN() << "Failed to delete leftover instance network config"
                       << Log::Field("instanceID", entry.mInstanceID) << Log::Field("networkID", entry.mNetworkID)
                       << Log::Field(err);
         }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::RemoveDNSOrphans()
+{
+    auto known = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& [id, _] : mNetworkProviders) {
+            if (auto err = known->PushBack(id); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    if (auto err = mDNSName->RemoveOrphans(*known); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::AdoptDNSServer(const String& networkID)
+{
+    NetworkInfo networkInfo;
+
+    {
+        LockGuard lock {mMutex};
+
+        if (mDNSServers.Find(networkID) != mDNSServers.end()) {
+            return ErrorEnum::eNone;
+        }
+
+        auto it = mNetworkProviders.Find(networkID);
+        if (it == mNetworkProviders.end()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "network provider not found"));
+        }
+
+        networkInfo = it->mSecond;
+    }
+
+    DNSServerParams params;
+
+    if (auto err = PrepareDNSServerParams(networkInfo, params); !err.IsNone()) {
+        return err;
+    }
+
+    DNSServerItf* handle = nullptr;
+    Error         err;
+
+    Tie(handle, err) = mDNSName->CreateServer(networkID, params);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LockGuard lock {mMutex};
+
+    if (auto setErr = mDNSServers.Set(networkID, handle); !setErr.IsNone()) {
+        return AOS_ERROR_WRAP(setErr);
     }
 
     return ErrorEnum::eNone;
@@ -965,19 +1052,29 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
 {
     LOG_DBG() << "Clear network" << Log::Field("networkID", networkInfo.mNetworkID);
 
+    Error err;
+
+    if (mDNSServers.Find(networkInfo.mNetworkID) != mDNSServers.end()) {
+        if (auto errRemove = mDNSName->RemoveServer(networkInfo.mNetworkID); !errRemove.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errRemove);
+        }
+
+        mDNSServers.Remove(networkInfo.mNetworkID);
+    }
+
     if (!networkInfo.mBridgeIfName.IsEmpty()) {
-        if (auto err = mNetIf->DeleteLink(networkInfo.mBridgeIfName); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        if (auto errDel = mNetIf->DeleteLink(networkInfo.mBridgeIfName); !errDel.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errDel);
         }
     }
 
     if (!networkInfo.mVlanIfName.IsEmpty()) {
-        if (auto err = mNetIf->DeleteLink(networkInfo.mVlanIfName); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        if (auto errDel = mNetIf->DeleteLink(networkInfo.mVlanIfName); !errDel.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errDel);
         }
     }
 
-    return ErrorEnum::eNone;
+    return err;
 }
 
 Error NetworkManager::PrepareHosts(const String& instanceID, const String& networkID,
@@ -1074,7 +1171,8 @@ Error NetworkManager::IsHostnameExist(
 }
 
 Error NetworkManager::CreateResolvConfFile(const String& networkID, const String& resolvConfFilePath,
-    const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cIPLen>>& dns) const
+    const String& bridgeIP, const aos::InstanceNetworkAllocation& networkParams,
+    const Array<StaticString<cIPLen>>& dns) const
 {
     LOG_DBG() << "Create resolv.conf file" << Log::Field("networkID", networkID);
 
@@ -1082,10 +1180,28 @@ Error NetworkManager::CreateResolvConfFile(const String& networkID, const String
         return ErrorEnum::eNone;
     }
 
-    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers> mainServers {dns};
+    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers> mainServers;
+
+    // Per-bridge dnsmasq listens on the bridge IP — make it the primary
+    // resolver so each container's queries land on its own network's DNS.
+    if (!bridgeIP.IsEmpty()) {
+        if (auto err = mainServers.PushBack(bridgeIP); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& server : dns) {
+        if (mainServers.Find(server) == mainServers.end()) {
+            if (auto err = mainServers.PushBack(server); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
 
     if (mainServers.IsEmpty()) {
-        mainServers.PushBack("8.8.8.8");
+        if (auto err = mainServers.PushBack("8.8.8.8"); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return WriteResolvConfFile(resolvConfFilePath, mainServers, networkParams);
@@ -1322,16 +1438,22 @@ Error NetworkManager::PrepareBandwidthParams(const InstanceNetworkConfig& networ
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::PrepareDNSAliasesParams(const String& networkID,
-    const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cHostNameLen>>& aliases,
-    DNSAliasesParams& params) const
+Error NetworkManager::PrepareDNSAliasesParams(const aos::InstanceNetworkAllocation& networkParams,
+    const Array<StaticString<cHostNameLen>>& aliases, DNSAliasesParams& params) const
 {
-    params.mNetworkID = networkID;
-    params.mIP        = networkParams.mIP;
+    params.mIP = networkParams.mIP;
 
     if (auto err = params.mAliases.Assign(aliases); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::PrepareDNSServerParams(const NetworkInfo& network, DNSServerParams& params) const
+{
+    params.mBridgeIP     = network.mIP;
+    params.mBridgeIfName = network.mBridgeIfName;
 
     return ErrorEnum::eNone;
 }
@@ -1366,6 +1488,32 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
     });
 
     if (err = mNetIf->SetMasterLink(network.mVlanIfName, network.mBridgeIfName); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    DNSServerParams dnsParams;
+
+    if (err = PrepareDNSServerParams(network, dnsParams); !err.IsNone()) {
+        return err;
+    }
+
+    DNSServerItf* dnsServer = nullptr;
+
+    Tie(dnsServer, err) = mDNSName->CreateServer(network.mNetworkID, dnsParams);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupDNSServer = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
+        if (!err.IsNone()) {
+            if (auto errRemove = mDNSName->RemoveServer(network->mNetworkID); !errRemove.IsNone()) {
+                LOG_ERR() << "Failed to remove DNS server on CreateNetwork rollback"
+                          << Log::Field("networkID", network->mNetworkID) << Log::Field(errRemove);
+            }
+        }
+    });
+
+    if (err = mDNSServers.Set(network.mNetworkID, dnsServer); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
