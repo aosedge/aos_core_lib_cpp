@@ -189,13 +189,16 @@ private:
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
     Error CleanupLeftoverInstances();
+    Error RemoveDNSOrphans();
+    Error AdoptDNSServer(const String& networkID);
     Error PrepareBridgeParams(
         const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const;
     Error PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
         const aos::InstanceNetworkAllocation& networkParams, InstanceFirewallParams& params) const;
     Error PrepareBandwidthParams(const InstanceNetworkConfig& networkConfig, BandwidthParams& params) const;
-    Error PrepareDNSAliasesParams(const String& networkID, const aos::InstanceNetworkAllocation& networkParams,
+    Error PrepareDNSAliasesParams(const aos::InstanceNetworkAllocation& networkParams,
         const Array<StaticString<cHostNameLen>>& aliases, DNSAliasesParams& params) const;
+    Error PrepareDNSServerParams(const NetworkInfo& network, DNSServerParams& params) const;
     Error UpdateInstanceNetworkCache(
         const String& instanceID, const String& networkID, const Array<StaticString<cHostNameLen>>& hosts);
     Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
@@ -215,7 +218,7 @@ private:
     Error WriteHostsFile(
         const String& filePath, const Array<SharedPtr<Host>>& hosts, const Array<Host>& additionalHosts) const;
 
-    Error CreateResolvConfFile(const String& networkID, const String& resolvConfFilePath,
+    Error CreateResolvConfFile(const String& networkID, const String& resolvConfFilePath, const String& bridgeIP,
         const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cIPLen>>& dns) const;
     Error WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
         const aos::InstanceNetworkAllocation& networkParams) const;
@@ -254,6 +257,7 @@ private:
     StaticString<cIDLen>                                                                   mNodeID;
     NetworkCache                                                                           mRuntimeCache;
     StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                            mNetworkProviders;
+    StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>                          mDNSServers;
     StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances * cMaxNumOwners> mInstanceNetworkInfos;
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                                       mPhysicalNetworks;
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
