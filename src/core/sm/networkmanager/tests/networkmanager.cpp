@@ -42,8 +42,19 @@ protected:
         std::filesystem::create_directories(mWorkingDir.CStr());
 
         EXPECT_CALL(mFirewall, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
-        EXPECT_CALL(mDNSName, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mTrafficMonitor, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
+
+        // NetworkManager::Start reaps DNS orphans from a previous SM lifetime
+        // (networkIDs no longer in storage). With an empty storage fixture
+        // this is a no-op for the backend, but the call still happens.
+        EXPECT_CALL(mDNSName, RemoveOrphans(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+        // DNS factory: per-network instances are torn down by ClearNetwork (from
+        // StopInstanceNetwork and ~NetworkManager). Allow any number of factory
+        // RemoveInstance and per-handle RemoveHost calls; explicit per-test
+        // expectations override these when sequences need to be asserted.
+        EXPECT_CALL(mDNSName, RemoveServer(_)).Times(AnyNumber()).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSServer, RemoveHost(_)).Times(AnyNumber()).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
         mNetManager = std::make_unique<NetworkManager>();
 
@@ -62,7 +73,6 @@ protected:
     void TearDown() override
     {
         EXPECT_CALL(mTrafficMonitor, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
-        EXPECT_CALL(mDNSName, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mFirewall, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
         ASSERT_EQ(mNetManager->Stop(), aos::ErrorEnum::eNone);
 
@@ -152,6 +162,8 @@ protected:
         EXPECT_CALL(mNetIfFactory, CreateBridge(_, ip, subnet)).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mNetIfFactory, CreateVlan(_, vlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSName, CreateServer(_, _))
+            .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
     }
 
     void SetupEnsureNodeNetworkMocks(
@@ -172,7 +184,7 @@ protected:
             .WillRepeatedly(DoAll(SetArgReferee<2>(attachResult), Return(aos::ErrorEnum::eNone)));
         EXPECT_CALL(mFirewall, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mBandwidth, Apply(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
-        EXPECT_CALL(mDNSName, AddInstance(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSServer, AddHost(_, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     }
 
     void ExpectPersistInstanceCalls(int times = 1)
@@ -182,7 +194,7 @@ protected:
 
     void ExpectDeleteInstanceCalls(int times = 1)
     {
-        EXPECT_CALL(mDNSName, RemoveInstance(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mDNSServer, RemoveHost(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mBandwidth, Clear(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mFirewall, RemoveInstance(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mBridgeNetwork, Detach(_, _, _)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
@@ -193,6 +205,7 @@ protected:
     StrictMock<FirewallMock>                                                              mFirewall;
     StrictMock<BandwidthMock>                                                             mBandwidth;
     StrictMock<DNSNameMock>                                                               mDNSName;
+    StrictMock<DNSServerMock>                                                             mDNSServer;
     TrafficMonitorMock                                                                    mTrafficMonitor;
     std::unique_ptr<NetworkManager>                                                       mNetManager;
     StrictMock<NamespaceManagerMock>                                                      mNetns;
@@ -292,6 +305,9 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyHostsFile)
     EXPECT_CALL(mNetIfFactory, CreateBridge(_, _, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIfFactory, CreateVlan(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mDNSName, CreateServer(_, _))
+        .Times(numInstances)
+        .WillRepeatedly(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
 
     ExpectAddInstanceCalls(numInstances);
     ExpectPersistInstanceCalls(numInstances);
@@ -389,7 +405,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_ValidateAllPluginConfig
     EXPECT_CALL(mBandwidth, Apply(_, _))
         .WillOnce(DoAll(
             SaveArg<0>(&capturedBandwidthIfName), SaveArg<1>(&capturedBandwidthParams), Return(aos::ErrorEnum::eNone)));
-    EXPECT_CALL(mDNSName, AddInstance(_, _))
+    EXPECT_CALL(mDNSServer, AddHost(_, _))
         .WillOnce(
             DoAll(SaveArg<0>(&capturedDNSInstance), SaveArg<1>(&capturedDNSParams), Return(aos::ErrorEnum::eNone)));
 
@@ -435,7 +451,6 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_ValidateAllPluginConfig
     EXPECT_EQ(capturedBandwidthParams.mEgressBurst, 12800u);
 
     EXPECT_EQ(capturedDNSInstance, instanceID);
-    EXPECT_EQ(capturedDNSParams.mNetworkID, networkID);
     EXPECT_EQ(capturedDNSParams.mIP, allocatedParams.mIP);
 }
 
@@ -473,6 +488,8 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyResolvConfFile)
 
     std::string resolvContent = ReadFile(runtimeParams.mResolvConfFilePath.CStr());
 
+    // Per-bridge dnsmasq listens on the bridge IP — must be the primary nameserver.
+    EXPECT_THAT(resolvContent, HasSubstr("nameserver\t192.168.1.1"));
     EXPECT_THAT(resolvContent, HasSubstr("nameserver\t8.8.8.8"));
     EXPECT_THAT(resolvContent, HasSubstr("nameserver\t8.8.4.4"));
 
@@ -788,6 +805,9 @@ TEST_F(NetworkManagerTest, StopReleaseAndRecreateInstance)
     EXPECT_CALL(mNetIfFactory, CreateBridge(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIfFactory, CreateVlan(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mDNSName, CreateServer(_, _))
+        .Times(2)
+        .WillRepeatedly(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
 
     ExpectAddInstanceCalls(2);
     ExpectPersistInstanceCalls(3);
@@ -859,7 +879,7 @@ TEST_F(NetworkManagerTest, StopInstanceNetwork_FailOnDetachError)
     ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID, networkID, runtimeParams), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mDNSName, RemoveInstance(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mDNSServer, RemoveHost(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mBandwidth, Clear(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mFirewall, RemoveInstance(_)).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mBridgeNetwork, Detach(_, _, _)).WillOnce(Return(aos::ErrorEnum::eRuntime));
@@ -1058,6 +1078,8 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
         .WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mNetIf, SetMasterLink(existingNetwork.mVlanIfName, existingNetwork.mBridgeIfName))
         .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mDNSName, CreateServer(_, _))
+        .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
 
     EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
         .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
@@ -1255,4 +1277,86 @@ TEST_F(NetworkManagerTest, OnConnect_SyncsNetworkStateWithCM)
         }));
 
     mNetManager->OnConnect();
+}
+
+TEST_F(NetworkManagerTest, Start_AdoptsDNSForLeftoverInstancesAndCleansHosts)
+{
+    // A leftover instance from a previous SM lifetime: its network is still
+    // in storage. On Start, NetworkManager should reap DNS orphans (with the
+    // known network in the list), then adopt the DNS handle for the leftover
+    // network and call RemoveHost while cleaning up the leftover instance.
+    aos::sm::networkmanager::NetworkInfo existingNetwork;
+    existingNetwork.mNetworkID    = "leftover-net";
+    existingNetwork.mIP           = "192.168.7.1";
+    existingNetwork.mSubnet       = "192.168.7.0/24";
+    existingNetwork.mVlanID       = 700ULL;
+    existingNetwork.mVlanIfName   = "vlan-leftover";
+    existingNetwork.mBridgeIfName = "br-leftover";
+
+    aos::sm::networkmanager::InstanceNetworkInfo leftover;
+    leftover.mInstanceID              = "leftover-instance";
+    leftover.mNetworkID               = existingNetwork.mNetworkID;
+    leftover.mAllocatedParams.mIP     = "192.168.7.5";
+    leftover.mAllocatedParams.mSubnet = existingNetwork.mSubnet;
+    leftover.mHostIfName              = "veth-leftover";
+
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners>            networks;
+    aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances> instances;
+    networks.PushBack(existingNetwork);
+    instances.PushBack(leftover);
+
+    EXPECT_CALL(mFirewall, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, Start()).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_CALL(mStorage, GetNetworksInfo(_))
+        .WillOnce(Invoke([&](aos::Array<aos::sm::networkmanager::NetworkInfo>& out) {
+            out = networks;
+            return aos::ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
+        .WillOnce(Invoke([&](aos::Array<aos::sm::networkmanager::InstanceNetworkInfo>& out) {
+            out = instances;
+            return aos::ErrorEnum::eNone;
+        }));
+
+    // Stop the fixture instance — we drive Init/Start manually below.
+    EXPECT_CALL(mTrafficMonitor, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, Stop()).WillOnce(Return(aos::ErrorEnum::eNone));
+    ASSERT_EQ(mNetManager->Stop(), aos::ErrorEnum::eNone);
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(AnyNumber()).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    mNetManager.reset();
+
+    mNetManager = std::make_unique<NetworkManager>();
+
+    ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
+                  mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
+        aos::ErrorEnum::eNone);
+
+    // RemoveOrphans must receive the known networkID from storage.
+    EXPECT_CALL(mDNSName, RemoveOrphans(_))
+        .WillOnce(Invoke([&](const aos::Array<aos::StaticString<aos::cIDLen>>& known) {
+            EXPECT_EQ(known.Size(), 1U);
+            if (known.Size() == 1) {
+                EXPECT_EQ(known[0], existingNetwork.mNetworkID);
+            }
+            return aos::ErrorEnum::eNone;
+        }));
+
+    // Pre-adopt: CreateInstance with the leftover network's bridge IP / ifname.
+    EXPECT_CALL(mDNSName, CreateServer(existingNetwork.mNetworkID, _))
+        .WillOnce(Invoke([&](const aos::String&, const DNSServerParams& params) {
+            EXPECT_EQ(params.mBridgeIP, existingNetwork.mIP);
+            EXPECT_EQ(params.mBridgeIfName, existingNetwork.mBridgeIfName);
+            return aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone};
+        }));
+
+    // Leftover instance cleanup goes through the adopted handle.
+    EXPECT_CALL(mDNSServer, RemoveHost(aos::String("leftover-instance"))).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mBandwidth, Clear(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, RemoveInstance(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mBridgeNetwork, Detach(_, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
 }
