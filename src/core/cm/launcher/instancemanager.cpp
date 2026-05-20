@@ -38,14 +38,14 @@ Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Pr
  * Public
  **********************************************************************************************************************/
 
-Error InstanceManager::Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
+Error InstanceManager::Init(const Config& config, ImageInfoProvider& imageInfoProvider,
+    storagestate::StorageStateItf& storageState, IdentifierPoolValidator gidValidator,
     IdentifierPoolValidator uidValidator, StorageItf& storage)
 {
-    mConfig  = config;
-    mStorage = &storage;
+    mConfig            = config;
+    mStorage           = &storage;
+    mImageInfoProvider = &imageInfoProvider;
 
-    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
     mStorageState.Init(storageState);
 
     if (auto err = mUIDPool.Init(uidValidator); !err.IsNone()) {
@@ -254,8 +254,7 @@ Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& reques
         return info.mInstanceIdent.mType == UpdateItemTypeEnum::eComponent
             && info.mInstanceIdent.mItemID == request.mItemID
             && info.mInstanceIdent.mSubjectID == request.mSubjectInfo.mSubjectID
-            && info.mInstanceIdent.mVersion == request.mVersion
-            && info.mDisableRebalancing;
+            && info.mInstanceIdent.mVersion == request.mVersion && info.mDisableRebalancing;
     };
 
     auto firstErr = RemoveInstances(mActiveInstances, matchRequest);
@@ -494,12 +493,12 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
     switch (info.mInstanceIdent.mType.GetValue()) {
     case UpdateItemTypeEnum::eService:
         newInstance = MakeShared<ServiceInstance>(
-            &mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState, mImageInfoProvider, mInstanceAllocator);
+            &mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState, *mImageInfoProvider, mInstanceAllocator);
         break;
 
     case UpdateItemTypeEnum::eComponent:
         newInstance
-            = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage, mImageInfoProvider, mInstanceAllocator);
+            = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage, *mImageInfoProvider, mInstanceAllocator);
         break;
 
     default:
@@ -706,8 +705,7 @@ SharedPtr<Instance> InstanceManager::FindInstance(const Array<SharedPtr<Instance
         = instances.FindIf([&itemID, &subjectID, &nodeID, &runtimeID, &version](const SharedPtr<Instance>& instance) {
               const auto& info = instance->GetInfo();
               return info.mInstanceIdent.mItemID == itemID && info.mInstanceIdent.mSubjectID == subjectID
-                  && info.mNodeID == nodeID && info.mRuntimeID == runtimeID
-                  && info.mInstanceIdent.mVersion == version;
+                  && info.mNodeID == nodeID && info.mRuntimeID == runtimeID && info.mInstanceIdent.mVersion == version;
           });
 
     return it != instances.end() ? *it : SharedPtr<Instance>();

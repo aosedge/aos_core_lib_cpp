@@ -49,17 +49,16 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mAlertsProvider     = &alertsProvider;
     mIdentProvider      = &identProvider;
 
-    auto err
-        = mInstanceManager.Init(config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
+    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
+
+    auto err = mInstanceManager.Init(config, mImageInfoProvider, storageState, gidValidator, uidValidator, storage);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
-
     mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
-    mBalancer.Init(mInstanceManager, itemInfoProvider, ociSpec, mNodeManager, *mMonitorProvider, *mRunner);
+    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
 
     return ErrorEnum::eNone;
 }

@@ -8,11 +8,9 @@
 #define AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 
 #include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
-#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/monitoringdata.hpp>
-#include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/timer.hpp>
 
 #include "itf/launcher.hpp"
@@ -42,9 +40,8 @@ public:
      * @param storage Interface to persistent storage.
      * @return Error.
      */
-    Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+    Error Init(const Config& config, ImageInfoProvider& imageInfoProvider, storagestate::StorageStateItf& storageState,
+        IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator, StorageItf& storage);
 
     /**
      * Starts the instance manager.
@@ -282,17 +279,17 @@ private:
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
         const String& subjectID, const String& nodeID, const String& runtimeID, const String& version);
-    uint64_t FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
+    uint64_t            FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id);
 
     SharedPtr<Instance> FindActiveInstanceByRuntime(const InstanceIdent& id, const String& runtimeID);
 
     Config      mConfig;
     StorageItf* mStorage {};
 
-    ImageInfoProvider mImageInfoProvider;
-    StorageState      mStorageState;
-    UIDPool           mUIDPool;
-    GIDPool           mGIDPool;
+    ImageInfoProvider* mImageInfoProvider {};
+    StorageState       mStorageState;
+    UIDPool            mUIDPool;
+    GIDPool            mGIDPool;
 
     Timer mCleanInstancesTimer;
     Timer mInitTimer;

@@ -14,15 +14,14 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void Balancer::Init(InstanceManager& instanceManager, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    oci::OCISpecItf& ociSpec, NodeManager& nodeManager, MonitoringProviderItf& monitorProvider,
-    InstanceRunnerItf& runner)
+void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
+    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
 {
-    mInstanceManager = &instanceManager;
-    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
-    mNodeManager     = &nodeManager;
-    mMonitorProvider = &monitorProvider;
-    mRunner          = &runner;
+    mInstanceManager   = &instanceManager;
+    mImageInfoProvider = &imageInfoProvider;
+    mNodeManager       = &nodeManager;
+    mMonitorProvider   = &monitorProvider;
+    mRunner            = &runner;
 }
 
 Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing)
@@ -62,7 +61,8 @@ Error Balancer::LoadSMDataForActiveInstances()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto loadErr = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), mImageInfoProvider);
+    auto loadErr
+        = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), *mImageInfoProvider);
     if (!loadErr.IsNone()) {
         return AOS_ERROR_WRAP(loadErr);
     }
@@ -93,7 +93,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
         auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
 
-        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, id.mVersion, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, id.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
@@ -398,7 +398,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Load image descriptor
-        if (auto err = mImageInfoProvider.GetImageIndex(id.mItemID, id.mVersion, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, id.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field(err);
 
             continue;
