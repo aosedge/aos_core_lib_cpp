@@ -11,6 +11,7 @@ RUN apt-get update \
     zip curl \
     libnl-3-dev libnl-route-3-dev \
     libefivar-dev libefiboot-dev libblkid-dev \
+    libcap-dev libseccomp-dev libyajl-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN pipx install conan
