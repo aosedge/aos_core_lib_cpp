@@ -14,6 +14,7 @@
 #include "imageinfoprovider.hpp"
 #include "instancemanager.hpp"
 #include "nodemanager.hpp"
+#include "rankederror.hpp"
 
 namespace aos::cm::launcher {
 
@@ -66,7 +67,7 @@ private:
 
     Error PerformNodeBalancing(Array<SharedPtr<Instance>>& instances);
 
-    Error ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor);
+    RankedError ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor);
 
     // Selects nodes
     Error SelectNodes(Instance& instance, Array<Node*>& nodes);
@@ -75,7 +76,7 @@ private:
     void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
 
     // Selects runtime
-    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, Array<Node*>& nodes);
+    RetWithRankedError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, Array<Node*>& nodes);
 
     Error CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes);
 
