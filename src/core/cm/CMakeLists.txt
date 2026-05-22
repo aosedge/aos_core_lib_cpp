@@ -23,6 +23,7 @@ set(INSTALL_HEADERS
     aos_core_cm_iamclient
     aos_core_cm_imagemanager
     aos_core_cm_nodeinfoprovider
+    aos_core_cm_statushandler
     aos_core_cm_smcontroller
     aos_core_cm_storagestate
     aos_core_cm_unitconfig
@@ -60,6 +61,7 @@ add_subdirectory(imagemanager)
 add_subdirectory(launcher)
 add_subdirectory(monitoring)
 add_subdirectory(nodeinfoprovider)
+add_subdirectory(statushandler)
 add_subdirectory(smcontroller)
 add_subdirectory(storagestate)
 add_subdirectory(unitconfig)

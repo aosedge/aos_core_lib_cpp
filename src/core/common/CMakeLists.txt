@@ -27,6 +27,7 @@ set(INSTALL_HEADERS
     aos_core_common_nodeconfig
     aos_core_common_ocispec
     aos_core_common_spaceallocator
+    aos_core_common_statushandler
     aos_core_common_types
     aos_core_common_version
 )
@@ -68,6 +69,7 @@ add_subdirectory(nodeconfig)
 add_subdirectory(ocispec)
 add_subdirectory(pkcs11)
 add_subdirectory(spaceallocator)
+add_subdirectory(statushandler)
 add_subdirectory(tools)
 add_subdirectory(types)
 add_subdirectory(version)
