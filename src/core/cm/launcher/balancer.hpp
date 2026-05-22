@@ -56,6 +56,12 @@ public:
 
 private:
     using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
+    enum class ScheduleDecision { eScheduled, eSkipManifest, eError };
+
+    struct ScheduleResult {
+        ScheduleDecision mResult;
+        Error            mError;
+    };
 
     static constexpr size_t cScheduleInstanceSize
         = sizeof(oci::ImageIndex) + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(NodeRuntimes);
@@ -66,7 +72,8 @@ private:
 
     Error PerformNodeBalancing(Array<SharedPtr<Instance>>& instances);
 
-    Error ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor);
+    ScheduleResult TryScheduleInstance(SharedPtr<Instance>& instance,
+        const oci::IndexContentDescriptor& imageDescriptor, Pair<Node*, const RuntimeInfo*>& nodeRuntime);
 
     // Selects nodes
     Error SelectNodes(Instance& instance, Array<Node*>& nodes);
@@ -75,7 +82,7 @@ private:
     void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
 
     // Selects runtime
-    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, Array<Node*>& nodes);
+    ScheduleResult SelectRuntime(Instance& instance, Array<Node*>& nodes, Pair<Node*, const RuntimeInfo*>& nodeRuntime);
 
     Error CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes);
 

@@ -106,7 +106,14 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            scheduleErr = ScheduleInstance(instance, manifest);
+            Pair<Node*, const RuntimeInfo*> nodeRuntime {nullptr, nullptr};
+
+            auto scheduleResult = TryScheduleInstance(instance, manifest, nodeRuntime);
+            if (scheduleResult.mResult == ScheduleDecision::eSkipManifest) {
+                continue;
+            }
+
+            scheduleErr = scheduleResult.mError;
             if (scheduleErr.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
@@ -124,39 +131,40 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
     return ErrorEnum::eNone;
 }
 
-Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor)
+Balancer::ScheduleResult Balancer::TryScheduleInstance(SharedPtr<Instance>& instance,
+    const oci::IndexContentDescriptor& imageDescriptor, Pair<Node*, const RuntimeInfo*>& nodeRuntime)
 {
     auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
 
     if (auto err = instance->LoadConfigs(imageDescriptor); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "can't load instance configs"));
+        return {ScheduleDecision::eError, AOS_ERROR_WRAP(Error(err, "can't load instance configs"))};
     }
 
     // Select node runtimes
     if (auto err = mNodeManager->GetConnectedNodes(*nodes); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "get connected nodes failed"));
+        return {ScheduleDecision::eError, AOS_ERROR_WRAP(Error(err, "get connected nodes failed"))};
     }
 
     if (auto err = SelectNodes(*instance, *nodes); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "can't find node for instance"));
+        return {ScheduleDecision::eSkipManifest, ErrorEnum::eNone};
     }
 
-    auto [nodeRuntime, selectErr] = SelectRuntime(*instance, *nodes);
-    if (!selectErr.IsNone()) {
-        return AOS_ERROR_WRAP(Error(selectErr, "can't find runtime for instance"));
+    auto selectRuntimeResult = SelectRuntime(*instance, *nodes, nodeRuntime);
+    if (selectRuntimeResult.mResult != ScheduleDecision::eScheduled) {
+        return selectRuntimeResult;
     }
 
-    // Schedule instance
+    // Schedule instance.
     auto&       node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
     if (auto err = mInstanceManager->ScheduleInstance(instance, *node, runtime->mRuntimeID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(err, "can't schedule instance"));
+        return {ScheduleDecision::eError, AOS_ERROR_WRAP(Error(err, "can't schedule instance"))};
     }
 
-    return ErrorEnum::eNone;
+    return {ScheduleDecision::eScheduled, ErrorEnum::eNone};
 }
 
 Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
@@ -194,42 +202,47 @@ void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
     nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(node->GetInfo().mResources); });
 }
 
-RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, Array<Node*>& nodes)
+Balancer::ScheduleResult Balancer::SelectRuntime(
+    Instance& instance, Array<Node*>& nodes, Pair<Node*, const RuntimeInfo*>& nodeRuntime)
 {
     auto nodeRuntimes = MakeUnique<NodeRuntimes>(&mAllocator);
 
     if (auto err = CreateRuntimes(nodes, *nodeRuntimes); !err.IsNone()) {
-        return {nullptr, AOS_ERROR_WRAP(err)};
+        return {ScheduleDecision::eError, AOS_ERROR_WRAP(err)};
     }
 
     FilterByRuntimeType(instance, *nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested runtime type"))};
+        return {ScheduleDecision::eSkipManifest, ErrorEnum::eNone};
     }
 
     FilterByPlatform(instance, *nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested platform"))};
+        return {ScheduleDecision::eSkipManifest, ErrorEnum::eNone};
     }
 
     FilterByCPU(instance, *nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested CPU"))};
+        return {
+            ScheduleDecision::eError, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested CPU"))};
     }
 
     FilterByRAM(instance, *nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
+        return {
+            ScheduleDecision::eError, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
     }
 
     FilterByNumInstances(*nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
+        return {
+            ScheduleDecision::eError, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
     }
 
     FilterTopPriorityNodes(*nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "failed top priority nodes filtering"))};
+        return {ScheduleDecision::eError,
+            AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "failed top priority nodes filtering"))};
     }
 
     // Select best node.
@@ -260,9 +273,9 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
         [](const RuntimeInfo* left, const RuntimeInfo* right) { return left->mRuntimeType < right->mRuntimeType; });
 
     // Return result.
-    Pair<Node*, const RuntimeInfo*> result {bestNode.mFirst, bestNodeRuntimes.Front()};
+    nodeRuntime = {bestNode.mFirst, bestNodeRuntimes.Front()};
 
-    return {result, ErrorEnum::eNone};
+    return {ScheduleDecision::eScheduled, ErrorEnum::eNone};
 }
 
 Error Balancer::CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes)
