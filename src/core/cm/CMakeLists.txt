@@ -29,7 +29,7 @@ set(INSTALL_HEADERS
     aos_core_cm_unitconfig
 )
 
-set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_monitoring aos_core_cm_storagestate aos_core_cm_updatemanager)
+set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_monitoring aos_core_cm_storagestate)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_cm_tests_mocks)
@@ -65,7 +65,7 @@ add_subdirectory(statushandler)
 add_subdirectory(smcontroller)
 add_subdirectory(storagestate)
 add_subdirectory(unitconfig)
-add_subdirectory(updatemanager)
+# add_subdirectory(updatemanager)
 
 if(WITH_TEST)
     add_subdirectory(tests)

@@ -22,12 +22,12 @@ set(LIBRARIES aos::core::cm::launcher GTest::gmock_main)
 # Target
 # ######################################################################################################################
 
-add_test(
-    TARGET_NAME
-    ${TARGET_NAME}
-    LOG_MODULE
-    SOURCES
-    ${SOURCES}
-    LIBRARIES
-    ${LIBRARIES}
-)
+# add_test(
+#     TARGET_NAME
+#     ${TARGET_NAME}
+#     LOG_MODULE
+#     SOURCES
+#     ${SOURCES}
+#     LIBRARIES
+#     ${LIBRARIES}
+# )

@@ -7,7 +7,6 @@
 #ifndef AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 #define AOS_CORE_CM_LAUNCHER_ITF_LAUNCHER_HPP_
 
-#include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/types/instance.hpp>
 
 #include <core/cm/launcher/itf/types.hpp>
@@ -21,7 +20,7 @@ namespace aos::cm::launcher {
 /**
  * Instance launcher interface.
  */
-class LauncherItf : public instancestatusprovider::ProviderItf {
+class LauncherItf {
 public:
     /**
      * Destructor.

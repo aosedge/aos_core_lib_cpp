@@ -92,34 +92,6 @@ public:
     Error RunInstances(const Array<RunInstanceRequest>& instances, Array<InstanceStatus>& statuses) override;
 
     //
-    // InstanceStatusProviderItf implementation
-    //
-
-    /**
-     * Returns current statuses of running instances.
-     *
-     * @param statuses instances statuses.
-     * @return Error.
-     */
-    Error GetInstancesStatuses(Array<InstanceStatus>& statuses) override;
-
-    /**
-     * Subscribes status notifications.
-     *
-     * @param listener status listener.
-     * @return Error.
-     */
-    Error SubscribeListener(instancestatusprovider::ListenerItf& listener) override;
-
-    /**
-     * Unsubscribes from status notifications.
-     *
-     * @param listener status listener.
-     * @return Error.
-     */
-    Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override;
-
-    //
     // EnvVarHandlerItf implementation
     //
 
@@ -132,8 +104,7 @@ public:
     Error OverrideEnvVars(const OverrideEnvVarsRequest& envVars) override;
 
 private:
-    static constexpr auto cMaxNumInstanceStatusListeners = 8;
-    static constexpr auto cAllocatorSize                 = 2 * sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
+    static constexpr auto cAllocatorSize = 2 * sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
         + sizeof(StaticArray<SharedPtr<Instance>, cMaxNumInstances>);
 
     void SendRunStatus();
@@ -164,16 +135,15 @@ private:
     void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
 
     // External dependencies
-    Config                                                                            mConfig;
-    StorageItf*                                                                       mStorage {};
-    nodeinfoprovider::NodeInfoProviderItf*                                            mNodeInfoProvider {};
-    iamclient::IdentProviderItf*                                                      mIdentProvider {};
-    InstanceRunnerItf*                                                                mRunner {};
-    unitconfig::NodeConfigProviderItf*                                                mNodeConfigProvider {};
-    storagestate::StorageStateItf*                                                    mStorageState {};
-    MonitoringProviderItf*                                                            mMonitorProvider {};
-    alerts::AlertsProviderItf*                                                        mAlertsProvider {};
-    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
+    Config                                 mConfig;
+    StorageItf*                            mStorage {};
+    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
+    iamclient::IdentProviderItf*           mIdentProvider {};
+    InstanceRunnerItf*                     mRunner {};
+    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
+    storagestate::StorageStateItf*         mStorageState {};
+    MonitoringProviderItf*                 mMonitorProvider {};
+    alerts::AlertsProviderItf*             mAlertsProvider {};
 
     // Managers
     RunRequestsLoader mRunRequestsLoader {};

@@ -252,41 +252,6 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     return ErrorEnum::eNone;
 }
 
-Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
-{
-    LockGuard updateLock {mUpdateMutex};
-
-    if (auto err = statuses.Assign(mInstanceStatuses); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
-{
-    LockGuard updateLock {mUpdateMutex};
-
-    LOG_DBG() << "Subscribe instance status listener";
-
-    if (auto err = mInstanceStatusListeners.PushBack(&listener); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
-{
-    LockGuard updateLock {mUpdateMutex};
-
-    LOG_DBG() << "Unsubscribe instance status listener";
-
-    auto count = mInstanceStatusListeners.Remove(&listener);
-
-    return count == 0 ? AOS_ERROR_WRAP(ErrorEnum::eNotFound) : ErrorEnum::eNone;
-}
-
 Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
 {
     LOG_DBG() << "Override env vars";
@@ -365,10 +330,6 @@ void Launcher::UpdateInstanceStatuses()
                   << Log::Field("nodeID", status.mNodeID) << Log::Field("runtimeID", status.mRuntimeID)
                   << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
                   << Log::Field(status.mError);
-    }
-
-    for (auto& listener : mInstanceStatusListeners) {
-        listener->OnInstancesStatusesChanged(*changedStatuses);
     }
 }
 
