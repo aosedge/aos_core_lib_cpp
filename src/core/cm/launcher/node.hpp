@@ -106,6 +106,14 @@ public:
     size_t GetAvailableRAM(const String& runtimeID);
 
     /**
+     * Returns available count of a shared resource by name.
+     *
+     * @param resourceName resource name.
+     * @return size_t available count (0 if the resource is not exposed by the node).
+     */
+    size_t GetAvailableResourceCount(const String& resourceName) const override;
+
+    /**
      * Reserves runtime resources for instance.
      *
      * @param instanceIdent instance identifier (currently unused).

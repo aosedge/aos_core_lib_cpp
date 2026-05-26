@@ -203,10 +203,10 @@ public:
     /**
      * Checks whether node resources fit instance requirements.
      *
-     * @param resources resources.
+     * @param node node.
      * @return bool.
      */
-    virtual bool AreNodeResourcesOk(const ResourceInfoArray& nodeResources) = 0;
+    virtual bool AreNodeResourcesOk(const NodeItf& node) = 0;
 
     /**
      * Checks whether node labels fit instance requirements.
@@ -335,10 +335,10 @@ public:
     /**
      * Checks whether node resources fit instance requirements.
      *
-     * @param nodeResources node resources.
+     * @param node node.
      * @return bool.
      */
-    bool AreNodeResourcesOk(const ResourceInfoArray& nodeResources) override;
+    bool AreNodeResourcesOk(const NodeItf& node) override;
 
     /**
      * Returns balancing policy.
@@ -437,10 +437,10 @@ public:
     /**
      * Checks whether node resources fit instance requirements.
      *
-     * @param resources resources.
+     * @param node node.
      * @return bool.
      */
-    bool AreNodeResourcesOk(const ResourceInfoArray& resources) override;
+    bool AreNodeResourcesOk(const NodeItf& node) override;
 
     /**
      * Returns balancing policy.

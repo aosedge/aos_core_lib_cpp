@@ -2677,4 +2677,77 @@ TEST_F(CMLauncherTest, ServiceUpdate)
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
+TEST_F(CMLauncherTest, UnlimitedSharedResource)
+{
+    using namespace std::chrono_literals;
+
+    // Initialize stubs.
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mAlertsProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    // One node with a single shared resource whose mSharedCount is 0 (= unlimited).
+    const std::string cUnlimitedResource = "camera";
+    auto              nodeInfoLocalSM    = CreateNodeInfo(
+        cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {CreateResource(cUnlimitedResource, 0)});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    NodeConfig nodeConfig;
+    CreateNodeConfig(nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    // One service that requires the shared resource.
+    oci::ItemConfig itemConfig;
+    CreateItemConfig(itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, {}, {}, {}, {},
+        {{cUnlimitedResource.c_str(), "rw"}});
+    AddItem(cService1, cImageID1, itemConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    // Run a service with multiple instances.
+    constexpr uint64_t cNumInstances = 3;
+
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, cNumInstances));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    // Check every instance is active.
+    auto digest = BuildManifestDigest(cService1, cImageID1);
+
+    auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    for (uint64_t i = 0; i < cNumInstances; ++i) {
+        expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, i), cNodeIDLocalSM,
+            cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest.CStr()));
+    }
+
+    EXPECT_EQ(*runStatuses, *expectedRunStatus);
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
 } // namespace aos::cm::launcher

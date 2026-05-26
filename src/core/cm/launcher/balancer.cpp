@@ -196,7 +196,7 @@ void Balancer::FilterNodesByLabels(Instance& instance, Array<Node*>& nodes)
 
 void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(node->GetInfo().mResources); });
+    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
 }
 
 RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, Array<Node*>& nodes)
