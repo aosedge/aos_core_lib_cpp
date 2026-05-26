@@ -115,33 +115,29 @@ public:
     Array<Node>& GetNodes();
 
     /**
-     * Sends scheduled instances to nodes and waits for instance statuses from them.
+     * Sends scheduled instances to nodes.
      *
-     * @param lock mutex lock.
      * @param scheduledInstances scheduled instances.
      * @param runningInstances running instances.
      * @return Error.
      */
-    Error SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
-        const Array<InstanceStatus>& runningInstances);
+    Error SendScheduledInstances(
+        const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances);
 
     /**
-     * Resends instances to nodes and waits for instance statuses from them.
+     * Resends instances to nodes.
      *
-     * @param lock mutex lock.
      * @param updatedNodes updated nodes.
      * @param activeInstances active instances.
      * @param runningInstances running instances.
      * @param forceRestart force restart instances.
      * @return Error.
      */
-    Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
+    Error ResendInstances(const Array<StaticString<cIDLen>>& updatedNodes,
         const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances,
         bool forceRestart = false);
 
 private:
-    static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
-
     static constexpr auto cAllocatorSize
         = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo);
 
@@ -158,9 +154,6 @@ private:
     StaticAllocator<cNodeAllocatorSize> mNodeAllocator;
 
     StaticArray<Node, cMaxNumNodes> mNodes;
-
-    StaticArray<StaticString<cIDLen>, cMaxNumNodes> mNodesExpectedToSendStatus;
-    ConditionalVariable                             mStatusUpdateCondVar;
 };
 
 /** @}*/

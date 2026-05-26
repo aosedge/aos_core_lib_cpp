@@ -134,7 +134,7 @@ public:
      * @param forceRestart force restart instances.
      * @return Error.
      */
-    RetWithError<bool> ResendInstances(const Array<SharedPtr<Instance>>& scheduledInstances,
+    Error ResendInstances(const Array<SharedPtr<Instance>>& scheduledInstances,
         const Array<InstanceStatus>& runningInstances, bool forceRestart);
 
     /**

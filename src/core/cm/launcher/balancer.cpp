@@ -24,7 +24,7 @@ void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageIn
     mRunner            = &runner;
 }
 
-Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing)
+Error Balancer::RunInstances(Array<SharedPtr<Instance>>& instances, bool rebalancing)
 {
     if (auto err = PrepareForBalancing(rebalancing); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -41,13 +41,12 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>
     }
 
     // Submit scheduled instances before sending them to nodes.
-    // So status updates expecting by SendScheduledInstances will be assigned to active instances.
     if (auto err = mInstanceManager->SubmitScheduledInstances(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     if (auto err = mNodeManager->SendScheduledInstances(
-            lock, mInstanceManager->GetActiveInstances(), mInstanceManager->GetRunningInstances());
+            mInstanceManager->GetActiveInstances(), mInstanceManager->GetRunningInstances());
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

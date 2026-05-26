@@ -41,11 +41,11 @@ public:
     /**
      * Runs instances.
      *
-     * @param lock lock on the balancing mutex.
+     * @param instances instances to run.
      * @param rebalancing flag indicating rebalancing.
      * @return Error.
      */
-    Error RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing);
+    Error RunInstances(Array<SharedPtr<Instance>>& instances, bool rebalancing);
 
     /**
      * Loads Service Manager (SM) data for active instances that were loaded from storage.

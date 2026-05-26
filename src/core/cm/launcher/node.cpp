@@ -345,14 +345,14 @@ Error Node::SendScheduledInstances(
     return ErrorEnum::eNone;
 }
 
-RetWithError<bool> Node::ResendInstances(
+Error Node::ResendInstances(
     const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
     auto instancesToRun = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
 
     for (const auto& instance : FilterByNode(activeInstances, mInfo.mNodeID)) {
         if (auto err = instancesToRun->PushBack(instance->GetSMInfo()); !err.IsNone()) {
-            return {false, AOS_ERROR_WRAP(err)};
+            return AOS_ERROR_WRAP(err);
         }
     }
 
@@ -360,7 +360,7 @@ RetWithError<bool> Node::ResendInstances(
         // Instance list didn't change, skip update.
         auto changed = AreInstancesChanged(*instancesToRun, runningInstances);
         if (!changed) {
-            return {false, ErrorEnum::eNone};
+            return ErrorEnum::eNone;
         }
     }
 
@@ -376,15 +376,15 @@ RetWithError<bool> Node::ResendInstances(
     if (forceRestart) {
         auto emptyList = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
         if (auto err = mInstanceRunner->RunInstances(mInfo.mNodeID, *emptyList); !err.IsNone()) {
-            return {false, AOS_ERROR_WRAP(err)};
+            return AOS_ERROR_WRAP(err);
         }
     }
 
     if (auto err = mInstanceRunner->RunInstances(mInfo.mNodeID, *instancesToRun); !err.IsNone()) {
-        return {false, AOS_ERROR_WRAP(err)};
+        return AOS_ERROR_WRAP(err);
     }
 
-    return {true, ErrorEnum::eNone};
+    return ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************

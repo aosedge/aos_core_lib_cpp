@@ -241,7 +241,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
         return AOS_ERROR_WRAP(ErrorEnum::eCanceled);
     }
 
-    if (auto err = BalanceInstances(updateLock, false); !err.IsNone()) {
+    if (auto err = BalanceInstances(false); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -350,7 +350,7 @@ void Launcher::FailActivatingInstances()
     }
 }
 
-Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
+Error Launcher::BalanceInstances(bool rebalance)
 {
     LOG_DBG() << "Balance instances" << Log::Field("rebalance", rebalance);
 
@@ -358,7 +358,7 @@ Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
     auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
     mRunRequestsLoader.CreateInstances(mNodeManager.GetNodes(), *instances);
 
-    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance);
+    auto runErr = mBalancer.RunInstances(*instances, rebalance);
 
     FailActivatingInstances();
     UpdateInstanceStatuses();
@@ -447,7 +447,7 @@ void Launcher::ProcessUpdate()
         // Resend instances.
         if (!mUpdatedNodes.IsEmpty()) {
             if (!doRebalance) {
-                err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
+                err = mNodeManager.ResendInstances(mUpdatedNodes, mInstanceManager.GetActiveInstances(),
                     mInstanceManager.GetRunningInstances(), forceRestart);
                 if (!err.IsNone()) {
                     LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
@@ -463,7 +463,7 @@ void Launcher::ProcessUpdate()
         if (doRebalance) {
             mForceRebalance = false;
 
-            if (err = BalanceInstances(updateLock, true); !err.IsNone()) {
+            if (err = BalanceInstances(true); !err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
