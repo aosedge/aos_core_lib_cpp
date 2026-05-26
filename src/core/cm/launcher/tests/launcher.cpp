@@ -2444,6 +2444,141 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
 
+TEST_F(CMLauncherTest, CpuAlertRebalancingMovesLowerPriorityService)
+{
+    using namespace std::chrono_literals;
+
+    // 1) Two services with different priorities (service1 = higher, service2 = lower)
+    //    that request CPU as the required resource.
+    // 2) Two nodes with different priorities (localSM = higher, remoteSM1 = lower).
+    //    Each node has a node-level CPU alert rule.
+    // 3) Initially both services must be scheduled on the higher-priority node (localSM).
+    // 4) Monitoring later reports CPU usage that breaches the alert rule on localSM
+    //    and a system quota alert is delivered to the launcher.
+    // 5) After rebalancing, the lower-priority service (service2) must migrate to
+    //    the lower-priority node (remoteSM1), while the higher-priority service
+    //    (service1) stays on the higher-priority node (localSM).
+
+    // Initialize all stubs.
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeInfoRemoteSM1 = CreateNodeInfo(cNodeIDRemoteSM1, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
+
+    mImageStore.Init();
+    mNetworkManager.Init();
+    mInstanceStatusProvider.Init();
+    mMonitoringProvider.Init();
+    mAlertsProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    // Node configs: priorities differ; CPU-only alert rule on both nodes.
+    auto alertRules = CreateAlertRules(75.0, 0.0);
+
+    NodeConfig localNodeConfig;
+    CreateNodeConfig(localNodeConfig, cNodeIDLocalSM, 100, {}, {}, alertRules);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, localNodeConfig);
+
+    NodeConfig remoteNodeConfig;
+    CreateNodeConfig(remoteNodeConfig, cNodeIDRemoteSM1, 50, {}, {}, alertRules);
+    mResourceManager.SetNodeConfig(cNodeIDRemoteSM1, cNodeTypeVM, remoteNodeConfig);
+
+    // Service configs: CPU is the required resource.
+    auto itemConfigService1 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(
+        *itemConfigService1, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, CreateServiceQuotas(0, 0, 1000, 0));
+    AddItem(cService1, cImageID1, *itemConfigService1, CreateImageConfig());
+
+    auto itemConfigService2 = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(
+        *itemConfigService2, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, CreateServiceQuotas(0, 0, 1000, 0));
+    AddItem(cService2, cImageID1, *itemConfigService2, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    // Initial monitoring: no load on either node.
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
+    }
+
+    // Init launcher.
+    ASSERT_TRUE(mLauncher
+                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
+                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
+                    .IsNone());
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
+        mInstanceRunner.SendInitialStatuses(nodeID);
+    }
+
+    // Run two services with different priorities.
+    auto runRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequests->PushBack(CreateRunRequest(cService1, cSubject1, 100, 1));
+    runRequests->PushBack(CreateRunRequest(cService2, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequests, *runStatuses).IsNone());
+
+    // Both services are expected to be placed on the higher-priority node (localSM) initially,
+    // because at this point monitoring reports no load and both services fit there.
+    auto digest1 = BuildManifestDigest(cService1, cImageID1);
+    auto digest2 = BuildManifestDigest(cService2, cImageID1);
+
+    auto expectedInitialStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    expectedInitialStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM,
+        cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest1.CStr()));
+    expectedInitialStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDLocalSM,
+        cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", false, digest2.CStr()));
+
+    ASSERT_EQ(*runStatuses, *expectedInitialStatus);
+
+    // Simulate CPU usage on localSM that exceeds the alert threshold.
+    monitoring::NodeMonitoringData localMonitoring;
+    CreateNodeMonitoring(localMonitoring, cNodeIDLocalSM, 1000,
+        {CreateInstanceMonitoring(CreateInstanceIdent(cService1, cSubject1, 0), 500),
+            CreateInstanceMonitoring(CreateInstanceIdent(cService2, cSubject1, 0), 500)});
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, localMonitoring);
+
+    // Trigger system quota alert that will kick off rebalancing.
+    size_t currentNotifyCount = instanceStatusListener.GetNotifyCount();
+    mAlertsProvider.TriggerSystemQuotaAlert();
+
+    ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(currentNotifyCount + 2, 2000ms));
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+    mLauncher.UnsubscribeListener(instanceStatusListener);
+
+    // After rebalancing:
+    //   - service1 (higher priority) stays on the higher-priority node (localSM).
+    //   - service2 (lower priority) migrates to the lower-priority node (remoteSM1)
+    //     because localSM available CPU (reduced by the alert min threshold) is no
+    //     longer enough to fit service2.
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
+    expectedRunRequests[cNodeIDLocalSM].mStartInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, "4", 100));
+    expectedRunRequests[cNodeIDLocalSM].mStopInstances.push_back(
+        CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cRunnerRunc));
+    expectedRunRequests[cNodeIDRemoteSM1].mStartInstances.push_back(CreateServiceRunInfo(
+        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, "5", 50));
+
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+}
+
 TEST_F(CMLauncherTest, ServiceUpdate)
 {
     using namespace std::chrono_literals;
