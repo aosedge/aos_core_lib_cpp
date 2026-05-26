@@ -2125,7 +2125,7 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
     auto stopInstance
         = CreateRunInfoForStoppedService(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 0, 0, 0);
     auto startInstance = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc,
-        5000, 5000, 50, "2", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
+        5000, 5000, 50, "", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
         = {{cNodeIDLocalSM, {{stopInstance}, {startInstance}}}};
@@ -2333,11 +2333,9 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
 
     expectedRunRequests[cNodeIDLocalSM]   = {{},
-          {CreateServiceRunInfo(
-            CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "2")}};
+          {CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100)}};
     expectedRunRequests[cNodeIDRemoteSM1] = {{},
-        {CreateServiceRunInfo(
-            CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "3")}};
+        {CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50)}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
