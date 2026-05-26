@@ -243,7 +243,7 @@ void Node::UpdateConfig()
 }
 
 Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& runtimeID, size_t reqCPU, size_t reqRAM,
-    const Array<StaticString<cResourceNameLen>>& reqResources)
+    const Array<oci::ResourceInfo>& reqResources)
 {
     (void)instanceIdent;
 
@@ -291,7 +291,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     auto restoreResources = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
         for (auto restoreIt = reqResources.begin(); restoreIt != curIt; ++restoreIt) {
             auto availableResource = mAvailableResources.FindIf(
-                [restoreIt](const ResourceInfo& info) { return info.mName == *restoreIt; });
+                [restoreIt](const ResourceInfo& info) { return info.mName == restoreIt->mName; });
             assert(availableResource != mAvailableResources.end());
 
             availableResource->mSharedCount++;
@@ -300,7 +300,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
 
     for (; curIt != reqResources.end(); ++curIt) {
         auto availableResource
-            = mAvailableResources.FindIf([curIt](const ResourceInfo& info) { return info.mName == *curIt; });
+            = mAvailableResources.FindIf([curIt](const ResourceInfo& info) { return info.mName == curIt->mName; });
 
         if (availableResource == mAvailableResources.end() || availableResource->mSharedCount < 1) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);

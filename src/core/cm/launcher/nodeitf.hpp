@@ -38,7 +38,7 @@ public:
      * @return Error.
      */
     virtual Error ReserveResources(const InstanceIdent& instanceIdent, const String& runtimeID, size_t reqCPU,
-        size_t reqRAM, const Array<StaticString<cResourceNameLen>>& reqResources)
+        size_t reqRAM, const Array<oci::ResourceInfo>& reqResources)
         = 0;
 
     /**

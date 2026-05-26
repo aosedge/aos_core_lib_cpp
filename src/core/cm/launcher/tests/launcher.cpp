@@ -408,7 +408,7 @@ void CreateItemConfig(oci::ItemConfig& config, const std::vector<std::string>& r
     const oci::BalancingPolicy& balancingPolicy = oci::BalancingPolicyEnum::eEnabled,
     const oci::ServiceQuotas& quotas = {}, const oci::RequestedResources& requestedResources = {},
     const Optional<AlertRules>& alertRules = {}, const std::vector<std::string>& allowedConnections = {},
-    const std::vector<std::string>& resources = {})
+    const std::vector<oci::ResourceInfo>& resources = {})
 {
     for (const auto& runtime : runtimes) {
         config.mRuntimes.PushBack(runtime.c_str());
@@ -424,7 +424,7 @@ void CreateItemConfig(oci::ItemConfig& config, const std::vector<std::string>& r
     }
 
     for (const auto& resource : resources) {
-        config.mResources.PushBack(resource.c_str());
+        config.mResources.PushBack(resource);
     }
 }
 
@@ -1020,9 +1020,10 @@ TestDataPtr TestItemResources()
     CreateNodeConfig(testData->mNodeConfigs[cNodeIDRemoteSM2], cNodeIDRemoteSM2, 0);
 
     // Item configs
-    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1", "resource2"});
-    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource1"});
-    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, {}, {}, {}, {}, {}, {"resource3"});
+    CreateItemConfig(testData->mItemConfigs[cService1], {cRunnerRunc}, {}, {}, {}, {}, {},
+        {{"resource1", "rw"}, {"resource2", "rw"}});
+    CreateItemConfig(testData->mItemConfigs[cService2], {cRunnerRunc}, {}, {}, {}, {}, {}, {{"resource1", "rw"}});
+    CreateItemConfig(testData->mItemConfigs[cService3], {cRunnerRunc}, {}, {}, {}, {}, {}, {{"resource3", "rw"}});
     // Desired instances
     testData->mRunRequests.PushBack(
         CreateRunRequest(cService1, cSubject1, 100, 2, "", {}, UpdateItemTypeEnum::eService));
