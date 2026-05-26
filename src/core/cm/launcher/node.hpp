@@ -116,7 +116,7 @@ public:
      * @return Error.
      */
     Error ReserveResources(const InstanceIdent& instanceIdent, const String& runtimeID, size_t reqCPU, size_t reqRAM,
-        const Array<StaticString<cResourceNameLen>>& reqResources) override;
+        const Array<oci::ResourceInfo>& reqResources) override;
 
     /**
      * Sends scheduled instances to node.

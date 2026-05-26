@@ -504,7 +504,7 @@ bool ServiceInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResources)
 
     for (const auto& resource : mItemConfig->mResources) {
         auto matchResource
-            = [&resource](const ResourceInfo& info) { return info.mName == resource && info.mSharedCount > 0; };
+            = [&resource](const ResourceInfo& info) { return info.mName == resource.mName && info.mSharedCount > 0; };
 
         if (!nodeResources.ContainsIf(matchResource)) {
             return false;
@@ -812,8 +812,8 @@ Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runt
 {
     auto requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
     auto requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
-    Array<StaticString<cResourceNameLen>> requestedResources
-        = mItemConfig->mSkipResourceLimits ? Array<StaticString<cResourceNameLen>>() : mItemConfig->mResources;
+    Array<oci::ResourceInfo> requestedResources
+        = mItemConfig->mSkipResourceLimits ? Array<oci::ResourceInfo>() : mItemConfig->mResources;
 
     auto reserveErr
         = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);

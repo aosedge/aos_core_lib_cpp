@@ -90,6 +90,32 @@ struct RequestedResources {
 };
 
 /**
+ * Resource info.
+ */
+struct ResourceInfo {
+    StaticString<cResourceNameLen> mName;
+    StaticString<cPermissionsLen>  mMode;
+
+    /**
+     * Compares resource info.
+     *
+     * @param rhs resource info to compare.
+     * @return bool.
+     */
+    bool operator==(const ResourceInfo& rhs) const { return mName == rhs.mName && mMode == rhs.mMode; }
+
+    /**
+     * Compares resource info.
+     *
+     * @param rhs resource info to compare.
+     * @return bool.
+     */
+    bool operator!=(const ResourceInfo& rhs) const { return !operator==(rhs); }
+};
+
+using ResourceInfos = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+
+/**
  * Balancing policy.
  */
 class BalancingPolicyType {
@@ -129,7 +155,7 @@ struct ItemConfig {
     ServiceQuotas                                                                  mQuotas;
     Optional<RequestedResources>                                                   mRequestedResources;
     StaticArray<StaticString<cConnectionNameLen>, cMaxNumConnections>              mAllowedConnections;
-    StaticArray<StaticString<cResourceNameLen>, cMaxNumNodeResources>              mResources;
+    ResourceInfos                                                                  mResources;
     StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
     Optional<AlertRules>                                                           mAlertRules;
 
