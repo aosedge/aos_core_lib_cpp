@@ -42,6 +42,14 @@ public:
         = 0;
 
     /**
+     * Returns available count of a shared resource by name.
+     *
+     * @param resourceName resource name.
+     * @return size_t available count (0 if the resource is not exposed by the node).
+     */
+    virtual size_t GetAvailableResourceCount(const String& resourceName) const = 0;
+
+    /**
      * Returns node configuration.
      *
      * @return const NodeConfig&

@@ -161,6 +161,9 @@ void Node::PrepareForBalancing(bool rebalancing)
     mAvailableCPU       = mSystemCPUUsage > totalCPU ? 0 : totalCPU - mSystemCPUUsage;
     mAvailableRAM       = mSystemRAMUsage > totalRAM ? 0 : totalRAM - mSystemRAMUsage;
     mAvailableResources = mInfo.mResources;
+    for (auto& resource : mAvailableResources) {
+        resource.mSharedCount = resource.mSharedCount == 0 ? SIZE_MAX : resource.mSharedCount;
+    }
 
     if (mNeedBalancing) {
         LOG_DBG() << "Node resource usage" << Log::Field("nodeID", mInfo.mNodeID) << Log::Field("RAM", mSystemRAMUsage)
@@ -226,6 +229,17 @@ size_t Node::GetAvailableRAM(const String& runtimeID)
     const auto* ptr = GetPtrToAvailableRAM(runtimeID);
 
     return ptr == nullptr ? 0 : *ptr;
+}
+
+size_t Node::GetAvailableResourceCount(const String& resourceName) const
+{
+    const auto it
+        = mAvailableResources.FindIf([&resourceName](const ResourceInfo& info) { return info.mName == resourceName; });
+    if (it == mAvailableResources.end()) {
+        return 0;
+    }
+
+    return it->mSharedCount;
 }
 
 bool Node::IsMaxNumInstancesReached(const String& runtimeID)

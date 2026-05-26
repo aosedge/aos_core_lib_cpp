@@ -334,9 +334,9 @@ bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& 
     return true;
 }
 
-bool ComponentInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResources)
+bool ComponentInstance::AreNodeResourcesOk(const NodeItf& node)
 {
-    (void)nodeResources;
+    (void)node;
 
     return true;
 }
@@ -498,15 +498,12 @@ bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& no
     return ok;
 }
 
-bool ServiceInstance::AreNodeResourcesOk(const ResourceInfoArray& nodeResources)
+bool ServiceInstance::AreNodeResourcesOk(const NodeItf& node)
 {
     assert(mItemConfig);
 
     for (const auto& resource : mItemConfig->mResources) {
-        auto matchResource
-            = [&resource](const ResourceInfo& info) { return info.mName == resource.mName && info.mSharedCount > 0; };
-
-        if (!nodeResources.ContainsIf(matchResource)) {
+        if (node.GetAvailableResourceCount(resource.mName) == 0) {
             return false;
         }
     }
