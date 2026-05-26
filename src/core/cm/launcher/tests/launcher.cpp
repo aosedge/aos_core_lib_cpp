@@ -2126,7 +2126,7 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
     auto stopInstance
         = CreateRunInfoForStoppedService(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 0, 0, 0);
     auto startInstance = CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc,
-        5000, 5000, 50, "2", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
+        5000, 5000, 50, "", {}, SubjectTypeEnum::eGroup, "", tests::utils::ConvertToArray(expectedEnvVarsList));
 
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
         = {{cNodeIDLocalSM, {{stopInstance}, {startInstance}}}};
@@ -2334,11 +2334,9 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
 
     expectedRunRequests[cNodeIDLocalSM]   = {{},
-          {CreateServiceRunInfo(
-            CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100, "2")}};
+          {CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100)}};
     expectedRunRequests[cNodeIDRemoteSM1] = {{},
-        {CreateServiceRunInfo(
-            CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50, "3")}};
+        {CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50)}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
@@ -2371,7 +2369,6 @@ TEST_F(CMLauncherTest, CpuAlertRebalancingMovesLowerPriorityService)
     mNodeInfoProvider.AddNodeInfo(cNodeIDRemoteSM1, nodeInfoRemoteSM1);
 
     mImageStore.Init();
-    mNetworkManager.Init();
     mInstanceStatusProvider.Init();
     mMonitoringProvider.Init();
     mAlertsProvider.Init();
@@ -2410,11 +2407,11 @@ TEST_F(CMLauncherTest, CpuAlertRebalancingMovesLowerPriorityService)
     }
 
     // Init launcher.
-    ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
-                    .IsNone());
+    ASSERT_TRUE(
+        mLauncher
+            .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
+                mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider, ValidateGID, ValidateUID, mStorage)
+            .IsNone());
 
     InstanceStatusListenerStub instanceStatusListener;
     mLauncher.SubscribeListener(instanceStatusListener);
@@ -2468,12 +2465,12 @@ TEST_F(CMLauncherTest, CpuAlertRebalancingMovesLowerPriorityService)
     //     because localSM available CPU (reduced by the alert min threshold) is no
     //     longer enough to fit service2.
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests;
-    expectedRunRequests[cNodeIDLocalSM].mStartInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, "4", 100));
+    expectedRunRequests[cNodeIDLocalSM].mStartInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 100));
     expectedRunRequests[cNodeIDLocalSM].mStopInstances.push_back(
         CreateAosStopInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), cRunnerRunc));
-    expectedRunRequests[cNodeIDRemoteSM1].mStartInstances.push_back(CreateServiceRunInfo(
-        CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, "5", 50));
+    expectedRunRequests[cNodeIDRemoteSM1].mStartInstances.push_back(
+        CreateServiceRunInfo(CreateInstanceIdent(cService2, cSubject1, 0), cImageID1, cRunnerRunc, 5001, 5001, 50));
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
 }
@@ -2586,7 +2583,6 @@ TEST_F(CMLauncherTest, UnlimitedSharedResource)
 
     mNodeInfoProvider.Init();
     mImageStore.Init();
-    mNetworkManager.Init();
     mInstanceStatusProvider.Init();
     mMonitoringProvider.Init();
     mAlertsProvider.Init();
@@ -2615,11 +2611,11 @@ TEST_F(CMLauncherTest, UnlimitedSharedResource)
 
     mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
-    ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
-                        mResourceManager, mStorageState, mNetworkManager, mMonitoringProvider, mAlertsProvider,
-                        mIdentProvider, ValidateGID, ValidateUID, mStorage)
-                    .IsNone());
+    ASSERT_TRUE(
+        mLauncher
+            .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore, mResourceManager,
+                mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider, ValidateGID, ValidateUID, mStorage)
+            .IsNone());
 
     ASSERT_TRUE(mLauncher.Start().IsNone());
 
