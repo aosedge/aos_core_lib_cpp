@@ -43,6 +43,20 @@ public:
         NodeConfigHandlerItf& nodeConfigHandler, JSONProviderItf& jsonProvider);
 
     /**
+     * Starts unit config.
+     *
+     * @return Error.
+     */
+    Error Start();
+
+    /**
+     * Stops unit config.
+     *
+     * @return Error.
+     */
+    Error Stop();
+
+    /**
      * Gets unit config status.
      *
      * @param[out] status unit config status.

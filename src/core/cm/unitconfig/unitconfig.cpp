@@ -33,6 +33,20 @@ Error UnitConfig::Init(const Config& config, nodeinfoprovider::NodeInfoProviderI
     return ErrorEnum::eNone;
 }
 
+Error UnitConfig::Start()
+{
+    LOG_DBG() << "Start unit config";
+
+    return mNodeInfoProvider->SubscribeListener(*this);
+}
+
+Error UnitConfig::Stop()
+{
+    LOG_DBG() << "Stop unit config";
+
+    return mNodeInfoProvider->UnsubscribeListener(*this);
+}
+
 Error UnitConfig::GetUnitConfigStatus(UnitConfigStatus& status)
 {
     LockGuard lock {mMutex};
@@ -154,6 +168,12 @@ Error UnitConfig::UpdateUnitConfig(const aos::UnitConfig& unitConfig)
 
         if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
+        }
+
+        if (!nodeInfo->mIsConnected) {
+            LOG_DBG() << "Skip node config update due to node is not connected" << Log::Field("nodeID", id);
+
+            continue;
         }
 
         if (auto err = FindNodeConfig(nodeInfo->mNodeID, nodeInfo->mNodeType, unitConfig, *nodeConfig); !err.IsNone()) {
