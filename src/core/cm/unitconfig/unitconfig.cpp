@@ -69,6 +69,18 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
     }
 
     for (const auto& id : nodeIds) {
+        auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+
+        if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (!nodeInfo->mIsConnected) {
+            LOG_DBG() << "Skip node config check due to node is not connected" << Log::Field("nodeID", id);
+
+            continue;
+        }
+
         NodeConfigStatus nodeConfigStatus;
 
         if (auto err = mNodeConfigHandler->GetNodeConfigStatus(id, nodeConfigStatus); !err.IsNone()) {
@@ -77,11 +89,6 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
 
         if (nodeConfigStatus.mVersion != config.mVersion || !nodeConfigStatus.mError.IsNone()) {
             auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
-            auto nodeInfo   = MakeUnique<UnitNodeInfo>(&mAllocator);
-
-            if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
 
             if (auto err = FindNodeConfig(nodeInfo->mNodeID, nodeInfo->mNodeType, config, *nodeConfig); !err.IsNone()) {
                 return err;
@@ -172,6 +179,12 @@ void UnitConfig::OnNodeInfoChanged(const UnitNodeInfo& info)
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled) {
         LOG_WRN() << "Can't update node config due to state" << Log::Field("nodeID", info.mNodeID)
                   << Log::Field("state", mUnitConfigState) << Log::Field(mUnitConfigError);
+
+        return;
+    }
+
+    if (!info.mIsConnected) {
+        LOG_DBG() << "Skip node config update due to node is not connected" << Log::Field("nodeID", info.mNodeID);
 
         return;
     }

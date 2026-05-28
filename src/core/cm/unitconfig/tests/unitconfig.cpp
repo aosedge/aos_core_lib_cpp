@@ -99,8 +99,9 @@ protected:
     UnitNodeInfo CreateTestNodeInfo(const String& nodeID = cTestNodeID)
     {
         UnitNodeInfo nodeInfo;
-        nodeInfo.mNodeID   = nodeID;
-        nodeInfo.mNodeType = cTestNodeType;
+        nodeInfo.mNodeID      = nodeID;
+        nodeInfo.mNodeType    = cTestNodeType;
+        nodeInfo.mIsConnected = true;
         return nodeInfo;
     }
 
@@ -422,6 +423,49 @@ TEST_F(UnitConfigTest, VersionComparisonPrerelease)
     auto higherPrereleaseVersion = CreateTestUnitConfig("1.0.0-beta");
     err                          = mUnitConfig.CheckUnitConfig(higherPrereleaseVersion);
     EXPECT_EQ(err, ErrorEnum::eWrongState);
+}
+
+TEST_F(UnitConfigTest, UpdateUnitConfigSkipsOfflineNodeThenSendsOnConnect)
+{
+    CreateTestConfigFile(cValidTestUnitConfig);
+
+    SetupValidUnitConfig();
+
+    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+
+    auto newUnitConfig = CreateTestUnitConfig("2.0.0");
+
+    EXPECT_CALL(mJSONProvider, UnitConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    StaticArray<StaticString<cIDLen>, cMaxNumNodes> nodeIds;
+    nodeIds.PushBack("node0");
+    nodeIds.PushBack("node1");
+
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_))
+        .WillOnce(DoAll(SetArgReferee<0>(nodeIds), Return(ErrorEnum::eNone)));
+
+    UnitNodeInfo offlineNodeInfo = CreateTestNodeInfo("node1");
+    offlineNodeInfo.mIsConnected = false;
+
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String("node0"), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo("node0")), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String("node1"), _))
+        .WillOnce(DoAll(SetArgReferee<1>(offlineNodeInfo), Return(ErrorEnum::eNone)));
+
+    EXPECT_CALL(mNodeConfigHandler, UpdateNodeConfig(String("node0"), _)).WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mUnitConfig.UpdateUnitConfig(newUnitConfig);
+    EXPECT_TRUE(err.IsNone());
+
+    // node1 comes online — its config is outdated, update must be sent
+    NodeConfigStatus node1Status;
+    node1Status.mVersion = "1.0.0";
+
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String("node1"), _))
+        .WillOnce(DoAll(SetArgReferee<1>(node1Status), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, UpdateNodeConfig(String("node1"), _)).WillOnce(Return(ErrorEnum::eNone));
+
+    mUnitConfig.OnNodeInfoChanged(CreateTestNodeInfo("node1"));
 }
 
 TEST_F(UnitConfigTest, CheckUnitConfigMultipleNodes)
