@@ -10,6 +10,7 @@
 #include "itf/instancerunner.hpp"
 #include "itf/launcher.hpp"
 #include "itf/monitoringprovider.hpp"
+#include <core/common/statushandler/itf/handler.hpp>
 
 #include "imageinfoprovider.hpp"
 #include "instancemanager.hpp"
@@ -34,9 +35,10 @@ public:
      * @param nodeManager node manager.
      * @param monitorProvider monitoring provider.
      * @param runner instance runner interface.
+     * @param statusHandler status handler interface.
      */
     void Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner);
+        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner, statushandler::HandlerItf& statusHandler);
 
     /**
      * Runs instances.
@@ -53,6 +55,13 @@ public:
      * @return Error.
      */
     Error LoadSMDataForActiveInstances();
+
+    /**
+     * Sends instance statuses to nodes.
+     *
+     * @return Error.
+     */
+    Error SendInstanceStatuses();
 
 private:
     using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
@@ -91,13 +100,15 @@ private:
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
     Error PrepareForBalancing(bool rebalancing, bool isInitialUpdate = false);
     Error UpdateMonitoringData(bool isInitialUpdate = false);
+    Error SendFailedInstanceStatuses();
 
-    ImageInfoProvider*     mImageInfoProvider {};
-    InstanceManager*       mInstanceManager {};
-    NodeManager*           mNodeManager {};
-    MonitoringProviderItf* mMonitorProvider {};
-    InstanceRunnerItf*     mRunner {};
-    SubjectArray           mSubjects;
+    ImageInfoProvider*         mImageInfoProvider {};
+    InstanceManager*           mInstanceManager {};
+    NodeManager*               mNodeManager {};
+    MonitoringProviderItf*     mMonitorProvider {};
+    InstanceRunnerItf*         mRunner {};
+    statushandler::HandlerItf* mStatusHandler {};
+    SubjectArray               mSubjects;
 
     StaticAllocator<cAllocatorSize> mAllocator;
 };

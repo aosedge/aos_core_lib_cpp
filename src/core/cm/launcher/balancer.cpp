@@ -15,13 +15,14 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
+    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner, statushandler::HandlerItf& statusHandler)
 {
     mInstanceManager   = &instanceManager;
     mImageInfoProvider = &imageInfoProvider;
     mNodeManager       = &nodeManager;
     mMonitorProvider   = &monitorProvider;
     mRunner            = &runner;
+    mStatusHandler     = &statusHandler;
 }
 
 Error Balancer::RunInstances(Array<SharedPtr<Instance>>& instances, bool rebalancing)
@@ -45,13 +46,22 @@ Error Balancer::RunInstances(Array<SharedPtr<Instance>>& instances, bool rebalan
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mNodeManager->SendScheduledInstances(
-            mInstanceManager->GetActiveInstances(), mInstanceManager->GetRunningInstances());
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (mStatusHandler == nullptr) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "status handler is not initialized"));
     }
 
-    return ErrorEnum::eNone;
+    const auto& activeInstances = mInstanceManager->GetActiveInstances();
+
+    Error sendErr;
+    if (auto err = mNodeManager->SendScheduledInstances(activeInstances); !err.IsNone()) {
+        sendErr = AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = SendInstanceStatuses(); !err.IsNone() && sendErr.IsNone()) {
+        sendErr = AOS_ERROR_WRAP(err);
+    }
+
+    return sendErr;
 }
 
 Error Balancer::LoadSMDataForActiveInstances()
@@ -67,6 +77,43 @@ Error Balancer::LoadSMDataForActiveInstances()
     }
 
     return ErrorEnum::eNone;
+}
+
+Error Balancer::SendInstanceStatuses()
+{
+    const auto& instances = mInstanceManager->GetActiveInstances();
+
+    Error firstErr;
+    if (auto err = SendFailedInstanceStatuses(); !err.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
+    }
+
+    auto statuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+
+    for (const auto& node : mNodeManager->GetNodes()) {
+        const auto& nodeID = node.GetInfo().mNodeID;
+
+        statuses->Clear();
+
+        for (const auto& instance : instances) {
+            const auto& status = instance->GetStatus();
+
+            if (status.mNodeID != nodeID) {
+                continue;
+            }
+
+            if (auto err = statuses->PushBack(status); !err.IsNone() && firstErr.IsNone()) {
+                firstErr = AOS_ERROR_WRAP(err);
+            }
+        }
+
+        if (auto err = mStatusHandler->SetNodeInstancesStatuses(nodeID, *statuses);
+            !err.IsNone() && firstErr.IsNone()) {
+            firstErr = AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return firstErr;
 }
 
 /***********************************************************************************************************************
@@ -488,6 +535,35 @@ Error Balancer::PrepareForBalancing(bool rebalancing, bool isInitialUpdate)
     }
 
     return ErrorEnum::eNone;
+}
+
+Error Balancer::SendFailedInstanceStatuses()
+{
+    Error firstErr = ErrorEnum::eNone;
+
+    for (const auto& instance : mInstanceManager->GetActiveInstances()) {
+        const auto& status = instance->GetStatus();
+
+        if (status.mState != aos::InstanceStateEnum::eFailed) {
+            continue;
+        }
+
+        if (auto err = mStatusHandler->SetInstanceStatus(status); !err.IsNone() && firstErr.IsNone()) {
+            firstErr = AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& status : mInstanceManager->GetPreinstalledComponents()) {
+        if (status.mState != aos::InstanceStateEnum::eFailed) {
+            continue;
+        }
+
+        if (auto err = mStatusHandler->SetInstanceStatus(status); !err.IsNone() && firstErr.IsNone()) {
+            firstErr = AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return firstErr;
 }
 
 } // namespace aos::cm::launcher

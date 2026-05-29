@@ -177,13 +177,12 @@ Array<Node>& NodeManager::GetNodes()
     return mNodes;
 }
 
-Error NodeManager::SendScheduledInstances(
-    const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances)
+Error NodeManager::SendScheduledInstances(const Array<SharedPtr<Instance>>& scheduledInstances)
 {
     Error firstErr = ErrorEnum::eNone;
 
     for (auto& node : mNodes) {
-        auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
+        auto err = node.SendScheduledInstances(scheduledInstances);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
                       << Log::Field(err);

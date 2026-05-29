@@ -317,11 +317,8 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     return ErrorEnum::eNone;
 }
 
-Error Node::SendScheduledInstances(
-    const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances)
+Error Node::SendScheduledInstances(const Array<SharedPtr<Instance>>& scheduledInstances)
 {
-    (void)runningInstances;
-
     auto instancesToRun = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
 
     for (const auto& instance : FilterByNode(scheduledInstances, mInfo.mNodeID)) {

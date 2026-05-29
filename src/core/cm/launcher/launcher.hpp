@@ -14,6 +14,7 @@
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
+#include <core/common/statushandler/itf/handler.hpp>
 
 #include "itf/envvarhandler.hpp"
 #include "itf/instancestatusreceiver.hpp"
@@ -57,6 +58,7 @@ public:
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage storage interface.
+     * @param statusHandler status handler.
      * @return Error.
      */
     Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
@@ -64,7 +66,7 @@ public:
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
         iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+        IdentifierPoolValidator uidValidator, StorageItf& storage, statushandler::HandlerItf& statusHandler);
 
     /**
      * Starts launcher instance.
@@ -110,7 +112,6 @@ private:
     void SendRunStatus();
 
     void UpdateInstanceStatuses();
-    void FailActivatingInstances();
 
     Error BalanceInstances(bool rebalance);
 
@@ -144,6 +145,7 @@ private:
     storagestate::StorageStateItf*         mStorageState {};
     MonitoringProviderItf*                 mMonitorProvider {};
     alerts::AlertsProviderItf*             mAlertsProvider {};
+    statushandler::HandlerItf*             mStatusHandler {};
 
     // Managers
     RunRequestsLoader mRunRequestsLoader {};

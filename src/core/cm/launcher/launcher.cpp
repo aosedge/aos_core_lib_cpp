@@ -35,7 +35,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
     iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
-    IdentifierPoolValidator uidValidator, StorageItf& storage)
+    IdentifierPoolValidator uidValidator, StorageItf& storage, statushandler::HandlerItf& statusHandler)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -48,6 +48,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mMonitorProvider    = &monitorProvider;
     mAlertsProvider     = &alertsProvider;
     mIdentProvider      = &identProvider;
+    mStatusHandler      = &statusHandler;
 
     mImageInfoProvider.Init(itemInfoProvider, ociSpec);
 
@@ -58,7 +59,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
 
     mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
-    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
+    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner, statusHandler);
 
     return ErrorEnum::eNone;
 }
@@ -333,23 +334,6 @@ void Launcher::UpdateInstanceStatuses()
     }
 }
 
-void Launcher::FailActivatingInstances()
-{
-    for (auto& instance : mInstanceManager.GetActiveInstances()) {
-        if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating
-            && instance->GetStatus().mType != UpdateItemTypeEnum::eComponent) {
-            const auto& instanceInfo = instance->GetInfo();
-
-            // Keep node ID, because instance still scheduled, but node didn't send activating status.
-            LOG_ERR() << "Instance failed to activate" << Log::Field("instance", instanceInfo.mInstanceIdent)
-                      << Log::Field("runtimeID", instanceInfo.mRuntimeID)
-                      << Log::Field("manifestDigest", instanceInfo.mManifestDigest);
-
-            instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout), false);
-        }
-    }
-}
-
 Error Launcher::BalanceInstances(bool rebalance)
 {
     LOG_DBG() << "Balance instances" << Log::Field("rebalance", rebalance);
@@ -360,7 +344,6 @@ Error Launcher::BalanceInstances(bool rebalance)
 
     auto runErr = mBalancer.RunInstances(*instances, rebalance);
 
-    FailActivatingInstances();
     UpdateInstanceStatuses();
 
     if (!runErr.IsNone()) {
