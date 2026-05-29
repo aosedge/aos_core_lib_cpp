@@ -81,12 +81,10 @@ void NormalizeMonitoringData(NodeMonitoringData& monitoringData)
     uint64_t totalInstancesDownload = 0;
     uint64_t totalInstancesUpload   = 0;
 
-    monitoringData.mMonitoringData.mTimestamp = monitoringData.mTimestamp;
-
     auto& nodeMonitoringData = monitoringData.mMonitoringData;
 
     for (auto& instanceMonitoring : monitoringData.mInstances) {
-        instanceMonitoring.mMonitoringData.mTimestamp = monitoringData.mTimestamp;
+        instanceMonitoring.mMonitoringData.mTimestamp = monitoringData.mMonitoringData.mTimestamp;
 
         totalInstancesDMIPS += instanceMonitoring.mMonitoringData.mCPU;
         totalInstancesRAM += instanceMonitoring.mMonitoringData.mRAM;
@@ -412,8 +410,8 @@ void Monitoring::ProcessMonitoring()
 {
     UniqueLock lock {mMutex};
 
-    auto nodeMonitoringData        = MakeUnique<NodeMonitoringData>(&mAllocator);
-    nodeMonitoringData->mTimestamp = Time::Now();
+    auto nodeMonitoringData                        = MakeUnique<NodeMonitoringData>(&mAllocator);
+    nodeMonitoringData->mMonitoringData.mTimestamp = Time::Now();
 
     GetInstanceMonitoringData(nodeMonitoringData->mInstances);
 

@@ -31,8 +31,8 @@ std::unique_ptr<aos::monitoring::NodeMonitoringData> CreateNodeMonitoringData(
 {
     auto monitoring = std::make_unique<aos::monitoring::NodeMonitoringData>();
 
-    monitoring->mNodeID    = nodeID.c_str();
-    monitoring->mTimestamp = timestamp;
+    monitoring->mNodeID                    = nodeID.c_str();
+    monitoring->mMonitoringData.mTimestamp = timestamp;
 
     return monitoring;
 }
