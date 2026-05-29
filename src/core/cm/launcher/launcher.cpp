@@ -134,6 +134,11 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    // Send instance statuses to statushandler.
+    if (auto err = mBalancer.SendInstanceStatuses(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     // Load SM data for active instances.
     if (auto err = mBalancer.LoadSMDataForActiveInstances(); !err.IsNone()) {
         LOG_ERR() << "Can't load SM data for active instances" << Log::Field(err);
