@@ -40,7 +40,7 @@ public:
         SystemQuotaAlert alert;
         AlertVariant     variant;
 
-        alert.mState = QuotaAlertStateEnum::eFall;
+        alert.mState = QuotaAlertStateEnum::eRaise;
         variant.SetValue(alert);
 
         for (const auto& listenerInfo : mListeners) {
