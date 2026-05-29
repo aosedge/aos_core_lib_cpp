@@ -120,11 +120,9 @@ public:
      * Sends scheduled instances to node.
      *
      * @param scheduledInstances scheduled instances.
-     * @param runningInstances running instances.
      * @return Error.
      */
-    Error SendScheduledInstances(
-        const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances);
+    Error SendScheduledInstances(const Array<SharedPtr<Instance>>& scheduledInstances);
 
     /**
      * Resends instances to node.
@@ -134,7 +132,7 @@ public:
      * @param forceRestart force restart instances.
      * @return Error.
      */
-    RetWithError<bool> ResendInstances(const Array<SharedPtr<Instance>>& scheduledInstances,
+    Error ResendInstances(const Array<SharedPtr<Instance>>& scheduledInstances,
         const Array<InstanceStatus>& runningInstances, bool forceRestart);
 
     /**

@@ -14,6 +14,7 @@
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
+#include <core/common/statushandler/itf/handler.hpp>
 
 #include "itf/envvarhandler.hpp"
 #include "itf/instancestatusreceiver.hpp"
@@ -57,6 +58,7 @@ public:
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage storage interface.
+     * @param statusHandler status handler.
      * @return Error.
      */
     Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
@@ -64,7 +66,7 @@ public:
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
         iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+        IdentifierPoolValidator uidValidator, StorageItf& storage, statushandler::HandlerItf& statusHandler);
 
     /**
      * Starts launcher instance.
@@ -92,34 +94,6 @@ public:
     Error RunInstances(const Array<RunInstanceRequest>& instances, Array<InstanceStatus>& statuses) override;
 
     //
-    // InstanceStatusProviderItf implementation
-    //
-
-    /**
-     * Returns current statuses of running instances.
-     *
-     * @param statuses instances statuses.
-     * @return Error.
-     */
-    Error GetInstancesStatuses(Array<InstanceStatus>& statuses) override;
-
-    /**
-     * Subscribes status notifications.
-     *
-     * @param listener status listener.
-     * @return Error.
-     */
-    Error SubscribeListener(instancestatusprovider::ListenerItf& listener) override;
-
-    /**
-     * Unsubscribes from status notifications.
-     *
-     * @param listener status listener.
-     * @return Error.
-     */
-    Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override;
-
-    //
     // EnvVarHandlerItf implementation
     //
 
@@ -132,16 +106,14 @@ public:
     Error OverrideEnvVars(const OverrideEnvVarsRequest& envVars) override;
 
 private:
-    static constexpr auto cMaxNumInstanceStatusListeners = 8;
-    static constexpr auto cAllocatorSize                 = 2 * sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
+    static constexpr auto cAllocatorSize = 2 * sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
         + sizeof(StaticArray<SharedPtr<Instance>, cMaxNumInstances>);
 
     void SendRunStatus();
 
     void UpdateInstanceStatuses();
-    void FailActivatingInstances();
 
-    Error BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance);
+    Error BalanceInstances(bool rebalance);
 
     void ProcessUpdate();
     void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
@@ -164,16 +136,16 @@ private:
     void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
 
     // External dependencies
-    Config                                                                            mConfig;
-    StorageItf*                                                                       mStorage {};
-    nodeinfoprovider::NodeInfoProviderItf*                                            mNodeInfoProvider {};
-    iamclient::IdentProviderItf*                                                      mIdentProvider {};
-    InstanceRunnerItf*                                                                mRunner {};
-    unitconfig::NodeConfigProviderItf*                                                mNodeConfigProvider {};
-    storagestate::StorageStateItf*                                                    mStorageState {};
-    MonitoringProviderItf*                                                            mMonitorProvider {};
-    alerts::AlertsProviderItf*                                                        mAlertsProvider {};
-    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
+    Config                                 mConfig;
+    StorageItf*                            mStorage {};
+    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
+    iamclient::IdentProviderItf*           mIdentProvider {};
+    InstanceRunnerItf*                     mRunner {};
+    unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
+    storagestate::StorageStateItf*         mStorageState {};
+    MonitoringProviderItf*                 mMonitorProvider {};
+    alerts::AlertsProviderItf*             mAlertsProvider {};
+    statushandler::HandlerItf*             mStatusHandler {};
 
     // Managers
     RunRequestsLoader mRunRequestsLoader {};

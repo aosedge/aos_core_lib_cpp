@@ -60,10 +60,6 @@ Error NodeManager::Stop()
 {
     mNodes.Clear();
 
-    // Unlock waiting run requests.
-    mNodesExpectedToSendStatus.Clear();
-    mStatusUpdateCondVar.NotifyAll();
-
     return ErrorEnum::eNone;
 }
 
@@ -145,12 +141,6 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     node->NotifyInstanceStatusReceived();
 
-    if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
-        if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
-        }
-    }
-
     return ErrorEnum::eNone;
 }
 
@@ -187,13 +177,12 @@ Array<Node>& NodeManager::GetNodes()
     return mNodes;
 }
 
-Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
-    const Array<InstanceStatus>& runningInstances)
+Error NodeManager::SendScheduledInstances(const Array<SharedPtr<Instance>>& scheduledInstances)
 {
     Error firstErr = ErrorEnum::eNone;
 
     for (auto& node : mNodes) {
-        auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
+        auto err = node.SendScheduledInstances(scheduledInstances);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
                       << Log::Field(err);
@@ -208,51 +197,25 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
         return firstErr;
     }
 
-    // Wait for node statuses
-    mNodesExpectedToSendStatus.Clear();
-
-    for (auto& node : mNodes) {
-        if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    auto err
-        = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     return ErrorEnum::eNone;
 }
 
-Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
+Error NodeManager::ResendInstances(const Array<StaticString<cIDLen>>& updatedNodes,
     const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
     Error firstErr = ErrorEnum::eNone;
-
-    mNodesExpectedToSendStatus.Clear();
 
     for (auto& node : mNodes) {
         if (!updatedNodes.Contains(node.GetInfo().mNodeID)) {
             continue;
         }
 
-        auto [isRequestSent, sendErr] = node.ResendInstances(activeInstances, runningInstances, forceRestart);
-        if (!sendErr.IsNone()) {
+        if (auto err = node.ResendInstances(activeInstances, runningInstances, forceRestart); !err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
-                      << Log::Field(sendErr);
+                      << Log::Field(err);
 
             if (firstErr.IsNone()) {
-                firstErr = sendErr;
-            }
-        }
-
-        if (isRequestSent) {
-            if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
-                if (firstErr.IsNone()) {
-                    firstErr = AOS_ERROR_WRAP(err);
-                }
+                firstErr = err;
             }
         }
     }
@@ -261,24 +224,11 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
         return firstErr;
     }
 
-    auto err
-        = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     return ErrorEnum::eNone;
 }
 
 bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 {
-    // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
-    if (info.mState != NodeStateEnum::eProvisioned) {
-        if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
-        }
-    }
-
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
         if (info.mState != NodeStateEnum::eProvisioned) {

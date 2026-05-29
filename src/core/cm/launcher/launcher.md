@@ -11,9 +11,7 @@ It implements the following interfaces:
 
 - [aos::cm::launcher::LauncherItf](itf/launcher.hpp) - main launcher interface to schedule and run instances;
 - [aos::cm::launcher::InstanceStatusReceiverItf](itf/instancestatusreceiver.hpp) - receives instances statuses;
-- [aos::cm::launcher::EnvVarHandlerItf](itf/envvarhandler.hpp) - overrides instances env vars;
-- [aos::instancestatusprovider::ProviderItf](../../common/instancestatusprovider/itf/instancestatusprovider.hpp) -
-  notifies other modules about instances statuses.
+- [aos::cm::launcher::EnvVarHandlerItf](itf/envvarhandler.hpp) - overrides instances env vars.
 
 It requires the following interfaces:
 
@@ -38,10 +36,6 @@ classDiagram
     }
 
     class LauncherItf["aos::cm::launcher::LauncherItf"] {
-        <<interface>>
-    }
-
-    class InstanceStatusProviderItf["aos::instancestatusprovider::ProviderItf"] {
         <<interface>>
     }
 
@@ -85,8 +79,6 @@ classDiagram
         <<interface>>
     }
 
-    LauncherItf ..|> InstanceStatusProviderItf
-
     Launcher ..|> LauncherItf
     Launcher ..|> InstanceStatusReceiverItf
     Launcher ..|> EnvVarHandlerItf
@@ -108,43 +100,27 @@ instance status or receiving full node instances statuses. If instances status i
 timeout, error state is set for these instances.
 
 Launcher subscribes to node info changing and if a node goes into error state, all these node instances are switched to
-error state as well. All subscribed status listeners are notified about instances error states in this case.
+error state as well.
 
 Normal startup sequence looks as the following:
 
 ```mermaid
 sequenceDiagram
-    participant updatemanager
     participant launcher
     participant smcontroller
 
     Note over launcher: Init
 
-    updatemanager ->>+ launcher: GetInstancesStatuses
-    launcher -->>- updatemanager: activating
-
     loop Receive instances statuses
         smcontroller -->> launcher: OnInstanceStatusReceived(active)
-
-        loop Notifies status listeners
-            launcher -->> updatemanager: OnInstancesStatusesChanged(active)
-        end
     end
 
     loop Receive nodes full instances statuses
         smcontroller -->> launcher: OnNodeInstancesStatusesReceived
-
-        loop Notifies status listeners if state changed
-            launcher -->> updatemanager: OnInstancesStatusesChanged
-        end
     end
 ```
 
 ## aos::cm::launcher::LauncherItf
-
-### GetInstancesStatuses
-
-Returns current instances statuses.
 
 ### RunInstances
 
@@ -170,23 +146,12 @@ sequenceDiagram
 
     loop Receive instances statuses
         smcontroller -->> launcher: OnInstanceStatusReceived
-
-        loop Notifies status listeners
-            launcher -->> updatemanager: OnInstancesStatusesChanged
-        end
     end
 
     loop Wait all nodes full instances statuses
         smcontroller -->> launcher: OnNodeInstancesStatusesReceived
-
-        loop Notifies status listeners if state changed
-            launcher -->> updatemanager: OnInstancesStatusesChanged
-        end
     end
 
-    launcher -->>- updatemanager: OK
-
-    updatemanager ->>+ launcher: GetInstancesStatuses
     launcher -->>- updatemanager: statuses
 ```
 
@@ -201,29 +166,16 @@ node parameters, resources are changed.
 
 This function is blocked till all update instances requests are confirmed or fail.
 
-## aos::cm::launcher::StatusNotifierItf
-
-Notifies subscribers about changing instances statuses.
-
-### SubscribeListener
-
-Subscribes to changing instances statuses.
-
-### UnsubscribeListener
-
-Unsubscribes from changing instances statuses.
-
 ## aos::cm::smcontroller::InstanceStatusReceiverItf
 
 ### OnInstanceStatusReceived
 
-Called when instance status is received from SM. New status is compared with internal one and if state is changed all
-subscribed to status change listeners are notified.
+Called when instance status is received from SM. Internal instance status cache is updated based on the new status.
 
 ### OnNodeInstancesStatusesReceived
 
-Called when full node instances statuses are received from SM. New statuses are compared with internal ones and if
-states are changed all subscribed to status change listeners are notified.
+Called when full node instances statuses are received from SM. Internal instance status cache is updated based on the
+new statuses.
 
 This notification is sent by SM on start after all previously scheduled instances are launched and as the response on
 update instances request.
@@ -245,9 +197,6 @@ classDiagram
         +Stop() Error
         +RunInstances(instances, statuses) Error
         +Rebalance() Error
-        +GetInstancesStatuses(statuses) Error
-        +SubscribeListener(listener) Error
-        +UnsubscribeListener(listener) Error
     }
 
     %% ========================================
@@ -398,13 +347,11 @@ The system depends on several external interfaces that provide essential functio
 **Implemented Interfaces:**
 
 - `LauncherItf` - Defines the contract for running instances and rebalancing
-- `InstanceStatusProviderItf` - Provides current instance statuses to subscribers
 
 **Key Responsibilities:**
 
 - Orchestrates instance lifecycle operations (run, stop, rebalance)
 - Coordinates between InstanceManager, NodeManager, and Balancer
-- Notifies subscribers of instance status changes
 
 ### Layer 3: Managers & Balancer
 
