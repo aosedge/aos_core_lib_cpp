@@ -16,7 +16,10 @@ namespace aos::cm::launcher {
 
 class ShouldRebalanceVisitor : public StaticVisitor<bool> {
 public:
-    Res Visit(const SystemQuotaAlert& alert) const { return alert.mState == QuotaAlertStateEnum::eFall; }
+    Res Visit(const SystemQuotaAlert& alert) const
+    {
+        return alert.mState == QuotaAlertStateEnum::eRaise || alert.mState == QuotaAlertStateEnum::eContinue;
+    }
 
     template <typename T>
     Res Visit(const T& alert) const
