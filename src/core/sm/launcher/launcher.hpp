@@ -7,6 +7,7 @@
 #define AOS_CORE_SM_LAUNCHER_LAUNCHER_HPP_
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
+#include <core/common/crypto/itf/uuid.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/instanceinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
@@ -15,7 +16,10 @@
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/instance.hpp>
 #include <core/sm/imagemanager/imagemanager.hpp>
+#include <core/sm/networkmanager/itf/networkmanager.hpp>
+#include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
+#include "itf/instanceidprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
 #include "itf/runtime.hpp"
@@ -48,12 +52,16 @@ public:
      * @param ociSpec OCI spec.
      * @param itemInfoProvider item info provider.
      * @param cloudConnection cloud connection.
+     * @param networkManager network manager.
+     * @param instanceIDProvider instance ID provider.
+     * @param resourceInfoProvider resource info provider.
      *
      * @return Error.
      */
     Error Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
         StorageItf& storage, oci::OCISpecItf& ociSpec, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        cloudconnection::CloudConnectionItf& cloudConnection);
+        cloudconnection::CloudConnectionItf& cloudConnection, networkmanager::NetworkManagerItf& networkManager,
+        InstanceIDProviderItf& instanceIDProvider, resourcemanager::ResourceInfoProviderItf& resourceInfoProvider);
 
     /**
      * Starts launcher.
@@ -159,11 +167,13 @@ private:
         StaticString<cVersionLen> mVersion;
     };
 
+    static constexpr auto cOIDNamespace      = "6ba7b812-9dad-11d1-80b4-00c04fd430c8";
     static constexpr auto cThreadTaskSize    = 512;
     static constexpr auto cMaxNumSubscribers = 4;
     static constexpr auto cAllocatorSize     = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
         + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray) + sizeof(oci::ImageManifest)
-        + sizeof(oci::ItemConfig) + sizeof(StaticString<cFilePathLen>)
+        + sizeof(oci::ItemConfig) + sizeof(StaticString<cFilePathLen>) + sizeof(networkmanager::InstanceNetworkConfig)
+        + sizeof(resourcemanager::ResourceInfo)
         + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
             sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
                 + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
@@ -175,10 +185,13 @@ private:
     Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances);
-    Error StopInstance(InstanceData& instanceData);
+    Error StopInstance(InstanceData& instanceData, bool isRemoval);
+    void  StopInstanceTask(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData, bool isRemoval);
     void  StopAllInstances();
+    void  PrepareInstances(const Array<InstanceInfo>& startInstances);
     void  StartInstances(const Array<InstanceInfo>& startInstances);
     Error StartInstance(InstanceData& instanceData);
+    void  StartInstanceTask(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData);
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     Error StartLaunch();
@@ -190,7 +203,12 @@ private:
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
     Error                       RemoveInstanceData(const InstanceIdent& instanceIdent);
     void                        RemoveInstancesData(const Array<InstanceIdent>& instances);
-    void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
+    void  SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
+    Error GetInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
+    Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
+        const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
+    Error CreateNetwork(
+        const InstanceInfo& instance, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
 
     InstanceData*          FindInstanceData(const InstanceIdent& instanceIdent);
     InstanceData*          FindInstanceData(const InstanceIdent& instanceIdent) const;
@@ -223,6 +241,9 @@ private:
     oci::OCISpecItf*                                                      mOCISpec {};
     imagemanager::ItemInfoProviderItf*                                    mItemInfoProvider {};
     cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
+    networkmanager::NetworkManagerItf*                                    mNetworkManager {};
+    InstanceIDProviderItf*                                                mInstanceIDProvider {};
+    resourcemanager::ResourceInfoProviderItf*                             mResourceInfoProvider {};
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};

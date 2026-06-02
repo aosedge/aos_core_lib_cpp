@@ -16,7 +16,8 @@ namespace aos::sm::launcher {
 
 Error Launcher::Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
     StorageItf& storage, oci::OCISpecItf& ociSpec, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    cloudconnection::CloudConnectionItf& cloudConnection)
+    cloudconnection::CloudConnectionItf& cloudConnection, networkmanager::NetworkManagerItf& networkManager,
+    InstanceIDProviderItf& instanceIDProvider, resourcemanager::ResourceInfoProviderItf& resourceInfoProvider)
 {
     LOG_DBG() << "Init launcher";
 
@@ -26,12 +27,15 @@ Error Launcher::Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageMana
         }
     }
 
-    mImageManager     = &imageManager;
-    mStorage          = &storage;
-    mSender           = &sender;
-    mOCISpec          = &ociSpec;
-    mItemInfoProvider = &itemInfoProvider;
-    mCloudConnection  = &cloudConnection;
+    mImageManager         = &imageManager;
+    mStorage              = &storage;
+    mSender               = &sender;
+    mOCISpec              = &ociSpec;
+    mItemInfoProvider     = &itemInfoProvider;
+    mCloudConnection      = &cloudConnection;
+    mNetworkManager       = &networkManager;
+    mInstanceIDProvider   = &instanceIDProvider;
+    mResourceInfoProvider = &resourceInfoProvider;
 
     return ErrorEnum::eNone;
 }
@@ -600,6 +604,7 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         }
     }
 
+    PrepareInstances(startInstances);
     StartInstances(startInstances);
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
@@ -622,7 +627,7 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
             continue;
         }
 
-        if (auto err = StopInstance(*instanceData); !err.IsNone()) {
+        if (auto err = StopInstance(*instanceData, true); !err.IsNone()) {
             LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance) << Log::Field(err);
 
             SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
@@ -632,30 +637,52 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
     }
 }
 
-Error Launcher::StopInstance(InstanceData& instanceData)
+Error Launcher::StopInstance(InstanceData& instanceData, bool isRemoval)
 {
     auto runtime = FindInstanceRuntime(instanceData.mStatus.mRuntimeID);
     if (runtime == nullptr) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
     }
 
-    if (auto err = mLaunchPool.AddTask([this, runtime, &instanceData](void*) {
-            LOG_INF() << "Stop instance" << Log::Field("instance", instanceData.mInfo)
-                      << Log::Field("version", instanceData.mInfo.mVersion)
-                      << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID);
-
-            if (auto err = runtime->StopInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
-                LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                return;
-            }
-        });
+    if (auto err = mLaunchPool.AddTask(
+            [this, runtime, &instanceData, isRemoval](void*) { StopInstanceTask(runtime, instanceData, isRemoval); });
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
+}
+
+void Launcher::StopInstanceTask(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData, bool isRemoval)
+{
+    LOG_INF() << "Stop instance" << Log::Field("instance", instanceData.mInfo)
+              << Log::Field("version", instanceData.mInfo.mVersion)
+              << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID) << Log::Field("isRemoval", isRemoval);
+
+    if (auto err = runtime->StopInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
+        LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instanceData.mInfo)
+                  << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    if (instanceData.mInfo.mType != UpdateItemTypeEnum::eService || !isRemoval) {
+        return;
+    }
+
+    StaticString<cIDLen> instanceID;
+
+    if (auto err = mInstanceIDProvider->GetInstanceID(instanceData.mInfo, instanceID); !err.IsNone()) {
+        LOG_ERR() << "Failed to generate instance ID" << Log::Field("instance", instanceData.mInfo)
+                  << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    if (auto err = mNetworkManager->ReleaseInstanceNetwork(instanceID, instanceData.mInfo.mOwnerID); !err.IsNone()) {
+        LOG_ERR() << "Failed to release instance network" << Log::Field("instance", instanceData.mInfo)
+                  << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void Launcher::StopAllInstances()
@@ -672,7 +699,7 @@ void Launcher::StopAllInstances()
             continue;
         }
 
-        if (auto err = StopInstance(instance); !err.IsNone()) {
+        if (auto err = StopInstance(instance, false); !err.IsNone()) {
             LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance.mInfo) << Log::Field(err);
 
             SetInstanceState(instance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
@@ -688,7 +715,7 @@ void Launcher::StopAllInstances()
     }
 }
 
-void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
+void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
 {
     for (const auto& instance : startInstances) {
         auto instanceData = FindInstanceData(instance);
@@ -704,6 +731,41 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
             }
         } else {
             SetInstanceState(*instanceData, InstanceStateEnum::eInactive);
+
+            continue;
+        }
+
+        if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
+            continue;
+        }
+
+        auto itemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+        auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+
+        if (auto err = GetInstanceConfigs(instanceData->mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
+            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+
+            LOG_ERR() << "Failed to get instance configs" << Log::Field("instance", instanceData->mInfo)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+
+            continue;
+        }
+
+        if (auto err = CreateNetwork(instanceData->mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
+            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+        }
+    }
+}
+
+void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
+{
+    for (const auto& instance : startInstances) {
+        auto instanceData = FindInstanceData(instance);
+        if (!instanceData) {
+            LOG_ERR() << "Failed to find instance data" << Log::Field("instance", instance)
+                      << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
+
+            continue;
         }
 
         if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
@@ -728,24 +790,26 @@ Error Launcher::StartInstance(InstanceData& instanceData)
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
     }
 
-    if (auto err = mLaunchPool.AddTask([this, runtime, &instanceData](void*) {
-            LOG_INF() << "Start instance" << Log::Field("instance", instanceData.mInfo)
-                      << Log::Field("version", instanceData.mInfo.mVersion)
-                      << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID)
-                      << Log::Field("manifestDigest", instanceData.mInfo.mManifestDigest);
-
-            if (auto err = runtime->StartInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
-                LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                return;
-            }
-        });
+    if (auto err
+        = mLaunchPool.AddTask([this, runtime, &instanceData](void*) { StartInstanceTask(runtime, instanceData); });
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
+}
+
+void Launcher::StartInstanceTask(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData)
+{
+    LOG_INF() << "Start instance" << Log::Field("instance", instanceData.mInfo)
+              << Log::Field("version", instanceData.mInfo.mVersion)
+              << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID)
+              << Log::Field("manifestDigest", instanceData.mInfo.mManifestDigest);
+
+    if (auto err = runtime->StartInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
+        LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
+                  << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error Launcher::AppendInstancesWithModifiedParams(
@@ -1063,6 +1127,120 @@ void Launcher::SetInstanceState(InstanceData& instance, const InstanceState& sta
 
     instance.mStatus.mState = state;
     instance.mStatus.mError = error;
+}
+
+Error Launcher::GetInstanceConfigs(
+    const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig)
+{
+    LOG_DBG() << "Get instance configs" << Log::Field("instance", instance);
+
+    auto path = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+
+    if (auto err = mItemInfoProvider->GetBlobPath(instance.mManifestDigest, *path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+
+    if (auto err = mOCISpec->LoadImageManifest(*path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!manifest->mItemConfig.HasValue()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "item config not found in manifest"));
+    }
+
+    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mItemConfig->mDigest, *path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mOCISpec->LoadItemConfig(*path, itemConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mConfig.mDigest, *path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mOCISpec->LoadImageConfig(*path, imageConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
+    const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig)
+{
+    networkConfig.mInstanceIdent = static_cast<const InstanceIdent&>(instance);
+
+    auto resourceInfo = MakeUnique<resourcemanager::ResourceInfo>(&mAllocator);
+
+    for (const auto& resource : itemConfig.mResources) {
+
+        if (auto err = mResourceInfoProvider->GetResourceInfo(resource.mName, *resourceInfo); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = networkConfig.mHosts.Insert(
+                networkConfig.mHosts.end(), resourceInfo->mHosts.begin(), resourceInfo->mHosts.end());
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (itemConfig.mHostname.HasValue()) {
+        networkConfig.mHostname = *itemConfig.mHostname;
+    }
+
+    if (itemConfig.mQuotas.mDownloadSpeed.HasValue()) {
+        networkConfig.mIngressKbit = *itemConfig.mQuotas.mDownloadSpeed;
+    }
+
+    if (itemConfig.mQuotas.mUploadSpeed.HasValue()) {
+        networkConfig.mEgressKbit = *itemConfig.mQuotas.mUploadSpeed;
+    }
+
+    if (itemConfig.mQuotas.mDownloadLimit.HasValue()) {
+        networkConfig.mDownloadLimit = *itemConfig.mQuotas.mDownloadLimit;
+    }
+
+    if (itemConfig.mQuotas.mUploadLimit.HasValue()) {
+        networkConfig.mUploadLimit = *itemConfig.mQuotas.mUploadLimit;
+    }
+
+    if (auto err = networkConfig.mExposedPorts.Assign(imageConfig.mConfig.mExposedPorts); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = networkConfig.mAllowedConnections.Assign(itemConfig.mAllowedConnections); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::CreateNetwork(
+    const InstanceInfo& instance, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig)
+{
+    StaticString<cIDLen> instanceID;
+
+    if (auto err = mInstanceIDProvider->GetInstanceID(instance, instanceID); !err.IsNone()) {
+        return err;
+    }
+
+    auto networkConfig = MakeUnique<networkmanager::InstanceNetworkConfig>(&mAllocator);
+
+    if (auto err = GetInstanceNetworkConfig(instance, itemConfig, imageConfig, *networkConfig); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mNetworkManager->CreateInstanceNetwork(instanceID, instance.mOwnerID, *networkConfig);
+        !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
 }
 
 } // namespace aos::sm::launcher
