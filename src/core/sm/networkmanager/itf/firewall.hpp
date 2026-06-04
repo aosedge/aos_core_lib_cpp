@@ -108,13 +108,14 @@ public:
     virtual Error UpdateInstance(const String& instanceID, const InstanceFirewallParams& params) = 0;
 
     /**
-     * Adds an IPMasq rule for the given subnet (egress via outIf).
+     * Adds an IPMasq rule for the given subnet (egress via any interface but
+     * outIf, i.e. the bridge is excluded).
      *
-     * Called by BridgeNetworkItf::Attach when mIPMasq is true. Idempotent
-     * for repeated subnet/outIf pairs.
+     * Installed once per network on creation. Idempotent for repeated
+     * subnet/outIf pairs.
      *
      * @param subnet source subnet (CIDR).
-     * @param outIf output interface name.
+     * @param outIf bridge interface name to exclude from masquerading.
      * @return Error.
      */
     virtual Error AddMasquerade(const String& subnet, const String& outIf) = 0;
@@ -122,7 +123,7 @@ public:
     /**
      * Removes the IPMasq rule for the given subnet/outIf pair.
      *
-     * Called by BridgeNetworkItf::Detach when the last instance leaves.
+     * Removed once per network on teardown.
      *
      * @param subnet source subnet (CIDR).
      * @param outIf output interface name.

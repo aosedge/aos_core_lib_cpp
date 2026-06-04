@@ -28,8 +28,7 @@ constexpr auto cDefaultContainerIfName = "eth0";
  *
  * Describes a per-instance bridge attach: a host/peer veth pair where the
  * host end is attached to mBridgeIfName, the peer end is moved into
- * mNetNSPath, mIPWithMask + default route via mGateway are assigned, and
- * (optionally) an IPMasq rule for mSubnet is installed via the FirewallItf.
+ * mNetNSPath, and mIPWithMask + a default route via mGateway are assigned.
  */
 struct BridgeParams {
     StaticString<cInterfaceLen> mBridgeIfName;
@@ -37,9 +36,7 @@ struct BridgeParams {
     StaticString<cInterfaceLen> mContainerIfName;
     StaticString<cSubnetLen>    mIPWithMask;
     StaticString<cIPLen>        mGateway;
-    StaticString<cSubnetLen>    mSubnet;
     bool                        mHairpin {};
-    bool                        mIPMasq {};
 };
 
 /**
@@ -66,8 +63,7 @@ public:
      * Attaches an instance to the bridge.
      *
      * Creates a veth pair, attaches the host end to the bridge, moves the
-     * peer end into the instance netns, assigns IP/route, sets hairpin and
-     * (if requested) installs an IPMasq rule via FirewallItf.
+     * peer end into the instance netns, assigns IP/route and sets hairpin.
      *
      * @param instanceID instance id.
      * @param params bridge parameters.
@@ -79,15 +75,13 @@ public:
     /**
      * Detaches an instance from the bridge.
      *
-     * Removes the host-side veth (which auto-removes the peer), and tears
-     * down the IPMasq rule for mSubnet if no instance remains on it.
+     * Removes the host-side veth (which auto-removes the peer).
      *
      * @param instanceID instance id.
      * @param bridgeIfName bridge interface name.
-     * @param subnet subnet that was passed to Attach (for IPMasq rule cleanup).
      * @return Error.
      */
-    virtual Error Detach(const String& instanceID, const String& bridgeIfName, const String& subnet) = 0;
+    virtual Error Detach(const String& instanceID, const String& bridgeIfName) = 0;
 };
 
 /** @}*/
