@@ -34,12 +34,17 @@ public:
     virtual Error DeleteLink(const String& ifname) = 0;
 
     /**
-     * Sets up link.
+     * Sets up link (brings it up).
+     *
+     * If netNSPath is non-empty, the operation runs inside that namespace.
+     * Required for interfaces moved into a netns: the kernel administratively
+     * downs a link on a namespace move, so IFF_UP must be re-applied there.
      *
      * @param ifname interface name.
+     * @param netNSPath optional path to the netns; empty for current.
      * @return Error.
      */
-    virtual Error SetupLink(const String& ifname) = 0;
+    virtual Error SetupLink(const String& ifname, const String& netNSPath = "") = 0;
 
     /**
      * Sets master.
@@ -67,6 +72,19 @@ public:
      * @return Error.
      */
     virtual Error MoveLinkToNamespace(const String& ifname, const String& netNSPath) = 0;
+
+    /**
+     * Renames a link.
+     *
+     * The link must be down. If netNSPath is non-empty, the operation runs
+     * inside that namespace.
+     *
+     * @param ifname current interface name.
+     * @param newName new interface name.
+     * @param netNSPath optional path to the netns; empty for current.
+     * @return Error.
+     */
+    virtual Error RenameLink(const String& ifname, const String& newName, const String& netNSPath) = 0;
 
     /**
      * Assigns an IP address (CIDR form "ip/mask") to an interface.
