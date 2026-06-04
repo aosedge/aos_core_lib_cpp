@@ -584,8 +584,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     auto cleanupBridge = DeferRelease(&instanceID, [this, &bridgeParams, &err](const String* id) {
         if (!err.IsNone()) {
-            if (auto errDetach = mBridgeNetwork->Detach(*id, bridgeParams.mBridgeIfName, bridgeParams.mSubnet);
-                !errDetach.IsNone()) {
+            if (auto errDetach = mBridgeNetwork->Detach(*id, bridgeParams.mBridgeIfName); !errDetach.IsNone()) {
                 LOG_ERR() << "Failed to detach bridge" << Log::Field("instanceID", *id) << Log::Field(errDetach);
             }
         }
@@ -755,7 +754,6 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
 {
     StaticString<cInterfaceLen> bridgeIfName;
-    StaticString<cSubnetLen>    subnet;
     StaticString<cInterfaceLen> hostIfName;
     DNSServerItf*               dnsServer = nullptr;
 
@@ -773,7 +771,6 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
         }
 
         if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            subnet     = it->mSecond.mAllocatedParams.mSubnet;
             hostIfName = it->mSecond.mHostIfName;
         } else {
             LOG_WRN() << "Instance network info not found for cleanup" << Log::Field("instanceID", instanceID);
@@ -801,7 +798,7 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
         }
 
         if (!bridgeIfName.IsEmpty()) {
-            if (auto errDetach = mBridgeNetwork->Detach(instanceID, bridgeIfName, subnet);
+            if (auto errDetach = mBridgeNetwork->Detach(instanceID, bridgeIfName);
                 !errDetach.IsNone() && err.IsNone()) {
                 err = AOS_ERROR_WRAP(errDetach);
             }
@@ -1060,6 +1057,11 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
         }
 
         mDNSServers.Remove(networkInfo.mNetworkID);
+    }
+
+    if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, networkInfo.mBridgeIfName);
+        !errMasq.IsNone() && errMasq.Value() != ErrorEnum::eNotFound && err.IsNone()) {
+        err = AOS_ERROR_WRAP(errMasq);
     }
 
     if (!networkInfo.mBridgeIfName.IsEmpty()) {
@@ -1374,9 +1376,7 @@ Error NetworkManager::PrepareBridgeParams(
     params.mBridgeIfName    = bridgeIfName;
     params.mContainerIfName = cDefaultContainerIfName;
     params.mGateway         = gateway;
-    params.mSubnet          = networkParams.mSubnet;
     params.mHairpin         = true;
-    params.mIPMasq          = true;
 
     if (auto slash = networkParams.mSubnet.Find('/'); slash != networkParams.mSubnet.end()) {
         if (auto err = params.mIPWithMask.Format("%s%s", networkParams.mIP.CStr(),
@@ -1490,6 +1490,22 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
     if (err = mNetIf->SetMasterLink(network.mVlanIfName, network.mBridgeIfName); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    // Masquerade is a per-network property (one rule per subnet/bridge), so it
+    // is installed here on network creation rather than per instance.
+    if (err = mFirewall->AddMasquerade(network.mSubnet, network.mBridgeIfName); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupMasquerade = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
+        if (!err.IsNone()) {
+            if (auto errMasq = mFirewall->RemoveMasquerade(network->mSubnet, network->mBridgeIfName);
+                !errMasq.IsNone()) {
+                LOG_ERR() << "Failed to remove masquerade on CreateNetwork rollback"
+                          << Log::Field("networkID", network->mNetworkID) << Log::Field(errMasq);
+            }
+        }
+    });
 
     DNSServerParams dnsParams;
 
