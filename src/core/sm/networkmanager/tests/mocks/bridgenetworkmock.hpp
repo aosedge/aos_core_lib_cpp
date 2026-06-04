@@ -16,7 +16,7 @@ namespace aos::sm::networkmanager {
 class BridgeNetworkMock : public BridgeNetworkItf {
 public:
     MOCK_METHOD(Error, Attach, (const String&, const BridgeParams&, BridgeAttachResult&), (override));
-    MOCK_METHOD(Error, Detach, (const String&, const String&, const String&), (override));
+    MOCK_METHOD(Error, Detach, (const String&, const String&), (override));
 };
 
 } // namespace aos::sm::networkmanager
