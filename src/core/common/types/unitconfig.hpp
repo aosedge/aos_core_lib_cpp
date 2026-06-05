@@ -1,0 +1,129 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef AOS_CORE_COMMON_TYPES_UNITCONFIG_HPP_
+#define AOS_CORE_COMMON_TYPES_UNITCONFIG_HPP_
+
+#include "common.hpp"
+
+namespace aos {
+
+/**
+ * Node config.
+ */
+struct NodeConfig {
+    StaticString<cIDLen>                                        mNodeID;
+    StaticString<cNodeTypeLen>                                  mNodeType;
+    StaticString<cVersionLen>                                   mVersion;
+    Optional<AlertRules>                                        mAlertRules;
+    Optional<ResourceRatios>                                    mResourceRatios;
+    StaticArray<StaticString<cLabelNameLen>, cMaxNumNodeLabels> mLabels;
+    uint64_t                                                    mPriority {};
+
+    /**
+     * Compares node configs.
+     *
+     * @param rhs node config to compare.
+     * @return bool.
+     */
+    bool operator==(const NodeConfig& rhs) const
+    {
+        return mNodeID == rhs.mNodeID && mNodeType == rhs.mNodeType && mVersion == rhs.mVersion
+            && mAlertRules == rhs.mAlertRules && mResourceRatios == rhs.mResourceRatios && mLabels == rhs.mLabels
+            && mPriority == rhs.mPriority;
+    }
+
+    /**
+     * Compares node configs.
+     *
+     * @param rhs node config to compare.
+     * @return bool.
+     */
+    bool operator!=(const NodeConfig& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Unit config.
+ */
+struct UnitConfig {
+    StaticString<cVersionLen>             mFormatVersion;
+    StaticString<cVersionLen>             mVersion;
+    StaticArray<NodeConfig, cMaxNumNodes> mNodes;
+
+    /**
+     * Compares unit config.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator==(const UnitConfig& rhs) const
+    {
+        return mFormatVersion == rhs.mFormatVersion && mVersion == rhs.mVersion && mNodes == rhs.mNodes;
+    }
+
+    /**
+     * Compares unit config.
+     *
+     * @param rhs object to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UnitConfig& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Unit config state type.
+ */
+class UnitConfigStateType {
+public:
+    enum class Enum {
+        eAbsent,
+        eInstalled,
+        eFailed,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sStrings[] = {
+            "absent",
+            "installed",
+            "failed",
+        };
+
+        return Array<const char* const>(sStrings, ArraySize(sStrings));
+    };
+};
+
+using UnitConfigStateEnum = UnitConfigStateType::Enum;
+using UnitConfigState     = EnumStringer<UnitConfigStateType>;
+using NodeConfigState     = UnitConfigState;
+
+/**
+ * Unit config status.
+ */
+struct UnitConfigStatus {
+    StaticString<cVersionLen> mVersion;
+    UnitConfigState           mState;
+    Error                     mError;
+
+    /**
+     * Compares unit config status.
+     *
+     * @param rhs unit config status to compare with.
+     * @return bool.
+     */
+    bool operator==(const UnitConfigStatus& rhs) const
+    {
+        return mVersion == rhs.mVersion && mState == rhs.mState && mError == rhs.mError;
+    }
+
+    bool operator!=(const UnitConfigStatus& rhs) const { return !operator==(rhs); }
+};
+
+using NodeConfigStatus = UnitConfigStatus;
+
+} // namespace aos
+
+#endif

@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD041 -->
 [![ci](https://github.com/aosedge/aos_core_lib_cpp/actions/workflows/build_test.yaml/badge.svg)](https://github.com/aosedge/aos_core_lib_cpp/actions/workflows/build_test.yaml)
 [![codecov](https://codecov.io/gh/aosedge/aos_core_lib_cpp/graph/badge.svg?token=kg8h7ATd9S)](https://codecov.io/gh/aosedge/aos_core_lib_cpp)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=aosedge_aos_core_lib_cpp&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=aosedge_aos_core_lib_cpp)
@@ -123,11 +124,27 @@ cd build/
 make  install
 ```
 
+## Use docker container
+
+Build container:
+
+```console
+docker build -t aos-core-build:latest -f docker/Dockerfile .
+```
+
+Run container:
+
+```console
+docker run -v ${PWD}:/opt/aos_core_cpp -w /opt/aos_core_cpp -it --rm aos-core-build:latest
+```
+
+All above commands for build, test, coverage etc. can be used inside the docker container.
+
 ## Development tools
 
 The following tools are used for code formatting and analyzing:
 
-| Tool | Description | Configuration | Link
+| Tool | Description | Configuration | Link |
 | --- | --- | --- | --- |
 | `clang-format` | used for source code formatting | .clang-format | <https://clang.llvm.org/docs/ClangFormat.html> |
 | `cmake-format` | used for formatting cmake files | .cmake-format | <https://github.com/cheshirekow/cmake_format> |

@@ -1,0 +1,409 @@
+/*
+ * Copyright (C) 2024 Renesas Electronics Corporation.
+ * Copyright (C) 2024 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef AOS_CORE_COMMON_TOOLS_VARIANT_HPP_
+#define AOS_CORE_COMMON_TOOLS_VARIANT_HPP_
+
+#include <assert.h>
+#include <cstdint>
+#include <stdlib.h>
+
+#include "log.hpp"
+#include "utils.hpp"
+
+namespace aos {
+
+/**
+ * Helper structure to get index of a given type in a type list.
+ *
+ * @param T input type.
+ * @param Ts... type list.
+ */
+template <typename... Ts>
+struct GetTypeIndex {
+    static constexpr int Value = -1;
+};
+
+template <typename T, typename... Ts>
+struct GetTypeIndex<T, T, Ts...> {
+    static constexpr int Value = 0;
+};
+
+template <typename T, typename U, typename... Ts>
+struct GetTypeIndex<T, U, Ts...> {
+    static constexpr int Value = 1 + GetTypeIndex<T, Ts...>::Value;
+};
+
+/**
+ * Base static visitor for the variant.
+ */
+template <typename T>
+struct StaticVisitor {
+    using Res = T;
+};
+
+/**
+ * Visitor helper structures.
+ */
+template <typename... VarArgs>
+class VisitorHelper;
+
+template <>
+class VisitorHelper<> {
+public:
+    template <typename Variant, typename Visitor>
+    static typename Visitor::Res ApplyVisitor(int typeInd, const Visitor& visitor, Variant& variant)
+    {
+        (void)typeInd;
+        (void)visitor;
+        (void)variant;
+
+        assert(false);
+
+        exit(EXIT_FAILURE);
+    }
+};
+
+template <typename T, typename... VarArgs>
+class VisitorHelper<T, VarArgs...> {
+public:
+    template <typename Variant, typename Visitor>
+    static typename Visitor::Res ApplyVisitor(int typeInd, const Visitor& visitor, Variant& variant)
+    {
+        if (typeInd == 0) {
+            auto& val = StaticCast(variant.GetPtr());
+
+            return visitor.Visit(val);
+        } else {
+            return VisitorHelper<VarArgs...>::ApplyVisitor(typeInd - 1, visitor, variant);
+        }
+    }
+
+private:
+    static const T& StaticCast(const void* ptr) { return *static_cast<const T*>(ptr); }
+    static T&       StaticCast(void* ptr) { return *static_cast<T*>(ptr); }
+};
+
+/**
+ * Class to store different objects int the same memory.
+ */
+template <typename... VarArgs>
+class Variant {
+public:
+    // cppcheck-suppress uninitMemberVar
+    /**
+     * Constructs object instance.
+     */
+    Variant() = default;
+
+    /**
+     * Constructs object instance.
+     *
+     * @param args... argument list for constructor of a new object.
+     */
+    template <typename T, typename = EnableIf<(GetTypeIndex<T, VarArgs...>::Value != -1)>>
+    explicit Variant(const T& val)
+    {
+        SetValue(val);
+    }
+
+    /**
+     * Copy constructor.
+     *
+     * @param other variant to copy from.
+     */
+    // cppcheck-suppress uninitMemberVar
+    Variant(const Variant& other) { CopyObject(other); }
+
+    /**
+     * Assignment operator.
+     *
+     * @param other variant to copy from.
+     * @return Variant&.
+     */
+    // cppcheck-suppress uninitMemberVar
+    // cppcheck-suppress operatorEqVarError
+    Variant& operator=(const Variant& other)
+    {
+        if (this != &other) {
+            CopyObject(other);
+        }
+
+        return *this;
+    }
+
+    /**
+     * Sets new variant value.
+     *
+     * @param args... argument list for constructor of a new object.
+     */
+    template <typename T, typename... Args>
+    void SetValue(Args... args)
+    {
+        DestroyObject();
+
+        new (mBuffer) T(args...);
+
+        mTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+    }
+
+    /**
+     * Sets new variant value.
+     *
+     * @param args... argument list for constructor of a new object.
+     */
+    template <typename T, typename = EnableIf<(GetTypeIndex<T, VarArgs...>::Value != -1)>>
+    void SetValue(const T& value)
+    {
+        DestroyObject();
+
+        new (mBuffer) T(value);
+
+        mTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+    }
+
+    /**
+     * Returns a value based on its type.
+     *
+     * @tparam T type to be returned.
+     */
+    template <typename T>
+    T& GetValue()
+    {
+        [[maybe_unused]] static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+        assert(mTypeIndex == cTypeIndex);
+
+        return *reinterpret_cast<T*>(mBuffer);
+    }
+
+    /**
+     * Returns a value based on its type.
+     *
+     * @tparam T type to be returned.
+     */
+    template <typename T>
+    const T& GetValue() const
+    {
+        [[maybe_unused]] static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
+        assert(mTypeIndex == cTypeIndex);
+
+        return *reinterpret_cast<const T*>(mBuffer);
+    }
+
+    /**
+     * Returns a pointer to memory buffer.
+     *
+     * @return void*.
+     */
+    void* GetPtr() { return mBuffer; }
+
+    /**
+     * Returns a pointer to memory buffer.
+     *
+     * @return void*.
+     */
+    const void* GetPtr() const { return mBuffer; }
+
+    /**
+     * Applies static visitor to the current variant object.
+     *
+     * @param visitor input visitor.
+     * @return Visitor::Res.
+     */
+    template <typename Visitor>
+    typename Visitor::Res ApplyVisitor(const Visitor& visitor)
+    {
+        return VisitorHelper<VarArgs...>::ApplyVisitor(mTypeIndex, visitor, *this);
+    }
+
+    /**
+     * Applies static visitor to the current variant object(const version).
+     *
+     * @param visitor input visitor.
+     * @return Visitor::Res.
+     */
+    template <typename Visitor>
+    typename Visitor::Res ApplyVisitor(const Visitor& visitor) const
+    {
+        return VisitorHelper<VarArgs...>::ApplyVisitor(mTypeIndex, visitor, *this);
+    }
+
+    /**
+     * Compares two variant objects.
+     *
+     * @param other input variant object.
+     * @return bool.
+     */
+    bool operator==(const Variant& other) const
+    {
+        if (mTypeIndex != other.mTypeIndex) {
+            return false;
+        }
+
+        return ApplyVisitor(EqualsVisitor {other});
+    }
+
+    /**
+     * Compares two variant objects.
+     *
+     * @param other input variant object.
+     * @return bool.
+     */
+    bool operator!=(const Variant& other) const { return !(*this == other); }
+
+    /**
+     * Outputs variant object to log.
+     *
+     * @param log log to output.
+     * @param variant variant object to log.
+     * @return Log&.
+     */
+    friend Log& operator<<(Log& log, const Variant& variant)
+    {
+        if (variant.mTypeIndex == cInvalidTypeIndex) {
+            return log << "{}";
+        }
+
+        // cppcheck-suppress returnTempReference
+        return variant.ApplyVisitor(LogVisitor {log});
+    }
+
+    /**
+     * Destroys object instance.
+     */
+    ~Variant() { DestroyObject(); }
+
+private:
+    static constexpr int cInvalidTypeIndex = -1;
+
+    class LogVisitor : public StaticVisitor<Log&> {
+    public:
+        explicit LogVisitor(Log& log)
+            : mLog(log)
+        {
+        }
+
+        template <typename T>
+        Log& Visit(const T& val) const
+        {
+            return mLog << val;
+        }
+
+    private:
+        Log& mLog;
+    };
+
+    struct ObjectDestroyer : StaticVisitor<void> {
+        template <typename T>
+        static void Visit(T& val)
+        {
+            val.~T();
+        }
+    };
+
+    struct ObjectCopier : StaticVisitor<void> {
+        explicit ObjectCopier(Variant* variant)
+            : mVariant(variant)
+        {
+        }
+
+        template <typename T>
+        void Visit(const T& val) const
+        {
+            mVariant->SetValue<T>(val);
+        }
+
+        Variant* mVariant;
+    };
+
+    struct EqualsVisitor : StaticVisitor<bool> {
+        explicit EqualsVisitor(const Variant& other)
+            : mOther(other)
+        {
+        }
+
+        template <typename T>
+        bool Visit(const T& val) const
+        {
+            return val == mOther.GetValue<T>();
+        }
+
+        const Variant& mOther;
+    };
+
+    void DestroyObject()
+    {
+        if (mTypeIndex != cInvalidTypeIndex) {
+            ApplyVisitor(ObjectDestroyer {});
+            mTypeIndex = cInvalidTypeIndex;
+        }
+    }
+
+    void CopyObject(const Variant& other)
+    {
+        DestroyObject();
+
+        if (other.mTypeIndex != cInvalidTypeIndex) {
+            other.ApplyVisitor(ObjectCopier {this});
+        }
+    }
+
+    int mTypeIndex = cInvalidTypeIndex;
+    alignas(VarArgs...) uint8_t mBuffer[Max(sizeof(VarArgs)...)];
+};
+
+/**
+ * Helper structure for GetBase implementation.
+ */
+template <typename Base>
+struct GetBaseHelper : StaticVisitor<Base> {
+    template <typename T>
+    Base& Visit(T& val) const
+    {
+        return static_cast<Base&>(val);
+    }
+
+    template <typename T>
+    const Base& Visit(const T& val) const
+    {
+        return static_cast<const Base&>(val);
+    }
+};
+
+/**
+ * Returns base class for variant types.
+ *
+ * @tparam Base base class type.
+ * @tparam Var variant type.
+ * @param variant input variant type.
+ * @return Base&
+ */
+template <typename Base, typename Var>
+Base& GetBase(Var& variant)
+{
+    // cppcheck-suppress returnTempReference
+    return variant.ApplyVisitor(GetBaseHelper<Base&> {});
+}
+
+/**
+ * Returns base class for variant types.
+ *
+ * @tparam Base base class type.
+ * @tparam Var variant type.
+ * @param variant input variant type.
+ * @return const Base&
+ */
+template <typename Base, typename Var>
+const Base& GetBase(const Var& variant)
+{
+    // cppcheck-suppress returnTempReference
+    return variant.ApplyVisitor(GetBaseHelper<const Base&> {});
+}
+
+} // namespace aos
+
+#endif

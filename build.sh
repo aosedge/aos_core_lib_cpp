@@ -23,9 +23,10 @@ print_usage() {
     echo "  doc                        generates documentation"
     echo
     echo "Options:"
-    echo "  --clean                    cleans build artifacts"
-    echo "  --aos-service <services>   specifies services (e.g., sm,mp,iam)"
+    echo "  --clean                    cleans build artifacts before building"
     echo "  --ci                       uses build-wrapper for CI analysis (SonarQube)"
+    echo "  --parallel <N>             specifies number of parallel jobs for build (default: all available cores)"
+    echo "  --build-type <type>        specifies build type (default: Debug, other options: Release, RelWithDebInfo, MinSizeRel)"
     echo
 }
 
@@ -42,12 +43,6 @@ clean_build() {
     print_next_step "Clean artifacts"
 
     rm -rf ./build/
-    conan remove 'gtest*' -c
-    conan remove 'grpc*' -c
-    conan remove 'poco*' -c
-    conan remove 'libcu*' -c
-    conan remove 'opens*' -c
-    conan remove 'pkcs11provider*' -c
 }
 
 conan_setup() {
@@ -57,15 +52,17 @@ conan_setup() {
 
     print_next_step "Generate conan toolchain"
 
-    conan install ./conan/ --output-folder build --settings=build_type=Debug --build=missing
+    conan install ./conan/ --output-folder build --settings=build_type="$ARG_BUILD_TYPE" --build=missing
 }
 
-build_project() {
+cmake_configure() {
+    conan_setup
+
     print_next_step "Run cmake configure"
 
     cmake -S . -B build \
         -DCMAKE_TOOLCHAIN_FILE=./conan_toolchain.cmake \
-        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_BUILD_TYPE="$ARG_BUILD_TYPE" \
         -G "Unix Makefiles" \
         -DCoverage_SONARQUBE=ON \
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
@@ -73,15 +70,19 @@ build_project() {
         -DWITH_COVERAGE=ON \
         -DWITH_MBEDTLS=ON \
         -DWITH_OPENSSL=ON
+}
+
+build_project() {
+    cmake_configure
 
     if [ "$ARG_CI_FLAG" == "true" ]; then
         print_next_step "Run build-wrapper and build (CI mode)"
 
-        build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build ./build/ --config Debug --parallel
+        build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" cmake --build ./build/ --config "$ARG_BUILD_TYPE" --parallel "$ARG_PARALLEL_JOBS"
     else
         print_next_step "Run build"
 
-        cmake --build ./build/ --config Debug --parallel
+        cmake --build ./build/ --config "$ARG_BUILD_TYPE" --parallel "$ARG_PARALLEL_JOBS"
     fi
 
     echo
@@ -101,6 +102,16 @@ parse_arguments() {
             shift
             ;;
 
+        --parallel)
+            ARG_PARALLEL_JOBS="$2"
+            shift 2
+            ;;
+
+        --build-type)
+            ARG_BUILD_TYPE="$2"
+            shift 2
+            ;;
+
         *)
             error_with_usage "Unknown option: $1"
             ;;
@@ -111,11 +122,8 @@ parse_arguments() {
 build_target() {
     if [ "$ARG_CLEAN_FLAG" == "true" ]; then
         clean_build
-
-        return
     fi
 
-    conan_setup
     build_project
 }
 
@@ -138,11 +146,12 @@ run_coverage() {
 }
 
 run_lint() {
+    cmake_configure
+
     print_next_step "Run static analysis (cppcheck)"
 
     cppcheck --enable=all --inline-suppr --std=c++17 --error-exitcode=1 \
-        --suppressions-list=./suppressions.txt --project=build/compile_commands.json --file-filter='src/*' \
-        --file-filter='tests/*' --file-filter='include/*'
+        --suppressions-list=./suppressions.txt --project=build/compile_commands.json --file-filter='src/*'
 
     echo
     echo "Static analysis completed!"
@@ -170,8 +179,9 @@ command="$1"
 shift
 
 ARG_CLEAN_FLAG=false
-ARG_AOS_SERVICES=""
 ARG_CI_FLAG=false
+ARG_PARALLEL_JOBS=$(nproc)
+ARG_BUILD_TYPE="Debug"
 
 case "$command" in
 build)

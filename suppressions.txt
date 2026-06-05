@@ -3,3 +3,4 @@ unusedFunction
 missingIncludeSystem
 unusedScopedObject
 syntaxError
+templateRecursion

@@ -1,0 +1,32 @@
+/*
+ * Copyright (C) 2024 Renesas Electronics Corporation.
+ * Copyright (C) 2024 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef AOS_CORE_COMMON_TESTS_UTILS_LOG_HPP_
+#define AOS_CORE_COMMON_TESTS_UTILS_LOG_HPP_
+
+#include <iostream>
+#include <mutex>
+
+#include <core/common/tools/logger.hpp>
+
+namespace aos::tests::utils {
+
+inline void InitLog()
+{
+    Log::SetCallback([](const String& module, LogLevel level, const String& message) {
+        static std::mutex           sLogMutex;
+        std::lock_guard<std::mutex> lock(sLogMutex);
+        static const char* const    sLevelStrings[] = {"DBG", "INF", "WRN", "ERR"};
+
+        std::cout << sLevelStrings[static_cast<size_t>(level.GetValue())] << " | " << module.CStr() << " | "
+                  << message.CStr() << std::endl;
+    });
+}
+
+} // namespace aos::tests::utils
+
+#endif

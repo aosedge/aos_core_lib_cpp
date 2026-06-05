@@ -1,0 +1,1355 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+
+#include "imagemanager.hpp"
+
+namespace aos::sm::imagemanager {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+Error SplitDigest(const String& digest, String& alg, String& hash)
+{
+    StaticArray<StaticString<oci::cDigestLen>, 2> digestList;
+
+    if (auto err = digest.Split(digestList, ':'); !err.IsNone()) {
+        return err;
+    }
+
+    if (digestList.Size() != 2) {
+        return ErrorEnum::eInvalidArgument;
+    }
+
+    alg  = digestList[0];
+    hash = digestList[1];
+
+    return ErrorEnum::eNone;
+}
+
+Error AddPathIfNotExist(Array<StaticString<cFilePathLen>>& list, const String& path)
+{
+    if (list.Contains(path)) {
+        return ErrorEnum::eNone;
+    }
+
+    return list.PushBack(path);
+}
+
+} // namespace
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
+    spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
+    fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
+    StorageItf& storage)
+{
+    LOG_DBG() << "Init image manager";
+
+    mConfig           = config;
+    mBlobInfoProvider = &blobInfoProvider;
+    mSpaceAllocator   = &spaceAllocator;
+    mDownloader       = &downloader;
+    mFileInfoProvider = &fileInfoProvider;
+    mOCISpec          = &ociSpec;
+    mImageHandler     = &imageHandler;
+    mStorage          = &storage;
+
+    LOG_DBG() << "Config" << Log::Field("imagePath", mConfig.mImagePath) << Log::Field("partLimit", mConfig.mPartLimit)
+              << Log::Field("updateItemTTL", mConfig.mUpdateItemTTL)
+              << Log::Field("removeOutdatedPeriod", mConfig.mRemoveOutdatedPeriod);
+
+    if (auto err = fs::MakeDirAll(fs::JoinPath(mConfig.mImagePath, cBlobsFolder)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = fs::MakeDirAll(fs::JoinPath(mConfig.mImagePath, cLayersFolder)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::Start()
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Start image manager";
+
+    if (auto err = UpdateOutdatedItems(); !err.IsNone()) {
+        LOG_ERR() << "Can't update outdated items" << Log::Field(err);
+    }
+
+    mProcessOutdatedItems = true;
+    mCV.NotifyAll();
+
+    if (auto err = mTimer.Start(
+            mConfig.mRemoveOutdatedPeriod,
+            [this](void*) {
+                LockGuard lock {mMutex};
+
+                mProcessOutdatedItems = true;
+                mCV.NotifyAll();
+            },
+            false);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto err = mThread.Run([this](void*) { ProcessOutdatedItems(); });
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::Stop()
+{
+    Error stopErr;
+
+    {
+        LockGuard lock {mMutex};
+
+        LOG_DBG() << "Stop image manager";
+
+        if (auto err = mTimer.Stop(); !err.IsNone() && stopErr.IsNone()) {
+            stopErr = AOS_ERROR_WRAP(err);
+        }
+
+        mClose = true;
+        mCV.NotifyAll();
+    }
+
+    if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    return stopErr;
+}
+
+Error ImageManager::GetAllInstalledItems(Array<UpdateItemStatus>& statuses) const
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get all installed items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        if (auto err
+            = statuses.PushBack(UpdateItemStatus {itemData.mID, itemData.mType, itemData.mVersion, itemData.mState});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
+{
+    LOG_INF() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
+              << Log::Field("type", itemInfo.mType) << Log::Field("manifestDigest", itemInfo.mManifestDigest);
+
+    oci::ContentDescriptor manifestDescriptor {"", itemInfo.mManifestDigest, 0};
+
+    LOG_DBG() << "Install manifest blob" << Log::Field("digest", itemInfo.mManifestDigest);
+
+    if (auto err = InstallBlob(manifestDescriptor); !err.IsNone()) {
+        return err;
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(itemInfo.mManifestDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (manifest->mItemConfig.HasValue()) {
+        LOG_DBG() << "Install item config blob" << Log::Field("digest", manifest->mItemConfig->mDigest);
+
+        if (auto err = InstallBlob(*manifest->mItemConfig); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (itemInfo.mType == UpdateItemTypeEnum::eService) {
+        LOG_DBG() << "Install image config blob" << Log::Field("digest", manifest->mConfig.mDigest);
+
+        if (auto err = InstallBlob(manifest->mConfig); !err.IsNone()) {
+            return err;
+        }
+
+        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        if (!config) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
+            const auto& layer = manifest->mLayers[i];
+
+            if (i >= config->mRootfs.mDiffIDs.Size()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
+            }
+
+            LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest)
+                      << Log::Field("diffDigest", config->mRootfs.mDiffIDs[i]);
+
+            if (auto err = InstallLayer(layer, config->mRootfs.mDiffIDs[i]); !err.IsNone()) {
+                return err;
+            }
+        }
+    } else {
+        for (const auto& layer : manifest->mLayers) {
+            LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest);
+
+            if (auto err = InstallBlob(layer); !err.IsNone()) {
+                return err;
+            }
+        }
+    }
+
+    if (auto err = StoreUpdateItem(itemInfo); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::RemoveUpdateItem(const String& itemID, const String& version)
+{
+    LockGuard lock {mMutex};
+
+    LOG_INF() << "Remove update item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
+
+    if (auto err = mStorage->GetUpdateItem(itemID, itemData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == version; });
+    if (it == itemData.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    it->mState     = ItemStateEnum::eRemoved;
+    it->mTimestamp = Time::Now();
+
+    if (auto err = mSpaceAllocator->AddOutdatedItem(itemID, version, it->mTimestamp); !err.IsNone()) {
+        LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version)
+                  << Log::Field(err);
+    }
+
+    if (auto err = mStorage->UpdateUpdateItem(*it); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::GetBlobPath(const String& digest, String& path) const
+{
+    if (auto err = CreateBlobPath(digest, path); !err.IsNone()) {
+        return err;
+    }
+
+    LOG_DBG() << "Get blob path" << Log::Field("digest", digest) << Log::Field("path", path);
+
+    auto [exists, err] = fs::FileExist(path);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!exists) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::GetLayerPath(const String& digest, String& path) const
+{
+    if (auto err = CreateLayerPath(digest, path); !err.IsNone()) {
+        return err;
+    }
+
+    path = fs::JoinPath(path, cUnpackedLayerFolder);
+
+    LOG_DBG() << "Get layer path" << Log::Field("digest", digest) << Log::Field("path", path);
+
+    auto [exists, err] = fs::DirExist(path);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!exists) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& version)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
+
+    if (auto err = mStorage->RemoveUpdateItem(id, version); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove update item" << Log::Field("itemID", id) << Log::Field("version", version)
+                  << Log::Field(err);
+    }
+
+    auto [size, err] = RemoveOrphans();
+    if (!err.IsNone()) {
+        return RetWithError<size_t>(0, AOS_ERROR_WRAP(err));
+    }
+
+    return size;
+}
+
+Error ImageManager::CreateBlobPath(const String& digest, String& path) const
+{
+    StaticString<oci::cDigestLen> alg;
+    StaticString<oci::cDigestLen> hash;
+
+    if (auto err = SplitDigest(digest, alg, hash); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    path = fs::JoinPath(mConfig.mImagePath, cBlobsFolder, alg, hash);
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::CreateLayerPath(const String& digest, String& path) const
+{
+    StaticString<oci::cDigestLen> alg;
+    StaticString<oci::cDigestLen> hash;
+
+    if (auto err = SplitDigest(digest, alg, hash); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    path = fs::JoinPath(mConfig.mImagePath, cLayersFolder, alg, hash);
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ValidateBlob(const String& path, const String& digest) const
+{
+    LOG_DBG() << "Validate blob" << Log::Field("digest", digest);
+
+    StaticString<oci::cDigestLen> alg;
+    StaticString<oci::cDigestLen> hash;
+
+    if (auto err = SplitDigest(digest, alg, hash); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (alg.Compare(crypto::Hash(crypto::HashEnum::eSHA256).ToString(), String::CaseSensitivity::CaseInsensitive)
+        != 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
+    }
+
+    fs::FileInfo fileInfo;
+
+    if (auto err = mFileInfoProvider->GetFileInfo(path, fileInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticArray<uint8_t, crypto::cSHA256Size> hashBytes;
+
+    if (auto err = hash.HexToByteArray(hashBytes); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (fileInfo.mCheckSum != hashBytes) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidChecksum);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) const
+{
+    LOG_DBG() << "Validate layer" << Log::Field("path", path) << Log::Field("diffDigest", diffDigest);
+
+    auto [size, err] = fs::CalculateSize(path);
+
+    if (size > oci::cDigestLen) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "not link to unpacked layer"));
+    }
+
+    StaticString<oci::cDigestLen> digest;
+
+    if (err = fs::ReadFileToString(path, digest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (digest != diffDigest) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidChecksum, "wrong diff digest"));
+    }
+
+    StaticString<cFilePathLen> dstPath;
+
+    if (err = CreateLayerPath(diffDigest, dstPath); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = fs::ReadFileToString(fs::JoinPath(dstPath, cDigestFile), digest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<oci::cDigestLen> layerDigest;
+
+    Tie(layerDigest, err) = mImageHandler->GetUnpackedLayerDigest(fs::JoinPath(dstPath, cUnpackedLayerFolder));
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LOG_DBG() << "Layer digest" << Log::Field("path", path) << Log::Field("layerDigest", layerDigest);
+
+    if (layerDigest != digest) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidChecksum, "wrong layer checksum"));
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::DownloadBlob(const String& path, const String& digest, size_t size)
+{
+    Error                               err;
+    UniquePtr<spaceallocator::SpaceItf> space;
+    StaticString<cURLLen>               url;
+
+    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
+        if (!err->IsNone()) {
+            LOG_ERR() << "Failed to download blob" << Log::Field("digest", digest) << Log::Field(*err);
+        }
+
+        ReleaseSpace(path, space.Get(), *err);
+    });
+
+    if (err = GetBlobURL(digest, url); !err.IsNone()) {
+        return err;
+    }
+
+    if (size) {
+        Tie(space, err) = mSpaceAllocator->AllocateSpace(size);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    LOG_DBG() << "Download blob" << Log::Field("digest", digest) << Log::Field("size", size) << Log::Field("url", url);
+
+    if (err = mDownloader->Download(digest, url, path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, bool waitInProgress)
+{
+    if (waitInProgress) {
+        if (auto err = WaitForInProgressBlob(descriptor.mDigest); !err.IsNone()) {
+            return err;
+        }
+
+        auto releaseInProgress
+            = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInProgressBlob(*digest); });
+    }
+
+    LOG_DBG() << "Install blob" << Log::Field("digest", descriptor.mDigest) << Log::Field("size", descriptor.mSize);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(descriptor.mDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    LOG_DBG() << "Blob path" << Log::Field("digest", descriptor.mDigest) << Log::Field("path", path);
+
+    auto [exists, err] = fs::FileExist(path);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (exists) {
+        if (err = ValidateBlob(path, descriptor.mDigest); err.IsNone()) {
+            return ErrorEnum::eNone;
+        }
+
+        if (err = fs::RemoveAll(path); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove blob" << Log::Field("digest", descriptor.mDigest) << Log::Field(err);
+        }
+    }
+
+    StaticString<cFilePathLen> parentPath;
+
+    if (err = fs::ParentPath(path, parentPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::MakeDirAll(parentPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = DownloadBlob(path, descriptor.mDigest, descriptor.mSize); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = ValidateBlob(path, descriptor.mDigest); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space)
+{
+    auto [digest, err] = mImageHandler->GetUnpackedLayerDigest(fs::JoinPath(path, cUnpackedLayerFolder));
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LOG_DBG() << "Create layer metadata" << Log::Field("path", path) << Log::Field("digest", digest)
+              << Log::Field("size", size);
+
+    if (err = space->Resize(space->Size() + digest.Size()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::WriteStringToFile(fs::JoinPath(path, cDigestFile), digest, 0600); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<64> sizeStr;
+
+    if (err = sizeStr.Convert(size); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = space->Resize(space->Size() + sizeStr.Size()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::WriteStringToFile(fs::JoinPath(path, cSizeFile), sizeStr, 0600); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest)
+{
+    LOG_DBG() << "Unpack layer" << Log::Field("diffDigest", diffDigest) << Log::Field("path", path);
+
+    StaticString<cFilePathLen> dstPath;
+
+    if (auto err = CreateLayerPath(diffDigest, dstPath); !err.IsNone()) {
+        return err;
+    }
+
+    LOG_DBG() << "Layer destination" << Log::Field("diffDigest", diffDigest) << Log::Field("path", dstPath);
+
+    if (auto err = fs::ClearDir(dstPath); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove layer" << Log::Field("diffDigest", diffDigest) << Log::Field(err);
+    }
+
+    auto [size, err] = mImageHandler->GetUnpackedLayerSize(path, descriptor.mMediaType);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotSupported)) {
+        LOG_ERR() << "Failed to get unpacked size" << Log::Field("path", path) << Log::Field(err);
+    }
+
+    UniquePtr<spaceallocator::SpaceItf> space;
+
+    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
+        if (!err->IsNone()) {
+            LOG_ERR() << "Failed to unpack layer" << Log::Field("diffDigest", diffDigest) << Log::Field(*err);
+        }
+
+        ReleaseSpace(dstPath, space.Get(), *err);
+    });
+
+    if (size) {
+        Tie(space, err) = mSpaceAllocator->AllocateSpace(size);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (err = mImageHandler->UnpackLayer(path, fs::JoinPath(dstPath, cUnpackedLayerFolder), descriptor.mMediaType);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = CreateLayerMetadata(dstPath, size, space.Get()); !err.IsNone()) {
+        return err;
+    }
+
+    LOG_DBG() << "Remove packed layer" << Log::Field("path", path);
+
+    if (err = fs::RemoveAll(path); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove packed layer" << Log::Field("path", path) << Log::Field(err);
+    } else {
+        mSpaceAllocator->FreeSpace(descriptor.mSize);
+    }
+
+    if (err = space->Resize(space->Size() + diffDigest.Size()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LOG_DBG() << "Create diff digest file" << Log::Field("diffDigest", diffDigest) << Log::Field("path", path);
+
+    if (err = fs::WriteStringToFile(path, diffDigest, 0600); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest)
+{
+    if (auto err = WaitForInProgressBlob(descriptor.mDigest); !err.IsNone()) {
+        return err;
+    }
+
+    auto releaseInProgress
+        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInProgressBlob(*digest); });
+
+    LOG_DBG() << "Install layer" << Log::Field("digest", descriptor.mDigest);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(descriptor.mDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    auto [exists, err] = fs::FileExist(path);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (exists) {
+        if (err = ValidateLayer(path, diffDigest); !err.IsNone()) {
+            LOG_WRN() << "Layer validation failed" << Log::Field("path", path) << Log::Field("diffDigest", diffDigest)
+                      << Log::Field(err);
+        } else {
+            return ErrorEnum::eNone;
+        }
+    }
+
+    if (err = InstallBlob(descriptor, false); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = UnpackLayer(path, descriptor, diffDigest); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::GetBlobURL(const String& digest, String& url) const
+{
+    StaticArray<StaticString<oci::cDigestLen>, 1> digests;
+    StaticArray<StaticString<cURLLen>, 1>         urls;
+
+    if (auto err = digests.EmplaceBack(digest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mBlobInfoProvider->GetBlobsInfo(digests, urls); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (urls.IsEmpty()) {
+        return Error(ErrorEnum::eNotFound, "blob URL not found");
+    }
+
+    url = urls[0];
+
+    return ErrorEnum::eNone;
+}
+
+// cppcheck-suppress passedByValue
+void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err)
+{
+    if (!err.IsNone()) {
+        if (auto removeErr = fs::RemoveAll(path); !removeErr.IsNone()) {
+            LOG_ERR() << "Failed to remove path" << Log::Field("path", path) << Log::Field(removeErr);
+        }
+    }
+
+    if (space) {
+        if (!err.IsNone()) {
+            space->Release();
+        } else {
+            space->Accept();
+        }
+    }
+}
+
+Error ImageManager::WaitForInProgressBlob(const String& digest)
+{
+    UniqueLock lock {mMutex};
+
+    if (auto err = mCV.Wait(lock,
+            [&]() {
+                auto it = mInProgressBlobs.FindIf([&digest](const StaticString<oci::cDigestLen>& inProgressDigest) {
+                    return inProgressDigest == digest;
+                });
+                return it == mInProgressBlobs.end();
+            });
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mInProgressBlobs.PushBack(digest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ReleaseInProgressBlob(const String& digest)
+{
+    UniqueLock lock {mMutex};
+
+    auto it = mInProgressBlobs.FindIf(
+        [&digest](const StaticString<oci::cDigestLen>& inProgressDigest) { return inProgressDigest == digest; });
+    if (it != mInProgressBlobs.end()) {
+        mInProgressBlobs.Erase(it);
+    } else {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<size_t> ImageManager::RemoveOldItemVersions(Array<UpdateItemData>& itemData)
+{
+    if (itemData.Size() < cMaxNumItemVersions) {
+        return 0;
+    }
+
+    LOG_DBG() << "Remove old item versions" << Log::Field("itemID", itemData[0].mID);
+
+    return RemoveOldUpdateItems(itemData);
+}
+
+RetWithError<size_t> ImageManager::CropUpdateItems()
+{
+    auto [itemsCount, err] = mStorage->GetUpdateItemsCount();
+    if (!err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    if (itemsCount < cMaxNumStoredUpdateItems) {
+        return 0;
+    }
+
+    LOG_DBG() << "Crop update items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    if (err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    return RemoveOldUpdateItems(*itemsData);
+}
+
+Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
+{
+    LockGuard lock {mMutex};
+
+    StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
+    Error                                            err;
+
+    if (err = mStorage->GetUpdateItem(itemInfo.mID, itemData); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
+    if (it != itemData.end()) {
+        if (err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+                itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    size_t removedItems = 0;
+
+    Tie(removedItems, err) = RemoveOldItemVersions(itemData);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to remove old item versions" << Log::Field("itemID", itemInfo.mID) << Log::Field(err);
+    }
+
+    if (!removedItems) {
+        Tie(removedItems, err) = CropUpdateItems();
+        if (!err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+            itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (removedItems) {
+        size_t removedSize = 0;
+
+        Tie(removedSize, err) = RemoveOrphans();
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to remove orphans" << Log::Field(err);
+        }
+
+        mSpaceAllocator->FreeSpace(removedSize);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::RemoveUpdateItem(const UpdateItemData& itemData)
+{
+    LOG_INF() << "Remove update item from storage" << Log::Field("itemID", itemData.mID)
+              << Log::Field("version", itemData.mVersion) << Log::Field("state", itemData.mState);
+
+    if (auto err = mStorage->RemoveUpdateItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (itemData.mState == ItemStateEnum::eRemoved) {
+        if (auto err = mSpaceAllocator->RestoreOutdatedItem(itemData.mID, itemData.mVersion); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<size_t> ImageManager::RemoveOldUpdateItems(Array<UpdateItemData>& itemsData)
+{
+    LOG_DBG() << "Remove old update items";
+
+    itemsData.Sort([](const UpdateItemData& a, const UpdateItemData& b) { return a.mTimestamp < b.mTimestamp; });
+
+    Error  err;
+    size_t removed = 0;
+
+    for (const auto& data : itemsData) {
+        if (data.mState == ItemStateEnum::eRemoved) {
+            if (auto removeErr = RemoveUpdateItem(data); !removeErr.IsNone() && err.IsNone()) {
+                err = removeErr;
+            } else {
+                removed++;
+            }
+
+            removed++;
+
+            break;
+        }
+    }
+
+    if (!removed) {
+        if (auto removeErr = RemoveUpdateItem(itemsData[0]); !removeErr.IsNone() && err.IsNone()) {
+            err = removeErr;
+        } else {
+            removed++;
+        }
+    }
+
+    return {removed, err};
+}
+
+Error ImageManager::UpdateOutdatedItems()
+{
+    LOG_DBG() << "Update outdated items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eRemoved) {
+            continue;
+        }
+
+        if (auto err = mSpaceAllocator->AddOutdatedItem(itemData.mID, itemData.mVersion, itemData.mTimestamp);
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", itemData.mID) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::ValidateUpdateItem(const UpdateItemData& itemData)
+{
+    LOG_DBG() << "Validate update item" << Log::Field("itemID", itemData.mID)
+              << Log::Field("version", itemData.mVersion);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(itemData.mManifestDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = ValidateBlob(path, itemData.mManifestDigest); !err.IsNone()) {
+        return err;
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (manifest->mItemConfig.HasValue()) {
+        if (auto err = CreateBlobPath(manifest->mItemConfig->mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = ValidateBlob(path, manifest->mItemConfig->mDigest); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (itemData.mType == UpdateItemTypeEnum::eService) {
+        if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = ValidateBlob(path, manifest->mConfig.mDigest); !err.IsNone()) {
+            return err;
+        }
+
+        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        if (!config) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
+            const auto& layer = manifest->mLayers[i];
+
+            if (i >= config->mRootfs.mDiffIDs.Size()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
+            }
+
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = ValidateLayer(path, config->mRootfs.mDiffIDs[i]); !err.IsNone()) {
+                return err;
+            }
+        }
+    } else {
+        for (const auto& layer : manifest->mLayers) {
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = ValidateBlob(path, layer.mDigest); !err.IsNone()) {
+                return err;
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::HandleOutdatedItems()
+{
+    LOG_DBG() << "Handle outdated items";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto now = Time::Now();
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eRemoved || now.Sub(itemData.mTimestamp) < mConfig.mUpdateItemTTL) {
+            continue;
+        }
+
+        if (auto err = RemoveUpdateItem(itemData); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove outdated item" << Log::Field("itemID", itemData.mID)
+                      << Log::Field("version", itemData.mVersion) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::HandleItemsIntegrity()
+{
+    LOG_DBG() << "Handle items integrity";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (itemData.mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        if (auto err = ValidateUpdateItem(itemData); !err.IsNone()) {
+            LOG_ERR() << "Update item integrity error" << Log::Field("itemID", itemData.mID)
+                      << Log::Field("version", itemData.mVersion) << Log::Field(err);
+
+            if (err = RemoveUpdateItem(itemData); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove invalid item" << Log::Field("itemID", itemData.mID)
+                          << Log::Field("version", itemData.mVersion) << Log::Field(err);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
+    Array<StaticString<cFilePathLen>>& itemLayers)
+{
+    LOG_DBG() << "Calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
+              << Log::Field("version", itemData.mVersion);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = CreateBlobPath(itemData.mManifestDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (manifest->mItemConfig.HasValue()) {
+        if (auto err = CreateBlobPath(manifest->mItemConfig->mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (itemData.mType == UpdateItemTypeEnum::eService) {
+        if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        if (!config) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
+            const auto& layer = manifest->mLayers[i];
+
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+
+        for (const auto& diffID : config->mRootfs.mDiffIDs) {
+            if (auto err = CreateLayerPath(diffID, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemLayers, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    } else {
+        for (const auto& layer : manifest->mLayers) {
+            if (auto err = CreateBlobPath(layer.mDigest, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(itemBlobs, path); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs)
+{
+    size_t removedSize = 0;
+    auto   srcPath     = fs::JoinPath(mConfig.mImagePath, cBlobsFolder);
+    auto   algIterator = fs::DirIterator(srcPath);
+
+    LOG_DBG() << "Remove orphans blobs" << Log::Field("usedBlobsCount", usedBlobs.Size())
+              << Log::Field("path", srcPath);
+
+    while (algIterator.Next()) {
+        auto blobsPath    = fs::JoinPath(srcPath, algIterator->mPath);
+        auto blobIterator = fs::DirIterator(blobsPath);
+
+        LOG_DBG() << "Process blob algorithm folder" << Log::Field("path", blobsPath);
+
+        while (blobIterator.Next()) {
+            auto blobPath = fs::JoinPath(blobsPath, blobIterator->mPath);
+
+            if (auto it = usedBlobs.Find(blobPath); it != usedBlobs.end()) {
+                continue;
+            }
+
+            auto [blobSize, err] = fs::CalculateSize(blobPath);
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to get blob size" << Log::Field("path", blobPath) << Log::Field(err);
+            } else {
+                removedSize += blobSize;
+            }
+
+            LOG_DBG() << "Remove orphaned blob" << Log::Field("path", blobPath) << Log::Field("size", blobSize);
+
+            if (err = fs::RemoveAll(blobPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove orphaned blob" << Log::Field(err);
+            }
+        }
+    }
+
+    return removedSize;
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphanLayers(const Array<StaticString<cFilePathLen>>& usedLayers)
+{
+    size_t removedSize = 0;
+    auto   srcPath     = fs::JoinPath(mConfig.mImagePath, cLayersFolder);
+    auto   algIterator = fs::DirIterator(srcPath);
+
+    LOG_DBG() << "Remove orphans layers" << Log::Field("usedLayersCount", usedLayers.Size())
+              << Log::Field("path", srcPath);
+
+    while (algIterator.Next()) {
+        auto layersPath    = fs::JoinPath(srcPath, algIterator->mPath);
+        auto layerIterator = fs::DirIterator(layersPath);
+
+        LOG_DBG() << "Process layer algorithm folder" << Log::Field("path", layersPath);
+
+        while (layerIterator.Next()) {
+
+            auto layerPath = fs::JoinPath(layersPath, layerIterator->mPath);
+
+            if (auto it = usedLayers.Find(layerPath); it != usedLayers.end()) {
+                continue;
+            }
+
+            auto [layerSize, err] = fs::CalculateSize(layerPath);
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to get layer size" << Log::Field("path", layerPath) << Log::Field(err);
+            } else {
+                removedSize += layerSize;
+            }
+
+            LOG_DBG() << "Remove orphaned layer" << Log::Field("path", layerPath) << Log::Field("size", layerSize);
+
+            if (err = fs::RemoveAll(layerPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove orphaned layer" << Log::Field(err);
+            }
+        }
+    }
+
+    return removedSize;
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphans()
+{
+    LOG_DBG() << "Remove orphans";
+
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    auto usedBlobs = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>>(&mAllocator);
+    if (!usedBlobs) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    auto usedLayers = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>>(&mAllocator);
+    if (!usedLayers) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    for (const auto& itemData : *itemsData) {
+        if (auto err = CalcItemBlobsAndLayers(itemData, *usedBlobs, *usedLayers); !err.IsNone()) {
+            LOG_ERR() << "Failed to calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
+                      << Log::Field("version", itemData.mVersion) << Log::Field(err);
+        }
+    }
+
+    size_t removedSize = 0;
+    size_t size        = 0;
+    Error  err;
+
+    Tie(size, err) = RemoveOrphanBlobs(*usedBlobs);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Remove orphan blobs failed" << Log::Field(err);
+    }
+
+    removedSize += size;
+
+    Tie(size, err) = RemoveOrphanLayers(*usedLayers);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Remove orphan layers failed" << Log::Field(err);
+    }
+
+    removedSize += size;
+
+    return removedSize;
+}
+
+void ImageManager::ProcessOutdatedItems()
+{
+    while (true) {
+        UniqueLock lock {mMutex};
+
+        if (auto err
+            = mCV.Wait(lock, [&]() { return (mClose || mProcessOutdatedItems) && mInProgressBlobs.IsEmpty(); });
+            !err.IsNone()) {
+            LOG_ERR() << "Wait failed" << Log::Field(err);
+            continue;
+        }
+
+        if (mClose) {
+            break;
+        }
+
+        if (!mProcessOutdatedItems) {
+            continue;
+        }
+
+        mProcessOutdatedItems = false;
+
+        if (auto err = HandleOutdatedItems(); !err.IsNone()) {
+            LOG_ERR() << "Can't handle outdated items" << Log::Field(err);
+        }
+
+        if (auto err = HandleItemsIntegrity(); !err.IsNone()) {
+            LOG_ERR() << "Can't handle items integrity" << Log::Field(err);
+        }
+
+        auto [size, err] = RemoveOrphans();
+        if (!err.IsNone()) {
+            LOG_ERR() << "Remove orphans failed" << Log::Field(err);
+        }
+
+        mSpaceAllocator->FreeSpace(size);
+    }
+}
+
+} // namespace aos::sm::imagemanager

@@ -1,0 +1,824 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/memory.hpp>
+
+#include "instance.hpp"
+
+namespace aos::cm::launcher {
+
+/***********************************************************************************************************************
+ * Instance implementation
+ **********************************************************************************************************************/
+
+Instance::Instance(
+    const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
+    : mInfo(info)
+    , mStorage(storage)
+    , mImageInfoProvider(imageInfoProvider)
+    , mAllocator(allocator)
+{
+    static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent;
+
+    mStatus.mVersion        = info.mVersion;
+    mStatus.mPreinstalled   = false;
+    mStatus.mNodeID         = info.mNodeID;
+    mStatus.mRuntimeID      = info.mRuntimeID;
+    mStatus.mManifestDigest = info.mManifestDigest;
+    mStatus.mStateChecksum.Clear();
+    mStatus.mEnvVarsStatuses.Clear();
+    mStatus.mState = aos::InstanceStateEnum::eActivating;
+    mStatus.mError = ErrorEnum::eNone;
+}
+
+Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
+{
+    mItemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+
+    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
+    if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(err, "get item config failed"));
+    }
+
+    if (auto err = SetDefaultRuntimes(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mImageInfoProvider.GetImageConfig(imageDescriptor, *mImageConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(err, "get image config failed"));
+    }
+
+    releaseConfigs.Release();
+
+    mInfo.mManifestDigest = imageDescriptor.mDigest;
+
+    return ErrorEnum::eNone;
+}
+
+void Instance::ResetConfigs()
+{
+    mItemConfig.Reset();
+    mImageConfig.Reset();
+}
+
+bool Instance::IsImageValid()
+{
+    // If manifest digest is empty, instance is not running yet, so treat it as valid.
+    if (mInfo.mManifestDigest.IsEmpty()) {
+        return true;
+    }
+
+    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+
+    auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
+    if (!err.IsNone()) {
+        return false;
+    }
+
+    auto imageDescriptor = imageIndex->mManifests.FindIf(
+        [&](const oci::IndexContentDescriptor& descriptor) { return descriptor.mDigest == mInfo.mManifestDigest; });
+
+    return imageDescriptor != imageIndex->mManifests.end();
+}
+
+Error Instance::UpdateStatus(const InstanceStatus& status)
+{
+    mStatus = status;
+
+    if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void Instance::SetError(const Error& err, bool resetNodeID)
+{
+    if (resetNodeID) {
+        mInfo.mPrevNodeID = mInfo.mNodeID;
+        mInfo.mNodeID     = "";
+        mInfo.mRuntimeID  = "";
+
+        mStatus.mNodeID    = "";
+        mStatus.mRuntimeID = "";
+    }
+
+    mStatus.mError = err;
+    mStatus.mState = aos::InstanceStateEnum::eFailed;
+
+    if (auto updateErr = mStorage.UpdateInstance(mInfo); !updateErr.IsNone()) {
+        LOG_ERR() << "Can't set instance error status" << Log::Field(err);
+    }
+}
+
+void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
+{
+    mMonitoringData = monitoringData;
+}
+
+bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID)
+{
+    assert(mItemConfig);
+
+    return (mInfo.mDisableRebalancing && mInfo.mRuntimeID == runtimeID)
+        || (!mInfo.mDisableRebalancing && mItemConfig->mRuntimes.Contains(runtimeType));
+}
+
+bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
+{
+    assert(mImageConfig);
+
+    // Required params: OS, architecture
+    if (platformInfo.mArchInfo.mArchitecture != mImageConfig->mArchitecture) {
+        return false;
+    }
+
+    // Optional params: architecture variant, OS, OS version, OS features
+
+    if (!mImageConfig->mOS.IsEmpty()) {
+        if (platformInfo.mOSInfo.mOS != mImageConfig->mOS) {
+            return false;
+        }
+    }
+
+    if (!mImageConfig->mVariant.IsEmpty()) {
+        if (platformInfo.mArchInfo.mVariant != mImageConfig->mVariant) {
+            return false;
+        }
+    }
+
+    if (!mImageConfig->mOSVersion.IsEmpty()) {
+        if (platformInfo.mOSInfo.mVersion != mImageConfig->mOSVersion) {
+            return false;
+        }
+    }
+
+    if (!mImageConfig->mOSFeatures.IsEmpty()) {
+        bool allFeaturesExist = true;
+
+        for (const auto& imageFeature : mImageConfig->mOSFeatures) {
+            bool exists = platformInfo.mOSInfo.mFeatures.Contains(imageFeature);
+            if (!exists) {
+                allFeaturesExist = false;
+                break;
+            }
+        }
+
+        if (!allFeaturesExist) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Instance::IsNodeIDOk(const String& nodeID)
+{
+    return !mInfo.mDisableRebalancing || mInfo.mNodeID == nodeID;
+}
+
+bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
+{
+    for (const auto& label : mInfo.mLabels) {
+        if (!nodeLabels.Contains(label)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+RetWithError<bool> Instance::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
+{
+    auto newEnvVars = MakeUnique<EnvVarArray>(&mAllocator);
+
+    for (const auto& item : envVars.mItems) {
+        if (!item.Match(mInfo.mInstanceIdent)) {
+            continue;
+        }
+
+        for (const auto& overrideVar : item.mVariables) {
+            auto existingVar = newEnvVars->FindIf(
+                [&overrideVar](const EnvVar& envVar) { return envVar.mName == overrideVar.mName; });
+
+            if (existingVar != newEnvVars->end()) {
+                existingVar->mValue = overrideVar.mValue;
+            } else {
+                if (auto err = newEnvVars->PushBack(static_cast<const EnvVar&>(overrideVar)); !err.IsNone()) {
+                    return {false, AOS_ERROR_WRAP(err)};
+                }
+            }
+        }
+    }
+
+    bool changed = *newEnvVars != mSMInfo.mEnvVars;
+    if (changed) {
+        mSMInfo.mEnvVars = *newEnvVars;
+    }
+
+    return {changed, ErrorEnum::eNone};
+}
+
+Error Instance::SetActive(const String& nodeID, const String& runtimeID)
+{
+    mInfo.mPrevNodeID = mInfo.mNodeID;
+    mInfo.mNodeID     = nodeID;
+    mInfo.mRuntimeID  = runtimeID;
+    mInfo.mState      = InstanceStateEnum::eActive;
+
+    mStatus.mPreinstalled   = false;
+    mStatus.mNodeID         = nodeID;
+    mStatus.mRuntimeID      = runtimeID;
+    mStatus.mManifestDigest = mInfo.mManifestDigest;
+    mStatus.mStateChecksum.Clear();
+    mStatus.mEnvVarsStatuses.Clear();
+    mStatus.mState = aos::InstanceStateEnum::eActivating;
+    mStatus.mError = ErrorEnum::eNone;
+
+    if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Instance::SetDefaultRuntimes()
+{
+    if (!mItemConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    auto& runtimes = mItemConfig->mRuntimes;
+
+    if (runtimes.IsEmpty()) {
+        static const char* cDefaultRuntimes[] = {
+            "crun",
+            "runc",
+        };
+
+        for (const auto& runtime : cDefaultRuntimes) {
+            if (auto err = runtimes.EmplaceBack(); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (auto err = runtimes.Back().Assign(runtime); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * ComponentInstance implementation
+ **********************************************************************************************************************/
+
+ComponentInstance::ComponentInstance(
+    const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
+    : Instance(info, storage, imageInfoProvider, allocator)
+{
+}
+
+Error ComponentInstance::Init()
+{
+    return ErrorEnum::eNone;
+}
+
+Error ComponentInstance::Remove()
+{
+    LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
+
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ComponentInstance::Cache(bool disable)
+{
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << Log::Field("disable", disable);
+
+    mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
+    mInfo.mNodeID = "";
+
+    if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+bool ComponentInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
+{
+    (void)availableCPU;
+    (void)nodeConfig;
+    (void)useMonitoringData;
+
+    return true;
+}
+
+bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
+{
+    (void)availableRAM;
+    (void)nodeConfig;
+    (void)useMonitoringData;
+
+    return true;
+}
+
+bool ComponentInstance::AreNodeResourcesOk(const NodeItf& node)
+{
+    (void)node;
+
+    return true;
+}
+
+oci::BalancingPolicyEnum ComponentInstance::GetBalancingPolicy()
+{
+    return oci::BalancingPolicyEnum::eDisabled;
+}
+
+Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
+{
+    auto releaseConfig = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { mImageConfig = nullptr; });
+
+    static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
+    mSMInfo.mVersion                     = mInfo.mVersion;
+    mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
+    mSMInfo.mRuntimeID                   = runtimeID;
+    mSMInfo.mOwnerID                     = mInfo.mOwnerID;
+    mSMInfo.mSubjectType                 = mInfo.mSubjectType;
+    mSMInfo.mUID                         = mInfo.mUID;
+    mSMInfo.mGID                         = mInfo.mGID;
+    mSMInfo.mPriority                    = mInfo.mPriority;
+
+    mSMInfo.mStoragePath = "";
+    mSMInfo.mStatePath   = "";
+    // mSMInfo.mEnvVars is set in OverrideEnvVars().
+    mSMInfo.mNetworkParameters.Reset();
+    mSMInfo.mMonitoringParams.Reset();
+
+    if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ComponentInstance::PrepareNetworkParams(bool onlyExposedPorts)
+{
+    (void)onlyExposedPorts;
+
+    return ErrorEnum::eNone;
+}
+
+Error ComponentInstance::RemoveNetworkParams()
+{
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * ServiceInstance implementation
+ **********************************************************************************************************************/
+
+ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
+    StorageState& storageState, ImageInfoProvider& imageInfoProvider, NetworkManager& networkManager,
+    Allocator& allocator)
+    : Instance(info, storage, imageInfoProvider, allocator)
+    , mUIDPool(uidPool)
+    , mGIDPool(gidPool)
+    , mStorageState(storageState)
+    , mNetworkManager(networkManager)
+{
+}
+
+Error ServiceInstance::Init()
+{
+    if (mInfo.mUID != 0) {
+        if (auto err = mUIDPool.TryAcquire(mInfo.mUID); !err.IsNone()) {
+            LOG_WRN() << "Can't add UID to pool" << Log::Field(err);
+        }
+    } else {
+        Error err;
+
+        Tie(mInfo.mUID, err) = mUIDPool.Acquire();
+        if (!err.IsNone()) {
+            LOG_WRN() << "Can't add UID to pool" << Log::Field(err);
+        }
+    }
+
+    gid_t gid;
+    Error gidErr;
+
+    Tie(gid, gidErr) = mGIDPool.GetGID(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
+    if (!gidErr.IsNone()) {
+        return AOS_ERROR_WRAP(gidErr);
+    }
+
+    mInfo.mGID = gid;
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::Remove()
+{
+    LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
+
+    if (auto err = mStorageState.Remove(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mUIDPool.Release(mInfo.mUID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::Cache(bool disable)
+{
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << Log::Field("disable", disable);
+
+    mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
+    mInfo.mNodeID = "";
+
+    if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mStorageState.Cleanup(mInfo.mInstanceIdent); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
+{
+    assert(mItemConfig);
+
+    auto requestedCPU = GetRequestedCPU(nodeConfig, useMonitoringData);
+
+    bool ok = availableCPU >= requestedCPU;
+
+    LOG_DBG() << "Available CPU " << (ok ? "enough" : "not enough") << Log::Field("nodeID", nodeConfig.mNodeID)
+              << Log::Field("availableCPU", availableCPU) << Log::Field("requestedCPU", requestedCPU);
+
+    return ok;
+}
+
+bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
+{
+    assert(mItemConfig);
+
+    auto requestedRAM = GetRequestedRAM(nodeConfig, useMonitoringData);
+
+    bool ok = availableRAM >= requestedRAM;
+
+    LOG_DBG() << "Available RAM " << (ok ? "enough" : "not enough") << Log::Field("nodeID", nodeConfig.mNodeID)
+              << Log::Field("availableRAM", availableRAM) << Log::Field("requestedRAM", requestedRAM);
+
+    return ok;
+}
+
+bool ServiceInstance::AreNodeResourcesOk(const NodeItf& node)
+{
+    assert(mItemConfig);
+
+    for (const auto& resource : mItemConfig->mResources) {
+        if (node.GetAvailableResourceCount(resource.mName) == 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+oci::BalancingPolicyEnum ServiceInstance::GetBalancingPolicy()
+{
+    assert(mItemConfig);
+
+    return mItemConfig->mBalancingPolicy;
+}
+
+Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
+{
+    assert(mItemConfig);
+
+    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
+        mItemConfig.Reset();
+        mImageConfig.Reset();
+    });
+
+    static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
+    mSMInfo.mVersion                     = mInfo.mVersion;
+    mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
+    mSMInfo.mRuntimeID                   = runtimeID;
+    mSMInfo.mOwnerID                     = mInfo.mOwnerID;
+    mSMInfo.mSubjectType                 = mInfo.mSubjectType;
+    mSMInfo.mUID                         = mInfo.mUID;
+    mSMInfo.mGID                         = mInfo.mGID;
+    mSMInfo.mPriority                    = mInfo.mPriority;
+
+    if (auto err = SetupStateStorage(node.GetConfig(), mSMInfo.mStoragePath, mSMInfo.mStatePath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // mSMInfo.mEnvVars is set in OverrideEnvVars().
+
+    if (auto err = SetupNetworkServiceData(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mSMInfo.mMonitoringParams.EmplaceValue();
+    if (mItemConfig->mAlertRules.HasValue()) {
+        mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
+    }
+
+    if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::PrepareNetworkParams(bool onlyExposedPorts)
+{
+    auto err = mNetworkManager.PrepareInstanceNetworkParameters(
+        mInfo.mInstanceIdent, mInfo.mOwnerID, mInfo.mNodeID, onlyExposedPorts, mSMInfo.mNetworkParameters);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::RemoveNetworkParams()
+{
+    if (mSMInfo.mNetworkParameters.HasValue()) {
+        auto err = mNetworkManager.RemoveInstanceNetworkParameters(mInfo.mInstanceIdent, mInfo.mNodeID);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        mSMInfo.mNetworkParameters.Reset();
+    }
+
+    return ErrorEnum::eNone;
+}
+
+size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData)
+{
+    assert(mItemConfig);
+
+    if (mItemConfig->mSkipResourceLimits) {
+        return 0;
+    }
+
+    size_t requestedCPU = 0;
+    auto   quota        = mItemConfig->mQuotas.mCPUDMIPSLimit;
+
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mCPU.HasValue()) {
+        requestedCPU = ClampResource(*mItemConfig->mRequestedResources->mCPU, quota);
+    } else {
+        requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
+    }
+
+    if (useMonitoringData) {
+        if (mMonitoringData.mCPU > requestedCPU) {
+            return mMonitoringData.mCPU;
+        }
+    }
+
+    return requestedCPU;
+}
+
+size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData)
+{
+    assert(mItemConfig);
+
+    if (mItemConfig->mSkipResourceLimits) {
+        return 0;
+    }
+
+    size_t requestedRAM = 0;
+    auto   quota        = mItemConfig->mQuotas.mRAMLimit;
+
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mRAM.HasValue()) {
+        requestedRAM = ClampResource(*mItemConfig->mRequestedResources->mRAM, quota);
+    } else {
+        requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
+    }
+
+    if (useMonitoringData) {
+        if (mMonitoringData.mRAM > requestedRAM) {
+            return mMonitoringData.mRAM;
+        }
+    }
+
+    return requestedRAM;
+}
+
+size_t ServiceInstance::GetReqStateSize(const NodeConfig& nodeConfig)
+{
+    size_t requestedState = 0;
+    auto   quota          = mItemConfig->mQuotas.mStateLimit;
+
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mState.HasValue()) {
+        requestedState = ClampResource(*mItemConfig->mRequestedResources->mState, quota);
+    } else {
+        requestedState = GetReqStateFromNodeConfig(quota, nodeConfig.mResourceRatios);
+    }
+
+    return requestedState;
+}
+
+size_t ServiceInstance::GetReqStorageSize(const NodeConfig& nodeConfig)
+{
+    size_t requestedStorage = 0;
+    auto   quota            = mItemConfig->mQuotas.mStorageLimit;
+
+    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mStorage.HasValue()) {
+        requestedStorage = ClampResource(*mItemConfig->mRequestedResources->mStorage, quota);
+    } else {
+        requestedStorage = GetReqStorageFromNodeConfig(quota, nodeConfig.mResourceRatios);
+    }
+
+    return requestedStorage;
+}
+
+size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quota)
+{
+    if (quota.HasValue() && value > quota.GetValue()) {
+        return quota.GetValue();
+    }
+
+    return value;
+}
+
+size_t ServiceInstance::GetReqCPUFromNodeConfig(
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+{
+    auto ratio = cDefaultResourceRation / 100.0;
+
+    if (nodeRatios.HasValue() && nodeRatios->mCPU.HasValue()) {
+        ratio = nodeRatios->mCPU.GetValue() / 100.0;
+    }
+
+    if (ratio > 1.0) {
+        ratio = 1.0;
+    }
+
+    if (quota.HasValue()) {
+        return static_cast<size_t>(*quota * ratio + 0.5);
+    }
+
+    return 0;
+}
+
+size_t ServiceInstance::GetReqRAMFromNodeConfig(
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+{
+    auto ratio = cDefaultResourceRation / 100.0;
+
+    if (nodeRatios.HasValue() && nodeRatios->mRAM.HasValue()) {
+        ratio = nodeRatios->mRAM.GetValue() / 100.0;
+    }
+
+    if (ratio > 1.0) {
+        ratio = 1.0;
+    }
+
+    if (quota.HasValue()) {
+        return static_cast<size_t>(*quota * ratio + 0.5);
+    }
+
+    return 0;
+}
+
+size_t ServiceInstance::GetReqStateFromNodeConfig(
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+{
+    auto ratio = cDefaultResourceRation / 100.0;
+
+    if (nodeRatios.HasValue() && nodeRatios->mState.HasValue()) {
+        ratio = nodeRatios->mState.GetValue() / 100.0;
+    }
+
+    if (ratio > 1.0) {
+        ratio = 1.0;
+    }
+
+    if (quota.HasValue()) {
+        return static_cast<size_t>(*quota * ratio + 0.5);
+    }
+
+    return 0;
+}
+
+size_t ServiceInstance::GetReqStorageFromNodeConfig(
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+{
+    auto ratio = cDefaultResourceRation / 100.0;
+
+    if (nodeRatios.HasValue() && nodeRatios->mStorage.HasValue()) {
+        ratio = nodeRatios->mStorage.GetValue() / 100.0;
+    }
+
+    if (ratio > 1.0) {
+        ratio = 1.0;
+    }
+
+    if (quota.HasValue()) {
+        return static_cast<size_t>(*quota * ratio + 0.5);
+    }
+
+    return 0;
+}
+
+Error ServiceInstance::SetupNetworkServiceData()
+{
+    mNetworkServiceData.mExposedPorts       = mImageConfig->mConfig.mExposedPorts;
+    mNetworkServiceData.mAllowedConnections = mItemConfig->mAllowedConnections;
+
+    if (mItemConfig->mHostname.HasValue()) {
+        mNetworkServiceData.mHosts.PushBack(mItemConfig->mHostname.GetValue());
+    }
+
+    if (auto err = mNetworkManager.SetNetworkServiceData(mInfo.mInstanceIdent, mNetworkServiceData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath)
+{
+    auto reqState   = GetReqStateSize(nodeConfig);
+    auto reqStorage = GetReqStorageSize(nodeConfig);
+
+    storagestate::SetupParams params;
+
+    params.mUID = mInfo.mUID;
+    params.mGID = mInfo.mGID;
+
+    if (mItemConfig->mQuotas.mStorageLimit.HasValue()) {
+        params.mStorageQuota = *mItemConfig->mQuotas.mStorageLimit;
+    }
+
+    if (mItemConfig->mQuotas.mStateLimit.HasValue()) {
+        params.mStateQuota = *mItemConfig->mQuotas.mStateLimit;
+    }
+
+    if (mItemConfig->mSkipResourceLimits) {
+        reqState   = 0;
+        reqStorage = 0;
+    }
+
+    auto err
+        = mStorageState.SetupStateStorage(mInfo.mInstanceIdent, params, reqStorage, reqState, storagePath, statePath);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
+{
+    auto requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
+    auto requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
+    Array<oci::ResourceInfo> requestedResources
+        = mItemConfig->mSkipResourceLimits ? Array<oci::ResourceInfo>() : mItemConfig->mResources;
+
+    auto reserveErr
+        = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);
+    if (!reserveErr.IsNone()) {
+        return AOS_ERROR_WRAP(reserveErr);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+} // namespace aos::cm::launcher

@@ -1,0 +1,189 @@
+/*
+ * Copyright (C) 2024 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef AOS_CORE_COMMON_OCISPEC_ITEMCONFIG_HPP_
+#define AOS_CORE_COMMON_OCISPEC_ITEMCONFIG_HPP_
+
+#include <core/common/tools/map.hpp>
+#include <core/common/tools/optional.hpp>
+#include <core/common/types/permissions.hpp>
+
+#include "common.hpp"
+
+namespace aos::oci {
+
+/**
+ * Max num runtimes.
+ */
+constexpr auto cMaxNumRunners = AOS_CONFIG_OCISPEC_MAX_NUM_RUNTIMES;
+
+/**
+ * Service quotas.
+ */
+struct ServiceQuotas {
+    Optional<uint64_t> mCPUDMIPSLimit;
+    Optional<uint64_t> mRAMLimit;
+    Optional<uint64_t> mPIDsLimit;
+    Optional<uint64_t> mNoFileLimit;
+    Optional<uint64_t> mTmpLimit;
+    Optional<uint64_t> mStateLimit;
+    Optional<uint64_t> mStorageLimit;
+    Optional<uint64_t> mUploadSpeed;
+    Optional<uint64_t> mDownloadSpeed;
+    Optional<uint64_t> mUploadLimit;
+    Optional<uint64_t> mDownloadLimit;
+
+    /**
+     * Compares service quotas.
+     *
+     * @param rhs service quotas to compare.
+     * @return bool.
+     */
+    bool operator==(const ServiceQuotas& rhs) const
+    {
+        return mCPUDMIPSLimit == rhs.mCPUDMIPSLimit && mRAMLimit == rhs.mRAMLimit && mPIDsLimit == rhs.mPIDsLimit
+            && mNoFileLimit == rhs.mNoFileLimit && mTmpLimit == rhs.mTmpLimit && mStateLimit == rhs.mStateLimit
+            && mStorageLimit == rhs.mStorageLimit && mUploadSpeed == rhs.mUploadSpeed
+            && mDownloadSpeed == rhs.mDownloadSpeed && mUploadLimit == rhs.mUploadLimit
+            && mDownloadLimit == rhs.mDownloadLimit;
+    }
+
+    /**
+     * Compares service quotas.
+     *
+     * @param rhs service quotas to compare.
+     * @return bool.
+     */
+    bool operator!=(const ServiceQuotas& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Requested resources.
+ */
+struct RequestedResources {
+    Optional<uint64_t> mCPU;
+    Optional<uint64_t> mRAM;
+    Optional<uint64_t> mStorage;
+    Optional<uint64_t> mState;
+
+    /**
+     * Compares requested resources.
+     *
+     * @param rhs requested resources to compare.
+     * @return bool.
+     */
+    bool operator==(const RequestedResources& rhs) const
+    {
+        return mCPU == rhs.mCPU && mRAM == rhs.mRAM && mStorage == rhs.mStorage && mState == rhs.mState;
+    }
+
+    /**
+     * Compares requested resources.
+     *
+     * @param rhs requested resources to compare.
+     * @return bool.
+     */
+    bool operator!=(const RequestedResources& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * Resource info.
+ */
+struct ResourceInfo {
+    StaticString<cResourceNameLen> mName;
+    StaticString<cPermissionsLen>  mMode;
+
+    /**
+     * Compares resource info.
+     *
+     * @param rhs resource info to compare.
+     * @return bool.
+     */
+    bool operator==(const ResourceInfo& rhs) const { return mName == rhs.mName && mMode == rhs.mMode; }
+
+    /**
+     * Compares resource info.
+     *
+     * @param rhs resource info to compare.
+     * @return bool.
+     */
+    bool operator!=(const ResourceInfo& rhs) const { return !operator==(rhs); }
+};
+
+using ResourceInfos = StaticArray<ResourceInfo, cMaxNumNodeResources>;
+
+/**
+ * Balancing policy.
+ */
+class BalancingPolicyType {
+public:
+    enum class Enum {
+        eEnabled,
+        eDisabled,
+    };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sBalancingPolicyStrings[] = {
+            "enabled",
+            "disabled",
+        };
+
+        return Array<const char* const>(sBalancingPolicyStrings, ArraySize(sBalancingPolicyStrings));
+    };
+};
+
+using BalancingPolicyEnum = BalancingPolicyType::Enum;
+using BalancingPolicy     = EnumStringer<BalancingPolicyType>;
+
+/**
+ * Item configuration.
+ */
+struct ItemConfig {
+    Time                                                                           mCreated;
+    StaticString<cAuthorLen>                                                       mAuthor;
+    bool                                                                           mSkipResourceLimits;
+    Optional<StaticString<cHostNameLen>>                                           mHostname;
+    BalancingPolicy                                                                mBalancingPolicy;
+    StaticArray<StaticString<cRuntimeTypeLen>, cMaxNumRunners>                     mRuntimes;
+    RunParameters                                                                  mRunParameters;
+    StaticMap<StaticString<cSysctlLen>, StaticString<cSysctlLen>, cSysctlMaxCount> mSysctl;
+    Duration                                                                       mOfflineTTL;
+    ServiceQuotas                                                                  mQuotas;
+    Optional<RequestedResources>                                                   mRequestedResources;
+    StaticArray<StaticString<cConnectionNameLen>, cMaxNumConnections>              mAllowedConnections;
+    ResourceInfos                                                                  mResources;
+    StaticArray<FunctionServicePermissions, cFuncServiceMaxCount>                  mPermissions;
+    Optional<AlertRules>                                                           mAlertRules;
+
+    /**
+     * Compares item config.
+     *
+     * @param rhs item config to compare.
+     * @return bool.
+     */
+    bool operator==(const ItemConfig& rhs) const
+    {
+        return mCreated == rhs.mCreated && mAuthor == rhs.mAuthor && mSkipResourceLimits == rhs.mSkipResourceLimits
+            && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRuntimes == rhs.mRuntimes
+            && mRunParameters == rhs.mRunParameters && mSysctl == rhs.mSysctl && mOfflineTTL == rhs.mOfflineTTL
+            && mPermissions == rhs.mPermissions && mResources == rhs.mResources && mQuotas == rhs.mQuotas
+            && mAllowedConnections == rhs.mAllowedConnections && mRequestedResources == rhs.mRequestedResources
+            && mAlertRules == rhs.mAlertRules;
+    }
+
+    /**
+     * Compares item config.
+     *
+     * @param rhs item config to compare.
+     * @return bool.
+     */
+    bool operator!=(const ItemConfig& rhs) const { return !operator==(rhs); }
+};
+
+} // namespace aos::oci
+
+#endif

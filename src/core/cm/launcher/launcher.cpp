@@ -1,0 +1,690 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+
+#include "launcher.hpp"
+
+namespace aos::cm::launcher {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+class ShouldRebalanceVisitor : public StaticVisitor<bool> {
+public:
+    Res Visit(const SystemQuotaAlert& alert) const
+    {
+        return alert.mState == QuotaAlertStateEnum::eRaise || alert.mState == QuotaAlertStateEnum::eContinue;
+    }
+
+    template <typename T>
+    Res Visit(const T& alert) const
+    {
+        (void)alert;
+        return false;
+    }
+};
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
+    unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
+    networkmanager::NetworkManagerItf& networkManager, MonitoringProviderItf& monitorProvider,
+    alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider,
+    IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator, StorageItf& storage)
+{
+    LOG_DBG() << "Init Launcher";
+
+    mConfig             = config;
+    mStorage            = &storage;
+    mNodeInfoProvider   = &nodeInfoProvider;
+    mRunner             = &runner;
+    mNodeConfigProvider = &nodeConfigProvider;
+    mStorageState       = &storageState;
+    mMonitorProvider    = &monitorProvider;
+    mAlertsProvider     = &alertsProvider;
+    mIdentProvider      = &identProvider;
+
+    mNetworkManager.Init(networkManager);
+
+    auto err = mInstanceManager.Init(
+        config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage, mNetworkManager);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
+
+    mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
+    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
+    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner, mNetworkManager);
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::Start()
+{
+    LockGuard balancingLock {mBalancingMutex};
+    LockGuard updateLock {mUpdateMutex};
+
+    LOG_DBG() << "Start Launcher";
+
+    mIsRunning                = true;
+    mIsOverrideEnvVarsChanged = false;
+
+    // Start managers.
+    if (auto err = mInstanceManager.Start(); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mNodeManager.Start(); !err.IsNone()) {
+        return err;
+    }
+
+    // Subscribe to providers.
+    if (auto err = mNodeInfoProvider->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mIdentProvider->SubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticArray<AlertTag, 1> alertTags;
+
+    alertTags.PushBack(AlertTagEnum::eSystemQuotaAlert);
+
+    if (auto err = mAlertsProvider->SubscribeListener(alertTags, *this); !err.IsNone()) {
+        return err;
+    }
+
+    // Set initial subjects list.
+    auto subjects = MakeUnique<SubjectArray>(&mAllocator);
+
+    if (auto err = mIdentProvider->GetSubjects(*subjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto [_, err] = mInstanceManager.SetSubjects(*subjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Load run requests.
+    if (auto err = mRunRequestsLoader.Load(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Load env vars overrides.
+    if (auto err = LoadEnvVarsOverrides(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto onEnvVarsTTLTimerTick = [this](void*) {
+        UniqueLock updateLock {mUpdateMutex};
+
+        if (auto err = ProcessOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+            LOG_ERR() << "Update override env vars failed" << Log::Field(err);
+        }
+    };
+
+    if (auto err = mEnvVarsTTLTimer.Start(mConfig.mCheckOverrideEnvVarsPeriod, onEnvVarsTTLTimerTick, false);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Load SM data for active instances.
+    if (auto err = mBalancer.LoadSMDataForActiveInstances(); !err.IsNone()) {
+        LOG_ERR() << "Can't load SM data for active instances" << Log::Field(err);
+    }
+
+    // Start process updates thread.
+    mDisableProcessUpdates = false;
+    mUpdatedNodes.Clear();
+    mNewSubjects.SetValue(*subjects); // Check subjects after startup.
+
+    UpdateInstanceStatuses();
+
+    // Check for override env var TTL and setup update if needed.
+    if (auto err = ProcessOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    ProcessNotScheduledInstances();
+
+    if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::Stop()
+{
+    UniqueLock updateLock {mUpdateMutex};
+
+    LOG_DBG() << "Stop Launcher";
+
+    // Finish monitoring thread.
+    mIsRunning             = false;
+    mDisableProcessUpdates = false;
+    mAlertReceived         = false;
+    mUpdatedNodes.Clear();
+    mNewSubjects.Reset();
+    mInstanceStatuses.Clear();
+
+    mProcessUpdatesCondVar.NotifyAll();
+    mAllNodesConnectedCondVar.NotifyAll();
+
+    // Unsubscribe from providers.
+    if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mAlertsProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // Stop managers.
+    if (auto err = mInstanceManager.Stop(); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mNodeManager.Stop(); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mEnvVarsTTLTimer.Stop(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    updateLock.Unlock();
+
+    if (auto err = mWorkerThread.Join(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<InstanceStatus>& statuses)
+{
+    UniqueLock balancingLock {mBalancingMutex};
+    UniqueLock updateLock {mUpdateMutex};
+
+    // Disable process updates for the duration of balancing.
+    mDisableProcessUpdates    = true;
+    auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
+        self->mDisableProcessUpdates = false;
+        self->mProcessUpdatesCondVar.NotifyAll();
+    });
+
+    LOG_INF() << "Run instances" << Log::Field("numRequests", requests.Size());
+
+    for (const auto& request : requests) {
+        LOG_INF() << "Run instance request" << Log::Field("itemID", request.mItemID)
+                  << Log::Field("type", request.mUpdateItemType) << Log::Field("version", request.mVersion)
+                  << Log::Field("numInstances", request.mNumInstances);
+    }
+
+    if (auto err = mRunRequestsLoader.Save(requests); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    WaitAllNodesConnected(updateLock);
+
+    if (!mIsRunning) {
+        return AOS_ERROR_WRAP(ErrorEnum::eCanceled);
+    }
+
+    if (auto err = BalanceInstances(updateLock, false); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = statuses.Assign(mInstanceStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
+{
+    LockGuard updateLock {mUpdateMutex};
+
+    if (auto err = statuses.Assign(mInstanceStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
+{
+    LockGuard updateLock {mUpdateMutex};
+
+    LOG_DBG() << "Subscribe instance status listener";
+
+    if (auto err = mInstanceStatusListeners.PushBack(&listener); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
+{
+    LockGuard updateLock {mUpdateMutex};
+
+    LOG_DBG() << "Unsubscribe instance status listener";
+
+    auto count = mInstanceStatusListeners.Remove(&listener);
+
+    return count == 0 ? AOS_ERROR_WRAP(ErrorEnum::eNotFound) : ErrorEnum::eNone;
+}
+
+Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
+{
+    LOG_DBG() << "Override env vars";
+
+    LockGuard updateLock {mUpdateMutex};
+
+    return ProcessOverrideEnvVars(envVars);
+}
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+void Launcher::UpdateInstanceStatuses()
+{
+    const auto& activeInstances        = mInstanceManager.GetActiveInstances();
+    const auto& preinstalledComponents = mInstanceManager.GetPreinstalledComponents();
+    const auto  totalSize              = activeInstances.Size() + preinstalledComponents.Size();
+
+    // Copy old statuses.
+    auto oldInstanceStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (auto err = oldInstanceStatuses->Assign(mInstanceStatuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to copy old instance statuses" << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    // Keep current statuses.
+    bool changed = mInstanceStatuses.Size() != totalSize;
+
+    if (auto err = mInstanceStatuses.Resize(totalSize); !err.IsNone()) {
+        LOG_ERR() << "Failed to resize instance statuses array" << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    for (size_t i = 0; i < activeInstances.Size(); ++i) {
+        const auto& newStatus = activeInstances[i]->GetStatus();
+
+        if (mInstanceStatuses[i] != newStatus) {
+            changed              = true;
+            mInstanceStatuses[i] = newStatus;
+        }
+    }
+
+    for (size_t i = 0; i < preinstalledComponents.Size(); ++i) {
+        const auto& newStatus = preinstalledComponents[i];
+        const auto  index     = activeInstances.Size() + i;
+
+        if (mInstanceStatuses[index] != newStatus) {
+            changed                  = true;
+            mInstanceStatuses[index] = newStatus;
+        }
+    }
+
+    if (!changed) {
+        return;
+    }
+
+    // Find new statuses.
+    auto changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+
+    for (size_t i = 0; i < mInstanceStatuses.Size(); ++i) {
+        auto newStatus = !oldInstanceStatuses->Contains(mInstanceStatuses[i]);
+        if (newStatus) {
+            if (auto err = changedStatuses->PushBack(mInstanceStatuses[i]); !err.IsNone()) {
+                LOG_ERR() << "Failed to add changed status" << Log::Field(AOS_ERROR_WRAP(err));
+
+                return;
+            }
+        }
+    }
+
+    for (const auto& status : *changedStatuses) {
+        LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
+                  << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
+                  << Log::Field("state", status.mState) << Log::Field(status.mError);
+    }
+
+    for (auto& listener : mInstanceStatusListeners) {
+        listener->OnInstancesStatusesChanged(*changedStatuses);
+    }
+}
+
+void Launcher::FailActivatingInstances()
+{
+    for (auto& instance : mInstanceManager.GetActiveInstances()) {
+        if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating
+            && instance->GetStatus().mType != UpdateItemTypeEnum::eComponent) {
+            const auto& instanceInfo = instance->GetInfo();
+
+            // Keep node ID, because instance still scheduled, but node didn't send activating status.
+            LOG_ERR() << "Instance failed to activate" << Log::Field("instance", instanceInfo.mInstanceIdent)
+                      << Log::Field("version", instanceInfo.mVersion)
+                      << Log::Field("runtimeID", instanceInfo.mRuntimeID)
+                      << Log::Field("manifestDigest", instanceInfo.mManifestDigest);
+
+            instance->SetError(AOS_ERROR_WRAP(ErrorEnum::eTimeout), false);
+        }
+    }
+}
+
+Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
+{
+    LOG_DBG() << "Balance instances" << Log::Field("rebalance", rebalance);
+
+    // Create instances from run requests.
+    auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
+    mRunRequestsLoader.CreateInstances(mNodeManager.GetNodes(), *instances);
+
+    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance);
+
+    FailActivatingInstances();
+    UpdateInstanceStatuses();
+
+    if (!runErr.IsNone()) {
+        return AOS_ERROR_WRAP(runErr);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void Launcher::ProcessUpdate()
+{
+    while (true) {
+        {
+            UniqueLock updateLock {mUpdateMutex};
+
+            mProcessUpdatesCondVar.Wait(updateLock, [this]() {
+                return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
+                           || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged || mForceRebalance)
+                    && !mDisableProcessUpdates;
+            });
+
+            WaitAllNodesConnected(updateLock);
+        }
+
+        UniqueLock balancingLock {mBalancingMutex};
+        UniqueLock updateLock {mUpdateMutex};
+
+        if (!mIsRunning) {
+            return;
+        }
+
+        // Update subjects.
+        Error err;
+        bool  doRebalance = mForceRebalance;
+
+        if (mNewSubjects.HasValue()) {
+            Tie(doRebalance, err) = mInstanceManager.SetSubjects(mNewSubjects.GetValue());
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
+            }
+
+            mNewSubjects.Reset();
+        }
+
+        // Process received alert
+        if (mAlertReceived) {
+            mAlertReceived = false;
+            doRebalance    = true;
+        }
+
+        // Process node info changed.
+        if (mIsNodeInfoChanged) {
+            mIsNodeInfoChanged = false;
+            doRebalance        = true;
+        }
+
+        // Process override environment variables changed.
+        bool forceRestart = false;
+
+        if (mIsOverrideEnvVarsChanged) {
+            mIsOverrideEnvVarsChanged = false;
+            mUpdatedNodes.Clear();
+
+            for (auto& instance : mInstanceManager.GetActiveInstances()) {
+                if (auto [changed, overrideErr] = instance->OverrideEnvVars(mOverrideEnvVars); !overrideErr.IsNone()) {
+                    LOG_ERR() << "Failed to override env vars" << Log::Field(AOS_ERROR_WRAP(overrideErr));
+
+                    continue;
+                } else {
+                    if (changed) {
+                        err = PushUnique(mUpdatedNodes, instance->GetInfo().mNodeID);
+                        if (!err.IsNone()) {
+                            LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));
+
+                            continue;
+                        }
+
+                        forceRestart = true;
+                    }
+                }
+            }
+        }
+
+        // Resend instances.
+        if (!mUpdatedNodes.IsEmpty()) {
+            if (!doRebalance) {
+                err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
+                    mInstanceManager.GetRunningInstances(), forceRestart);
+                if (!err.IsNone()) {
+                    LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
+                }
+            } else {
+                LOG_DBG() << "Rebalancing will be performed, skip resending instances";
+            }
+
+            mUpdatedNodes.Clear();
+        }
+
+        // Rebalance.
+        if (doRebalance) {
+            mForceRebalance = false;
+
+            if (err = BalanceInstances(updateLock, true); !err.IsNone()) {
+                LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+    }
+}
+
+void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
+{
+    auto allNodesConnected = [this]() {
+        auto notConnected = [](const Node& node) { return !node.IsConnected(); };
+
+        return !mNodeManager.GetNodes().ContainsIf(notConnected) || !mIsRunning;
+    };
+
+    mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
+}
+
+Error Launcher::LoadEnvVarsOverrides()
+{
+    // Restore override environment variables without TTL check, so we can detect changes in ProcessOverrideEnvVars().
+    if (auto err = mStorage->LoadOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mInstanceManager.OverrideEnvVars(mOverrideEnvVars);
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars)
+{
+    mOverrideEnvVars = envVars;
+
+    // Remove variables with expired TTLs.
+    auto now = Time::Now();
+
+    for (auto& item : mOverrideEnvVars.mItems) {
+        item.mVariables.RemoveIf([&now](const EnvVarInfo& envVarInfo) {
+            return envVarInfo.mTTL.HasValue() && envVarInfo.mTTL.GetValue() < now;
+        });
+    }
+
+    mOverrideEnvVars.mItems.RemoveIf([](const EnvVarsInstanceInfo& item) { return item.mVariables.IsEmpty(); });
+
+    // Save override environment variables.
+    if (!mInstanceManager.OverrideEnvVars(mOverrideEnvVars)) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mStorage->SaveOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mIsOverrideEnvVarsChanged = true;
+
+    mProcessUpdatesCondVar.NotifyAll();
+
+    return ErrorEnum::eNone;
+}
+
+void Launcher::ProcessNotScheduledInstances()
+{
+    bool hasNotScheduledInstance = mInstanceManager.GetActiveInstances().ContainsIf(
+        [](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID.IsEmpty(); });
+
+    mForceRebalance = hasNotScheduledInstance;
+    mProcessUpdatesCondVar.NotifyAll();
+}
+
+Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
+{
+    LOG_INF() << "Instance status received" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+              << Log::Field("version", status.mVersion) << Log::Field("nodeID", status.mNodeID)
+              << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
+              << Log::Field("state", status.mState) << Log::Field(status.mError);
+
+    LockGuard updateLock {mUpdateMutex};
+
+    if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
+        return err;
+    }
+
+    UpdateInstanceStatuses();
+
+    return ErrorEnum::eNone;
+}
+
+Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Array<InstanceStatus>& statuses)
+{
+    LOG_INF() << "Node instances statuses received" << Log::Field("nodeID", nodeID)
+              << Log::Field("numStatuses", statuses.Size());
+
+    for (const auto& status : statuses) {
+        LOG_INF() << "Node instance status received"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("version", status.mVersion) << Log::Field("runtimeID", status.mRuntimeID)
+                  << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
+                  << Log::Field(status.mError);
+    }
+
+    LockGuard updateLock {mUpdateMutex};
+
+    if (!mIsRunning) {
+        return ErrorEnum::eNone;
+    }
+
+    Error firstErr;
+
+    if (auto err = mInstanceManager.UpdateRunningInstances(nodeID, statuses); !err.IsNone() && firstErr.IsNone()) {
+        firstErr = err;
+    }
+
+    if (auto err = mNodeManager.NotifyNodeStatusReceived(nodeID); !err.IsNone() && firstErr.IsNone()) {
+        firstErr = err;
+    }
+
+    if (!firstErr.IsNone()) {
+        return firstErr;
+    }
+
+    UpdateInstanceStatuses();
+
+    if (auto err = PushUnique(mUpdatedNodes, nodeID); !err.IsNone()) {
+        LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mProcessUpdatesCondVar.NotifyAll();
+    // Node is not connected untill it receives instance statuses.
+    // So, we need to trigger notification for waiting nodes after we handled statuses.
+    mAllNodesConnectedCondVar.NotifyAll();
+
+    return ErrorEnum::eNone;
+}
+
+void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
+{
+    LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
+
+    UniqueLock updateLock {mUpdateMutex};
+
+    if (mNodeManager.UpdateNodeInfo(info)) {
+        mIsNodeInfoChanged = true;
+
+        mProcessUpdatesCondVar.NotifyAll();
+        mAllNodesConnectedCondVar.NotifyAll();
+    }
+}
+
+Error Launcher::OnAlertReceived(const AlertVariant& alert)
+{
+    LOG_DBG() << "Alert received" << Log::Field("alert", alert.ApplyVisitor(GetAlertTagVisitor()));
+
+    UniqueLock updateLock {mUpdateMutex};
+
+    if (!alert.ApplyVisitor(ShouldRebalanceVisitor())) {
+        return ErrorEnum::eNone;
+    }
+
+    mAlertReceived = true;
+    mProcessUpdatesCondVar.NotifyAll();
+
+    return ErrorEnum::eNone;
+}
+
+void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
+{
+    LOG_DBG() << "Subjects changed";
+
+    LockGuard updateLock {mUpdateMutex};
+
+    mNewSubjects.EmplaceValue(subjects);
+
+    mProcessUpdatesCondVar.NotifyAll();
+}
+
+} // namespace aos::cm::launcher

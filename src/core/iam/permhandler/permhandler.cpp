@@ -1,0 +1,155 @@
+/*
+ * Copyright (C) 2024 Renesas Electronics Corporation.
+ * Copyright (C) 2024 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+#include <core/common/tools/uuid.hpp>
+
+#include "permhandler.hpp"
+
+namespace aos::iam::permhandler {
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+Error PermHandler::Init(crypto::UUIDItf& uuidProvider)
+{
+    LOG_DBG() << "Init permission handler";
+
+    mUUIDProvider = &uuidProvider;
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<StaticString<cSecretLen>> PermHandler::RegisterInstance(
+    const InstanceIdent& instanceIdent, const Array<FunctionServicePermissions>& instancePermissions)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Register instance: instance=" << instanceIdent;
+
+    Error                    err;
+    StaticString<cSecretLen> secret;
+
+    Tie(secret, err) = GetSecretForInstance(instanceIdent);
+    if (err.IsNone()) {
+        return {secret};
+    }
+
+    Tie(secret, err) = GenerateSecret();
+    if (!err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    err = AddSecret(secret, instanceIdent, instancePermissions);
+    if (!err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+
+    return {secret};
+}
+
+Error PermHandler::UnregisterInstance(const InstanceIdent& instanceIdent)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Unregister instance: instance=" << instanceIdent;
+
+    if (mInstancesPerms.RemoveIf(
+            [&instanceIdent](const auto& item) { return instanceIdent == static_cast<const InstanceIdent&>(item); })
+        == 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error PermHandler::GetPermissions(const String& secret, const String& funcServerID, InstanceIdent& instanceIdent,
+    Array<FunctionPermissions>& servicePermissions)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get permission: secret=" << secret << ", funcServerID=" << funcServerID;
+
+    const auto instance = FindBySecret(secret);
+    if (instance == mInstancesPerms.end()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    instanceIdent = static_cast<const InstanceIdent&>(*instance);
+
+    for (const auto& it : instance->mFuncServicePerms) {
+        if (it.mName == funcServerID) {
+            if (it.mPermissions.Size() > servicePermissions.MaxSize()) {
+                return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+            }
+
+            servicePermissions = it.mPermissions;
+
+            return ErrorEnum::eNone;
+        }
+    }
+
+    return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+}
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instanceIdent,
+    const Array<FunctionServicePermissions>& instancePermissions)
+{
+    const auto err = mInstancesPerms.EmplaceBack(instanceIdent, secret, instancePermissions);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+InstancePermissions* PermHandler::FindBySecret(const String& secret)
+{
+    return mInstancesPerms.FindIf([&secret](const auto& item) { return secret == item.mSecret; });
+}
+
+InstancePermissions* PermHandler::FindByInstanceIdent(const InstanceIdent& instanceIdent)
+{
+    return mInstancesPerms.FindIf(
+        [&instanceIdent](const auto& elem) { return instanceIdent == static_cast<const InstanceIdent&>(elem); });
+}
+
+RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()
+{
+    StaticString<cSecretLen> secret;
+    uuid::UUID               uuid;
+    Error                    err;
+
+    do {
+        Tie(uuid, err) = mUUIDProvider->CreateUUIDv4();
+        if (!err.IsNone()) {
+            return {secret, err};
+        }
+
+        secret.Assign(uuid::UUIDToString(uuid));
+
+    } while (FindBySecret(secret) != mInstancesPerms.end());
+
+    return {secret};
+}
+
+RetWithError<StaticString<cSecretLen>> PermHandler::GetSecretForInstance(const InstanceIdent& instanceIdent)
+{
+    const auto instance = FindByInstanceIdent(instanceIdent);
+    if (instance == mInstancesPerms.end()) {
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+    }
+
+    return instance->mSecret;
+}
+
+} // namespace aos::iam::permhandler

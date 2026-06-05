@@ -1,0 +1,136 @@
+/*
+ * Copyright (C) 2024 Renesas Electronics Corporation.
+ * Copyright (C) 2024 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+
+#include "provisionmanager.hpp"
+
+namespace aos::iam::provisionmanager {
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+Error ProvisionManager::Init(ProvisionManagerCallbackItf& callback, certhandler::CertHandlerItf& certHandler)
+{
+    LOG_DBG() << "Init provision manager";
+
+    mCallback    = &callback;
+    mCertHandler = &certHandler;
+
+    return aos::ErrorEnum::eNone;
+}
+
+Error ProvisionManager::StartProvisioning(const String& password)
+{
+    LOG_INF() << "Start provisioning";
+
+    auto err = mCallback->OnStartProvisioning(password);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    CertTypes certTypes;
+
+    if (err = mCertHandler->GetCertTypes(certTypes); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& certType : certTypes) {
+        LOG_DBG() << "Clear cert storage" << Log::Field("type", certType);
+
+        if (err = mCertHandler->Clear(certType); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& certType : certTypes) {
+        LOG_DBG() << "Set owner" << Log::Field("type", certType);
+
+        if (err = mCertHandler->SetOwner(certType, password); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto certModuleConfig = mCertHandler->GetModuleConfig(certType);
+        if (!certModuleConfig.mError.IsNone()) {
+            return AOS_ERROR_WRAP(certModuleConfig.mError);
+        }
+
+        if (certModuleConfig.mValue.mIsSelfSigned) {
+            LOG_DBG() << "Create self signed cert" << Log::Field("type", certType);
+
+            if (err = mCertHandler->CreateSelfSignedCert(certType, password); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    if (err = mCallback->OnEncryptDisk(password); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return aos::ErrorEnum::eNone;
+}
+
+Error ProvisionManager::FinishProvisioning(const String& password)
+{
+    LOG_INF() << "Finish provisioning";
+
+    return AOS_ERROR_WRAP(mCallback->OnFinishProvisioning(password));
+}
+
+Error ProvisionManager::Deprovision(const String& password)
+{
+    LOG_INF() << "Deprovision";
+
+    return AOS_ERROR_WRAP(mCallback->OnDeprovision(password));
+}
+
+RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
+{
+    LOG_DBG() << "Get cert types";
+
+    CertTypes certTypes;
+
+    auto err = mCertHandler->GetCertTypes(certTypes);
+    if (!err.IsNone()) {
+        return {certTypes, AOS_ERROR_WRAP(err)};
+    }
+
+    for (auto it = certTypes.begin(); it != certTypes.end();) {
+        auto certModuleConfig = mCertHandler->GetModuleConfig(*it);
+        if (!certModuleConfig.mError.IsNone()) {
+            return {certTypes, AOS_ERROR_WRAP(certModuleConfig.mError)};
+        }
+
+        if (!certModuleConfig.mValue.mIsSelfSigned) {
+            ++it;
+
+            continue;
+        }
+
+        it = certTypes.Erase(it);
+    }
+
+    return {certTypes, aos::ErrorEnum::eNone};
+}
+
+Error ProvisionManager::CreateKey(const String& certType, const String& subject, const String& password, String& csr)
+{
+    LOG_DBG() << "Create key" << Log::Field("type", certType) << Log::Field("subject", subject);
+
+    return AOS_ERROR_WRAP(mCertHandler->CreateKey(certType, subject, password, csr));
+}
+
+Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo)
+{
+    LOG_DBG() << "Apply cert" << Log::Field("type", certType);
+
+    return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
+}
+
+} // namespace aos::iam::provisionmanager

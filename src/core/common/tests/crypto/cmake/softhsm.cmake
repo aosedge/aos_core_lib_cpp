@@ -1,0 +1,29 @@
+#
+# Copyright (C) 2024 Renesas Electronics Corporation.
+# Copyright (C) 2024 EPAM Systems, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+#
+# Creates softhsm test environment
+#
+
+function(createsofthsmtestenv TARGET SOFTHSM_BASE_DIR)
+    find_library(
+        SOFTHSM2_LIB
+        NAMES softhsm2
+        PATH_SUFFIXES softhsm
+    )
+
+    if(NOT SOFTHSM2_LIB)
+        message(FATAL_ERROR "softhsm2 library not found")
+    endif()
+
+    file(MAKE_DIRECTORY ${SOFTHSM_BASE_DIR}/tokens/)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/softhsm2.conf ${SOFTHSM_BASE_DIR}/softhsm2.conf COPYONLY)
+    file(APPEND ${SOFTHSM_BASE_DIR}/softhsm2.conf "directories.tokendir = ${SOFTHSM_BASE_DIR}/tokens/\n")
+
+    target_compile_definitions(${TARGET} PUBLIC SOFTHSM_BASE_DIR="${SOFTHSM_BASE_DIR}" SOFTHSM2_LIB="${SOFTHSM2_LIB}")
+endfunction()

@@ -1,0 +1,49 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef AOS_CORE_COMMON_TESTS_MOCKS_SPACEALLOCATORMOCK_HPP_
+#define AOS_CORE_COMMON_TESTS_MOCKS_SPACEALLOCATORMOCK_HPP_
+
+#include <gmock/gmock.h>
+
+#include <core/common/spaceallocator/spaceallocator.hpp>
+
+namespace aos::spaceallocator {
+
+/**
+ * Item remover mock.
+ */
+class ItemRemoverMock : public ItemRemoverItf {
+public:
+    MOCK_METHOD(RetWithError<size_t>, RemoveItem, (const String&, const String&), (override));
+};
+
+/**
+ * Space mock.
+ */
+class SpaceMock : public SpaceItf {
+public:
+    MOCK_METHOD(Error, Accept, (), (override));
+    MOCK_METHOD(Error, Release, (), (override));
+    MOCK_METHOD(Error, Resize, (size_t), (override));
+    MOCK_METHOD(size_t, Size, (), (const, override));
+};
+
+/**
+ * Space allocator mock.
+ */
+class SpaceAllocatorMock : public SpaceAllocatorItf {
+public:
+    MOCK_METHOD(RetWithError<UniquePtr<SpaceItf>>, AllocateSpace, (size_t), (override));
+    MOCK_METHOD(void, FreeSpace, (size_t), (override));
+    MOCK_METHOD(Error, AddOutdatedItem, (const String&, const String&, const Time&), (override));
+    MOCK_METHOD(Error, RestoreOutdatedItem, (const String&, const String&), (override));
+    MOCK_METHOD(Error, AllocateDone, (), (override));
+};
+
+} // namespace aos::spaceallocator
+
+#endif
