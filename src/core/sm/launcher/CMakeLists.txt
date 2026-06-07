@@ -21,6 +21,7 @@ set(SOURCES launcher.cpp)
 # ######################################################################################################################
 
 set(HEADERS
+    itf/instanceidprovider.hpp
     itf/instancestatusreceiver.hpp
     itf/launcher.hpp
     itf/rebooter.hpp

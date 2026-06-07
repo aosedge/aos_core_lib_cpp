@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2025 EPAM Systems, Inc.
+# Copyright (C) 2026 EPAM Systems, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -14,7 +14,7 @@ set(TARGET_NAME networkmanager)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/networkmanager.hpp itf/nodenetwork.hpp)
+set(HEADERS itf/networkprovider.hpp itf/pendingupdatehandler.hpp)
 
 # ######################################################################################################################
 # Target

@@ -12,7 +12,6 @@
 
 #include "envvars.hpp"
 #include "monitoring.hpp"
-#include "network.hpp"
 
 namespace aos {
 
@@ -20,19 +19,18 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
-    StaticString<cVersionLen>           mVersion;
-    StaticString<oci::cDigestLen>       mManifestDigest;
-    StaticString<cIDLen>                mRuntimeID;
-    StaticString<cIDLen>                mOwnerID;
-    SubjectType                         mSubjectType;
-    uid_t                               mUID {};
-    gid_t                               mGID {};
-    uint64_t                            mPriority {};
-    StaticString<cFilePathLen>          mStoragePath;
-    StaticString<cFilePathLen>          mStatePath;
-    EnvVarArray                         mEnvVars;
-    Optional<InstanceNetworkParameters> mNetworkParameters;
-    Optional<InstanceMonitoringParams>  mMonitoringParams;
+    StaticString<cVersionLen>          mVersion;
+    StaticString<oci::cDigestLen>      mManifestDigest;
+    StaticString<cIDLen>               mRuntimeID;
+    StaticString<cIDLen>               mOwnerID;
+    SubjectType                        mSubjectType;
+    uid_t                              mUID {};
+    gid_t                              mGID {};
+    uint64_t                           mPriority {};
+    StaticString<cFilePathLen>         mStoragePath;
+    StaticString<cFilePathLen>         mStatePath;
+    EnvVarArray                        mEnvVars;
+    Optional<InstanceMonitoringParams> mMonitoringParams;
 
     /**
      * Compares instance info data.
@@ -45,8 +43,7 @@ struct InstanceInfoData {
         return mVersion == rhs.mVersion && mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID
             && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType && mUID == rhs.mUID && mGID == rhs.mGID
             && mPriority == rhs.mPriority && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
-            && mEnvVars == rhs.mEnvVars && mNetworkParameters == rhs.mNetworkParameters
-            && mMonitoringParams == rhs.mMonitoringParams;
+            && mEnvVars == rhs.mEnvVars && mMonitoringParams == rhs.mMonitoringParams;
     }
 
     /**

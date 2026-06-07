@@ -10,6 +10,8 @@
 #include <core/common/types/common.hpp>
 #include <core/common/types/network.hpp>
 
+#include "types.hpp"
+
 namespace aos::sm::networkmanager {
 
 /** @addtogroup sm Service Manager
@@ -80,8 +82,11 @@ struct NetworkInfo {
  * Instance network information.
  */
 struct InstanceNetworkInfo {
-    StaticString<cIDLen> mInstanceID;
-    StaticString<cIDLen> mNetworkID;
+    StaticString<cIDLen>           mInstanceID;
+    StaticString<cIDLen>           mNetworkID;
+    InstanceNetworkConfig          mNetworkConfig;
+    aos::InstanceNetworkAllocation mAllocatedParams;
+    StaticString<cInterfaceLen>    mHostIfName;
 
     /**
      * Default constructor.
@@ -93,10 +98,17 @@ struct InstanceNetworkInfo {
      *
      * @param instanceID instance ID.
      * @param networkID network ID.
+     * @param networkConfig instance network config.
+     * @param allocatedParams CM-allocated network parameters.
+     * @param hostIfName host-side veth interface name produced on attach.
      */
-    InstanceNetworkInfo(const String& instanceID, const String& networkID)
+    InstanceNetworkInfo(const String& instanceID, const String& networkID, const InstanceNetworkConfig& networkConfig,
+        const aos::InstanceNetworkAllocation& allocatedParams, const String& hostIfName = {})
         : mInstanceID(instanceID)
         , mNetworkID(networkID)
+        , mNetworkConfig(networkConfig)
+        , mAllocatedParams(allocatedParams)
+        , mHostIfName(hostIfName)
     {
     }
 };
@@ -137,6 +149,14 @@ public:
      * @return Error.
      */
     virtual Error AddInstanceNetworkInfo(const InstanceNetworkInfo& info) = 0;
+
+    /**
+     * Updates instance network info in storage.
+     *
+     * @param info instance network information.
+     * @return Error.
+     */
+    virtual Error UpdateInstanceNetworkInfo(const InstanceNetworkInfo& info) = 0;
 
     /**
      * Removes instance network info from storage.

@@ -22,7 +22,10 @@ set(SOURCES networkmanager.cpp)
 
 set(HEADERS
     networkmanager.hpp
-    itf/cni.hpp
+    itf/bandwidth.hpp
+    itf/bridgenetwork.hpp
+    itf/dnsname.hpp
+    itf/firewall.hpp
     itf/interfacefactory.hpp
     itf/interfacemanager.hpp
     itf/namespacemanager.hpp

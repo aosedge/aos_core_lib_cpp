@@ -19,7 +19,6 @@
 
 #include "gidpool.hpp"
 #include "imageinfoprovider.hpp"
-#include "networkmanager.hpp"
 #include "nodeitf.hpp"
 #include "storagestate.hpp"
 
@@ -234,21 +233,6 @@ public:
     virtual Error Schedule(NodeItf& node, const String& runtimeID) = 0;
 
     /**
-     * Setups network parameters.
-     *
-     * @param onlyExposedPorts setup only for exposed ports.
-     * @return Error.
-     */
-    virtual Error PrepareNetworkParams(bool onlyExposedPorts) = 0;
-
-    /**
-     * Removes network parameters.
-     *
-     * @return Error.
-     */
-    virtual Error RemoveNetworkParams() = 0;
-
-    /**
      * Overrides environment variables.
      *
      * @param envVars environment variables.
@@ -356,21 +340,6 @@ public:
      * @return Error.
      */
     Error Schedule(NodeItf& node, const String& runtimeID) override;
-
-    /**
-     * Prepares network parameters.
-     *
-     * @param onlyExposedPorts prepare only for exposed ports.
-     * @return Error.
-     */
-    Error PrepareNetworkParams(bool onlyExposedPorts) override;
-
-    /**
-     * Removes network parameters.
-     *
-     * @return Error.
-     */
-    Error RemoveNetworkParams() override;
 };
 
 /**
@@ -385,12 +354,10 @@ public:
      * @param uidPool pool for managing user identifiers.
      * @param storage interface to persistent storage.
      * @param storageState interface for managing storage and state partitions.
-     * @param networkManager interface for managing networks of service instances.
      * @param allocator instance allocator.
      */
     ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-        StorageState& storageState, ImageInfoProvider& imageInfoProvider, NetworkManager& networkManager,
-        Allocator& allocator);
+        StorageState& storageState, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
 
     /**
      * Initializes service instance.
@@ -459,21 +426,6 @@ public:
      */
     Error Schedule(NodeItf& node, const String& runtimeID) override;
 
-    /**
-     * Prepares network parameters.
-     *
-     * @param onlyExposedPorts prepare only for exposed ports.
-     * @return Error.
-     */
-    Error PrepareNetworkParams(bool onlyExposedPorts) override;
-
-    /**
-     * Removes network parameters.
-     *
-     * @return Error.
-     */
-    Error RemoveNetworkParams() override;
-
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
 
@@ -488,17 +440,12 @@ private:
     size_t GetReqStateFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
     size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
 
-    Error SetupNetworkServiceData();
     Error ReserveRuntimeResources(NodeItf& node, const String& runtimeID);
-
     Error SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath);
 
-    networkmanager::NetworkServiceData mNetworkServiceData {};
-
-    UIDPool&        mUIDPool;
-    GIDPool&        mGIDPool;
-    StorageState&   mStorageState;
-    NetworkManager& mNetworkManager;
+    UIDPool&      mUIDPool;
+    GIDPool&      mGIDPool;
+    StorageState& mStorageState;
 };
 
 /** @}*/

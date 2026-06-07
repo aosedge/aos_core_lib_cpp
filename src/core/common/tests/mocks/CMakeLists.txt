@@ -27,6 +27,7 @@ set(HEADERS
     logprovidermock.hpp
     monitoringmock.hpp
     nodehandlermock.hpp
+    networkprovidermock.hpp
     nodeinfoprovidermock.hpp
     ocispecmock.hpp
     permhandlermock.hpp

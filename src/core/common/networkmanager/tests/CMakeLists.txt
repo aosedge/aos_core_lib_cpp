@@ -1,22 +1,22 @@
 #
-# Copyright (C) 2025 EPAM Systems, Inc.
+# Copyright (C) 2026 EPAM Systems, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set(TARGET_NAME networkmanager_test)
+set(TARGET_NAME networkprovider_test)
 
 # ######################################################################################################################
 # Sources
 # ######################################################################################################################
 
-set(SOURCES networkmanager.cpp)
+set(SOURCES networkprovider.cpp pendingupdatehandler.cpp)
 
 # ######################################################################################################################
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES GTest::gmock_main)
+set(LIBRARIES aos::core::common::tools GTest::gmock_main)
 
 # ######################################################################################################################
 # Target

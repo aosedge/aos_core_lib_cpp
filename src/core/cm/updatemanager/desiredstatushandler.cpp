@@ -151,8 +151,6 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
 {
     (void)statuses;
 
-    LockGuard lock {mMutex};
-
     mCondVar.NotifyOne();
 }
 
@@ -460,8 +458,6 @@ Error DesiredStatusHandler::LaunchInstances()
 
 Error DesiredStatusHandler::WaitInstancesActive()
 {
-    UniqueLock lock {mMutex};
-
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
 
     while (mIsRunning) {
@@ -482,6 +478,8 @@ Error DesiredStatusHandler::WaitInstancesActive()
         if (allActive) {
             break;
         }
+
+        UniqueLock lock {mMutex};
 
         if (auto err = mCondVar.Wait(lock, cWaitActiveTimeout); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);

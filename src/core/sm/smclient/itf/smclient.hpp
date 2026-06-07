@@ -10,8 +10,10 @@
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/logging/itf/sender.hpp>
 #include <core/common/monitoring/itf/sender.hpp>
+#include <core/common/networkmanager/itf/networkprovider.hpp>
 #include <core/sm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/sm/launcher/itf/sender.hpp>
+#include <core/sm/smclient/itf/connection.hpp>
 
 namespace aos::sm::smclient {
 
@@ -27,7 +29,9 @@ class SMClientItf : public aos::alerts::SenderItf,
                     public aos::logging::SenderItf,
                     public launcher::SenderItf,
                     public imagemanager::BlobInfoProviderItf,
-                    public cloudconnection::CloudConnectionItf {
+                    public cloudconnection::CloudConnectionItf,
+                    public aos::networkmanager::NetworkProviderItf,
+                    public ConnectionItf {
 public:
     /**
      * Destructor.
