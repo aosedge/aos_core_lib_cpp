@@ -63,9 +63,10 @@ public:
 
 private:
     struct AverageData {
-        bool               mIsInitialized {};
-        MonitoringData     mMonitoringData;
-        PartitionInfoArray mMonitoredPartitions;
+        bool                 mIsInitialized {};
+        StaticString<cIDLen> mRuntimeID;
+        MonitoringData       mMonitoringData;
+        PartitionInfoArray   mMonitoredPartitions;
     };
 
     static constexpr auto cAllocatorSize = sizeof(AverageData);
