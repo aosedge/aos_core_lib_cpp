@@ -316,20 +316,18 @@ Error ComponentInstance::Cache(bool disable)
     return ErrorEnum::eNone;
 }
 
-bool ComponentInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ComponentInstance::IsAvailableCpuOk(size_t availableCPU, const NodeItf& node)
 {
     (void)availableCPU;
-    (void)nodeConfig;
-    (void)useMonitoringData;
+    (void)node;
 
     return true;
 }
 
-bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeItf& node)
 {
     (void)availableRAM;
-    (void)nodeConfig;
-    (void)useMonitoringData;
+    (void)node;
 
     return true;
 }
@@ -455,29 +453,29 @@ Error ServiceInstance::Cache(bool disable)
     return ErrorEnum::eNone;
 }
 
-bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeItf& node)
 {
     assert(mItemConfig);
 
-    auto requestedCPU = GetRequestedCPU(nodeConfig, useMonitoringData);
+    auto requestedCPU = GetRequestedCPU(node);
 
     bool ok = availableCPU >= requestedCPU;
 
-    LOG_DBG() << "Available CPU " << (ok ? "enough" : "not enough") << Log::Field("nodeID", nodeConfig.mNodeID)
+    LOG_DBG() << "Available CPU " << (ok ? "enough" : "not enough") << Log::Field("nodeID", node.GetConfig().mNodeID)
               << Log::Field("availableCPU", availableCPU) << Log::Field("requestedCPU", requestedCPU);
 
     return ok;
 }
 
-bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeItf& node)
 {
     assert(mItemConfig);
 
-    auto requestedRAM = GetRequestedRAM(nodeConfig, useMonitoringData);
+    auto requestedRAM = GetRequestedRAM(node);
 
     bool ok = availableRAM >= requestedRAM;
 
-    LOG_DBG() << "Available RAM " << (ok ? "enough" : "not enough") << Log::Field("nodeID", nodeConfig.mNodeID)
+    LOG_DBG() << "Available RAM " << (ok ? "enough" : "not enough") << Log::Field("nodeID", node.GetConfig().mNodeID)
               << Log::Field("availableRAM", availableRAM) << Log::Field("requestedRAM", requestedRAM);
 
     return ok;
@@ -544,13 +542,15 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
     return ErrorEnum::eNone;
 }
 
-size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData)
+size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
 {
     assert(mItemConfig);
 
     if (mItemConfig->mSkipResourceLimits) {
         return 0;
     }
+
+    const auto& nodeConfig = node.GetConfig();
 
     size_t requestedCPU = 0;
     auto   quota        = mItemConfig->mQuotas.mCPUDMIPSLimit;
@@ -561,7 +561,7 @@ size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMo
         requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (useMonitoringData) {
+    if (node.NeedBalancing()) {
         if (mMonitoringData.mCPU > requestedCPU) {
             return mMonitoringData.mCPU;
         }
@@ -570,13 +570,15 @@ size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMo
     return requestedCPU;
 }
 
-size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData)
+size_t ServiceInstance::GetRequestedRAM(const NodeItf& node)
 {
     assert(mItemConfig);
 
     if (mItemConfig->mSkipResourceLimits) {
         return 0;
     }
+
+    const auto& nodeConfig = node.GetConfig();
 
     size_t requestedRAM = 0;
     auto   quota        = mItemConfig->mQuotas.mRAMLimit;
@@ -587,7 +589,7 @@ size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMo
         requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (useMonitoringData) {
+    if (node.NeedBalancing()) {
         if (mMonitoringData.mRAM > requestedRAM) {
             return mMonitoringData.mRAM;
         }
@@ -747,8 +749,8 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
 Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
 {
-    auto requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
-    auto requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
+    auto                     requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
+    auto                     requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
     Array<oci::ResourceInfo> requestedResources
         = mItemConfig->mSkipResourceLimits ? Array<oci::ResourceInfo>() : mItemConfig->mResources;
 

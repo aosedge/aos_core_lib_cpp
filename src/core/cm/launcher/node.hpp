@@ -61,11 +61,6 @@ public:
     const UnitNodeInfo& GetInfo() const { return mInfo; }
 
     /**
-     * Indicates whether node requires rebalancing.
-     */
-    bool NeedBalancing() const { return mNeedBalancing; }
-
-    /**
      * Updates node information.
      *
      * @param info node information.
@@ -187,8 +182,6 @@ private:
 
     UnitNodeInfo mInfo {};
     bool         mIsNodeStatusReceived {};
-
-    bool mNeedBalancing {};
 
     size_t mTotalCPUUsage {};
     size_t mTotalRAMUsage {};

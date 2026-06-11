@@ -158,21 +158,19 @@ public:
      * Checks whether available CPU fits instance requirements.
      *
      * @param availableCPU available CPU.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    virtual bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) = 0;
+    virtual bool IsAvailableCpuOk(size_t availableCPU, const NodeItf& node) = 0;
 
     /**
      * Checks whether available RAM fits instance requirements.
      *
      * @param availableRAM available RAM.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    virtual bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) = 0;
+    virtual bool IsAvailableRamOk(size_t availableRAM, const NodeItf& node) = 0;
 
     /**
      * Checks whether runtime type fits instance requirements.
@@ -300,21 +298,19 @@ public:
      * Checks whether available CPU fits instance requirements.
      *
      * @param availableCPU available CPU.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableCpuOk(size_t availableCPU, const NodeItf& node) override;
 
     /**
      * Checks whether available RAM fits instance requirements.
      *
      * @param availableRAM available RAM.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableRamOk(size_t availableRAM, const NodeItf& node) override;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -385,21 +381,19 @@ public:
      * Checks whether available CPU fits instance requirements.
      *
      * @param availableCPU available CPU.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableCpuOk(size_t availableCPU, const NodeItf& node) override;
 
     /**
      * Checks whether available RAM fits instance requirements.
      *
      * @param availableRAM available RAM.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableRamOk(size_t availableRAM, const NodeItf& node) override;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -429,8 +423,8 @@ public:
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
 
-    size_t GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData);
-    size_t GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData);
+    size_t GetRequestedCPU(const NodeItf& node);
+    size_t GetRequestedRAM(const NodeItf& node);
     size_t GetReqStateSize(const NodeConfig& nodeConfig);
     size_t GetReqStorageSize(const NodeConfig& nodeConfig);
 
