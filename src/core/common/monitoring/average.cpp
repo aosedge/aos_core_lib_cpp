@@ -80,6 +80,10 @@ Error Average::Update(const NodeMonitoringData& data)
             !err.IsNone()) {
             return err;
         }
+
+        if (auto err = averageInstance->mSecond.mRuntimeID.Assign(instance.mRuntimeID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -95,6 +99,10 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
         if (auto err = data.mInstances.EmplaceBack(instanceIdent); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = data.mInstances.Back().mRuntimeID.Assign(averageMonitoringData.mRuntimeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
