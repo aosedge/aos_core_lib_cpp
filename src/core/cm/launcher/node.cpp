@@ -120,9 +120,8 @@ void Node::PrepareForBalancing(bool rebalancing)
         const auto& alertRules = mConfig.mAlertRules.GetValue();
         if (alertRules.mCPU.HasValue() || alertRules.mRAM.HasValue()) {
             if (alertRules.mCPU.HasValue()) {
-                const auto usedCPU = mTotalCPUUsage;
-                const auto maxTreshold
-                    = mInfo.mMaxDMIPS * static_cast<size_t>(alertRules.mCPU.GetValue().mMaxThreshold / 100.0);
+                const auto usedCPU     = mTotalCPUUsage;
+                const auto maxTreshold = mInfo.mMaxDMIPS * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
 
                 if (usedCPU > maxTreshold) {
                     mNeedBalancing = true;
@@ -130,9 +129,8 @@ void Node::PrepareForBalancing(bool rebalancing)
             }
 
             if (alertRules.mRAM.HasValue()) {
-                const auto usedRAM = mTotalRAMUsage;
-                const auto maxTreshold
-                    = mInfo.mMaxDMIPS * static_cast<size_t>(alertRules.mRAM.GetValue().mMaxThreshold / 100.0);
+                const auto usedRAM     = mTotalRAMUsage;
+                const auto maxTreshold = mInfo.mTotalRAM * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
 
                 if (usedRAM > maxTreshold) {
                     mNeedBalancing = true;
