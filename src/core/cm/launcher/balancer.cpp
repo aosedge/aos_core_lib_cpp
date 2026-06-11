@@ -339,7 +339,7 @@ void Balancer::FilterByCPU(Instance& instance, NodeRuntimes& nodes)
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         auto availCPU = node->GetAvailableCPU(runtime->mRuntimeID);
 
-        return instance.IsAvailableCpuOk(availCPU, node->GetConfig(), node->NeedBalancing());
+        return instance.IsAvailableCpuOk(availCPU, *node);
     };
 
     FilterRuntimes(nodes, filter);
@@ -350,7 +350,7 @@ void Balancer::FilterByRAM(Instance& instance, NodeRuntimes& nodes)
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         auto availRAM = node->GetAvailableRAM(runtime->mRuntimeID);
 
-        return instance.IsAvailableRamOk(availRAM, node->GetConfig(), node->NeedBalancing());
+        return instance.IsAvailableRamOk(availRAM, *node);
     };
 
     FilterRuntimes(nodes, filter);
