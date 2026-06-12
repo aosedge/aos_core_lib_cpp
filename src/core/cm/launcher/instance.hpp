@@ -11,13 +11,12 @@
 
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/tools/identifierpool.hpp>
 #include <core/common/types/monitoring.hpp>
 #include <core/common/types/unitconfig.hpp>
 
 #include "itf/storage.hpp"
 
-#include "gidpool.hpp"
+#include "idpool.hpp"
 #include "imageinfoprovider.hpp"
 #include "nodeitf.hpp"
 #include "storagestate.hpp"
@@ -27,26 +26,6 @@ namespace aos::cm::launcher {
 /** @addtogroup cm Communication Manager
  *  @{
  */
-
-/**
- * UID range start.
- */
-static constexpr auto cUIDRangeBegin = 5000;
-
-/**
- * UID range end.
- */
-static constexpr auto cUIDRangeEnd = 10000;
-
-/**
- * Max number of locked IDs simultaneously.
- */
-static constexpr auto cMaxNumLockedUIDs = cMaxNumInstances;
-
-/**
- * User ID pool
- */
-using UIDPool = IdentifierRangePool<cUIDRangeBegin, cUIDRangeEnd, cMaxNumLockedUIDs>;
 
 /**
  * Base instance class.
