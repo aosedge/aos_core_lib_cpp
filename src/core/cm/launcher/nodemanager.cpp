@@ -4,12 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "nodemanager.hpp"
-
 #include <core/common/tools/logger.hpp>
-#include <core/common/tools/memory.hpp>
+
+#include "nodemanager.hpp"
+#include "utils.hpp"
 
 namespace aos::cm::launcher {
+
+auto FilterActiveNodes(Array<Node>& array)
+{
+    auto cmp
+        = [](const Node& node) { return node.IsConnected() && node.GetInfo().mState == NodeStateEnum::eProvisioned; };
+
+    return Filter(array, cmp);
+}
 
 /***********************************************************************************************************************
  * Public
@@ -69,6 +77,8 @@ Error NodeManager::Stop()
 
 Error NodeManager::PrepareForBalancing(bool rebalancing)
 {
+    // Launcher utilizes scheduling implementation to load SM data for active instances on startup
+    // so we need to prepare for balancing all nodes.
     for (auto& node : mNodes) {
         node.PrepareForBalancing(rebalancing);
     }
@@ -158,7 +168,7 @@ Error NodeManager::GetConnectedNodes(Array<Node*>& nodes)
 {
     nodes.Clear();
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         if (auto err = nodes.PushBack(&node); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -192,7 +202,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
 {
     Error firstErr = ErrorEnum::eNone;
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
@@ -211,7 +221,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
     // Wait for node statuses
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -233,7 +243,7 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
 
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         if (!updatedNodes.Contains(node.GetInfo().mNodeID)) {
             continue;
         }
@@ -281,12 +291,6 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
-        if (info.mState != NodeStateEnum::eProvisioned) {
-            mNodes.Erase(node);
-
-            return true;
-        }
-
         return node->UpdateInfo(info);
     } else {
         if (info.mState != NodeStateEnum::eProvisioned) {

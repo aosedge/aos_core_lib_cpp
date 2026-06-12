@@ -7,73 +7,9 @@
 #include <core/common/tools/logger.hpp>
 
 #include "node.hpp"
+#include "utils.hpp"
 
 namespace aos::cm::launcher {
-
-template <typename T, class Cmp>
-class Filter {
-public:
-    class Iterator {
-    public:
-        Iterator(typename Array<T>::ConstIterator it, typename Array<T>::ConstIterator end, Cmp cmp)
-            : mIt(it)
-            , mEnd(end)
-            , mCmp(cmp)
-        {
-            while (mIt != mEnd && !mCmp(*mIt)) {
-                ++mIt;
-            }
-        }
-
-        Iterator& operator++()
-        {
-            assert(mIt != mEnd);
-
-            ++mIt;
-
-            while (mIt != mEnd && !mCmp(*mIt)) {
-                ++mIt;
-            }
-
-            return *this;
-        }
-
-        Iterator operator++(int)
-        {
-            assert(mIt != mEnd);
-
-            Iterator tmp = *this;
-
-            ++(*this);
-
-            return tmp;
-        }
-
-        bool operator==(const Iterator& other) const { return mIt == other.mIt; }
-        bool operator!=(const Iterator& other) const { return mIt != other.mIt; }
-
-        const T& operator*() const { return *mIt; }
-        const T* operator->() const { return mIt; }
-
-    private:
-        typename Array<T>::ConstIterator mIt;
-        typename Array<T>::ConstIterator mEnd;
-        Cmp                              mCmp;
-    };
-
-    Filter(const Array<T>& array, Cmp cmp)
-        : mArray(&array)
-        , mCmp(cmp)
-    {
-    }
-
-    Iterator begin() const { return Iterator(mArray->begin(), mArray->end(), mCmp); }
-    Iterator end() const { return Iterator(mArray->end(), mArray->end(), mCmp); }
-
-private:
-    const Array<T>* mArray;
-    Cmp             mCmp;
-};
 
 auto FilterActiveNodeInstances(const Array<InstanceStatus>& array, const String& nodeID)
 {
@@ -81,14 +17,14 @@ auto FilterActiveNodeInstances(const Array<InstanceStatus>& array, const String&
         return status.mNodeID == nodeID && status.mState != aos::InstanceStateEnum::eInactive;
     };
 
-    return Filter<InstanceStatus, decltype(cmp)>(array, cmp);
+    return Filter(array, cmp);
 }
 
 auto FilterByNode(const Array<SharedPtr<Instance>>& array, const String& nodeID)
 {
     auto cmp = [nodeID](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID == nodeID; };
 
-    return Filter<SharedPtr<Instance>, decltype(cmp)>(array, cmp);
+    return Filter(array, cmp);
 }
 
 /***********************************************************************************************************************

@@ -444,6 +444,12 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
+        if (!node->IsConnected() || node->GetInfo().mState != NodeStateEnum::eProvisioned) {
+            LOG_WRN() << "Node is skipped from balancing" << Log::Field("nodeID", info.mNodeID);
+
+            continue;
+        }
+
         if (auto err = mInstanceManager->ScheduleInstance(instance, *node, info.mRuntimeID); !err.IsNone()) {
             LOG_WRN() << "Can't schedule instance" << Log::Field("instance", id) << Log::Field(AOS_ERROR_WRAP(err));
 
