@@ -517,7 +517,9 @@ void Launcher::ProcessUpdate()
 void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
 {
     auto allNodesConnected = [this]() {
-        auto notConnected = [](const Node& node) { return !node.IsConnected(); };
+        auto notConnected = [](const Node& node) {
+            return !node.IsConnected() && node.GetInfo().mState == NodeStateEnum::eProvisioned;
+        };
 
         return !mNodeManager.GetNodes().ContainsIf(notConnected) || !mIsRunning;
     };
