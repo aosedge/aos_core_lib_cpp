@@ -385,28 +385,18 @@ ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GID
 
 Error ServiceInstance::Init()
 {
-    if (mInfo.mUID != 0) {
-        if (auto err = mUIDPool.TryAcquire(mInfo.mUID); !err.IsNone()) {
-            LOG_WRN() << "Can't add UID to pool" << Log::Field(err);
-        }
-    } else {
-        Error err;
-
-        Tie(mInfo.mUID, err) = mUIDPool.Acquire();
-        if (!err.IsNone()) {
-            LOG_WRN() << "Can't add UID to pool" << Log::Field(err);
-        }
-    }
-
-    gid_t gid;
+    Error uidErr;
     Error gidErr;
 
-    Tie(gid, gidErr) = mGIDPool.GetGID(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
+    Tie(mInfo.mUID, uidErr) = mUIDPool.Acquire(mInfo.mInstanceIdent, mInfo.mUID);
+    if (!uidErr.IsNone()) {
+        return AOS_ERROR_WRAP(uidErr);
+    }
+
+    Tie(mInfo.mGID, gidErr) = mGIDPool.Acquire(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
     if (!gidErr.IsNone()) {
         return AOS_ERROR_WRAP(gidErr);
     }
-
-    mInfo.mGID = gid;
 
     return ErrorEnum::eNone;
 }
@@ -424,7 +414,7 @@ Error ServiceInstance::Remove()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUIDPool.Release(mInfo.mUID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 

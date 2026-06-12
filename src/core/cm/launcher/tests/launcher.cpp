@@ -1988,7 +1988,7 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
     auto manifestDigest = BuildManifestDigest(cService1, cImageID1);
     auto instance1
         = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), manifestDigest, cRunnerRunc, cNodeIDLocalSM,
-            InstanceStateEnum::eActive, 5001, 0, Time::Now(), "1.0.0", false, "", SubjectTypeEnum::eGroup, 100);
+            InstanceStateEnum::eActive, 5000, 0, Time::Now(), "1.0.0", false, "", SubjectTypeEnum::eGroup, 100);
 
     auto instance2
         = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 1), manifestDigest, cRunnerRunc, cNodeIDLocalSM,
@@ -2552,7 +2552,7 @@ TEST_F(CMLauncherTest, ServiceUpdate)
     EXPECT_TRUE(instanceStatusListener.WaitForNotifyCount(2, 2s));
 
     // New version replaces the old one on the node: SM is told to stop 1.0.0 instances, then start 1.0.1.
-    // Cached v1.0.0 instances still hold the first UID pool allocation; v1.0.1 gets the next UIDs and IPs.
+    // Cached v1.0.0 instances still hold UID pool references; v1.0.1 reuses the same UIDs per InstanceIdent.
     auto stopV100Inst0     = CreateAosStopInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), cRunnerRunc);
     stopV100Inst0.mVersion = "1.0.0";
     auto stopV100Inst1     = CreateAosStopInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 1), cRunnerRunc);
@@ -2561,9 +2561,9 @@ TEST_F(CMLauncherTest, ServiceUpdate)
     std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedAfterV101 = {{cNodeIDLocalSM,
         {{stopV100Inst0, stopV100Inst1},
             {CreateServiceRunInfo(
-                 CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5002, 5000, 50, "1.0.1"),
+                 CreateInstanceIdent(cService1, cSubject1, 0), cImageID1, cRunnerRunc, 5000, 5000, 50, "1.0.1"),
                 CreateServiceRunInfo(
-                    CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5003, 5000, 50, "1.0.1")}}}};
+                    CreateInstanceIdent(cService1, cSubject1, 1), cImageID1, cRunnerRunc, 5001, 5000, 50, "1.0.1")}}}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedAfterV101);
 

@@ -16,7 +16,6 @@ set(TARGET_NAME launcher)
 
 set(SOURCES
     balancer.cpp
-    gidpool.cpp
     imageinfoprovider.cpp
     instance.cpp
     instancemanager.cpp
@@ -32,7 +31,7 @@ set(SOURCES
 # ######################################################################################################################
 
 set(HEADERS
-    gidpool.hpp
+    idpool.hpp
     imageinfoprovider.hpp
     runrequestsloader.hpp
     itf/instancerunner.hpp
