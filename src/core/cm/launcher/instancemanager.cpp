@@ -187,18 +187,30 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
         return ErrorEnum::eNone;
     }
 
-    auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
-    if (!instance) {
-        // Ignore inactive instance, SM sometimes sends inactive status for stopped instances.
-        if (status.mState == aos::InstanceStateEnum::eInactive) {
-            return ErrorEnum::eNone;
-        }
+    Error firstErr = ErrorEnum::eNone;
 
-        // Not expected instance received from SM.
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
+    if (instance) {
+        if (auto err = instance->UpdateStatus(status); !err.IsNone()) {
+            firstErr = err;
+        }
+    } else {
+        LOG_WRN() << "Received status for unknown instance"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status));
     }
 
-    return instance->UpdateStatus(status);
+    if (status.mState != aos::InstanceStateEnum::eInactive) {
+        if (auto err = UpdateRunningInstance(status); !err.IsNone() && firstErr.IsNone()) {
+            firstErr = err;
+        }
+    } else {
+        mRunningInstances.RemoveIf([&status](const InstanceStatus& running) {
+            return static_cast<const InstanceIdent&>(running) == static_cast<const InstanceIdent&>(status)
+                && running.mVersion == status.mVersion;
+        });
+    }
+
+    return firstErr;
 }
 
 RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInstanceRequest& request, uint64_t index)
@@ -356,6 +368,26 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+Error InstanceManager::UpdateRunningInstance(const InstanceStatus& status)
+{
+    auto existing = mRunningInstances.FindIf([&status](const InstanceStatus& running) {
+        return static_cast<const InstanceIdent&>(running) == static_cast<const InstanceIdent&>(status)
+            && running.mVersion == status.mVersion;
+    });
+
+    if (existing != mRunningInstances.end()) {
+        *existing = status;
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mRunningInstances.EmplaceBack(status); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
 
 Error InstanceManager::LoadInstancesFromStorage()
 {
@@ -550,20 +582,6 @@ Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<
 {
     mRunningInstances.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
     mPreinstalledComponents.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
-
-    for (const auto& status : statuses) {
-        if (status.mNodeID == nodeID) {
-            if (status.mPreinstalled) {
-                if (auto err = mPreinstalledComponents.EmplaceBack(status); !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
-                }
-            } else {
-                if (auto err = mRunningInstances.EmplaceBack(status); !err.IsNone()) {
-                    return AOS_ERROR_WRAP(err);
-                }
-            }
-        }
-    }
 
     Error firstErr = ErrorEnum::eNone;
 
