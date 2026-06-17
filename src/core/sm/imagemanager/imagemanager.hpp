@@ -115,10 +115,17 @@ private:
     // oci::cMaxNumLayers + 3 (layers + manifest + image config + aos service)
     static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (oci::cMaxNumLayers + 3);
     static constexpr auto cMaxNumInstalledLayers = cMaxNumUpdateItems * oci::cMaxNumLayers;
-    static constexpr auto cAllocatorSize
-        = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig))
-        + sizeof(UpdateItemDataStaticArray) + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>)
-        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>);
+    // Worst case: RemoveItem (mutex held) runs RemoveOrphans->CalcItemBlobsAndLayers (1 manifest + 1 config)
+    // while cMaxNumConcurrentItems service installs are in their layer-download step inside the if(eService)
+    // block (manifest + config both alive, no mutex held). Config in InstallUpdateItem is scoped to the
+    // if(eService) block and freed before StoreUpdateItem, so only the +1 from CalcItemBlobsAndLayers adds
+    // to the manifest/config count beyond the N concurrent installs.
+    // Allocation count: 3 fixed (items array + usedBlobs + usedLayers) + 2 per slot (manifest+config).
+    static constexpr auto cAllocatorSize = sizeof(UpdateItemDataStaticArray)
+        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>)
+        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>)
+        + (cMaxNumConcurrentItems + 1) * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig));
+    static constexpr auto cMaxNumAllocations = 3 + 2 * (cMaxNumConcurrentItems + 1);
 
     RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
 
@@ -161,7 +168,7 @@ private:
     ImageHandlerItf*                   mImageHandler {};
     StorageItf*                        mStorage {};
 
-    mutable StaticAllocator<cAllocatorSize> mAllocator;
+    mutable StaticAllocator<cAllocatorSize, cMaxNumAllocations> mAllocator;
 
     Timer                                                             mTimer;
     mutable Mutex                                                     mMutex;
