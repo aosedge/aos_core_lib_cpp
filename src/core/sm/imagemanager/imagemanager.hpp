@@ -177,6 +177,7 @@ private:
     Thread<>                                                          mThread;
     bool                                                              mClose {};
     bool                                                              mProcessOutdatedItems {};
+    size_t                                                            mNumActiveInstalls {};
 };
 
 /** @}*/
