@@ -258,9 +258,14 @@ public:
     bool OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
 
 private:
-    static constexpr auto cRemovePeriod  = Time::cDay;
-    static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
-        + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo) + sizeof(oci::ImageIndex);
+    static constexpr auto cRemovePeriod = Time::cDay;
+    // LoadInstancesFromStorage: 1 StaticArray<InstanceInfo, cMaxNumInstances> alive throughout loop
+    // + up to cMaxNumInstances instances. CreateInstance(RunInstanceRequest): up to (cMaxNumInstances-1)
+    // existing instances + 1 InstanceInfo (CreateInfo) + 1 new instance. Both paths peak at
+    // cMaxNumInstances+1 simultaneous allocations.
+    static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceInfo, cMaxNumInstances>)
+        + Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances;
+    static constexpr auto cMaxNumAllocations     = cMaxNumInstances + 1;
     static constexpr auto cInstanceAllocatorSize = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
         + sizeof(InstanceStatus) + sizeof(oci::ImageIndex) + sizeof(EnvVarArray);
 
@@ -304,8 +309,8 @@ private:
     Timer mCleanInstancesTimer;
     Timer mInitTimer;
 
-    StaticAllocator<cAllocatorSize, cMaxNumInstances> mAllocator;
-    StaticAllocator<cInstanceAllocatorSize>           mInstanceAllocator;
+    StaticAllocator<cAllocatorSize, cMaxNumAllocations> mAllocator;
+    StaticAllocator<cInstanceAllocatorSize>             mInstanceAllocator;
 
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mScheduledInstances;
