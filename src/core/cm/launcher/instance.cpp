@@ -346,8 +346,11 @@ oci::BalancingPolicyEnum ComponentInstance::GetBalancingPolicy()
 
 Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
-    auto releaseConfig = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { mImageConfig = nullptr; });
+    return LoadSMInfo(node, runtimeID);
+}
 
+Error ComponentInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
+{
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
     mSMInfo.mVersion                     = mInfo.mVersion;
     mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
@@ -495,10 +498,20 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
     assert(mItemConfig);
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
-        mItemConfig.Reset();
-        mImageConfig.Reset();
-    });
+    if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = LoadSMInfo(node, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
+{
+    assert(mItemConfig);
 
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
     mSMInfo.mVersion                     = mInfo.mVersion;
@@ -519,10 +532,6 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
     mSMInfo.mMonitoringParams.EmplaceValue();
     if (mItemConfig->mAlertRules.HasValue()) {
         mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
-    }
-
-    if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {

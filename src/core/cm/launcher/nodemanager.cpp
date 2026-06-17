@@ -124,7 +124,7 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        if (auto err = instance->Schedule(*node, runtimeID); !err.IsNone()) {
+        if (auto err = instance->LoadSMInfo(*node, runtimeID); !err.IsNone()) {
             LOG_ERR() << "Can't load instance" << Log::Field("nodeID", nodeID) << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(err));
 

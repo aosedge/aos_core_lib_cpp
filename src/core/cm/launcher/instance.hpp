@@ -210,6 +210,15 @@ public:
     virtual Error Schedule(NodeItf& node, const String& runtimeID) = 0;
 
     /**
+     * Loads SM instance info.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    virtual Error LoadSMInfo(NodeItf& node, const String& runtimeID) = 0;
+
+    /**
      * Overrides environment variables.
      *
      * @param envVars environment variables.
@@ -315,6 +324,15 @@ public:
      * @return Error.
      */
     Error Schedule(NodeItf& node, const String& runtimeID) override;
+
+    /**
+     * Loads SM instance info
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    Error LoadSMInfo(NodeItf& node, const String& runtimeID) override;
 };
 
 /**
@@ -398,6 +416,15 @@ public:
      * @return Error.
      */
     Error Schedule(NodeItf& node, const String& runtimeID) override;
+
+    /**
+     * Loads SM instance info.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    Error LoadSMInfo(NodeItf& node, const String& runtimeID) override;
 
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
