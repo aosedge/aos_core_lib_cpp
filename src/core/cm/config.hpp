@@ -25,7 +25,7 @@
  * Alerts cache size.
  */
 #ifndef AOS_CONFIG_CM_ALERTS_CACHE_SIZE
-#define AOS_CONFIG_CM_ALERTS_CACHE_SIZE 32
+#define AOS_CONFIG_CM_ALERTS_CACHE_SIZE 64
 #endif
 
 /**
