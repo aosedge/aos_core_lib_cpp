@@ -172,8 +172,8 @@ private:
     static constexpr auto cMaxNumSubscribers = 4;
     static constexpr auto cAllocatorSize     = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
         + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray) + sizeof(oci::ImageManifest)
-        + sizeof(oci::ItemConfig) + sizeof(StaticString<cFilePathLen>) + sizeof(networkmanager::InstanceNetworkConfig)
-        + sizeof(resourcemanager::ResourceInfo)
+        + sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig) + sizeof(StaticString<cFilePathLen>)
+        + sizeof(networkmanager::InstanceNetworkConfig) + sizeof(resourcemanager::ResourceInfo)
         + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
             sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
                 + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
