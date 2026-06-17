@@ -400,7 +400,10 @@ Error InstanceManager::LoadInstancesFromStorage()
 
     for (const auto& instance : *instances) {
         if (auto err = LoadInstanceFromStorage(instance); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+            LOG_ERR() << "Can't load instance from storage" << Log::Field("instance", instance.mInstanceIdent)
+                      << Log::Field(err);
+
+            continue;
         }
     }
 
@@ -426,8 +429,7 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
             return AOS_ERROR_WRAP(err);
         }
     } else {
-        LOG_DBG() << "Load cached instance" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent)
-                  << Log::Field("nodeID", instance->GetStatus().mNodeID);
+        LOG_DBG() << "Load cached instance" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent);
 
         if (auto err = mCachedInstances.EmplaceBack(instance); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -534,6 +536,11 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
     }
 
     if (auto err = newInstance->Init(); !err.IsNone()) {
+        // Do not leave invalid instance in storage.
+        if (auto err = newInstance->Remove(); !err.IsNone()) {
+            LOG_ERR() << "Can't remove instance" << Log::Field(err);
+        }
+
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
