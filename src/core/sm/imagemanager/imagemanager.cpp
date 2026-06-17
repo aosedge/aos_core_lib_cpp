@@ -173,6 +173,20 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
     LOG_INF() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
               << Log::Field("type", itemInfo.mType) << Log::Field("manifestDigest", itemInfo.mManifestDigest);
 
+    {
+        LockGuard lock {mMutex};
+
+        ++mNumActiveInstalls;
+    }
+
+    auto decrementInstalls = DeferRelease(this, [](ImageManager* self) {
+        LockGuard lock {self->mMutex};
+
+        if (--self->mNumActiveInstalls == 0) {
+            self->mCV.NotifyAll();
+        }
+    });
+
     oci::ContentDescriptor manifestDescriptor {"", itemInfo.mManifestDigest, 0};
 
     LOG_DBG() << "Install manifest blob" << Log::Field("digest", itemInfo.mManifestDigest);
@@ -857,14 +871,7 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     if (removedItems) {
-        size_t removedSize = 0;
-
-        Tie(removedSize, err) = RemoveOrphans();
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to remove orphans" << Log::Field(err);
-        }
-
-        mSpaceAllocator->FreeSpace(removedSize);
+        mProcessOutdatedItems = true;
     }
 
     return ErrorEnum::eNone;
@@ -1318,8 +1325,10 @@ void ImageManager::ProcessOutdatedItems()
     while (true) {
         UniqueLock lock {mMutex};
 
-        if (auto err
-            = mCV.Wait(lock, [&]() { return (mClose || mProcessOutdatedItems) && mInProgressBlobs.IsEmpty(); });
+        if (auto err = mCV.Wait(lock,
+                [&]() {
+                    return (mClose || mProcessOutdatedItems) && mInProgressBlobs.IsEmpty() && mNumActiveInstalls == 0;
+                });
             !err.IsNone()) {
             LOG_ERR() << "Wait failed" << Log::Field(err);
             continue;
@@ -1332,6 +1341,8 @@ void ImageManager::ProcessOutdatedItems()
         if (!mProcessOutdatedItems) {
             continue;
         }
+
+        LOG_DBG() << "Start processing outdated items";
 
         mProcessOutdatedItems = false;
 
@@ -1347,6 +1358,8 @@ void ImageManager::ProcessOutdatedItems()
         if (!err.IsNone()) {
             LOG_ERR() << "Remove orphans failed" << Log::Field(err);
         }
+
+        LOG_DBG() << "Removed orphans" << Log::Field("size", size);
 
         mSpaceAllocator->FreeSpace(size);
     }
