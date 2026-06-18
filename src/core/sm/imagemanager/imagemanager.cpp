@@ -1292,6 +1292,30 @@ RetWithError<size_t> ImageManager::RemoveOrphans()
         }
     }
 
+    for (const auto& digest : mInProgressBlobs) {
+        StaticString<cFilePathLen> blobPath;
+
+        if (auto err = CreateBlobPath(digest, blobPath); !err.IsNone()) {
+            LOG_ERR() << "Failed to create path for in-progress blob" << Log::Field("digest", digest)
+                      << Log::Field(err);
+            continue;
+        }
+
+        if (auto err = usedBlobs->PushBack(blobPath); !err.IsNone()) {
+            LOG_ERR() << "Failed to protect in-progress blob" << Log::Field(err);
+        }
+
+        StaticString<cFilePathLen> layerPath;
+
+        if (auto err = CreateLayerPath(digest, layerPath); !err.IsNone()) {
+            continue;
+        }
+
+        if (auto err = usedLayers->PushBack(layerPath); !err.IsNone()) {
+            LOG_ERR() << "Failed to protect in-progress layer" << Log::Field(err);
+        }
+    }
+
     size_t removedSize = 0;
     size_t size        = 0;
     Error  err;
