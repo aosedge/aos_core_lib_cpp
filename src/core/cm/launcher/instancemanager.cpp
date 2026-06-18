@@ -171,43 +171,40 @@ Array<InstanceStatus>& InstanceManager::GetRunningInstances()
 
 Error InstanceManager::UpdateStatus(const InstanceStatus& status)
 {
-    if (status.mPreinstalled) {
-        auto preinstalledComponent
-            = FindPreinstalledComponent(static_cast<const InstanceIdent&>(status), status.mVersion);
-        if (preinstalledComponent == nullptr) {
-            if (auto err = mPreinstalledComponents.EmplaceBack(status); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            return ErrorEnum::eNone;
-        }
-
-        *preinstalledComponent = status;
-
-        return ErrorEnum::eNone;
-    }
-
     Error firstErr = ErrorEnum::eNone;
 
-    auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
-    if (instance) {
-        if (auto err = instance->UpdateStatus(status); !err.IsNone()) {
-            firstErr = err;
-        }
-    } else {
-        LOG_WRN() << "Received status for unknown instance"
-                  << Log::Field("instance", static_cast<const InstanceIdent&>(status));
+    auto& statuses = status.mPreinstalled ? mPreinstalledComponents : mRunningInstances;
+
+    auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
+        return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
+            && item.mVersion == status.mVersion;
+    });
+
+    bool missingStatus = existing == statuses.end();
+
+    if (!missingStatus) {
+        *existing = status;
     }
 
-    if (status.mState != aos::InstanceStateEnum::eInactive) {
-        if (auto err = UpdateRunningInstance(status); !err.IsNone() && firstErr.IsNone()) {
-            firstErr = err;
+    bool missingActiveInstance = false;
+
+    if (!status.mPreinstalled) {
+        auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
+        if (instance) {
+            if (auto err = instance->UpdateStatus(status); !err.IsNone()) {
+                firstErr = err;
+            }
+        } else {
+            missingActiveInstance = true;
         }
-    } else {
-        mRunningInstances.RemoveIf([&status](const InstanceStatus& running) {
-            return static_cast<const InstanceIdent&>(running) == static_cast<const InstanceIdent&>(status)
-                && running.mVersion == status.mVersion;
-        });
+    }
+
+    if (missingActiveInstance || missingStatus) {
+        LOG_WRN() << "Received status for instance missing in"
+                  << (missingActiveInstance ? " \'active instance list\'" : "")
+                  << (missingStatus ? " \'status list\'" : "")
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("version", status.mVersion);
     }
 
     return firstErr;
@@ -369,20 +366,20 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
  * Private
  **********************************************************************************************************************/
 
-Error InstanceManager::UpdateRunningInstance(const InstanceStatus& status)
+Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status)
 {
-    auto existing = mRunningInstances.FindIf([&status](const InstanceStatus& running) {
-        return static_cast<const InstanceIdent&>(running) == static_cast<const InstanceIdent&>(status)
-            && running.mVersion == status.mVersion;
+    auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
+        return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
+            && item.mVersion == status.mVersion;
     });
 
-    if (existing != mRunningInstances.end()) {
+    if (existing != statuses.end()) {
         *existing = status;
 
         return ErrorEnum::eNone;
     }
 
-    if (auto err = mRunningInstances.EmplaceBack(status); !err.IsNone()) {
+    if (auto err = statuses.EmplaceBack(status); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -586,9 +583,34 @@ Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<
     Error firstErr = ErrorEnum::eNone;
 
     for (const auto& status : statuses) {
-        if (auto err = UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
+        if (auto err = SetStatus(status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
         }
+    }
+
+    return firstErr;
+}
+
+Error InstanceManager::SetStatus(const InstanceStatus& status)
+{
+    if (status.mPreinstalled) {
+        return SetStatus(mPreinstalledComponents, status);
+    }
+
+    Error firstErr = ErrorEnum::eNone;
+    if (auto err = SetStatus(mRunningInstances, status); !err.IsNone()) {
+        firstErr = err;
+    }
+
+    auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
+    if (instance) {
+        if (auto err = instance->UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
+            firstErr = err;
+        }
+    } else {
+        LOG_WRN() << "Received node instance status for not active instance"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("version", status.mVersion);
     }
 
     return firstErr;
