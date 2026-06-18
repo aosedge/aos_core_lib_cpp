@@ -158,6 +158,47 @@ public:
     }
 
     /**
+     * Resizes allocated space without changing allocation count.
+     * Used by resize operations so that mAllocationCount tracks live Space objects only.
+     *
+     * @param deltaSize size delta: positive means more space is needed, negative means space is released.
+     * @return Error.
+     */
+    Error Resize(int64_t deltaSize)
+    {
+        LockGuard lock {mMutex};
+
+        if (deltaSize <= 0) {
+            mAvailableSize += static_cast<size_t>(-deltaSize);
+
+            return ErrorEnum::eNone;
+        }
+
+        const auto extra = static_cast<size_t>(deltaSize);
+
+        if (extra > mAvailableSize) {
+            if (mOutdatedItems.Size() == 0) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+
+            auto [freedSize, err] = RemoveOutdatedItems(extra - mAvailableSize);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            mAvailableSize += freedSize;
+
+            if (extra > mAvailableSize) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+        }
+
+        mAvailableSize -= extra;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Add outdated item.
      *
      * @param item outdated item.
@@ -501,13 +542,12 @@ private:
         }
 
         Free(oldSize);
-        mPartition->Free(oldSize);
 
         if (auto err = Allocate(newSize); !err.IsNone()) {
             return err;
         }
 
-        if (auto err = mPartition->Allocate(newSize); !err.IsNone()) {
+        if (auto err = mPartition->Resize(static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize)); !err.IsNone()) {
             Free(newSize);
 
             return err;
