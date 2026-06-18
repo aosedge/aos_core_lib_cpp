@@ -269,7 +269,8 @@ private:
     static constexpr auto cInstanceAllocatorSize = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
         + sizeof(InstanceStatus) + sizeof(oci::ImageIndex) + sizeof(EnvVarArray);
 
-    Error UpdateRunningInstance(const InstanceStatus& status);
+    Error SetStatus(const InstanceStatus& status);
+    Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status);
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
