@@ -158,6 +158,42 @@ public:
     }
 
     /**
+     * Adjusts allocated size without changing allocation count.
+     * Used by resize operations so that mAllocationCount tracks live Space objects only.
+     *
+     * @param oldSize previously allocated size to return.
+     * @param newSize new size to reserve.
+     * @return Error.
+     */
+    Error AdjustSize(size_t oldSize, size_t newSize)
+    {
+        LockGuard lock {mMutex};
+
+        mAvailableSize += oldSize;
+
+        if (newSize > mAvailableSize) {
+            if (mOutdatedItems.Size() == 0) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+
+            auto [freedSize, err] = RemoveOutdatedItems(newSize - mAvailableSize);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            mAvailableSize += freedSize;
+
+            if (newSize > mAvailableSize) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+        }
+
+        mAvailableSize -= newSize;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Add outdated item.
      *
      * @param item outdated item.
@@ -501,13 +537,12 @@ private:
         }
 
         Free(oldSize);
-        mPartition->Free(oldSize);
 
         if (auto err = Allocate(newSize); !err.IsNone()) {
             return err;
         }
 
-        if (auto err = mPartition->Allocate(newSize); !err.IsNone()) {
+        if (auto err = mPartition->AdjustSize(oldSize, newSize); !err.IsNone()) {
             Free(newSize);
 
             return err;
