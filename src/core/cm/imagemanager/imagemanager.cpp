@@ -1417,9 +1417,11 @@ bool ImageManager::StartAction()
 
     mCondVar.Wait(lock, [this]() { return !mInProgress || mCancel; });
 
-    if (mCancel) {
-        mCancel = false;
+    const bool cancelledWhileRunning = mCancel && mInProgress;
 
+    mCancel = false;
+
+    if (cancelledWhileRunning) {
         return false;
     }
 
