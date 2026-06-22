@@ -153,6 +153,12 @@ private:
     Error                HandleItemsIntegrity();
     Error CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
         Array<StaticString<cFilePathLen>>& itemLayers);
+    Error CalcRemainingBlobsAndLayers(const String& skipID, const String& skipVersion,
+        Array<StaticString<cFilePathLen>>& blobs, Array<StaticString<cFilePathLen>>& layers);
+    bool  FindUpdateItemData(const String& id, const String& version, UpdateItemData& data);
+    RetWithError<size_t> DeleteEvictedItemFiles(const UpdateItemData& evictedData,
+        const Array<StaticString<cFilePathLen>>&                      remainingBlobs,
+        const Array<StaticString<cFilePathLen>>&                      remainingLayers);
     RetWithError<size_t> RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs);
     RetWithError<size_t> RemoveOrphanLayers(const Array<StaticString<cFilePathLen>>& usedLayers);
     RetWithError<size_t> RemoveOrphans();

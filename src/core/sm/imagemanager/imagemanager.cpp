@@ -353,17 +353,195 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
 
     LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
 
+    UpdateItemData evictedData;
+
+    if (!FindUpdateItemData(id, version, evictedData)) {
+        if (auto err = mStorage->RemoveUpdateItem(id, version); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove update item" << Log::Field("itemID", id) << Log::Field("version", version)
+                      << Log::Field(err);
+        }
+
+        auto [size, err] = RemoveOrphans();
+        if (!err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+
+        return size;
+    }
+
+    // Memory budget: remainingBlobs + remainingLayers + itemsData (freed in CalcRemainingBlobsAndLayers scope)
+    // + 1 manifest/config pair per CalcItemBlobsAndLayers call — fits existing cAllocatorSize.
+    auto remainingBlobs  = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>>(&mAllocator);
+    auto remainingLayers = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>>(&mAllocator);
+
+    if (!remainingBlobs || !remainingLayers) {
+        if (auto err = mStorage->RemoveUpdateItem(id, version); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove update item" << Log::Field("itemID", id) << Log::Field("version", version)
+                      << Log::Field(err);
+        }
+
+        auto [size, err] = RemoveOrphans();
+        if (!err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+
+        return size;
+    }
+
+    if (auto err = CalcRemainingBlobsAndLayers(id, version, *remainingBlobs, *remainingLayers); !err.IsNone()) {
+        LOG_ERR() << "Failed to calculate remaining blobs and layers" << Log::Field(err);
+    }
+
     if (auto err = mStorage->RemoveUpdateItem(id, version); !err.IsNone()) {
         LOG_ERR() << "Failed to remove update item" << Log::Field("itemID", id) << Log::Field("version", version)
                   << Log::Field(err);
     }
 
-    auto [size, err] = RemoveOrphans();
-    if (!err.IsNone()) {
-        return RetWithError<size_t>(0, AOS_ERROR_WRAP(err));
+    return DeleteEvictedItemFiles(evictedData, *remainingBlobs, *remainingLayers);
+}
+
+bool ImageManager::FindUpdateItemData(const String& id, const String& version, UpdateItemData& data)
+{
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return false;
     }
 
-    return size;
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return false;
+    }
+
+    for (const auto& item : *itemsData) {
+        if (item.mID == id && item.mVersion == version) {
+            data = item;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+Error ImageManager::CalcRemainingBlobsAndLayers(const String& skipID, const String& skipVersion,
+    Array<StaticString<cFilePathLen>>& blobs, Array<StaticString<cFilePathLen>>& layers)
+{
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    if (!itemsData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *itemsData) {
+        if (item.mID == skipID && item.mVersion == skipVersion) {
+            continue;
+        }
+
+        if (auto err = CalcItemBlobsAndLayers(item, blobs, layers); !err.IsNone()) {
+            LOG_ERR() << "Failed to calculate item blobs and layers" << Log::Field("itemID", item.mID)
+                      << Log::Field("version", item.mVersion) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<size_t> ImageManager::DeleteEvictedItemFiles(const UpdateItemData& evictedData,
+    const Array<StaticString<cFilePathLen>>& remainingBlobs, const Array<StaticString<cFilePathLen>>& remainingLayers)
+{
+    // Only delete files exclusively owned by the evicted item (not referenced by any remaining DB item).
+    // Files for concurrent in-progress installs are never listed in evictedData's manifest,
+    // so they are safe from deletion here.
+    size_t                     freedSize = 0;
+    StaticString<cFilePathLen> path;
+    StaticString<cFilePathLen> manifestPath;
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    if (auto err = CreateBlobPath(evictedData.mManifestDigest, manifestPath); !err.IsNone()) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(manifestPath, *manifest); !err.IsNone()) {
+        LOG_ERR() << "Failed to load manifest for evicted item" << Log::Field(err);
+    } else {
+        if (manifest->mItemConfig.HasValue()) {
+            if (auto err = CreateBlobPath(manifest->mItemConfig->mDigest, path); err.IsNone()) {
+                if (remainingBlobs.Find(path) == remainingBlobs.end()) {
+                    auto [sz, szErr] = fs::CalculateSize(path);
+                    freedSize += sz;
+
+                    if (auto removeErr = fs::RemoveAll(path); !removeErr.IsNone()) {
+                        LOG_ERR() << "Failed to remove orphaned item config" << Log::Field(removeErr);
+                    }
+                }
+            }
+        }
+
+        if (evictedData.mType == UpdateItemTypeEnum::eService) {
+            if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); err.IsNone()) {
+                auto imageConfigPath = path;
+
+                auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+                if (imageConfig) {
+                    if (auto err = mOCISpec->LoadImageConfig(imageConfigPath, *imageConfig); err.IsNone()) {
+                        for (const auto& diffID : imageConfig->mRootfs.mDiffIDs) {
+                            if (auto err = CreateLayerPath(diffID, path); err.IsNone()) {
+                                if (remainingLayers.Find(path) == remainingLayers.end()) {
+                                    auto [sz, szErr] = fs::CalculateSize(path);
+                                    freedSize += sz;
+
+                                    if (auto removeErr = fs::RemoveAll(path); !removeErr.IsNone()) {
+                                        LOG_ERR() << "Failed to remove orphaned layer" << Log::Field(removeErr);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        LOG_ERR() << "Failed to load image config for evicted item" << Log::Field(err);
+                    }
+                }
+
+                if (remainingBlobs.Find(imageConfigPath) == remainingBlobs.end()) {
+                    auto [sz, szErr] = fs::CalculateSize(imageConfigPath);
+                    freedSize += sz;
+
+                    if (auto removeErr = fs::RemoveAll(imageConfigPath); !removeErr.IsNone()) {
+                        LOG_ERR() << "Failed to remove orphaned image config" << Log::Field(removeErr);
+                    }
+                }
+            }
+        }
+
+        for (const auto& layer : manifest->mLayers) {
+            if (auto err = CreateBlobPath(layer.mDigest, path); err.IsNone()) {
+                if (remainingBlobs.Find(path) == remainingBlobs.end()) {
+                    auto [sz, szErr] = fs::CalculateSize(path);
+                    freedSize += sz;
+
+                    if (auto removeErr = fs::RemoveAll(path); !removeErr.IsNone()) {
+                        LOG_ERR() << "Failed to remove orphaned layer blob" << Log::Field(removeErr);
+                    }
+                }
+            }
+        }
+    }
+
+    if (remainingBlobs.Find(manifestPath) == remainingBlobs.end()) {
+        auto [sz, szErr] = fs::CalculateSize(manifestPath);
+        freedSize += sz;
+
+        if (auto removeErr = fs::RemoveAll(manifestPath); !removeErr.IsNone()) {
+            LOG_ERR() << "Failed to remove orphaned manifest" << Log::Field(removeErr);
+        }
+    }
+
+    return {freedSize, ErrorEnum::eNone};
 }
 
 Error ImageManager::CreateBlobPath(const String& digest, String& path) const
@@ -1296,6 +1474,30 @@ RetWithError<size_t> ImageManager::RemoveOrphans()
         if (auto err = CalcItemBlobsAndLayers(itemData, *usedBlobs, *usedLayers); !err.IsNone()) {
             LOG_ERR() << "Failed to calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
                       << Log::Field("version", itemData.mVersion) << Log::Field(err);
+        }
+    }
+
+    for (const auto& digest : mInProgressBlobs) {
+        StaticString<cFilePathLen> blobPath;
+
+        if (auto err = CreateBlobPath(digest, blobPath); !err.IsNone()) {
+            LOG_ERR() << "Failed to create path for in-progress blob" << Log::Field("digest", digest)
+                      << Log::Field(err);
+            continue;
+        }
+
+        if (auto err = usedBlobs->PushBack(blobPath); !err.IsNone()) {
+            LOG_ERR() << "Failed to protect in-progress blob" << Log::Field(err);
+        }
+
+        StaticString<cFilePathLen> layerPath;
+
+        if (auto err = CreateLayerPath(digest, layerPath); !err.IsNone()) {
+            continue;
+        }
+
+        if (auto err = usedLayers->PushBack(layerPath); !err.IsNone()) {
+            LOG_ERR() << "Failed to protect in-progress layer" << Log::Field(err);
         }
     }
 
