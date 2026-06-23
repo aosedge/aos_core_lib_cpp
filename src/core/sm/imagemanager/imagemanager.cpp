@@ -219,46 +219,12 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     if (itemInfo.mType == UpdateItemTypeEnum::eService) {
-        LOG_DBG() << "Install image config blob" << Log::Field("digest", manifest->mConfig.mDigest);
-
-        if (auto err = InstallBlob(manifest->mConfig); !err.IsNone()) {
+        if (auto err = InstallServiceLayers(*manifest); !err.IsNone()) {
             return err;
-        }
-
-        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
-        if (!config) {
-            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-        }
-
-        if (auto err = CreateBlobPath(manifest->mConfig.mDigest, path); !err.IsNone()) {
-            return err;
-        }
-
-        if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
-            const auto& layer = manifest->mLayers[i];
-
-            if (i >= config->mRootfs.mDiffIDs.Size()) {
-                return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
-            }
-
-            LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest)
-                      << Log::Field("diffDigest", config->mRootfs.mDiffIDs[i]);
-
-            if (auto err = InstallLayer(layer, config->mRootfs.mDiffIDs[i]); !err.IsNone()) {
-                return err;
-            }
         }
     } else {
-        for (const auto& layer : manifest->mLayers) {
-            LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest);
-
-            if (auto err = InstallBlob(layer); !err.IsNone()) {
-                return err;
-            }
+        if (auto err = InstallComponentLayers(*manifest); !err.IsNone()) {
+            return err;
         }
     }
 
@@ -566,6 +532,57 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, bool w
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::InstallServiceLayers(const oci::ImageManifest& manifest)
+{
+    StaticString<cFilePathLen> path;
+
+    LOG_DBG() << "Install image config blob" << Log::Field("digest", manifest.mConfig.mDigest);
+
+    if (auto err = InstallBlob(manifest.mConfig); !err.IsNone()) {
+        return err;
+    }
+
+    auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (!config) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = CreateBlobPath(manifest.mConfig.mDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (size_t i = 0; i < manifest.mLayers.Size(); ++i) {
+        const auto& layer = manifest.mLayers[i];
+
+        if (i >= config->mRootfs.mDiffIDs.Size()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
+        }
+
+        if (auto err = InstallLayer(layer, config->mRootfs.mDiffIDs[i]); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallComponentLayers(const oci::ImageManifest& manifest)
+{
+    for (const auto& layer : manifest.mLayers) {
+        LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest);
+
+        if (auto err = InstallBlob(layer); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space)
 {
     auto [digest, err] = mImageHandler->GetUnpackedLayerDigest(fs::JoinPath(path, cUnpackedLayerFolder));
@@ -699,6 +716,9 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
             return ErrorEnum::eNone;
         }
     }
+
+    LOG_DBG() << "Install layer blob" << Log::Field("digest", descriptor.mDigest)
+              << Log::Field("diffDigest", diffDigest);
 
     if (err = InstallBlob(descriptor, false); !err.IsNone()) {
         return err;
