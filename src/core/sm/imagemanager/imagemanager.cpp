@@ -1325,10 +1325,7 @@ void ImageManager::ProcessOutdatedItems()
     while (true) {
         UniqueLock lock {mMutex};
 
-        if (auto err = mCV.Wait(lock,
-                [&]() {
-                    return (mClose || mProcessOutdatedItems) && mInProgressBlobs.IsEmpty() && mNumActiveInstalls == 0;
-                });
+        if (auto err = mCV.Wait(lock, [&]() { return (mClose || mProcessOutdatedItems) && mNumActiveInstalls == 0; });
             !err.IsNone()) {
             LOG_ERR() << "Wait failed" << Log::Field(err);
             continue;
