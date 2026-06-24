@@ -170,28 +170,24 @@ Error ImageManager::GetAllInstalledItems(Array<UpdateItemStatus>& statuses) cons
 
 Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 {
-    LOG_INF() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
+    LOG_INF() << "Install update item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
               << Log::Field("type", itemInfo.mType) << Log::Field("manifestDigest", itemInfo.mManifestDigest);
 
-    {
-        LockGuard lock {mMutex};
-
-        ++mNumActiveInstalls;
+    auto [installItemIt, err] = CreateInstallingItem(itemInfo);
+    if (!err.IsNone()) {
+        return err;
     }
 
-    auto decrementInstalls = DeferRelease(this, [](ImageManager* self) {
-        LockGuard lock {self->mMutex};
+    auto& installItem = *installItemIt;
 
-        if (--self->mNumActiveInstalls == 0) {
-            self->mCV.NotifyAll();
-        }
-    });
+    auto releaseInstallingItem
+        = DeferRelease(this, [&](ImageManager* self) { self->ReleaseInstallingItem(installItemIt); });
 
     oci::ContentDescriptor manifestDescriptor {"", itemInfo.mManifestDigest, 0};
 
     LOG_DBG() << "Install manifest blob" << Log::Field("digest", itemInfo.mManifestDigest);
 
-    if (auto err = InstallBlob(manifestDescriptor); !err.IsNone()) {
+    if (err = InstallBlob(manifestDescriptor, &installItem); !err.IsNone()) {
         return err;
     }
 
@@ -202,33 +198,33 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 
     StaticString<cFilePathLen> path;
 
-    if (auto err = CreateBlobPath(itemInfo.mManifestDigest, path); !err.IsNone()) {
+    if (err = CreateBlobPath(itemInfo.mManifestDigest, path); !err.IsNone()) {
         return err;
     }
 
-    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+    if (err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     if (manifest->mItemConfig.HasValue()) {
         LOG_DBG() << "Install item config blob" << Log::Field("digest", manifest->mItemConfig->mDigest);
 
-        if (auto err = InstallBlob(*manifest->mItemConfig); !err.IsNone()) {
+        if (err = InstallBlob(*manifest->mItemConfig, &installItem); !err.IsNone()) {
             return err;
         }
     }
 
     if (itemInfo.mType == UpdateItemTypeEnum::eService) {
-        if (auto err = InstallServiceLayers(*manifest); !err.IsNone()) {
+        if (err = InstallServiceLayers(*manifest, installItem); !err.IsNone()) {
             return err;
         }
     } else {
-        if (auto err = InstallComponentLayers(*manifest); !err.IsNone()) {
+        if (err = InstallComponentLayers(*manifest, installItem); !err.IsNone()) {
             return err;
         }
     }
 
-    if (auto err = StoreUpdateItem(itemInfo); !err.IsNone()) {
+    if (err = StoreUpdateItem(itemInfo); !err.IsNone()) {
         return err;
     }
 
@@ -475,15 +471,23 @@ Error ImageManager::DownloadBlob(const String& path, const String& digest, size_
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, bool waitInProgress)
+Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, InstallItem* installItem, bool waitInstalling)
 {
-    if (waitInProgress) {
-        if (auto err = WaitForInProgressBlob(descriptor.mDigest); !err.IsNone()) {
+    if (waitInstalling) {
+        if (auto err = WaitForInstallingBlob(descriptor.mDigest); !err.IsNone()) {
             return err;
         }
 
-        auto releaseInProgress
-            = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInProgressBlob(*digest); });
+        auto releaseInstalling
+            = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInstallingBlob(*digest); });
+    }
+
+    if (installItem) {
+        LockGuard lock {mMutex};
+
+        if (auto err = installItem->mBlobs.EmplaceBack(descriptor.mDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     LOG_DBG() << "Install blob" << Log::Field("digest", descriptor.mDigest) << Log::Field("size", descriptor.mSize);
@@ -527,57 +531,6 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, bool w
 
     if (err = ValidateBlob(path, descriptor.mDigest); !err.IsNone()) {
         return err;
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error ImageManager::InstallServiceLayers(const oci::ImageManifest& manifest)
-{
-    StaticString<cFilePathLen> path;
-
-    LOG_DBG() << "Install image config blob" << Log::Field("digest", manifest.mConfig.mDigest);
-
-    if (auto err = InstallBlob(manifest.mConfig); !err.IsNone()) {
-        return err;
-    }
-
-    auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
-    if (!config) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    if (auto err = CreateBlobPath(manifest.mConfig.mDigest, path); !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    for (size_t i = 0; i < manifest.mLayers.Size(); ++i) {
-        const auto& layer = manifest.mLayers[i];
-
-        if (i >= config->mRootfs.mDiffIDs.Size()) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
-        }
-
-        if (auto err = InstallLayer(layer, config->mRootfs.mDiffIDs[i]); !err.IsNone()) {
-            return err;
-        }
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error ImageManager::InstallComponentLayers(const oci::ImageManifest& manifest)
-{
-    for (const auto& layer : manifest.mLayers) {
-        LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest);
-
-        if (auto err = InstallBlob(layer); !err.IsNone()) {
-            return err;
-        }
     }
 
     return ErrorEnum::eNone;
@@ -686,14 +639,27 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest)
+Error ImageManager::InstallLayer(
+    const oci::ContentDescriptor& descriptor, const String& diffDigest, InstallItem& installItem)
 {
-    if (auto err = WaitForInProgressBlob(descriptor.mDigest); !err.IsNone()) {
+    if (auto err = WaitForInstallingBlob(descriptor.mDigest); !err.IsNone()) {
         return err;
     }
 
-    auto releaseInProgress
-        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInProgressBlob(*digest); });
+    auto releaseInstalling
+        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInstallingBlob(*digest); });
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto err = installItem.mBlobs.PushBack(descriptor.mDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = installItem.mLayers.PushBack(diffDigest); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     LOG_DBG() << "Install layer" << Log::Field("digest", descriptor.mDigest);
 
@@ -720,7 +686,7 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
     LOG_DBG() << "Install layer blob" << Log::Field("digest", descriptor.mDigest)
               << Log::Field("diffDigest", diffDigest);
 
-    if (err = InstallBlob(descriptor, false); !err.IsNone()) {
+    if (err = InstallBlob(descriptor, nullptr, false); !err.IsNone()) {
         return err;
     }
 
@@ -771,36 +737,36 @@ void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* sp
     }
 }
 
-Error ImageManager::WaitForInProgressBlob(const String& digest)
+Error ImageManager::WaitForInstallingBlob(const String& digest)
 {
     UniqueLock lock {mMutex};
 
     if (auto err = mCV.Wait(lock,
             [&]() {
-                auto it = mInProgressBlobs.FindIf([&digest](const StaticString<oci::cDigestLen>& inProgressDigest) {
-                    return inProgressDigest == digest;
+                auto it = mInstallingBlobs.FindIf([&digest](const StaticString<oci::cDigestLen>& installingDigest) {
+                    return installingDigest == digest;
                 });
-                return it == mInProgressBlobs.end();
+                return it == mInstallingBlobs.end();
             });
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mInProgressBlobs.PushBack(digest); !err.IsNone()) {
+    if (auto err = mInstallingBlobs.PushBack(digest); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::ReleaseInProgressBlob(const String& digest)
+Error ImageManager::ReleaseInstallingBlob(const String& digest)
 {
     UniqueLock lock {mMutex};
 
-    auto it = mInProgressBlobs.FindIf(
-        [&digest](const StaticString<oci::cDigestLen>& inProgressDigest) { return inProgressDigest == digest; });
-    if (it != mInProgressBlobs.end()) {
-        mInProgressBlobs.Erase(it);
+    auto it = mInstallingBlobs.FindIf(
+        [&digest](const StaticString<oci::cDigestLen>& installingDigest) { return installingDigest == digest; });
+    if (it != mInstallingBlobs.end()) {
+        mInstallingBlobs.Erase(it);
     } else {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -821,6 +787,90 @@ RetWithError<size_t> ImageManager::RemoveOldItemVersions(Array<UpdateItemData>& 
     LOG_DBG() << "Remove old item versions" << Log::Field("itemID", itemData[0].mID);
 
     return RemoveOldUpdateItems(itemData);
+}
+
+Error ImageManager::InstallServiceLayers(const oci::ImageManifest& manifest, InstallItem& installItem)
+{
+    StaticString<cFilePathLen> path;
+
+    LOG_DBG() << "Install image config blob" << Log::Field("digest", manifest.mConfig.mDigest);
+
+    if (auto err = InstallBlob(manifest.mConfig, &installItem); !err.IsNone()) {
+        return err;
+    }
+
+    auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (!config) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = CreateBlobPath(manifest.mConfig.mDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mOCISpec->LoadImageConfig(path, *config); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (size_t i = 0; i < manifest.mLayers.Size(); ++i) {
+        const auto& layer = manifest.mLayers[i];
+
+        if (i >= config->mRootfs.mDiffIDs.Size()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eOutOfRange, "diff IDs size is less than layers size"));
+        }
+
+        if (auto err = InstallLayer(layer, config->mRootfs.mDiffIDs[i], installItem); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallComponentLayers(const oci::ImageManifest& manifest, InstallItem& installItem)
+{
+    for (const auto& layer : manifest.mLayers) {
+        LOG_DBG() << "Install layer blob" << Log::Field("digest", layer.mDigest);
+
+        if (auto err = InstallBlob(layer, &installItem); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<List<ImageManager::InstallItem>::Iterator> ImageManager::CreateInstallingItem(
+    const UpdateItemInfo& itemInfo)
+{
+    LockGuard lock {mMutex};
+
+    if (auto err = mInstallingItems.EmplaceBack(); !err.IsNone()) {
+        return {mInstallingItems.end(), AOS_ERROR_WRAP(err)};
+    }
+
+    mInstallingItems.Back().mID      = itemInfo.mID;
+    mInstallingItems.Back().mVersion = itemInfo.mVersion;
+
+    auto it = mInstallingItems.FindIf(
+        [&](const InstallItem& item) { return item.mID == itemInfo.mID && item.mVersion == itemInfo.mVersion; });
+
+    if (it == mInstallingItems.end()) {
+        return {it, AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
+    }
+
+    return it;
+}
+
+void ImageManager::ReleaseInstallingItem(List<InstallItem>::Iterator it)
+{
+    LockGuard lock {mMutex};
+
+    mInstallingItems.Erase(it);
+
+    if (mInstallingItems.IsEmpty()) {
+        mCV.NotifyAll();
+    }
 }
 
 RetWithError<size_t> ImageManager::CropUpdateItems()
@@ -1119,6 +1169,36 @@ Error ImageManager::HandleItemsIntegrity()
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::AddInstallingItems(
+    Array<StaticString<cFilePathLen>>& usedBlobs, Array<StaticString<cFilePathLen>>& usedLayers)
+{
+    for (const auto& installingItem : mInstallingItems) {
+        StaticString<cFilePathLen> path;
+
+        for (const auto& blob : installingItem.mBlobs) {
+            if (auto err = CreateBlobPath(blob, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(usedBlobs, path); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        for (const auto& layer : installingItem.mLayers) {
+            if (auto err = CreateLayerPath(layer, path); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = AddPathIfNotExist(usedLayers, path); !err.IsNone()) {
+                return err;
+            }
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
     Array<StaticString<cFilePathLen>>& itemLayers)
 {
@@ -1312,6 +1392,10 @@ RetWithError<size_t> ImageManager::RemoveOrphans()
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
+    if (auto err = AddInstallingItems(*usedBlobs, *usedLayers); !err.IsNone()) {
+        LOG_ERR() << "Failed to add installing items" << Log::Field(err);
+    }
+
     for (const auto& itemData : *itemsData) {
         if (auto err = CalcItemBlobsAndLayers(itemData, *usedBlobs, *usedLayers); !err.IsNone()) {
             LOG_ERR() << "Failed to calculate item blobs and layers" << Log::Field("itemID", itemData.mID)
@@ -1345,7 +1429,8 @@ void ImageManager::ProcessOutdatedItems()
     while (true) {
         UniqueLock lock {mMutex};
 
-        if (auto err = mCV.Wait(lock, [&]() { return (mClose || mProcessOutdatedItems) && mNumActiveInstalls == 0; });
+        if (auto err
+            = mCV.Wait(lock, [&]() { return (mClose || mProcessOutdatedItems) && mInstallingItems.IsEmpty(); });
             !err.IsNone()) {
             LOG_ERR() << "Wait failed" << Log::Field(err);
             continue;
