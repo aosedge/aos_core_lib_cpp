@@ -986,4 +986,70 @@ TEST_F(ImageManagerTest, RemoveOrphanLayers)
     }
 }
 
+TEST_F(ImageManagerTest, RemoveOrphansPreservesInstallingBlobs)
+{
+    // Verify that blobs being downloaded during an active install are not deleted as orphans
+    // when RemoveOrphans runs concurrently via RemoveItem (called by the space allocator).
+
+    constexpr auto cManifestDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+
+    UpdateItemInfo itemInfo {"component1", UpdateItemTypeEnum::eComponent, "1.0.0", cManifestDigest};
+
+    auto manifestPath = GetBlobPath(cManifestDigest);
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.empty.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 2;
+
+    // Block the manifest download after the file is created so RemoveOrphans can run
+    // while the install is still in progress.
+
+    std::promise<void> downloadStartedPromise;
+    std::promise<void> downloadResumePromise;
+
+    auto downloadStartedFuture = downloadStartedPromise.get_future();
+    auto downloadResumeFuture  = downloadResumePromise.get_future();
+
+    EXPECT_CALL(mDownloaderMock, Download(String(cManifestDigest), _, manifestPath))
+        .WillOnce(Invoke([&](const String&, const String&, const String& path) -> Error {
+            CreateFile(path.CStr());
+            downloadStartedPromise.set_value();
+            downloadResumeFuture.wait();
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(manifestPath, _))
+        .WillOnce(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
+
+    // Install in background: will block inside the manifest downloader.
+
+    auto installFuture = std::async(std::launch::async, [&]() { return mImageManager.InstallUpdateItem(itemInfo); });
+
+    // Wait until the manifest file exists on disk and the digest is already recorded
+    // in the installing item's blob list (added by InstallBlob before calling Download).
+
+    ASSERT_EQ(downloadStartedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+    // Trigger RemoveOrphans via ItemRemoverItf (as the space allocator would do).
+    // The manifest blob exists on disk but is not yet in storage — without AddInstallingItems
+    // it would be treated as an orphan and deleted.
+
+    static_cast<spaceallocator::ItemRemoverItf*>(&mImageManager)->RemoveItem("nonexistent", "1.0.0");
+
+    EXPECT_TRUE(std::filesystem::exists(manifestPath.CStr()))
+        << "Manifest blob was incorrectly deleted as orphan during active install";
+
+    // Let the download finish and verify the install completes successfully.
+
+    downloadResumePromise.set_value();
+
+    auto err = installFuture.get();
+    EXPECT_TRUE(err.IsNone()) << "Install failed: " << tests::utils::ErrorToStr(err);
+}
+
 } // namespace aos::sm::imagemanager
