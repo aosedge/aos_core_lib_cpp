@@ -459,15 +459,30 @@ TEST_F(ImageManagerTest, GetAllInstalledItems)
 TEST_F(ImageManagerTest, RemoveOutdatedItems)
 {
     std::vector<UpdateItemData> initialItems = {
-        {"item1", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved,
+        {"item1", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111", ItemStateEnum::eRemoved,
             Time::Now().Add(-(cUpdateItemTTL + 1 * Time::cSeconds))},
-        {"item2", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved,
+        {"item2", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222", ItemStateEnum::eRemoved,
             Time::Now().Add(-(cUpdateItemTTL + 1 * Time::cSeconds))},
-        {"item3", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved, Time::Now()},
-        {"item4", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved, Time::Now()},
+        {"item3", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333", ItemStateEnum::eRemoved,
+            Time::Now()},
+        {"item4", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:4444444444444444444444444444444444444444444444444444444444444444", ItemStateEnum::eRemoved,
+            Time::Now()},
     };
 
     mStorageStub.Init(initialItems);
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 512;
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
 
     // Expect adding outdated items to space allocator for all deleted items
 
