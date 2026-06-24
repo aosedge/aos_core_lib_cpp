@@ -941,7 +941,14 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     if (removedItems) {
-        mProcessOutdatedItems = true;
+        size_t removedSize = 0;
+
+        Tie(removedSize, err) = RemoveOrphans();
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to remove orphans" << Log::Field(err);
+        }
+
+        mSpaceAllocator->FreeSpace(removedSize);
     }
 
     return ErrorEnum::eNone;
@@ -1444,8 +1451,6 @@ void ImageManager::ProcessOutdatedItems()
             continue;
         }
 
-        LOG_DBG() << "Start processing outdated items";
-
         mProcessOutdatedItems = false;
 
         if (auto err = HandleOutdatedItems(); !err.IsNone()) {
@@ -1460,8 +1465,6 @@ void ImageManager::ProcessOutdatedItems()
         if (!err.IsNone()) {
             LOG_ERR() << "Remove orphans failed" << Log::Field(err);
         }
-
-        LOG_DBG() << "Removed orphans" << Log::Field("size", size);
 
         mSpaceAllocator->FreeSpace(size);
     }
