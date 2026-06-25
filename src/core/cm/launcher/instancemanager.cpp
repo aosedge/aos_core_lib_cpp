@@ -300,10 +300,12 @@ Error InstanceManager::SubmitScheduledInstances()
 
     mScheduledInstances.Clear();
 
+    ClearCacheIfLimitReached();
+
     return ErrorEnum::eNone;
 }
 
-Error InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
+void InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
 {
     if (auto err = instance->Cache(true); !err.IsNone()) {
         const auto& id = instance->GetInfo().mInstanceIdent;
@@ -316,7 +318,29 @@ Error InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
     mScheduledInstances.Remove(instance);
     mActiveInstances.Remove(instance);
 
-    return ErrorEnum::eNone;
+    ClearCacheIfLimitReached();
+}
+
+void InstanceManager::ClearCacheIfLimitReached()
+{
+    // Cache shares the allocator budget with active/scheduled instances. Drop the whole cache once the
+    // allowed number of instances is reached.
+    if (mScheduledInstances.Size() + mActiveInstances.Size() + mCachedInstances.Size() < 2 * cMaxNumInstances - 1) {
+        // Storage can hold at most cMaxNumInstances instances (active + cached are persisted), so keep their
+        // total within that limit and drop the cache once it is reached.
+        if (mActiveInstances.Size() + mCachedInstances.Size() <= cMaxNumInstances) {
+            return;
+        }
+    }
+
+    for (auto& instance : mCachedInstances) {
+        if (auto err = instance->Remove(); !err.IsNone()) {
+            LOG_ERR() << "Remove cached instance failed" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent)
+                      << AOS_ERROR_WRAP(err);
+        }
+    }
+
+    mCachedInstances.Clear();
 }
 
 SharedPtr<Instance> InstanceManager::FindActiveInstance(const InstanceIdent& id, const String& version)
@@ -518,6 +542,8 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
 
 RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const InstanceInfo& info)
 {
+    ClearCacheIfLimitReached();
+
     SharedPtr<Instance> newInstance;
 
     switch (info.mInstanceIdent.mType.GetValue()) {
