@@ -537,7 +537,7 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
 
     if (auto err = newInstance->Init(); !err.IsNone()) {
         // Do not leave invalid instance in storage.
-        if (auto err = newInstance->Remove(); !err.IsNone()) {
+        if (err = newInstance->Remove(); !err.IsNone()) {
             LOG_ERR() << "Can't remove instance" << Log::Field(err);
         }
 
