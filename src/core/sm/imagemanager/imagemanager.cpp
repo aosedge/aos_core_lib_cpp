@@ -477,10 +477,13 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, Instal
         if (auto err = WaitForInstallingBlob(descriptor.mDigest); !err.IsNone()) {
             return err;
         }
-
-        auto releaseInstalling
-            = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInstallingBlob(*digest); });
     }
+
+    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
+        if (waitInstalling) {
+            ReleaseInstallingBlob(*digest);
+        }
+    });
 
     if (installItem) {
         LockGuard lock {mMutex};
