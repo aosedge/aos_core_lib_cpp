@@ -43,7 +43,11 @@ struct OutputAccessConfig {
  * Per-instance firewall parameters.
  */
 struct InstanceFirewallParams {
-    StaticString<cIPLen>                                  mIP;
+    StaticString<cIPLen> mIP;
+    // Subnet (CIDR) of the instance network. Instances sharing it (same
+    // network) communicate without restrictions; only cross-network traffic
+    // is filtered by the access rules below.
+    StaticString<cSubnetLen>                              mSubnet;
     bool                                                  mAllowPublic {};
     StaticArray<InputAccessConfig, cMaxNumFirewallRules>  mInput;
     StaticArray<OutputAccessConfig, cMaxNumFirewallRules> mOutput;

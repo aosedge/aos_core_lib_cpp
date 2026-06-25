@@ -1395,6 +1395,7 @@ Error NetworkManager::PrepareInstanceFirewallParams(const InstanceNetworkConfig&
     const aos::InstanceNetworkAllocation& networkParams, InstanceFirewallParams& params) const
 {
     params.mIP          = networkParams.mIP;
+    params.mSubnet      = networkParams.mSubnet;
     params.mAllowPublic = true;
 
     StaticArray<StaticString<cPortLen>, cMaxExposedPort> portConfig;
