@@ -186,9 +186,8 @@ public:
      * Disables instance.
      *
      * @param instance instance.
-     * @return Error.
      */
-    Error DisableInstance(SharedPtr<Instance>& instance);
+    void DisableInstance(SharedPtr<Instance>& instance);
 
     /**
      * Updates monitoring data for active instances.
@@ -264,8 +263,8 @@ private:
     // existing instances + 1 InstanceInfo (CreateInfo) + 1 new instance. Both paths peak at
     // cMaxNumInstances+1 simultaneous allocations.
     static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceInfo, cMaxNumInstances>)
-        + Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances;
-    static constexpr auto cMaxNumAllocations     = cMaxNumInstances + 1;
+        + Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances * 2;
+    static constexpr auto cMaxNumAllocations     = 2 * cMaxNumInstances + 1;
     static constexpr auto cInstanceAllocatorSize = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
         + sizeof(InstanceStatus) + sizeof(oci::ImageIndex) + sizeof(EnvVarArray);
 
@@ -281,6 +280,8 @@ private:
     Error ClearInstancesWithDeletedImages();
     template <typename Predicate>
     Error RemoveInstances(Array<SharedPtr<Instance>>& instances, Predicate predicate) const;
+
+    void ClearCacheIfLimitReached();
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
