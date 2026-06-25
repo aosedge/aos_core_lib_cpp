@@ -547,7 +547,8 @@ private:
             return err;
         }
 
-        if (auto err = mPartition->Resize(static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize)); !err.IsNone()) {
+        if (auto err = mPartition->Resize(static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize));
+            !err.IsNone()) {
             Free(newSize);
 
             return err;
