@@ -1492,8 +1492,11 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
     certificate->mRaw.Resize(attrValues[0].Size());
 
     err = mCryptoProvider.DERToX509Cert(certificate->mRaw, *certificate);
+    if (!err.IsNone()) {
+        return {nullptr, err};
+    }
 
-    return {certificate, err};
+    return {certificate, ErrorEnum::eNone};
 }
 
 } // namespace aos::pkcs11
