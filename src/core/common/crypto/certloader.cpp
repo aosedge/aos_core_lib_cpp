@@ -355,45 +355,32 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id)
 {
     id.Clear();
 
-    auto                 percentDetected = false;
-    aos::StaticString<2> hexByte;
+    if (idStr.Size() % 3 != 0) {
+        return aos::ErrorEnum::eInvalidArgument;
+    }
 
-    for (const auto& ch : idStr) {
-        if (ch == '%') {
-            if (percentDetected || hexByte.Size()) {
-                return aos::ErrorEnum::eInvalidArgument;
-            }
+    for (size_t i = 0; i < idStr.Size(); i += 3) {
+        if (idStr[i] != '%') {
+            return ErrorEnum::eInvalidArgument;
+        }
 
-            percentDetected = true;
-        } else if (percentDetected) {
-            auto err = hexByte.PushBack(ch);
-            if (!err.IsNone()) {
-                return err;
-            }
+        aos::StaticString<2> hexByte;
 
-            if (hexByte.Size() == hexByte.MaxSize()) {
-                percentDetected = false;
+        auto err = hexByte.Insert(hexByte.end(), idStr.begin() + i + 1, idStr.begin() + i + 3);
+        if (!err.IsNone()) {
+            return err;
+        }
 
-                uint8_t byte;
+        uint8_t byte;
 
-                aos::Tie(byte, err) = hexByte.HexToByte();
-                if (!err.IsNone()) {
-                    return err;
-                }
+        aos::Tie(byte, err) = hexByte.HexToByte();
+        if (!err.IsNone()) {
+            return err;
+        }
 
-                err = id.PushBack(byte);
-                if (!err.IsNone()) {
-                    return err;
-                }
-
-                hexByte.Clear();
-            }
-
-        } else {
-            auto err = id.PushBack(static_cast<uint8_t>(ch));
-            if (!err.IsNone()) {
-                return err;
-            }
+        err = id.PushBack(byte);
+        if (!err.IsNone()) {
+            return err;
         }
     }
 
