@@ -1453,7 +1453,7 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
     StaticArray<ObjectHandle, cKeysPerToken> handles;
 
     auto err = mSession->FindObjects(certTempl, handles);
-    if (err.IsNone()) {
+    if (!err.IsNone()) {
         return {nullptr, err};
     }
 
