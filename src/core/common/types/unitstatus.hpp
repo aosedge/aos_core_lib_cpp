@@ -109,7 +109,7 @@ struct UnitInstanceStatus : public InstanceStatusData {
     bool operator!=(const UnitInstanceStatus& rhs) const { return !operator==(rhs); }
 };
 
-using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus, cMaxNumUpdateItemInstances>;
+using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus*, cMaxNumInstances>;
 
 /**
  * Instances statuses.
@@ -153,8 +153,18 @@ struct UnitInstancesStatuses {
      */
     bool operator==(const UnitInstancesStatuses& rhs) const
     {
+        if (mInstances.Size() != rhs.mInstances.Size()) {
+            return false;
+        }
+
+        for (size_t i = 0; i < mInstances.Size(); i++) {
+            if (*mInstances[i] != *rhs.mInstances[i]) {
+                return false;
+            }
+        }
+
         return mItemID == rhs.mItemID && mType == rhs.mType && mSubjectID == rhs.mSubjectID && mVersion == rhs.mVersion
-            && mPreinstalled == rhs.mPreinstalled && mInstances == rhs.mInstances;
+            && mPreinstalled == rhs.mPreinstalled;
     }
 
     /**

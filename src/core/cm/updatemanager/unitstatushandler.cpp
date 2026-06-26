@@ -311,20 +311,25 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
             itemIt = &mUnitStatus.mInstances->Back();
         }
 
-        auto instanceIt = itemIt->mInstances.FindIf([&status](const UnitInstanceStatus& instanceStatus) {
-            return instanceStatus.mInstance == status.mInstance;
+        auto instanceIt = itemIt->mInstances.FindIf([&status](const UnitInstanceStatus* instanceStatus) {
+            return instanceStatus->mInstance == status.mInstance;
         });
         if (instanceIt == itemIt->mInstances.end()) {
-            if (auto err = itemIt->mInstances.EmplaceBack(); !err.IsNone()) {
+            if (auto err = mUnitInstancesStatuses.EmplaceBack(); !err.IsNone()) {
                 LOG_ERR() << "Failed to emplace instance status" << Log::Field(err);
+                return;
+            }
+
+            if (auto err = itemIt->mInstances.PushBack(&mUnitInstancesStatuses.Back()); !err.IsNone()) {
+                LOG_ERR() << "Failed to push instance status pointer" << Log::Field(err);
                 return;
             }
 
             instanceIt = &itemIt->mInstances.Back();
         }
 
-        static_cast<InstanceStatusData&>(*instanceIt) = static_cast<const InstanceStatusData&>(status);
-        instanceIt->mInstance                         = status.mInstance;
+        static_cast<InstanceStatusData&>(**instanceIt) = static_cast<const InstanceStatusData&>(status);
+        (*instanceIt)->mInstance                       = status.mInstance;
     }
 
     StartTimer();
@@ -460,6 +465,7 @@ Error UnitStatusHandler::SetUpdateItemsStatus()
 Error UnitStatusHandler::SetInstancesStatus()
 {
     mUnitStatus.mInstances.EmplaceValue();
+    mUnitInstancesStatuses.Clear();
 
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
 
@@ -482,12 +488,16 @@ Error UnitStatusHandler::SetInstancesStatus()
             it = &mUnitStatus.mInstances->Back();
         }
 
-        UnitInstanceStatus instanceStatus {};
+        if (auto err = mUnitInstancesStatuses.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        auto& instanceStatus = mUnitInstancesStatuses.Back();
 
         static_cast<InstanceStatusData&>(instanceStatus) = static_cast<const InstanceStatusData&>(status);
         instanceStatus.mInstance                         = status.mInstance;
 
-        it->mInstances.PushBack(instanceStatus);
+        it->mInstances.PushBack(&instanceStatus);
     }
 
     return ErrorEnum::eNone;
@@ -534,11 +544,11 @@ void UnitStatusHandler::LogUnitStatus()
                       << Log::Field("version", instanceStatuses.mVersion);
 
             for (const auto& instanceStatus : instanceStatuses.mInstances) {
-                LOG_INF() << "Unit status instance" << Log::Field("instance", instanceStatus.mInstance)
-                          << Log::Field("manifestDigest", instanceStatus.mManifestDigest)
-                          << Log::Field("nodeID", instanceStatus.mNodeID)
-                          << Log::Field("runtimeID", instanceStatus.mRuntimeID)
-                          << Log::Field("state", instanceStatus.mState) << Log::Field(instanceStatus.mError);
+                LOG_INF() << "Unit status instance" << Log::Field("instance", instanceStatus->mInstance)
+                          << Log::Field("manifestDigest", instanceStatus->mManifestDigest)
+                          << Log::Field("nodeID", instanceStatus->mNodeID)
+                          << Log::Field("runtimeID", instanceStatus->mRuntimeID)
+                          << Log::Field("state", instanceStatus->mState) << Log::Field(instanceStatus->mError);
             }
         }
     }
