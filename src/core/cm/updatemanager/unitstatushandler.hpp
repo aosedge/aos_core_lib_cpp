@@ -131,11 +131,12 @@ private:
     cloudconnection::CloudConnectionItf*   mCloudConnection {};
     SenderItf*                             mSender {};
 
-    Mutex                           mMutex;
-    UnitStatus                      mUnitStatus;
-    StaticAllocator<cAllocatorSize> mAllocator;
-    bool                            mCloudConnected {};
-    bool                            mIsStatusProcessing {};
+    Mutex                                             mMutex;
+    UnitStatus                                        mUnitStatus;
+    StaticArray<UnitInstanceStatus, cMaxNumInstances> mUnitInstancesStatuses;
+    StaticAllocator<cAllocatorSize>                   mAllocator;
+    bool                                              mCloudConnected {};
+    bool                                              mIsStatusProcessing {};
 
     Timer    mTimer;
     bool     mTimerStarted {};
