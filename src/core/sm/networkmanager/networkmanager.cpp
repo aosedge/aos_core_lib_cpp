@@ -1485,7 +1485,9 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
         }
     });
 
-    if (err = mNetIfFactory->CreateVlan(network.mVlanIfName, network.mVlanID); !err.IsNone()) {
+    // Create the vlan already enslaved to the bridge (master) in one operation,
+    // avoiding a separate SetMasterLink round-trip.
+    if (err = mNetIfFactory->CreateVlan(network.mVlanIfName, network.mVlanID, network.mBridgeIfName); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1494,10 +1496,6 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
             mNetIf->DeleteLink(network->mVlanIfName);
         }
     });
-
-    if (err = mNetIf->SetMasterLink(network.mVlanIfName, network.mBridgeIfName); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
 
     // Masquerade is a per-network property (one rule per subnet/bridge), so it
     // is installed here on network creation rather than per instance.
