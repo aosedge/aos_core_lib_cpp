@@ -1041,10 +1041,15 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
 }
 
 RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
-    const Array<uint8_t>& id, const String& label, [[maybe_unused]] EllipticCurve curve)
+    const Array<uint8_t>& id, const String& label, EllipticCurve curve)
 {
-    // only P384 curve is supported for now
-    assert(curve == EllipticCurve::eP384);
+    // only P384 (secp384r1) curve is supported for now
+    if (curve != EllipticCurve::eP384) {
+        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int>(curve)
+                  << ", only P384 (secp384r1) is supported";
+
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+    }
 
     auto funcList = mSession->GetFunctionList();
 
@@ -1385,7 +1390,9 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
     }
     }
 
-    return {{}, ErrorEnum::eInvalidArgument};
+    LOG_ERR() << "Unsupported key type: keyType=" << keyType << ", only RSA and ECDSA (secp384r1) are supported";
+
+    return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
 }
 
 Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles)

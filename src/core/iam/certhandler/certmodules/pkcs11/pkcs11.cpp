@@ -227,9 +227,10 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
         break;
 
     default:
-        LOG_ERR() << "Unsupported algorithm";
+        LOG_ERR() << "Unsupported algorithm: certType=" << mCertType << ", keyType=" << keyType
+                  << ", only RSA and ECDSA (secp384r1) are supported";
 
-        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
     err = TokenMemInfo();

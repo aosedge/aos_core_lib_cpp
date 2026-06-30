@@ -350,7 +350,10 @@ Error ConvertEvpPKey(const EVP_PKEY* src, Variant<ECDSAPublicKey, RSAPublicKey>&
         return SetECDSAPubKey(src, dst);
     }
 
-    return ErrorEnum::eNotSupported;
+    LOG_ERR() << "Unsupported certificate public key algorithm: type=" << EVP_PKEY_base_id(src)
+              << ", only RSA and ECDSA are supported";
+
+    return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
 }
 
 Error ConvertX509ToDER(const X509* cert, Array<uint8_t>& derBlob)

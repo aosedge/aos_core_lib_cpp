@@ -1915,7 +1915,10 @@ Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk
         return ParseECKey(mbedtls_pk_ec(*pk), cert);
 
     default:
-        return ErrorEnum::eNotFound;
+        LOG_ERR() << "Unsupported certificate public key algorithm: type=" << static_cast<int>(mbedtls_pk_get_type(pk))
+                  << ", only RSA and ECDSA are supported";
+
+        return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
     }
 }
 
