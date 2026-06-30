@@ -66,8 +66,13 @@ NetworkManager::~NetworkManager()
 {
     mRuntimeCache.Clear();
 
-    for (const auto& provider : mNetworkProviders) {
-        if (auto err = ClearNetwork(provider.mSecond); !err.IsNone()) {
+    for (const auto& networkID : mPhysicalNetworks) {
+        auto it = mNetworkProviders.Find(networkID);
+        if (it == mNetworkProviders.end()) {
+            continue;
+        }
+
+        if (auto err = ClearNetwork(it->mSecond); !err.IsNone()) {
             LOG_ERR() << "Can't clear network" << Log::Field(err);
         }
     }
@@ -1065,13 +1070,15 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
     }
 
     if (!networkInfo.mBridgeIfName.IsEmpty()) {
-        if (auto errDel = mNetIf->DeleteLink(networkInfo.mBridgeIfName); !errDel.IsNone() && err.IsNone()) {
+        if (auto errDel = mNetIf->DeleteLink(networkInfo.mBridgeIfName);
+            !errDel.IsNone() && errDel.Value() != ErrorEnum::eNotFound && err.IsNone()) {
             err = AOS_ERROR_WRAP(errDel);
         }
     }
 
     if (!networkInfo.mVlanIfName.IsEmpty()) {
-        if (auto errDel = mNetIf->DeleteLink(networkInfo.mVlanIfName); !errDel.IsNone() && err.IsNone()) {
+        if (auto errDel = mNetIf->DeleteLink(networkInfo.mVlanIfName);
+            !errDel.IsNone() && errDel.Value() != ErrorEnum::eNotFound && err.IsNone()) {
             err = AOS_ERROR_WRAP(errDel);
         }
     }
