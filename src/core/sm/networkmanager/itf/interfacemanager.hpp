@@ -65,6 +65,37 @@ public:
     virtual Error CreateVeth(const String& hostIfName, const String& peerIfName) = 0;
 
     /**
+     * Creates a veth pair with the peer placed directly into the given network
+     * namespace, already named as peerIfName. The host side stays in the
+     * current namespace. Combines veth creation, namespace move and rename into
+     * a single netlink operation.
+     *
+     * @param hostIfName host-side veth name (current namespace).
+     * @param peerIfName peer-side veth name inside the target namespace.
+     * @param netNSPath path to the target netns (e.g. /run/netns/<id>).
+     * @param master master bridge name to enslave the host side to in the same
+     *               operation; empty for none.
+     * @return Error.
+     */
+    virtual Error CreateVethToNamespace(
+        const String& hostIfName, const String& peerIfName, const String& netNSPath, const String& master)
+        = 0;
+
+    /**
+     * Configures an interface inside a network namespace in a single namespace
+     * entry: brings it up, assigns the address and installs the default route.
+     *
+     * @param ifname interface name inside the namespace.
+     * @param ipWithMask IP in CIDR form, e.g. "10.0.0.5/24".
+     * @param gateway default-route gateway IP.
+     * @param netNSPath path to the instance netns.
+     * @return Error.
+     */
+    virtual Error ConfigureInstanceInterface(
+        const String& ifname, const String& ipWithMask, const String& gateway, const String& netNSPath)
+        = 0;
+
+    /**
      * Moves a link into a network namespace identified by its /run/netns path.
      *
      * @param ifname interface name.
