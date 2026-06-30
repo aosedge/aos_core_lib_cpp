@@ -16,7 +16,7 @@ namespace aos::sm::networkmanager {
 class InterfaceFactoryMock : public InterfaceFactoryItf {
 public:
     MOCK_METHOD(Error, CreateBridge, (const String&, const String&, const String&), (override));
-    MOCK_METHOD(Error, CreateVlan, (const String&, uint64_t), (override));
+    MOCK_METHOD(Error, CreateVlan, (const String&, uint64_t, const String&), (override));
     MOCK_METHOD(Error, CreateLink, (const String&, const String&), (override));
 };
 

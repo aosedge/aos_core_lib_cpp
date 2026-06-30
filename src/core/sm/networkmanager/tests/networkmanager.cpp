@@ -165,8 +165,7 @@ protected:
     void SetupEnsureNodeNetworkPhysicalMocks(const aos::String& ip, const aos::String& subnet, uint64_t vlanID)
     {
         EXPECT_CALL(mNetIfFactory, CreateBridge(_, ip, subnet)).WillOnce(Return(aos::ErrorEnum::eNone));
-        EXPECT_CALL(mNetIfFactory, CreateVlan(_, vlanID)).WillOnce(Return(aos::ErrorEnum::eNone));
-        EXPECT_CALL(mNetIf, SetMasterLink(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mNetIfFactory, CreateVlan(_, vlanID, _)).WillOnce(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mDNSName, CreateServer(_, _))
             .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
     }
@@ -308,8 +307,7 @@ TEST_F(NetworkManagerTest, CreateAndStartInstanceNetwork_VerifyHostsFile)
     EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mNetIfFactory, CreateBridge(_, _, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIfFactory, CreateVlan(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, _, _)).Times(numInstances).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mDNSName, CreateServer(_, _))
         .Times(numInstances)
         .WillRepeatedly(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
@@ -806,8 +804,7 @@ TEST_F(NetworkManagerTest, StopReleaseAndRecreateInstance)
     EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 
     EXPECT_CALL(mNetIfFactory, CreateBridge(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIfFactory, CreateVlan(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, SetMasterLink(_, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(_, _, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mDNSName, CreateServer(_, _))
         .Times(2)
         .WillRepeatedly(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
@@ -1077,9 +1074,8 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
     EXPECT_CALL(
         mNetIfFactory, CreateBridge(existingNetwork.mBridgeIfName, existingNetwork.mIP, existingNetwork.mSubnet))
         .WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIfFactory, CreateVlan(existingNetwork.mVlanIfName, existingNetwork.mVlanID))
-        .WillOnce(Return(aos::ErrorEnum::eNone));
-    EXPECT_CALL(mNetIf, SetMasterLink(existingNetwork.mVlanIfName, existingNetwork.mBridgeIfName))
+    EXPECT_CALL(
+        mNetIfFactory, CreateVlan(existingNetwork.mVlanIfName, existingNetwork.mVlanID, existingNetwork.mBridgeIfName))
         .WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mDNSName, CreateServer(_, _))
         .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
