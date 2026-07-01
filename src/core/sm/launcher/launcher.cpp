@@ -694,8 +694,7 @@ void Launcher::StopAllInstances()
     }
 
     for (auto& instance : mInstances) {
-        if (instance.mStatus.mState != InstanceStateEnum::eActive
-            || instance.mInfo.mType == UpdateItemTypeEnum::eComponent) {
+        if (instance.mInfo.mType == UpdateItemTypeEnum::eComponent) {
             continue;
         }
 

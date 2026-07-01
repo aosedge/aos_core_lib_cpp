@@ -473,6 +473,11 @@ TEST_F(LauncherTest, StopInstancesWithExpiredOfflineTTL)
     ASSERT_TRUE(stop1promise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
         << "Runtime1 StopInstance was not called";
 
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[1]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
@@ -793,6 +798,8 @@ TEST_F(LauncherTest, GetInstancesStatuses)
     EXPECT_EQ((*statuses)[1], CreateInstanceStatus(cStartInstanceInfos[1], InstanceStateEnum::eFailed));
 
     EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStartInstanceInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(cStartInstanceInfos[1]), _))
         .WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.Stop();
