@@ -66,7 +66,7 @@ Error InstanceManager::Start()
     }
 
     if (auto err = LoadInstancesFromStorage(); !err.IsNone()) {
-        LOG_ERR() << "Can't load instances from storage " << Log::Field(err);
+        LOG_ERR() << "Can't load instances from storage" << Log::Field(err);
 
         return err;
     }
