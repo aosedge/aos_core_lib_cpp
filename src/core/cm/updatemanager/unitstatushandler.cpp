@@ -568,6 +568,7 @@ void UnitStatusHandler::ClearUnitStatus()
     mUnitStatus.mUpdateItems.Reset();
     mUnitStatus.mInstances.Reset();
     mUnitStatus.mUnitSubjects.Reset();
+    mUnitInstancesStatuses.Clear();
 };
 
 void UnitStatusHandler::ClearUpdateStatuses()
