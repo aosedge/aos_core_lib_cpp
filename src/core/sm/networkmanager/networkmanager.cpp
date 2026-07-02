@@ -716,13 +716,16 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return AOS_ERROR_WRAP(err);
     }
 
-    auto cleanupBandwidth = DeferRelease(&attachResult.mHostIfName, [this, &err](const String* ifName) {
-        if (!err.IsNone()) {
-            if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
-                LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
-            }
-        }
-    });
+    const bool bandwidthApplied = bandwidthParams->mIngressRate > 0 || bandwidthParams->mEgressRate > 0;
+
+    auto cleanupBandwidth
+        = DeferRelease(&attachResult.mHostIfName, [this, &err, bandwidthApplied](const String* ifName) {
+              if (!err.IsNone() && bandwidthApplied) {
+                  if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
+                      LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
+                  }
+              }
+          });
 
     DNSServerItf* dnsServer = nullptr;
 
@@ -843,7 +846,8 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
 {
     StaticString<cInterfaceLen> hostIfName;
-    DNSServerItf*               dnsServer = nullptr;
+    DNSServerItf*               dnsServer    = nullptr;
+    bool                        hasBandwidth = false;
 
     {
         LockGuard lock {mMutex};
@@ -853,7 +857,8 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
         }
 
         if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            hostIfName = it->mSecond.mHostIfName;
+            hostIfName   = it->mSecond.mHostIfName;
+            hasBandwidth = it->mSecond.mNetworkConfig.mIngressKbit > 0 || it->mSecond.mNetworkConfig.mEgressKbit > 0;
         } else {
             LOG_WRN() << "Instance network info not found for cleanup" << Log::Field("instanceID", instanceID);
         }
@@ -871,8 +876,10 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
                       << Log::Field("networkID", networkID);
         }
 
-        if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
-            err = AOS_ERROR_WRAP(errClear);
+        if (hasBandwidth) {
+            if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
+                err = AOS_ERROR_WRAP(errClear);
+            }
         }
 
         if (auto errRemove = mFirewall->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
