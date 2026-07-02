@@ -166,6 +166,20 @@ public:
     Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) override;
 
     /**
+     * Begins network teardown batch mode (forwards to firewall + traffic monitor).
+     *
+     * @return Error.
+     */
+    Error BeginBatch() override;
+
+    /**
+     * Flushes the accumulated teardown batch (forwards to firewall + traffic monitor).
+     *
+     * @return Error.
+     */
+    Error FlushBatch() override;
+
+    /**
      * Called when pending firewall rules are resolved for an instance.
      *
      * @param nodeID node ID where the instance resides.

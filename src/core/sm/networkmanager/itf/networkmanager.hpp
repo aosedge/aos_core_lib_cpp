@@ -128,6 +128,22 @@ public:
      * @return Error.
      */
     virtual Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) = 0;
+
+    /**
+     * Begins network teardown batch mode: per-instance firewall/traffic-monitor
+     * nft commands are accumulated instead of committed individually, to coalesce
+     * a mass stop into a single nft transaction. Must be paired with FlushBatch.
+     *
+     * @return Error.
+     */
+    virtual Error BeginBatch() = 0;
+
+    /**
+     * Flushes the accumulated teardown batch and leaves batch mode.
+     *
+     * @return Error.
+     */
+    virtual Error FlushBatch() = 0;
 };
 
 /** @}*/

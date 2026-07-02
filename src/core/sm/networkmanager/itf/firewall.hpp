@@ -134,6 +134,23 @@ public:
      * @return Error.
      */
     virtual Error RemoveMasquerade(const String& subnet, const String& outIf) = 0;
+
+    /**
+     * Begins batch mode: subsequent RemoveInstance calls accumulate their nft
+     * commands into a single transaction instead of committing individually.
+     * Used to coalesce a mass teardown into one nft round-trip.
+     *
+     * @return Error.
+     */
+    virtual Error BeginBatch() = 0;
+
+    /**
+     * Flushes the accumulated batch as a single nft transaction and leaves
+     * batch mode.
+     *
+     * @return Error.
+     */
+    virtual Error FlushBatch() = 0;
 };
 
 /** @}*/

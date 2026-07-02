@@ -22,6 +22,8 @@ public:
     MOCK_METHOD(Error, UpdateInstance, (const String&, const InstanceFirewallParams&), (override));
     MOCK_METHOD(Error, AddMasquerade, (const String&, const String&), (override));
     MOCK_METHOD(Error, RemoveMasquerade, (const String&, const String&), (override));
+    MOCK_METHOD(Error, BeginBatch, (), (override));
+    MOCK_METHOD(Error, FlushBatch, (), (override));
 };
 
 } // namespace aos::sm::networkmanager

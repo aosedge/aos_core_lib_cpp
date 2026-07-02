@@ -439,6 +439,36 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
     return err;
 }
 
+Error NetworkManager::BeginBatch()
+{
+    Error err;
+
+    if (auto e = mFirewall->BeginBatch(); !e.IsNone()) {
+        err = AOS_ERROR_WRAP(e);
+    }
+
+    if (auto e = mNetMonitor->BeginBatch(); !e.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(e);
+    }
+
+    return err;
+}
+
+Error NetworkManager::FlushBatch()
+{
+    Error err;
+
+    if (auto e = mFirewall->FlushBatch(); !e.IsNone()) {
+        err = AOS_ERROR_WRAP(e);
+    }
+
+    if (auto e = mNetMonitor->FlushBatch(); !e.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(e);
+    }
+
+    return err;
+}
+
 Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const String& networkID)
 {
     LOG_DBG() << "Release instance network" << Log::Field("instanceID", instanceID)

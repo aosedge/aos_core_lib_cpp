@@ -192,6 +192,8 @@ protected:
         EXPECT_CALL(mNetworkManager, StartInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mNetworkManager, StopInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mNetworkManager, ReleaseInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mNetworkManager, BeginBatch).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mNetworkManager, FlushBatch).WillRepeatedly(Return(ErrorEnum::eNone));
     }
 
     StaticArray<RuntimeItf*, cMaxNumNodeRuntimes> GetRuntimesArray()

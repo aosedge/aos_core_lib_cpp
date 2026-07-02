@@ -104,6 +104,23 @@ public:
      */
     virtual Error GetInstanceTraffic(const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic) const
         = 0;
+
+    /**
+     * Begins batch mode: subsequent StopInstanceMonitoring calls accumulate
+     * their nft commands into a single transaction instead of committing
+     * individually. Used to coalesce a mass teardown into one nft round-trip.
+     *
+     * @return Error.
+     */
+    virtual Error BeginBatch() = 0;
+
+    /**
+     * Flushes the accumulated batch as a single nft transaction and leaves
+     * batch mode.
+     *
+     * @return Error.
+     */
+    virtual Error FlushBatch() = 0;
 };
 
 /** @}*/
