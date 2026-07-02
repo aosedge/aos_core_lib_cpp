@@ -842,18 +842,11 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
 
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
 {
-    StaticString<cInterfaceLen> bridgeIfName;
     StaticString<cInterfaceLen> hostIfName;
     DNSServerItf*               dnsServer = nullptr;
 
     {
         LockGuard lock {mMutex};
-
-        if (auto it = mNetworkProviders.Find(networkID); it != mNetworkProviders.end()) {
-            bridgeIfName = it->mSecond.mBridgeIfName;
-        } else {
-            LOG_WRN() << "Network provider not found for cleanup" << Log::Field("networkID", networkID);
-        }
 
         if (auto it = mDNSServers.Find(networkID); it != mDNSServers.end()) {
             dnsServer = it->mSecond;
@@ -886,12 +879,13 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
             err = AOS_ERROR_WRAP(errRemove);
         }
 
-        if (!bridgeIfName.IsEmpty()) {
-            if (auto errDetach = mBridgeNetwork->Detach(instanceID, bridgeIfName);
-                !errDetach.IsNone() && err.IsNone()) {
-                err = AOS_ERROR_WRAP(errDetach);
-            }
-        }
+        // The host veth is intentionally NOT detached here. DeleteNetworkNamespace
+        // below drops the instance netns (lazy umount); the kernel then reaps the
+        // peer veth - and with it the host end, since they die as a pair -
+        // asynchronously via cleanup_net, off the critical stop path. A synchronous
+        // delete here would block on a per-device RCU grace period for every
+        // instance (O(N) rtnl_lock serialization on mass teardown) for no benefit,
+        // as the namespace teardown already removes the interface.
     } else {
         LOG_DBG() << "Instance was never started, skipping itf cleanup" << Log::Field("instanceID", instanceID);
     }
