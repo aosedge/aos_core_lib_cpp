@@ -556,7 +556,7 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 
 void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
 {
-    LOG_INF() << "Update instances" << Log::Field("stopCount", stopInstances.Size())
+    LOG_INF() << "Update instances start" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
 
     auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>*) {
@@ -614,6 +614,9 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
+
+    LOG_INF() << "Update instances finished" << Log::Field("stopCount", stopInstances.Size())
+              << Log::Field("startCount", startInstances.Size());
 }
 
 void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
@@ -687,6 +690,8 @@ void Launcher::StopInstanceTask(aos::sm::launcher::RuntimeItf* runtime, Instance
 
 void Launcher::StopAllInstances()
 {
+    LOG_INF() << "Stop all instances start" << Log::Field("count", mInstances.Size());
+
     if (auto err = mLaunchPool.Run(); !err.IsNone()) {
         LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -712,6 +717,8 @@ void Launcher::StopAllInstances()
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
+
+    LOG_INF() << "Stop all instances finished" << Log::Field("count", mInstances.Size());
 }
 
 void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
