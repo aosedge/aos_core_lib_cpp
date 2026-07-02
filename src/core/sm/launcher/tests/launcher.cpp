@@ -766,7 +766,7 @@ TEST_F(LauncherTest, GetInstancesStatuses)
         .WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
             SetInstanceStatus(instance, InstanceStateEnum::eFailed, status);
 
-            return ErrorEnum::eNone;
+            return ErrorEnum::eFailed;
         }));
 
     err = mLauncher.Start();

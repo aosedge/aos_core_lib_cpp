@@ -170,28 +170,35 @@ private:
     static constexpr auto cOIDNamespace      = "6ba7b812-9dad-11d1-80b4-00c04fd430c8";
     static constexpr auto cThreadTaskSize    = 512;
     static constexpr auto cMaxNumSubscribers = 4;
-    static constexpr auto cAllocatorSize     = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
-        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray) + sizeof(oci::ImageManifest)
-        + sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig) + sizeof(StaticString<cFilePathLen>)
-        + sizeof(networkmanager::InstanceNetworkConfig) + sizeof(resourcemanager::ResourceInfo)
+
+    static constexpr auto cAllocatorSize = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
+        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray)
+        + cMaxNumConcurrentItems
+            * (sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
+                + Max(sizeof(StaticString<cFilePathLen>) + sizeof(oci::ImageManifest),
+                    sizeof(networkmanager::InstanceNetworkConfig) + sizeof(resourcemanager::ResourceInfo)))
         + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
             sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
                 + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
+    static constexpr auto cMaxNumAllocations = 4 + cMaxNumConcurrentItems * 4;
 
     void  OnConnect() override;
     void  OnDisconnect() override;
     void  RunRebootThread();
     void  HandleOfflineTTLs();
+    Error LoadInstanceData(InstanceData& instanceData);
+    void  LoadInstancesData(const Array<InstanceInfo>& storedInstances);
     Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances);
-    Error StopInstance(InstanceData& instanceData, bool isRemoval);
-    void  StopInstanceTask(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData, bool isRemoval);
+    Error AddStopInstanceTask(InstanceData& instanceData);
+    Error StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData);
     void  StopAllInstances();
+    Error PrepareInstance(InstanceData& instanceData);
     void  PrepareInstances(const Array<InstanceInfo>& startInstances);
     void  StartInstances(const Array<InstanceInfo>& startInstances);
-    Error StartInstance(InstanceData& instanceData);
-    void  StartInstanceTask(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData);
+    Error AddStartInstanceTask(InstanceData& instanceData);
+    Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData);
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     Error StartLaunch();
@@ -201,8 +208,8 @@ private:
     void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
     void  InstallUpdateItems(const Array<InstanceInfo>& startInstances);
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
-    Error                       RemoveInstanceData(const InstanceIdent& instanceIdent);
-    void                        RemoveInstancesData(const Array<InstanceIdent>& instances);
+    Error                       RemoveInstance(InstanceData& instanceData);
+    void                        RemoveInstances(const Array<InstanceIdent>& instances);
     void  SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
     Error GetInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
     Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
@@ -210,19 +217,18 @@ private:
     Error CreateNetwork(
         const InstanceInfo& instance, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
 
-    InstanceData*          FindInstanceData(const InstanceIdent& instanceIdent);
-    InstanceData*          FindInstanceData(const InstanceIdent& instanceIdent) const;
-    RuntimeItf*            FindInstanceRuntime(const String& runtimeID);
-    RuntimeItf*            FindInstanceRuntime(const String& runtimeID) const;
-    RuntimeItf*            FindInstanceRuntime(const InstanceIdent& instanceIdent);
-    RuntimeItf*            FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
-    RetWithError<Duration> GetOfflineTTL(const InstanceInfo& instanceInfo);
-    Optional<Duration>     GetMinOfflineTTL() const;
-    void                   StartTTLTimer();
-    void                   StopExpiredInstances(UniqueLock<Mutex>& lock);
-    void                   SendNodeInstancesStatuses();
+    InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent);
+    InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent) const;
+    RuntimeItf*        FindInstanceRuntime(const String& runtimeID);
+    RuntimeItf*        FindInstanceRuntime(const String& runtimeID) const;
+    RuntimeItf*        FindInstanceRuntime(const InstanceIdent& instanceIdent);
+    RuntimeItf*        FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
+    Optional<Duration> GetMinOfflineTTL() const;
+    void               StartTTLTimer();
+    void               StopExpiredInstances(UniqueLock<Mutex>& lock);
+    void               SendNodeInstancesStatuses();
 
-    mutable StaticAllocator<cAllocatorSize>                               mAllocator;
+    StaticAllocator<cAllocatorSize, cMaxNumAllocations>                   mAllocator;
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
     Thread<cThreadTaskSize>                                               mThread;
     Thread<cThreadTaskSize>                                               mRebootThread;
