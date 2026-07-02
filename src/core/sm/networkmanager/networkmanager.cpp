@@ -443,7 +443,11 @@ Error NetworkManager::BeginBatch()
 {
     Error err;
 
-    if (auto e = mFirewall->BeginBatch(); !e.IsNone()) {
+    if (auto e = mStorage->BeginTransaction(); !e.IsNone()) {
+        err = AOS_ERROR_WRAP(e);
+    }
+
+    if (auto e = mFirewall->BeginBatch(); !e.IsNone() && err.IsNone()) {
         err = AOS_ERROR_WRAP(e);
     }
 
@@ -463,6 +467,12 @@ Error NetworkManager::FlushBatch()
     }
 
     if (auto e = mNetMonitor->FlushBatch(); !e.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(e);
+    }
+
+    // Commit the accumulated storage writes (traffic counters, host-interface
+    // clears) in a single fsync, after all stop tasks have run.
+    if (auto e = mStorage->CommitTransaction(); !e.IsNone() && err.IsNone()) {
         err = AOS_ERROR_WRAP(e);
     }
 
