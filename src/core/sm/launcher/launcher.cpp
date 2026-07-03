@@ -663,7 +663,18 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         PrepareInstances(startInstances);
     }
 
+    // Coalesce every instance's firewall/traffic-monitor nft setup into one
+    // transaction, flushed once all instances have started (StartInstances waits
+    // for the launch pool to drain).
+    if (auto err = mNetworkManager->BeginBatch(); !err.IsNone()) {
+        LOG_ERR() << "Can't begin network setup batch" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
     StartInstances(startInstances);
+
+    if (auto err = mNetworkManager->FlushBatch(); !err.IsNone()) {
+        LOG_ERR() << "Can't flush network setup batch" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
