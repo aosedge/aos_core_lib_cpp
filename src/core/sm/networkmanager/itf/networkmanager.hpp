@@ -79,12 +79,32 @@ public:
      *
      * @param instanceID instance ID.
      * @param networkID network ID.
-     * @param runtimeParams runtime parameters (file paths).
      * @return Error.
      */
-    virtual Error StartInstanceNetwork(
-        const String& instanceID, const String& networkID, const InstanceNetworkRuntimeParams& runtimeParams)
-        = 0;
+    virtual Error StartInstanceNetwork(const String& instanceID, const String& networkID) = 0;
+
+    /**
+     * Returns the resolver IPs for the instance. Only the addresses are
+     * returned; the caller writes resolv.conf itself and must prefix each entry
+     * with "nameserver " (e.g. "nameserver 10.0.0.1"). Call after
+     * StartInstanceNetwork.
+     *
+     * @param instanceID instance ID.
+     * @param[out] servers resolver IP addresses (no "nameserver" prefix).
+     * @return Error.
+     */
+    virtual Error GetResolvServers(const String& instanceID, Array<StaticString<cIPLen>>& servers) const = 0;
+
+    /**
+     * Returns the host entries (IP + hostname) for the instance. The caller
+     * writes the hosts file itself, formatting each entry as "<ip>\t<hostname>".
+     * Call after StartInstanceNetwork.
+     *
+     * @param instanceID instance ID.
+     * @param[out] hosts host entries.
+     * @return Error.
+     */
+    virtual Error GetHosts(const String& instanceID, Array<Host>& hosts) const = 0;
 
     /**
      * Stops instance network: tears down DNS/bandwidth/firewall/bridge for the

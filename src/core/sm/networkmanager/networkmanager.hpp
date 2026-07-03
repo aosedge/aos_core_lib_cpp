@@ -125,11 +125,27 @@ public:
      *
      * @param instanceID instance ID.
      * @param networkID network ID.
-     * @param runtimeParams runtime parameters.
      * @return Error.
      */
-    Error StartInstanceNetwork(
-        const String& instanceID, const String& networkID, const InstanceNetworkRuntimeParams& runtimeParams) override;
+    Error StartInstanceNetwork(const String& instanceID, const String& networkID) override;
+
+    /**
+     * Returns resolver IPs for the instance (caller prefixes each with "nameserver").
+     *
+     * @param instanceID instance ID.
+     * @param[out] servers resolver IP addresses.
+     * @return Error.
+     */
+    Error GetResolvServers(const String& instanceID, Array<StaticString<cIPLen>>& servers) const override;
+
+    /**
+     * Returns host entries (IP + hostname) for the instance.
+     *
+     * @param instanceID instance ID.
+     * @param[out] hosts host entries.
+     * @return Error.
+     */
+    Error GetHosts(const String& instanceID, Array<Host>& hosts) const override;
 
     /**
      * Stops instance network.
@@ -170,8 +186,7 @@ private:
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
 
     Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
-        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
-        const InstanceNetworkRuntimeParams& runtimeParams);
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
 
     using InstanceHosts = StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>;
     using InstanceCache = StaticMap<StaticString<cIDLen>, InstanceHosts, cMaxNumInstances>;
@@ -228,19 +243,6 @@ private:
     Error IsHostnameExist(const InstanceCache& instanceCache, const Array<StaticString<cHostNameLen>>& hosts) const;
     Error PushHostWithDomain(
         const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
-    Error CreateHostsFile(const String& networkID, const String& instanceIP, const InstanceNetworkConfig& network,
-        const String& hostsFilePath) const;
-    Error WriteHost(const Host& host, int fd) const;
-    Error WriteHosts(const Array<SharedPtr<Host>>& hosts, int fd) const;
-    Error WriteHosts(const Array<Host>& hosts, int fd) const;
-    Error WriteHostsFile(
-        const String& filePath, const Array<SharedPtr<Host>>& hosts, const Array<Host>& additionalHosts) const;
-
-    Error CreateResolvConfFile(const String& networkID, const String& resolvConfFilePath, const String& bridgeIP,
-        const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cIPLen>>& dns) const;
-    Error WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
-        const aos::InstanceNetworkAllocation& networkParams) const;
-
     Error CreateNetwork(const NetworkInfo& network);
     Error DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error GenerateIfName(String& ifName, const String& ifPrefix);
@@ -281,9 +283,11 @@ private:
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
-    mutable Mutex                                                                         mMutex;
-    StaticAllocator<cAllocatorSize, cNumAllocations>                                      mAllocator;
-    mutable StaticAllocator<(sizeof(Host) * 3) * cMaxNumConcurrentItems, cNumAllocations> mHostAllocator;
+    mutable Mutex                                    mMutex;
+    StaticAllocator<cAllocatorSize, cNumAllocations> mAllocator;
+    mutable StaticAllocator<sizeof(StaticArray<Host, cMaxNumHosts>)
+        + sizeof(StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>)>
+        mResolvHostsAllocator;
 };
 
 /** @}*/
