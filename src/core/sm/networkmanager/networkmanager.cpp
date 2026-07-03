@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <fcntl.h>
-#include <unistd.h>
-
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
 
@@ -242,8 +239,7 @@ Error NetworkManager::CreateInstanceNetwork(
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::StartInstanceNetwork(
-    const String& instanceID, const String& networkID, const InstanceNetworkRuntimeParams& runtimeParams)
+Error NetworkManager::StartInstanceNetwork(const String& instanceID, const String& networkID)
 {
     LOG_DBG() << "Start instance network" << Log::Field("instanceID", instanceID) << Log::Field("networkID", networkID);
 
@@ -283,10 +279,103 @@ Error NetworkManager::StartInstanceNetwork(
         return err;
     }
 
-    err = AddInstanceToNetwork(
-        instanceID, networkID, cachedInfo->mNetworkConfig, cachedInfo->mAllocatedParams, runtimeParams);
+    err = AddInstanceToNetwork(instanceID, networkID, cachedInfo->mNetworkConfig, cachedInfo->mAllocatedParams);
 
     return err;
+}
+
+Error NetworkManager::GetResolvServers(const String& instanceID, Array<StaticString<cIPLen>>& servers) const
+{
+    StaticString<cIDLen> networkID;
+    StaticString<cIPLen> bridgeIP;
+    auto                 dns = MakeUnique<StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>>(&mResolvHostsAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mInstanceNetworkInfos.Find(instanceID);
+        if (it == mInstanceNetworkInfos.end()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance network info not found"));
+        }
+
+        networkID = it->mSecond.mNetworkID;
+        *dns      = it->mSecond.mAllocatedParams.mDNSServers;
+
+        if (auto np = mNetworkProviders.Find(networkID); np != mNetworkProviders.end()) {
+            bridgeIP = np->mSecond.mIP;
+        }
+    }
+
+    // Per-bridge dnsmasq listens on the bridge IP - make it the primary resolver.
+    if (!bridgeIP.IsEmpty()) {
+        if (auto err = servers.PushBack(bridgeIP); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& server : *dns) {
+        if (servers.Find(server) == servers.end()) {
+            if (auto err = servers.PushBack(server); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    if (servers.IsEmpty()) {
+        if (auto err = servers.EmplaceBack("8.8.8.8"); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::GetHosts(const String& instanceID, Array<Host>& hosts) const
+{
+    StaticString<cIDLen>       networkID;
+    StaticString<cIPLen>       instanceIP;
+    StaticString<cHostNameLen> hostname;
+    auto                       customHosts = MakeUnique<StaticArray<Host, cMaxNumHosts>>(&mResolvHostsAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mInstanceNetworkInfos.Find(instanceID);
+        if (it == mInstanceNetworkInfos.end()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance network info not found"));
+        }
+
+        networkID    = it->mSecond.mNetworkID;
+        instanceIP   = it->mSecond.mAllocatedParams.mIP;
+        hostname     = it->mSecond.mNetworkConfig.mHostname;
+        *customHosts = it->mSecond.mNetworkConfig.mHosts;
+    }
+
+    if (auto err = hosts.EmplaceBack("127.0.0.1", "localhost"); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = hosts.EmplaceBack("::1", "localhost ip6-localhost ip6-loopback"); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    StaticString<cHostNameLen> ownHosts {networkID};
+
+    if (!hostname.IsEmpty()) {
+        ownHosts.Append(" ").Append(hostname);
+    }
+
+    if (auto err = hosts.EmplaceBack(instanceIP, ownHosts); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& host : *customHosts) {
+        if (auto err = hosts.PushBack(host); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String& networkID)
@@ -539,8 +628,7 @@ Error NetworkManager::EnsureNodeNetwork(const String& networkID)
 }
 
 Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const String& networkID,
-    const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
-    const InstanceNetworkRuntimeParams& runtimeParams)
+    const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams)
 {
     LOG_DBG() << "Add instance to network" << Log::Field("instanceID", instanceID)
               << Log::Field("networkID", networkID);
@@ -681,16 +769,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    if (err = CreateHostsFile(networkID, networkParams.mIP, networkConfig, runtimeParams.mHostsFilePath);
-        !err.IsNone()) {
-        return err;
-    }
-
-    if (err = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, bridgeParams->mGateway, networkParams,
-            networkParams.mDNSServers);
-        !err.IsNone()) {
-        return err;
-    }
+    // resolv.conf / hosts are no longer written here; the caller fetches the
+    // data via GetResolvServers/GetHosts and writes the files at its own paths.
 
     if (err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts); !err.IsNone()) {
         return err;
@@ -1178,189 +1258,6 @@ Error NetworkManager::IsHostnameExist(
 
     return ErrorEnum::eNone;
 }
-
-Error NetworkManager::CreateResolvConfFile(const String& networkID, const String& resolvConfFilePath,
-    const String& bridgeIP, const aos::InstanceNetworkAllocation& networkParams,
-    const Array<StaticString<cIPLen>>& dns) const
-{
-    LOG_DBG() << "Create resolv.conf file" << Log::Field("networkID", networkID);
-
-    if (resolvConfFilePath.IsEmpty()) {
-        return ErrorEnum::eNone;
-    }
-
-    StaticArray<StaticString<cIPLen>, cMaxNumDNSServers> mainServers;
-
-    // Per-bridge dnsmasq listens on the bridge IP — make it the primary
-    // resolver so each container's queries land on its own network's DNS.
-    if (!bridgeIP.IsEmpty()) {
-        if (auto err = mainServers.PushBack(bridgeIP); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    for (const auto& server : dns) {
-        if (mainServers.Find(server) == mainServers.end()) {
-            if (auto err = mainServers.PushBack(server); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-        }
-    }
-
-    if (mainServers.IsEmpty()) {
-        if (auto err = mainServers.PushBack("8.8.8.8"); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    return WriteResolvConfFile(resolvConfFilePath, mainServers, networkParams);
-}
-
-Error NetworkManager::WriteResolvConfFile(const String& filePath, const Array<StaticString<cIPLen>>& mainServers,
-    const aos::InstanceNetworkAllocation& networkParams) const
-{
-    LOG_DBG() << "Write resolv.conf file" << Log::Field("filePath", filePath);
-
-    auto fd = open(filePath.CStr(), O_CREAT | O_WRONLY, 0644);
-    if (fd < 0) {
-        return Error(errno);
-    }
-
-    auto closeFile = DeferRelease(&fd, [](const int* fd) { close(*fd); });
-
-    auto writeNameServers = [&fd](const Array<StaticString<cIPLen>>& servers) -> Error {
-        for (const auto& server : servers) {
-            StaticString<cResolvConfLineLen> line;
-
-            if (auto err = line.Format("nameserver\t%s\n", server.CStr()); !err.IsNone()) {
-                return err;
-            }
-
-            const auto buff = Array<uint8_t>(reinterpret_cast<const uint8_t*>(line.Get()), line.Size());
-
-            size_t pos = 0;
-
-            while (pos < buff.Size()) {
-                auto chunkSize = write(fd, buff.Get() + pos, buff.Size() - pos);
-                if (chunkSize < 0) {
-                    return Error(errno);
-                }
-
-                pos += chunkSize;
-            }
-        }
-
-        return ErrorEnum::eNone;
-    };
-
-    if (auto err = writeNameServers(mainServers); !err.IsNone()) {
-        return err;
-    }
-
-    return writeNameServers(networkParams.mDNSServers);
-}
-
-Error NetworkManager::CreateHostsFile(const String& networkID, const String& instanceIP,
-    const InstanceNetworkConfig& network, const String& hostsFilePath) const
-{
-    LOG_DBG() << "Create hosts file" << Log::Field("networkID", networkID);
-
-    if (hostsFilePath.IsEmpty()) {
-        return ErrorEnum::eNone;
-    }
-
-    StaticArray<SharedPtr<Host>, cMaxNumHosts * 3> hosts;
-
-    auto localhost = MakeShared<Host>(&mHostAllocator, String("127.0.0.1"), String("localhost"));
-
-    if (auto err = hosts.PushBack(localhost); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto localhost6 = MakeShared<Host>(&mHostAllocator, String("::1"), String("localhost ip6-localhost ip6-loopback"));
-
-    if (auto err = hosts.PushBack(localhost6); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    StaticString<cHostNameLen> ownHosts {networkID};
-
-    if (!network.mHostname.IsEmpty()) {
-        ownHosts.Append(" ").Append(network.mHostname);
-    }
-
-    auto instanceHost = MakeShared<Host>(&mHostAllocator, instanceIP, ownHosts);
-
-    if (auto err = hosts.PushBack(instanceHost); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return WriteHostsFile(hostsFilePath, hosts, network.mHosts);
-}
-
-Error NetworkManager::WriteHostsFile(
-    const String& filePath, const Array<SharedPtr<Host>>& hosts, const Array<Host>& additionalHosts) const
-{
-    LOG_DBG() << "Write hosts file" << Log::Field("filePath", filePath);
-
-    auto fd = open(filePath.CStr(), O_CREAT | O_WRONLY, 0644);
-    if (fd < 0) {
-        return Error(errno);
-    }
-
-    auto closeFile = DeferRelease(&fd, [](const int* fd) { close(*fd); });
-
-    if (auto err = WriteHosts(hosts, fd); !err.IsNone()) {
-        return err;
-    }
-
-    return WriteHosts(additionalHosts, fd);
-}
-
-Error NetworkManager::WriteHost(const Host& host, int fd) const
-{
-    StaticString<cHostNameLen> line;
-
-    if (auto err = line.Format("%s\t%s\n", host.mIP.CStr(), host.mHostname.CStr()); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    const auto buff = Array<uint8_t>(reinterpret_cast<const uint8_t*>(line.Get()), line.Size());
-
-    size_t pos = 0;
-    while (pos < buff.Size()) {
-        auto chunkSize = write(fd, buff.Get() + pos, buff.Size() - pos);
-        if (chunkSize < 0) {
-            return Error(errno);
-        }
-
-        pos += chunkSize;
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error NetworkManager::WriteHosts(const Array<SharedPtr<Host>>& hosts, int fd) const
-{
-    for (const auto& host : hosts) {
-        if (auto err = WriteHost(*host, fd); !err.IsNone()) {
-            return err;
-        }
-    }
-
-    return ErrorEnum::eNone;
-};
-
-Error NetworkManager::WriteHosts(const Array<Host>& hosts, int fd) const
-{
-    for (const auto& host : hosts) {
-        if (auto err = WriteHost(host, fd); !err.IsNone()) {
-            return err;
-        }
-    }
-
-    return ErrorEnum::eNone;
-};
 
 Error NetworkManager::PrepareBridgeParams(
     const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const
