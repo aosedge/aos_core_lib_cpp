@@ -560,9 +560,9 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    StaticArray<StaticString<cHostNameLen>, cMaxNumHosts> host;
+    auto hosts = MakeUnique<StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>>(&mAllocator);
 
-    if (err = PrepareHosts(instanceID, networkID, networkConfig, host); !err.IsNone()) {
+    if (err = PrepareHosts(instanceID, networkID, networkConfig, *hosts); !err.IsNone()) {
         return err;
     }
 
@@ -573,23 +573,23 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    BridgeParams bridgeParams;
+    auto bridgeParams = MakeUnique<BridgeParams>(&mAllocator);
 
-    if (err = PrepareBridgeParams(networkID, networkParams, bridgeParams); !err.IsNone()) {
+    if (err = PrepareBridgeParams(networkID, networkParams, *bridgeParams); !err.IsNone()) {
         return err;
     }
 
-    bridgeParams.mNetNSPath = netNSPath;
+    bridgeParams->mNetNSPath = netNSPath;
 
     BridgeAttachResult attachResult;
 
-    if (err = mBridgeNetwork->Attach(instanceID, bridgeParams, attachResult); !err.IsNone()) {
+    if (err = mBridgeNetwork->Attach(instanceID, *bridgeParams, attachResult); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupBridge = DeferRelease(&instanceID, [this, &bridgeParams, &err](const String* id) {
         if (!err.IsNone()) {
-            if (auto errDetach = mBridgeNetwork->Detach(*id, bridgeParams.mBridgeIfName); !errDetach.IsNone()) {
+            if (auto errDetach = mBridgeNetwork->Detach(*id, bridgeParams->mBridgeIfName); !errDetach.IsNone()) {
                 LOG_ERR() << "Failed to detach bridge" << Log::Field("instanceID", *id) << Log::Field(errDetach);
             }
         }
@@ -614,13 +614,13 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    BandwidthParams bandwidthParams;
+    auto bandwidthParams = MakeUnique<BandwidthParams>(&mAllocator);
 
-    if (err = PrepareBandwidthParams(networkConfig, bandwidthParams); !err.IsNone()) {
+    if (err = PrepareBandwidthParams(networkConfig, *bandwidthParams); !err.IsNone()) {
         return err;
     }
 
-    if (err = mBandwidth->Apply(attachResult.mHostIfName, bandwidthParams); !err.IsNone()) {
+    if (err = mBandwidth->Apply(attachResult.mHostIfName, *bandwidthParams); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -647,13 +647,13 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         dnsServer = it->mSecond;
     }
 
-    DNSAliasesParams dnsParams;
+    auto dnsParams = MakeUnique<DNSAliasesParams>(&mAllocator);
 
-    if (err = PrepareDNSAliasesParams(networkParams, host, dnsParams); !err.IsNone()) {
+    if (err = PrepareDNSAliasesParams(networkParams, *hosts, *dnsParams); !err.IsNone()) {
         return err;
     }
 
-    if (err = dnsServer->AddHost(instanceID, dnsParams); !err.IsNone()) {
+    if (err = dnsServer->AddHost(instanceID, *dnsParams); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -686,13 +686,13 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, bridgeParams.mGateway, networkParams,
+    if (err = CreateResolvConfFile(networkID, runtimeParams.mResolvConfFilePath, bridgeParams->mGateway, networkParams,
             networkParams.mDNSServers);
         !err.IsNone()) {
         return err;
     }
 
-    if (err = UpdateInstanceNetworkCache(instanceID, networkID, host); !err.IsNone()) {
+    if (err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts); !err.IsNone()) {
         return err;
     }
 
