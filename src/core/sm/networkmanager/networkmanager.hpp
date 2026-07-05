@@ -177,13 +177,31 @@ private:
     using InstanceCache = StaticMap<StaticString<cIDLen>, InstanceHosts, cMaxNumInstances>;
     using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumOwners>;
 
+    // StartInstanceNetwork keeps its cached InstanceNetworkInfo alive across the nested call to
+    // AddInstanceToNetwork, which in turn allocates hosts, bridge/firewall/bandwidth/DNS params and
+    // its own InstanceNetworkInfo before returning. That is the largest concurrent footprint of any
+    // mAllocator call chain, so it sizes the per-concurrent-item budget below (it dominates the
+    // smaller CreateInstanceNetwork and OnPendingFirewallUpdate chains).
+    static constexpr auto cMaxOperationAllocatorSize = 2 * sizeof(InstanceNetworkInfo) + sizeof(InstanceHosts)
+        + sizeof(BridgeParams) + sizeof(InstanceFirewallParams) + sizeof(BandwidthParams) + sizeof(DNSAliasesParams);
+
+    // Start()/OnConnect() run once, outside the concurrent instance-operation hot path, so their
+    // allocations are added rather than multiplied by cMaxNumConcurrentItems: RemoveDNSOrphans' known
+    // networks list, CleanupLeftoverInstances' leftover instance/network ID pairs plus the
+    // InstanceNetworkInfo DeleteInstanceNetworkConfig allocates while clearing a host interface, and
+    // OnConnect's state sync snapshot.
+    static constexpr auto cAllocatorSize = cMaxOperationAllocatorSize * cMaxNumConcurrentItems
+        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumOwners>)
+        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>) * 2 + sizeof(InstanceNetworkInfo)
+        + sizeof(StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>);
+    static constexpr auto cNumAllocations = 8 * cMaxNumConcurrentItems;
+
     static constexpr uint64_t cBurstLen              = 12800;
     static constexpr auto     cMaxExposedPort        = 2;
     static constexpr auto     cCountRetriesIfNameGen = 10;
     static constexpr auto     cMaxNetworkIDLen       = 8;
     static constexpr auto     cBridgePrefix          = "br-";
     static constexpr auto     cVlanIfPrefix          = "vlan-";
-    static constexpr auto     cNumAllocations        = 8 * cMaxNumConcurrentItems;
     static constexpr auto     cResolvConfLineLen     = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
 
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
@@ -263,15 +281,8 @@ private:
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
-    mutable Mutex mMutex;
-    StaticAllocator<(sizeof(InstanceFirewallParams) + sizeof(UpdateItemNetworkParams)
-                        + sizeof(aos::InstanceNetworkAllocation) + sizeof(InstanceNetworkInfo)
-                        + sizeof(InstanceNetworkStateInfo))
-                * cMaxNumConcurrentItems
-            + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>)
-            + sizeof(StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>),
-        cNumAllocations>
-                                                                                          mAllocator;
+    mutable Mutex                                                                         mMutex;
+    StaticAllocator<cAllocatorSize, cNumAllocations>                                      mAllocator;
     mutable StaticAllocator<(sizeof(Host) * 3) * cMaxNumConcurrentItems, cNumAllocations> mHostAllocator;
 };
 
