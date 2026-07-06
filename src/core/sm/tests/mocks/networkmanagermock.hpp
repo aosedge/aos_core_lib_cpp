@@ -22,9 +22,10 @@ public:
     MOCK_METHOD(Error, SetTrafficPeriod, (TrafficPeriod period), (override));
     MOCK_METHOD(Error, CreateInstanceNetwork,
         (const String& instanceID, const String& networkID, const InstanceNetworkConfig& networkConfig), (override));
-    MOCK_METHOD(Error, StartInstanceNetwork,
-        (const String& instanceID, const String& networkID, const InstanceNetworkRuntimeParams& runtimeParams),
-        (override));
+    MOCK_METHOD(Error, StartInstanceNetwork, (const String& instanceID, const String& networkID), (override));
+    MOCK_METHOD(
+        Error, GetResolvServers, (const String& instanceID, Array<StaticString<cIPLen>>& servers), (const, override));
+    MOCK_METHOD(Error, GetHosts, (const String& instanceID, Array<Host>& hosts), (const, override));
     MOCK_METHOD(Error, StopInstanceNetwork, (const String& instanceID, const String& networkID), (override));
     MOCK_METHOD(Error, ReleaseInstanceNetwork, (const String& instanceID, const String& networkID), (override));
     MOCK_METHOD(void, OnPendingFirewallUpdate,
