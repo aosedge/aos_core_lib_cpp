@@ -539,6 +539,10 @@ public:
     {
         LockGuard lock {mMutex};
 
+        if (mShutdown) {
+            return AOS_ERROR_WRAP(ErrorEnum::eCanceled);
+        }
+
         auto err = mQueue.Push(Function());
         if (!err.IsNone()) {
             return err;
@@ -568,6 +572,10 @@ public:
     Error AddTask(const StaticFunction<cMaxTaskSize>& functor)
     {
         LockGuard lock {mMutex};
+
+        if (mShutdown) {
+            return AOS_ERROR_WRAP(ErrorEnum::eCanceled);
+        }
 
         auto err = mQueue.Push(functor);
         if (!err.IsNone()) {
@@ -605,7 +613,7 @@ public:
                     auto err = mTaskCondVar.Wait(lock, [this]() { return mShutdown || !mQueue.IsEmpty(); });
                     assert(err.IsNone());
 
-                    if (mShutdown) {
+                    if (mShutdown && mQueue.IsEmpty()) {
                         return;
                     }
 
@@ -646,7 +654,7 @@ public:
     }
 
     /**
-     * Waits for all current tasks are finished.
+     * Waits for all pool threads to be finished.
      */
     Error Wait()
     {
@@ -662,13 +670,15 @@ public:
 
     /**
      * Shutdowns all pool threads.
+     *
+     * @param waitAllTasks if true, waits for all pending tasks to be executed.
+     * @return Error.
      */
-    Error Shutdown()
+    Error Shutdown(bool waitAllTasks = true)
     {
         UniqueLock lock(mMutex);
 
         mShutdown = true;
-        mQueue.Clear();
 
         lock.Unlock();
 
@@ -677,11 +687,17 @@ public:
             return err;
         }
 
-        for (auto& thread : mThreads) {
-            auto joinErr = thread.Join();
-            if (!joinErr.IsNone() && err.IsNone()) {
-                err = joinErr;
+        if (waitAllTasks) {
+            Error err = ErrorEnum::eNone;
+
+            for (auto& thread : mThreads) {
+                auto joinErr = thread.Join();
+                if (!joinErr.IsNone() && err.IsNone()) {
+                    err = joinErr;
+                }
             }
+
+            return err;
         }
 
         return err;

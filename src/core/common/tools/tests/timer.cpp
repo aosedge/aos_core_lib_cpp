@@ -57,7 +57,7 @@ TEST(TimerTest, RunOneShot)
 
     EXPECT_THAT(invokeTime, ApproxEqualTime(Time(now).Add(cTimeout)));
 
-    EXPECT_TRUE(timer.Stop().IsNone());
+    EXPECT_TRUE(timer.Stop(Timer::StopMode::WaitForCallbacks).IsNone());
 }
 
 TEST(TimerTest, RunMultiShot)
@@ -78,7 +78,7 @@ TEST(TimerTest, RunMultiShot)
     EXPECT_TRUE(timer.Start(cTimeout, WrapCallback(cb), false).IsNone());
     sleep(1);
 
-    EXPECT_TRUE(timer.Stop().IsNone());
+    EXPECT_TRUE(timer.Stop(Timer::StopMode::WaitForCallbacks).IsNone());
 
     EXPECT_THAT(invokeTimes,
         ElementsAre(ApproxEqualTime(expInvTimes[0]), ApproxEqualTime(expInvTimes[1]), ApproxEqualTime(expInvTimes[2])));
@@ -97,7 +97,7 @@ TEST(TimerTest, CreateResetStop)
 
     sleep(1);
 
-    EXPECT_TRUE(timer.Stop().IsNone());
+    EXPECT_TRUE(timer.Stop(Timer::StopMode::WaitForCallbacks).IsNone());
 
     sleep(2);
 
