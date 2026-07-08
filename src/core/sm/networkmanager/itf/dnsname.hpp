@@ -12,6 +12,8 @@
 #include <core/common/types/common.hpp>
 #include <core/common/types/network.hpp>
 
+#include "types.hpp"
+
 namespace aos::sm::networkmanager {
 
 /** @addtogroup sm Service Manager
