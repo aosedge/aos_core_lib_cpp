@@ -152,7 +152,10 @@ private:
 
             envVarStatus.mName  = envVar.mName;
             envVarStatus.mError = ErrorEnum::eNone;
-            assert(envVarsStatuses.PushBack(envVarStatus).IsNone());
+
+            auto err = envVarsStatuses.PushBack(envVarStatus);
+            assert(err.IsNone());
+            (void)err;
         }
     }
 
