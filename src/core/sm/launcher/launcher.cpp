@@ -499,12 +499,12 @@ void Launcher::StopExpiredInstances(UniqueLock<Mutex>& lock)
 
     lock.Unlock();
 
-    if (auto err = mOfflineTTLPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Offline TTL thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
     if (auto err = mOfflineTTLPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Offline TTL thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mOfflineTTLPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Offline TTL thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     lock.Lock();
@@ -612,12 +612,12 @@ void Launcher::LoadInstancesData(const Array<InstanceInfo>& storedInstances)
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 }
 
@@ -669,6 +669,10 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     LOG_INF() << "[profiling] Update instances end";

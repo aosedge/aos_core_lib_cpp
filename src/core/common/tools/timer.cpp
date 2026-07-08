@@ -21,8 +21,55 @@ Thread<>                                   Timer::mManagementThread;
 ThreadPool<Timer::cInvocationThreadsCount> Timer::mInvocationThreads;
 
 /***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+Error Timer::Stop(StopMode mode)
+{
+    {
+        LockGuard lock {mMutex};
+
+        mStopped = true;
+    }
+
+    if (auto err = UnregisterTimer(this, mode); !err.IsNone()) {
+        return err;
+    }
+
+    if (mode == StopMode::NoWait) {
+        return ErrorEnum::eNone;
+    }
+
+    UniqueLock lock {mMutex};
+
+    if (auto err = mCondVar.Wait(lock, [this]() { return mActiveCallbacks == 0; }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+void Timer::AcquireActiveCallback()
+{
+    LockGuard lock {mMutex};
+
+    mActiveCallbacks++;
+}
+
+void Timer::ReleaseActiveCallback()
+{
+    LockGuard lock {mMutex};
+
+    mActiveCallbacks--;
+
+    if (mActiveCallbacks == 0) {
+        mCondVar.NotifyAll();
+    }
+}
 
 Error Timer::RegisterTimer(Timer* timer)
 {
@@ -45,8 +92,10 @@ Error Timer::RegisterTimer(Timer* timer)
     return ErrorEnum::eNone;
 }
 
-Error Timer::UnregisterTimer(Timer* timer)
+Error Timer::UnregisterTimer(Timer* timer, StopMode mode)
 {
+    bool stopThreads = false;
+
     {
         LockGuard lock {mCommonMutex};
 
@@ -60,12 +109,14 @@ Error Timer::UnregisterTimer(Timer* timer)
             return AOS_ERROR_WRAP(err);
         }
 
-        if (!mRegisteredTimers.IsEmpty()) {
-            return ErrorEnum::eNone;
-        }
+        stopThreads = mRegisteredTimers.IsEmpty();
     }
 
-    return StopThreads();
+    if (stopThreads) {
+        return StopThreads(mode);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error Timer::StartThreads()
@@ -81,13 +132,13 @@ Error Timer::StartThreads()
     return ErrorEnum::eNone;
 }
 
-Error Timer::StopThreads()
+Error Timer::StopThreads(StopMode mode)
 {
     if (auto err = mManagementThread.Join(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mInvocationThreads.Shutdown(); !err.IsNone()) {
+    if (auto err = mInvocationThreads.Shutdown(mode == StopMode::WaitForCallbacks); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -96,7 +147,11 @@ Error Timer::StopThreads()
 
 void Timer::InvokeTimerCallback(Timer* timer)
 {
+    timer->AcquireActiveCallback();
+
     if (auto err = mInvocationThreads.AddTask(timer->mFunction); !err.IsNone()) {
+        timer->ReleaseActiveCallback();
+
         LOG_ERR() << "Invoke timer callback failure: err=" << AOS_ERROR_WRAP(err);
     }
 }

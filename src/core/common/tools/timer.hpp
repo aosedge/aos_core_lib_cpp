@@ -22,6 +22,14 @@ namespace aos {
 class Timer {
 public:
     /**
+     * Timer stop mode.
+     */
+    enum class StopMode {
+        NoWait, ///< Stop timer without waiting for running callbacks.
+        WaitForCallbacks, ///< Wait for running callbacks and stop timer.
+    };
+
+    /**
      * Constructs timer instance.
      */
     Timer() = default;
@@ -29,7 +37,7 @@ public:
     /**
      * Destructs timer instance.
      */
-    ~Timer() { Stop(); }
+    ~Timer() { Stop(StopMode::WaitForCallbacks); }
 
     /**
      * Starts timer.
@@ -47,27 +55,39 @@ public:
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
-        if (auto err = Stop(); !err.IsNone()) {
+        if (auto err = Stop(StopMode::NoWait); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        LockGuard lock {mMutex};
-
         const auto wrappedCallback = [this, callback](void* arg) {
             bool oneshot = false;
+            bool stopped = false;
 
             {
                 LockGuard lock {mMutex};
 
+                stopped = mStopped;
                 oneshot = mOneShot;
             }
 
+            if (stopped) {
+                ReleaseActiveCallback();
+
+                return;
+            }
+
             if (oneshot) {
-                Stop();
+                Stop(StopMode::NoWait);
             }
 
             callback(arg);
+
+            ReleaseActiveCallback();
         };
+
+        LockGuard lock {mMutex};
+
+        mStopped = false;
 
         if (auto err = mFunction.Capture(wrappedCallback, arg); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -82,9 +102,10 @@ public:
     /**
      * Stops timer.
      *
+     * @param mode specifies whether to wait for currently running callbacks.
      * @return Error code.
      */
-    Error Stop() { return UnregisterTimer(this); }
+    Error Stop(StopMode mode);
 
     /**
      * Restarts timer.
@@ -93,25 +114,35 @@ public:
      */
     Error Restart()
     {
-        LockGuard lock {mMutex};
-
-        if (!mFunction) {
-            return ErrorEnum::eNone;
+        if (auto err = Stop(StopMode::NoWait); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
-        if (auto err = Stop(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
+        {
+            LockGuard lock {mMutex};
+
+            if (!mFunction) {
+                return ErrorEnum::eNone;
+            }
+
+            mStopped = false;
         }
 
         return RegisterTimer(this);
     }
 
 private:
+    void AcquireActiveCallback();
+    void ReleaseActiveCallback();
+
     Duration                                mInterval {};
     bool                                    mOneShot {};
+    bool                                    mStopped {};
+    size_t                                  mActiveCallbacks {};
     StaticFunction<cDefaultFunctionMaxSize> mFunction;
     Time                                    mWakeupTime;
     Mutex                                   mMutex;
+    ConditionalVariable                     mCondVar;
 
     // Set two threads for callbacks: in case if any executes for a long time, another will hedge.
     static constexpr auto     cInvocationThreadsCount = 2;
@@ -119,10 +150,10 @@ private:
     static constexpr Duration cTimerResolution        = Time::cMicroseconds * 500;
 
     static Error RegisterTimer(Timer* timer);
-    static Error UnregisterTimer(Timer* timer);
+    static Error UnregisterTimer(Timer* timer, StopMode mode);
 
     static Error StartThreads();
-    static Error StopThreads();
+    static Error StopThreads(StopMode mode);
 
     static void ProcessTimers(void* arg);
     static void UpdateWakeupTime(const Time& now, Timer* timer);
