@@ -716,11 +716,22 @@ Error Launcher::StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceDat
     LOG_INF() << "Stop instance" << Log::Field("instance", instanceData.mInfo)
               << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID);
 
-    if (auto err = runtime->StopInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    Error err;
+
+    if (auto stopErr = runtime->StopInstance(instanceData.mInfo, instanceData.mStatus);
+        !stopErr.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(stopErr);
     }
 
-    return ErrorEnum::eNone;
+    if (instanceData.mInfo.mType == UpdateItemTypeEnum::eService) {
+        if (auto networkErr
+            = mNetworkManager->StopInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
+            !networkErr.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(networkErr);
+        }
+    }
+
+    return err;
 }
 
 void Launcher::StopAllInstances()
@@ -777,7 +788,7 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
 
     instanceData.mOfflineTTL = itemConfig->mOfflineTTL;
 
-    if (auto err = CreateNetwork(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
+    if (auto err = CreateNetwork(instanceData, *itemConfig, *imageConfig); !err.IsNone()) {
         return err;
     }
 
@@ -891,6 +902,13 @@ Error Launcher::StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceDa
     LOG_INF() << "Start instance" << Log::Field("instance", instanceData.mInfo)
               << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID)
               << Log::Field("manifestDigest", instanceData.mInfo.mManifestDigest);
+
+    if (instanceData.mInfo.mType == UpdateItemTypeEnum::eService) {
+        if (auto err = mNetworkManager->StartInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     if (auto err = runtime->StartInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -1109,6 +1127,12 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     itInstance->mStatus.mRuntimeID                   = instanceInfo.mRuntimeID;
     itInstance->mStatus.mState                       = InstanceStateEnum::eInactive;
 
+    if (auto err = mInstanceIDProvider->GetInstanceID(instanceInfo, itInstance->mInstanceID); !err.IsNone()) {
+        mInstances.Erase(itInstance);
+
+        return {nullptr, AOS_ERROR_WRAP(err)};
+    }
+
     return itInstance;
 }
 
@@ -1120,13 +1144,8 @@ Error Launcher::ReleaseInstance(const InstanceData& instanceData)
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticString<cIDLen> instanceID;
-
-    if (auto err = mInstanceIDProvider->GetInstanceID(instanceData.mInfo, instanceID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mNetworkManager->ReleaseInstanceNetwork(instanceID, instanceData.mInfo.mOwnerID); !err.IsNone()) {
+    if (auto err = mNetworkManager->ReleaseInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1296,21 +1315,17 @@ Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci
 }
 
 Error Launcher::CreateNetwork(
-    const InstanceInfo& instance, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig)
+    const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig)
 {
-    StaticString<cIDLen> instanceID;
-
-    if (auto err = mInstanceIDProvider->GetInstanceID(instance, instanceID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     auto networkConfig = MakeUnique<networkmanager::InstanceNetworkConfig>(&mAllocator);
 
-    if (auto err = GetInstanceNetworkConfig(instance, itemConfig, imageConfig, *networkConfig); !err.IsNone()) {
+    if (auto err = GetInstanceNetworkConfig(instanceData.mInfo, itemConfig, imageConfig, *networkConfig);
+        !err.IsNone()) {
         return err;
     }
 
-    if (auto err = mNetworkManager->CreateInstanceNetwork(instanceID, instance.mOwnerID, *networkConfig);
+    if (auto err
+        = mNetworkManager->CreateInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID, *networkConfig);
         !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
         return AOS_ERROR_WRAP(err);
     }

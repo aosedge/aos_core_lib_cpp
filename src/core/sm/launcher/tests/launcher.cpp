@@ -189,6 +189,8 @@ protected:
 
         EXPECT_CALL(mInstanceIDProvider, GetInstanceID).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mNetworkManager, StartInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mNetworkManager, StopInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mNetworkManager, ReleaseInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
     }
 
