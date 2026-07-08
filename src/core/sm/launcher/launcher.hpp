@@ -157,9 +157,10 @@ public:
 
 private:
     struct InstanceData {
-        InstanceInfo   mInfo;
-        InstanceStatus mStatus;
-        Duration       mOfflineTTL;
+        InstanceInfo         mInfo;
+        InstanceStatus       mStatus;
+        StaticString<cIDLen> mInstanceID;
+        Duration             mOfflineTTL;
     };
 
     struct UpdateItemInfo {
@@ -215,7 +216,7 @@ private:
     Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
         const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
     Error CreateNetwork(
-        const InstanceInfo& instance, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
+        const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
 
     InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent);
     InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent) const;
