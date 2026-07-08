@@ -395,6 +395,20 @@ TEST_F(UnitConfigTest, OnNodeInfoChangedSkipsIfVersionMatches)
     mUnitConfig.OnNodeInfoChanged(nodeInfo);
 }
 
+TEST_F(UnitConfigTest, OnNodeInfoChangedSkipsWhenUnitConfigAbsent)
+{
+    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+
+    UnitConfigStatus status;
+    ASSERT_TRUE(mUnitConfig.GetUnitConfigStatus(status).IsNone());
+    ASSERT_EQ(status.mState, UnitConfigStateEnum::eAbsent);
+
+    UnitNodeInfo nodeInfo = CreateTestNodeInfo();
+
+    // Strict mocks: neither GetNodeConfigStatus nor UpdateNodeConfig must be called when unit config is absent.
+    mUnitConfig.OnNodeInfoChanged(nodeInfo);
+}
+
 TEST_F(UnitConfigTest, OnNodeInfoChangedWithUnitConfigError)
 {
     CreateTestConfigFile(cInvalidTestUnitConfig);

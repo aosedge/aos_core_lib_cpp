@@ -196,6 +196,12 @@ void UnitConfig::OnNodeInfoChanged(const UnitNodeInfo& info)
               << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
               << Log::Field(info.mError);
 
+    if (mUnitConfigState == UnitConfigStateEnum::eAbsent) {
+        LOG_DBG() << "Skip node config update due to unit config is absent" << Log::Field("nodeID", info.mNodeID);
+
+        return;
+    }
+
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled) {
         LOG_WRN() << "Can't update node config due to state" << Log::Field("nodeID", info.mNodeID)
                   << Log::Field("state", mUnitConfigState) << Log::Field(mUnitConfigError);
