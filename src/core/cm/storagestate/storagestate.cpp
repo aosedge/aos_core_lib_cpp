@@ -109,7 +109,11 @@ Error StorageState::Stop()
         }
     }
 
-    return mThreadPool.Shutdown();
+    if (auto err = mThreadPool.Shutdown(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error StorageState::UpdateState(const aos::UpdateState& state)

@@ -104,11 +104,11 @@ Error InstanceManager::Start()
 
 Error InstanceManager::Stop()
 {
-    if (auto err = mCleanInstancesTimer.Stop(); !err.IsNone()) {
+    if (auto err = mCleanInstancesTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mInitTimer.Stop(); !err.IsNone()) {
+    if (auto err = mInitTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

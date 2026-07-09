@@ -97,7 +97,7 @@ Error Monitoring::Stop()
 
     mIsRunning = false;
 
-    return mSendTimer.Stop();
+    return mSendTimer.Stop(Timer::StopMode::WaitForCallbacks);
 }
 
 Error Monitoring::OnMonitoringReceived(const aos::monitoring::NodeMonitoringData& monitoring)

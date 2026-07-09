@@ -97,7 +97,7 @@ Error ImageManager::Stop()
 {
     LOG_DBG() << "Stop image manager";
 
-    return mTimer.Stop();
+    return mTimer.Stop(Timer::StopMode::WaitForCallbacks);
 }
 
 Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
