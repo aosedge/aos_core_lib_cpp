@@ -102,7 +102,7 @@ Error Alerts::Stop()
         err = AOS_ERROR_WRAP(unsubscribeErr);
     }
 
-    if (auto stopErr = mSendTimer.Stop(); !stopErr.IsNone()) {
+    if (auto stopErr = mSendTimer.Stop(Timer::StopMode::WaitForCallbacks); !stopErr.IsNone()) {
         LOG_ERR() << "Failed to stop alerts send timer" << Log::Field(stopErr);
 
         if (err.IsNone()) {

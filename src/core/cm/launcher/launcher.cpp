@@ -202,7 +202,7 @@ Error Launcher::Stop()
         return err;
     }
 
-    if (auto err = mEnvVarsTTLTimer.Stop(); !err.IsNone()) {
+    if (auto err = mEnvVarsTTLTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

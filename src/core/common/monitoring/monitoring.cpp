@@ -208,7 +208,7 @@ Error Monitoring::Stop()
 
     Error err;
 
-    if (auto stopErr = mTimer.Stop(); err.IsNone() && !stopErr.IsNone()) {
+    if (auto stopErr = mTimer.Stop(Timer::StopMode::WaitForCallbacks); err.IsNone() && !stopErr.IsNone()) {
         err = AOS_ERROR_WRAP(stopErr);
     }
 

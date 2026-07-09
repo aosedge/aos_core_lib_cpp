@@ -123,7 +123,7 @@ Error ImageManager::Stop()
 
         LOG_DBG() << "Stop image manager";
 
-        if (auto err = mTimer.Stop(); !err.IsNone() && stopErr.IsNone()) {
+        if (auto err = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone() && stopErr.IsNone()) {
             stopErr = AOS_ERROR_WRAP(err);
         }
 
