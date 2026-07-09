@@ -1112,7 +1112,7 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     return itInstance;
 }
 
-Error Launcher::RemoveInstance(InstanceData& instanceData)
+Error Launcher::ReleaseInstance(const InstanceData& instanceData)
 {
     LOG_DBG() << "Remove instance" << Log::Field("instance", instanceData.mInfo);
 
@@ -1128,18 +1128,6 @@ Error Launcher::RemoveInstance(InstanceData& instanceData)
 
     if (auto err = mNetworkManager->ReleaseInstanceNetwork(instanceID, instanceData.mInfo.mOwnerID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
-    }
-
-    LockGuard lock {mMutex};
-
-    LOG_DBG() << "Remove instance data" << Log::Field("instance", instanceData.mInfo);
-
-    if (auto count = mInstances.RemoveIf([this, &instanceData](const auto& instance) {
-            return static_cast<const InstanceIdent&>(instance.mInfo)
-                == static_cast<const InstanceIdent&>(instanceData.mInfo);
-        });
-        count == 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
     return ErrorEnum::eNone;
@@ -1163,7 +1151,7 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
         }
 
         if (auto err = mLaunchPool.AddTask([this, instanceData](void*) {
-                if (auto err = RemoveInstance(*instanceData); !err.IsNone()) {
+                if (auto err = ReleaseInstance(*instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to remove instance" << Log::Field("instance", instanceData->mInfo)
                               << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -1180,6 +1168,27 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    LockGuard lock {mMutex};
+
+    for (const auto& instanceIdent : instances) {
+        LOG_DBG() << "Remove instance data" << Log::Field("instance", instanceIdent);
+
+        mInstances.RemoveIf([this, &instanceIdent](const auto& instance) {
+            if (static_cast<const InstanceIdent&>(instance.mInfo) != instanceIdent) {
+                return false;
+            }
+
+            if (instance.mStatus.mState != InstanceStateEnum::eInactive) {
+                LOG_ERR() << "Instance is not inactive, skip removing" << Log::Field("instance", instanceIdent)
+                          << Log::Field("state", instance.mStatus.mState);
+
+                return false;
+            }
+
+            return true;
+        });
     }
 }
 
