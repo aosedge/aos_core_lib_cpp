@@ -208,7 +208,7 @@ private:
     void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
     void  InstallUpdateItems(const Array<InstanceInfo>& startInstances);
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
-    Error                       RemoveInstance(InstanceData& instanceData);
+    Error                       ReleaseInstance(InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
     void  SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
     Error GetInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
