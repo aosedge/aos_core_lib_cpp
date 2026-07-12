@@ -600,6 +600,10 @@ void Launcher::LoadInstancesData(const Array<InstanceInfo>& storedInstances)
             continue;
         }
 
+        if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
+            continue;
+        }
+
         if (err = mLaunchPool.AddTask([this, instanceData](void*) {
                 if (auto err = LoadInstanceData(*instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceData->mInfo)
