@@ -987,8 +987,8 @@ Error NetworkManager::CleanupLeftoverInstances()
     {
         LockGuard lock {mMutex};
 
-        for (const auto& [id, info] : mInstanceNetworkInfos) {
-            if (auto err = entries->PushBack({id, info.mNetworkID}); !err.IsNone()) {
+        for (const auto& item : mInstanceNetworkInfos) {
+            if (auto err = entries->PushBack({item.mFirst, item.mSecond.mNetworkID}); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1483,13 +1483,13 @@ void NetworkManager::OnPendingFirewallUpdate(
     {
         LockGuard lock {mMutex};
 
-        for (const auto& [id, info] : mInstanceNetworkInfos) {
-            if (info.mNetworkConfig.mInstanceIdent == update.mInstanceIdent) {
-                instanceID       = id;
-                networkID        = info.mNetworkID;
-                *networkConfig   = info.mNetworkConfig;
-                *allocatedParams = info.mAllocatedParams;
-                hostIfName       = info.mHostIfName;
+        for (const auto& item : mInstanceNetworkInfos) {
+            if (item.mSecond.mNetworkConfig.mInstanceIdent == update.mInstanceIdent) {
+                instanceID       = item.mFirst;
+                networkID        = item.mSecond.mNetworkID;
+                *networkConfig   = item.mSecond.mNetworkConfig;
+                *allocatedParams = item.mSecond.mAllocatedParams;
+                hostIfName       = item.mSecond.mHostIfName;
 
                 auto network = mRuntimeCache.Find(networkID);
                 if (network != mRuntimeCache.end()) {

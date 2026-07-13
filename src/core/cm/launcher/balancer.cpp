@@ -149,7 +149,7 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
     }
 
     // Schedule instance
-    auto&       node    = nodeRuntime.mFirst;
+    const auto& node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
     if (auto err = mInstanceManager->ScheduleInstance(instance, *node, runtime->mRuntimeID); !err.IsNone()) {
@@ -194,7 +194,7 @@ void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
     nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
 }
 
-RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, Array<Node*>& nodes)
+RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
 {
     auto nodeRuntimes = MakeUnique<NodeRuntimes>(&mAllocator);
 
@@ -265,7 +265,7 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
     return {result, ErrorEnum::eNone};
 }
 
-Error Balancer::CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes)
+Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes)
 {
     for (auto node : nodes) {
         if (auto err = runtimes.Emplace(node); !err.IsNone()) {

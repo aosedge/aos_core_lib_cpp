@@ -75,9 +75,9 @@ private:
     void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
 
     // Selects runtime
-    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, Array<Node*>& nodes);
+    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, const Array<Node*>& nodes);
 
-    Error CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes);
+    Error CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes);
 
     template <typename Filter>
     void FilterRuntimes(NodeRuntimes& runtimes, Filter& filter);

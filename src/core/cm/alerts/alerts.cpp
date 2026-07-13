@@ -186,8 +186,8 @@ Error Alerts::UnsubscribeListener(AlertsListenerItf& listener)
 
     size_t removed = 0;
 
-    for (auto& [tag, listeners] : mListeners) {
-        removed += listeners.Remove(&listener);
+    for (auto& item : mListeners) {
+        removed += item.mSecond.Remove(&listener);
     }
 
     return removed > 0 ? ErrorEnum::eNone : ErrorEnum::eNotFound;

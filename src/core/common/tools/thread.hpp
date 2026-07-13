@@ -688,16 +688,12 @@ public:
         }
 
         if (waitAllTasks) {
-            Error err = ErrorEnum::eNone;
-
             for (auto& thread : mThreads) {
                 auto joinErr = thread.Join();
                 if (!joinErr.IsNone() && err.IsNone()) {
                     err = joinErr;
                 }
             }
-
-            return err;
         }
 
         return err;
