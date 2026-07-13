@@ -1284,13 +1284,6 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
             continue;
         }
 
-        if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
-            LOG_ERR() << "Instance is not inactive, skip removing" << Log::Field("instance", instanceIdent)
-                      << Log::Field("state", instanceData->mStatus.mState);
-
-            continue;
-        }
-
         if (auto err = mLaunchPool.AddTask([this, instanceData](void*) {
                 if (auto err = ReleaseInstance(*instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to remove instance" << Log::Field("instance", instanceData->mInfo)
@@ -1317,18 +1310,7 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
         LOG_DBG() << "Remove instance data" << Log::Field("instance", instanceIdent);
 
         mInstances.RemoveIf([this, &instanceIdent](const auto& instance) {
-            if (static_cast<const InstanceIdent&>(instance.mInfo) != instanceIdent) {
-                return false;
-            }
-
-            if (instance.mStatus.mState != InstanceStateEnum::eInactive) {
-                LOG_ERR() << "Instance is not inactive, skip removing" << Log::Field("instance", instanceIdent)
-                          << Log::Field("state", instance.mStatus.mState);
-
-                return false;
-            }
-
-            return true;
+            return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
         });
     }
 }
