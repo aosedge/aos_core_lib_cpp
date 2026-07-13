@@ -493,6 +493,10 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
             return ErrorEnum::eNone;
         }
 
+        if (mNetworkProviders.Find(networkID) == mNetworkProviders.end()) {
+            return ErrorEnum::eNone;
+        }
+
         mNetworkProviders.Remove(networkID);
     }
 
