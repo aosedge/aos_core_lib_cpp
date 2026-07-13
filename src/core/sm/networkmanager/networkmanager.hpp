@@ -211,6 +211,13 @@ private:
         + sizeof(StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>);
     static constexpr auto cNumAllocations = 8 * cMaxNumConcurrentItems;
 
+    // GetHosts/GetResolvServers are const methods that instance start/stop pool tasks call
+    // concurrently (one call per in-flight instance), each making a single allocation off
+    // mResolvHostsAllocator that stays alive for the call's duration. Size it for
+    // cMaxNumConcurrentItems concurrent callers instead of just one.
+    static constexpr auto cResolvHostsAllocatorSize = cMaxNumConcurrentItems
+        * (sizeof(StaticArray<Host, cMaxNumHosts>) + sizeof(StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>));
+
     static constexpr uint64_t cBurstLen              = 12800;
     static constexpr auto     cMaxExposedPort        = 2;
     static constexpr auto     cCountRetriesIfNameGen = 10;
@@ -283,11 +290,9 @@ private:
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
-    mutable Mutex                                    mMutex;
-    StaticAllocator<cAllocatorSize, cNumAllocations> mAllocator;
-    mutable StaticAllocator<sizeof(StaticArray<Host, cMaxNumHosts>)
-        + sizeof(StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>)>
-        mResolvHostsAllocator;
+    mutable Mutex                                                                  mMutex;
+    StaticAllocator<cAllocatorSize, cNumAllocations>                               mAllocator;
+    mutable StaticAllocator<cResolvHostsAllocatorSize, 2 * cMaxNumConcurrentItems> mResolvHostsAllocator;
 };
 
 /** @}*/
