@@ -55,7 +55,7 @@ public:
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
-        if (auto err = Stop(StopMode::NoWait); !err.IsNone()) {
+        if (auto err = Stop(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -77,7 +77,7 @@ public:
             }
 
             if (oneshot) {
-                Stop(StopMode::NoWait);
+                Stop();
             }
 
             callback(arg);
@@ -105,7 +105,7 @@ public:
      * @param mode specifies whether to wait for currently running callbacks.
      * @return Error code.
      */
-    Error Stop(StopMode mode);
+    Error Stop(StopMode mode = StopMode::NoWait);
 
     /**
      * Restarts timer.
@@ -114,7 +114,7 @@ public:
      */
     Error Restart()
     {
-        if (auto err = Stop(StopMode::NoWait); !err.IsNone()) {
+        if (auto err = Stop(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 

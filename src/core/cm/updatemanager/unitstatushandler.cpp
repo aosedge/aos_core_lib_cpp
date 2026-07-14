@@ -142,7 +142,7 @@ Error UnitStatusHandler::SendFullUnitStatus()
         ClearUnitStatus();
         ClearUpdateStatuses();
 
-        mTimer.Stop(Timer::StopMode::NoWait);
+        mTimer.Stop();
 
         LockGuard lock {mMutex};
 
@@ -389,7 +389,7 @@ void UnitStatusHandler::OnDisconnect()
     LockGuard lock {mMutex};
 
     mCloudConnected = false;
-    mTimer.Stop(Timer::StopMode::NoWait);
+    mTimer.Stop();
 }
 
 Error UnitStatusHandler::SetUnitConfigStatus()
