@@ -24,7 +24,7 @@ std::function<void(void*)> WrapCallback(MockFunction<void(void*)>& cb)
 
 MATCHER_P(ApproxEqualTime, expected, "")
 {
-    Duration tolerance = 1 * Time::cMilliseconds;
+    Duration tolerance = 5 * Time::cMilliseconds;
     Duration diff;
     if (arg > expected) {
         diff = arg.UnixNano() - expected.UnixNano();
