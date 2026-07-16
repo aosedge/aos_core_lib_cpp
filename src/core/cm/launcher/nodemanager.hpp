@@ -13,6 +13,7 @@
 #include <core/common/tools/thread.hpp>
 
 #include "node.hpp"
+#include "overrideenvvarsprocessor.hpp"
 
 namespace aos::cm::launcher {
 
@@ -30,11 +31,12 @@ public:
      *
      * @param nodeInfoProvider node info provider.
      * @param nodeConfigProvider node config provider.
-     * @param storageState storage state interface.
      * @param runner instance runner interface.
+     * @param overrideEnvVarsProcessor override env vars processor.
      */
     void Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner);
+        unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner,
+        OverrideEnvVarsProcessor& overrideEnvVarsProcessor);
 
     /**
      * Starts node manager.
@@ -120,11 +122,10 @@ public:
      * @param lock mutex lock.
      * @param scheduledInstances scheduled instances.
      * @param runningInstances running instances.
-     * @param overrideEnvVars override environment variables applied to scheduled instances.
      * @return Error.
      */
     Error SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
-        const Array<InstanceStatus>& runningInstances, const OverrideEnvVarsRequest& overrideEnvVars);
+        const Array<InstanceStatus>& runningInstances);
 
     /**
      * Resends instances to nodes and waits for instance statuses from them.
@@ -133,13 +134,12 @@ public:
      * @param updatedNodes updated nodes.
      * @param activeInstances active instances.
      * @param runningInstances running instances.
-     * @param overrideEnvVars override environment variables applied to active instances.
      * @param forceRestart force restart instances.
      * @return Error.
      */
     Error ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
         const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances,
-        const OverrideEnvVarsRequest& overrideEnvVars, bool forceRestart = false);
+        bool forceRestart = false);
 
 private:
     static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
@@ -152,12 +152,12 @@ private:
     Error FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
         ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor);
 
-    Error ApplyOverrideEnvVars(
-        const Array<SharedPtr<Instance>>& instances, const OverrideEnvVarsRequest& overrideEnvVars);
+    Error ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instances);
 
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
     InstanceRunnerItf*                     mRunner {};
+    OverrideEnvVarsProcessor*              mOverrideEnvVarsProcessor {};
 
     StaticAllocator<cAllocatorSize>     mAllocator;
     StaticAllocator<cNodeAllocatorSize> mNodeAllocator;

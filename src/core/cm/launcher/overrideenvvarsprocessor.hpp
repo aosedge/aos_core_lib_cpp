@@ -39,6 +39,35 @@ public:
 };
 
 /**
+ * RAII accessor that keeps the processor mutex locked while the override env vars are accessed.
+ */
+class OverrideEnvVarsAccessor {
+public:
+    /**
+     * Locks the mutex and binds the override env vars for the accessor lifetime.
+     *
+     * @param mutex processor mutex.
+     * @param envVars override environment variables.
+     */
+    OverrideEnvVarsAccessor(Mutex& mutex, const OverrideEnvVarsRequest& envVars)
+        : mLock(mutex)
+        , mEnvVars(envVars)
+    {
+    }
+
+    /**
+     * Returns the locked override environment variables.
+     *
+     * @return const OverrideEnvVarsRequest&.
+     */
+    const OverrideEnvVarsRequest& operator*() const { return mEnvVars; }
+
+private:
+    LockGuard<Mutex>              mLock;
+    const OverrideEnvVarsRequest& mEnvVars;
+};
+
+/**
  * Processes override environment variables requests.
  */
 class OverrideEnvVarsProcessor {
@@ -81,11 +110,11 @@ public:
     RetWithError<bool> OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
 
     /**
-     * Returns current effective override environment variables.
+     * Returns an RAII accessor that keeps the mutex locked while the current override env vars are read.
      *
-     * @return const OverrideEnvVarsRequest&.
+     * @return OverrideEnvVarsAccessor.
      */
-    const OverrideEnvVarsRequest& GetOverrideEnvVars() const { return mOverrideEnvVars; }
+    OverrideEnvVarsAccessor GetOverrideEnvVars() { return OverrideEnvVarsAccessor(mMutex, mOverrideEnvVars); }
 
 private:
     static void RemoveExpiredVariables(OverrideEnvVarsRequest& envVars, const Time& now);

@@ -62,7 +62,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mImageInfoProvider.Init(itemInfoProvider, ociSpec);
 
     mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
-    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
+    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner, mOverrideEnvVarsProcessor);
     mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
 
     if (err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this); !err.IsNone()) {
@@ -392,7 +392,7 @@ Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
     auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
     mRunRequestsLoader.CreateInstances(mNodeManager.GetNodes(), *instances);
 
-    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance, mOverrideEnvVarsProcessor.GetOverrideEnvVars());
+    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance);
 
     FailActivatingInstances();
     UpdateInstanceStatuses();
@@ -469,8 +469,7 @@ void Launcher::ProcessUpdate()
         if (!mUpdatedNodes.IsEmpty()) {
             if (!doRebalance) {
                 err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
-                    mInstanceManager.GetRunningInstances(), mOverrideEnvVarsProcessor.GetOverrideEnvVars(),
-                    forceRestart);
+                    mInstanceManager.GetRunningInstances(), forceRestart);
                 if (!err.IsNone()) {
                     LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
                 }
