@@ -43,9 +43,11 @@ public:
      *
      * @param lock lock on the balancing mutex.
      * @param rebalancing flag indicating rebalancing.
+     * @param overrideEnvVars override environment variables applied to scheduled instances.
      * @return Error.
      */
-    Error RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing);
+    Error RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing,
+        const OverrideEnvVarsRequest& overrideEnvVars);
 
     /**
      * Loads Service Manager (SM) data for active instances that were loaded from storage.

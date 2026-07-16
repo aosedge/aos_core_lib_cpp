@@ -248,14 +248,6 @@ public:
      */
     Error ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
 
-    /**
-     * Overrides environment variables.
-     *
-     * @param envVars environment variables.
-     * @return bool true if env vars changed, false otherwise.
-     */
-    bool OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
-
 private:
     static constexpr auto cRemovePeriod = Time::cDay;
     // LoadInstancesFromStorage: 1 StaticArray<InstanceInfo, cMaxNumInstances> alive throughout loop
@@ -323,8 +315,7 @@ private:
     StaticArray<InstanceStatus, cMaxNumInstances> mPreinstalledComponents;
     StaticArray<InstanceStatus, cMaxNumInstances> mRunningInstances;
 
-    SubjectArray           mSubjects;
-    OverrideEnvVarsRequest mEnvVarsOverrides;
+    SubjectArray mSubjects;
 };
 
 /**

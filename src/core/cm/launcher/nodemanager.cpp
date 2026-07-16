@@ -197,10 +197,33 @@ Array<Node>& NodeManager::GetNodes()
     return mNodes;
 }
 
-Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
-    const Array<InstanceStatus>& runningInstances)
+Error NodeManager::ApplyOverrideEnvVars(
+    const Array<SharedPtr<Instance>>& instances, const OverrideEnvVarsRequest& overrideEnvVars)
 {
     Error firstErr = ErrorEnum::eNone;
+
+    for (auto& instance : instances) {
+        if (auto [changed, err] = instance->OverrideEnvVars(overrideEnvVars); !err.IsNone()) {
+            LOG_ERR() << "Can't override env vars" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
+                      << Log::Field(err);
+
+            if (firstErr.IsNone()) {
+                firstErr = err;
+            }
+        }
+    }
+
+    return firstErr;
+}
+
+Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
+    const Array<InstanceStatus>& runningInstances, const OverrideEnvVarsRequest& overrideEnvVars)
+{
+    Error firstErr = ErrorEnum::eNone;
+
+    if (auto err = ApplyOverrideEnvVars(scheduledInstances, overrideEnvVars); !err.IsNone()) {
+        return err;
+    }
 
     for (auto& node : FilterActiveNodes(mNodes)) {
         auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
@@ -237,9 +260,14 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
 }
 
 Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
-    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
+    const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances,
+    const OverrideEnvVarsRequest& overrideEnvVars, bool forceRestart)
 {
     Error firstErr = ErrorEnum::eNone;
+
+    if (auto err = ApplyOverrideEnvVars(activeInstances, overrideEnvVars); !err.IsNone()) {
+        return err;
+    }
 
     mNodesExpectedToSendStatus.Clear();
 

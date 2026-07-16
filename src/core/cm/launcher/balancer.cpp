@@ -24,7 +24,8 @@ void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageIn
     mRunner            = &runner;
 }
 
-Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing)
+Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>& instances, bool rebalancing,
+    const OverrideEnvVarsRequest& overrideEnvVars)
 {
     if (auto err = PrepareForBalancing(rebalancing); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -47,7 +48,7 @@ Error Balancer::RunInstances(UniqueLock<Mutex>& lock, Array<SharedPtr<Instance>>
     }
 
     if (auto err = mNodeManager->SendScheduledInstances(
-            lock, mInstanceManager->GetActiveInstances(), mInstanceManager->GetRunningInstances());
+            lock, mInstanceManager->GetActiveInstances(), mInstanceManager->GetRunningInstances(), overrideEnvVars);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

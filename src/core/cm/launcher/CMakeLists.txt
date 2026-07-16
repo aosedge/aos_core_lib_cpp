@@ -22,6 +22,7 @@ set(SOURCES
     launcher.cpp
     node.cpp
     nodemanager.cpp
+    overrideenvvarsprocessor.cpp
     runrequestsloader.cpp
     storagestate.cpp
 )

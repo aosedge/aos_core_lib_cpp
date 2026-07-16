@@ -38,7 +38,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
     iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
-    IdentifierPoolValidator uidValidator, StorageItf& storage)
+    IdentifierPoolValidator uidValidator, StorageItf& storage, SenderItf& sender)
 {
     LOG_DBG() << "Init Launcher";
 
@@ -51,6 +51,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mMonitorProvider    = &monitorProvider;
     mAlertsProvider     = &alertsProvider;
     mIdentProvider      = &identProvider;
+    mSender             = &sender;
 
     auto err
         = mInstanceManager.Init(config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
@@ -63,6 +64,10 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
     mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner);
     mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
+
+    if (err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -119,28 +124,18 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    // Load env vars overrides.
-    if (auto err = LoadEnvVarsOverrides(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto onEnvVarsTTLTimerTick = [this](void*) {
-        UniqueLock updateLock {mUpdateMutex};
-
-        if (auto err = ProcessOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
-            LOG_ERR() << "Update override env vars failed" << Log::Field(err);
-        }
-    };
-
-    if (auto err = mEnvVarsTTLTimer.Start(mConfig.mCheckOverrideEnvVarsPeriod, onEnvVarsTTLTimerTick, false);
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     // Load SM data for active instances.
     if (auto err = mBalancer.LoadSMDataForActiveInstances(); !err.IsNone()) {
         LOG_ERR() << "Can't load SM data for active instances" << Log::Field(err);
     }
+
+    // Load env vars overrides and start TTL check timer; flag an update if some expired while offline.
+    auto [changed, envVarsErr] = mOverrideEnvVarsProcessor.Start();
+    if (!envVarsErr.IsNone()) {
+        return AOS_ERROR_WRAP(envVarsErr);
+    }
+
+    mIsOverrideEnvVarsChanged = changed;
 
     // Start process updates thread.
     mDisableProcessUpdates = false;
@@ -148,12 +143,6 @@ Error Launcher::Start()
     mNewSubjects.SetValue(*subjects); // Check subjects after startup.
 
     UpdateInstanceStatuses();
-
-    // Check for override env var TTL and setup update if needed.
-    if (auto err = ProcessOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     ProcessNotScheduledInstances();
 
     if (auto err = mWorkerThread.Run([this](void*) { ProcessUpdate(); }); !err.IsNone()) {
@@ -202,7 +191,7 @@ Error Launcher::Stop()
         return err;
     }
 
-    if (auto err = mEnvVarsTTLTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
+    if (auto err = mOverrideEnvVarsProcessor.Stop(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -295,9 +284,10 @@ Error Launcher::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
 {
     LOG_DBG() << "Override env vars";
 
-    LockGuard updateLock {mUpdateMutex};
+    // Don't hold mUpdateMutex: the listener takes it, which would deadlock.
+    auto [_, err] = mOverrideEnvVarsProcessor.OverrideEnvVars(envVars);
 
-    return ProcessOverrideEnvVars(envVars);
+    return err;
 }
 
 /***********************************************************************************************************************
@@ -402,7 +392,7 @@ Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
     auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
     mRunRequestsLoader.CreateInstances(mNodeManager.GetNodes(), *instances);
 
-    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance);
+    auto runErr = mBalancer.RunInstances(lock, *instances, rebalance, mOverrideEnvVarsProcessor.GetOverrideEnvVars());
 
     FailActivatingInstances();
     UpdateInstanceStatuses();
@@ -461,29 +451,16 @@ void Launcher::ProcessUpdate()
             doRebalance        = true;
         }
 
-        // Process override environment variables changed.
+        // On override env vars change resend all nodes;
         bool forceRestart = false;
 
         if (mIsOverrideEnvVarsChanged) {
             mIsOverrideEnvVarsChanged = false;
-            mUpdatedNodes.Clear();
+            forceRestart              = true;
 
-            for (auto& instance : mInstanceManager.GetActiveInstances()) {
-                if (auto [changed, overrideErr] = instance->OverrideEnvVars(mOverrideEnvVars); !overrideErr.IsNone()) {
-                    LOG_ERR() << "Failed to override env vars" << Log::Field(AOS_ERROR_WRAP(overrideErr));
-
-                    continue;
-                } else {
-                    if (changed) {
-                        err = PushUnique(mUpdatedNodes, instance->GetInfo().mNodeID);
-                        if (!err.IsNone()) {
-                            LOG_ERR() << "Failed to add node ID to updated nodes" << Log::Field(AOS_ERROR_WRAP(err));
-
-                            continue;
-                        }
-
-                        forceRestart = true;
-                    }
+            for (const auto& node : mNodeManager.GetNodes()) {
+                if (auto pushErr = PushUnique(mUpdatedNodes, node.GetInfo().mNodeID); !pushErr.IsNone()) {
+                    LOG_ERR() << "Failed to add node to updated nodes" << Log::Field(AOS_ERROR_WRAP(pushErr));
                 }
             }
         }
@@ -492,7 +469,8 @@ void Launcher::ProcessUpdate()
         if (!mUpdatedNodes.IsEmpty()) {
             if (!doRebalance) {
                 err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
-                    mInstanceManager.GetRunningInstances(), forceRestart);
+                    mInstanceManager.GetRunningInstances(), mOverrideEnvVarsProcessor.GetOverrideEnvVars(),
+                    forceRestart);
                 if (!err.IsNone()) {
                     LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
                 }
@@ -525,49 +503,6 @@ void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
     };
 
     mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
-}
-
-Error Launcher::LoadEnvVarsOverrides()
-{
-    // Restore override environment variables without TTL check, so we can detect changes in ProcessOverrideEnvVars().
-    if (auto err = mStorage->LoadOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    mInstanceManager.OverrideEnvVars(mOverrideEnvVars);
-
-    return ErrorEnum::eNone;
-}
-
-Error Launcher::ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars)
-{
-    mOverrideEnvVars = envVars;
-
-    // Remove variables with expired TTLs.
-    auto now = Time::Now();
-
-    for (auto& item : mOverrideEnvVars.mItems) {
-        item.mVariables.RemoveIf([&now](const EnvVarInfo& envVarInfo) {
-            return envVarInfo.mTTL.HasValue() && envVarInfo.mTTL.GetValue() < now;
-        });
-    }
-
-    mOverrideEnvVars.mItems.RemoveIf([](const EnvVarsInstanceInfo& item) { return item.mVariables.IsEmpty(); });
-
-    // Save override environment variables.
-    if (!mInstanceManager.OverrideEnvVars(mOverrideEnvVars)) {
-        return ErrorEnum::eNone;
-    }
-
-    if (auto err = mStorage->SaveOverrideEnvVars(mOverrideEnvVars); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    mIsOverrideEnvVarsChanged = true;
-
-    mProcessUpdatesCondVar.NotifyAll();
-
-    return ErrorEnum::eNone;
 }
 
 void Launcher::ProcessNotScheduledInstances()
@@ -683,6 +618,15 @@ void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
     LockGuard updateLock {mUpdateMutex};
 
     mNewSubjects.EmplaceValue(subjects);
+
+    mProcessUpdatesCondVar.NotifyAll();
+}
+
+void Launcher::OnOverrideEnvVarsChanged()
+{
+    LockGuard updateLock {mUpdateMutex};
+
+    mIsOverrideEnvVarsChanged = true;
 
     mProcessUpdatesCondVar.NotifyAll();
 }

@@ -18,11 +18,13 @@
 #include "itf/envvarhandler.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
+#include "itf/sender.hpp"
 #include "itf/storage.hpp"
 
 #include "balancer.hpp"
 #include "instancemanager.hpp"
 #include "nodemanager.hpp"
+#include "overrideenvvarsprocessor.hpp"
 #include "runrequestsloader.hpp"
 
 namespace aos::cm::launcher {
@@ -39,7 +41,8 @@ class Launcher : public LauncherItf,
                  public EnvVarHandlerItf,
                  private nodeinfoprovider::NodeInfoListenerItf,
                  private alerts::AlertsListenerItf,
-                 private iamclient::SubjectsListenerItf {
+                 private iamclient::SubjectsListenerItf,
+                 private OverrideEnvVarsListenerItf {
 public:
     /**
      * Initializes launcher object instance.
@@ -57,6 +60,7 @@ public:
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage storage interface.
+     * @param sender sender interface.
      * @return Error.
      */
     Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
@@ -64,7 +68,7 @@ public:
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
         iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+        IdentifierPoolValidator uidValidator, StorageItf& storage, SenderItf& sender);
 
     /**
      * Starts launcher instance.
@@ -146,9 +150,7 @@ private:
     void ProcessUpdate();
     void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
 
-    Error LoadEnvVarsOverrides();
-    Error ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars);
-    void  ProcessNotScheduledInstances();
+    void ProcessNotScheduledInstances();
 
     // InstanceStatusReceiverItf implementation
     Error OnInstanceStatusReceived(const InstanceStatus& status) override;
@@ -163,6 +165,9 @@ private:
     // iamclient::SubjectsListenerItf implementation
     void SubjectsChanged(const Array<StaticString<cIDLen>>& subjects) override;
 
+    // OverrideEnvVarsListenerItf implementation
+    void OnOverrideEnvVarsChanged() override;
+
     // External dependencies
     Config                                                                            mConfig;
     StorageItf*                                                                       mStorage {};
@@ -173,14 +178,16 @@ private:
     storagestate::StorageStateItf*                                                    mStorageState {};
     MonitoringProviderItf*                                                            mMonitorProvider {};
     alerts::AlertsProviderItf*                                                        mAlertsProvider {};
+    SenderItf*                                                                        mSender {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumInstanceStatusListeners> mInstanceStatusListeners;
 
     // Managers
-    RunRequestsLoader mRunRequestsLoader {};
-    InstanceManager   mInstanceManager {};
-    NodeManager       mNodeManager {};
-    ImageInfoProvider mImageInfoProvider {};
-    Balancer          mBalancer {};
+    RunRequestsLoader        mRunRequestsLoader {};
+    InstanceManager          mInstanceManager {};
+    NodeManager              mNodeManager {};
+    ImageInfoProvider        mImageInfoProvider {};
+    Balancer                 mBalancer {};
+    OverrideEnvVarsProcessor mOverrideEnvVarsProcessor {};
 
     // Process update thread
     Thread<>                                        mWorkerThread;
@@ -194,9 +201,7 @@ private:
     bool                                            mForceRebalance {};
 
     // Override environment variables
-    OverrideEnvVarsRequest mOverrideEnvVars;
-    Timer                  mEnvVarsTTLTimer;
-    bool                   mIsOverrideEnvVarsChanged {};
+    bool mIsOverrideEnvVarsChanged {};
 
     // Misc
     StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
