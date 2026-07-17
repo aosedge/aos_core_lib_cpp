@@ -728,7 +728,8 @@ Error Launcher::StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceDat
     LOG_INF() << "Stop instance" << Log::Field("instance", instanceData.mInfo)
               << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID);
 
-    if (auto err = runtime->StopInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
+    if (auto err = runtime->StopInstance(instanceData.mInfo, instanceData.mStatus);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -810,7 +811,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
     for (const auto& instance : startInstances) {
         auto instanceData = FindInstanceData(instance);
         if (instanceData) {
-            LOG_WRN() << "Instance data already exists" << Log::Field("instance", instance);
+            LOG_DBG() << "Instance data already exists" << Log::Field("instance", instance);
 
             SetInstanceState(*instanceData, InstanceStateEnum::eInactive);
 
@@ -852,7 +853,7 @@ Error Launcher::AddStartNetworkTask(InstanceData& instanceData)
 {
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
             if (auto err = mNetworkManager->StartInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
-                !err.IsNone()) {
+                !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
                 LOG_ERR() << "Failed to start network" << Log::Field("instance", instanceData.mInfo)
                           << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -909,7 +910,7 @@ Error Launcher::AddStopNetworkTask(InstanceData& instanceData)
 {
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
             if (auto err = mNetworkManager->StopInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
-                !err.IsNone()) {
+                !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
                 LOG_ERR() << "Failed to stop network" << Log::Field("instance", instanceData.mInfo)
                           << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -930,8 +931,7 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
     for (const auto& instance : stopInstances) {
         auto instanceData = FindInstanceData(instance);
         if (!instanceData) {
-            LOG_ERR() << "Failed to stop network" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
+            LOG_DBG() << "Instance already removed" << Log::Field("instance", instance);
 
             continue;
         }
@@ -1024,7 +1024,8 @@ Error Launcher::StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceDa
               << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID)
               << Log::Field("manifestDigest", instanceData.mInfo.mManifestDigest);
 
-    if (auto err = runtime->StartInstance(instanceData.mInfo, instanceData.mStatus); !err.IsNone()) {
+    if (auto err = runtime->StartInstance(instanceData.mInfo, instanceData.mStatus);
+        !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
         return AOS_ERROR_WRAP(err);
     }
 
