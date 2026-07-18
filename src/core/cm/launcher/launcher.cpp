@@ -560,6 +560,10 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         firstErr = err;
     }
 
+    if (auto err = mOverrideEnvVarsProcessor.AddStatuses(statuses); !err.IsNone() && firstErr.IsNone()) {
+        firstErr = err;
+    }
+
     if (!firstErr.IsNone()) {
         return firstErr;
     }

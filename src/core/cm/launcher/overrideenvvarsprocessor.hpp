@@ -10,6 +10,7 @@
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 #include <core/common/types/envvars.hpp>
+#include <core/common/types/instance.hpp>
 
 #include "itf/sender.hpp"
 #include "itf/storage.hpp"
@@ -116,13 +117,25 @@ public:
      */
     OverrideEnvVarsAccessor GetOverrideEnvVars() { return OverrideEnvVarsAccessor(mMutex, mOverrideEnvVars); }
 
+    /**
+     * Adds instance env var statuses to the new instance pool.
+     *
+     * @param statuses instance statuses.
+     * @return Error.
+     */
+    Error AddStatuses(const Array<InstanceStatus>& statuses);
+
+    /**
+     * Sends the accumulated env var statuses to the listener if they changed since the last send.
+     */
+    void SendStatuses();
+
 private:
     static void RemoveExpiredVariables(OverrideEnvVarsRequest& envVars, const Time& now);
     static bool HasExpiredVariables(const OverrideEnvVarsRequest& envVars, const Time& now);
 
     void               OnTTLTimerTick();
     RetWithError<bool> ProcessOverrideEnvVars(const OverrideEnvVarsRequest& envVars);
-    Error              SendStatuses(const OverrideEnvVarsRequest& envVars);
 
     Duration                    mCheckPeriod {};
     StorageItf*                 mStorage {};
@@ -134,6 +147,7 @@ private:
 
     OverrideEnvVarsRequest  mOverrideEnvVars;
     OverrideEnvVarsStatuses mEnvVarStatuses;
+    OverrideEnvVarsStatuses mNewEnvVarStatuses;
 };
 
 /** @}*/

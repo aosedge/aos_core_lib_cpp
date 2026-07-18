@@ -259,6 +259,8 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
         return AOS_ERROR_WRAP(err);
     }
 
+    mOverrideEnvVarsProcessor->SendStatuses();
+
     return ErrorEnum::eNone;
 }
 
@@ -306,6 +308,8 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    mOverrideEnvVarsProcessor->SendStatuses();
 
     return ErrorEnum::eNone;
 }

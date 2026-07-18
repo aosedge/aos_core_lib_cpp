@@ -566,6 +566,30 @@ EnvVar CreateEnvVar(const std::string& name, const std::string& value)
     return var;
 }
 
+EnvVarsInstanceStatus CreateEnvVarsInstanceStatus(const InstanceIdent& ident, const std::vector<EnvVarStatus>& statuses)
+{
+    EnvVarsInstanceStatus result;
+
+    static_cast<InstanceIdent&>(result) = ident;
+
+    for (const auto& status : statuses) {
+        result.mStatuses.PushBack(status);
+    }
+
+    return result;
+}
+
+OverrideEnvVarsStatuses CreateOverrideEnvVarsStatuses(const std::vector<EnvVarsInstanceStatus>& statuses)
+{
+    OverrideEnvVarsStatuses result;
+
+    for (const auto& status : statuses) {
+        result.mStatuses.PushBack(status);
+    }
+
+    return result;
+}
+
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
@@ -2134,6 +2158,14 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
         = {{cNodeIDLocalSM, {{stopInstance}, {startInstance}}}};
 
     EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    // 5) Check override env vars statuses are reported back to the sender.
+    ASSERT_TRUE(mSender.WaitForSendCount(1, 2s));
+
+    auto expectedInstanceStatus = CreateEnvVarsInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
+        {EnvVarStatus {"OVERRIDE_VAR2", ErrorEnum::eNone}, EnvVarStatus {"OVERRIDE_VAR3", ErrorEnum::eNone}});
+
+    EXPECT_EQ(mSender.GetOverrideEnvVarsStatuses(), CreateOverrideEnvVarsStatuses({expectedInstanceStatus}));
 
     ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
