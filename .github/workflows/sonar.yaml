@@ -1,0 +1,48 @@
+name: SonarQube analysis (on pull request)
+
+on:
+  workflow_run:
+    workflows: ["Build (Debug) and test"]
+    types:
+      - completed
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    permissions:
+      pull-requests: read
+      actions: read
+
+    steps:
+      - name: Download SonarQube artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sonar-data
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read PR metadata
+        id: pr
+        run: |
+          echo "number=$(cat sonar-pr-info/pr_number)" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(cat sonar-pr-info/pr_head_sha)" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$(cat sonar-pr-info/pr_head_ref)" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$(cat sonar-pr-info/pr_base_ref)" >> "$GITHUB_OUTPUT"
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectBaseDir: "."
+          args: >
+            --define "sonar.scm.revision=${{ steps.pr.outputs.head_sha }}"
+            --define "sonar.pullrequest.key=${{ steps.pr.outputs.number }}"
+            --define "sonar.pullrequest.branch=${{ steps.pr.outputs.head_ref }}"
+            --define "sonar.pullrequest.base=${{ steps.pr.outputs.base_ref }}"
+            --define "sonar.cfamily.compile-commands=build_wrapper_output_directory/compile_commands.json"
+            --define "sonar.coverageReportPaths=build/coverage_sonarqube.xml"

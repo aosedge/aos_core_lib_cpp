@@ -69,19 +69,24 @@ jobs:
             --define "sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
             --define "sonar.coverageReportPaths=build/coverage_sonarqube.xml"
 
-      - name: SonarQube analysis (on pull request)
+      - name: Save PR metadata
         if: github.event_name == 'pull_request'
-        uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ./sonar-pr-info
+          echo "${{ github.event.pull_request.number }}" > ./sonar-pr-info/pr_number
+          echo "${{ github.event.pull_request.head.sha }}" > ./sonar-pr-info/pr_head_sha
+          echo "${{ github.event.pull_request.head.ref }}" > ./sonar-pr-info/pr_head_ref
+          echo "${{ github.event.pull_request.base.ref }}" > ./sonar-pr-info/pr_base_ref
 
+      - name: Upload SonarQube artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
         with:
-          projectBaseDir: "."
-          args: >
-            --define "sonar.scm.revision=${{ github.event.pull_request.head.sha }}"
-            --define "sonar.pullrequest.key=${{ github.event.pull_request.number }}"
-            --define "sonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}"
-            --define "sonar.pullrequest.base=${{ github.event.pull_request.base.ref }}"
-            --define "sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json"
-            --define "sonar.coverageReportPaths=build/coverage_sonarqube.xml"
+          name: sonar-data
+          path: |
+            build_wrapper_output_directory/
+            build/coverage_sonarqube.xml
+            sonar-pr-info/
+            sonar-project.properties
+            src/
+          retention-days: 1
