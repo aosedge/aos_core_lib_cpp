@@ -12,6 +12,8 @@
 
 # Aos core cpp libraries
 
+Test CI
+
 ## Prepare build environment
 
 * Install `conan`:
