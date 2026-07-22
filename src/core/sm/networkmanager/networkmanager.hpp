@@ -195,17 +195,17 @@ public:
     void OnConnect() override;
 
 private:
-    Error EnsureNodeNetwork(const String& networkID);
-    Error EnsureNodeNetworkPhysical(const String& networkID);
-    Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
-        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
-
-    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
-        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
-
     using InstanceHosts = StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>;
     using InstanceCache = StaticMap<StaticString<cIDLen>, InstanceHosts, cMaxNumInstances>;
     using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumOwners>;
+
+    enum class BatchOp { eAdd, eRemove };
+
+    struct BatchEntry {
+        StaticString<cIDLen> mInstanceID;
+        StaticString<cIDLen> mNetworkID;
+        BatchOp              mOp;
+    };
 
     // StartInstanceNetwork keeps its cached InstanceNetworkInfo alive across the nested call to
     // AddInstanceToNetwork, which in turn allocates hosts, bridge/firewall/bandwidth/DNS params and
@@ -241,6 +241,12 @@ private:
     static constexpr auto     cVlanIfPrefix          = "vlan-";
     static constexpr auto     cResolvConfLineLen     = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
 
+    Error EnsureNodeNetwork(const String& networkID);
+    Error EnsureNodeNetworkPhysical(const String& networkID);
+    Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
+    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
     Error CleanupLeftoverInstances();
@@ -302,6 +308,8 @@ private:
     StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>                          mDNSServers;
     StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances * cMaxNumOwners> mInstanceNetworkInfos;
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                                       mPhysicalNetworks;
+    bool                                                                                   mBatchMode {false};
+    StaticArray<BatchEntry, cMaxNumInstances * cMaxNumOwners>                              mBatchEntries;
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 

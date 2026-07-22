@@ -281,6 +281,17 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
 
     err = AddInstanceToNetwork(instanceID, networkID, cachedInfo->mNetworkConfig, cachedInfo->mAllocatedParams);
 
+    if (err.IsNone()) {
+        LockGuard lock {mMutex};
+
+        if (mBatchMode) {
+            if (auto errBatch = mBatchEntries.PushBack({instanceID, networkID, BatchOp::eAdd}); !errBatch.IsNone()) {
+                LOG_ERR() << "Failed to register batch entry" << Log::Field("instanceID", instanceID)
+                          << Log::Field(errBatch);
+            }
+        }
+    }
+
     return err;
 }
 
@@ -411,6 +422,17 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
         }
     }
 
+    {
+        LockGuard lock {mMutex};
+
+        if (mBatchMode) {
+            if (auto errBatch = mBatchEntries.PushBack({instanceID, networkID, BatchOp::eRemove}); !errBatch.IsNone()) {
+                LOG_ERR() << "Failed to register batch entry" << Log::Field("instanceID", instanceID)
+                          << Log::Field(errBatch);
+            }
+        }
+    }
+
     if (auto errRemove = RemoveInstanceFromCache(instanceID, networkID); !errRemove.IsNone() && err.IsNone()) {
         err = errRemove;
     }
@@ -514,12 +536,97 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
 
 Error NetworkManager::BeginBatch()
 {
+    Error err;
+
+    {
+        LockGuard lock {mMutex};
+
+        mBatchEntries.Clear();
+        mBatchMode = true;
+    }
+
+    auto cleanupBatchMode = DeferRelease(this, [&err](NetworkManager* self) {
+        if (!err.IsNone()) {
+            LockGuard lock {self->mMutex};
+
+            self->mBatchMode = false;
+        }
+    });
+
+    if (err = mStorage->BeginTransaction(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupStorage = DeferRelease(this, [&err](NetworkManager* self) {
+        if (!err.IsNone()) {
+            self->mStorage->RollbackTransaction();
+        }
+    });
+
+    if (err = mFirewall->BeginBatch(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupFirewall = DeferRelease(this, [&err](NetworkManager* self) {
+        if (!err.IsNone()) {
+            self->mFirewall->Revert();
+        }
+    });
+
+    if (err = mNetMonitor->BeginBatch(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
 Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
 {
     failedInstanceIDs.Clear();
+
+    Error err;
+    bool  firewallApplied = false;
+    bool  trafficApplied  = false;
+
+    auto cleanupFirewall = DeferRelease(this, [&err, &firewallApplied](NetworkManager* self) {
+        if (!err.IsNone() && firewallApplied) {
+            self->mFirewall->Revert();
+        }
+    });
+
+    auto cleanupTraffic = DeferRelease(this, [&err, &trafficApplied](NetworkManager* self) {
+        if (!err.IsNone() && trafficApplied) {
+            self->mNetMonitor->Revert();
+        }
+    });
+
+    if (err = mFirewall->FlushBatch(); err.IsNone()) {
+        firewallApplied = true;
+
+        if (err = mNetMonitor->FlushBatch(); err.IsNone()) {
+            trafficApplied = true;
+
+            err = mStorage->CommitTransaction();
+        }
+    }
+
+    if (!err.IsNone()) {
+        // nft flush failed: staged DB writes must not be committed.
+        if (!firewallApplied || !trafficApplied) {
+            mStorage->RollbackTransaction();
+        }
+
+        for (const auto& entry : mBatchEntries) {
+            failedInstanceIDs.PushBack(entry.mInstanceID);
+        }
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        mBatchMode = false;
+        mBatchEntries.Clear();
+    }
 
     return ErrorEnum::eNone;
 }
