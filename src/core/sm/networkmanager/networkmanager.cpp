@@ -588,36 +588,45 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     bool  firewallApplied = false;
     bool  trafficApplied  = false;
 
-    auto cleanupFirewall = DeferRelease(this, [&err, &firewallApplied](NetworkManager* self) {
-        if (!err.IsNone() && firewallApplied) {
-            self->mFirewall->Revert();
+    {
+        auto cleanupFirewall = DeferRelease(this, [&err, &firewallApplied](NetworkManager* self) {
+            if (!err.IsNone() && firewallApplied) {
+                self->mFirewall->Revert();
+            }
+        });
+
+        auto cleanupTraffic = DeferRelease(this, [&err, &trafficApplied](NetworkManager* self) {
+            if (!err.IsNone() && trafficApplied) {
+                self->mNetMonitor->Revert();
+            }
+        });
+
+        if (err = mFirewall->FlushBatch(); err.IsNone()) {
+            firewallApplied = true;
+
+            if (err = mNetMonitor->FlushBatch(); err.IsNone()) {
+                trafficApplied = true;
+
+                err = mStorage->CommitTransaction();
+            }
         }
-    });
 
-    auto cleanupTraffic = DeferRelease(this, [&err, &trafficApplied](NetworkManager* self) {
-        if (!err.IsNone() && trafficApplied) {
-            self->mNetMonitor->Revert();
-        }
-    });
-
-    if (err = mFirewall->FlushBatch(); err.IsNone()) {
-        firewallApplied = true;
-
-        if (err = mNetMonitor->FlushBatch(); err.IsNone()) {
-            trafficApplied = true;
-
-            err = mStorage->CommitTransaction();
+        if (!err.IsNone() && (!firewallApplied || !trafficApplied)) {
+            mStorage->RollbackTransaction();
         }
     }
 
     if (!err.IsNone()) {
-        // nft flush failed: staged DB writes must not be committed.
-        if (!firewallApplied || !trafficApplied) {
-            mStorage->RollbackTransaction();
-        }
-
-        for (const auto& entry : mBatchEntries) {
-            failedInstanceIDs.PushBack(entry.mInstanceID);
+        if (firewallApplied && trafficApplied) {
+            for (const auto& entry : mBatchEntries) {
+                failedInstanceIDs.PushBack(entry.mInstanceID);
+            }
+        } else {
+            for (const auto& entry : mBatchEntries) {
+                if (auto errReapply = ReapplyInstancePolicy(entry); !errReapply.IsNone()) {
+                    failedInstanceIDs.PushBack(entry.mInstanceID);
+                }
+            }
         }
     }
 
@@ -626,6 +635,79 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
 
         mBatchMode = false;
         mBatchEntries.Clear();
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
+{
+    if (entry.mOp == BatchOp::eRemove) {
+        Error err;
+
+        if (auto errFW = mFirewall->RemoveInstance(entry.mInstanceID); !errFW.IsNone()) {
+            err = errFW;
+        }
+
+        if (auto errTR = mNetMonitor->StopInstanceMonitoring(entry.mInstanceID); !errTR.IsNone() && err.IsNone()) {
+            err = errTR;
+        }
+
+        return err;
+    }
+
+    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mInstanceNetworkInfos.Find(entry.mInstanceID);
+        if (it == mInstanceNetworkInfos.end()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance network info not found"));
+        }
+
+        *info = it->mSecond;
+    }
+
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
+
+    if (auto err = PrepareInstanceFirewallParams(info->mNetworkConfig, info->mAllocatedParams, *firewallParams);
+        !err.IsNone()) {
+        return err;
+    }
+
+    Error err;
+
+    if (err = mFirewall->AddInstance(entry.mInstanceID, *firewallParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupFirewall = DeferRelease(this, [&err, &entry](NetworkManager* self) {
+        if (!err.IsNone()) {
+            if (auto errRemove = self->mFirewall->RemoveInstance(entry.mInstanceID); !errRemove.IsNone()) {
+                LOG_ERR() << "Failed to remove firewall instance on rollback"
+                          << Log::Field("instanceID", entry.mInstanceID) << Log::Field(errRemove);
+            }
+        }
+    });
+
+    if (err = mNetMonitor->StartInstanceMonitoring(entry.mInstanceID, info->mAllocatedParams.mIP,
+            info->mNetworkConfig.mDownloadLimit, info->mNetworkConfig.mUploadLimit);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupMonitoring = DeferRelease(this, [&err, &entry](NetworkManager* self) {
+        if (!err.IsNone()) {
+            if (auto errStop = self->mNetMonitor->StopInstanceMonitoring(entry.mInstanceID); !errStop.IsNone()) {
+                LOG_ERR() << "Failed to stop instance monitoring on rollback"
+                          << Log::Field("instanceID", entry.mInstanceID) << Log::Field(errStop);
+            }
+        }
+    });
+
+    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
