@@ -25,6 +25,9 @@ public:
     MOCK_METHOD(Error, SetTrafficMonitorData, (const String&, const Time&, uint64_t), (override));
     MOCK_METHOD(Error, GetTrafficMonitorData, (const String&, Time&, uint64_t&), (const, override));
     MOCK_METHOD(Error, RemoveTrafficMonitorData, (const String&), (override));
+    MOCK_METHOD(Error, BeginTransaction, (), (override));
+    MOCK_METHOD(Error, CommitTransaction, (), (override));
+    MOCK_METHOD(Error, RollbackTransaction, (), (override));
 };
 
 } // namespace aos::sm::networkmanager
