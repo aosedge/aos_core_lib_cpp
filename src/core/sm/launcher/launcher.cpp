@@ -763,6 +763,11 @@ void Launcher::StopAllNetworks()
 {
     LOG_INF() << "[profiling] Stop all networks begin" << Log::Field("count", mInstances.Size());
 
+    auto errBegin = mNetworkManager->BeginBatch();
+    if (!errBegin.IsNone()) {
+        LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
+    }
+
     for (auto& instance : mInstances) {
         if (instance.mInfo.mType != UpdateItemTypeEnum::eService) {
             continue;
@@ -772,6 +777,20 @@ void Launcher::StopAllNetworks()
             LOG_ERR() << "Failed to stop network" << Log::Field("instance", instance.mInfo) << Log::Field(err);
 
             SetInstanceState(instance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+        }
+    }
+
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (errBegin.IsNone()) {
+        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+
+        mNetworkManager->FlushBatch(*failedIDs);
+
+        if (!failedIDs->IsEmpty()) {
+            LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
         }
     }
 
@@ -956,6 +975,11 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
 {
     LOG_INF() << "[profiling] Stop networks begin" << Log::Field("count", stopInstances.Size());
 
+    auto errBegin = mNetworkManager->BeginBatch();
+    if (!errBegin.IsNone()) {
+        LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
+    }
+
     for (const auto& instance : stopInstances) {
         auto instanceData = FindInstanceData(instance);
         if (!instanceData) {
@@ -978,6 +1002,16 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (errBegin.IsNone()) {
+        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+
+        mNetworkManager->FlushBatch(*failedIDs);
+
+        if (!failedIDs->IsEmpty()) {
+            LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
+        }
     }
 
     LOG_INF() << "[profiling] Stop networks end";
