@@ -22,6 +22,9 @@ public:
     MOCK_METHOD(Error, StopInstanceMonitoring, (const String&), (override));
     MOCK_METHOD(Error, GetSystemTraffic, (uint64_t&, uint64_t&), (const, override));
     MOCK_METHOD(Error, GetInstanceTraffic, (const String&, uint64_t&, uint64_t&), (const, override));
+    MOCK_METHOD(Error, BeginBatch, (), (override));
+    MOCK_METHOD(Error, FlushBatch, (), (override));
+    MOCK_METHOD(Error, Revert, (), (override));
 };
 
 } // namespace aos::sm::networkmanager

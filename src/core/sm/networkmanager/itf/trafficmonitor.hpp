@@ -104,6 +104,27 @@ public:
      */
     virtual Error GetInstanceTraffic(const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic) const
         = 0;
+
+    /**
+     * Opens a batch; StartInstanceMonitoring/StopInstanceMonitoring calls are staged until flush.
+     *
+     * @return Error.
+     */
+    virtual Error BeginBatch() = 0;
+
+    /**
+     * Flushes the staged batch atomically in a single nft transaction.
+     *
+     * @return Error.
+     */
+    virtual Error FlushBatch() = 0;
+
+    /**
+     * Reverts the flushed batch, deleting everything it applied by handle.
+     *
+     * @return Error.
+     */
+    virtual Error Revert() = 0;
 };
 
 /** @}*/
