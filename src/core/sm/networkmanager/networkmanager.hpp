@@ -166,6 +166,21 @@ public:
     Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) override;
 
     /**
+     * Opens a batch for start/stop operations.
+     *
+     * @return Error.
+     */
+    Error BeginBatch() override;
+
+    /**
+     * Flushes the staged batch.
+     *
+     * @param[out] failedInstanceIDs instances that were not applied.
+     * @return Error.
+     */
+    Error FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs) override;
+
+    /**
      * Called when pending firewall rules are resolved for an instance.
      *
      * @param nodeID node ID where the instance resides.

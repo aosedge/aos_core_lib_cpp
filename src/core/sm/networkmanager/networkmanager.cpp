@@ -512,6 +512,18 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
     return ErrorEnum::eNone;
 }
 
+Error NetworkManager::BeginBatch()
+{
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
+{
+    failedInstanceIDs.Clear();
+
+    return ErrorEnum::eNone;
+}
+
 Error NetworkManager::PrepareUpdateItemNetworkParams(
     const InstanceNetworkConfig& params, const String& networkID, UpdateItemNetworkParams& serviceData) const
 {
