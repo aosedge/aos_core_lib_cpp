@@ -36,7 +36,7 @@ DirIterator::DirIterator(const String& path)
 {
 }
 
-DirIterator::DirIterator(DirIterator&& other)
+DirIterator::DirIterator(DirIterator&& other) noexcept
     : mDir(other.mDir)
     , mEntry(other.mEntry)
     , mRoot(other.mRoot)
@@ -44,7 +44,7 @@ DirIterator::DirIterator(DirIterator&& other)
     other.mDir = nullptr;
 }
 
-DirIterator& DirIterator::operator=(DirIterator&& other)
+DirIterator& DirIterator::operator=(DirIterator&& other) noexcept
 {
     if (this != &other) {
         mDir   = other.mDir;

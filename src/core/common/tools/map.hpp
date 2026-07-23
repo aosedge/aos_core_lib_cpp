@@ -280,13 +280,13 @@ public:
     {
     }
 
-    StaticMap(const StaticMap& map)
+    StaticMap(const StaticMap& map) noexcept
         : Map<Key, Value>(mArray)
         , mArray(map.mArray)
     {
     }
 
-    StaticMap& operator=(const StaticMap& map)
+    StaticMap& operator=(const StaticMap& map) noexcept
     {
         mArray = map.mArray;
 

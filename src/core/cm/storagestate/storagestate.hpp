@@ -155,8 +155,8 @@ private:
         {
         }
 
-        State(State&&)            = default;
-        State& operator=(State&&) = default;
+        State(State&&) noexcept            = default;
+        State& operator=(State&&) noexcept = default;
 
         InstanceIdent                             mInstanceIdent;
         StaticString<cFilePathLen>                mFilePath;
