@@ -103,7 +103,7 @@ Error PKCS11Module::SetOwner(const String& password)
     } else {
         err = GetUserPin(userPIN);
         if (!err.IsNone()) {
-            err = pkcs11::GenPIN(userPIN);
+            err = pkcs11::GenPIN(*mCryptoProvider, userPIN);
             if (!err.IsNone()) {
                 return err;
             }
