@@ -823,7 +823,7 @@ public:
      *
      * @param str string to create from.
      */
-    StaticString(const StaticString& str)
+    StaticString(const StaticString& str) noexcept
         : String()
     {
         String::SetBuffer(mBuffer, cMaxSize);
@@ -835,7 +835,7 @@ public:
      *
      * @param str string to assign from.
      */
-    StaticString& operator=(const StaticString& str)
+    StaticString& operator=(const StaticString& str) noexcept
     {
         String::operator=(str);
 

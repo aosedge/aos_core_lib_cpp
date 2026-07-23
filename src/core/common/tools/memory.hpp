@@ -163,7 +163,7 @@ public:
      *
      * @param ptr unique pointer to move from.
      */
-    UniquePtr(UniquePtr&& ptr)
+    UniquePtr(UniquePtr&& ptr) noexcept
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -174,7 +174,7 @@ public:
      *
      * @param ptr unique pointer to assign from.
      */
-    UniquePtr& operator=(UniquePtr&& ptr)
+    UniquePtr& operator=(UniquePtr&& ptr) noexcept
     {
         Reset();
 
@@ -191,7 +191,7 @@ public:
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
     // cppcheck-suppress noExplicitConstructor
-    UniquePtr(UniquePtr<P, D>&& ptr)
+    UniquePtr(UniquePtr<P, D>&& ptr) noexcept
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -203,7 +203,7 @@ public:
      * @param ptr unique pointer to assign from.
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
-    UniquePtr& operator=(UniquePtr<P, D>&& ptr)
+    UniquePtr& operator=(UniquePtr<P, D>&& ptr) noexcept
     {
         Reset();
 

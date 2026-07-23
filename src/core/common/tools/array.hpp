@@ -519,7 +519,7 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray(const StaticArray& array)
+    StaticArray(const StaticArray& array) noexcept
         : Array<T>()
     {
         Array<T>::SetBuffer(mBuffer);
@@ -536,7 +536,7 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray& operator=(const StaticArray& array)
+    StaticArray& operator=(const StaticArray& array) noexcept
     {
         Array<T>::operator=(array);
 
