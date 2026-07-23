@@ -17,36 +17,36 @@
  * Helper macro to display debug log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_DEBUG
-#define LOG_MODULE_DBG(module) aos::Log(module, aos::LogLevelEnum::eDebug)
+#define LOG_MODULE_DBG(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eDebug)
 #else
-#define LOG_MODULE_DBG(module) true ? (void)0 : aos::LogVoid() & aos::Log(module, aos::LogLevelEnum::eDebug)
+#define LOG_MODULE_DBG(moduleName) true ? (void)0 : aos::LogVoid() & aos::Log(moduleName, aos::LogLevelEnum::eDebug)
 #endif
 
 /**
  * Helper macro to display info log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_INFO
-#define LOG_MODULE_INF(module) aos::Log(module, aos::LogLevelEnum::eInfo)
+#define LOG_MODULE_INF(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eInfo)
 #else
-#define LOG_MODULE_INF(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eInfo)
+#define LOG_MODULE_INF(moduleName) true ? (void)0 : aos::LogVoid() & Log(moduleName, aos::LogLevelEnum::eInfo)
 #endif
 
 /**
  * Helper macro to display warning log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_WARNING
-#define LOG_MODULE_WRN(module) aos::Log(module, aos::LogLevelEnum::eWarning)
+#define LOG_MODULE_WRN(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eWarning)
 #else
-#define LOG_MODULE_WRN(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eWarning)
+#define LOG_MODULE_WRN(moduleName) true ? (void)0 : aos::LogVoid() & Log(moduleName, aos::LogLevelEnum::eWarning)
 #endif
 
 /**
  * Helper macro to display error log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_ERROR
-#define LOG_MODULE_ERR(module) aos::Log(module, aos::LogLevelEnum::eError)
+#define LOG_MODULE_ERR(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eError)
 #else
-#define LOG_MODULE_ERR(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eError)
+#define LOG_MODULE_ERR(moduleName) true ? (void)0 : aos::LogVoid() & Log(moduleName, aos::LogLevelEnum::eError)
 #endif
 
 namespace aos {
@@ -72,7 +72,7 @@ using LogLevel     = EnumStringer<LogLevelType>;
 /**
  * Log line callback. Should be set in application to display log using application logging mechanism.
  */
-using LogCallback = void (*)(const String& module, LogLevel level, const String& message);
+using LogCallback = void (*)(const String& moduleName, LogLevel level, const String& message);
 
 /**
  * Implements log functionality.
@@ -109,11 +109,11 @@ public:
     /**
      * Constructs a new Log object.
      *
-     * @param module log module type.
+     * @param moduleName log module name.
      * @param level log level type.
      */
-    Log(const String& module, LogLevel level)
-        : mModule(module)
+    Log(const String& moduleName, LogLevel level)
+        : mModule(moduleName)
         , mLevel(level) {};
 
     /**
