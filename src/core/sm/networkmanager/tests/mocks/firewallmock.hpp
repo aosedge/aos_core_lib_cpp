@@ -24,6 +24,7 @@ public:
     MOCK_METHOD(Error, RemoveMasquerade, (const String&, const String&), (override));
     MOCK_METHOD(Error, BeginBatch, (), (override));
     MOCK_METHOD(Error, FlushBatch, (), (override));
+    MOCK_METHOD(Error, AbortBatch, (), (override));
     MOCK_METHOD(Error, Revert, (), (override));
 };
 

@@ -150,6 +150,14 @@ public:
     virtual Error FlushBatch() = 0;
 
     /**
+     * Discards the staged batch and leaves batch mode without applying anything to the kernel
+     * (unlike FlushBatch which commits, or Revert which undoes an already-applied batch).
+     *
+     * @return Error.
+     */
+    virtual Error AbortBatch() = 0;
+
+    /**
      * Reverts the flushed batch, deleting everything it applied by handle.
      *
      * @return Error.

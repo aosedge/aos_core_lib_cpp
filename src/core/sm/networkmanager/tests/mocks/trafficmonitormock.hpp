@@ -24,6 +24,7 @@ public:
     MOCK_METHOD(Error, GetInstanceTraffic, (const String&, uint64_t&, uint64_t&), (const, override));
     MOCK_METHOD(Error, BeginBatch, (), (override));
     MOCK_METHOD(Error, FlushBatch, (), (override));
+    MOCK_METHOD(Error, AbortBatch, (), (override));
     MOCK_METHOD(Error, Revert, (), (override));
 };
 
