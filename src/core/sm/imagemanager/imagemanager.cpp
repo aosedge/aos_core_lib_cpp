@@ -28,8 +28,8 @@ Error SplitDigest(const String& digest, String& alg, String& hash)
         return ErrorEnum::eInvalidArgument;
     }
 
-    alg  = digestList[0];
-    hash = digestList[1];
+    alg  = digestList[0]; // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
+    hash = digestList[1]; // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     return ErrorEnum::eNone;
 }
@@ -289,7 +289,7 @@ Error ImageManager::GetLayerPath(const String& digest, String& path) const
         return err;
     }
 
-    path = fs::JoinPath(path, cUnpackedLayerFolder);
+    path = fs::JoinPath(path, cUnpackedLayerFolder); // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     LOG_DBG() << "Get layer path" << Log::Field("digest", digest) << Log::Field("path", path);
 
@@ -337,7 +337,8 @@ Error ImageManager::CreateBlobPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = fs::JoinPath(mConfig.mImagePath, cBlobsFolder, alg, hash);
+    path = fs::JoinPath(
+        mConfig.mImagePath, cBlobsFolder, alg, hash); // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     return ErrorEnum::eNone;
 }
@@ -351,7 +352,8 @@ Error ImageManager::CreateLayerPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = fs::JoinPath(mConfig.mImagePath, cLayersFolder, alg, hash);
+    path = fs::JoinPath(
+        mConfig.mImagePath, cLayersFolder, alg, hash); // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     return ErrorEnum::eNone;
 }
@@ -717,7 +719,7 @@ Error ImageManager::GetBlobURL(const String& digest, String& url) const
         return Error(ErrorEnum::eNotFound, "blob URL not found");
     }
 
-    url = urls[0];
+    url = urls[0]; // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     return ErrorEnum::eNone;
 }

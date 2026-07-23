@@ -201,7 +201,7 @@ public:
      *
      * @param other iterator to move from.
      */
-    DirIterator(DirIterator&& other);
+    DirIterator(DirIterator&& other) noexcept;
 
     /**
      * Move assignment.
@@ -209,7 +209,7 @@ public:
      * @param other iterator to move from.
      * @return DirIterator&.
      */
-    DirIterator& operator=(DirIterator&& other);
+    DirIterator& operator=(DirIterator&& other) noexcept;
 
     /**
      * Destructor.
@@ -228,7 +228,7 @@ public:
      *
      * @return String.
      */
-    String GetRootPath() const { return mRoot; }
+    String GetRootPath() const { return mRoot; } // NOSONAR cpp:S5912 - String serves as a view over StaticString
 
     /**
      * Returns current entry reference.

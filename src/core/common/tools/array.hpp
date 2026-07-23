@@ -310,7 +310,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(args...);
+        new (end()) T(args...); // NOSONAR cpp:S5912 - intentional type construction from derived args
 
         mSize++;
 
@@ -520,7 +520,7 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray(const StaticArray& array)
+    StaticArray(const StaticArray& array) noexcept
         : Array<T>()
     {
         Array<T>::SetBuffer(mBuffer);
@@ -537,7 +537,7 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray& operator=(const StaticArray& array)
+    StaticArray& operator=(const StaticArray& array) noexcept
     {
         Array<T>::operator=(array);
 

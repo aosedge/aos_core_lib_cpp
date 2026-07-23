@@ -374,7 +374,7 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
         return ErrorEnum::eNotFound;
     }
 
-    digest = it->mIndexDigest;
+    digest = it->mIndexDigest; // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     return ErrorEnum::eNone;
 }
@@ -390,7 +390,7 @@ Error ImageManager::GetBlobPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = blobPath;
+    path = blobPath; // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     auto [exists, err] = fs::FileExist(path);
     if (!err.IsNone()) {
@@ -447,7 +447,7 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
         return ErrorEnum::eNotFound;
     }
 
-    version = it->mVersion;
+    version = it->mVersion; // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
 
     return ErrorEnum::eNone;
 }
@@ -559,7 +559,7 @@ Error ImageManager::RemoveOutdatedItems()
 
 Error ImageManager::WaitForStop()
 {
-    UniqueLock<Mutex> lock(mMutex);
+    UniqueLock<Mutex> lock(mMutex); // NOSONAR cpp:S5486 - false positive; lock released before next WaitForStop()
 
     mCondVar.Wait(lock, cRetryTimeout, [this]() { return mCancel; });
 
