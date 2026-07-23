@@ -28,8 +28,13 @@ Error SplitDigest(const String& digest, String& alg, String& hash)
         return ErrorEnum::eInvalidArgument;
     }
 
-    alg  = digestList[0];
-    hash = digestList[1];
+    if (auto err = alg.Assign(digestList[0]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = hash.Assign(digestList[1]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -290,7 +295,9 @@ Error ImageManager::GetLayerPath(const String& digest, String& path) const
         return err;
     }
 
-    path = fs::JoinPath(path, cUnpackedLayerFolder);
+    if (auto err = path.Assign(fs::JoinPath(path, cUnpackedLayerFolder)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     LOG_DBG() << "Get layer path" << Log::Field("digest", digest) << Log::Field("path", path);
 
@@ -338,7 +345,9 @@ Error ImageManager::CreateBlobPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = fs::JoinPath(mConfig.mImagePath, cBlobsFolder, alg, hash);
+    if (auto err = path.Assign(fs::JoinPath(mConfig.mImagePath, cBlobsFolder, alg, hash)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -352,7 +361,9 @@ Error ImageManager::CreateLayerPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = fs::JoinPath(mConfig.mImagePath, cLayersFolder, alg, hash);
+    if (auto err = path.Assign(fs::JoinPath(mConfig.mImagePath, cLayersFolder, alg, hash)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -718,7 +729,9 @@ Error ImageManager::GetBlobURL(const String& digest, String& url) const
         return Error(ErrorEnum::eNotFound, "blob URL not found");
     }
 
-    url = urls[0];
+    if (auto err = url.Assign(urls[0]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }

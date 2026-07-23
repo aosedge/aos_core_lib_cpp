@@ -371,7 +371,9 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
         return ErrorEnum::eNotFound;
     }
 
-    digest = it->mIndexDigest;
+    if (auto err = digest.Assign(it->mIndexDigest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -387,7 +389,9 @@ Error ImageManager::GetBlobPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = blobPath;
+    if (auto err = path.Assign(blobPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto [exists, err] = fs::FileExist(path);
     if (!err.IsNone()) {
@@ -444,7 +448,9 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
         return ErrorEnum::eNotFound;
     }
 
-    version = it->mVersion;
+    if (auto err = version.Assign(it->mVersion); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }

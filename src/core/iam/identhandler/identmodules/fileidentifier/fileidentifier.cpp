@@ -71,7 +71,9 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    subjects = mSubjects;
+    if (auto err = subjects.Assign(mSubjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
