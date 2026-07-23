@@ -15,11 +15,11 @@ using namespace aos;
 
 class TestLog : private NonCopyable {
 public:
-    static void LogCallback(const String& module, LogLevel level, const String& message)
+    static void LogCallback(const String& moduleName, LogLevel level, const String& message)
     {
         auto& instance = GetInstance();
 
-        instance.mLogModule  = module;
+        instance.mLogModule  = moduleName;
         instance.mLogLevel   = level;
         instance.mLogMessage = message;
     }

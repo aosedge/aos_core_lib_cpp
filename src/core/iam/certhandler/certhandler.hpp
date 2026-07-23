@@ -34,10 +34,10 @@ public:
     /**
      * Registers module.
      *
-     * @param module a reference to a module.
+     * @param certModule a reference to a module.
      * @returns Error.
      */
-    Error RegisterModule(CertModule& module);
+    Error RegisterModule(CertModule& certModule);
 
     /**
      * Returns IAM cert types.
@@ -141,7 +141,7 @@ private:
     static constexpr auto cIAMCertSubsMaxCount = AOS_CONFIG_CERTHANDLER_CERT_SUBS_MAX_COUNT;
 
     CertModule* FindModule(const String& certType) const;
-    Error       UpdateCerts(CertModule& module);
+    Error       UpdateCerts(CertModule& certModule);
 
     mutable Mutex                                     mMutex;
     StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
