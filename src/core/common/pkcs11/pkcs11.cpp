@@ -241,12 +241,12 @@ Error GenPIN(String& pin)
 
     pin.Clear();
 
-    srand(::time(nullptr)); // use current time as seed for random generator
+    srand(::time(nullptr)); // NOSONAR cpp:S5020 - C++ <random> not available in this codebase
 
     StaticString<sizeof(unsigned) * 2> chunk;
 
     while (pin.Size() < cPinLength) {
-        unsigned value     = rand();
+        unsigned value     = rand(); // NOSONAR cpp:S5020 - C++ <random> not available in this codebase
         auto     byteArray = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
 
         auto err = chunk.ByteArrayToHex(byteArray);

@@ -17,7 +17,7 @@ namespace aos::iam::certhandler {
 
 CertHandler::CertHandler()
 {
-    srand(time(nullptr));
+    srand(time(nullptr)); // NOSONAR cpp:S5020 - C++ <random> not available in this codebase
 }
 
 Error CertHandler::RegisterModule(CertModule& certModule)
