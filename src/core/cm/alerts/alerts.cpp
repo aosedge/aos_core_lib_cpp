@@ -142,7 +142,7 @@ void Alerts::OnDisconnect()
 
 Error Alerts::SendAlert(const AlertVariant& alert)
 {
-    LockGuard lock {mMutex};
+    LockGuard lock {mMutex}; // NOSONAR cpp:S5489 - false positive; single LockGuard, LIFO unlock on return
 
     LOG_DBG() << "Send alert" << Log::Field("alert", alert);
 

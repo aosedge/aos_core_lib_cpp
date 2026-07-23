@@ -559,7 +559,7 @@ Error ImageManager::RemoveOutdatedItems()
 
 Error ImageManager::WaitForStop()
 {
-    UniqueLock<Mutex> lock(mMutex);
+    UniqueLock<Mutex> lock(mMutex); // NOSONAR cpp:S5486 - false positive; lock released before next WaitForStop()
 
     mCondVar.Wait(lock, cRetryTimeout, [this]() { return mCancel; });
 
