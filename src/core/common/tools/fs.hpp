@@ -228,7 +228,7 @@ public:
      *
      * @return String.
      */
-    String GetRootPath() const { return mRoot; }
+    String GetRootPath() const { return mRoot; } // NOSONAR cpp:S5912 - String serves as a view over StaticString
 
     /**
      * Returns current entry reference.

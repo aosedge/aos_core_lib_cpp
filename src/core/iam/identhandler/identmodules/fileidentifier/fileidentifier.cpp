@@ -71,7 +71,7 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    subjects = mSubjects;
+    subjects = mSubjects; // NOSONAR cpp:S5912 - Assign stays within StaticArray capacity
 
     return ErrorEnum::eNone;
 }

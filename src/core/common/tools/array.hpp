@@ -310,7 +310,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(args...);
+        new (end()) T(args...); // NOSONAR cpp:S5912 - intentional type construction from derived args
 
         mSize++;
 

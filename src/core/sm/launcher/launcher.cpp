@@ -550,11 +550,12 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
 
-    static_cast<InstanceIdent&>(*instanceInfo) = status;
-    instanceInfo->mRuntimeID                   = status.mRuntimeID;
-    instanceInfo->mType                        = status.mType;
-    instanceInfo->mVersion                     = status.mVersion;
-    instanceInfo->mManifestDigest              = status.mManifestDigest;
+    static_cast<InstanceIdent&>(*instanceInfo)
+        = status; // NOSONAR cpp:S5912 - intentional copy of InstanceIdent base only
+    instanceInfo->mRuntimeID      = status.mRuntimeID;
+    instanceInfo->mType           = status.mType;
+    instanceInfo->mVersion        = status.mVersion;
+    instanceInfo->mManifestDigest = status.mManifestDigest;
 
     if (auto err = mStorage->UpdateInstanceInfo(*instanceInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -1051,7 +1052,8 @@ Error Launcher::AppendInstancesWithModifiedParams(
 
         LOG_DBG() << "Instance parameters modified, adding to stop list" << Log::Field("instance", startInstance);
 
-        if (auto err = stopInstances.EmplaceBack(startInstance); !err.IsNone()) {
+        if (auto err = stopInstances.EmplaceBack(startInstance);
+            !err.IsNone()) { // NOSONAR cpp:S5912 - intentional InstanceIdent from InstanceInfo
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -1236,11 +1238,12 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
 
     auto itInstance = &mInstances.Back();
 
-    itInstance->mInfo                                = instanceInfo;
-    static_cast<InstanceIdent&>(itInstance->mStatus) = instanceInfo;
-    itInstance->mStatus.mVersion                     = instanceInfo.mVersion;
-    itInstance->mStatus.mRuntimeID                   = instanceInfo.mRuntimeID;
-    itInstance->mStatus.mState                       = InstanceStateEnum::eInactive;
+    itInstance->mInfo = instanceInfo;
+    static_cast<InstanceIdent&>(itInstance->mStatus)
+        = instanceInfo; // NOSONAR cpp:S5912 - intentional copy of InstanceIdent base only
+    itInstance->mStatus.mVersion   = instanceInfo.mVersion;
+    itInstance->mStatus.mRuntimeID = instanceInfo.mRuntimeID;
+    itInstance->mStatus.mState     = InstanceStateEnum::eInactive;
 
     if (auto err = mInstanceIDProvider->GetInstanceID(instanceInfo, itInstance->mInstanceID); !err.IsNone()) {
         mInstances.Erase(itInstance);

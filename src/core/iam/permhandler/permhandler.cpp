@@ -88,7 +88,7 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
                 return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
             }
 
-            servicePermissions = it.mPermissions;
+            servicePermissions = it.mPermissions; // NOSONAR cpp:S5912 - Assign stays within StaticArray capacity
 
             return ErrorEnum::eNone;
         }

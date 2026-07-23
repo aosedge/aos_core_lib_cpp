@@ -1317,7 +1317,10 @@ Error NetworkManager::PrepareInstanceFirewallParams(const InstanceNetworkConfig&
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
-        if (auto err = params.mInput.PushBack({portConfig[0], portConfig.Size() > 1 ? portConfig[1] : String("tcp")});
+        if (auto err = params.mInput.PushBack({portConfig[0],
+                portConfig.Size() > 1
+                    ? portConfig[1]
+                    : String("tcp")}); // NOSONAR cpp:S5912 - Assign stays within StaticString capacity
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

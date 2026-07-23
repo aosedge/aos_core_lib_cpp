@@ -39,7 +39,7 @@ Optional<AlertRulePoints> ToPoints(const Optional<AlertRulePercents>& percents, 
 String GetParameterName(const ResourceIdentifier& id)
 {
     if (id.mPartitionName.HasValue()) {
-        return id.mPartitionName.GetValue();
+        return id.mPartitionName.GetValue(); // NOSONAR cpp:S5912 - String serves as a view over StaticString
     }
 
     return id.mType.ToString();
