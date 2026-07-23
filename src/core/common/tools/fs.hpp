@@ -202,7 +202,7 @@ public:
      *
      * @param other iterator to move from.
      */
-    DirIterator(DirIterator&& other);
+    DirIterator(DirIterator&& other) noexcept;
 
     /**
      * Move assignment.
@@ -210,7 +210,7 @@ public:
      * @param other iterator to move from.
      * @return DirIterator&.
      */
-    DirIterator& operator=(DirIterator&& other);
+    DirIterator& operator=(DirIterator&& other) noexcept;
 
     /**
      * Destructor.
