@@ -88,7 +88,9 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
                 return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
             }
 
-            servicePermissions = it.mPermissions;
+            if (auto err = servicePermissions.Assign(it.mPermissions); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
 
             return ErrorEnum::eNone;
         }
