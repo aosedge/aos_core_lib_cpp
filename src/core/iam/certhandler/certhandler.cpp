@@ -18,7 +18,6 @@ namespace aos::iam::certhandler {
 CertHandler::CertHandler(AllocatorItf& allocator)
     : mAllocator(&allocator)
 {
-    srand(time(nullptr));
 }
 
 Error CertHandler::RegisterModule(CertModule& certModule)

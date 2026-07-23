@@ -5,9 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdlib.h>
-#include <time.h>
-
 #if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
 #include <dlfcn.h>
 #endif
@@ -236,28 +233,18 @@ Array<uint8_t> ConvertToAttributeValue(T& val)
  * GenPIN
  **********************************************************************************************************************/
 
-Error GenPIN(String& pin)
+Error GenPIN(crypto::RandomItf& random, String& pin)
 {
     const auto cPinLength = Min<size_t>(cGenPINLen, pin.MaxSize());
 
-    pin.Clear();
+    StaticArray<uint8_t, cGenPINLen / 2> buffer;
 
-    srand(::time(nullptr)); // use current time as seed for random generator
+    if (auto err = random.RandBuffer(buffer, cPinLength / 2); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-    StaticString<sizeof(unsigned) * 2> chunk;
-
-    while (pin.Size() < cPinLength) {
-        unsigned value     = rand();
-        auto     byteArray = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-
-        auto err = chunk.ByteArrayToHex(byteArray);
-        if (!err.IsNone()) {
-            return err;
-        }
-
-        auto chunkSize = Min(cPinLength - pin.Size(), chunk.Size());
-
-        pin.Insert(pin.end(), chunk.begin(), chunk.begin() + chunkSize);
+    if (auto err = pin.ByteArrayToHex(buffer); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;

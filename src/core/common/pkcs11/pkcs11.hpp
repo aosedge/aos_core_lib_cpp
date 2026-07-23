@@ -134,10 +134,11 @@ using SlotID = CK_SLOT_ID;
 /**
  * Generates random unique PIN.
  *
+ * @param random random generator.
  * @param[out] pin result pin.
  * @return Error.
  */
-Error GenPIN(String& pin);
+Error GenPIN(crypto::RandomItf& random, String& pin);
 
 /**
  * Any version information related to PKCS11 library.
