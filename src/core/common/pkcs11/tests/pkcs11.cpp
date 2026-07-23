@@ -314,7 +314,7 @@ TEST_F(PKCS11Test, GenPIN)
     for (int i = 0; i < cTestPINsNum; i++) {
         StaticString<cPINSize> pin;
 
-        ASSERT_TRUE(GenPIN(pin).IsNone());
+        ASSERT_TRUE(GenPIN(*mCryptoProvider, pin).IsNone());
 
         pins.push_back(pin);
     }
