@@ -13,6 +13,7 @@
 #include <core/common/tools/thread.hpp>
 
 #include "node.hpp"
+#include "overrideenvvarsprocessor.hpp"
 
 namespace aos::cm::launcher {
 
@@ -30,11 +31,12 @@ public:
      *
      * @param nodeInfoProvider node info provider.
      * @param nodeConfigProvider node config provider.
-     * @param storageState storage state interface.
      * @param runner instance runner interface.
+     * @param overrideEnvVarsProcessor override env vars processor.
      */
     void Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner);
+        unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner,
+        OverrideEnvVarsProcessor& overrideEnvVarsProcessor);
 
     /**
      * Starts node manager.
@@ -150,9 +152,12 @@ private:
     Error FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
         ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor);
 
+    Error ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instances);
+
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
     unitconfig::NodeConfigProviderItf*     mNodeConfigProvider {};
     InstanceRunnerItf*                     mRunner {};
+    OverrideEnvVarsProcessor*              mOverrideEnvVarsProcessor {};
 
     StaticAllocator<cAllocatorSize>     mAllocator;
     StaticAllocator<cNodeAllocatorSize> mNodeAllocator;

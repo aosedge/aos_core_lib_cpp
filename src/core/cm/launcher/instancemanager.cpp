@@ -570,10 +570,6 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
-    if (auto [_, err] = newInstance->OverrideEnvVars(mEnvVarsOverrides); !err.IsNone()) {
-        return {{}, AOS_ERROR_WRAP(err)};
-    }
-
     return newInstance;
 }
 
@@ -651,10 +647,6 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
 
 Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& node, const String& runtimeID)
 {
-    if (auto [_, overrideErr] = instance->OverrideEnvVars(mEnvVarsOverrides); !overrideErr.IsNone()) {
-        return AOS_ERROR_WRAP(overrideErr);
-    }
-
     if (auto err = instance->Schedule(node, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -675,17 +667,6 @@ Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Err
     }
 
     return ErrorEnum::eNone;
-}
-
-bool InstanceManager::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
-{
-    if (mEnvVarsOverrides.mItems == envVars.mItems) {
-        return false;
-    }
-
-    mEnvVarsOverrides = envVars;
-
-    return true;
 }
 
 SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id, const String& version)
