@@ -128,6 +128,21 @@ public:
      * @return Error.
      */
     virtual Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) = 0;
+
+    /**
+     * Opens a batch; start/stop operations are staged and applied on flush.
+     *
+     * @return Error.
+     */
+    virtual Error BeginBatch() = 0;
+
+    /**
+     * Flushes the staged batch atomically across firewall, traffic and storage.
+     *
+     * @param[out] failedInstanceIDs instances that were not applied.
+     * @return Error.
+     */
+    virtual Error FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs) = 0;
 };
 
 /** @}*/

@@ -166,6 +166,21 @@ public:
     Error ReleaseInstanceNetwork(const String& instanceID, const String& networkID) override;
 
     /**
+     * Opens a batch for start/stop operations.
+     *
+     * @return Error.
+     */
+    Error BeginBatch() override;
+
+    /**
+     * Flushes the staged batch.
+     *
+     * @param[out] failedInstanceIDs instances that were not applied.
+     * @return Error.
+     */
+    Error FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs) override;
+
+    /**
      * Called when pending firewall rules are resolved for an instance.
      *
      * @param nodeID node ID where the instance resides.
@@ -180,17 +195,17 @@ public:
     void OnConnect() override;
 
 private:
-    Error EnsureNodeNetwork(const String& networkID);
-    Error EnsureNodeNetworkPhysical(const String& networkID);
-    Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
-        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
-
-    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
-        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
-
     using InstanceHosts = StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>;
     using InstanceCache = StaticMap<StaticString<cIDLen>, InstanceHosts, cMaxNumInstances>;
     using NetworkCache  = StaticMap<StaticString<cIDLen>, InstanceCache, cMaxNumOwners>;
+
+    enum class BatchOp { eAdd, eRemove };
+
+    struct BatchEntry {
+        StaticString<cIDLen> mInstanceID;
+        StaticString<cIDLen> mNetworkID;
+        BatchOp              mOp;
+    };
 
     // StartInstanceNetwork keeps its cached InstanceNetworkInfo alive across the nested call to
     // AddInstanceToNetwork, which in turn allocates hosts, bridge/firewall/bandwidth/DNS params and
@@ -226,6 +241,15 @@ private:
     static constexpr auto     cVlanIfPrefix          = "vlan-";
     static constexpr auto     cResolvConfLineLen     = AOS_CONFIG_NETWORKMANAGER_RESOLV_CONF_LINE_LEN;
 
+    Error EnsureNodeNetwork(const String& networkID);
+    Error EnsureNodeNetworkPhysical(const String& networkID);
+    Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
+    Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
+    Error ReapplyInstancePolicy(const BatchEntry& entry);
+    void  ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs);
+    void  ClearBatchState();
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
     Error CleanupLeftoverInstances();
@@ -287,6 +311,8 @@ private:
     StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>                          mDNSServers;
     StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances * cMaxNumOwners> mInstanceNetworkInfos;
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                                       mPhysicalNetworks;
+    bool                                                                                   mBatchMode {false};
+    StaticArray<BatchEntry, cMaxNumInstances * cMaxNumOwners>                              mBatchEntries;
     StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
     StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 

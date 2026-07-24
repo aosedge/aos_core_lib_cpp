@@ -192,6 +192,8 @@ protected:
         EXPECT_CALL(mNetworkManager, StartInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mNetworkManager, StopInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mNetworkManager, ReleaseInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mNetworkManager, BeginBatch()).WillRepeatedly(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mNetworkManager, FlushBatch(_)).WillRepeatedly(Return(ErrorEnum::eNone));
     }
 
     StaticArray<RuntimeItf*, cMaxNumNodeRuntimes> GetRuntimesArray()
@@ -392,6 +394,65 @@ TEST_F(LauncherTest, LauncherStartsStoredInstancesOnModuleStart)
 
     for (size_t i = 0; i < mReceivedStatuses.Size(); ++i) {
         EXPECT_EQ(mReceivedStatuses[i], cExpectedStatuses[i]);
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[1]), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartNetworks_FlushFailure_FailsInstance)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider,
+        mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mInstanceIDProvider, GetInstanceID)
+        .WillRepeatedly(Invoke([](const InstanceIdent& instance, String& instanceID) {
+            instanceID = instance.mItemID;
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mNetworkManager, FlushBatch(_))
+        .WillRepeatedly(DoAll(WithArg<0>([](auto& failedInstanceIDs) { failedInstanceIDs.PushBack("item0"); }),
+            Return(ErrorEnum::eNone)));
+
+    EXPECT_CALL(mNetworkManager, StopInstanceNetwork(String("item0"), _))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mRuntime1, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
+
+    for (const auto& status : mReceivedStatuses) {
+        if (status.mItemID == "item0") {
+            EXPECT_EQ(status.mState, InstanceStateEnum::eFailed);
+        } else {
+            EXPECT_EQ(status.mState, InstanceStateEnum::eActive);
+        }
     }
 
     EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))

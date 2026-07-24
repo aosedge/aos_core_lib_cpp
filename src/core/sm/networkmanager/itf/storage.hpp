@@ -203,6 +203,27 @@ public:
     virtual Error RemoveTrafficMonitorData(const String& chain) = 0;
 
     /**
+     * Begins a storage transaction; subsequent writes are staged until commit.
+     *
+     * @return Error.
+     */
+    virtual Error BeginTransaction() = 0;
+
+    /**
+     * Commits the current storage transaction.
+     *
+     * @return Error.
+     */
+    virtual Error CommitTransaction() = 0;
+
+    /**
+     * Rolls back the current storage transaction, discarding staged writes.
+     *
+     * @return Error.
+     */
+    virtual Error RollbackTransaction() = 0;
+
+    /**
      * Destroys storage interface.
      */
     virtual ~StorageItf() = default;

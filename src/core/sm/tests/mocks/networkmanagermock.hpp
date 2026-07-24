@@ -28,6 +28,8 @@ public:
     MOCK_METHOD(Error, GetHosts, (const String& instanceID, Array<Host>& hosts), (const, override));
     MOCK_METHOD(Error, StopInstanceNetwork, (const String& instanceID, const String& networkID), (override));
     MOCK_METHOD(Error, ReleaseInstanceNetwork, (const String& instanceID, const String& networkID), (override));
+    MOCK_METHOD(Error, BeginBatch, (), (override));
+    MOCK_METHOD(Error, FlushBatch, (Array<StaticString<cIDLen>> & failedInstanceIDs), (override));
     MOCK_METHOD(void, OnPendingFirewallUpdate,
         (const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update), (override));
     MOCK_METHOD(void, OnConnect, (), (override));

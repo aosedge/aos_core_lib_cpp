@@ -225,6 +225,7 @@ private:
 
     InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent);
     InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent) const;
+    InstanceData*      FindInstanceDataByID(const String& instanceID);
     RuntimeItf*        FindInstanceRuntime(const String& runtimeID);
     RuntimeItf*        FindInstanceRuntime(const String& runtimeID) const;
     RuntimeItf*        FindInstanceRuntime(const InstanceIdent& instanceIdent);

@@ -281,6 +281,17 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
 
     err = AddInstanceToNetwork(instanceID, networkID, cachedInfo->mNetworkConfig, cachedInfo->mAllocatedParams);
 
+    if (err.IsNone()) {
+        LockGuard lock {mMutex};
+
+        if (mBatchMode) {
+            if (auto errBatch = mBatchEntries.PushBack({instanceID, networkID, BatchOp::eAdd}); !errBatch.IsNone()) {
+                LOG_ERR() << "Failed to register batch entry" << Log::Field("instanceID", instanceID)
+                          << Log::Field(errBatch);
+            }
+        }
+    }
+
     return err;
 }
 
@@ -411,6 +422,17 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
         }
     }
 
+    {
+        LockGuard lock {mMutex};
+
+        if (mBatchMode) {
+            if (auto errBatch = mBatchEntries.PushBack({instanceID, networkID, BatchOp::eRemove}); !errBatch.IsNone()) {
+                LOG_ERR() << "Failed to register batch entry" << Log::Field("instanceID", instanceID)
+                          << Log::Field(errBatch);
+            }
+        }
+    }
+
     if (auto errRemove = RemoveInstanceFromCache(instanceID, networkID); !errRemove.IsNone() && err.IsNone()) {
         err = errRemove;
     }
@@ -507,6 +529,190 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
 
     if (auto err = mNetworkProvider->ReleaseNodeNetwork(networkID, mNodeID); !err.IsNone()) {
         LOG_WRN() << "Failed to release node network on CM" << Log::Field("networkID", networkID) << Log::Field(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::BeginBatch()
+{
+    Error err;
+
+    {
+        LockGuard lock {mMutex};
+
+        mBatchEntries.Clear();
+        mBatchMode = true;
+    }
+
+    auto cleanupBatchMode = DeferRelease(this, [&err](NetworkManager* self) {
+        if (!err.IsNone()) {
+            LockGuard lock {self->mMutex};
+
+            self->mBatchMode = false;
+        }
+    });
+
+    if (err = mStorage->BeginTransaction(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupStorage = DeferRelease(this, [&err](NetworkManager* self) {
+        if (!err.IsNone()) {
+            self->mStorage->RollbackTransaction();
+        }
+    });
+
+    if (err = mFirewall->BeginBatch(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupFirewall = DeferRelease(this, [&err](NetworkManager* self) {
+        if (!err.IsNone()) {
+            self->mFirewall->AbortBatch();
+        }
+    });
+
+    if (err = mNetMonitor->BeginBatch(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
+{
+    failedInstanceIDs.Clear();
+
+    if (auto err = mFirewall->FlushBatch(); !err.IsNone()) {
+        LOG_ERR() << "Failed to flush firewall batch" << Log::Field(err);
+
+        mNetMonitor->AbortBatch();
+        mStorage->RollbackTransaction();
+
+        ReapplyBatchEntries(failedInstanceIDs);
+        ClearBatchState();
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mNetMonitor->FlushBatch(); !err.IsNone()) {
+        LOG_ERR() << "Failed to flush traffic monitor batch" << Log::Field(err);
+
+        mFirewall->Revert();
+        mStorage->RollbackTransaction();
+
+        ReapplyBatchEntries(failedInstanceIDs);
+        ClearBatchState();
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mStorage->CommitTransaction(); !err.IsNone()) {
+        LOG_ERR() << "Failed to commit batch transaction" << Log::Field(err);
+
+        mFirewall->Revert();
+        mNetMonitor->Revert();
+        mStorage->RollbackTransaction();
+
+        for (const auto& entry : mBatchEntries) {
+            failedInstanceIDs.PushBack(entry.mInstanceID);
+        }
+    }
+
+    ClearBatchState();
+
+    return ErrorEnum::eNone;
+}
+
+void NetworkManager::ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs)
+{
+    for (const auto& entry : mBatchEntries) {
+        if (auto err = ReapplyInstancePolicy(entry); !err.IsNone()) {
+            LOG_ERR() << "Failed to reapply instance policy" << Log::Field("instanceID", entry.mInstanceID)
+                      << Log::Field(err);
+
+            failedInstanceIDs.PushBack(entry.mInstanceID);
+        }
+    }
+}
+
+void NetworkManager::ClearBatchState()
+{
+    LockGuard lock {mMutex};
+
+    mBatchMode = false;
+    mBatchEntries.Clear();
+}
+
+Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
+{
+    if (entry.mOp == BatchOp::eRemove) {
+        Error err;
+
+        if (auto errFW = mFirewall->RemoveInstance(entry.mInstanceID); !errFW.IsNone()) {
+            err = errFW;
+        }
+
+        if (auto errTR = mNetMonitor->StopInstanceMonitoring(entry.mInstanceID); !errTR.IsNone() && err.IsNone()) {
+            err = errTR;
+        }
+
+        return err;
+    }
+
+    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mInstanceNetworkInfos.Find(entry.mInstanceID);
+        if (it == mInstanceNetworkInfos.end()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance network info not found"));
+        }
+
+        *info = it->mSecond;
+    }
+
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
+
+    if (auto err = PrepareInstanceFirewallParams(info->mNetworkConfig, info->mAllocatedParams, *firewallParams);
+        !err.IsNone()) {
+        return err;
+    }
+
+    Error err;
+
+    if (err = mFirewall->AddInstance(entry.mInstanceID, *firewallParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupFirewall = DeferRelease(this, [&err, &entry](NetworkManager* self) {
+        if (!err.IsNone()) {
+            if (auto errRemove = self->mFirewall->RemoveInstance(entry.mInstanceID); !errRemove.IsNone()) {
+                LOG_ERR() << "Failed to remove firewall instance on rollback"
+                          << Log::Field("instanceID", entry.mInstanceID) << Log::Field(errRemove);
+            }
+        }
+    });
+
+    if (err = mNetMonitor->StartInstanceMonitoring(entry.mInstanceID, info->mAllocatedParams.mIP,
+            info->mNetworkConfig.mDownloadLimit, info->mNetworkConfig.mUploadLimit);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto cleanupMonitoring = DeferRelease(this, [&err, &entry](NetworkManager* self) {
+        if (!err.IsNone()) {
+            if (auto errStop = self->mNetMonitor->StopInstanceMonitoring(entry.mInstanceID); !errStop.IsNone()) {
+                LOG_ERR() << "Failed to stop instance monitoring on rollback"
+                          << Log::Field("instanceID", entry.mInstanceID) << Log::Field(errStop);
+            }
+        }
+    });
+
+    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -716,13 +922,16 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return AOS_ERROR_WRAP(err);
     }
 
-    auto cleanupBandwidth = DeferRelease(&attachResult.mHostIfName, [this, &err](const String* ifName) {
-        if (!err.IsNone()) {
-            if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
-                LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
-            }
-        }
-    });
+    const bool bandwidthApplied = bandwidthParams->mIngressRate > 0 || bandwidthParams->mEgressRate > 0;
+
+    auto cleanupBandwidth
+        = DeferRelease(&attachResult.mHostIfName, [this, &err, bandwidthApplied](const String* ifName) {
+              if (!err.IsNone() && bandwidthApplied) {
+                  if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
+                      LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
+                  }
+              }
+          });
 
     DNSServerItf* dnsServer = nullptr;
 
@@ -842,25 +1051,20 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
 
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
 {
-    StaticString<cInterfaceLen> bridgeIfName;
     StaticString<cInterfaceLen> hostIfName;
-    DNSServerItf*               dnsServer = nullptr;
+    DNSServerItf*               dnsServer    = nullptr;
+    bool                        hasBandwidth = false;
 
     {
         LockGuard lock {mMutex};
-
-        if (auto it = mNetworkProviders.Find(networkID); it != mNetworkProviders.end()) {
-            bridgeIfName = it->mSecond.mBridgeIfName;
-        } else {
-            LOG_WRN() << "Network provider not found for cleanup" << Log::Field("networkID", networkID);
-        }
 
         if (auto it = mDNSServers.Find(networkID); it != mDNSServers.end()) {
             dnsServer = it->mSecond;
         }
 
         if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            hostIfName = it->mSecond.mHostIfName;
+            hostIfName   = it->mSecond.mHostIfName;
+            hasBandwidth = it->mSecond.mNetworkConfig.mIngressKbit > 0 || it->mSecond.mNetworkConfig.mEgressKbit > 0;
         } else {
             LOG_WRN() << "Instance network info not found for cleanup" << Log::Field("instanceID", instanceID);
         }
@@ -878,20 +1082,23 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
                       << Log::Field("networkID", networkID);
         }
 
-        if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
-            err = AOS_ERROR_WRAP(errClear);
+        if (hasBandwidth) {
+            if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
+                err = AOS_ERROR_WRAP(errClear);
+            }
         }
 
         if (auto errRemove = mFirewall->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
             err = AOS_ERROR_WRAP(errRemove);
         }
 
-        if (!bridgeIfName.IsEmpty()) {
-            if (auto errDetach = mBridgeNetwork->Detach(instanceID, bridgeIfName);
-                !errDetach.IsNone() && err.IsNone()) {
-                err = AOS_ERROR_WRAP(errDetach);
-            }
-        }
+        // The host veth is intentionally NOT detached here. DeleteNetworkNamespace
+        // below drops the instance netns (lazy umount); the kernel then reaps the
+        // peer veth - and with it the host end, since they die as a pair -
+        // asynchronously via cleanup_net, off the critical stop path. A synchronous
+        // delete here would block on a per-device RCU grace period for every
+        // instance (O(N) rtnl_lock serialization on mass teardown) for no benefit,
+        // as the namespace teardown already removes the interface.
     } else {
         LOG_DBG() << "Instance was never started, skipping itf cleanup" << Log::Field("instanceID", instanceID);
     }
