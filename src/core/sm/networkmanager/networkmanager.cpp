@@ -569,7 +569,7 @@ Error NetworkManager::BeginBatch()
 
     auto cleanupFirewall = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            self->mFirewall->Revert();
+            self->mFirewall->AbortBatch();
         }
     });
 
@@ -584,60 +584,65 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
 {
     failedInstanceIDs.Clear();
 
-    Error err;
-    bool  firewallApplied = false;
-    bool  trafficApplied  = false;
+    if (auto err = mFirewall->FlushBatch(); !err.IsNone()) {
+        LOG_ERR() << "Failed to flush firewall batch" << Log::Field(err);
 
-    {
-        auto cleanupFirewall = DeferRelease(this, [&err, &firewallApplied](NetworkManager* self) {
-            if (!err.IsNone() && firewallApplied) {
-                self->mFirewall->Revert();
-            }
-        });
+        mNetMonitor->AbortBatch();
+        mStorage->RollbackTransaction();
 
-        auto cleanupTraffic = DeferRelease(this, [&err, &trafficApplied](NetworkManager* self) {
-            if (!err.IsNone() && trafficApplied) {
-                self->mNetMonitor->Revert();
-            }
-        });
+        ReapplyBatchEntries(failedInstanceIDs);
+        ClearBatchState();
 
-        if (err = mFirewall->FlushBatch(); err.IsNone()) {
-            firewallApplied = true;
-
-            if (err = mNetMonitor->FlushBatch(); err.IsNone()) {
-                trafficApplied = true;
-
-                err = mStorage->CommitTransaction();
-            }
-        }
-
-        if (!err.IsNone() && (!firewallApplied || !trafficApplied)) {
-            mStorage->RollbackTransaction();
-        }
+        return ErrorEnum::eNone;
     }
 
-    if (!err.IsNone()) {
-        if (firewallApplied && trafficApplied) {
-            for (const auto& entry : mBatchEntries) {
-                failedInstanceIDs.PushBack(entry.mInstanceID);
-            }
-        } else {
-            for (const auto& entry : mBatchEntries) {
-                if (auto errReapply = ReapplyInstancePolicy(entry); !errReapply.IsNone()) {
-                    failedInstanceIDs.PushBack(entry.mInstanceID);
-                }
-            }
+    if (auto err = mNetMonitor->FlushBatch(); !err.IsNone()) {
+        LOG_ERR() << "Failed to flush traffic monitor batch" << Log::Field(err);
+
+        mFirewall->Revert();
+        mStorage->RollbackTransaction();
+
+        ReapplyBatchEntries(failedInstanceIDs);
+        ClearBatchState();
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mStorage->CommitTransaction(); !err.IsNone()) {
+        LOG_ERR() << "Failed to commit batch transaction" << Log::Field(err);
+
+        mFirewall->Revert();
+        mNetMonitor->Revert();
+        mStorage->RollbackTransaction();
+
+        for (const auto& entry : mBatchEntries) {
+            failedInstanceIDs.PushBack(entry.mInstanceID);
         }
     }
 
-    {
-        LockGuard lock {mMutex};
-
-        mBatchMode = false;
-        mBatchEntries.Clear();
-    }
+    ClearBatchState();
 
     return ErrorEnum::eNone;
+}
+
+void NetworkManager::ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs)
+{
+    for (const auto& entry : mBatchEntries) {
+        if (auto err = ReapplyInstancePolicy(entry); !err.IsNone()) {
+            LOG_ERR() << "Failed to reapply instance policy" << Log::Field("instanceID", entry.mInstanceID)
+                      << Log::Field(err);
+
+            failedInstanceIDs.PushBack(entry.mInstanceID);
+        }
+    }
+}
+
+void NetworkManager::ClearBatchState()
+{
+    LockGuard lock {mMutex};
+
+    mBatchMode = false;
+    mBatchEntries.Clear();
 }
 
 Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)

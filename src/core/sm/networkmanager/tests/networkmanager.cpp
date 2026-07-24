@@ -513,6 +513,7 @@ TEST_F(NetworkManagerTest, BeginFlushBatch_ForwardToBackends)
     EXPECT_CALL(mFirewall, FlushBatch()).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mTrafficMonitor, FlushBatch()).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mStorage, CommitTransaction()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, AbortBatch()).Times(0);
 
     aos::StaticArray<aos::StaticString<aos::cIDLen>, aos::cMaxNumInstances> failed;
 
@@ -594,6 +595,8 @@ TEST_F(NetworkManagerTest, FlushBatch_NftFailure_RevertsAndFallsBack)
     ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID2, networkID), aos::ErrorEnum::eNone);
 
     EXPECT_CALL(mFirewall, FlushBatch()).WillOnce(Return(aos::ErrorEnum::eRuntime));
+    EXPECT_CALL(mTrafficMonitor, AbortBatch()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, FlushBatch()).Times(0);
     EXPECT_CALL(mStorage, RollbackTransaction()).WillOnce(Return(aos::ErrorEnum::eNone));
 
     aos::StaticArray<aos::StaticString<aos::cIDLen>, aos::cMaxNumInstances> failed;
@@ -601,6 +604,67 @@ TEST_F(NetworkManagerTest, FlushBatch_NftFailure_RevertsAndFallsBack)
     EXPECT_EQ(mNetManager->FlushBatch(failed), aos::ErrorEnum::eNone);
     ASSERT_EQ(failed.Size(), 1U);
     EXPECT_EQ(failed[0], instanceID2);
+}
+
+TEST_F(NetworkManagerTest, FlushBatch_NftFailure_AbortsTrafficBatchBeforeReapply)
+{
+    const aos::String instanceID      = "test-instance";
+    const aos::String networkID       = "test-network";
+    auto              params          = CreateTestInstanceNetworkConfig();
+    auto              allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks(networkID, allocatedParams.mSubnet, "192.168.1.1", 100ULL);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, networkID, aos::String("test-node"), _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork(instanceID, networkID, params), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mStorage, BeginTransaction()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, BeginBatch()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, BeginBatch()).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->BeginBatch(), aos::ErrorEnum::eNone);
+
+    SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", allocatedParams.mSubnet, 100ULL);
+
+    BridgeAttachResult attachResult;
+    attachResult.mHostIfName      = "veth-test";
+    attachResult.mContainerIfName = "eth0";
+
+    EXPECT_CALL(mBridgeNetwork, Attach(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<2>(attachResult), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mBandwidth, Apply(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mDNSServer, AddHost(_, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
+        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mFirewall, AddInstance(instanceID, _)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+
+    // The batch is dead once the firewall flush fails, so the traffic batch must be dropped before
+    // the per-instance fallback re-applies monitoring, otherwise the re-apply is staged and lost.
+    Sequence trafficSeq;
+
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(instanceID, _, _, _))
+        .InSequence(trafficSeq)
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, AbortBatch()).InSequence(trafficSeq).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(instanceID, _, _, _))
+        .InSequence(trafficSeq)
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID, networkID), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mFirewall, FlushBatch()).WillOnce(Return(aos::ErrorEnum::eRuntime));
+    EXPECT_CALL(mTrafficMonitor, FlushBatch()).Times(0);
+    EXPECT_CALL(mStorage, RollbackTransaction()).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    aos::StaticArray<aos::StaticString<aos::cIDLen>, aos::cMaxNumInstances> failed;
+
+    EXPECT_EQ(mNetManager->FlushBatch(failed), aos::ErrorEnum::eNone);
+    EXPECT_TRUE(failed.IsEmpty());
 }
 
 TEST_F(NetworkManagerTest, FlushBatch_CommitFailure_MarksAllFailed)
@@ -655,6 +719,8 @@ TEST_F(NetworkManagerTest, FlushBatch_CommitFailure_MarksAllFailed)
     EXPECT_CALL(mStorage, CommitTransaction()).WillOnce(Return(aos::ErrorEnum::eRuntime));
     EXPECT_CALL(mFirewall, Revert()).WillOnce(Return(aos::ErrorEnum::eNone));
     EXPECT_CALL(mTrafficMonitor, Revert()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RollbackTransaction()).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mTrafficMonitor, AbortBatch()).Times(0);
 
     aos::StaticArray<aos::StaticString<aos::cIDLen>, aos::cMaxNumInstances> failed;
 

@@ -248,6 +248,8 @@ private:
     Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
     Error ReapplyInstancePolicy(const BatchEntry& entry);
+    void  ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs);
+    void  ClearBatchState();
     Error IsInstanceInNetwork(const String& instanceID, const String& networkID) const;
     Error AddInstanceToCache(const String& instanceID, const String& networkID);
     Error CleanupLeftoverInstances();
