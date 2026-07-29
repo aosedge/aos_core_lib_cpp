@@ -162,11 +162,13 @@ protected:
         EXPECT_CALL(mRuntime0, Stop).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mRuntime0, GetRuntimeInfo)
             .WillRepeatedly(DoAll(SetArgReferee<0>(CreateRuntimeInfo("runtime0")), Return(ErrorEnum::eNone)));
+        EXPECT_CALL(mRuntime0, InitInstances).WillRepeatedly(Return(ErrorEnum::eNone));
 
         EXPECT_CALL(mRuntime1, Start).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mRuntime1, Stop).WillRepeatedly(Return(ErrorEnum::eNone));
         EXPECT_CALL(mRuntime1, GetRuntimeInfo)
             .WillRepeatedly(DoAll(SetArgReferee<0>(CreateRuntimeInfo("runtime1")), Return(ErrorEnum::eNone)));
+        EXPECT_CALL(mRuntime1, InitInstances).WillRepeatedly(Return(ErrorEnum::eNone));
 
         mImageManifest.mItemConfig.EmplaceValue();
 
@@ -241,6 +243,63 @@ TEST_F(LauncherTest, NoStoredInstancesOnModuleStart)
 
     err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, InitInstances)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+        CreateInstanceInfo("item2", 2, "1.0.0", "runtime0"),
+    };
+
+    const std::vector cRuntime0Infos = {cStoredInfos[0], cStoredInfos[2]};
+    const std::vector cRuntime1Infos = {cStoredInfos[1]};
+
+    mStorage.Init(cStoredInfos);
+
+    auto err = mLauncher.Init(GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec, mItemInfoProvider,
+        mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, InitInstances(Array<InstanceInfo>(&cRuntime0Infos.front(), cRuntime0Infos.size())))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, InitInstances(Array<InstanceInfo>(&cRuntime1Infos.front(), cRuntime1Infos.size())))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mRuntime1, StartInstance)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StopInstance)
+        .WillRepeatedly(Invoke([](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mRuntime1, StopInstance)
+        .WillRepeatedly(Invoke([](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            return ErrorEnum::eNone;
+        }));
 
     err = mLauncher.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);

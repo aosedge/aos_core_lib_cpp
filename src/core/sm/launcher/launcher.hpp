@@ -173,7 +173,7 @@ private:
     static constexpr auto cMaxNumSubscribers = 4;
 
     static constexpr auto cAllocatorSize = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
-        + 2 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray)
+        + 3 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray)
         + cMaxNumConcurrentItems
             * (sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
                 + Max(sizeof(StaticString<cFilePathLen>) + sizeof(oci::ImageManifest),
@@ -181,7 +181,7 @@ private:
         + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
             sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
                 + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
-    static constexpr auto cMaxNumAllocations = 4 + cMaxNumConcurrentItems * 4;
+    static constexpr auto cMaxNumAllocations = 5 + cMaxNumConcurrentItems * 4;
 
     void  OnConnect() override;
     void  OnDisconnect() override;
@@ -233,6 +233,7 @@ private:
     void               StartTTLTimer();
     void               StopExpiredInstances(UniqueLock<Mutex>& lock);
     void               SendNodeInstancesStatuses();
+    void               InitInstances(const Array<InstanceInfo>& instancesInfo);
 
     StaticAllocator<cAllocatorSize, cMaxNumAllocations>                   mAllocator;
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;

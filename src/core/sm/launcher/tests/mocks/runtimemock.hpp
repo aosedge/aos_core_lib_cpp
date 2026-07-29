@@ -21,6 +21,7 @@ public:
     MOCK_METHOD(Error, Start, (), (override));
     MOCK_METHOD(Error, Stop, (), (override));
     MOCK_METHOD(Error, GetRuntimeInfo, (RuntimeInfo&), (const, override));
+    MOCK_METHOD(Error, InitInstances, (const Array<InstanceInfo>&), (override));
     MOCK_METHOD(Error, StartInstance, (const InstanceInfo&, InstanceStatus&), (override));
     MOCK_METHOD(Error, StopInstance, (const InstanceIdent&, InstanceStatus&), (override));
     MOCK_METHOD(Error, Reboot, (), (override));

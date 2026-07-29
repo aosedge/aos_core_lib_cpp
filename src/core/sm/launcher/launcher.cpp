@@ -79,6 +79,8 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
+    InitInstances(*storedInstances);
+
     lock.Unlock();
 
     LoadInstancesData(*storedInstances);
@@ -359,6 +361,33 @@ void Launcher::OnDisconnect()
     mOfflineTime = Time::Now();
 
     StartTTLTimer();
+}
+
+void Launcher::InitInstances(const Array<InstanceInfo>& instancesInfo)
+{
+    LOG_DBG() << "Init instances" << Log::Field("numInstances", instancesInfo.Size());
+
+    for (auto& it : mRuntimes) {
+        auto runtimeInstances = MakeUnique<InstanceInfoArray>(&mAllocator);
+
+        for (const auto& instanceInfo : instancesInfo) {
+            if (instanceInfo.mRuntimeID != it.mSecond) {
+                continue;
+            }
+
+            if (auto err = runtimeInstances->PushBack(instanceInfo); !err.IsNone()) {
+                LOG_ERR() << "Failed to add instance to runtime init list" << Log::Field("instance", instanceInfo)
+                          << Log::Field(AOS_ERROR_WRAP(err));
+
+                break;
+            }
+        }
+
+        if (auto err = it.mFirst->InitInstances(*runtimeInstances); !err.IsNone()) {
+            LOG_ERR() << "Failed to init instances" << Log::Field("runtimeID", it.mSecond)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
 }
 
 void Launcher::RunRebootThread()
