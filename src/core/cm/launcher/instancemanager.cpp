@@ -38,15 +38,17 @@ Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Pr
  * Public
  **********************************************************************************************************************/
 
-Error InstanceManager::Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-    IdentifierPoolValidator uidValidator, StorageItf& storage)
+Error InstanceManager::Init(AllocatorItf& allocator, const Config& config,
+    imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
+    oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator,
+    StorageItf& storage)
 {
-    mConfig  = config;
-    mStorage = &storage;
+    mAllocator = &allocator;
+    mConfig    = config;
+    mStorage   = &storage;
 
-    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
-    mStorageState.Init(storageState);
+    mImageInfoProvider.Init(allocator, itemInfoProvider, ociSpec);
+    mStorageState.Init(allocator, storageState);
 
     if (auto err = mUIDPool.Init(uidValidator); !err.IsNone()) {
         return err;
@@ -421,7 +423,7 @@ Error InstanceManager::LoadInstancesFromStorage()
     mActiveInstances.Clear();
     mCachedInstances.Clear();
 
-    auto instances = MakeUnique<StaticArray<InstanceInfo, cMaxNumInstances>>(&mAllocator);
+    auto instances = MakeUnique<StaticArray<InstanceInfo, cMaxNumInstances>>(mAllocator);
     if (!instances) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -559,12 +561,11 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
     switch (info.mInstanceIdent.mType.GetValue()) {
     case UpdateItemTypeEnum::eService:
         newInstance = MakeShared<ServiceInstance>(
-            &mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState, mImageInfoProvider, mInstanceAllocator);
+            mAllocator, *mAllocator, info, mUIDPool, mGIDPool, *mStorage, mStorageState, mImageInfoProvider);
         break;
 
     case UpdateItemTypeEnum::eComponent:
-        newInstance
-            = MakeShared<ComponentInstance>(&mAllocator, info, *mStorage, mImageInfoProvider, mInstanceAllocator);
+        newInstance = MakeShared<ComponentInstance>(mAllocator, *mAllocator, info, *mStorage, mImageInfoProvider);
         break;
 
     default:
@@ -736,7 +737,7 @@ uint64_t InstanceManager::FindIndexForNewInstance(const String& itemID, const St
 UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request)
 {
-    auto info = MakeUnique<InstanceInfo>(&mAllocator);
+    auto info = MakeUnique<InstanceInfo>(mAllocator);
     if (!info) {
         LOG_ERR() << "Can't allocate instance info" << Log::Field(ErrorEnum::eNoMemory);
 

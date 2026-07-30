@@ -12,6 +12,7 @@
 #include <core/common/tests/mocks/nodehandlermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/time.hpp>
 
 #include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
@@ -343,7 +344,7 @@ protected:
 
         Config config {cUnitStatusSendTimeout};
 
-        auto err = mUpdateManager.Init(config, mIdentProviderMock, mNodeHandlerMock, mUnitConfigMock,
+        auto err = mUpdateManager.Init(mAllocator, config, mIdentProviderMock, mNodeHandlerMock, mUnitConfigMock,
             mNodeInfoProviderMock, mImageManagerMock, mLauncherMock, mCloudConnectionMock, mSenderStub, mStorageStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize update manager: " << tests::utils::ErrorToStr(err);
 
@@ -428,6 +429,10 @@ protected:
         auto err = mUpdateManager.Stop();
         EXPECT_TRUE(err.IsNone()) << "Failed to stop update manager: " << tests::utils::ErrorToStr(err);
     }
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     UpdateManager                                    mUpdateManager;
     NiceMock<iamclient::IdentProviderMock>           mIdentProviderMock;

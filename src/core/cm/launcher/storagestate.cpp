@@ -14,8 +14,9 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void StorageState::Init(storagestate::StorageStateItf& storageState)
+void StorageState::Init(AllocatorItf& allocator, storagestate::StorageStateItf& storageState)
 {
+    mAllocator           = &allocator;
     mStorageStateManager = &storageState;
 }
 
@@ -38,10 +39,10 @@ Error StorageState::PrepareForBalancing()
     mAvailableStorage.Reset();
 
     if (mStorageStateManager->IsSamePartition()) {
-        mAvailableState = mAvailableStorage = MakeShared<size_t>(&mAllocator, 0);
+        mAvailableState = mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
     } else {
-        mAvailableState   = MakeShared<size_t>(&mAllocator, 0);
-        mAvailableStorage = MakeShared<size_t>(&mAllocator, 0);
+        mAvailableState   = MakeShared<size_t>(mAllocator, 0);
+        mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
     }
 
     if (!mAvailableState || !mAvailableStorage) {

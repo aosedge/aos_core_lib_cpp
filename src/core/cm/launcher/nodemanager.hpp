@@ -9,7 +9,7 @@
 
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
-#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 
 #include "node.hpp"
@@ -29,12 +29,13 @@ public:
     /**
      * Initializes node manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param nodeInfoProvider node info provider.
      * @param nodeConfigProvider node config provider.
      * @param runner instance runner interface.
      * @param overrideEnvVarsProcessor override env vars processor.
      */
-    void Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    void Init(AllocatorItf& allocator, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner,
         OverrideEnvVarsProcessor& overrideEnvVarsProcessor);
 
@@ -144,11 +145,6 @@ public:
 private:
     static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
 
-    static constexpr auto cAllocatorSize
-        = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + sizeof(UnitNodeInfo);
-
-    static constexpr auto cNodeAllocatorSize = sizeof(StaticArray<aos::InstanceInfo, cMaxNumInstances>) * 2;
-
     Error FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
         ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor);
 
@@ -159,8 +155,7 @@ private:
     InstanceRunnerItf*                     mRunner {};
     OverrideEnvVarsProcessor*              mOverrideEnvVarsProcessor {};
 
-    StaticAllocator<cAllocatorSize>     mAllocator;
-    StaticAllocator<cNodeAllocatorSize> mNodeAllocator;
+    AllocatorItf* mAllocator {};
 
     StaticArray<Node, cMaxNumNodes> mNodes;
 

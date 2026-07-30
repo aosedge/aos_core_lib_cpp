@@ -15,6 +15,7 @@
 #include <core/common/tests/stubs/nodeinfoproviderstub.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #include <core/cm/nodeinfoprovider/nodeinfoprovider.hpp>
 
@@ -93,6 +94,10 @@ class CMNodeInfoProviderTest : public Test {
 protected:
     void SetUp() override { tests::utils::InitLog(); }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     iamclient::NodeInfoProviderStub mIAMNodeInfoProvider;
     NodeInfoListenerStub            mListener;
     Config                          mConfig {Time::cMilliseconds * 100};
@@ -116,7 +121,7 @@ TEST_F(CMNodeInfoProviderTest, KnownInstancesAreProcessedOnStart)
         mIAMNodeInfoProvider.SetNodeInfo(*node);
     }
 
-    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.SubscribeListener(mListener);
@@ -155,7 +160,7 @@ TEST_F(CMNodeInfoProviderTest, GetAllNodeIDs)
     mIAMNodeInfoProvider.SetNodeInfo(*CreateNodeInfo("node1", NodeStateEnum::eProvisioned, true));
     mIAMNodeInfoProvider.SetNodeInfo(*CreateNodeInfo("node2", NodeStateEnum::eProvisioned, true));
 
-    err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();
@@ -177,7 +182,7 @@ TEST_F(CMNodeInfoProviderTest, GetNodeInfo)
     mIAMNodeInfoProvider.SetNodeInfo(*CreateNodeInfo("node1", NodeStateEnum::eProvisioned, true));
     mIAMNodeInfoProvider.SetNodeInfo(*CreateNodeInfo("node2", NodeStateEnum::eProvisioned, true));
 
-    auto err = mNodeInfoProvider.Init(Config {Time::cDay}, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, Config {Time::cDay}, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();
@@ -208,7 +213,7 @@ TEST_F(CMNodeInfoProviderTest, NodeWithoutSMComponent)
 {
     auto nodeInfo = CreateNodeInfo("node1", NodeStateEnum::eProvisioned, true, false);
 
-    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();
@@ -237,7 +242,7 @@ TEST_F(CMNodeInfoProviderTest, NodeWithSMComponent)
         CreateNodeInfo("node2", NodeStateEnum::eError, false),
     };
 
-    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();
@@ -300,7 +305,7 @@ TEST_F(CMNodeInfoProviderTest, NodeSetToOnlineIfBothIAMAndSMAreReceived)
 
     auto cNodeInfo = CreateNodeInfo("node1", NodeStateEnum::eProvisioned, false);
 
-    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();
@@ -340,7 +345,7 @@ TEST_F(CMNodeInfoProviderTest, NodeSetToUnprovisionedIfSMNotConnectedButNodeInfo
 
     auto cNodeInfo = CreateNodeInfo("node1", NodeStateEnum::eUnprovisioned, true);
 
-    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();
@@ -367,7 +372,7 @@ TEST_F(CMNodeInfoProviderTest, NotifySubscribersOnceSMInfoReceived)
 {
     const auto cNodeInfo = CreateNodeInfo("node1", NodeStateEnum::eProvisioned, false);
 
-    auto err = mNodeInfoProvider.Init(mConfig, mIAMNodeInfoProvider);
+    auto err = mNodeInfoProvider.Init(mAllocator, mConfig, mIAMNodeInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mNodeInfoProvider.Start();

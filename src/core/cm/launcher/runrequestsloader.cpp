@@ -10,9 +10,10 @@
 
 namespace aos::cm::launcher {
 
-void RunRequestsLoader::Init(
-    StorageItf& storage, InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider)
+void RunRequestsLoader::Init(AllocatorItf& allocator, StorageItf& storage, InstanceManager& instanceManager,
+    ImageInfoProvider& imageInfoProvider)
 {
+    mAllocator         = &allocator;
     mStorage           = &storage;
     mInstanceManager   = &instanceManager;
     mImageInfoProvider = &imageInfoProvider;
@@ -88,7 +89,7 @@ void RunRequestsLoader::CreateInstances(const Array<Node>& nodes, Array<SharedPt
 Error RunRequestsLoader::GenerateInstances(
     const RunInstanceRequest& request, const Array<Node>& nodes, Array<SharedPtr<Instance>>& instances)
 {
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -97,12 +98,12 @@ Error RunRequestsLoader::GenerateInstances(
         return AOS_ERROR_WRAP(err);
     }
 
-    auto combinedRuntimes = MakeUnique<CombinedRuntimesArray>(&mAllocator);
+    auto combinedRuntimes = MakeUnique<CombinedRuntimesArray>(mAllocator);
     if (!combinedRuntimes) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto itemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    auto itemConfig = MakeUnique<oci::ItemConfig>(mAllocator);
     if (!itemConfig) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

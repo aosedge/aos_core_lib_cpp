@@ -23,10 +23,11 @@ auto FilterActiveNodes(Array<Node>& array)
  * Public
  **********************************************************************************************************************/
 
-void NodeManager::Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+void NodeManager::Init(AllocatorItf& allocator, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner,
     OverrideEnvVarsProcessor& overrideEnvVarsProcessor)
 {
+    mAllocator                = &allocator;
     mNodeInfoProvider         = &nodeInfoProvider;
     mNodeConfigProvider       = &nodeConfigProvider;
     mRunner                   = &runner;
@@ -35,7 +36,7 @@ void NodeManager::Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
 
 Error NodeManager::Start()
 {
-    auto nodes = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    auto nodes = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(mAllocator);
     if (!nodes) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -46,7 +47,7 @@ Error NodeManager::Start()
 
     LOG_DBG() << "Start node manager" << Log::Field("nodes", nodes->Size());
 
-    auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+    auto nodeInfo = MakeUnique<UnitNodeInfo>(mAllocator);
     if (!nodeInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -65,7 +66,7 @@ Error NodeManager::Start()
         // Add online provisioned node
         mNodes.EmplaceBack();
 
-        mNodes.Back().Init(nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
+        mNodes.Back().Init(*mAllocator, nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
         mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
@@ -115,7 +116,7 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(&mAllocator);
+        auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(mAllocator);
         if (!imageDescriptor) {
             LOG_ERR() << "Can't allocate image descriptor" << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
@@ -160,7 +161,7 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
             return AOS_ERROR_WRAP(err);
         }
 
-        mNodes.Back().Init(nodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
+        mNodes.Back().Init(*mAllocator, nodeID, *mNodeConfigProvider, *mRunner);
 
         node = FindNode(nodeID);
     }
@@ -351,7 +352,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
             return false;
         }
 
-        mNodes.Back().Init(info.mNodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
+        mNodes.Back().Init(*mAllocator, info.mNodeID, *mNodeConfigProvider, *mRunner);
         mNodes.Back().UpdateInfo(info);
 
         return true;
@@ -365,7 +366,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 Error NodeManager::FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
     ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor)
 {
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

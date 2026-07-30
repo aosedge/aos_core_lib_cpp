@@ -13,6 +13,7 @@
 #include <core/cm/unitconfig/unitconfig.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 using namespace testing;
 
@@ -119,6 +120,10 @@ protected:
         ASSERT_TRUE(err.IsNone()) << "Failed to create test config file";
     }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     StrictMock<cm::nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProvider;
     StrictMock<NodeConfigHandlerMock>                      mNodeConfigHandler;
     StrictMock<JSONProviderMock>                           mJSONProvider;
@@ -135,7 +140,7 @@ TEST_F(UnitConfigTest, InitWithValidConfig)
 
     SetupValidUnitConfig();
 
-    auto err = mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
+    auto err = mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 }
@@ -146,14 +151,14 @@ TEST_F(UnitConfigTest, InitWithInvalidConfig)
 
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
 
-    auto err = mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
+    auto err = mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 }
 
 TEST_F(UnitConfigTest, InitWithMissingConfigFile)
 {
-    auto err = mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
+    auto err = mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 
@@ -171,7 +176,8 @@ TEST_F(UnitConfigTest, GetUnitConfigStatusValid)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     UnitConfigStatus status;
     auto             err = mUnitConfig.GetUnitConfigStatus(status);
@@ -188,7 +194,7 @@ TEST_F(UnitConfigTest, GetUnitConfigStatusWithError)
 
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
 
-    auto err = mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
+    auto err = mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 
@@ -206,7 +212,8 @@ TEST_F(UnitConfigTest, GetNodeConfigByType)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     NodeConfig nodeConfig;
     auto       err = mUnitConfig.GetNodeConfig("", cTestNodeType, nodeConfig);
@@ -226,7 +233,8 @@ TEST_F(UnitConfigTest, GetNodeConfigByID)
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _))
         .WillOnce(DoAll(SetArgReferee<1>(config), Return(ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     NodeConfig nodeConfig;
     auto       err = mUnitConfig.GetNodeConfig(cTestNodeID, "", nodeConfig);
@@ -243,7 +251,8 @@ TEST_F(UnitConfigTest, GetNodeConfigNotFound)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     NodeConfig nodeConfig;
     auto       err = mUnitConfig.GetNodeConfig("nonexistent", "unknown", nodeConfig);
@@ -263,7 +272,8 @@ TEST_F(UnitConfigTest, CheckUnitConfigValidVersion)
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _))
         .WillOnce(DoAll(SetArgReferee<1>(config), Return(ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto newUnitConfig = CreateTestUnitConfigWithNodeID("2.0.0");
 
@@ -293,7 +303,8 @@ TEST_F(UnitConfigTest, CheckUnitConfigSameVersion)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto sameVersionConfig = CreateTestUnitConfig("1.0.0");
 
@@ -307,7 +318,8 @@ TEST_F(UnitConfigTest, CheckUnitConfigLowerVersion)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto lowerVersionConfig = CreateTestUnitConfig("0.9.0");
 
@@ -321,7 +333,8 @@ TEST_F(UnitConfigTest, UpdateUnitConfigSuccess)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto newUnitConfig = CreateTestUnitConfig("2.0.0");
 
@@ -347,7 +360,8 @@ TEST_F(UnitConfigTest, UpdateUnitConfigSameVersion)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto sameVersionConfig = CreateTestUnitConfig("1.0.0");
 
@@ -361,7 +375,8 @@ TEST_F(UnitConfigTest, OnNodeInfoChangedUpdatesConfig)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     UnitNodeInfo nodeInfo = CreateTestNodeInfo();
 
@@ -382,7 +397,8 @@ TEST_F(UnitConfigTest, OnNodeInfoChangedSkipsIfVersionMatches)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     UnitNodeInfo nodeInfo = CreateTestNodeInfo();
 
@@ -397,7 +413,8 @@ TEST_F(UnitConfigTest, OnNodeInfoChangedSkipsIfVersionMatches)
 
 TEST_F(UnitConfigTest, OnNodeInfoChangedSkipsWhenUnitConfigAbsent)
 {
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     UnitConfigStatus status;
     ASSERT_TRUE(mUnitConfig.GetUnitConfigStatus(status).IsNone());
@@ -415,7 +432,8 @@ TEST_F(UnitConfigTest, OnNodeInfoChangedWithUnitConfigError)
 
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     UnitNodeInfo nodeInfo = CreateTestNodeInfo();
 
@@ -428,7 +446,8 @@ TEST_F(UnitConfigTest, VersionComparisonPrerelease)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto prereleaseVersion = CreateTestUnitConfig("1.0.0-alpha");
     auto err               = mUnitConfig.CheckUnitConfig(prereleaseVersion);
@@ -445,7 +464,8 @@ TEST_F(UnitConfigTest, UpdateUnitConfigSkipsOfflineNodeThenSendsOnConnect)
 
     SetupValidUnitConfig();
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     auto newUnitConfig = CreateTestUnitConfig("2.0.0");
 
@@ -504,7 +524,8 @@ TEST_F(UnitConfigTest, CheckUnitConfigMultipleNodes)
     EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _))
         .WillOnce(DoAll(SetArgReferee<1>(config), Return(ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mUnitConfig.Init({cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
 
     aos::UnitConfig newUnitConfig;
     newUnitConfig.mVersion = "2.0.0";

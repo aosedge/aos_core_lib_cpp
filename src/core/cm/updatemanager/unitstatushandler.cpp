@@ -14,12 +14,13 @@ namespace aos::cm::updatemanager {
  * Public
  **********************************************************************************************************************/
 
-Error UnitStatusHandler::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
+Error UnitStatusHandler::Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
     imagemanager::ItemStatusProviderItf& itemStatusProvider,
     instancestatusprovider::ProviderItf& instanceStatusProvider, cloudconnection::CloudConnectionItf& cloudConnection,
     SenderItf& sender)
 {
+    mAllocator              = &allocator;
     mIdentProvider          = &identProvider;
     mUnitConfig             = &unitConfig;
     mNodeInfoProvider       = &nodeInfoProvider;
@@ -443,7 +444,7 @@ Error UnitStatusHandler::SetNodesInfo()
 
 Error UnitStatusHandler::SetUpdateItemsStatus()
 {
-    auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(&mAllocator);
+    auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(mAllocator);
     if (!itemsStatuses) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -470,7 +471,7 @@ Error UnitStatusHandler::SetInstancesStatus()
     mUnitStatus.mInstances.EmplaceValue();
     mUnitInstancesStatuses.Clear();
 
-    auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
     if (!instancesStatuses) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

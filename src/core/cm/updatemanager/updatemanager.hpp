@@ -27,6 +27,7 @@ public:
     /**
      * Initializes update manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config update manager configuration.
      * @param identProvider identity provider.
      * @param nodeHandler node handler.
@@ -39,10 +40,11 @@ public:
      * @param storage storage interface.
      * @return Error.
      */
-    Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, iamclient::NodeHandlerItf& nodeHandler,
-        unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
-        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender, StorageItf& storage);
+    Error Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
+        iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
+        nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
+        launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender,
+        StorageItf& storage);
 
     /**
      * Starts update manager.

@@ -31,12 +31,12 @@ auto FilterByNode(const Array<SharedPtr<Instance>>& array, const String& nodeID)
  * Public
  **********************************************************************************************************************/
 
-void Node::Init(const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
-    InstanceRunnerItf& instanceRunner, Allocator* allocator)
+void Node::Init(AllocatorItf& allocator, const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
+    InstanceRunnerItf& instanceRunner)
 {
     mNodeConfigProvider = &nodeConfigProvider;
     mInstanceRunner     = &instanceRunner;
-    mAllocator          = allocator;
+    mAllocator          = &allocator;
 
     mInfo.mNodeID = id;
     mInfo.mState  = NodeStateEnum::eUnprovisioned;

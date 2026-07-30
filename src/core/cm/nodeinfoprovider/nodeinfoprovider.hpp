@@ -7,7 +7,6 @@
 #ifndef AOS_CORE_CM_NODEINFOPROVIDER_NODEINFOPROVIDER_HPP_
 #define AOS_CORE_CM_NODEINFOPROVIDER_NODEINFOPROVIDER_HPP_
 
-#include <core/common/tools/allocator.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
@@ -34,11 +33,12 @@ public:
     /**
      * Initializes node info provider.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config configuration.
      * @param nodeInfoProvider IAM client node info provider.
      * @return Error.
      */
-    Error Init(const Config& config, iamclient::NodeInfoProviderItf& nodeInfoProvider);
+    Error Init(AllocatorItf& allocator, const Config& config, iamclient::NodeInfoProviderItf& nodeInfoProvider);
 
     /**
      * Starts node info provider.
@@ -112,8 +112,6 @@ public:
 
 private:
     static constexpr auto cListenersSize = 4;
-    static constexpr auto cAllocatorSize
-        = sizeof(UnitNodeInfo) + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>);
 
     void OnNodeInfoChanged(const NodeInfo& info) override;
 
@@ -124,7 +122,7 @@ private:
     void           Run();
 
     mutable Mutex                                                       mMutex;
-    StaticAllocator<cAllocatorSize>                                     mAllocator;
+    AllocatorItf*                                                       mAllocator {};
     Thread<>                                                            mThread;
     ConditionalVariable                                                 mCondVar;
     bool                                                                mRunning {};

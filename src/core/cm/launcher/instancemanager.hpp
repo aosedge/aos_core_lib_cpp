@@ -34,6 +34,7 @@ public:
     /**
      * Initializes the instance manager with configuration and required interfaces.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config Configuration object.
      * @param imageInfoProvider Interface for retrieving service information from images.
      * @param storageState Interface for managing storage and state partitions.
@@ -42,7 +43,7 @@ public:
      * @param storage Interface to persistent storage.
      * @return Error.
      */
-    Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
         storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
         IdentifierPoolValidator uidValidator, StorageItf& storage);
 
@@ -250,15 +251,6 @@ public:
 
 private:
     static constexpr auto cRemovePeriod = Time::cDay;
-    // LoadInstancesFromStorage: 1 StaticArray<InstanceInfo, cMaxNumInstances> alive throughout loop
-    // + up to cMaxNumInstances instances. CreateInstance(RunInstanceRequest): up to (cMaxNumInstances-1)
-    // existing instances + 1 InstanceInfo (CreateInfo) + 1 new instance. Both paths peak at
-    // cMaxNumInstances+1 simultaneous allocations.
-    static constexpr auto cAllocatorSize = sizeof(StaticArray<InstanceInfo, cMaxNumInstances>)
-        + Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances * 2;
-    static constexpr auto cMaxNumAllocations     = 2 * cMaxNumInstances + 1;
-    static constexpr auto cInstanceAllocatorSize = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
-        + sizeof(InstanceStatus) + sizeof(oci::ImageIndex) + sizeof(EnvVarArray);
 
     Error SetStatus(const InstanceStatus& status);
     Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status);
@@ -305,8 +297,7 @@ private:
     Timer mCleanInstancesTimer;
     Timer mInitTimer;
 
-    StaticAllocator<cAllocatorSize, cMaxNumAllocations> mAllocator;
-    StaticAllocator<cInstanceAllocatorSize>             mInstanceAllocator;
+    AllocatorItf* mAllocator {};
 
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mScheduledInstances;

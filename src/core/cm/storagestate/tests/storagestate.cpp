@@ -17,6 +17,7 @@
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 using namespace testing;
 
@@ -203,7 +204,7 @@ protected:
 
         tests::utils::InitLog();
 
-        EXPECT_TRUE(mCryptoProvider.Init().IsNone()) << "Failed to initialize crypto provider";
+        EXPECT_TRUE(mCryptoProvider.Init(mAllocator).IsNone()) << "Failed to initialize crypto provider";
 
         EXPECT_CALL(mFSPlatformMock, GetMountPoint)
             .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(cTestDir.c_str())));
@@ -254,6 +255,10 @@ protected:
         return ErrorEnum::eNone;
     }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     crypto::DefaultCryptoProvider mCryptoProvider;
     StorageStub                   mStorageStub;
     StrictMock<FSPlatformMock>    mFSPlatformMock;
@@ -269,7 +274,8 @@ protected:
 
 TEST_F(StorageStateTests, StartStop)
 {
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -291,7 +297,8 @@ TEST_F(StorageStateTests, StorageQuotaNotSet)
 
     EXPECT_CALL(mFSPlatformMock, SetUserQuota(_, setupParams.mUID, setupParams.mStateQuota)).Times(1);
 
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mSenderMock, SendStateRequest).WillOnce(Return(ErrorEnum::eNone));
@@ -317,7 +324,8 @@ TEST_F(StorageStateTests, StateQuotaNotSet)
 
     StaticString<cFilePathLen> storagePath, statePath;
 
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -352,7 +360,8 @@ TEST_F(StorageStateTests, StorageAndStateQuotaNotSet)
 
     StaticString<cFilePathLen> storagePath, statePath;
 
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSPlatformMock, SetUserQuota).Times(0);
@@ -375,7 +384,8 @@ TEST_F(StorageStateTests, SetupOnDifferentPartitions)
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("partition1")))
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("partition2")));
 
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -406,7 +416,8 @@ TEST_F(StorageStateTests, SetupFailsOnSetUserQuotaError)
 {
     constexpr auto cSetQuotaError = ErrorEnum::eOutOfRange;
 
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -426,7 +437,8 @@ TEST_F(StorageStateTests, SetupFailsOnSetUserQuotaError)
 
 TEST_F(StorageStateTests, SetupSameInstance)
 {
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -494,7 +506,8 @@ TEST_F(StorageStateTests, GetInstanceCheckSum)
     auto err = AddInstanceIdent(cInstanceIdent, "getchecksum-content");
     EXPECT_TRUE(err.IsNone()) << "Failed to add instance ident: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -521,7 +534,8 @@ TEST_F(StorageStateTests, Cleanup)
 {
     auto err = AddInstanceIdent(cInstanceIdent, "cleanup-content");
 
-    err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -553,7 +567,8 @@ TEST_F(StorageStateTests, Remove)
 {
     auto err = AddInstanceIdent(cInstanceIdent, "remove-content");
 
-    err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -585,7 +600,8 @@ TEST_F(StorageStateTests, UpdateState)
 
     auto err = AddInstanceIdent(cInstanceIdent, "outdated state content");
 
-    err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -624,7 +640,8 @@ TEST_F(StorageStateTests, UpdateState)
 
 TEST_F(StorageStateTests, AcceptStateUnknownInstance)
 {
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -647,7 +664,8 @@ TEST_F(StorageStateTests, AcceptStateChecksumMismatch)
 {
     auto err = AddInstanceIdent(cInstanceIdent, "initial state content");
 
-    err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
@@ -674,7 +692,8 @@ TEST_F(StorageStateTests, AcceptStateChecksumMismatch)
 
 TEST_F(StorageStateTests, AcceptStateWithRejectedStatus)
 {
-    auto err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    auto err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();
@@ -733,7 +752,8 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
     err = CalculateChecksum(cUpdateStateContent, updateStateContentChecksum);
     EXPECT_TRUE(err.IsNone()) << "Failed to calculate checksum: " << tests::utils::ErrorToStr(err);
 
-    err = mStorageState.Init(mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
     EXPECT_TRUE(err.IsNone()) << "Failed to initialize storage state: " << tests::utils::ErrorToStr(err);
 
     err = mStorageState.Start();

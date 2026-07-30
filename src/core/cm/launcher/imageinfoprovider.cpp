@@ -11,25 +11,27 @@
 
 namespace aos::cm::launcher {
 
-void ImageInfoProvider::Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec)
+void ImageInfoProvider::Init(
+    AllocatorItf& allocator, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec)
 {
+    mAllocator        = &allocator;
     mItemInfoProvider = &itemInfoProvider;
     mOCISpec          = &ociSpec;
 }
 
 Error ImageInfoProvider::GetImageConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ImageConfig& config)
 {
-    auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
     if (!manifestPath) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
     if (!manifest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto configPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    auto configPath = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
     if (!configPath) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -55,17 +57,17 @@ Error ImageInfoProvider::GetImageConfig(const oci::IndexContentDescriptor& image
 
 Error ImageInfoProvider::GetItemConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ItemConfig& itemConfig)
 {
-    auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
     if (!manifestPath) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
     if (!manifest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto servicePath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    auto servicePath = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
     if (!servicePath) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -95,12 +97,12 @@ Error ImageInfoProvider::GetItemConfig(const oci::IndexContentDescriptor& imageD
 
 Error ImageInfoProvider::GetImageIndex(const String& itemID, const String& version, oci::ImageIndex& imageIndex)
 {
-    auto indexDigest = MakeUnique<StaticString<oci::cDigestLen>>(&mAllocator);
+    auto indexDigest = MakeUnique<StaticString<oci::cDigestLen>>(mAllocator);
     if (!indexDigest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto indexPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    auto indexPath = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
     if (!indexPath) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

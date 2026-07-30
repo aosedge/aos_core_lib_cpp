@@ -14,14 +14,15 @@ namespace aos::cm::imagemanager {
  * Public
  **********************************************************************************************************************/
 
-Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProviderItf& blobInfoProvider,
-    spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
+Error ImageManager::Init(AllocatorItf& allocator, const Config& config, StorageItf& storage,
+    BlobInfoProviderItf& blobInfoProvider, spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
     spaceallocator::SpaceAllocatorItf& installSpaceAllocator, downloader::DownloaderItf& downloader,
     fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& cryptoHelper,
     fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec)
 {
     LOG_DBG() << "Init image manager";
 
+    mAllocator                 = &allocator;
     mConfig                    = config;
     mStorage                   = &storage;
     mBlobInfoProvider          = &blobInfoProvider;
@@ -33,7 +34,7 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
     mFileInfoProvider          = &fileInfoProvider;
     mOCISpec                   = &ociSpec;
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!items) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -130,7 +131,7 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         statuses[i].mError   = ErrorEnum::eNone;
     }
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!storedItems) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -220,7 +221,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
         statuses[i].mError   = ErrorEnum::eNone;
     }
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!storedItems) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -300,7 +301,7 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 
     LOG_DBG() << "Get update items statuses";
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!items) {
         return ErrorEnum::eNoMemory;
     }
@@ -358,7 +359,7 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
 
     LOG_DBG() << "Get index digest" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(mAllocator);
     if (!items) {
         return ErrorEnum::eNoMemory;
     }
@@ -429,7 +430,7 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
 
     LOG_DBG() << "Get item current version" << Log::Field("itemID", itemID);
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(mAllocator);
     if (!items) {
         return ErrorEnum::eNoMemory;
     }
@@ -458,7 +459,7 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
 
     LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!storedItems) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -508,7 +509,7 @@ Error ImageManager::RemoveOutdatedItems()
 
     LOG_DBG() << "Remove outdated items";
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!items) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -586,7 +587,7 @@ Error ImageManager::AllocateSpaceForPartialDownloads()
             auto fileName = fileIterator->mPath;
             auto filePath = fs::JoinPath(algorithmDir, fileName);
 
-            auto [fileSize, sizeErr] = fs::CalculateSize(filePath);
+            auto [fileSize, sizeErr] = fs::CalculateSize(*mAllocator, filePath);
             if (!sizeErr.IsNone()) {
                 LOG_WRN() << "Failed to get size for partial download" << Log::Field("path", filePath)
                           << Log::Field(sizeErr);
@@ -884,7 +885,7 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
         return AOS_ERROR_WRAP(err);
     }
 
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -898,7 +899,7 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
     LOG_DBG() << "Processing manifests" << Log::Field("count", imageIndex->mManifests.Size());
 
     for (const auto& manifestDescriptor : imageIndex->mManifests) {
-        auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+        auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
         if (!manifest) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -1080,7 +1081,7 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 {
     LOG_DBG() << "Ensure blob" << Log::Field("digest", digest);
 
-    auto blobInfo = MakeUnique<BlobInfo>(&mAllocator);
+    auto blobInfo = MakeUnique<BlobInfo>(mAllocator);
     if (!blobInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1136,7 +1137,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto blobsInfo = MakeUnique<StaticArray<BlobInfo, 1>>(&mAllocator);
+    auto blobsInfo = MakeUnique<StaticArray<BlobInfo, 1>>(mAllocator);
     if (!blobsInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1194,7 +1195,7 @@ Error ImageManager::CheckExistingBlob(const String& installPath)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
+    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(mAllocator);
     if (!expectedSHA256) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1227,7 +1228,7 @@ Error ImageManager::PrepareDownloadSpace(const String& downloadPath, const BlobI
     partialDownloadSize = 0;
 
     if (downloadExists) {
-        auto [dirSize, getSizeErr] = fs::CalculateSize(downloadPath);
+        auto [dirSize, getSizeErr] = fs::CalculateSize(*mAllocator, downloadPath);
         if (!getSizeErr.IsNone()) {
             return AOS_ERROR_WRAP(getSizeErr);
         }
@@ -1279,7 +1280,7 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
                       << Log::Field("path", downloadPath) << Log::Field(AOS_ERROR_WRAP(err));
 
             if (err = WaitForStop(); !err.IsNone()) {
-                auto [newPartialSize, retrySizeErr] = fs::CalculateSize(downloadPath);
+                auto [newPartialSize, retrySizeErr] = fs::CalculateSize(*mAllocator, downloadPath);
                 if (!retrySizeErr.IsNone()) {
                     LOG_WRN() << "Failed to get partial download size" << Log::Field("path", downloadPath)
                               << Log::Field(retrySizeErr);
@@ -1518,7 +1519,7 @@ Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo&
         return AOS_ERROR_WRAP(err);
     }
 
-    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
+    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(mAllocator);
     if (!expectedSHA256) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1547,7 +1548,7 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1566,7 +1567,7 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
             return AOS_ERROR_WRAP(err);
         }
 
-        auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+        auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
         if (!manifest) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -1609,7 +1610,7 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
             continue;
         }
 
-        auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+        auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
         if (!imageIndex) {
             continue;
         }
@@ -1629,7 +1630,7 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
                 continue;
             }
 
-            auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+            auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
             if (!manifest) {
                 continue;
             }
@@ -1663,7 +1664,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
 
     size_t totalSize = 0;
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!storedItems) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -1689,7 +1690,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
             if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
                 auto filePath = fs::JoinPath(algorithmDir, hash);
 
-                auto [blobSize, sizeErr] = fs::CalculateSize(filePath);
+                auto [blobSize, sizeErr] = fs::CalculateSize(*mAllocator, filePath);
                 if (!sizeErr.IsNone()) {
                     LOG_WRN() << "Failed to get blob size" << Log::Field("path", filePath) << Log::Field(sizeErr);
                 } else {

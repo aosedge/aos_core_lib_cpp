@@ -33,8 +33,9 @@ public:
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
+Error Launcher::Init(AllocatorItf& allocator, const Config& config,
+    nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
+    imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
     iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
@@ -42,6 +43,7 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
 {
     LOG_DBG() << "Init Launcher";
 
+    mAllocator          = &allocator;
     mConfig             = config;
     mStorage            = &storage;
     mNodeInfoProvider   = &nodeInfoProvider;
@@ -53,17 +55,17 @@ Error Launcher::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf
     mIdentProvider      = &identProvider;
     mSender             = &sender;
 
-    auto err
-        = mInstanceManager.Init(config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
+    auto err = mInstanceManager.Init(
+        allocator, config, itemInfoProvider, storageState, ociSpec, gidValidator, uidValidator, storage);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mImageInfoProvider.Init(itemInfoProvider, ociSpec);
+    mImageInfoProvider.Init(allocator, itemInfoProvider, ociSpec);
 
-    mRunRequestsLoader.Init(storage, mInstanceManager, mImageInfoProvider);
-    mNodeManager.Init(*mNodeInfoProvider, *mNodeConfigProvider, *mRunner, mOverrideEnvVarsProcessor);
-    mBalancer.Init(mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
+    mRunRequestsLoader.Init(allocator, storage, mInstanceManager, mImageInfoProvider);
+    mNodeManager.Init(allocator, *mNodeInfoProvider, *mNodeConfigProvider, *mRunner, mOverrideEnvVarsProcessor);
+    mBalancer.Init(allocator, mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
 
     if (err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -109,7 +111,7 @@ Error Launcher::Start()
     }
 
     // Set initial subjects list.
-    auto subjects = MakeUnique<SubjectArray>(&mAllocator);
+    auto subjects = MakeUnique<SubjectArray>(mAllocator);
     if (!subjects) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -303,7 +305,7 @@ void Launcher::UpdateInstanceStatuses()
     const auto  totalSize              = activeInstances.Size() + preinstalledComponents.Size();
 
     // Copy old statuses.
-    auto oldInstanceStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    auto oldInstanceStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
     if (!oldInstanceStatuses) {
         LOG_ERR() << "Failed to allocate old instance statuses" << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
 
@@ -349,7 +351,7 @@ void Launcher::UpdateInstanceStatuses()
     }
 
     // Find new statuses.
-    auto changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    auto changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
     if (!changedStatuses) {
         LOG_ERR() << "Failed to allocate changed statuses" << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
 
@@ -402,7 +404,7 @@ Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
     LOG_DBG() << "Balance instances" << Log::Field("rebalance", rebalance);
 
     // Create instances from run requests.
-    auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
+    auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(mAllocator);
     if (!instances) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

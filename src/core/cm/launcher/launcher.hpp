@@ -47,6 +47,7 @@ public:
     /**
      * Initializes launcher object instance.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config configuration.
      * @param nodeInfoProvider interface providing information about all unit nodes.
      * @param runner instance runner interface.
@@ -63,8 +64,8 @@ public:
      * @param sender sender interface.
      * @return Error.
      */
-    Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
-        imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
+    Error Init(AllocatorItf& allocator, const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+        InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
         unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
         MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
         iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
@@ -137,8 +138,6 @@ public:
 
 private:
     static constexpr auto cMaxNumInstanceStatusListeners = 8;
-    static constexpr auto cAllocatorSize                 = 2 * sizeof(StaticArray<InstanceStatus, cMaxNumInstances>)
-        + sizeof(StaticArray<SharedPtr<Instance>, cMaxNumInstances>);
 
     void SendRunStatus();
 
@@ -169,6 +168,7 @@ private:
     void OnOverrideEnvVarsChanged() override;
 
     // External dependencies
+    AllocatorItf*                                                                     mAllocator {};
     Config                                                                            mConfig;
     StorageItf*                                                                       mStorage {};
     nodeinfoprovider::NodeInfoProviderItf*                                            mNodeInfoProvider {};
@@ -208,7 +208,6 @@ private:
     Mutex                                         mBalancingMutex;
     ConditionalVariable                           mAllNodesConnectedCondVar;
     bool                                          mIsRunning {};
-    StaticAllocator<cAllocatorSize>               mAllocator;
 };
 
 /** @}*/

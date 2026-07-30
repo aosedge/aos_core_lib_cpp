@@ -31,6 +31,7 @@ public:
     /**
      * Initializes desired status handler.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param nodeHandler node handler.
      * @param unitConfig unit config interface.
      * @param imageManager image manager.
@@ -39,7 +40,7 @@ public:
      * @param storage storage interface.
      * @return Error.
      */
-    Error Init(iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
+    Error Init(AllocatorItf& allocator, iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
         imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
         UnitStatusHandler& unitStatusHandler, StorageItf& storage);
 
@@ -67,11 +68,6 @@ public:
 
 private:
     static constexpr auto cWaitActiveTimeout = Time::cMinutes * 10;
-    static constexpr auto cAllocatorSize     = Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
-                                                   sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>)
-                                                       + sizeof(StaticArray<InstanceStatus, cMaxNumInstances>))
-        + Max(sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems>),
-            sizeof(StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>));
 
     // instancestatusprovider::ListenerItf implementation
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
@@ -109,7 +105,7 @@ private:
     bool        mCancelCurrentUpdate {};
     UpdateState mUpdateState {};
 
-    mutable StaticAllocator<cAllocatorSize> mAllocator {};
+    AllocatorItf* mAllocator {};
 };
 
 /** @}*/

@@ -18,6 +18,7 @@
 #include <core/common/tests/mocks/ocispecmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #include "mocks/blobinfoprovidermock.hpp"
 #include "mocks/itemstatuslistenermock.hpp"
@@ -50,7 +51,7 @@ protected:
         EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).WillRepeatedly(Return(ErrorEnum::eNone));
 
         EXPECT_TRUE(mImageManager
-                        .Init(mConfig, mStorageMock, mBlobInfoProviderMock, mDownloadingSpaceAllocatorMock,
+                        .Init(mAllocator, mConfig, mStorageMock, mBlobInfoProviderMock, mDownloadingSpaceAllocatorMock,
                             mInstallSpaceAllocatorMock, mDownloaderMock, mFileServerMock, mCryptoHelperMock,
                             mFileInfoProviderMock, mOCISpecMock)
                         .IsNone());
@@ -62,9 +63,12 @@ protected:
         fs::RemoveAll(mConfig.mDownloadPath);
     }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     Config                                         mConfig;
     ImageManager                                   mImageManager;
-    StaticAllocator<1024 * 5, 20>                  mAllocator;
     StrictMock<StorageMock>                        mStorageMock;
     StrictMock<BlobInfoProviderMock>               mBlobInfoProviderMock;
     StrictMock<spaceallocator::SpaceAllocatorMock> mDownloadingSpaceAllocatorMock;

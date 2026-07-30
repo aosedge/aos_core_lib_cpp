@@ -16,7 +16,7 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 Instance::Instance(
-    const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
+    AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider)
     : mInfo(info)
     , mStorage(storage)
     , mImageInfoProvider(imageInfoProvider)
@@ -295,8 +295,8 @@ Error Instance::SetDefaultRuntimes()
  **********************************************************************************************************************/
 
 ComponentInstance::ComponentInstance(
-    const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
-    : Instance(info, storage, imageInfoProvider, allocator)
+    AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider)
+    : Instance(allocator, info, storage, imageInfoProvider)
 {
 }
 
@@ -392,9 +392,9 @@ Error ComponentInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
  * ServiceInstance implementation
  **********************************************************************************************************************/
 
-ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-    StorageState& storageState, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
-    : Instance(info, storage, imageInfoProvider, allocator)
+ServiceInstance::ServiceInstance(AllocatorItf& allocator, const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool,
+    StorageItf& storage, StorageState& storageState, ImageInfoProvider& imageInfoProvider)
+    : Instance(allocator, info, storage, imageInfoProvider)
     , mUIDPool(uidPool)
     , mGIDPool(gidPool)
     , mStorageState(storageState)

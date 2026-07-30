@@ -44,11 +44,12 @@ private:
  * Public
  **********************************************************************************************************************/
 
-Error Alerts::Init(
-    const alerts::Config& config, cm::alerts::SenderItf& sender, cloudconnection::CloudConnectionItf& cloudConnection)
+Error Alerts::Init(AllocatorItf& allocator, const alerts::Config& config, cm::alerts::SenderItf& sender,
+    cloudconnection::CloudConnectionItf& cloudConnection)
 {
     LOG_DBG() << "Init alerts" << Log::Field("sendPeriod", config.mSendPeriod);
 
+    mAllocator       = &allocator;
     mConfig          = config;
     mSender          = &sender;
     mCloudConnection = &cloudConnection;
@@ -260,7 +261,7 @@ Error Alerts::SendAlerts()
 
 bool Alerts::IsDuplicated(const AlertVariant& alert)
 {
-    auto alertCopy = MakeUnique<AlertVariant>(&mAllocator, alert);
+    auto alertCopy = MakeUnique<AlertVariant>(mAllocator, alert);
     if (!alertCopy) {
         LOG_ERR() << "Can't allocate alert copy" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -276,7 +277,7 @@ bool Alerts::IsDuplicated(const AlertVariant& alert)
 
 UniquePtr<aos::Alerts> Alerts::CreatePackage()
 {
-    auto package = MakeUnique<aos::Alerts>(&mAllocator);
+    auto package = MakeUnique<aos::Alerts>(mAllocator);
     if (!package) {
         LOG_ERR() << "Can't allocate alerts package" << Log::Field(ErrorEnum::eNoMemory);
 

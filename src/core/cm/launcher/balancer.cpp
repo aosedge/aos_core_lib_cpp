@@ -14,9 +14,10 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
+void Balancer::Init(AllocatorItf& allocator, InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider,
+    NodeManager& nodeManager, MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
 {
+    mAllocator         = &allocator;
     mInstanceManager   = &instanceManager;
     mImageInfoProvider = &imageInfoProvider;
     mNodeManager       = &nodeManager;
@@ -91,7 +92,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
-        auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+        auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
         if (!imageIndex) {
             LOG_ERR() << "Can't allocate image index" << Log::Field("instance", id) << Log::Field(ErrorEnum::eNoMemory);
 
@@ -133,7 +134,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
 Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor)
 {
-    auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
+    auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(mAllocator);
     if (!nodes) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -206,7 +207,7 @@ void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
 
 RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
 {
-    auto nodeRuntimes = MakeUnique<NodeRuntimes>(&mAllocator);
+    auto nodeRuntimes = MakeUnique<NodeRuntimes>(mAllocator);
     if (!nodeRuntimes) {
         return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -397,7 +398,7 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 
 Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 {
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -481,7 +482,7 @@ Error Balancer::UpdateMonitoringData(bool isInitialUpdate)
     for (auto& node : mNodeManager->GetNodes()) {
         const auto& nodeID = node.GetInfo().mNodeID;
 
-        auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
+        auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(mAllocator);
         if (!nodeMonitoring) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }

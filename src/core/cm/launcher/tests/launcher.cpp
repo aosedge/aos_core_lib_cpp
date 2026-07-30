@@ -17,6 +17,7 @@
 #include <core/cm/launcher/launcher.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #include "stubs/alertsproviderstub.hpp"
 #include "stubs/identproviderstub.hpp"
@@ -142,6 +143,9 @@ protected:
     {
         return mImageStore.GetManifestDigest(id.c_str(), imageID.c_str());
     }
+
+    // Allocator must be declared before any object allocated from it to ensure correct destruction order.
+    HeapAllocator mAllocator;
 
     // Stub objects
     alerts::AlertsProviderStub             mAlertsProvider;
@@ -607,7 +611,7 @@ TEST_F(CMLauncherTest, InstancesWithInvalidImageAreRemovedOnStart)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -653,7 +657,7 @@ TEST_F(CMLauncherTest, InstancesWithOutdatedTTLRemovedOnStart)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -718,7 +722,7 @@ TEST_F(CMLauncherTest, CacheInstances)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -816,7 +820,7 @@ TEST_F(CMLauncherTest, Components)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -1505,7 +1509,7 @@ TEST_F(CMLauncherTest, Balancing)
 
         // Init launcher
         ASSERT_TRUE(mLauncher
-                        .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                             mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                             ValidateGID, ValidateUID, mStorage, mSender)
                         .IsNone());
@@ -1610,7 +1614,7 @@ TEST_F(CMLauncherTest, PlatformFiltering)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -1703,7 +1707,7 @@ TEST_F(CMLauncherTest, ResendInstancesOnMismatchedNodeStatus)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -1778,7 +1782,7 @@ TEST_F(CMLauncherTest, SubjectChanged)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -1851,7 +1855,7 @@ TEST_F(CMLauncherTest, TestSentInstanceInfo)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -1937,7 +1941,7 @@ TEST_F(CMLauncherTest, PreinstalledComponents)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2025,7 +2029,7 @@ TEST_F(CMLauncherTest, SetStatusOnStart)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2092,7 +2096,7 @@ TEST_F(CMLauncherTest, OverrideEnvVars)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2215,7 +2219,7 @@ TEST_F(CMLauncherTest, MultiNodeInstance)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2345,7 +2349,7 @@ TEST_F(CMLauncherTest, RebalancingWithStoredNotScheduledInstances)
 
     // Init launcher.
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2442,7 +2446,7 @@ TEST_F(CMLauncherTest, CpuAlertRebalancingMovesLowerPriorityService)
 
     // Init launcher.
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2546,7 +2550,7 @@ TEST_F(CMLauncherTest, ServiceUpdate)
 
     // Init launcher
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());
@@ -2646,7 +2650,7 @@ TEST_F(CMLauncherTest, UnlimitedSharedResource)
     mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
 
     ASSERT_TRUE(mLauncher
-                    .Init(CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
                         mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
                         ValidateGID, ValidateUID, mStorage, mSender)
                     .IsNone());

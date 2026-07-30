@@ -35,12 +35,13 @@ public:
     /**
      * Constructs instance.
      *
+     * @param allocator instance allocator.
      * @param info instance information.
      * @param storage interface to persistent storage.
      * @param imageInfoProvider interface for retrieving service information from image.
-     * @param allocator instance allocator.
      */
-    Instance(const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
+    Instance(
+        AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Destructor.
@@ -236,7 +237,7 @@ protected:
 
     StorageItf&        mStorage;
     ImageInfoProvider& mImageInfoProvider;
-    Allocator&         mAllocator;
+    AllocatorItf&      mAllocator;
 
     MonitoringData mMonitoringData;
 
@@ -252,13 +253,13 @@ public:
     /**
      * Constructs component instance.
      *
+     * @param allocator instance allocator.
      * @param info instance information.
      * @param storage interface to persistent storage.
      * @param imageInfoProvider interface for retrieving service information from image.
-     * @param allocator instance allocator.
      */
     ComponentInstance(
-        const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
+        AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Initializes component instance.
@@ -343,14 +344,14 @@ public:
     /**
      * Constructs service instance.
      *
+     * @param allocator instance allocator.
      * @param info instance information.
      * @param uidPool pool for managing user identifiers.
      * @param storage interface to persistent storage.
      * @param storageState interface for managing storage and state partitions.
-     * @param allocator instance allocator.
      */
-    ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-        StorageState& storageState, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
+    ServiceInstance(AllocatorItf& allocator, const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool,
+        StorageItf& storage, StorageState& storageState, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Initializes service instance.

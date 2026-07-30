@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_RUNREQUESTSLOADER_HPP_
 #define AOS_CORE_CM_LAUNCHER_RUNREQUESTSLOADER_HPP_
 
+#include <core/common/tools/memory.hpp>
+
 #include "instancemanager.hpp"
 #include "itf/storage.hpp"
 #include "node.hpp"
@@ -21,11 +23,13 @@ public:
     /**
      * Initializes the loader.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param storage storage interface.
      * @param instanceManager instance manager.
      * @param imageInfoProvider image info provider.
      */
-    void Init(StorageItf& storage, InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider);
+    void Init(AllocatorItf& allocator, StorageItf& storage, InstanceManager& instanceManager,
+        ImageInfoProvider& imageInfoProvider);
 
     /**
      * Saves run requests to internal buffer and to storage.
@@ -55,9 +59,6 @@ private:
     using CombinedRuntimesArray
         = StaticArray<StaticString<cRuntimeTypeLen>, oci::cMaxNumManifests * oci::cMaxNumRunners>;
 
-    static constexpr auto cCombinedRuntimesSize = sizeof(CombinedRuntimesArray);
-    static constexpr auto cAllocatorSize = sizeof(oci::ImageIndex) + cCombinedRuntimesSize + sizeof(oci::ItemConfig);
-
     Error GenerateInstances(
         const RunInstanceRequest& request, const Array<Node>& nodes, Array<SharedPtr<Instance>>& instances);
     Error CombinedRuntimes(
@@ -71,7 +72,7 @@ private:
 
     StaticArray<RunInstanceRequest, cMaxNumInstances> mRunRequests;
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::cm::launcher

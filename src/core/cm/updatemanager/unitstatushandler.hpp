@@ -14,6 +14,7 @@
 #include <core/common/iamclient/itf/identprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/optional.hpp>
 #include <core/common/tools/timer.hpp>
 
@@ -38,6 +39,7 @@ public:
     /**
      * Initializes unit status handler.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config update manager configuration.
      * @param identProvider identity provider.
      * @param unitConfig unit config interface.
@@ -48,10 +50,10 @@ public:
      * @param sender unit status sender.
      * @return Error.
      */
-    Error Init(const Config& config, iamclient::IdentProviderItf& identProvider, unitconfig::UnitConfigItf& unitConfig,
-        nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        imagemanager::ItemStatusProviderItf&   itemStatusProvider,
-        instancestatusprovider::ProviderItf&   instanceStatusProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
+        unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+        imagemanager::ItemStatusProviderItf& itemStatusProvider,
+        instancestatusprovider::ProviderItf& instanceStatusProvider,
         cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
 
     /**
@@ -91,9 +93,6 @@ public:
     Error SetUpdateNodeStatus(const String& nodeID, const Error& updateErr);
 
 private:
-    static constexpr auto cAllocatorSize
-        = Max(sizeof(StaticArray<InstanceStatus, cMaxNumInstances>), sizeof(UpdateItemStatusArray));
-
     // nodeinfoprovider::NodeInfoListenerItf implementation
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
@@ -134,7 +133,7 @@ private:
     Mutex                                             mMutex;
     UnitStatus                                        mUnitStatus;
     StaticArray<UnitInstanceStatus, cMaxNumInstances> mUnitInstancesStatuses;
-    StaticAllocator<cAllocatorSize>                   mAllocator;
+    AllocatorItf*                                     mAllocator {};
     bool                                              mCloudConnected {};
     bool                                              mIsStatusProcessing {};
 

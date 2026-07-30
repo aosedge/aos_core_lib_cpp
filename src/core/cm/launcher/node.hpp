@@ -30,13 +30,13 @@ public:
     /**
      * Initializes node.
      *
+     * @param allocator allocator.
      * @param info node information.
      * @param nodeConfigProvider node config provider.
      * @param instanceRunner instance runner interface.
-     * @param allocator allocator.
      */
-    void Init(const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
-        InstanceRunnerItf& instanceRunner, Allocator* allocator);
+    void Init(AllocatorItf& allocator, const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
+        InstanceRunnerItf& instanceRunner);
 
     /**
      * Prepares node for balancing.
@@ -196,7 +196,7 @@ private:
     StaticMap<StaticString<cIDLen>, size_t, cMaxNumNodeRuntimes>            mRuntimeAvailableCPU;
     StaticMap<StaticString<cResourceNameLen>, size_t, cMaxNumNodeResources> mMaxInstances;
 
-    Allocator* mAllocator {};
+    AllocatorItf* mAllocator {};
 };
 
 /** @}*/
