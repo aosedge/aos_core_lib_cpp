@@ -14,6 +14,7 @@
 
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/memory.hpp>
 
 using namespace testing;
@@ -52,6 +53,9 @@ private:
 
         tests::utils::InitLog();
     }
+
+protected:
+    HeapAllocator mAllocator;
 };
 
 TEST_F(FSTest, AppendPath)
@@ -446,7 +450,7 @@ TEST_F(FSTest, CalculateSize)
     ASSERT_TRUE(fs::MakeDirAll(multipleSubDirs.c_str()).IsNone());
     CreateFile((multipleSubDirs / "fff.txt").c_str(), std::string(2048, 'a').c_str(), 0444);
 
-    EXPECT_EQ(fs::CalculateSize(walkDirRoot.c_str()), RetWithError<size_t>(2048));
+    EXPECT_EQ(fs::CalculateSize(mAllocator, walkDirRoot.c_str()), RetWithError<size_t>(2048));
 
     const std::vector folders = {
         walkDirRoot / "d1",
@@ -460,13 +464,13 @@ TEST_F(FSTest, CalculateSize)
         CreateFile((folder / "f.txt").c_str(), std::string(1024, 'a').c_str(), 0444);
     }
 
-    EXPECT_EQ(fs::CalculateSize(walkDirRoot.c_str()), RetWithError<size_t>(3 * 1024 + 2048));
+    EXPECT_EQ(fs::CalculateSize(mAllocator, walkDirRoot.c_str()), RetWithError<size_t>(3 * 1024 + 2048));
 
     const auto singleFile = walkDirRoot / "single.txt";
     CreateFile(singleFile.c_str(), std::string(512, 'b').c_str(), 0444);
-    EXPECT_EQ(fs::CalculateSize(singleFile.c_str()), RetWithError<size_t>(512));
+    EXPECT_EQ(fs::CalculateSize(mAllocator, singleFile.c_str()), RetWithError<size_t>(512));
 
-    auto [size, err] = fs::CalculateSize("does-not-exists");
+    auto [size, err] = fs::CalculateSize(mAllocator, "does-not-exists");
     EXPECT_FALSE(err.IsNone());
     EXPECT_EQ(size, 0);
 }
@@ -501,7 +505,7 @@ TEST_F(FSTest, CalculateNoMemory)
         }
     }
 
-    EXPECT_EQ(fs::CalculateSize(walkDirRoot.c_str()), RetWithError<size_t>(cExpectedSize));
+    EXPECT_EQ(fs::CalculateSize(mAllocator, walkDirRoot.c_str()), RetWithError<size_t>(cExpectedSize));
 }
 
 TEST_F(FSTest, BaseName)

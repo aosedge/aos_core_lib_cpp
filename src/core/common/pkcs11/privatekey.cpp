@@ -21,9 +21,10 @@ constexpr uint8_t PKCS11RSAPrivateKey::cSHA256Prefix[];
 constexpr uint8_t PKCS11RSAPrivateKey::cSHA384Prefix[];
 constexpr uint8_t PKCS11RSAPrivateKey::cSHA512Prefix[];
 
-PKCS11RSAPrivateKey::PKCS11RSAPrivateKey(
-    const SharedPtr<SessionContext>& session, ObjectHandle privKeyHandle, const crypto::RSAPublicKey& pubKey)
-    : mSession(session)
+PKCS11RSAPrivateKey::PKCS11RSAPrivateKey(AllocatorItf& allocator, const SharedPtr<SessionContext>& session,
+    ObjectHandle privKeyHandle, const crypto::RSAPublicKey& pubKey)
+    : mAllocator(allocator)
+    , mSession(session)
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)
 {

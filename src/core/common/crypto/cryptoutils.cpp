@@ -6,6 +6,7 @@
 
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/logger.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "cryptoutils.hpp"
 

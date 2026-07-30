@@ -10,6 +10,7 @@
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #if defined(WITH_MBEDTLS)
 #include <core/common/tests/crypto/providers/mbedtlsfactory.hpp>
@@ -35,7 +36,7 @@ public:
 
         mFactory = GetParam();
 
-        ASSERT_TRUE(mFactory->Init().IsNone());
+        ASSERT_TRUE(mFactory->Init(mAllocator).IsNone());
 
         mCryptoProvider = &mFactory->GetCryptoProvider();
         mHashProvider   = &mFactory->GetHashProvider();
@@ -43,6 +44,10 @@ public:
     }
 
 protected:
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     std::shared_ptr<CryptoFactoryItf> mFactory;
     CryptoProviderItf*                mCryptoProvider;
     HasherItf*                        mHashProvider;

@@ -11,6 +11,7 @@
 #include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
 #include <core/common/tools/uuid.hpp>
 
@@ -544,9 +545,10 @@ public:
     /**
      * Initializes object instance.
      *
+     * @param allocator allocator to use for session objects.
      * @return Error.
      */
-    virtual Error Init();
+    virtual Error Init(AllocatorItf& allocator);
 
     /**
      * Initializes a token.
@@ -633,8 +635,8 @@ private:
 
     RetWithError<SharedPtr<SessionContext>> PKCS11OpenSession(SlotID slotID, Flags flags);
 
-    CK_FUNCTION_LIST_PTR                                      mFunctionList = nullptr;
-    StaticAllocator<sizeof(SessionContext) * cSessionsPerLib> mAllocator;
+    CK_FUNCTION_LIST_PTR mFunctionList = nullptr;
+    AllocatorItf*        mAllocator {};
 
     StaticArray<Pair<SessionParams, SharedPtr<SessionContext>>, cSessionsMaxCount> mSessions;
     size_t                                                                         mLRUInd = 0;
@@ -710,11 +712,11 @@ public:
     /**
      * Creates an object instance.
      *
+     * @param allocator allocator for token/session objects.
      * @param session session context.
      * @param cryptoProvider provider to x509 crypto provider.
-     * @param allocator allocator for token/session objects.
      */
-    Utils(const SharedPtr<SessionContext>& session, crypto::x509::ProviderItf& cryptoProvider, Allocator& allocator);
+    Utils(AllocatorItf& allocator, const SharedPtr<SessionContext>& session, crypto::x509::ProviderItf& cryptoProvider);
 
     /**
      * Creates an RSA key pair on the token.
@@ -813,7 +815,7 @@ private:
 
     SharedPtr<SessionContext>  mSession;
     crypto::x509::ProviderItf& mCryptoProvider;
-    Allocator&                 mAllocator;
+    AllocatorItf&              mAllocator;
 };
 
 /**
@@ -821,6 +823,14 @@ private:
  */
 class PKCS11Manager {
 public:
+    /**
+     * Initializes object instance.
+     *
+     * @param allocator allocator to use for library contexts.
+     * @return Error.
+     */
+    Error Init(AllocatorItf& allocator);
+
     /**
      * Opens PKCS11 library.
      *
@@ -832,9 +842,10 @@ public:
 private:
     using LibraryInfo = Pair<StaticString<cFilePathLen>, SharedPtr<LibraryContext>>;
 
-    StaticAllocator<sizeof(LibraryContext) * cLibrariesMaxNum> mAllocator;
-    StaticArray<LibraryInfo, cLibrariesMaxNum>                 mLibraries;
-    Mutex                                                      mMutex;
+    AllocatorItf* mAllocator {};
+
+    StaticArray<LibraryInfo, cLibrariesMaxNum> mLibraries;
+    Mutex                                      mMutex;
 };
 
 } // namespace aos::pkcs11

@@ -1254,9 +1254,11 @@ OpenSSLCryptoProvider::~OpenSSLCryptoProvider()
     OSSL_LIB_CTX_free(mLibCtx);
 }
 
-Error OpenSSLCryptoProvider::Init()
+Error OpenSSLCryptoProvider::Init(AllocatorItf& allocator)
 {
     LOG_DBG() << "Init OpenSSL crypto provider";
+
+    mAllocator = &allocator;
 
     if (mLibCtx = OSSL_LIB_CTX_new(); !mLibCtx) {
         return OPENSSL_ERROR();
@@ -1493,7 +1495,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> OpenSSLCryptoProvider::PEMToX509PrivKey(c
 
     auto type = EVP_PKEY_base_id(pkey.Get());
     if (type == EVP_PKEY_RSA) {
-        auto res = MakeShared<OpenSSLRSAPrivKey>(&mAllocator);
+        auto res = MakeShared<OpenSSLRSAPrivKey>(mAllocator);
         if (!res) {
             return {{}, ErrorEnum::eNoMemory};
         }
@@ -1771,7 +1773,7 @@ RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(Hash algorith
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
     }
 
-    auto hasher = MakeUnique<OpenSSLHash>(&mAllocator);
+    auto hasher = MakeUnique<OpenSSLHash>(mAllocator);
     if (!hasher) {
         return {{}, ErrorEnum::eNoMemory};
     }
@@ -1861,7 +1863,7 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESEncoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<OpenSSLAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<OpenSSLAESCipher>(mAllocator);
     if (!cipher) {
         return {{}, ErrorEnum::eNoMemory};
     }
@@ -1881,7 +1883,7 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESDecoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<OpenSSLAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<OpenSSLAESCipher>(mAllocator);
     if (!cipher) {
         return {{}, ErrorEnum::eNoMemory};
     }

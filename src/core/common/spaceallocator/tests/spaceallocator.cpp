@@ -9,6 +9,7 @@
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 using namespace testing;
 
@@ -26,6 +27,8 @@ protected:
         SpaceAllocator<1>::mPartitions.Clear();
         fs::RemoveAll(mPath);
     }
+
+    HeapAllocator mAllocator;
 
     StrictMock<FSPlatformMock>       mPlatformFS;
     StrictMock<ItemRemoverMock>      mRemover;
@@ -49,7 +52,7 @@ TEST_F(SpaceallocatorTest, AllocateSuccess)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -96,9 +99,9 @@ TEST_F(SpaceallocatorTest, MultipleAllocators)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(allocator1.Init(mPath, mPlatformFS).IsNone());
-    ASSERT_TRUE(allocator2.Init(mPath, mPlatformFS).IsNone());
-    ASSERT_TRUE(allocator3.Init(mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator3.Init(mAllocator, mPath, mPlatformFS).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -167,7 +170,7 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 100, &mRemover).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 100, &mRemover).IsNone());
 
     std::vector<std::string> removedFiles;
     EXPECT_CALL(mRemover, RemoveItem(testing::_, testing::_))
@@ -268,7 +271,7 @@ TEST_F(SpaceallocatorTest, PartLimit)
     SpaceAllocator<2> mSpaceAllocator;
 
     // Initialize allocator with 50% limit
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 50).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
         .WillOnce(Return(RetWithError<size_t>(totalExistSize, ErrorEnum::eNone)));
@@ -306,7 +309,7 @@ TEST_F(SpaceallocatorTest, ResizeSpace)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -344,7 +347,7 @@ TEST_F(SpaceallocatorTest, ResizeSpaceEviction)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -383,7 +386,7 @@ TEST_F(SpaceallocatorTest, ResizeSpaceInsufficientSpace)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));

@@ -13,6 +13,7 @@
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 namespace aos::crypto {
 
@@ -28,9 +29,13 @@ protected:
 
     void SetUp() override
     {
-        auto err = mCryptoFactory.Init();
+        auto err = mCryptoFactory.Init(mAllocator);
         ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
     }
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     DefaultCryptoFactory mCryptoFactory;
 };

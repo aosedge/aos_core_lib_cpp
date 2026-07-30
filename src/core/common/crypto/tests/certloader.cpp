@@ -12,6 +12,7 @@
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 namespace aos::crypto {
 
@@ -29,12 +30,13 @@ protected:
 
         ASSERT_TRUE(fs::WriteStringToFile(mPINSource, mPIN, 0664).IsNone());
 
-        ASSERT_TRUE(mCryptoFactory.Init().IsNone());
+        ASSERT_TRUE(mCryptoFactory.Init(mAllocator).IsNone());
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
 
-        ASSERT_TRUE(mSoftHSMEnv.Init(mPIN, mLabel).IsNone());
+        ASSERT_TRUE(mSoftHSMEnv.Init(mAllocator, mPIN, mLabel).IsNone());
 
-        ASSERT_TRUE(mCertLoader.Init(mCryptoFactory.GetCryptoProvider(), mSoftHSMEnv.GetManager()).IsNone());
+        ASSERT_TRUE(
+            mCertLoader.Init(mAllocator, mCryptoFactory.GetCryptoProvider(), mSoftHSMEnv.GetManager()).IsNone());
 
         mLibrary = mSoftHSMEnv.GetLibrary();
         mSlotID  = mSoftHSMEnv.GetSlotID();
@@ -62,8 +64,8 @@ protected:
 
         // import certificates
         ASSERT_TRUE(
-            pkcs11::Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(caID, mLabel, caCert).IsNone());
-        ASSERT_TRUE(pkcs11::Utils(session, *mCryptoProvider, mAllocator)
+            pkcs11::Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(caID, mLabel, caCert).IsNone());
+        ASSERT_TRUE(pkcs11::Utils(mAllocator, session, *mCryptoProvider)
                         .ImportCertificate(clientID, mLabel, clientCert)
                         .IsNone());
     }
@@ -79,13 +81,17 @@ protected:
         pkcs11::PrivateKey key;
 
         Tie(key, err)
-            = pkcs11::Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
+            = pkcs11::Utils(mAllocator, session, *mCryptoProvider).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
         ASSERT_TRUE(err.IsNone());
     }
 
     static constexpr auto mLabel     = "cryptoutils";
     static constexpr auto mPIN       = "admin";
     static constexpr auto mPINSource = "pin.txt";
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     DefaultCryptoFactory mCryptoFactory;
     CryptoProviderItf*   mCryptoProvider = nullptr;
@@ -94,12 +100,6 @@ protected:
     pkcs11::SlotID                    mSlotID = 0;
     SharedPtr<pkcs11::LibraryContext> mLibrary;
     CertLoader                        mCertLoader;
-
-    StaticAllocator<Max(2 * sizeof(pkcs11::PKCS11RSAPrivateKey), sizeof(pkcs11::PKCS11ECDSAPrivateKey),
-                        2 * sizeof(x509::Certificate) + sizeof(x509::CertificateChain)
-                            + 2 * sizeof(pkcs11::PKCS11RSAPrivateKey))
-        + sizeof(CertLoader)>
-        mAllocator;
 };
 
 /***********************************************************************************************************************

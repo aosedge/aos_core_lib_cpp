@@ -24,10 +24,11 @@ public:
     /**
      * Initializes average.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param windowCount window count.
      * @return Error.
      */
-    Error Init(size_t windowCount);
+    Error Init(AllocatorItf& allocator, size_t windowCount);
 
     /**
      * Updates average data.
@@ -69,8 +70,6 @@ private:
         PartitionInfoArray   mMonitoredPartitions;
     };
 
-    static constexpr auto cAllocatorSize = sizeof(AverageData);
-
     Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized);
     Error GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const;
 
@@ -78,7 +77,7 @@ private:
     AverageData                                             mAverageNodeData {};
     StaticMap<InstanceIdent, AverageData, cMaxNumInstances> mAverageInstancesData {};
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::monitoring

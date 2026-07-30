@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/monitoring/monitoring.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/logger.hpp>
 
 #include <core/common/tests/stubs/nodeinfoproviderstub.hpp>
@@ -617,6 +618,10 @@ protected:
         mInstanceAlertRules.mPartitions.EmplaceBack(cInstanceStorageRule);
     }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     NodeInfo   mNodeInfo;
     NodeConfig mNodeConfig;
     AlertRules mInstanceAlertRules;
@@ -728,8 +733,8 @@ TEST_F(MonitoringTest, SystemMonitoringAlerts)
             .SetTime(Time::Now().Add(6 * cPollPeriod)),
     };
 
-    auto err = mMonitoring.Init(mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender, mAlertSender,
-        mNodeMonitoringProvider, &mInstanceInfoProvider);
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mMonitoring.Start();
@@ -797,8 +802,8 @@ TEST_F(MonitoringTest, InstanceMonitoringAlerts)
 
     };
 
-    auto err = mMonitoring.Init(mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender, mAlertSender,
-        mNodeMonitoringProvider, &mInstanceInfoProvider);
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     std::vector<NodeMonitoringData> avgMonitoring;
@@ -886,8 +891,8 @@ TEST_F(MonitoringTest, SystemMonitoringAccumulatesInstancesMonitoring)
                     .SetTime(Time::Now())),
     };
 
-    auto err = mMonitoring.Init(mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender, mAlertSender,
-        mNodeMonitoringProvider, &mInstanceInfoProvider);
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     std::vector<NodeMonitoringData> avgMonitoring;
@@ -1000,8 +1005,8 @@ TEST_F(MonitoringTest, GetAverageMonitoringData)
                 InstanceTestData().CPU(400).RAM(600).Download(200).Upload(200).Partition(cStatesPartition, 400)),
     };
 
-    auto err = mMonitoring.Init(mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender, mAlertSender,
-        mNodeMonitoringProvider, &mInstanceInfoProvider);
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     std::vector<NodeMonitoringData> avgMonitoring;
@@ -1096,8 +1101,8 @@ TEST_F(MonitoringTest, InstanceMonitoringNotSupported)
             SystemTestData().CPU(600).RAM(400).Download(200).Upload(200).Partition(cStatesPartition, 300)),
     };
 
-    auto err = mMonitoring.Init(mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender, mAlertSender,
-        mNodeMonitoringProvider, &instanceInfoProviderNotSupported);
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &instanceInfoProviderNotSupported);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     std::vector<NodeMonitoringData> avgMonitoring;

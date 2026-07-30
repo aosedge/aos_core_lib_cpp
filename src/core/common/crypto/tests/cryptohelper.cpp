@@ -14,6 +14,7 @@
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/utils.hpp>
 
 #include "stubs/certprovider.hpp"
@@ -124,15 +125,16 @@ public:
     {
         tests::utils::InitLog();
 
-        ASSERT_TRUE(mCryptoFactory.Init().IsNone());
+        ASSERT_TRUE(mCryptoFactory.Init(mAllocator).IsNone());
 
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
 
-        ASSERT_TRUE(mSoftHSMEnv.Init(cPIN, cLabel).IsNone());
-        ASSERT_TRUE(mCertLoader.Init(*mCryptoProvider, mSoftHSMEnv.GetManager()).IsNone());
+        ASSERT_TRUE(mSoftHSMEnv.Init(mAllocator, cPIN, cLabel).IsNone());
+        ASSERT_TRUE(mCertLoader.Init(mAllocator, *mCryptoProvider, mSoftHSMEnv.GetManager()).IsNone());
 
         ASSERT_TRUE(
-            mCryptoHelper.Init(mCertProvider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL, cCACert)
+            mCryptoHelper
+                .Init(mAllocator, mCertProvider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL, cCACert)
                 .IsNone());
     }
 
@@ -142,6 +144,10 @@ protected:
 
     static constexpr auto cLabel = "iam pkcs11 test slot";
     static constexpr auto cPIN   = "admin";
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     DefaultCryptoFactory mCryptoFactory;
 

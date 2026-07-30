@@ -106,12 +106,14 @@ void NormalizeMonitoringData(NodeMonitoringData& monitoringData)
  * Public
  **********************************************************************************************************************/
 
-Error Monitoring::Init(const Config& config, nodeconfig::NodeConfigProviderItf& nodeConfigProvider,
+Error Monitoring::Init(AllocatorItf& allocator, const Config& config,
+    nodeconfig::NodeConfigProviderItf&     nodeConfigProvider,
     iamclient::CurrentNodeInfoProviderItf& currentNodeInfoProvider, SenderItf& sender, alerts::SenderItf& alertSender,
     NodeMonitoringProviderItf& nodeMonitoringProvider, InstanceInfoProviderItf* instanceInfoProvider)
 {
     LOG_DBG() << "Init monitoring";
 
+    mAllocator               = &allocator;
     mConfig                  = config;
     mNodeConfigProvider      = &nodeConfigProvider;
     mCurrentNodeInfoProvider = &currentNodeInfoProvider;
@@ -120,7 +122,7 @@ Error Monitoring::Init(const Config& config, nodeconfig::NodeConfigProviderItf& 
     mNodeMonitoringProvider  = &nodeMonitoringProvider;
     mInstanceInfoProvider    = instanceInfoProvider;
 
-    if (auto err = mAverage.Init(mConfig.mAverageWindow.Nanoseconds() / mConfig.mPollPeriod.Nanoseconds());
+    if (auto err = mAverage.Init(allocator, mConfig.mAverageWindow.Nanoseconds() / mConfig.mPollPeriod.Nanoseconds());
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -143,7 +145,7 @@ Error Monitoring::Start()
     }
 
     if (mInstanceInfoProvider) {
-        auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+        auto statuses = MakeUnique<InstanceStatusArray>(mAllocator);
         if (!statuses) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -166,7 +168,7 @@ Error Monitoring::Start()
     }
 
     {
-        auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
+        auto nodeConfig = MakeUnique<NodeConfig>(mAllocator);
         if (!nodeConfig) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -407,7 +409,7 @@ void Monitoring::ProcessMonitoring()
 {
     UniqueLock lock {mMutex};
 
-    auto nodeMonitoringData = MakeUnique<NodeMonitoringData>(&mAllocator);
+    auto nodeMonitoringData = MakeUnique<NodeMonitoringData>(mAllocator);
     if (!nodeMonitoringData) {
         LOG_ERR() << "Can't allocate node monitoring data" << Log::Field(ErrorEnum::eNoMemory);
 

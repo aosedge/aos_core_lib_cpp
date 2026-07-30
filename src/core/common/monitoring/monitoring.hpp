@@ -11,8 +11,8 @@
 #include <core/common/iamclient/itf/currentnodeinfoprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/nodeconfig/itf/nodeconfigprovider.hpp>
-#include <core/common/tools/allocator.hpp>
 #include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 
@@ -37,6 +37,7 @@ public:
     /**
      * Initializes monitoring.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config monitoring configuration.
      * @param nodeConfigProvider provides node configuration.
      * @param currentNodeInfoProvider provides current node information.
@@ -46,7 +47,7 @@ public:
      * @param instanceInfoProvider provides instance information and monitoring data, optional.
      * @return Error.
      */
-    Error Init(const Config& config, nodeconfig::NodeConfigProviderItf& nodeConfigProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, nodeconfig::NodeConfigProviderItf& nodeConfigProvider,
         iamclient::CurrentNodeInfoProviderItf& currentNodeInfoProvider, SenderItf& sender,
         alerts::SenderItf& alertSender, NodeMonitoringProviderItf& nodeMonitoringProvider,
         InstanceInfoProviderItf* instanceInfoProvider);
@@ -74,8 +75,6 @@ public:
     Error GetAverageMonitoringData(NodeMonitoringData& monitoringData) override;
 
 private:
-    static constexpr auto cAllocatorSize = Max(sizeof(NodeMonitoringData), sizeof(InstanceStatusArray));
-
     struct Instance {
         InstanceIdent            mIdent;
         AlertProcessorArray      mAlertProcessors;
@@ -110,7 +109,7 @@ private:
     NodeMonitoringProviderItf*             mNodeMonitoringProvider {};
     InstanceInfoProviderItf*               mInstanceInfoProvider {};
 
-    StaticAllocator<cAllocatorSize>         mAllocator;
+    AllocatorItf*                           mAllocator {};
     Mutex                                   mMutex;
     bool                                    mIsRunning {};
     NodeMonitoringData                      mMonitoringData;

@@ -332,9 +332,11 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
  * LibraryContext
  **********************************************************************************************************************/
 
-Error LibraryContext::Init()
+Error LibraryContext::Init(AllocatorItf& allocator)
 {
     LockGuard lock {mMutex};
+
+    mAllocator = &allocator;
 
     Error err = ErrorEnum::eNone;
 
@@ -550,7 +552,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
         return {nullptr, static_cast<int>(rv)};
     }
 
-    auto session = MakeShared<SessionContext>(&mAllocator, handle, mFunctionList);
+    auto session = MakeShared<SessionContext>(mAllocator, handle, mFunctionList);
     if (!session) {
         return {nullptr, ErrorEnum::eNoMemory};
     }
@@ -932,6 +934,13 @@ Error SessionContext::FindObjectsFinal() const
  * PKCS11Manager
  **********************************************************************************************************************/
 
+Error PKCS11Manager::Init(AllocatorItf& allocator)
+{
+    mAllocator = &allocator;
+
+    return ErrorEnum::eNone;
+}
+
 SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 {
     LockGuard lock {mMutex};
@@ -948,7 +957,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
         return nullptr;
     }
 
-    auto ctx = MakeShared<LibraryContext>(&mAllocator);
+    auto ctx = MakeShared<LibraryContext>(mAllocator);
     if (!ctx) {
         return nullptr;
     }
@@ -971,7 +980,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 
 #endif
 
-    if (!ctx->Init().IsNone()) {
+    if (!ctx->Init(*mAllocator).IsNone()) {
         return nullptr;
     }
 
@@ -984,7 +993,8 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
  * Utils
  **********************************************************************************************************************/
 
-Utils::Utils(const SharedPtr<SessionContext>& session, crypto::x509::ProviderItf& cryptoProvider, Allocator& allocator)
+Utils::Utils(
+    AllocatorItf& allocator, const SharedPtr<SessionContext>& session, crypto::x509::ProviderItf& cryptoProvider)
     : mSession(session)
     , mCryptoProvider(cryptoProvider)
     , mAllocator(allocator)
@@ -1360,7 +1370,7 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, ErrorEnum::eNoMemory};
         }
 
-        auto cryptoKey = MakeShared<PKCS11RSAPrivateKey>(&mAllocator, mSession, privKeyHandle, *pubKey);
+        auto cryptoKey = MakeShared<PKCS11RSAPrivateKey>(&mAllocator, mAllocator, mSession, privKeyHandle, *pubKey);
         if (!cryptoKey) {
             return {{}, ErrorEnum::eNoMemory};
         }

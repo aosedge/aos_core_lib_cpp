@@ -12,8 +12,8 @@
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
-#include <core/common/tools/allocator.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/uuid.hpp>
 
 using namespace testing;
@@ -30,11 +30,11 @@ protected:
     {
         tests::utils::InitLog();
 
-        ASSERT_TRUE(mCryptoFactory.Init().IsNone());
+        ASSERT_TRUE(mCryptoFactory.Init(mAllocator).IsNone());
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
         mHashProvider   = &mCryptoFactory.GetHashProvider();
 
-        ASSERT_TRUE(mSoftHSMEnv.Init(mPIN, mLabel).IsNone());
+        ASSERT_TRUE(mSoftHSMEnv.Init(mAllocator, mPIN, mLabel).IsNone());
 
         mLibrary = mSoftHSMEnv.GetLibrary();
         mSlotID  = mSoftHSMEnv.GetSlotID();
@@ -43,6 +43,10 @@ protected:
     static constexpr auto mLabel = "iam pkcs11 test slot";
     static constexpr auto mPIN   = "admin";
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     crypto::DefaultCryptoFactory mCryptoFactory;
     crypto::CryptoProviderItf*   mCryptoProvider = nullptr;
     crypto::HasherItf*           mHashProvider   = nullptr;
@@ -50,12 +54,6 @@ protected:
 
     SlotID                    mSlotID = 0;
     SharedPtr<LibraryContext> mLibrary;
-
-    StaticAllocator<Max(2 * sizeof(PKCS11RSAPrivateKey), sizeof(PKCS11ECDSAPrivateKey),
-                        2 * sizeof(crypto::x509::Certificate) + sizeof(crypto::x509::CertificateChain)
-                            + 2 * sizeof(PKCS11RSAPrivateKey))
-        + Utils::cLocalObjectsMaxSize>
-        mAllocator;
 };
 
 /***********************************************************************************************************************
@@ -150,7 +148,7 @@ TEST_F(PKCS11Test, GenerateRSAKeyPairWithLabel)
 
     PrivateKey key;
 
-    Tie(key, err) = Utils(session1, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
+    Tie(key, err) = Utils(mAllocator, session1, *mCryptoProvider).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
     ASSERT_TRUE(err.IsNone());
 
     // check key exists in a new session
@@ -168,7 +166,7 @@ TEST_F(PKCS11Test, GenerateRSAKeyPairWithLabel)
     ASSERT_THAT(std::vector<ObjectHandle>(objects.begin(), objects.end()), Contains(key.GetPubHandle()));
 
     // remove key
-    err = Utils(session1, *mCryptoProvider, mAllocator).DeletePrivateKey(key);
+    err = Utils(mAllocator, session1, *mCryptoProvider).DeletePrivateKey(key);
     ASSERT_TRUE(err.IsNone());
 
     // check key doesn't exist anymore
@@ -194,7 +192,7 @@ TEST_F(PKCS11Test, GenerateECDSAKeyPairWithLabel)
     PrivateKey key;
 
     Tie(key, err)
-        = Utils(session1, *mCryptoProvider, mAllocator).GenerateECDSAKeyPairWithLabel(id, mLabel, EllipticCurve::eP384);
+        = Utils(mAllocator, session1, *mCryptoProvider).GenerateECDSAKeyPairWithLabel(id, mLabel, EllipticCurve::eP384);
     ASSERT_TRUE(err.IsNone());
 
     // check ECDSA public key params
@@ -219,7 +217,7 @@ TEST_F(PKCS11Test, GenerateECDSAKeyPairWithLabel)
     ASSERT_THAT(std::vector<ObjectHandle>(objects.begin(), objects.end()), Contains(key.GetPubHandle()));
 
     // remove key
-    err = Utils(session1, *mCryptoProvider, mAllocator).DeletePrivateKey(key);
+    err = Utils(mAllocator, session1, *mCryptoProvider).DeletePrivateKey(key);
     ASSERT_TRUE(err.IsNone());
 
     // check key doesn't exist anymore
@@ -244,12 +242,12 @@ TEST_F(PKCS11Test, FindPrivateKey)
 
     PrivateKey key;
 
-    Tie(key, err) = Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
+    Tie(key, err) = Utils(mAllocator, session, *mCryptoProvider).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
     ASSERT_TRUE(err.IsNone());
 
     // find PrivateKey
     PrivateKey foundKey;
-    Tie(foundKey, err) = Utils(session, *mCryptoProvider, mAllocator).FindPrivateKey(id, mLabel);
+    Tie(foundKey, err) = Utils(mAllocator, session, *mCryptoProvider).FindPrivateKey(id, mLabel);
     ASSERT_TRUE(err.IsNone());
 
     ASSERT_EQ(key.GetPrivHandle(), foundKey.GetPrivHandle());
@@ -257,11 +255,11 @@ TEST_F(PKCS11Test, FindPrivateKey)
     ASSERT_TRUE(key.GetPrivKey()->GetPublic().IsEqual(foundKey.GetPrivKey()->GetPublic()));
 
     // remove key
-    err = Utils(session, *mCryptoProvider, mAllocator).DeletePrivateKey(key);
+    err = Utils(mAllocator, session, *mCryptoProvider).DeletePrivateKey(key);
     ASSERT_TRUE(err.IsNone());
 
     // check key doesn't exist anymore
-    Tie(foundKey, err) = Utils(session, *mCryptoProvider, mAllocator).FindPrivateKey(id, mLabel);
+    Tie(foundKey, err) = Utils(mAllocator, session, *mCryptoProvider).FindPrivateKey(id, mLabel);
     ASSERT_EQ(err, ErrorEnum::eNotFound);
 }
 
@@ -285,23 +283,23 @@ TEST_F(PKCS11Test, ImportCertificate)
     ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/ca.cer.der", derBlob).IsNone());
     ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, caCert).IsNone());
 
-    ASSERT_TRUE(Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(id, mLabel, caCert).IsNone());
+    ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(id, mLabel, caCert).IsNone());
 
     // check certificate exist
     bool hasCertificate = false;
 
     Tie(hasCertificate, err)
-        = Utils(session, *mCryptoProvider, mAllocator).HasCertificate(caCert.mIssuer, caCert.mSerial);
+        = Utils(mAllocator, session, *mCryptoProvider).HasCertificate(caCert.mIssuer, caCert.mSerial);
     ASSERT_TRUE(err.IsNone());
     ASSERT_TRUE(hasCertificate);
 
     // delete certificate
-    err = Utils(session, *mCryptoProvider, mAllocator).DeleteCertificate(id, mLabel);
+    err = Utils(mAllocator, session, *mCryptoProvider).DeleteCertificate(id, mLabel);
     ASSERT_TRUE(err.IsNone());
 
     // check certificate doesn't exist
     Tie(hasCertificate, err)
-        = Utils(session, *mCryptoProvider, mAllocator).HasCertificate(caCert.mIssuer, caCert.mSerial);
+        = Utils(mAllocator, session, *mCryptoProvider).HasCertificate(caCert.mIssuer, caCert.mSerial);
     ASSERT_TRUE(err.IsNone());
     ASSERT_FALSE(hasCertificate);
 }
@@ -359,13 +357,13 @@ TEST_F(PKCS11Test, FindCertificateChain)
     ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, clientCert).IsNone());
 
     // import certificates
-    ASSERT_TRUE(Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(caId, mLabel, caCert).IsNone());
-    ASSERT_TRUE(Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(clientId, mLabel, clientCert).IsNone());
+    ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(caId, mLabel, caCert).IsNone());
+    ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(clientId, mLabel, clientCert).IsNone());
 
     // find two certificate chain
     SharedPtr<crypto::x509::CertificateChain> chain;
 
-    Tie(chain, err) = Utils(session, *mCryptoProvider, mAllocator).FindCertificateChain(clientId, mLabel);
+    Tie(chain, err) = Utils(mAllocator, session, *mCryptoProvider).FindCertificateChain(clientId, mLabel);
 
     ASSERT_TRUE(err.IsNone());
     ASSERT_TRUE(chain);
@@ -393,7 +391,7 @@ TEST_F(PKCS11Test, PKCS11RSAPrivateKeySign)
 
     PrivateKey pkcs11key;
 
-    Tie(pkcs11key, err) = Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
+    Tie(pkcs11key, err) = Utils(mAllocator, session, *mCryptoProvider).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
     ASSERT_TRUE(err.IsNone());
 
     // generate signature
@@ -433,7 +431,7 @@ TEST_F(PKCS11Test, PKCS11ECDSAPrivateKeySign)
     PrivateKey pkcs11key;
 
     Tie(pkcs11key, err)
-        = Utils(session, *mCryptoProvider, mAllocator).GenerateECDSAKeyPairWithLabel(id, mLabel, EllipticCurve::eP384);
+        = Utils(mAllocator, session, *mCryptoProvider).GenerateECDSAKeyPairWithLabel(id, mLabel, EllipticCurve::eP384);
     ASSERT_TRUE(err.IsNone());
 
     // generate signature
@@ -470,7 +468,7 @@ TEST_F(PKCS11Test, PKCS11RSAPrivateKeyDecrypt)
 
     PrivateKey pkcs11key;
 
-    Tie(pkcs11key, err) = Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
+    Tie(pkcs11key, err) = Utils(mAllocator, session, *mCryptoProvider).GenerateRSAKeyPairWithLabel(id, mLabel, 2048);
     ASSERT_TRUE(err.IsNone());
 
     // encrypt message

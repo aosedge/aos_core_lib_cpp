@@ -385,9 +385,9 @@ MBedTLSCryptoFactory::MBedTLSCryptoFactory()
 {
 }
 
-Error MBedTLSCryptoFactory::Init()
+Error MBedTLSCryptoFactory::Init(AllocatorItf& allocator)
 {
-    return mProvider.Init();
+    return mProvider.Init(allocator);
 }
 
 std::string MBedTLSCryptoFactory::GetName()

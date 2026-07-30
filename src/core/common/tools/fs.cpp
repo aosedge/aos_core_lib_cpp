@@ -16,17 +16,6 @@
 namespace aos::fs {
 
 /***********************************************************************************************************************
- * Static
- **********************************************************************************************************************/
-
-namespace {
-
-Mutex                                     sCalculateSizeMutex;
-StaticAllocator<sizeof(DirIteratorArray)> sCalculateSizeAllocator;
-
-} // namespace
-
-/***********************************************************************************************************************
  * DirIterator implementation
  **********************************************************************************************************************/
 
@@ -97,8 +86,9 @@ bool DirIterator::Next()
  * FileInfoProvider implementation
  **********************************************************************************************************************/
 
-Error FileInfoProvider::Init(crypto::HasherItf& hashProvider)
+Error FileInfoProvider::Init(AllocatorItf& allocator, crypto::HasherItf& hashProvider)
 {
+    mAllocator    = &allocator;
     mHashProvider = &hashProvider;
 
     return ErrorEnum::eNone;
@@ -106,7 +96,7 @@ Error FileInfoProvider::Init(crypto::HasherItf& hashProvider)
 
 Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg)
 {
-    auto [size, err] = CalculateSize(path);
+    auto [size, err] = CalculateSize(*mAllocator, path);
     if (!err.IsNone()) {
         return err;
     }
@@ -511,10 +501,8 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
     return WriteFile(fileName, buff, perm);
 }
 
-RetWithError<size_t> CalculateSize(const String& path)
+RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
 {
-    LockGuard lock {sCalculateSizeMutex};
-
     struct stat st;
 
     if (auto ret = stat(path.CStr(), &st); ret != 0) {
@@ -527,7 +515,7 @@ RetWithError<size_t> CalculateSize(const String& path)
 
     size_t size = 0;
 
-    auto dirIterators = MakeUnique<DirIteratorArray>(&sCalculateSizeAllocator);
+    auto dirIterators = MakeUnique<DirIteratorArray>(&allocator);
     if (!dirIterators) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }

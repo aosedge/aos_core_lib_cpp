@@ -27,9 +27,10 @@ public:
     /**
      * Initializes the object.
      *
+     * @param allocator allocator to use for temporary and key objects.
      * @result Error.
      */
-    Error Init();
+    Error Init(AllocatorItf& allocator);
 
     /**
      * Creates a new certificate based on a template.
@@ -392,16 +393,10 @@ private:
         struct evp_pkey_st* mPrivKey = nullptr;
     };
 
-    static constexpr auto cAllocatorSize
-        = AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey))
-        + AOS_CONFIG_CRYPTO_HASHER_COUNT * sizeof(OpenSSLHash)
-        + AOS_CONFIG_CRYPTO_AES_CIPHER_COUNT * sizeof(OpenSSLAESCipher)
-        + AOS_CONFIG_CRYPTO_PRIV_KEYS_COUNT * sizeof(OpenSSLRSAPrivKey);
-
     ossl_lib_ctx_st*         mLibCtx = nullptr;
     openssl::OpenSSLProvider mOpenSSLProvider;
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::crypto

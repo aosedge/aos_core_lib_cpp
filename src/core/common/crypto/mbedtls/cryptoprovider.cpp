@@ -574,9 +574,11 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
  * Public
  **********************************************************************************************************************/
 
-Error MbedTLSCryptoProvider::Init()
+Error MbedTLSCryptoProvider::Init(AllocatorItf& allocator)
 {
     LOG_DBG() << "Init mbedTLS crypto provider";
+
+    mAllocator = &allocator;
 
     auto ret = psa_crypto_init();
 
@@ -827,7 +829,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(c
 {
     LOG_ERR() << "Create private key from PEM";
 
-    auto res = MakeShared<MbedTLSRSAPrivKey>(&mAllocator);
+    auto res = MakeShared<MbedTLSRSAPrivKey>(mAllocator);
     if (!res) {
         return {{}, ErrorEnum::eNoMemory};
     }
@@ -944,7 +946,7 @@ RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorith
         return {nullptr, ErrorEnum::eNotSupported};
     }
 
-    auto hasher = MakeUnique<MBedTLSHash>(&mAllocator, alg);
+    auto hasher = MakeUnique<MBedTLSHash>(mAllocator, alg);
     if (!hasher) {
         return {nullptr, ErrorEnum::eNoMemory};
     }
@@ -1062,7 +1064,7 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESEncoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<MbedTLSAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<MbedTLSAESCipher>(mAllocator);
     if (!cipher) {
         return {{}, ErrorEnum::eNoMemory};
     }
@@ -1082,7 +1084,7 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESDecoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<MbedTLSAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<MbedTLSAESCipher>(mAllocator);
     if (!cipher) {
         return {{}, ErrorEnum::eNoMemory};
     }

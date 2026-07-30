@@ -14,8 +14,9 @@ namespace aos::test {
 
 class SoftHSMEnv {
 public:
-    Error Init(const String& pin, const String& label, const char* confFile = SOFTHSM_BASE_DIR "/softhsm2.conf",
-        const char* tokensDir = SOFTHSM_BASE_DIR "/tokens", const char* libPath = SOFTHSM2_LIB);
+    Error Init(AllocatorItf& allocator, const String& pin, const String& label,
+        const char* confFile = SOFTHSM_BASE_DIR "/softhsm2.conf", const char* tokensDir = SOFTHSM_BASE_DIR "/tokens",
+        const char* libPath = SOFTHSM2_LIB);
 
     RetWithError<SharedPtr<pkcs11::SessionContext>> OpenUserSession(const String& pin, bool login = true);
 

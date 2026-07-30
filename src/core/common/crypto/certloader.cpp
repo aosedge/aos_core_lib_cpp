@@ -24,10 +24,11 @@ constexpr auto cSchemeMaxLength = Max(sizeof(cSchemeFile), sizeof(cSchemePKCS11)
  * CertLoader
  **********************************************************************************************************************/
 
-Error CertLoader::Init(x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager)
+Error CertLoader::Init(AllocatorItf& allocator, x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager)
 {
     LOG_DBG() << "Init cert loader";
 
+    mAllocator      = &allocator;
     mCryptoProvider = &cryptoProvider;
     mPKCS11         = &pkcs11Manager;
 
@@ -73,7 +74,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsChainByURL(
             return {nullptr, err};
         }
 
-        return pkcs11::Utils(session, *mCryptoProvider, mAllocator).FindCertificateChain(id, label);
+        return pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindCertificateChain(id, label);
     }
 
     return {nullptr, ErrorEnum::eInvalidArgument};
@@ -118,7 +119,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(const String
             return {nullptr, err};
         }
 
-        auto key = pkcs11::Utils(session, *mCryptoProvider, mAllocator).FindPrivateKey(id, label);
+        auto key = pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindPrivateKey(id, label);
 
         return {key.mValue.GetPrivKey(), key.mError};
     }
@@ -166,7 +167,7 @@ RetWithError<pkcs11::SlotID> CertLoader::FindToken(const pkcs11::LibraryContext&
 {
     StaticArray<pkcs11::SlotID, pkcs11::cSlotListSize> slotList;
 
-    auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mAllocator);
+    auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(mAllocator);
     if (!tokenInfo) {
         return {0, ErrorEnum::eNoMemory};
     }
@@ -194,7 +195,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsFromFile(co
 {
     LOG_DBG() << "Load certs chain from file: fileName=" << fileName;
 
-    auto buff = MakeUnique<PEMCertChainBlob>(&mAllocator);
+    auto buff = MakeUnique<PEMCertChainBlob>(mAllocator);
     if (!buff) {
         return {nullptr, ErrorEnum::eNoMemory};
     }
@@ -204,7 +205,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsFromFile(co
         return {nullptr, err};
     }
 
-    auto certificates = MakeShared<x509::CertificateChain>(&mAllocator);
+    auto certificates = MakeShared<x509::CertificateChain>(mAllocator);
     if (!certificates) {
         return {nullptr, ErrorEnum::eNoMemory};
     }
@@ -218,7 +219,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const Str
 {
     LOG_DBG() << "Load private key from file: fileName=" << fileName;
 
-    auto buff = MakeUnique<StaticString<cPrivKeyPEMLen>>(&mAllocator);
+    auto buff = MakeUnique<StaticString<cPrivKeyPEMLen>>(mAllocator);
     if (!buff) {
         return {nullptr, ErrorEnum::eNoMemory};
     }
