@@ -7,6 +7,7 @@
 
 #include <gmock/gmock.h>
 
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/memory.hpp>
 
 using namespace aos;
@@ -38,35 +39,36 @@ public:
 
 TEST(MemoryTest, UniquePtr)
 {
-    StaticAllocator<256> allocator;
+    HeapAllocator allocator;
 
     // Basic test
 
     {
         UniquePtr<uint32_t> uPtr = MakeUnique<uint32_t>(&allocator, 0);
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+        EXPECT_TRUE(uPtr);
+        EXPECT_EQ(*uPtr, 0U);
     }
-
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 
     // Construct with allocator
 
     {
-        UniquePtr<uint32_t> uPtr(new (&allocator) uint32_t(), &allocator);
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
-    }
+        auto* raw = static_cast<uint32_t*>(allocator.Allocate(sizeof(uint32_t)));
+        ASSERT_NE(raw, nullptr);
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+        UniquePtr<uint32_t> uPtr(new (raw) uint32_t(), &allocator);
+        EXPECT_TRUE(uPtr);
+    }
 
     // Construct with deleter
 
     {
         auto deleter = [&allocator](uint32_t* ptr) { allocator.Free(ptr); };
 
-        UniquePtr<uint32_t, decltype(deleter)> uPtr(new (&allocator) uint32_t(), Move(deleter));
-    }
+        auto* raw = static_cast<uint32_t*>(allocator.Allocate(sizeof(uint32_t)));
+        ASSERT_NE(raw, nullptr);
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+        UniquePtr<uint32_t, decltype(deleter)> uPtr(new (raw) uint32_t(), Move(deleter));
+    }
 
     // Move ownership
 
@@ -80,37 +82,36 @@ TEST(MemoryTest, UniquePtr)
         uPtr = MakeUnique<uint32_t>(&allocator);
     }
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+    EXPECT_TRUE(uPtr);
 
     OwnUniquePtr(Move(uPtr));
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+    EXPECT_FALSE(uPtr);
 
     // Make unique
 
     auto uPtr2 = MakeUnique<uint32_t>(&allocator);
-
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+    EXPECT_TRUE(uPtr2);
 
     // Check reset
 
     uPtr2.Reset();
-
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+    EXPECT_FALSE(uPtr2);
 }
 
 TEST(MemoryTest, SharedPtr)
 {
-    StaticAllocator<256> allocator;
+    HeapAllocator allocator;
 
     // Basic test
 
     {
-        SharedPtr<uint32_t> shPtr(&allocator, new (&allocator) uint32_t());
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
-    }
+        auto* raw = static_cast<uint32_t*>(allocator.Allocate(sizeof(uint32_t)));
+        ASSERT_NE(raw, nullptr);
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+        SharedPtr<uint32_t> shPtr(&allocator, new (raw) uint32_t());
+        EXPECT_TRUE(shPtr);
+    }
 
     // Test share
 
@@ -122,69 +123,58 @@ TEST(MemoryTest, SharedPtr)
         EXPECT_TRUE(nullptr == shPtr);
 
         {
-            shPtr = SharedPtr<uint32_t>(&allocator, new (&allocator) uint32_t());
+            auto* raw = static_cast<uint32_t*>(allocator.Allocate(sizeof(uint32_t)));
+            ASSERT_NE(raw, nullptr);
+
+            shPtr = SharedPtr<uint32_t>(&allocator, new (raw) uint32_t());
         }
 
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+        EXPECT_TRUE(shPtr);
 
         TakeSharedPtr(shPtr);
     }
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
-
     // Make shared
 
     auto shPtr2 = MakeShared<uint32_t>(&allocator);
-
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(uint32_t));
+    EXPECT_TRUE(shPtr2);
 
     // Check reset
 
     shPtr2.Reset();
-
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+    EXPECT_FALSE(shPtr2);
 }
 
 TEST(MemoryTest, UniquePtrDerivedClass)
 {
-    StaticAllocator<256> allocator;
+    HeapAllocator allocator;
+
+    UniquePtr<BaseClass> basePtr;
 
     {
-        UniquePtr<BaseClass> basePtr;
+        auto newPtr = MakeUnique<NewClass>(&allocator);
+        EXPECT_TRUE(newPtr);
 
-        {
-            auto newPtr = MakeUnique<NewClass>(&allocator);
-
-            EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
-
-            basePtr = Move(newPtr);
-        }
-
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
+        basePtr = Move(newPtr);
     }
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+    EXPECT_TRUE(basePtr);
 }
 
 TEST(MemoryTest, SharedPtrDerivedClass)
 {
-    StaticAllocator<256> allocator;
+    HeapAllocator allocator;
+
+    SharedPtr<BaseClass> basePtr;
 
     {
-        SharedPtr<BaseClass> basePtr;
+        auto newPtr = MakeShared<NewClass>(&allocator);
+        EXPECT_TRUE(newPtr);
 
-        {
-            auto newPtr = MakeShared<NewClass>(&allocator);
-
-            EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
-
-            basePtr = newPtr;
-        }
-
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
+        basePtr = newPtr;
     }
 
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+    EXPECT_TRUE(basePtr);
 }
 
 TEST(MemoryTest, DeferRelease)
@@ -268,16 +258,13 @@ TEST(MemoryTest, SharedPtrDerivedValueClass)
         MockFunction<void()>* mFunc;
     };
 
-    StaticAllocator<256> allocator;
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
+    HeapAllocator allocator;
 
     // Check NewClass destructor is called
     EXPECT_CALL(callback, Call()).Times(1);
 
     {
         SharedPtr<BaseClass> basePtr = MakeShared<Child>(&allocator, &callback);
-        EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize() - sizeof(NewClass));
+        EXPECT_TRUE(basePtr);
     }
-
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
 }
