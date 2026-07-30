@@ -28,8 +28,10 @@ class CertHandler : public CertHandlerItf, private NonCopyable {
 public:
     /**
      * Creates a new object instance.
+     *
+     * @param allocator allocator to use for temporary objects.
      */
-    CertHandler();
+    explicit CertHandler(AllocatorItf& allocator);
 
     /**
      * Registers module.
@@ -160,7 +162,7 @@ private:
     };
 
     StaticArray<CertListenerSubscription, cIAMCertSubsMaxCount> mCertListenerSubscriptions;
-    StaticAllocator<sizeof(CertInfo)>                           mAllocator;
+    AllocatorItf*                                               mAllocator {};
 };
 
 /** @}*/

@@ -16,9 +16,10 @@ namespace aos::iam::certhandler {
  * Public
  **********************************************************************************************************************/
 
-Error CertModule::Init(const String& certType, const ModuleConfig& config, crypto::x509::ProviderItf& x509Provider,
-    HSMItf& hsm, StorageItf& storage)
+Error CertModule::Init(AllocatorItf& allocator, const String& certType, const ModuleConfig& config,
+    crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage)
 {
+    mAllocator    = &allocator;
     mCertType     = certType;
     mModuleConfig = config;
     mX509Provider = &x509Provider;
@@ -35,7 +36,7 @@ Error CertModule::Init(const String& certType, const ModuleConfig& config, crypt
         return ErrorEnum::eNone;
     }
 
-    auto validCerts = MakeUnique<ModuleCertificates>(&mAllocator);
+    auto validCerts = MakeUnique<ModuleCertificates>(mAllocator);
     if (!validCerts) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -49,7 +50,7 @@ Error CertModule::Init(const String& certType, const ModuleConfig& config, crypt
 
 Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert)
 {
-    auto certsInStorage = MakeUnique<ModuleCertificates>(&mAllocator);
+    auto certsInStorage = MakeUnique<ModuleCertificates>(mAllocator);
     if (!certsInStorage) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -64,7 +65,12 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
             return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
-        resCert = CertInfo();
+        auto clearCertInfo = MakeShared<CertInfo>(mAllocator);
+        if (!clearCertInfo) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        resCert = *clearCertInfo;
 
         for (const auto& item : *certsInStorage) {
             if (resCert.mNotAfter.IsZero() || resCert.mNotAfter < item.mNotAfter) {
@@ -127,7 +133,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> CertModule::CreateKey(const Strin
 
 Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::PrivateKeyItf& privKey, String& pemCSR)
 {
-    auto templ = MakeUnique<crypto::x509::CSR>(&mAllocator);
+    auto templ = MakeUnique<crypto::x509::CSR>(mAllocator);
     if (!templ) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -191,7 +197,7 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
 
 Error CertModule::ApplyCert(const String& pemCert, CertInfo& info)
 {
-    auto certificates = MakeUnique<crypto::x509::CertificateChain>(&mAllocator);
+    auto certificates = MakeUnique<crypto::x509::CertificateChain>(mAllocator);
     if (!certificates) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -235,7 +241,7 @@ Error CertModule::CreateSelfSignedCert(const String& password)
 
     const uint64_t serial = Time::Now().UnixNano();
 
-    auto templ = MakeUnique<crypto::x509::Certificate>(&mAllocator);
+    auto templ = MakeUnique<crypto::x509::Certificate>(mAllocator);
     if (!templ) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -254,7 +260,7 @@ Error CertModule::CreateSelfSignedCert(const String& password)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto pemCert = MakeUnique<SelfSignedCertificate>(&mAllocator);
+    auto pemCert = MakeUnique<SelfSignedCertificate>(mAllocator);
     if (!pemCert) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -264,7 +270,7 @@ Error CertModule::CreateSelfSignedCert(const String& password)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
     if (!certInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -335,7 +341,7 @@ Error CertModule::RemoveInvalidKeys(const String& password)
 
 Error CertModule::TrimCerts(const String& password)
 {
-    auto certsInStorage = MakeUnique<ModuleCertificates>(&mAllocator);
+    auto certsInStorage = MakeUnique<ModuleCertificates>(mAllocator);
     if (!certsInStorage) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -430,7 +436,7 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
 
 Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
 {
-    auto certsInStorage = MakeUnique<ModuleCertificates>(&mAllocator);
+    auto certsInStorage = MakeUnique<ModuleCertificates>(mAllocator);
     if (!certsInStorage) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

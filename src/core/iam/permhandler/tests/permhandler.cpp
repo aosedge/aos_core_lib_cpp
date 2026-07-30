@@ -12,6 +12,7 @@
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/buffer.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/iam/permhandler/permhandler.hpp>
 
 using namespace testing;
@@ -28,9 +29,13 @@ protected:
     {
         tests::utils::InitLog();
 
-        ASSERT_TRUE(mCryptoProvider.Init().IsNone()) << "Failed to initialize crypto provider";
+        ASSERT_TRUE(mCryptoProvider.Init(mAllocator).IsNone()) << "Failed to initialize crypto provider";
         ASSERT_TRUE(mPermHandler.Init(mCryptoProvider).IsNone()) << "Failed to initialize PermHandler";
     }
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     crypto::DefaultCryptoProvider mCryptoProvider;
     PermHandler                   mPermHandler;

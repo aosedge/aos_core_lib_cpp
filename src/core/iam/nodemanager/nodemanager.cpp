@@ -15,15 +15,16 @@ namespace aos::iam::nodemanager {
  * Public
  **********************************************************************************************************************/
 
-Error NodeManager::Init(StorageItf& storage)
+Error NodeManager::Init(AllocatorItf& allocator, StorageItf& storage)
 {
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Init node manager";
 
-    mStorage = &storage;
+    mAllocator = &allocator;
+    mStorage   = &storage;
 
-    auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(mAllocator);
     if (!nodeIDs) {
         return ErrorEnum::eNoMemory;
     }
@@ -34,7 +35,7 @@ Error NodeManager::Init(StorageItf& storage)
     }
 
     for (const auto& nodeID : *nodeIDs) {
-        auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+        auto nodeInfo = MakeUnique<NodeInfo>(mAllocator);
         if (!nodeInfo) {
             return ErrorEnum::eNoMemory;
         }
@@ -82,7 +83,7 @@ Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state)
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+    auto nodeInfo = MakeUnique<NodeInfo>(mAllocator);
     if (!nodeInfo) {
         return ErrorEnum::eNoMemory;
     }
@@ -112,7 +113,7 @@ Error NodeManager::SetNodeConnected(const String& nodeID, bool isConnected)
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+    auto nodeInfo = MakeUnique<NodeInfo>(mAllocator);
     if (!nodeInfo) {
         return ErrorEnum::eNoMemory;
     }
@@ -228,7 +229,7 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
 
 Error NodeManager::UpdateStorage(const NodeInfo& info)
 {
-    auto storageInfo = MakeUnique<NodeInfo>(&mAllocator);
+    auto storageInfo = MakeUnique<NodeInfo>(mAllocator);
     if (!storageInfo) {
         return ErrorEnum::eNoMemory;
     }

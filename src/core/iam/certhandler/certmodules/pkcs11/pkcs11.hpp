@@ -71,14 +71,15 @@ public:
     /**
      * Initializes module.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param certType certificate type.
      * @param config module configuration.
      * @param pkcs11 reference to pkcs11 library context.
      * @param cryptoProvider reference to crypto provider interface.
      * @return Error.
      */
-    Error Init(const String& certType, const PKCS11ModuleConfig& config, pkcs11::PKCS11Manager& pkcs11,
-        crypto::CryptoProviderItf& cryptoProvider);
+    Error Init(AllocatorItf& allocator, const String& certType, const PKCS11ModuleConfig& config,
+        pkcs11::PKCS11Manager& pkcs11, crypto::CryptoProviderItf& cryptoProvider);
 
     /**
      * Owns the module.
@@ -217,13 +218,7 @@ private:
     StaticString<cTeeLoginTypeLen>  mTeeLoginType;
     StaticString<pkcs11::cPINLen>   mUserPIN;
 
-    mutable StaticAllocator<aos::Max(sizeof(crypto::x509::Certificate) + sizeof(DERCert) + sizeof(CertInfo),
-                                sizeof(StaticArray<SearchObject, cCertsPerModule * 3>) + sizeof(SearchObject)
-                                    + sizeof(pkcs11::TokenInfo) + sizeof(pkcs11::SessionInfo))
-        + sizeof(StaticString<cURLLen>) * 2>
-        mTmpObjAllocator;
-    StaticAllocator<pkcs11::cPrivateKeyMaxSize * cCertsPerModule + pkcs11::Utils::cLocalObjectsMaxSize>
-        mLocalCacheAllocator;
+    AllocatorItf* mAllocator {};
 
     StaticArray<PendingKey, cCertsPerModule> mPendingKeys;
     SharedPtr<pkcs11::SessionContext>        mSession;

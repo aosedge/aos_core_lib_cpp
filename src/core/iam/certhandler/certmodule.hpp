@@ -8,8 +8,8 @@
 #ifndef AOS_CORE_IAM_CERTHANDLER_CERTMODULE_HPP_
 #define AOS_CORE_IAM_CERTHANDLER_CERTMODULE_HPP_
 
-#include <core/common/tools/allocator.hpp>
 #include <core/common/tools/enum.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/time.hpp>
 #include <core/common/tools/utils.hpp>
@@ -28,6 +28,7 @@ public:
     /**
      * Initializes certificate module.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param certType certificate type.
      * @param config module config.
      * @param x509Provider provider of x509 certificates, csr, keys.
@@ -35,8 +36,8 @@ public:
      * @param storage a reference to certificate storage.
      * @return Error.
      */
-    Error Init(const String& certType, const ModuleConfig& config, crypto::x509::ProviderItf& x509Provider, HSMItf& hsm,
-        StorageItf& storage);
+    Error Init(AllocatorItf& allocator, const String& certType, const ModuleConfig& config,
+        crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage);
 
     /**
      * Returns IAM module certificate type.
@@ -140,11 +141,7 @@ private:
 
     StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts, mInvalidKeys;
 
-    StaticAllocator<Max(2U * sizeof(ModuleCertificates),
-        sizeof(SelfSignedCertificate) + sizeof(CertInfo) + sizeof(crypto::x509::CertificateChain)
-            + sizeof(ModuleCertificates) + sizeof(crypto::x509::Certificate),
-        sizeof(crypto::x509::CSR) + sizeof(CertInfo))>
-        mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::iam::certhandler

@@ -12,6 +12,7 @@
 #include <core/common/tests/mocks/certprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/iam/certhandler/certhandler.hpp>
 #include <core/iam/certhandler/certmodules/pkcs11/pkcs11.hpp>
 #include <core/iam/tests/stubs/certhandlerstub.hpp>
@@ -30,12 +31,12 @@ protected:
     {
         tests::utils::InitLog();
 
-        ASSERT_TRUE(mCryptoFactory.Init().IsNone());
+        ASSERT_TRUE(mCryptoFactory.Init(mAllocator).IsNone());
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
 
-        mCertHandler = MakeShared<CertHandler>(&mAllocator);
+        mCertHandler = MakeShared<CertHandler>(&mAllocator, mAllocator);
         ASSERT_TRUE(mCertHandler);
-        ASSERT_TRUE(mSOFTHSMEnv.Init("", "certhanler-integr-tests").IsNone());
+        ASSERT_TRUE(mSOFTHSMEnv.Init(mAllocator, "", "certhanler-integr-tests").IsNone());
     }
 
     // Default parameters
@@ -53,10 +54,12 @@ protected:
         auto& certModule   = mCertModules.Back();
 
         ASSERT_TRUE(
-            pkcs11Module.Init(name, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
-        ASSERT_TRUE(
-            certModule.Init(name, GetCertModuleConfig(keyType, isSelfSigned), *mCryptoProvider, pkcs11Module, mStorage)
+            pkcs11Module.Init(mAllocator, name, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider)
                 .IsNone());
+        ASSERT_TRUE(certModule
+                        .Init(mAllocator, name, GetCertModuleConfig(keyType, isSelfSigned), *mCryptoProvider,
+                            pkcs11Module, mStorage)
+                        .IsNone());
 
         ASSERT_TRUE(mCertHandler->RegisterModule(certModule).IsNone());
     }
@@ -90,6 +93,10 @@ protected:
         return config;
     }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     // Service providers
     crypto::DefaultCryptoFactory mCryptoFactory;
     crypto::CryptoProviderItf*   mCryptoProvider = nullptr;
@@ -102,8 +109,6 @@ protected:
     StaticArray<CertModule, cMaxModulesCount>   mCertModules;
 
     // Certificate handler
-    StaticAllocator<sizeof(CertHandler) * 2 + pkcs11::cPrivateKeyMaxSize + pkcs11::Utils::cLocalObjectsMaxSize>
-                           mAllocator;
     SharedPtr<CertHandler> mCertHandler;
 };
 
@@ -479,7 +484,7 @@ TEST_F(CerthandlerTest, ValidateCertificates)
     ASSERT_TRUE(mStorage.AddCertInfo("iam", badCert).IsNone());
 
     // Create CertHandler
-    mCertHandler = MakeShared<CertHandler>(&mAllocator);
+    mCertHandler = MakeShared<CertHandler>(&mAllocator, mAllocator);
     ASSERT_TRUE(mCertHandler);
     RegisterPKCS11Module("iam");
 
@@ -520,7 +525,7 @@ TEST_F(CerthandlerTest, RemoveInvalidPKCS11Objects)
 
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pemCert, caCert).IsNone());
 
-    err = pkcs11::Utils(session, *mCryptoProvider, mAllocator).ImportCertificate(certId, "iam", caCert[0]);
+    err = pkcs11::Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(certId, "iam", caCert[0]);
     ASSERT_TRUE(err.IsNone());
 
     // generate invalid key pair
@@ -531,7 +536,7 @@ TEST_F(CerthandlerTest, RemoveInvalidPKCS11Objects)
     ASSERT_TRUE(err.IsNone());
 
     Tie(privKey, err)
-        = pkcs11::Utils(session, *mCryptoProvider, mAllocator).GenerateRSAKeyPairWithLabel(keyId, "iam", 2048);
+        = pkcs11::Utils(mAllocator, session, *mCryptoProvider).GenerateRSAKeyPairWithLabel(keyId, "iam", 2048);
     ASSERT_TRUE(err.IsNone());
 
     // find invalid object handles
@@ -548,7 +553,7 @@ TEST_F(CerthandlerTest, RemoveInvalidPKCS11Objects)
     mCertHandler.Reset();
 
     // reinit certhandler to sync certificates/keys with PKCS11 storage
-    mCertHandler = MakeShared<CertHandler>(&mAllocator);
+    mCertHandler = MakeShared<CertHandler>(&mAllocator, mAllocator);
     ASSERT_TRUE(mCertHandler);
     RegisterPKCS11Module("iam");
 
@@ -585,7 +590,7 @@ TEST_F(CerthandlerTest, RenewCertificate)
     ASSERT_EQ(handles.Size(), 3); // 1 root certificate + 2 generated
 
     // reinit certhandler to sync certificates/keys with PKCS11 storage
-    mCertHandler = MakeShared<CertHandler>(&mAllocator);
+    mCertHandler = MakeShared<CertHandler>(&mAllocator, mAllocator);
     ASSERT_TRUE(mCertHandler);
     RegisterPKCS11Module("iam");
     RegisterPKCS11Module("sm");

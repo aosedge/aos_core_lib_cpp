@@ -15,7 +15,8 @@ namespace aos::iam::certhandler {
  * Public
  **********************************************************************************************************************/
 
-CertHandler::CertHandler()
+CertHandler::CertHandler(AllocatorItf& allocator)
+    : mAllocator(&allocator)
 {
     srand(time(nullptr));
 }
@@ -165,7 +166,7 @@ Error CertHandler::SubscribeListener(const String& certType, iamclient::CertList
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
     if (!certInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -246,7 +247,7 @@ CertModule* CertHandler::FindModule(const String& certType) const
 
 Error CertHandler::UpdateCerts(CertModule& certModule)
 {
-    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
     if (!certInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
