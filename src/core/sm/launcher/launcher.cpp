@@ -14,12 +14,15 @@ namespace aos::sm::launcher {
  * Public
  **********************************************************************************************************************/
 
-Error Launcher::Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
-    StorageItf& storage, oci::OCISpecItf& ociSpec, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-    cloudconnection::CloudConnectionItf& cloudConnection, networkmanager::NetworkManagerItf& networkManager,
-    InstanceIDProviderItf& instanceIDProvider, resourcemanager::ResourceInfoProviderItf& resourceInfoProvider)
+Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes,
+    imagemanager::ImageManagerItf& imageManager, SenderItf& sender, StorageItf& storage, oci::OCISpecItf& ociSpec,
+    imagemanager::ItemInfoProviderItf& itemInfoProvider, cloudconnection::CloudConnectionItf& cloudConnection,
+    networkmanager::NetworkManagerItf& networkManager, InstanceIDProviderItf& instanceIDProvider,
+    resourcemanager::ResourceInfoProviderItf& resourceInfoProvider)
 {
     LOG_DBG() << "Init launcher";
+
+    mAllocator = &allocator;
 
     for (auto* runtime : runtimes) {
         if (auto err = mRuntimes.Set(runtime, ""); !err.IsNone()) {
@@ -73,7 +76,7 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto storedInstances = MakeUnique<InstanceInfoArray>(&mAllocator);
+    auto storedInstances = MakeUnique<InstanceInfoArray>(mAllocator);
     if (!storedInstances) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -82,7 +85,9 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    InitInstances(*storedInstances);
+    if (auto err = InitInstances(*storedInstances); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     lock.Unlock();
 
@@ -162,12 +167,12 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     // Wait in case previous request is not yet finished
     mThread.Join();
 
-    auto stop = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(&mAllocator, stopInstances);
+    auto stop = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator, stopInstances);
     if (!stop) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto start = MakeShared<InstanceInfoArray>(&mAllocator, startInstances);
+    auto start = MakeShared<InstanceInfoArray>(mAllocator, startInstances);
     if (!start) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -373,12 +378,15 @@ void Launcher::OnDisconnect()
     StartTTLTimer();
 }
 
-void Launcher::InitInstances(const Array<InstanceInfo>& instancesInfo)
+Error Launcher::InitInstances(const Array<InstanceInfo>& instancesInfo)
 {
     LOG_DBG() << "Init instances" << Log::Field("numInstances", instancesInfo.Size());
 
     for (auto& it : mRuntimes) {
-        auto runtimeInstances = MakeUnique<InstanceInfoArray>(&mAllocator);
+        auto runtimeInstances = MakeUnique<InstanceInfoArray>(mAllocator);
+        if (!runtimeInstances) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         for (const auto& instanceInfo : instancesInfo) {
             if (instanceInfo.mRuntimeID != it.mSecond) {
@@ -398,6 +406,8 @@ void Launcher::InitInstances(const Array<InstanceInfo>& instancesInfo)
                       << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
+
+    return ErrorEnum::eNone;
 }
 
 void Launcher::RunRebootThread()
@@ -549,7 +559,7 @@ void Launcher::SendNodeInstancesStatuses()
 {
     LOG_INF() << "Send node instances statuses" << Log::Field("count", mInstances.Size());
 
-    auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+    auto statuses = MakeUnique<InstanceStatusArray>(mAllocator);
     if (!statuses) {
         LOG_ERR() << "Failed to allocate instance statuses" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -592,7 +602,7 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
         return ErrorEnum::eNone;
     }
 
-    auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
+    auto instanceInfo = MakeUnique<InstanceInfo>(mAllocator);
     if (!instanceInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -612,12 +622,12 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 
 Error Launcher::LoadInstanceData(InstanceData& instanceData)
 {
-    auto itemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    auto itemConfig = MakeUnique<oci::ItemConfig>(mAllocator);
     if (!itemConfig) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    auto imageConfig = MakeUnique<oci::ImageConfig>(mAllocator);
     if (!imageConfig) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -698,7 +708,7 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         LOG_ERR() << "Failed to append instances with modified params to stop list" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!removeItems) {
         LOG_ERR() << "Failed to allocate remove update items" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -844,7 +854,12 @@ void Launcher::StopAllNetworks()
     }
 
     if (errBegin.IsNone()) {
-        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
+        if (!failedIDs) {
+            LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
+
+            return;
+        }
 
         mNetworkManager->FlushBatch(*failedIDs);
 
@@ -868,12 +883,12 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
         return ErrorEnum::eNone;
     }
 
-    auto itemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    auto itemConfig = MakeUnique<oci::ItemConfig>(mAllocator);
     if (!itemConfig) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    auto imageConfig = MakeUnique<oci::ImageConfig>(mAllocator);
     if (!imageConfig) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -994,7 +1009,12 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
     }
 
     if (errBegin.IsNone()) {
-        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
+        if (!failedIDs) {
+            LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
+
+            return;
+        }
 
         mNetworkManager->FlushBatch(*failedIDs);
 
@@ -1071,7 +1091,12 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
     }
 
     if (errBegin.IsNone()) {
-        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
+        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
+        if (!failedIDs) {
+            LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
+
+            return;
+        }
 
         mNetworkManager->FlushBatch(*failedIDs);
 
@@ -1318,14 +1343,14 @@ void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
 
 void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
 {
-    auto currentItems = MakeUnique<StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+    auto currentItems = MakeUnique<StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>>(mAllocator);
     if (!currentItems) {
         LOG_ERR() << "Failed to allocate current items" << Log::Field(ErrorEnum::eNoMemory);
 
         return;
     }
 
-    auto installItems = MakeUnique<StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto installItems = MakeUnique<StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>>(mAllocator);
     if (!installItems) {
         LOG_ERR() << "Failed to allocate install items" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -1474,7 +1499,7 @@ Error Launcher::GetInstanceConfigs(
 {
     LOG_DBG() << "Get instance configs" << Log::Field("instance", instance);
 
-    auto path = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    auto path = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
     if (!path) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1483,7 +1508,7 @@ Error Launcher::GetInstanceConfigs(
         return AOS_ERROR_WRAP(err);
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
     if (!manifest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1520,7 +1545,7 @@ Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci
 {
     networkConfig.mInstanceIdent = static_cast<const InstanceIdent&>(instance);
 
-    auto resourceInfo = MakeUnique<resourcemanager::ResourceInfo>(&mAllocator);
+    auto resourceInfo = MakeUnique<resourcemanager::ResourceInfo>(mAllocator);
     if (!resourceInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1572,7 +1597,7 @@ Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci
 Error Launcher::CreateNetwork(
     const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig)
 {
-    auto networkConfig = MakeUnique<networkmanager::InstanceNetworkConfig>(&mAllocator);
+    auto networkConfig = MakeUnique<networkmanager::InstanceNetworkConfig>(mAllocator);
     if (!networkConfig) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

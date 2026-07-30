@@ -10,6 +10,7 @@
 #include <core/common/crypto/itf/rand.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 
 #include <core/common/networkmanager/itf/networkprovider.hpp>
@@ -45,6 +46,7 @@ public:
     /**
      * Initializes network manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param storage storage interface.
      * @param bridgeNet bridge network interface.
      * @param firewall firewall interface.
@@ -55,9 +57,9 @@ public:
      * @param netIf network interface manager.
      * @return Error.
      */
-    Error Init(StorageItf& storage, BridgeNetworkItf& bridgeNet, FirewallItf& firewall, BandwidthItf& bandwidth,
-        DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns, InterfaceManagerItf& netIf,
-        crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
+    Error Init(AllocatorItf& allocator, StorageItf& storage, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
+        BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
+        InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
         aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
 
     /**
@@ -207,36 +209,6 @@ private:
         BatchOp              mOp;
     };
 
-    // StartInstanceNetwork keeps its cached InstanceNetworkInfo alive across the nested call to
-    // AddInstanceToNetwork, which in turn allocates hosts, bridge/firewall/bandwidth/DNS params and
-    // its own InstanceNetworkInfo before returning. That is the largest concurrent footprint of any
-    // mAllocator call chain, so it sizes the per-concurrent-item budget below (it dominates the
-    // smaller CreateInstanceNetwork and OnPendingFirewallUpdate chains).
-    static constexpr auto cMaxOperationAllocatorSize = 2 * sizeof(InstanceNetworkInfo) + sizeof(InstanceHosts)
-        + sizeof(BridgeParams) + sizeof(InstanceFirewallParams) + sizeof(BandwidthParams) + sizeof(DNSAliasesParams);
-
-    // Start()/OnConnect() run once, outside the concurrent instance-operation hot path, so their
-    // allocations are added rather than multiplied by cMaxNumConcurrentItems: RemoveDNSOrphans' known
-    // networks list, RemoveFirewallOrphans' known instance and masquerade lists, ReconcileInstances'
-    // leftover entries (instance/network IDs plus host/bridge interface names, so four ID-sized strings
-    // per instance) plus, alive at the same time, either the InstanceNetworkInfo
-    // DeleteInstanceNetworkConfig allocates while clearing a host interface or the config and hosts
-    // InitInstance allocates while restoring the runtime cache, and OnConnect's state sync snapshot.
-    static constexpr auto cAllocatorSize = cMaxOperationAllocatorSize * cMaxNumConcurrentItems
-        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumOwners>)
-        + sizeof(StaticArray<StaticString<cIDLen>, cMaxNumInstances>) * 5
-        + sizeof(StaticArray<MasqueradeParams, cMaxNumOwners>) + sizeof(InstanceNetworkInfo)
-        + sizeof(InstanceNetworkConfig) + sizeof(InstanceHosts)
-        + sizeof(StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>);
-    static constexpr auto cNumAllocations = 8 * cMaxNumConcurrentItems;
-
-    // GetHosts/GetResolvServers are const methods that instance start/stop pool tasks call
-    // concurrently (one call per in-flight instance), each making a single allocation off
-    // mResolvHostsAllocator that stays alive for the call's duration. Size it for
-    // cMaxNumConcurrentItems concurrent callers instead of just one.
-    static constexpr auto cResolvHostsAllocatorSize = cMaxNumConcurrentItems
-        * (sizeof(StaticArray<Host, cMaxNumHosts>) + sizeof(StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>));
-
     static constexpr uint64_t cBurstLen              = 12800;
     static constexpr auto     cMaxExposedPort        = 2;
     static constexpr auto     cCountRetriesIfNameGen = 10;
@@ -322,12 +294,9 @@ private:
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                                       mPhysicalNetworks;
     bool                                                                                   mBatchMode {false};
     StaticArray<BatchEntry, cMaxNumInstances * cMaxNumOwners>                              mBatchEntries;
-    StaticAllocator<sizeof(StaticArray<NetworkInfo, cMaxNumOwners>)>                       mNetworkInfosAllocator;
-    StaticAllocator<sizeof(StaticArray<InstanceNetworkInfo, cMaxNumInstances>)> mInstanceNetworkInfosAllocator;
 
-    mutable Mutex                                                                  mMutex;
-    StaticAllocator<cAllocatorSize, cNumAllocations>                               mAllocator;
-    mutable StaticAllocator<cResolvHostsAllocatorSize, 2 * cMaxNumConcurrentItems> mResolvHostsAllocator;
+    mutable Mutex mMutex;
+    AllocatorItf* mAllocator {};
 };
 
 /** @}*/

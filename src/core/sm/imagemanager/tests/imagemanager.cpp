@@ -15,6 +15,7 @@
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #include <core/sm/imagemanager/imagemanager.hpp>
 
@@ -175,7 +176,7 @@ protected:
     {
         Config config {cTestImagePath, 0, cUpdateItemTTL, cRemoveOutdatedPeriod};
 
-        auto err = mImageManager.Init(config, mBlobInfoProviderMock, mSpaceAllocatorMock, mDownloaderMock,
+        auto err = mImageManager.Init(mAllocator, config, mBlobInfoProviderMock, mSpaceAllocatorMock, mDownloaderMock,
             mFileInfoProviderMock, mOCISpecMock, mImageHandlerMock, mStorageStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize image manager: " << tests::utils::ErrorToStr(err);
 
@@ -217,15 +218,18 @@ protected:
         EXPECT_TRUE(err.IsNone()) << "Failed to remove test image path: " << tests::utils::ErrorToStr(err);
     }
 
-    ImageManager                                           mImageManager;
-    NiceMock<BlobInfoProviderMock>                         mBlobInfoProviderMock;
-    NiceMock<spaceallocator::SpaceAllocatorMock>           mSpaceAllocatorMock;
-    NiceMock<downloader::DownloaderMock>                   mDownloaderMock;
-    NiceMock<fs::FileInfoProviderMock>                     mFileInfoProviderMock;
-    NiceMock<oci::OCISpecMock>                             mOCISpecMock;
-    NiceMock<ImageHandlerMock>                             mImageHandlerMock;
-    StorageStub                                            mStorageStub;
-    StaticAllocator<1 * sizeof(spaceallocator::SpaceMock)> mAllocator;
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
+    ImageManager                                 mImageManager;
+    NiceMock<BlobInfoProviderMock>               mBlobInfoProviderMock;
+    NiceMock<spaceallocator::SpaceAllocatorMock> mSpaceAllocatorMock;
+    NiceMock<downloader::DownloaderMock>         mDownloaderMock;
+    NiceMock<fs::FileInfoProviderMock>           mFileInfoProviderMock;
+    NiceMock<oci::OCISpecMock>                   mOCISpecMock;
+    NiceMock<ImageHandlerMock>                   mImageHandlerMock;
+    StorageStub                                  mStorageStub;
 };
 
 /***********************************************************************************************************************

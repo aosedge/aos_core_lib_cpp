@@ -14,6 +14,7 @@
 
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/sm/networkmanager/networkmanager.hpp>
 #include <core/sm/tests/mocks/storagemock.hpp>
 
@@ -72,8 +73,8 @@ protected:
         EXPECT_CALL(mStorage, GetInstanceNetworksInfo(_))
             .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
-        ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
-                      mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
+        ASSERT_EQ(mNetManager->Init(mAllocator, mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName,
+                      mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
             aos::ErrorEnum::eNone);
         ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
     }
@@ -223,8 +224,8 @@ protected:
 
         mNetManager = std::make_unique<NetworkManager>();
 
-        ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
-                      mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
+        ASSERT_EQ(mNetManager->Init(mAllocator, mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName,
+                      mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
             aos::ErrorEnum::eNone);
     }
 
@@ -266,8 +267,8 @@ protected:
 
         mNetManager = std::make_unique<NetworkManager>();
 
-        ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
-                      mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
+        ASSERT_EQ(mNetManager->Init(mAllocator, mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName,
+                      mTrafficMonitor, mNetns, mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
             aos::ErrorEnum::eNone);
     }
 
@@ -328,6 +329,10 @@ protected:
         EXPECT_CALL(mDNSServer, RemoveHost(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
         EXPECT_CALL(mFirewall, RemoveInstance(_)).Times(times).WillRepeatedly(Return(aos::ErrorEnum::eNone));
     }
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    aos::HeapAllocator mAllocator;
 
     StrictMock<StorageMock>                                                               mStorage;
     StrictMock<BridgeNetworkMock>                                                         mBridgeNetwork;
@@ -1356,8 +1361,8 @@ TEST_F(NetworkManagerTest, InitWithExistingNetworks)
         .WillOnce(DoAll(SetArgReferee<0>(mInstanceNetworkInfos), Return(aos::ErrorEnum::eNone)));
 
     mNetManager = std::make_unique<NetworkManager>();
-    ASSERT_EQ(mNetManager->Init(mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor, mNetns,
-                  mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
+    ASSERT_EQ(mNetManager->Init(mAllocator, mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
+                  mNetns, mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node"),
         aos::ErrorEnum::eNone);
 
     const aos::String instanceID      = "test-instance";

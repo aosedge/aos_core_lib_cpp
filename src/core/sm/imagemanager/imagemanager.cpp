@@ -49,13 +49,14 @@ Error AddPathIfNotExist(Array<StaticString<cFilePathLen>>& list, const String& p
  * Public
  **********************************************************************************************************************/
 
-Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
+Error ImageManager::Init(AllocatorItf& allocator, const Config& config, BlobInfoProviderItf& blobInfoProvider,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
     fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
     StorageItf& storage)
 {
     LOG_DBG() << "Init image manager";
 
+    mAllocator        = &allocator;
     mConfig           = config;
     mBlobInfoProvider = &blobInfoProvider;
     mSpaceAllocator   = &spaceAllocator;
@@ -144,7 +145,7 @@ Error ImageManager::GetAllInstalledItems(Array<UpdateItemStatus>& statuses) cons
 
     LOG_DBG() << "Get all installed items";
 
-    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(mAllocator);
     if (!itemsData) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -191,7 +192,7 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
         return err;
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
     if (!manifest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -395,7 +396,7 @@ Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) 
 {
     LOG_DBG() << "Validate layer" << Log::Field("path", path) << Log::Field("diffDigest", diffDigest);
 
-    auto [size, err] = fs::CalculateSize(path);
+    auto [size, err] = fs::CalculateSize(*mAllocator, path);
 
     if (size > oci::cDigestLen) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "not link to unpacked layer"));
@@ -802,7 +803,7 @@ Error ImageManager::InstallServiceLayers(const oci::ImageManifest& manifest, Ins
         return err;
     }
 
-    auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+    auto config = MakeUnique<oci::ImageConfig>(mAllocator);
     if (!config) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -889,7 +890,7 @@ RetWithError<size_t> ImageManager::CropUpdateItems()
 
     LOG_DBG() << "Crop update items";
 
-    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(mAllocator);
     if (!itemsData) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -1013,7 +1014,7 @@ Error ImageManager::UpdateOutdatedItems()
 {
     LOG_DBG() << "Update outdated items";
 
-    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(mAllocator);
     if (!itemsData) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1051,7 +1052,7 @@ Error ImageManager::ValidateUpdateItem(const UpdateItemData& itemData)
         return err;
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
     if (!manifest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1079,7 +1080,7 @@ Error ImageManager::ValidateUpdateItem(const UpdateItemData& itemData)
             return err;
         }
 
-        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        auto config = MakeUnique<oci::ImageConfig>(mAllocator);
         if (!config) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -1122,7 +1123,7 @@ Error ImageManager::HandleOutdatedItems()
 {
     LOG_DBG() << "Handle outdated items";
 
-    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(mAllocator);
     if (!itemsData) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1151,7 +1152,7 @@ Error ImageManager::HandleItemsIntegrity()
 {
     LOG_DBG() << "Handle items integrity";
 
-    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(mAllocator);
     if (!itemsData) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1221,7 +1222,7 @@ Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array
         return err;
     }
 
-    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
     if (!manifest) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1253,7 +1254,7 @@ Error ImageManager::CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array
             return AOS_ERROR_WRAP(err);
         }
 
-        auto config = MakeUnique<oci::ImageConfig>(&mAllocator);
+        auto config = MakeUnique<oci::ImageConfig>(mAllocator);
         if (!config) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -1320,7 +1321,7 @@ RetWithError<size_t> ImageManager::RemoveOrphanBlobs(const Array<StaticString<cF
                 continue;
             }
 
-            auto [blobSize, err] = fs::CalculateSize(blobPath);
+            auto [blobSize, err] = fs::CalculateSize(*mAllocator, blobPath);
             if (!err.IsNone()) {
                 LOG_ERR() << "Failed to get blob size" << Log::Field("path", blobPath) << Log::Field(err);
             } else {
@@ -1361,7 +1362,7 @@ RetWithError<size_t> ImageManager::RemoveOrphanLayers(const Array<StaticString<c
                 continue;
             }
 
-            auto [layerSize, err] = fs::CalculateSize(layerPath);
+            auto [layerSize, err] = fs::CalculateSize(*mAllocator, layerPath);
             if (!err.IsNone()) {
                 LOG_ERR() << "Failed to get layer size" << Log::Field("path", layerPath) << Log::Field(err);
             } else {
@@ -1383,7 +1384,7 @@ RetWithError<size_t> ImageManager::RemoveOrphans()
 {
     LOG_DBG() << "Remove orphans";
 
-    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(&mAllocator);
+    auto itemsData = MakeUnique<UpdateItemDataStaticArray>(mAllocator);
     if (!itemsData) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -1392,12 +1393,12 @@ RetWithError<size_t> ImageManager::RemoveOrphans()
         return {0, AOS_ERROR_WRAP(err)};
     }
 
-    auto usedBlobs = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>>(&mAllocator);
+    auto usedBlobs = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>>(mAllocator);
     if (!usedBlobs) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    auto usedLayers = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>>(&mAllocator);
+    auto usedLayers = MakeUnique<StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>>(mAllocator);
     if (!usedLayers) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }

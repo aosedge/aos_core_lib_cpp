@@ -16,10 +16,11 @@ namespace aos::sm::nodeconfig {
  * Public
  **********************************************************************************************************************/
 
-Error NodeConfig::Init(const Config& config, aos::nodeconfig::JSONProviderItf& jsonProvider)
+Error NodeConfig::Init(AllocatorItf& allocator, const Config& config, aos::nodeconfig::JSONProviderItf& jsonProvider)
 {
     LOG_DBG() << "Init node config";
 
+    mAllocator      = &allocator;
     mNodeConfigFile = config.mNodeConfigFile;
     mJSONProvider   = &jsonProvider;
 
@@ -66,7 +67,7 @@ Error NodeConfig::UpdateNodeConfig(const aos::NodeConfig& config)
 
     mNodeConfig = config;
 
-    auto nodeConfigJSON = MakeUnique<StaticString<aos::nodeconfig::cNodeConfigJSONLen>>(&mAllocator);
+    auto nodeConfigJSON = MakeUnique<StaticString<aos::nodeconfig::cNodeConfigJSONLen>>(mAllocator);
     if (!nodeConfigJSON) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -148,7 +149,7 @@ Error NodeConfig::LoadConfig()
 {
     LOG_DBG() << "Load config";
 
-    auto nodeConfigJSON = MakeUnique<StaticString<aos::nodeconfig::cNodeConfigJSONLen>>(&mAllocator);
+    auto nodeConfigJSON = MakeUnique<StaticString<aos::nodeconfig::cNodeConfigJSONLen>>(mAllocator);
     if (!nodeConfigJSON) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

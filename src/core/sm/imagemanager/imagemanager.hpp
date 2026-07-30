@@ -10,6 +10,9 @@
 #include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
+#include <core/common/tools/list.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 
 #include "itf/blobinfoprovider.hpp"
@@ -34,6 +37,7 @@ public:
     /**
      * Initializes image manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config image manager config.
      * @param blobInfoProvider blob info provider.
      * @param spaceAllocator space allocator.
@@ -44,7 +48,7 @@ public:
      * @param storage image manager storage.
      * @return Error.
      */
-    Error Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, BlobInfoProviderItf& blobInfoProvider,
         spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
         fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
         StorageItf& storage);
@@ -117,18 +121,6 @@ private:
     static constexpr auto cMaxNumItemBlobs       = oci::cMaxNumLayers + 3;
     static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (cMaxNumItemBlobs);
     static constexpr auto cMaxNumInstalledLayers = cMaxNumUpdateItems * oci::cMaxNumLayers;
-    // Worst case: RemoveItem (mutex held) runs RemoveOrphans->CalcItemBlobsAndLayers (1 manifest + 1 config)
-    // while cMaxNumConcurrentItems service installs are in their layer-download step inside the if(eService)
-    // block (manifest + config both alive, no mutex held). Config in InstallUpdateItem is scoped to the
-    // if(eService) block and freed before StoreUpdateItem, so only the +1 from CalcItemBlobsAndLayers adds
-    // to the manifest/config count beyond the N concurrent installs.
-    // Allocation count: 3 fixed (items array + usedBlobs + usedLayers) + 2 per slot (manifest+config).
-    static constexpr auto cAllocatorSize = sizeof(UpdateItemDataStaticArray)
-        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>)
-        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>)
-        + (cMaxNumConcurrentItems + 1) * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig));
-    static constexpr auto cMaxNumAllocations = 3 + 2 * (cMaxNumConcurrentItems + 1);
-
     struct InstallItem {
         StaticString<cIDLen>                                           mID;
         StaticString<cVersionLen>                                      mVersion;
@@ -184,7 +176,7 @@ private:
     ImageHandlerItf*                   mImageHandler {};
     StorageItf*                        mStorage {};
 
-    mutable StaticAllocator<cAllocatorSize, cMaxNumAllocations> mAllocator;
+    AllocatorItf* mAllocator {};
 
     Timer                                                             mTimer;
     mutable Mutex                                                     mMutex;

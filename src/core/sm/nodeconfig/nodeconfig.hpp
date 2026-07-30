@@ -9,7 +9,7 @@
 
 #include <core/common/nodeconfig/itf/jsonprovider.hpp>
 #include <core/common/nodeconfig/itf/nodeconfigprovider.hpp>
-#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 
 #include "config.hpp"
@@ -29,11 +29,12 @@ public:
     /**
      * Initializes node config.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config node config configuration.
      * @param jsonProvider JSON provider.
      * @return Error.
      */
-    Error Init(const Config& config, aos::nodeconfig::JSONProviderItf& jsonProvider);
+    Error Init(AllocatorItf& allocator, const Config& config, aos::nodeconfig::JSONProviderItf& jsonProvider);
 
     /**
      * Checks node config.
@@ -85,7 +86,6 @@ public:
 
 private:
     static constexpr auto cMaxNumListeners = 4;
-    static constexpr auto cAllocatorSize   = sizeof(StaticString<aos::nodeconfig::cNodeConfigJSONLen>);
 
     Error LoadConfig();
     Error CheckVersion(const String& version);
@@ -97,7 +97,7 @@ private:
     Error                             mNodeConfigError;
     mutable Mutex                     mMutex;
     StaticArray<aos::nodeconfig::NodeConfigListenerItf*, cMaxNumListeners> mListeners;
-    StaticAllocator<cAllocatorSize>                                        mAllocator;
+    AllocatorItf*                                                          mAllocator {};
 };
 
 /** @}*/

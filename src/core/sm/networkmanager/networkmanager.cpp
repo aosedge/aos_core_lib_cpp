@@ -15,13 +15,14 @@ namespace aos::sm::networkmanager {
  * Public
  **********************************************************************************************************************/
 
-Error NetworkManager::Init(StorageItf& storage, BridgeNetworkItf& bridgeNet, FirewallItf& firewall,
-    BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor, NamespaceManagerItf& netns,
-    InterfaceManagerItf& netIf, crypto::RandomItf& random, InterfaceFactoryItf& netIfFactory,
-    aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID)
+Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeNetworkItf& bridgeNet,
+    FirewallItf& firewall, BandwidthItf& bandwidth, DNSNameItf& dnsName, TrafficMonitorItf& netMonitor,
+    NamespaceManagerItf& netns, InterfaceManagerItf& netIf, crypto::RandomItf& random,
+    InterfaceFactoryItf& netIfFactory, aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID)
 {
     LOG_DBG() << "Init network manager";
 
+    mAllocator       = &allocator;
     mStorage         = &storage;
     mBridgeNetwork   = &bridgeNet;
     mFirewall        = &firewall;
@@ -35,8 +36,7 @@ Error NetworkManager::Init(StorageItf& storage, BridgeNetworkItf& bridgeNet, Fir
     mNetworkProvider = &networkProvider;
     mNodeID          = nodeID;
 
-    auto instanceNetworkInfos
-        = MakeUnique<StaticArray<InstanceNetworkInfo, cMaxNumInstances>>(&mInstanceNetworkInfosAllocator);
+    auto instanceNetworkInfos = MakeUnique<StaticArray<InstanceNetworkInfo, cMaxNumInstances>>(mAllocator);
     if (!instanceNetworkInfos) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -49,7 +49,7 @@ Error NetworkManager::Init(StorageItf& storage, BridgeNetworkItf& bridgeNet, Fir
         mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo);
     }
 
-    auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(&mNetworkInfosAllocator);
+    auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(mAllocator);
     if (!networkInfos) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -209,7 +209,7 @@ Error NetworkManager::CreateInstanceNetwork(
         return err;
     }
 
-    auto serviceData = MakeUnique<UpdateItemNetworkParams>(&mAllocator);
+    auto serviceData = MakeUnique<UpdateItemNetworkParams>(mAllocator);
     if (!serviceData) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -220,7 +220,7 @@ Error NetworkManager::CreateInstanceNetwork(
         return err;
     }
 
-    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(&mAllocator);
+    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(mAllocator);
     if (!allocatedParams) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -244,7 +244,7 @@ Error NetworkManager::CreateInstanceNetwork(
         });
 
     auto info = MakeUnique<InstanceNetworkInfo>(
-        &mAllocator, instanceID, networkID, instanceNetworkParameters, *allocatedParams);
+        mAllocator, instanceID, networkID, instanceNetworkParameters, *allocatedParams);
     if (!info) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -268,7 +268,7 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
 {
     LOG_DBG() << "Start instance network" << Log::Field("instanceID", instanceID) << Log::Field("networkID", networkID);
 
-    auto cachedInfo = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+    auto cachedInfo = MakeUnique<InstanceNetworkInfo>(mAllocator);
     if (!cachedInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -327,7 +327,7 @@ Error NetworkManager::GetResolvServers(const String& instanceID, Array<StaticStr
 {
     StaticString<cIDLen> networkID;
     StaticString<cIPLen> bridgeIP;
-    auto dns = MakeUnique<StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>>(&mResolvHostsAllocator);
+    auto                 dns = MakeUnique<StaticArray<StaticString<cIPLen>, cMaxNumDNSServers>>(mAllocator);
     if (!dns) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -377,7 +377,7 @@ Error NetworkManager::GetHosts(const String& instanceID, Array<Host>& hosts) con
     StaticString<cIDLen>       networkID;
     StaticString<cIPLen>       instanceIP;
     StaticString<cHostNameLen> hostname;
-    auto customHosts = MakeUnique<StaticArray<Host, cMaxNumHosts>>(&mResolvHostsAllocator);
+    auto                       customHosts = MakeUnique<StaticArray<Host, cMaxNumHosts>>(mAllocator);
     if (!customHosts) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -695,7 +695,10 @@ Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
         return err;
     }
 
-    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
+    if (!info) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     {
         LockGuard lock {mMutex};
@@ -708,7 +711,10 @@ Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
         *info = it->mSecond;
     }
 
-    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(mAllocator);
+    if (!firewallParams) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = PrepareInstanceFirewallParams(info->mNetworkConfig, info->mAllocatedParams, *firewallParams);
         !err.IsNone()) {
@@ -892,7 +898,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto hosts = MakeUnique<StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>>(&mAllocator);
+    auto hosts = MakeUnique<StaticArray<StaticString<cHostNameLen>, cMaxNumHosts>>(mAllocator);
     if (!hosts) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -910,7 +916,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    auto bridgeParams = MakeUnique<BridgeParams>(&mAllocator);
+    auto bridgeParams = MakeUnique<BridgeParams>(mAllocator);
     if (!bridgeParams) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -937,7 +943,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(mAllocator);
     if (!firewallParams) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -961,7 +967,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto bandwidthParams = MakeUnique<BandwidthParams>(&mAllocator);
+    auto bandwidthParams = MakeUnique<BandwidthParams>(mAllocator);
     if (!bandwidthParams) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -1002,7 +1008,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         dnsServer = it->mSecond;
     }
 
-    auto dnsParams = MakeUnique<DNSAliasesParams>(&mAllocator);
+    auto dnsParams = MakeUnique<DNSAliasesParams>(mAllocator);
     if (!dnsParams) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -1048,7 +1054,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
     if (!info) {
         err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
 
@@ -1172,7 +1178,7 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
     }
 
     if (err.IsNone() && !hostIfName.IsEmpty()) {
-        auto info = MakeUnique<InstanceNetworkInfo>(&mAllocator);
+        auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
         if (!info) {
             LOG_ERR() << "Failed to allocate instance network info" << Log::Field("instanceID", instanceID)
                       << Log::Field(ErrorEnum::eNoMemory);
@@ -1307,8 +1313,14 @@ Error NetworkManager::InitInstance(const String& instanceID, const String& netwo
         }
     });
 
-    auto                 config = MakeUnique<InstanceNetworkConfig>(&mAllocator);
     StaticString<cIPLen> instanceIP;
+
+    auto config = MakeUnique<InstanceNetworkConfig>(mAllocator);
+    if (!config) {
+        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+
+        return err;
+    }
 
     {
         LockGuard lock {mMutex};
@@ -1324,7 +1336,12 @@ Error NetworkManager::InitInstance(const String& instanceID, const String& netwo
         instanceIP = it->mSecond.mAllocatedParams.mIP;
     }
 
-    auto hosts = MakeUnique<InstanceHosts>(&mAllocator);
+    auto hosts = MakeUnique<InstanceHosts>(mAllocator);
+    if (!hosts) {
+        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+
+        return err;
+    }
 
     if (err = PrepareHosts(instanceID, networkID, *config, *hosts); !err.IsNone()) {
         return err;
@@ -1363,7 +1380,7 @@ Error NetworkManager::ReconcileInstances()
         StaticString<cInterfaceLen> mBridgeIfName;
     };
 
-    auto entries = MakeUnique<StaticArray<Entry, cMaxNumInstances>>(&mAllocator);
+    auto entries = MakeUnique<StaticArray<Entry, cMaxNumInstances>>(mAllocator);
     if (!entries) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1431,8 +1448,15 @@ Error NetworkManager::ReconcileInstances()
 
 Error NetworkManager::RemoveFirewallOrphans()
 {
-    auto knownInstanceIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(&mAllocator);
-    auto knownMasquerades = MakeUnique<StaticArray<MasqueradeParams, cMaxNumOwners>>(&mAllocator);
+    auto knownInstanceIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
+    if (!knownInstanceIDs) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto knownMasquerades = MakeUnique<StaticArray<MasqueradeParams, cMaxNumOwners>>(mAllocator);
+    if (!knownMasquerades) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     {
         LockGuard lock {mMutex};
@@ -1459,7 +1483,7 @@ Error NetworkManager::RemoveFirewallOrphans()
 
 Error NetworkManager::RemoveDNSOrphans()
 {
-    auto known = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(&mAllocator);
+    auto known = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
     if (!known) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1964,14 +1988,14 @@ void NetworkManager::OnPendingFirewallUpdate(
     StaticString<cIDLen> networkID;
     bool                 isRunning = false;
 
-    auto networkConfig = MakeUnique<InstanceNetworkConfig>(&mAllocator);
+    auto networkConfig = MakeUnique<InstanceNetworkConfig>(mAllocator);
     if (!networkConfig) {
         LOG_ERR() << "Failed to allocate network config" << Log::Field(ErrorEnum::eNoMemory);
 
         return;
     }
 
-    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(&mAllocator);
+    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(mAllocator);
     if (!allocatedParams) {
         LOG_ERR() << "Failed to allocate network allocation params" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -2010,7 +2034,7 @@ void NetworkManager::OnPendingFirewallUpdate(
         allocatedParams->mFirewallRules = update.mFirewallRules;
 
         auto info = MakeUnique<InstanceNetworkInfo>(
-            &mInstanceNetworkInfosAllocator, instanceID, networkID, *networkConfig, *allocatedParams, hostIfName);
+            mAllocator, instanceID, networkID, *networkConfig, *allocatedParams, hostIfName);
         if (!info) {
             LOG_ERR() << "Failed to allocate instance network info" << Log::Field("instanceID", instanceID)
                       << Log::Field(ErrorEnum::eNoMemory);
@@ -2042,7 +2066,7 @@ void NetworkManager::OnConnect()
 {
     LOG_DBG() << "SM connected to CM, synchronizing network state";
 
-    auto instances = MakeUnique<StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>>(&mAllocator);
+    auto instances = MakeUnique<StaticArray<InstanceNetworkStateInfo, cMaxNumInstances>>(mAllocator);
     if (!instances) {
         LOG_ERR() << "Failed to allocate instances sync state" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -2080,7 +2104,7 @@ Error NetworkManager::UpdateInstanceFirewall(const String& instanceID, const Str
     LOG_DBG() << "Updating instance firewall" << Log::Field("instanceID", instanceID)
               << Log::Field("networkID", networkID);
 
-    auto firewallParams = MakeUnique<InstanceFirewallParams>(&mAllocator);
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(mAllocator);
     if (!firewallParams) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }

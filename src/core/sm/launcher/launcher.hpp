@@ -11,8 +11,8 @@
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/instanceinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/tools/allocator.hpp>
 #include <core/common/tools/map.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/instance.hpp>
 #include <core/sm/imagemanager/imagemanager.hpp>
@@ -45,6 +45,7 @@ public:
     /**
      * Initializes launcher.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param runtimes available runtimes.
      * @param imageManager image manager.
      * @param statusSender sender.
@@ -58,10 +59,11 @@ public:
      *
      * @return Error.
      */
-    Error Init(const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager, SenderItf& sender,
-        StorageItf& storage, oci::OCISpecItf& ociSpec, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        cloudconnection::CloudConnectionItf& cloudConnection, networkmanager::NetworkManagerItf& networkManager,
-        InstanceIDProviderItf& instanceIDProvider, resourcemanager::ResourceInfoProviderItf& resourceInfoProvider);
+    Error Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager,
+        SenderItf& sender, StorageItf& storage, oci::OCISpecItf& ociSpec,
+        imagemanager::ItemInfoProviderItf& itemInfoProvider, cloudconnection::CloudConnectionItf& cloudConnection,
+        networkmanager::NetworkManagerItf& networkManager, InstanceIDProviderItf& instanceIDProvider,
+        resourcemanager::ResourceInfoProviderItf& resourceInfoProvider);
 
     /**
      * Starts launcher.
@@ -172,17 +174,6 @@ private:
     static constexpr auto cThreadTaskSize    = 512;
     static constexpr auto cMaxNumSubscribers = 4;
 
-    static constexpr auto cAllocatorSize = 2 * sizeof(StaticArray<InstanceIdent, cMaxNumInstances>)
-        + 3 * sizeof(InstanceInfoArray) + sizeof(InstanceStatusArray)
-        + cMaxNumConcurrentItems
-            * (sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
-                + Max(sizeof(StaticString<cFilePathLen>) + sizeof(oci::ImageManifest),
-                    sizeof(networkmanager::InstanceNetworkConfig) + sizeof(resourcemanager::ResourceInfo)))
-        + Max(sizeof(StaticArray<UpdateItemInfo, cMaxNumUpdateItems>),
-            sizeof(StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>)
-                + sizeof(StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>));
-    static constexpr auto cMaxNumAllocations = 5 + cMaxNumConcurrentItems * 4;
-
     void  OnConnect() override;
     void  OnDisconnect() override;
     void  RunRebootThread();
@@ -234,9 +225,9 @@ private:
     void               StartTTLTimer();
     void               StopExpiredInstances(UniqueLock<Mutex>& lock);
     void               SendNodeInstancesStatuses();
-    void               InitInstances(const Array<InstanceInfo>& instancesInfo);
+    Error              InitInstances(const Array<InstanceInfo>& instancesInfo);
 
-    StaticAllocator<cAllocatorSize, cMaxNumAllocations>                   mAllocator;
+    AllocatorItf*                                                         mAllocator {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
     Thread<cThreadTaskSize>                                               mThread;
     Thread<cThreadTaskSize>                                               mRebootThread;
