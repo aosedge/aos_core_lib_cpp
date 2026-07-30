@@ -20,8 +20,19 @@ void ImageInfoProvider::Init(imagemanager::ItemInfoProviderItf& itemInfoProvider
 Error ImageInfoProvider::GetImageConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ImageConfig& config)
 {
     auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
-    auto manifest     = MakeUnique<oci::ImageManifest>(&mAllocator);
-    auto configPath   = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!manifestPath) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto configPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!configPath) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mItemInfoProvider->GetBlobPath(imageDescriptor.mDigest, *manifestPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -45,8 +56,19 @@ Error ImageInfoProvider::GetImageConfig(const oci::IndexContentDescriptor& image
 Error ImageInfoProvider::GetItemConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ItemConfig& itemConfig)
 {
     auto manifestPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
-    auto manifest     = MakeUnique<oci::ImageManifest>(&mAllocator);
-    auto servicePath  = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!manifestPath) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto servicePath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!servicePath) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mItemInfoProvider->GetBlobPath(imageDescriptor.mDigest, *manifestPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -74,7 +96,14 @@ Error ImageInfoProvider::GetItemConfig(const oci::IndexContentDescriptor& imageD
 Error ImageInfoProvider::GetImageIndex(const String& itemID, const String& version, oci::ImageIndex& imageIndex)
 {
     auto indexDigest = MakeUnique<StaticString<oci::cDigestLen>>(&mAllocator);
-    auto indexPath   = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!indexDigest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto indexPath = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!indexPath) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mItemInfoProvider->GetIndexDigest(itemID, version, *indexDigest); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

@@ -268,8 +268,15 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
 Error Node::SendScheduledInstances(
     const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances)
 {
-    auto stopInstances  = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!stopInstances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!startInstances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {
         // Check if the instance is scheduled on this node (ident, runtime, node, and service version must match).
@@ -318,8 +325,16 @@ Error Node::SendScheduledInstances(
 RetWithError<bool> Node::ResendInstances(
     const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
-    auto   stopInstances        = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
-    auto   startInstances       = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!stopInstances) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!startInstances) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
     size_t runningNodeInstances = 0;
 
     for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {

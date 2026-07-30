@@ -165,7 +165,11 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
 RetWithError<pkcs11::SlotID> CertLoader::FindToken(const pkcs11::LibraryContext& library, const String& token)
 {
     StaticArray<pkcs11::SlotID, pkcs11::cSlotListSize> slotList;
-    auto                                               tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mAllocator);
+
+    auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mAllocator);
+    if (!tokenInfo) {
+        return {0, ErrorEnum::eNoMemory};
+    }
 
     auto err = library.GetSlotList(true, slotList);
     if (!err.IsNone()) {
@@ -191,6 +195,9 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsFromFile(co
     LOG_DBG() << "Load certs chain from file: fileName=" << fileName;
 
     auto buff = MakeUnique<PEMCertChainBlob>(&mAllocator);
+    if (!buff) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     auto err = fs::ReadFileToString(fileName, *buff);
     if (!err.IsNone()) {
@@ -198,6 +205,9 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsFromFile(co
     }
 
     auto certificates = MakeShared<x509::CertificateChain>(&mAllocator);
+    if (!certificates) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     err = mCryptoProvider->PEMToX509Certs(*buff, *certificates);
 
@@ -209,6 +219,9 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const Str
     LOG_DBG() << "Load private key from file: fileName=" << fileName;
 
     auto buff = MakeUnique<StaticString<cPrivKeyPEMLen>>(&mAllocator);
+    if (!buff) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     auto err = fs::ReadFileToString(fileName, *buff);
     if (!err.IsNone()) {

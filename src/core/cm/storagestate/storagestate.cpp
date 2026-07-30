@@ -137,6 +137,9 @@ Error StorageState::UpdateState(const aos::UpdateState& state)
     }
 
     auto storageStateInfo = MakeUnique<InstanceInfo>(&mAllocator);
+    if (!storageStateInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mStorage->GetStorageStateInfo(state, *storageStateInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -189,6 +192,9 @@ Error StorageState::AcceptState(const StateAcceptance& state)
     }
 
     auto storageStateInfo = MakeUnique<InstanceInfo>(&mAllocator);
+    if (!storageStateInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mStorage->GetStorageStateInfo(state, *storageStateInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -213,10 +219,16 @@ Error StorageState::Setup(
     LOG_DBG() << "Setup storage and state" << setupParams;
 
     auto storageData = MakeUnique<InstanceInfo>(&mAllocator);
+    if (!storageData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = mStorage->GetStorageStateInfo(instanceIdent, *storageData);
     if (err.Is(ErrorEnum::eNotFound)) {
         storageData = MakeUnique<InstanceInfo>(&mAllocator);
+        if (!storageData) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         storageData->mInstanceIdent = instanceIdent;
 
@@ -353,6 +365,9 @@ Error StorageState::InitStateWatching()
     LOG_DBG() << "Init state watching";
 
     auto infos = MakeUnique<InstanceInfoArray>(&mAllocator);
+    if (!infos) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mStorage->GetAllStorageStateInfo(*infos); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -474,6 +489,9 @@ Error StorageState::CheckChecksumAndSendUpdateRequest(const State& state)
     LOG_DBG() << "Check checksum and send update request" << state;
 
     auto stateContent = MakeUnique<StaticString<cStateLen>>(&mAllocator);
+    if (!stateContent) {
+        return ErrorEnum::eNoMemory;
+    }
 
     if (auto err = fs::ReadFileToString(state.mFilePath, *stateContent); !err.IsNone()) {
         return err;
@@ -575,6 +593,9 @@ Error StorageState::SetQuotas(const SetupParams& setupParams)
 Error StorageState::SendNewStateIfFileChanged(State& state)
 {
     auto newState = MakeUnique<NewState>(&mAllocator);
+    if (!newState) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     static_cast<InstanceIdent&>(*newState) = state.mInstanceIdent;
 

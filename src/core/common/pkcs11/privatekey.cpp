@@ -39,6 +39,9 @@ Error PKCS11RSAPrivateKey::Sign(
     const Array<uint8_t>& digest, const crypto::SignOptions& options, Array<uint8_t>& signature) const
 {
     auto t = MakeUnique<StaticArray<uint8_t, crypto::cSHA2DigestSize + cMaxPrefixSize>>(&mAllocator);
+    if (!t) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     t->Append(GetPrefix(options.mHash));
     t->Append(digest);

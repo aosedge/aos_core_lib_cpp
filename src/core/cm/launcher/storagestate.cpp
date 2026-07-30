@@ -44,6 +44,10 @@ Error StorageState::PrepareForBalancing()
         mAvailableStorage = MakeShared<size_t>(&mAllocator, 0);
     }
 
+    if (!mAvailableState || !mAvailableStorage) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     const auto& [stateSize, stateErr] = mStorageStateManager->GetTotalStateSize();
     if (!stateErr.IsNone()) {
         return AOS_ERROR_WRAP(stateErr);

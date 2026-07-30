@@ -36,6 +36,9 @@ void NodeManager::Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
 Error NodeManager::Start()
 {
     auto nodes = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    if (!nodes) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mNodeInfoProvider->GetAllNodeIDs(*nodes); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -44,6 +47,9 @@ Error NodeManager::Start()
     LOG_DBG() << "Start node manager" << Log::Field("nodes", nodes->Size());
 
     auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+    if (!nodeInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (const auto& nodeID : *nodes) {
         if (auto err = mNodeInfoProvider->GetNodeInfo(nodeID, *nodeInfo); !err.IsNone()) {
@@ -105,11 +111,19 @@ Error NodeManager::LoadSMDataForActiveInstances(
         if (node == nullptr) {
             LOG_ERR() << "Can't find node" << Log::Field("instanceID", instanceID) << Log::Field("nodeID", nodeID)
                       << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNotFound));
+
             continue;
         }
 
         auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(&mAllocator);
-        auto findDescErr     = FindImageDescriptor(
+        if (!imageDescriptor) {
+            LOG_ERR() << "Can't allocate image descriptor" << Log::Field("instanceID", instanceID)
+                      << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+            continue;
+        }
+
+        auto findDescErr = FindImageDescriptor(
             instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
         if (!findDescErr.IsNone()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
@@ -352,6 +366,9 @@ Error NodeManager::FindImageDescriptor(const String& itemID, const String& versi
     ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor)
 {
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    if (!imageIndex) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = imageInfoProvider.GetImageIndex(itemID, version, *imageIndex); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

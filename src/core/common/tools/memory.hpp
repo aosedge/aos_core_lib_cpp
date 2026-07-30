@@ -521,7 +521,7 @@ private:
  * @tparam Args holding object constructor parameters types.
  * @param allocator allocator.
  * @param args holding object constructor parameters.
- * @return UniquePtr<T> constructed unique ptr.
+ * @return UniquePtr<T> constructed unique ptr, empty if allocation failed.
  */
 template <typename T, typename... Args>
 inline UniquePtr<T> MakeUnique(Allocator* allocator, Args&&... args)
@@ -558,7 +558,7 @@ inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
  * @tparam Args holding object constructor parameters types.
  * @param allocator allocator.
  * @param args holding object constructor parameters.
- * @return SharedPtr<T> constructed shared ptr.
+ * @return SharedPtr<T> constructed shared ptr, empty if allocation failed.
  */
 template <typename T, typename... Args>
 inline SharedPtr<T> MakeShared(Allocator* allocator, Args&&... args)

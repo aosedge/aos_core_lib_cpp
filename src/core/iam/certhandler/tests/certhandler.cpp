@@ -34,6 +34,7 @@ protected:
         mCryptoProvider = &mCryptoFactory.GetCryptoProvider();
 
         mCertHandler = MakeShared<CertHandler>(&mAllocator);
+        ASSERT_TRUE(mCertHandler);
         ASSERT_TRUE(mSOFTHSMEnv.Init("", "certhanler-integr-tests").IsNone());
     }
 
@@ -479,6 +480,7 @@ TEST_F(CerthandlerTest, ValidateCertificates)
 
     // Create CertHandler
     mCertHandler = MakeShared<CertHandler>(&mAllocator);
+    ASSERT_TRUE(mCertHandler);
     RegisterPKCS11Module("iam");
 
     // Check Storage is restored.
@@ -547,6 +549,7 @@ TEST_F(CerthandlerTest, RemoveInvalidPKCS11Objects)
 
     // reinit certhandler to sync certificates/keys with PKCS11 storage
     mCertHandler = MakeShared<CertHandler>(&mAllocator);
+    ASSERT_TRUE(mCertHandler);
     RegisterPKCS11Module("iam");
 
     // create key, because certmodule updates PKCS11 storage after that only
@@ -583,6 +586,7 @@ TEST_F(CerthandlerTest, RenewCertificate)
 
     // reinit certhandler to sync certificates/keys with PKCS11 storage
     mCertHandler = MakeShared<CertHandler>(&mAllocator);
+    ASSERT_TRUE(mCertHandler);
     RegisterPKCS11Module("iam");
     RegisterPKCS11Module("sm");
 

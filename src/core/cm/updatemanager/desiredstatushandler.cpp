@@ -332,6 +332,9 @@ void DesiredStatusHandler::SetState(UpdateState state)
 Error DesiredStatusHandler::DownloadUpdateItems()
 {
     auto itemsStatuses = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+    if (!itemsStatuses) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     LOG_DBG() << "Download update items" << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
 
@@ -402,8 +405,15 @@ Error DesiredStatusHandler::InstallDesiredStatus()
 
 Error DesiredStatusHandler::LaunchInstances()
 {
-    auto runRequest        = MakeUnique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
+    auto runRequest = MakeUnique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>(&mAllocator);
+    if (!runRequest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (!instancesStatuses) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     LOG_DBG() << "Launch instances" << Log::Field("count", mCurrentDesiredStatus.mInstances.Size());
 
@@ -459,6 +469,9 @@ Error DesiredStatusHandler::LaunchInstances()
 Error DesiredStatusHandler::WaitInstancesActive()
 {
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (!instancesStatuses) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     while (mIsRunning) {
         if (auto err = mLauncher->GetInstancesStatuses(*instancesStatuses); !err.IsNone()) {
@@ -492,6 +505,9 @@ Error DesiredStatusHandler::WaitInstancesActive()
 Error DesiredStatusHandler::FinalizeUpdate()
 {
     auto itemsStatuses = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+    if (!itemsStatuses) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     LOG_DBG() << "Install update items" << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
 
@@ -535,6 +551,11 @@ bool DesiredStatusHandler::IsUpdateRequired(const DesiredStatus& desiredStatus) 
 bool DesiredStatusHandler::IsUpdateItemsRequired(const DesiredStatus& desiredStatus) const
 {
     auto itemsStatuses = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+    if (!itemsStatuses) {
+        LOG_ERR() << "Failed to allocate update items statuses" << Log::Field(ErrorEnum::eNoMemory);
+
+        return true;
+    }
 
     if (auto err = mImageManager->GetUpdateItemsStatuses(*itemsStatuses); !err.IsNone()) {
         LOG_ERR() << "Failed to get update items statuses" << Log::Field(err);
@@ -595,6 +616,11 @@ bool DesiredStatusHandler::IsSameUpdate(const DesiredStatus& desiredStatus) cons
 bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const
 {
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (!instancesStatuses) {
+        LOG_ERR() << "Failed to allocate instances statuses" << Log::Field(ErrorEnum::eNoMemory);
+
+        return true;
+    }
 
     if (auto err = mLauncher->GetInstancesStatuses(*instancesStatuses); !err.IsNone()) {
         LOG_ERR() << "Failed to get instances statuses" << Log::Field(err);

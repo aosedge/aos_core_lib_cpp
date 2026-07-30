@@ -67,6 +67,9 @@ Error NodeConfig::UpdateNodeConfig(const aos::NodeConfig& config)
     mNodeConfig = config;
 
     auto nodeConfigJSON = MakeUnique<StaticString<aos::nodeconfig::cNodeConfigJSONLen>>(&mAllocator);
+    if (!nodeConfigJSON) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mJSONProvider->NodeConfigToJSON(config, *nodeConfigJSON); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -146,6 +149,9 @@ Error NodeConfig::LoadConfig()
     LOG_DBG() << "Load config";
 
     auto nodeConfigJSON = MakeUnique<StaticString<aos::nodeconfig::cNodeConfigJSONLen>>(&mAllocator);
+    if (!nodeConfigJSON) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = fs::ReadFileToString(mNodeConfigFile, *nodeConfigJSON);
     if (!err.IsNone()) {

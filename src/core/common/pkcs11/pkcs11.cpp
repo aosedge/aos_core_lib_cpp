@@ -551,6 +551,9 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
     }
 
     auto session = MakeShared<SessionContext>(&mAllocator, handle, mFunctionList);
+    if (!session) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     return {session, ErrorEnum::eNone};
 }
@@ -1266,7 +1269,11 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> Utils::FindCertificateCh
     }
 
     SharedPtr<crypto::x509::Certificate> certificate;
-    auto                                 chain = MakeShared<crypto::x509::CertificateChain>(&mAllocator);
+
+    auto chain = MakeShared<crypto::x509::CertificateChain>(&mAllocator);
+    if (!chain) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     Tie(certificate, err) = GetCertificate(certHandles[0]);
     if (!err.IsNone()) {
@@ -1331,7 +1338,14 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
 
         auto n = MakeUnique<StaticArray<uint8_t, crypto::cRSAModulusSize>>(&mAllocator);
+        if (!n) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
+
         auto e = MakeUnique<StaticArray<uint8_t, crypto::cRSAPubExponentSize>>(&mAllocator);
+        if (!e) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         attrValues.PushBack(*n);
         attrValues.PushBack(*e);
@@ -1341,8 +1355,15 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, err};
         }
 
-        auto pubKey    = MakeUnique<crypto::RSAPublicKey>(&mAllocator, attrValues[0], attrValues[1]);
+        auto pubKey = MakeUnique<crypto::RSAPublicKey>(&mAllocator, attrValues[0], attrValues[1]);
+        if (!pubKey) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
+
         auto cryptoKey = MakeShared<PKCS11RSAPrivateKey>(&mAllocator, mSession, privKeyHandle, *pubKey);
+        if (!cryptoKey) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         PrivateKey pkcsKey = {privKeyHandle, pubKeyHandle, cryptoKey};
 
@@ -1357,7 +1378,14 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         attrTypes.PushBack(CKA_EC_POINT);
 
         auto derEncodedParams = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
-        auto derEncodedPoint  = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
+        if (!derEncodedParams) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
+
+        auto derEncodedPoint = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
+        if (!derEncodedPoint) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         attrValues.PushBack(*derEncodedParams);
         attrValues.PushBack(*derEncodedPoint);
@@ -1368,7 +1396,14 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         }
 
         auto params = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
-        auto point  = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
+        if (!params) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
+
+        auto point = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
+        if (!point) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         err = mCryptoProvider.ASN1DecodeOID(attrValues[0], *params);
         if (!err.IsNone()) {
@@ -1381,8 +1416,15 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         }
 
         auto pubKey = MakeUnique<crypto::ECDSAPublicKey>(&mAllocator, *params, *point);
+        if (!pubKey) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
+
         auto cryptoKey
             = MakeShared<PKCS11ECDSAPrivateKey>(&mAllocator, mSession, mCryptoProvider, privKeyHandle, *pubKey);
+        if (!cryptoKey) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         PrivateKey pkcsKey = {privKeyHandle, pubKeyHandle, cryptoKey};
 
@@ -1483,6 +1525,10 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
 RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectHandle handle)
 {
     auto certificate = MakeShared<crypto::x509::Certificate>(&mAllocator);
+    if (!certificate) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
+
     StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
     StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 

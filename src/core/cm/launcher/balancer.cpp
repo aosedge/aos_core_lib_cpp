@@ -92,11 +92,19 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+        if (!imageIndex) {
+            LOG_ERR() << "Can't allocate image index" << Log::Field("instance", id) << Log::Field(ErrorEnum::eNoMemory);
+
+            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+            continue;
+        }
 
         if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
+
             continue;
         }
 
@@ -106,8 +114,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            scheduleErr = ScheduleInstance(instance, manifest);
-            if (scheduleErr.IsNone()) {
+            if (scheduleErr = ScheduleInstance(instance, manifest); scheduleErr.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
                 break;
@@ -127,6 +134,9 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor)
 {
     auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
+    if (!nodes) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
 
@@ -197,6 +207,9 @@ void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
 RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
 {
     auto nodeRuntimes = MakeUnique<NodeRuntimes>(&mAllocator);
+    if (!nodeRuntimes) {
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     if (auto err = CreateRuntimes(nodes, *nodeRuntimes); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -385,6 +398,9 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 {
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    if (!imageIndex) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (auto& instance : instances) {
         const auto& info    = instance->GetInfo();
@@ -466,6 +482,9 @@ Error Balancer::UpdateMonitoringData(bool isInitialUpdate)
         const auto& nodeID = node.GetInfo().mNodeID;
 
         auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
+        if (!nodeMonitoring) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         // Monitoring data immediately after startup is not availble.
         // Assign zero consumption on start.

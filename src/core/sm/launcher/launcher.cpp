@@ -74,6 +74,9 @@ Error Launcher::Start()
     }
 
     auto storedInstances = MakeUnique<InstanceInfoArray>(&mAllocator);
+    if (!storedInstances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mStorage->GetAllInstancesInfos(*storedInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -159,8 +162,15 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     // Wait in case previous request is not yet finished
     mThread.Join();
 
-    auto stop  = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(&mAllocator, stopInstances);
+    auto stop = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(&mAllocator, stopInstances);
+    if (!stop) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     auto start = MakeShared<InstanceInfoArray>(&mAllocator, startInstances);
+    if (!start) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mThread.Run([this, stop, start](void*) {
             UpdateInstancesImpl(*stop, *start);
@@ -540,6 +550,11 @@ void Launcher::SendNodeInstancesStatuses()
     LOG_INF() << "Send node instances statuses" << Log::Field("count", mInstances.Size());
 
     auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+    if (!statuses) {
+        LOG_ERR() << "Failed to allocate instance statuses" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
 
     for (const auto& instance : mInstances) {
         LOG_INF() << "Node instance status" << Log::Field("instance", instance.mInfo)
@@ -578,6 +593,9 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
     }
 
     auto instanceInfo = MakeUnique<InstanceInfo>(&mAllocator);
+    if (!instanceInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     static_cast<InstanceIdent&>(*instanceInfo) = status;
     instanceInfo->mRuntimeID                   = status.mRuntimeID;
@@ -594,8 +612,15 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
 
 Error Launcher::LoadInstanceData(InstanceData& instanceData)
 {
-    auto itemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    auto itemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    if (!itemConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (!imageConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = GetInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -674,6 +699,11 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     }
 
     auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    if (!removeItems) {
+        LOG_ERR() << "Failed to allocate remove update items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
 
     if (!mFirstStart) {
         GetRemoveUpdateItems(stopInstances, startInstances, *removeItems);
@@ -838,8 +868,15 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
         return ErrorEnum::eNone;
     }
 
-    auto itemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    auto itemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    if (!itemConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     auto imageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (!imageConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = GetInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
         return err;
@@ -1282,7 +1319,18 @@ void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
 void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
 {
     auto currentItems = MakeUnique<StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>>(&mAllocator);
+    if (!currentItems) {
+        LOG_ERR() << "Failed to allocate current items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
     auto installItems = MakeUnique<StaticArray<imagemanager::UpdateItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    if (!installItems) {
+        LOG_ERR() << "Failed to allocate install items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
 
     if (auto err = mImageManager->GetAllInstalledItems(*currentItems); !err.IsNone()) {
         LOG_ERR() << "Get update items statuses failed" << Log::Field(AOS_ERROR_WRAP(err));
@@ -1427,12 +1475,18 @@ Error Launcher::GetInstanceConfigs(
     LOG_DBG() << "Get instance configs" << Log::Field("instance", instance);
 
     auto path = MakeUnique<StaticString<cFilePathLen>>(&mAllocator);
+    if (!path) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mItemInfoProvider->GetBlobPath(instance.mManifestDigest, *path); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mOCISpec->LoadImageManifest(*path, *manifest); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -1467,6 +1521,9 @@ Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci
     networkConfig.mInstanceIdent = static_cast<const InstanceIdent&>(instance);
 
     auto resourceInfo = MakeUnique<resourcemanager::ResourceInfo>(&mAllocator);
+    if (!resourceInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (const auto& resource : itemConfig.mResources) {
 
@@ -1516,6 +1573,9 @@ Error Launcher::CreateNetwork(
     const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig)
 {
     auto networkConfig = MakeUnique<networkmanager::InstanceNetworkConfig>(&mAllocator);
+    if (!networkConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = GetInstanceNetworkConfig(instanceData.mInfo, itemConfig, imageConfig, *networkConfig);
         !err.IsNone()) {

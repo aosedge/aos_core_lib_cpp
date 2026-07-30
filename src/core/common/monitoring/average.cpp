@@ -125,6 +125,9 @@ Error Average::StartInstanceMonitoring(const InstanceIdent& instanceIdent)
     }
 
     auto averageData = MakeUnique<AverageData>(&mAllocator);
+    if (!averageData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mAverageInstancesData.Set(instanceIdent, *averageData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

@@ -525,8 +525,12 @@ RetWithError<size_t> CalculateSize(const String& path)
         return {static_cast<size_t>(st.st_size)};
     }
 
-    size_t size         = 0;
-    auto   dirIterators = MakeUnique<DirIteratorArray>(&sCalculateSizeAllocator);
+    size_t size = 0;
+
+    auto dirIterators = MakeUnique<DirIteratorArray>(&sCalculateSizeAllocator);
+    if (!dirIterators) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     if (auto err = dirIterators->EmplaceBack(path); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};

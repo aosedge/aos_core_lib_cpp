@@ -36,6 +36,9 @@ Error NodeInfoProvider::Start()
     }
 
     auto ids = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    if (!ids) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mNodeInfoProvider->GetAllNodeIDs(*ids); !err.IsNone()) {
         return err;
@@ -43,6 +46,9 @@ Error NodeInfoProvider::Start()
 
     for (const auto& id : *ids) {
         auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+        if (!nodeInfo) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -250,6 +256,11 @@ NodeInfoCache* NodeInfoProvider::AddOrGetCacheItem(const String& nodeID)
 void NodeInfoProvider::NotifyListeners(const NodeInfoCache& info)
 {
     auto unitNodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+    if (!unitNodeInfo) {
+        LOG_ERR() << "Can't allocate unit node info" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
 
     info.GetUnitNodeInfo(*unitNodeInfo);
 

@@ -24,6 +24,9 @@ Error NodeManager::Init(StorageItf& storage)
     mStorage = &storage;
 
     auto nodeIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    if (!nodeIDs) {
+        return ErrorEnum::eNoMemory;
+    }
 
     auto err = storage.GetAllNodeIDs(*nodeIDs);
     if (!err.IsNone()) {
@@ -32,6 +35,9 @@ Error NodeManager::Init(StorageItf& storage)
 
     for (const auto& nodeID : *nodeIDs) {
         auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+        if (!nodeInfo) {
+            return ErrorEnum::eNoMemory;
+        }
 
         err = storage.GetNodeInfo(nodeID, *nodeInfo);
         if (!err.IsNone()) {
@@ -77,6 +83,9 @@ Error NodeManager::SetNodeState(const String& nodeID, const NodeState& state)
     }
 
     auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+    if (!nodeInfo) {
+        return ErrorEnum::eNoMemory;
+    }
 
     *nodeInfo        = *cachedInfo;
     nodeInfo->mState = state;
@@ -104,6 +113,9 @@ Error NodeManager::SetNodeConnected(const String& nodeID, bool isConnected)
     }
 
     auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+    if (!nodeInfo) {
+        return ErrorEnum::eNoMemory;
+    }
 
     *nodeInfo              = *cachedInfo;
     nodeInfo->mIsConnected = isConnected;
@@ -216,8 +228,12 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
 
 Error NodeManager::UpdateStorage(const NodeInfo& info)
 {
-    auto        storageInfo = MakeUnique<NodeInfo>(&mAllocator);
-    const auto* cachedInfo  = GetNodeFromCache(info.mNodeID);
+    auto storageInfo = MakeUnique<NodeInfo>(&mAllocator);
+    if (!storageInfo) {
+        return ErrorEnum::eNoMemory;
+    }
+
+    const auto* cachedInfo = GetNodeFromCache(info.mNodeID);
 
     *storageInfo = info;
 

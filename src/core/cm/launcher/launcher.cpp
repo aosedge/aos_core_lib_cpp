@@ -110,6 +110,9 @@ Error Launcher::Start()
 
     // Set initial subjects list.
     auto subjects = MakeUnique<SubjectArray>(&mAllocator);
+    if (!subjects) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mIdentProvider->GetSubjects(*subjects); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -301,6 +304,12 @@ void Launcher::UpdateInstanceStatuses()
 
     // Copy old statuses.
     auto oldInstanceStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (!oldInstanceStatuses) {
+        LOG_ERR() << "Failed to allocate old instance statuses" << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+        return;
+    }
+
     if (auto err = oldInstanceStatuses->Assign(mInstanceStatuses); !err.IsNone()) {
         LOG_ERR() << "Failed to copy old instance statuses" << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -341,6 +350,11 @@ void Launcher::UpdateInstanceStatuses()
 
     // Find new statuses.
     auto changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (!changedStatuses) {
+        LOG_ERR() << "Failed to allocate changed statuses" << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+        return;
+    }
 
     for (size_t i = 0; i < mInstanceStatuses.Size(); ++i) {
         auto newStatus = !oldInstanceStatuses->Contains(mInstanceStatuses[i]);
@@ -389,6 +403,10 @@ Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
 
     // Create instances from run requests.
     auto instances = MakeUnique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>(&mAllocator);
+    if (!instances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     mRunRequestsLoader.CreateInstances(mNodeManager.GetNodes(), *instances);
 
     auto runErr = mBalancer.RunInstances(lock, *instances, rebalance);

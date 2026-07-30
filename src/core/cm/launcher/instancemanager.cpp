@@ -218,6 +218,9 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
     }
 
     auto instanceInfo = CreateInfo(id, "", "", request);
+    if (!instanceInfo) {
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -241,6 +244,9 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
 
     auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
     auto instanceInfo = CreateInfo(id, nodeID, runtimeID, request);
+    if (!instanceInfo) {
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     if (auto err = mStorage->AddInstance(*instanceInfo); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -416,6 +422,10 @@ Error InstanceManager::LoadInstancesFromStorage()
     mCachedInstances.Clear();
 
     auto instances = MakeUnique<StaticArray<InstanceInfo, cMaxNumInstances>>(&mAllocator);
+    if (!instances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     if (auto err = mStorage->LoadActiveInstances(*instances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -559,6 +569,10 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const Instance
 
     default:
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+    }
+
+    if (!newInstance) {
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
     if (auto err = newInstance->Init(); !err.IsNone()) {
@@ -723,6 +737,11 @@ UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request)
 {
     auto info = MakeUnique<InstanceInfo>(&mAllocator);
+    if (!info) {
+        LOG_ERR() << "Can't allocate instance info" << Log::Field(ErrorEnum::eNoMemory);
+
+        return info;
+    }
 
     info->mInstanceIdent      = id;
     info->mManifestDigest     = "";

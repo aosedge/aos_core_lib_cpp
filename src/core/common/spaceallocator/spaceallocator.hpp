@@ -461,7 +461,15 @@ public:
             return {nullptr, err};
         }
 
-        return UniquePtr<SpaceItf>(MakeUnique<Space>(&mAllocator, size, this));
+        auto space = MakeUnique<Space>(&mAllocator, size, this);
+        if (!space) {
+            mPartition->Free(size);
+            Free(size);
+
+            return {nullptr, ErrorEnum::eNoMemory};
+        }
+
+        return UniquePtr<SpaceItf>(Move(space));
     };
 
     /**

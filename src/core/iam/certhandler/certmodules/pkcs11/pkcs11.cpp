@@ -166,7 +166,14 @@ Error PKCS11Module::Clear()
 
     // certs, privKeys, pubKeys
     auto objects = MakeUnique<StaticArray<SearchObject, cCertsPerModule * 3>>(&mTmpObjAllocator);
-    auto filter  = MakeUnique<SearchObject>(&mTmpObjAllocator);
+    if (!objects) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto filter = MakeUnique<SearchObject>(&mTmpObjAllocator);
+    if (!filter) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     err = FindObject(*session, *filter, *objects);
     if (err.IsNone()) {
@@ -485,6 +492,9 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
         if ((slotInfo.mFlags & CKF_TOKEN_PRESENT) != 0) {
             auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mTmpObjAllocator);
+            if (!tokenInfo) {
+                return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+            }
 
             err = mPKCS11->GetTokenInfo(slotID, *tokenInfo);
             if (!err.IsNone()) {
@@ -513,6 +523,9 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 RetWithError<bool> PKCS11Module::IsOwned() const
 {
     auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mTmpObjAllocator);
+    if (!tokenInfo) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     auto err = mPKCS11->GetTokenInfo(mSlotID, *tokenInfo);
     if (!err.IsNone()) {
@@ -633,6 +646,9 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> PKCS11Module::CreateSession(bool
     LOG_DBG() << "Create session: session=" << mSession->GetHandle() << ", slotID=" << mSlotID;
 
     auto sessionInfo = MakeShared<pkcs11::SessionInfo>(&mTmpObjAllocator);
+    if (!sessionInfo) {
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     err = mSession->GetSessionInfo(*sessionInfo);
     if (!err.IsNone()) {
@@ -819,7 +835,14 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     };
 
     auto opaque = MakeUnique<StaticString<cURLLen>>(&mTmpObjAllocator);
-    auto query  = MakeUnique<StaticString<cURLLen>>(&mTmpObjAllocator);
+    if (!opaque) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto query = MakeUnique<StaticString<cURLLen>>(&mTmpObjAllocator);
+    if (!query) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     // create opaque part of url
     AddParam("token", mTokenLabel.CStr(), true, *opaque);
@@ -894,8 +917,15 @@ Error PKCS11Module::GetValidInfo(const pkcs11::SessionContext& session, Array<Se
         LOG_DBG() << "Certificate found: ID=" << uuid::UUIDToString(cert->mID);
 
         // create certInfo
-        auto x509Cert  = MakeUnique<crypto::x509::Certificate>(&mTmpObjAllocator);
+        auto x509Cert = MakeUnique<crypto::x509::Certificate>(&mTmpObjAllocator);
+        if (!x509Cert) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
         auto validCert = MakeUnique<CertInfo>(&mTmpObjAllocator);
+        if (!validCert) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         auto err = GetX509Cert(session, cert->mHandle, *x509Cert);
         if (!err.IsNone()) {
@@ -939,6 +969,9 @@ Error PKCS11Module::GetX509Cert(
     static constexpr auto cSingleAttribute = 1;
 
     auto certBuffer = MakeUnique<DERCert>(&mTmpObjAllocator);
+    if (!certBuffer) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     StaticArray<pkcs11::AttributeType, cSingleAttribute> types;
     StaticArray<Array<uint8_t>, cSingleAttribute>        values;

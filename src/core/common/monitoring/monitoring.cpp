@@ -144,6 +144,9 @@ Error Monitoring::Start()
 
     if (mInstanceInfoProvider) {
         auto statuses = MakeUnique<InstanceStatusArray>(&mAllocator);
+        if (!statuses) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mInstanceInfoProvider->GetInstancesStatuses(*statuses); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -164,6 +167,9 @@ Error Monitoring::Start()
 
     {
         auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
+        if (!nodeConfig) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mNodeConfigProvider->GetNodeConfig(*nodeConfig); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -401,7 +407,13 @@ void Monitoring::ProcessMonitoring()
 {
     UniqueLock lock {mMutex};
 
-    auto nodeMonitoringData                        = MakeUnique<NodeMonitoringData>(&mAllocator);
+    auto nodeMonitoringData = MakeUnique<NodeMonitoringData>(&mAllocator);
+    if (!nodeMonitoringData) {
+        LOG_ERR() << "Can't allocate node monitoring data" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
     nodeMonitoringData->mMonitoringData.mTimestamp = Time::Now();
 
     GetInstanceMonitoringData(nodeMonitoringData->mInstances);

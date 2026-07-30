@@ -1494,6 +1494,9 @@ RetWithError<SharedPtr<PrivateKeyItf>> OpenSSLCryptoProvider::PEMToX509PrivKey(c
     auto type = EVP_PKEY_base_id(pkey.Get());
     if (type == EVP_PKEY_RSA) {
         auto res = MakeShared<OpenSSLRSAPrivKey>(&mAllocator);
+        if (!res) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         auto err = res->Init(pkey.Get());
         if (!err.IsNone()) {
@@ -1769,6 +1772,9 @@ RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(Hash algorith
     }
 
     auto hasher = MakeUnique<OpenSSLHash>(&mAllocator);
+    if (!hasher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = hasher->Init(mLibCtx, algorithm.ToString().CStr());
     if (!err.IsNone()) {
@@ -1856,6 +1862,9 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESEncoder(
     }
 
     auto cipher = MakeUnique<OpenSSLAESCipher>(&mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(mLibCtx, key, iv, true);
     if (!err.IsNone()) {
@@ -1873,6 +1882,9 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESDecoder(
     }
 
     auto cipher = MakeUnique<OpenSSLAESCipher>(&mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(mLibCtx, key, iv, false);
     if (!err.IsNone()) {

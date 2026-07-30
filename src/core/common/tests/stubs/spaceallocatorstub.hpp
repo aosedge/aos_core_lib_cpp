@@ -78,7 +78,12 @@ public:
      */
     RetWithError<UniquePtr<SpaceItf>> AllocateSpace(size_t size) override
     {
-        return {UniquePtr<SpaceItf>(MakeUnique<SpaceStub>(&mAllocator, size))};
+        auto space = MakeUnique<SpaceStub>(&mAllocator, size);
+        if (!space) {
+            return {nullptr, ErrorEnum::eNoMemory};
+        }
+
+        return UniquePtr<SpaceItf>(Move(space));
     }
 
     /**

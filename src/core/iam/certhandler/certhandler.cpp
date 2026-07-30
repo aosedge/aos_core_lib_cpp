@@ -166,6 +166,9 @@ Error CertHandler::SubscribeListener(const String& certType, iamclient::CertList
     }
 
     auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    if (!certInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = module->GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo);
     if (!err.IsNone()) {
@@ -244,6 +247,9 @@ CertModule* CertHandler::FindModule(const String& certType) const
 Error CertHandler::UpdateCerts(CertModule& certModule)
 {
     auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    if (!certInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo);
     if (!err.IsNone()) {

@@ -828,6 +828,9 @@ RetWithError<SharedPtr<PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(c
     LOG_ERR() << "Create private key from PEM";
 
     auto res = MakeShared<MbedTLSRSAPrivKey>(&mAllocator);
+    if (!res) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = res->Init(pemBlob);
     if (!err.IsNone()) {
@@ -942,6 +945,10 @@ RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorith
     }
 
     auto hasher = MakeUnique<MBedTLSHash>(&mAllocator, alg);
+    if (!hasher) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
+
     if (auto err = hasher->Init(); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
@@ -1056,6 +1063,9 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESEncoder(
     }
 
     auto cipher = MakeUnique<MbedTLSAESCipher>(&mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(key, iv, true);
     if (!err.IsNone()) {
@@ -1073,6 +1083,9 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESDecoder(
     }
 
     auto cipher = MakeUnique<MbedTLSAESCipher>(&mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(key, iv, false);
     if (!err.IsNone()) {

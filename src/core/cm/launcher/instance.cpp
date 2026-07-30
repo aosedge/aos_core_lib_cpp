@@ -37,8 +37,15 @@ Instance::Instance(
 
 Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
 {
-    mItemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    mItemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    if (!mItemConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (!mImageConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
     if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
@@ -74,6 +81,11 @@ bool Instance::IsImageValid()
     }
 
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    if (!imageIndex) {
+        LOG_ERR() << "Can't allocate image index" << Log::Field(ErrorEnum::eNoMemory);
+
+        return false;
+    }
 
     auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
     if (!err.IsNone()) {
@@ -196,6 +208,9 @@ bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
 RetWithError<bool> Instance::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
 {
     auto newEnvVars = MakeUnique<EnvVarArray>(&mAllocator);
+    if (!newEnvVars) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     for (const auto& item : envVars.mItems) {
         if (!item.Match(mInfo.mInstanceIdent)) {

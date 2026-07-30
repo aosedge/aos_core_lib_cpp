@@ -444,6 +444,9 @@ Error UnitStatusHandler::SetNodesInfo()
 Error UnitStatusHandler::SetUpdateItemsStatus()
 {
     auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(&mAllocator);
+    if (!itemsStatuses) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses);
 
@@ -468,6 +471,9 @@ Error UnitStatusHandler::SetInstancesStatus()
     mUnitInstancesStatuses.Clear();
 
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(&mAllocator);
+    if (!instancesStatuses) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mInstanceStatusProvider->GetInstancesStatuses(*instancesStatuses); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

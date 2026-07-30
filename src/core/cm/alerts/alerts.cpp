@@ -242,6 +242,9 @@ Error Alerts::SendAlerts()
 
     while (!mAlerts.IsEmpty()) {
         auto package = CreatePackage();
+        if (!package) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         LOG_INF() << "Send alerts" << Log::Field("alertsCount", package->mItems.Size());
 
@@ -258,6 +261,11 @@ Error Alerts::SendAlerts()
 bool Alerts::IsDuplicated(const AlertVariant& alert)
 {
     auto alertCopy = MakeUnique<AlertVariant>(&mAllocator, alert);
+    if (!alertCopy) {
+        LOG_ERR() << "Can't allocate alert copy" << Log::Field(ErrorEnum::eNoMemory);
+
+        return false;
+    }
 
     return mAlerts.FindIf([&alertCopy](const AlertVariant& item) {
         alertCopy->ApplyVisitor(SetTimestamp(item.ApplyVisitor(GetTimestamp())));
@@ -269,6 +277,11 @@ bool Alerts::IsDuplicated(const AlertVariant& alert)
 UniquePtr<aos::Alerts> Alerts::CreatePackage()
 {
     auto package = MakeUnique<aos::Alerts>(&mAllocator);
+    if (!package) {
+        LOG_ERR() << "Can't allocate alerts package" << Log::Field(ErrorEnum::eNoMemory);
+
+        return package;
+    }
 
     const auto count = Min<size_t>(cAlertItemsCount, mAlerts.Size());
 

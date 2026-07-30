@@ -1080,7 +1080,11 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 {
     LOG_DBG() << "Ensure blob" << Log::Field("digest", digest);
 
-    auto                                blobInfo = MakeUnique<BlobInfo>(&mAllocator);
+    auto blobInfo = MakeUnique<BlobInfo>(&mAllocator);
+    if (!blobInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     UniquePtr<spaceallocator::SpaceItf> downloadingSpace;
 
     do {
