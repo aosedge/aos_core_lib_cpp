@@ -8,6 +8,8 @@
 #ifndef AOS_CORE_COMMON_TOOLS_MEMORY_HPP_
 #define AOS_CORE_COMMON_TOOLS_MEMORY_HPP_
 
+#include <new>
+
 #include "allocator.hpp"
 
 namespace aos {
@@ -526,7 +528,12 @@ inline UniquePtr<T> MakeUnique(Allocator* allocator, Args&&... args)
 {
     assert(allocator);
 
-    return UniquePtr<T>(new (allocator) T(args...), DefaultDeleter<T>(allocator));
+    auto data = allocator->Allocate(sizeof(T));
+    if (!data) {
+        return UniquePtr<T>();
+    }
+
+    return UniquePtr<T>(new (data) T(args...), DefaultDeleter<T>(allocator));
 }
 
 /**
@@ -558,7 +565,12 @@ inline SharedPtr<T> MakeShared(Allocator* allocator, Args&&... args)
 {
     assert(allocator);
 
-    return SharedPtr<T>(allocator, new (allocator) T(args...), SmartPtrDeleter<T>);
+    auto data = allocator->Allocate(sizeof(T));
+    if (!data) {
+        return SharedPtr<T>();
+    }
+
+    return SharedPtr<T>(allocator, new (data) T(args...), SmartPtrDeleter<T>);
 }
 
 } // namespace aos
