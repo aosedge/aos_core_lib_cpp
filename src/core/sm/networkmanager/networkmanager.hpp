@@ -275,25 +275,25 @@ private:
         return ErrorEnum::eNotFound;
     }
 
-    StorageItf*                                                                            mStorage {};
-    BridgeNetworkItf*                                                                      mBridgeNetwork {};
-    FirewallItf*                                                                           mFirewall {};
-    BandwidthItf*                                                                          mBandwidth {};
-    DNSNameItf*                                                                            mDNSName {};
-    TrafficMonitorItf*                                                                     mNetMonitor {};
-    NamespaceManagerItf*                                                                   mNetns {};
-    InterfaceManagerItf*                                                                   mNetIf {};
-    crypto::RandomItf*                                                                     mRandom {};
-    InterfaceFactoryItf*                                                                   mNetIfFactory {};
-    aos::networkmanager::NetworkProviderItf*                                               mNetworkProvider {};
-    StaticString<cIDLen>                                                                   mNodeID;
-    NetworkCache                                                                           mRuntimeCache;
-    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>                            mNetworkProviders;
-    StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>                          mDNSServers;
-    StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances * cMaxNumOwners> mInstanceNetworkInfos;
-    StaticArray<StaticString<cIDLen>, cMaxNumOwners>                                       mPhysicalNetworks;
-    bool                                                                                   mBatchMode {false};
-    StaticArray<BatchEntry, cMaxNumInstances * cMaxNumOwners>                              mBatchEntries;
+    StorageItf*                                                            mStorage {};
+    BridgeNetworkItf*                                                      mBridgeNetwork {};
+    FirewallItf*                                                           mFirewall {};
+    BandwidthItf*                                                          mBandwidth {};
+    DNSNameItf*                                                            mDNSName {};
+    TrafficMonitorItf*                                                     mNetMonitor {};
+    NamespaceManagerItf*                                                   mNetns {};
+    InterfaceManagerItf*                                                   mNetIf {};
+    crypto::RandomItf*                                                     mRandom {};
+    InterfaceFactoryItf*                                                   mNetIfFactory {};
+    aos::networkmanager::NetworkProviderItf*                               mNetworkProvider {};
+    StaticString<cIDLen>                                                   mNodeID;
+    NetworkCache                                                           mRuntimeCache;
+    StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>            mNetworkProviders;
+    StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>          mDNSServers;
+    StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances> mInstanceNetworkInfos;
+    StaticArray<StaticString<cIDLen>, cMaxNumOwners>                       mPhysicalNetworks;
+    bool                                                                   mBatchMode {false};
+    StaticArray<BatchEntry, cMaxNumInstances>                              mBatchEntries;
 
     mutable Mutex mMutex;
     AllocatorItf* mAllocator {};
