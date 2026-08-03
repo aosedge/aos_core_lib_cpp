@@ -13,6 +13,7 @@
 #include <stddef.h>
 
 #include "noncopyable.hpp"
+#include "thread.hpp"
 #include "utils.hpp"
 
 namespace aos {
@@ -324,6 +325,9 @@ inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
  * the same AllocatorItf it was created with. This keeps SharedPtr's ref-counting independent
  * from any allocator-specific bookkeeping, so it works the same way for any AllocatorItf
  * implementation (heap based or static/embedded).
+ *
+ * Take/Give are mutex protected so that a control block can be safely shared (copied, reset)
+ * across multiple threads, e.g. via SharedPtr instances passed between them.
  */
 class SharedControlBlock : private NonCopyable {
 public:
@@ -342,7 +346,12 @@ public:
      *
      * @return size_t shared count value.
      */
-    size_t Take() { return ++mRefCount; }
+    size_t Take()
+    {
+        LockGuard lock(mMutex);
+
+        return ++mRefCount;
+    }
 
     /**
      * Decreases shared count. Disposes the control block once the count reaches zero.
@@ -351,9 +360,14 @@ public:
      */
     size_t Give()
     {
+        UniqueLock<Mutex> lock(mMutex);
+
         auto count = --mRefCount;
 
         if (count == 0) {
+            // Unlock before disposing as disposal destroys this object (and its mutex).
+            lock.Unlock();
+
             Dispose();
         }
 
@@ -374,6 +388,7 @@ protected:
 private:
     virtual void Dispose() = 0;
 
+    Mutex  mMutex;
     size_t mRefCount = 1;
 };
 
