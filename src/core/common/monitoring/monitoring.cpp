@@ -36,15 +36,6 @@ Optional<AlertRulePoints> ToPoints(const Optional<AlertRulePercents>& percents, 
     return ToPoints(*percents, totalValue);
 }
 
-String GetParameterName(const ResourceIdentifier& id)
-{
-    if (id.mPartitionName.HasValue()) {
-        return id.mPartitionName.GetValue();
-    }
-
-    return id.mType.ToString();
-}
-
 RetWithError<uint64_t> GetCurrentUsage(const ResourceIdentifier& id, const MonitoringData& monitoringData)
 {
     switch (id.mType.GetValue()) {
@@ -432,39 +423,6 @@ void Monitoring::ProcessMonitoring()
     }
 }
 
-Error Monitoring::CreateAlertTemplate(const ResourceIdentifier& resourceIdentifier, AlertVariant& alert) const
-{
-    switch (resourceIdentifier.mLevel.GetValue()) {
-    case ResourceLevelEnum::eSystem: {
-        SystemQuotaAlert quotaAlert {};
-
-        quotaAlert.mNodeID    = mNodeInfo.mNodeID;
-        quotaAlert.mParameter = GetParameterName(resourceIdentifier);
-
-        alert.SetValue<SystemQuotaAlert>(quotaAlert);
-
-        return ErrorEnum::eNone;
-    }
-
-    case ResourceLevelEnum::eInstance: {
-        if (!resourceIdentifier.mInstanceIdent.HasValue()) {
-            return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
-        }
-
-        InstanceQuotaAlert quotaAlert {};
-
-        static_cast<InstanceIdent&>(quotaAlert) = *resourceIdentifier.mInstanceIdent;
-        quotaAlert.mParameter                   = GetParameterName(resourceIdentifier);
-
-        alert.SetValue<InstanceQuotaAlert>(quotaAlert);
-
-        return ErrorEnum::eNone;
-    }
-    }
-
-    return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
-}
-
 Error Monitoring::AddAlertProcessor(
     const AlertRulePoints& rule, const ResourceIdentifier& identifier, Array<AlertProcessor>& processors)
 {
@@ -474,13 +432,7 @@ Error Monitoring::AddAlertProcessor(
 
     auto& alertProcessor = processors.Back();
 
-    AlertVariant alertTemplate;
-
-    if (auto err = CreateAlertTemplate(identifier, alertTemplate); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = alertProcessor.Init(identifier, rule, *mAlertSender, alertTemplate); !err.IsNone()) {
+    if (auto err = alertProcessor.Init(identifier, rule, *mAlertSender); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -522,7 +474,7 @@ Error Monitoring::SetAlertProcessors(const AlertRules& alertRules, const Resourc
     const Optional<InstanceIdent>& instanceIdent, Array<AlertProcessor>& processors)
 {
     if (auto cpu = ToPoints(alertRules.mCPU, mNodeInfo.mMaxDMIPS); cpu.HasValue()) {
-        auto id = ResourceIdentifier(level, ResourceTypeEnum::eCPU, {}, instanceIdent);
+        auto id = ResourceIdentifier(mNodeInfo.mNodeID, level, ResourceTypeEnum::eCPU, {}, instanceIdent);
 
         if (auto err = AddAlertProcessor(*cpu, id, processors); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -530,7 +482,7 @@ Error Monitoring::SetAlertProcessors(const AlertRules& alertRules, const Resourc
     }
 
     if (auto ram = ToPoints(alertRules.mRAM, mNodeInfo.mTotalRAM); ram.HasValue()) {
-        auto id = ResourceIdentifier(level, ResourceTypeEnum::eRAM, {}, instanceIdent);
+        auto id = ResourceIdentifier(mNodeInfo.mNodeID, level, ResourceTypeEnum::eRAM, {}, instanceIdent);
 
         if (auto err = AddAlertProcessor(*ram, id, processors); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -538,7 +490,7 @@ Error Monitoring::SetAlertProcessors(const AlertRules& alertRules, const Resourc
     }
 
     if (alertRules.mDownload.HasValue()) {
-        auto id = ResourceIdentifier(level, ResourceTypeEnum::eDownload, {}, instanceIdent);
+        auto id = ResourceIdentifier(mNodeInfo.mNodeID, level, ResourceTypeEnum::eDownload, {}, instanceIdent);
 
         if (auto err = AddAlertProcessor(*alertRules.mDownload, id, processors); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -546,7 +498,7 @@ Error Monitoring::SetAlertProcessors(const AlertRules& alertRules, const Resourc
     }
 
     if (alertRules.mUpload.HasValue()) {
-        auto id = ResourceIdentifier(level, ResourceTypeEnum::eUpload, {}, instanceIdent);
+        auto id = ResourceIdentifier(mNodeInfo.mNodeID, level, ResourceTypeEnum::eUpload, {}, instanceIdent);
 
         if (auto err = AddAlertProcessor(*alertRules.mUpload, id, processors); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -560,7 +512,8 @@ Error Monitoring::SetAlertProcessors(const AlertRules& alertRules, const Resourc
             continue;
         }
 
-        auto id = ResourceIdentifier(level, ResourceTypeEnum::ePartition, partition.mName, instanceIdent);
+        auto id = ResourceIdentifier(
+            mNodeInfo.mNodeID, level, ResourceTypeEnum::ePartition, partition.mName, instanceIdent);
 
         if (auto err = AddAlertProcessor(ToPoints(partition, it->mTotalSize), id, processors); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);

@@ -83,16 +83,18 @@ struct ResourceIdentifier {
      * @param partitionName partition name.
      * @param instanceIdent instance identifier.
      */
-    ResourceIdentifier(ResourceLevel level, ResourceType type,
+    ResourceIdentifier(const String& nodeId, ResourceLevel level, ResourceType type,
         const Optional<StaticString<cPartitionNameLen>>& partitionName = {},
         const Optional<InstanceIdent>&                   instanceIdent = {})
-        : mLevel(level)
+        : mNodeID(nodeId)
+        , mLevel(level)
         , mType(type)
         , mPartitionName(partitionName)
         , mInstanceIdent(instanceIdent)
     {
     }
 
+    StaticString<cIDLen>                      mNodeID;
     ResourceLevel                             mLevel;
     ResourceType                              mType;
     Optional<StaticString<cPartitionNameLen>> mPartitionName;
@@ -108,7 +110,7 @@ struct ResourceIdentifier {
      */
     friend Log& operator<<(Log& log, const ResourceIdentifier& identifier)
     {
-        log << "{" << identifier.mLevel << ":" << identifier.mType;
+        log << "{" << identifier.mNodeID << ":" << identifier.mLevel << ":" << identifier.mType;
 
         if (identifier.mPartitionName.HasValue()) {
             log << ":" << identifier.mPartitionName.GetValue();
@@ -138,8 +140,7 @@ public:
      * @param alertTemplate alert template.
      * @return Error.
      */
-    Error Init(const ResourceIdentifier& id, const AlertRulePoints& rule, alerts::SenderItf& sender,
-        const AlertVariant& alertTemplate);
+    Error Init(const ResourceIdentifier& id, const AlertRulePoints& rule, alerts::SenderItf& sender);
 
     /**
      * Checks alert detection. If alert condition is true, sends alert.
@@ -164,7 +165,6 @@ private:
 
     ResourceIdentifier mID {};
     alerts::SenderItf* mAlertSender {};
-    AlertVariant       mAlertTemplate;
 
     Duration mMinTimeout {};
     uint64_t mMinThreshold {};
