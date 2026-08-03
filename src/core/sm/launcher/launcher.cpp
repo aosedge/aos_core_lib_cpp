@@ -160,30 +160,39 @@ Error Launcher::Stop()
 
 Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
 {
-    if (auto err = StartLaunch(); !err.IsNone()) {
+    auto err = StartLaunch();
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
+
+    auto finishLaunch = DeferRelease(this, [&err](Launcher* self) {
+        if (!err.IsNone()) {
+            self->FinishLaunch();
+        }
+    });
 
     // Wait in case previous request is not yet finished
     mThread.Join();
 
     auto stop = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator, stopInstances);
     if (!stop) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+
+        return err;
     }
 
     auto start = MakeShared<InstanceInfoArray>(mAllocator, startInstances);
     if (!start) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+
+        return err;
     }
 
-    if (auto err = mThread.Run([this, stop, start](void*) {
+    if (err = mThread.Run([this, stop, start](void*) {
             UpdateInstancesImpl(*stop, *start);
             FinishLaunch();
         });
         !err.IsNone()) {
-        FinishLaunch();
-
         return AOS_ERROR_WRAP(err);
     }
 
