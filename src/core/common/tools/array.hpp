@@ -45,7 +45,6 @@ public:
      * @param size C array size.
      */
     Array(const T* items, size_t size)
-        // cppcheck-suppress templateRecursion
         : mItems(const_cast<RemoveConstType<T>*>(items))
         , mSize(size)
         , mMaxSize(size)
