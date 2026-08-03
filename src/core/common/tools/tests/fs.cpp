@@ -55,6 +55,7 @@ private:
     }
 
 protected:
+    // cppcheck-suppress unusedStructMember
     HeapAllocator mAllocator;
 };
 

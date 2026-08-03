@@ -38,6 +38,7 @@ protected:
         mCertInfo.mNotAfter = Time::Now();
     }
 
+    // cppcheck-suppress unusedStructMember
     HeapAllocator mAllocator;
 
     CertInfo mCertInfo;
