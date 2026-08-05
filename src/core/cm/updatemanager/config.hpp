@@ -23,7 +23,10 @@ struct Config {
      * @param rhs config to compare.
      * @return bool.
      */
-    bool operator==(const Config& rhs) const { return mUnitStatusSendTimeout == rhs.mUnitStatusSendTimeout; }
+    friend bool operator==(const Config& lhs, const Config& rhs)
+    {
+        return lhs.mUnitStatusSendTimeout == rhs.mUnitStatusSendTimeout;
+    };
 
     /**
      * Compares config.
@@ -31,7 +34,7 @@ struct Config {
      * @param other config to compare.
      * @return bool.
      */
-    bool operator!=(const Config& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Config& lhs, const Config& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos::cm::updatemanager

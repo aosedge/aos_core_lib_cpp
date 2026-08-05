@@ -58,7 +58,10 @@ struct Root {
      * @param rhs root spec to compare.
      * @return bool.
      */
-    bool operator==(const Root& rhs) const { return mPath == rhs.mPath && mReadonly == rhs.mReadonly; }
+    friend bool operator==(const Root& lhs, const Root& rhs)
+    {
+        return lhs.mPath == rhs.mPath && lhs.mReadonly == rhs.mReadonly;
+    };
 
     /**
      * Compares root spec.
@@ -66,7 +69,7 @@ struct Root {
      * @param rhs root spec to compare.
      * @return bool.
      */
-    bool operator!=(const Root& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Root& lhs, const Root& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -85,11 +88,11 @@ struct User {
      * @param rhs user spec to compare.
      * @return bool.
      */
-    bool operator==(const User& rhs) const
+    friend bool operator==(const User& lhs, const User& rhs)
     {
-        return mUID == rhs.mUID && mGID == rhs.mGID && mUmask == rhs.mUmask && mAdditionalGIDs == rhs.mAdditionalGIDs
-            && mUsername == rhs.mUsername;
-    }
+        return lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID && lhs.mUmask == rhs.mUmask
+            && lhs.mAdditionalGIDs == rhs.mAdditionalGIDs && lhs.mUsername == rhs.mUsername;
+    };
 
     /**
      * Compares user spec.
@@ -97,7 +100,7 @@ struct User {
      * @param rhs user spec to compare.
      * @return bool.
      */
-    bool operator!=(const User& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const User& lhs, const User& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -117,11 +120,11 @@ struct LinuxCapabilities {
      * @param rhs LinuxCapabilities spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxCapabilities& rhs) const
+    friend bool operator==(const LinuxCapabilities& lhs, const LinuxCapabilities& rhs)
     {
-        return mBounding == rhs.mBounding && mEffective == rhs.mEffective && mInheritable == rhs.mInheritable
-            && mPermitted == rhs.mPermitted && mAmbient == rhs.mAmbient;
-    }
+        return lhs.mBounding == rhs.mBounding && lhs.mEffective == rhs.mEffective
+            && lhs.mInheritable == rhs.mInheritable && lhs.mPermitted == rhs.mPermitted && lhs.mAmbient == rhs.mAmbient;
+    };
 
     /**
      * Compares LinuxCapabilities spec.
@@ -129,7 +132,10 @@ struct LinuxCapabilities {
      * @param rhs LinuxCapabilities spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxCapabilities& capabilities) const { return !operator==(capabilities); }
+    friend bool operator!=(const LinuxCapabilities& lhs, const LinuxCapabilities& capabilities)
+    {
+        return !(lhs == capabilities);
+    };
 };
 
 /**
@@ -146,10 +152,10 @@ struct POSIXRlimit {
      * @param rhs POSIXRlimit spec to compare.
      * @return bool.
      */
-    bool operator==(const POSIXRlimit& rhs) const
+    friend bool operator==(const POSIXRlimit& lhs, const POSIXRlimit& rhs)
     {
-        return mType == rhs.mType && mHard == rhs.mHard && mSoft == rhs.mSoft;
-    }
+        return lhs.mType == rhs.mType && lhs.mHard == rhs.mHard && lhs.mSoft == rhs.mSoft;
+    };
 
     /**
      * Compares POSIXRlimit spec.
@@ -157,7 +163,7 @@ struct POSIXRlimit {
      * @param rhs POSIXRlimit spec to compare.
      * @return bool.
      */
-    bool operator!=(const POSIXRlimit& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const POSIXRlimit& lhs, const POSIXRlimit& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -179,12 +185,12 @@ struct Process {
      * @param rhs process spec to compare.
      * @return bool.
      */
-    bool operator==(const Process& rhs) const
+    friend bool operator==(const Process& lhs, const Process& rhs)
     {
-        return mTerminal == rhs.mTerminal && mUser == rhs.mUser && mArgs == rhs.mArgs && mEnv == rhs.mEnv
-            && mCwd == rhs.mCwd && mNoNewPrivileges == rhs.mNoNewPrivileges && mCapabilities == rhs.mCapabilities
-            && mRlimits == rhs.mRlimits;
-    }
+        return lhs.mTerminal == rhs.mTerminal && lhs.mUser == rhs.mUser && lhs.mArgs == rhs.mArgs
+            && lhs.mEnv == rhs.mEnv && lhs.mCwd == rhs.mCwd && lhs.mNoNewPrivileges == rhs.mNoNewPrivileges
+            && lhs.mCapabilities == rhs.mCapabilities && lhs.mRlimits == rhs.mRlimits;
+    };
 
     /**
      * Compares process spec.
@@ -192,7 +198,7 @@ struct Process {
      * @param rhs process spec to compare.
      * @return bool.
      */
-    bool operator!=(const Process& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Process& lhs, const Process& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -235,11 +241,11 @@ struct LinuxDeviceCgroup {
      * @param rhs LinuxDeviceCgroup spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxDeviceCgroup& rhs) const
+    friend bool operator==(const LinuxDeviceCgroup& lhs, const LinuxDeviceCgroup& rhs)
     {
-        return mType == rhs.mType && mAccess == rhs.mAccess && mAllow == rhs.mAllow && mMajor == rhs.mMajor
-            && mMinor == rhs.mMinor;
-    }
+        return lhs.mType == rhs.mType && lhs.mAccess == rhs.mAccess && lhs.mAllow == rhs.mAllow
+            && lhs.mMajor == rhs.mMajor && lhs.mMinor == rhs.mMinor;
+    };
 
     /**
      * Compares LinuxDeviceCgroup spec.
@@ -247,7 +253,7 @@ struct LinuxDeviceCgroup {
      * @param rhs LinuxDeviceCgroup spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxDeviceCgroup& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LinuxDeviceCgroup& lhs, const LinuxDeviceCgroup& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -270,13 +276,13 @@ struct LinuxMemory {
      * @param rhs LinuxMemory spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxMemory& rhs) const
+    friend bool operator==(const LinuxMemory& lhs, const LinuxMemory& rhs)
     {
-        return mLimit == rhs.mLimit && mReservation == rhs.mReservation && mSwap == rhs.mSwap && mKernel == rhs.mKernel
-            && mKernelTCP == rhs.mKernelTCP && mSwappiness == rhs.mSwappiness
-            && mDisableOOMKiller == rhs.mDisableOOMKiller && mUseHierarchy == rhs.mUseHierarchy
-            && mCheckBeforeUpdate == rhs.mCheckBeforeUpdate;
-    }
+        return lhs.mLimit == rhs.mLimit && lhs.mReservation == rhs.mReservation && lhs.mSwap == rhs.mSwap
+            && lhs.mKernel == rhs.mKernel && lhs.mKernelTCP == rhs.mKernelTCP && lhs.mSwappiness == rhs.mSwappiness
+            && lhs.mDisableOOMKiller == rhs.mDisableOOMKiller && lhs.mUseHierarchy == rhs.mUseHierarchy
+            && lhs.mCheckBeforeUpdate == rhs.mCheckBeforeUpdate;
+    };
 
     /**
      * Compares LinuxMemory spec.
@@ -284,7 +290,7 @@ struct LinuxMemory {
      * @param rhs LinuxMemory spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxMemory& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LinuxMemory& lhs, const LinuxMemory& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -307,12 +313,13 @@ struct LinuxCPU {
      * @param rhs LinuxCPU spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxCPU& rhs) const
+    friend bool operator==(const LinuxCPU& lhs, const LinuxCPU& rhs)
     {
-        return mShares == rhs.mShares && mQuota == rhs.mQuota && mBurst == rhs.mBurst && mPeriod == rhs.mPeriod
-            && mRealtimeRuntime == rhs.mRealtimeRuntime && mRealtimePeriod == rhs.mRealtimePeriod && mCpus == rhs.mCpus
-            && mMems == rhs.mMems && mIdle == rhs.mIdle;
-    }
+        return lhs.mShares == rhs.mShares && lhs.mQuota == rhs.mQuota && lhs.mBurst == rhs.mBurst
+            && lhs.mPeriod == rhs.mPeriod && lhs.mRealtimeRuntime == rhs.mRealtimeRuntime
+            && lhs.mRealtimePeriod == rhs.mRealtimePeriod && lhs.mCpus == rhs.mCpus && lhs.mMems == rhs.mMems
+            && lhs.mIdle == rhs.mIdle;
+    };
 
     /**
      * Compares LinuxCPU spec.
@@ -320,7 +327,7 @@ struct LinuxCPU {
      * @param rhs LinuxCPU spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxCPU& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LinuxCPU& lhs, const LinuxCPU& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -345,7 +352,10 @@ struct LinuxResources {
      * @param rhs LinuxResources spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxResources& rhs) const { return mDevices == rhs.mDevices; }
+    friend bool operator==(const LinuxResources& lhs, const LinuxResources& rhs)
+    {
+        return lhs.mDevices == rhs.mDevices;
+    };
 
     /**
      * Compares LinuxResources spec.
@@ -353,7 +363,7 @@ struct LinuxResources {
      * @param rhs LinuxResources spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxResources& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LinuxResources& lhs, const LinuxResources& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -423,7 +433,10 @@ struct LinuxNamespace {
      * @param rhs LinuxNamespace spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxNamespace& rhs) const { return mType == rhs.mType && mPath == rhs.mPath; }
+    friend bool operator==(const LinuxNamespace& lhs, const LinuxNamespace& rhs)
+    {
+        return lhs.mType == rhs.mType && lhs.mPath == rhs.mPath;
+    };
 
     /**
      * Compares LinuxNamespace spec.
@@ -431,7 +444,7 @@ struct LinuxNamespace {
      * @param rhs LinuxNamespace spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxNamespace& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LinuxNamespace& lhs, const LinuxNamespace& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -452,11 +465,11 @@ struct LinuxDevice {
      * @param rhs LinuxDevice spec to compare.
      * @return bool.
      */
-    bool operator==(const LinuxDevice& rhs) const
+    friend bool operator==(const LinuxDevice& lhs, const LinuxDevice& rhs)
     {
-        return mPath == rhs.mPath && mType == rhs.mType && mMajor == rhs.mMajor && mMinor == rhs.mMinor
-            && mFileMode == rhs.mFileMode && mUID == rhs.mUID && mGID == rhs.mGID;
-    }
+        return lhs.mPath == rhs.mPath && lhs.mType == rhs.mType && lhs.mMajor == rhs.mMajor && lhs.mMinor == rhs.mMinor
+            && lhs.mFileMode == rhs.mFileMode && lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID;
+    };
 
     /**
      * Compares LinuxDevice spec.
@@ -464,7 +477,7 @@ struct LinuxDevice {
      * @param rhs LinuxDevice spec to compare.
      * @return bool.
      */
-    bool operator!=(const LinuxDevice& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LinuxDevice& lhs, const LinuxDevice& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -485,12 +498,12 @@ struct Linux {
      * @param rhs Linux spec to compare.
      * @return bool.
      */
-    bool operator==(const Linux& rhs) const
+    friend bool operator==(const Linux& lhs, const Linux& rhs)
     {
-        return mSysctl == rhs.mSysctl && mResources == rhs.mResources && mCgroupsPath == rhs.mCgroupsPath
-            && mNamespaces == rhs.mNamespaces && mMaskedPaths == rhs.mMaskedPaths
-            && mReadonlyPaths == rhs.mReadonlyPaths;
-    }
+        return lhs.mSysctl == rhs.mSysctl && lhs.mResources == rhs.mResources && lhs.mCgroupsPath == rhs.mCgroupsPath
+            && lhs.mNamespaces == rhs.mNamespaces && lhs.mMaskedPaths == rhs.mMaskedPaths
+            && lhs.mReadonlyPaths == rhs.mReadonlyPaths;
+    };
 
     /**
      * Compares Linux spec.
@@ -498,7 +511,7 @@ struct Linux {
      * @param rhs Linux spec to compare.
      * @return bool.
      */
-    bool operator!=(const Linux& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Linux& lhs, const Linux& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -514,7 +527,10 @@ struct VMHypervisor {
      * @param rhs VMHypervisor spec to compare.
      * @return bool.
      */
-    bool operator==(const VMHypervisor& rhs) const { return mPath == rhs.mPath && mParameters == rhs.mParameters; }
+    friend bool operator==(const VMHypervisor& lhs, const VMHypervisor& rhs)
+    {
+        return lhs.mPath == rhs.mPath && lhs.mParameters == rhs.mParameters;
+    };
 
     /**
      * Compares VMHypervisor spec.
@@ -522,7 +538,7 @@ struct VMHypervisor {
      * @param rhs VMHypervisor spec to compare.
      * @return bool.
      */
-    bool operator!=(const VMHypervisor& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const VMHypervisor& lhs, const VMHypervisor& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -538,7 +554,10 @@ struct VMKernel {
      * @param rhs VMKernel spec to compare.
      * @return bool.
      */
-    bool operator==(const VMKernel& rhs) const { return mPath == rhs.mPath && mParameters == rhs.mParameters; }
+    friend bool operator==(const VMKernel& lhs, const VMKernel& rhs)
+    {
+        return lhs.mPath == rhs.mPath && lhs.mParameters == rhs.mParameters;
+    };
 
     /**
      * Compares VMKernel spec.
@@ -546,7 +565,7 @@ struct VMKernel {
      * @param rhs VMKernel spec to compare.
      * @return bool.
      */
-    bool operator!=(const VMKernel& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const VMKernel& lhs, const VMKernel& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -563,10 +582,10 @@ struct VMHWConfigIOMEM {
      * @param rhs IOMEM to compare.
      * @return bool.
      */
-    bool operator==(const VMHWConfigIOMEM& rhs) const
+    friend bool operator==(const VMHWConfigIOMEM& lhs, const VMHWConfigIOMEM& rhs)
     {
-        return mFirstGFN == rhs.mFirstGFN && mFirstMFN == rhs.mFirstMFN && mNrMFNs == rhs.mNrMFNs;
-    }
+        return lhs.mFirstGFN == rhs.mFirstGFN && lhs.mFirstMFN == rhs.mFirstMFN && lhs.mNrMFNs == rhs.mNrMFNs;
+    };
 
     /**
      * Compares IOMEMs.
@@ -574,7 +593,7 @@ struct VMHWConfigIOMEM {
      * @param rhs IOMEM to compare.
      * @return bool.
      */
-    bool operator!=(const VMHWConfigIOMEM& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const VMHWConfigIOMEM& lhs, const VMHWConfigIOMEM& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -594,11 +613,11 @@ struct VMHWConfig {
      * @param rhs VMHWConfig spec to compare.
      * @return bool.
      */
-    bool operator==(const VMHWConfig& rhs) const
+    friend bool operator==(const VMHWConfig& lhs, const VMHWConfig& rhs)
     {
-        return mDeviceTree == rhs.mDeviceTree && mVCPUs == rhs.mVCPUs && mMemKB == rhs.mMemKB && mDTDevs == rhs.mDTDevs
-            && mIOMEMs == rhs.mIOMEMs && mIRQs == rhs.mIRQs;
-    }
+        return lhs.mDeviceTree == rhs.mDeviceTree && lhs.mVCPUs == rhs.mVCPUs && lhs.mMemKB == rhs.mMemKB
+            && lhs.mDTDevs == rhs.mDTDevs && lhs.mIOMEMs == rhs.mIOMEMs && lhs.mIRQs == rhs.mIRQs;
+    };
 
     /**
      * Compares VMHWConfig spec.
@@ -606,7 +625,7 @@ struct VMHWConfig {
      * @param rhs VMHWConfig spec to compare.
      * @return bool.
      */
-    bool operator!=(const VMHWConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const VMHWConfig& lhs, const VMHWConfig& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -623,10 +642,10 @@ struct VM {
      * @param rhs VM spec to compare.
      * @return bool.
      */
-    bool operator==(const VM& rhs) const
+    friend bool operator==(const VM& lhs, const VM& rhs)
     {
-        return mHypervisor == rhs.mHypervisor && mKernel == rhs.mKernel && mHWConfig == rhs.mHWConfig;
-    }
+        return lhs.mHypervisor == rhs.mHypervisor && lhs.mKernel == rhs.mKernel && lhs.mHWConfig == rhs.mHWConfig;
+    };
 
     /**
      * Compares VM spec.
@@ -634,7 +653,7 @@ struct VM {
      * @param rhs VM spec to compare.
      * @return bool.
      */
-    bool operator!=(const VM& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const VM& lhs, const VM& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -655,11 +674,12 @@ struct RuntimeConfig {
      * @param rhs runtime spec to compare.
      * @return bool.
      */
-    bool operator==(const RuntimeConfig& rhs) const
+    friend bool operator==(const RuntimeConfig& lhs, const RuntimeConfig& rhs)
     {
-        return mOCIVersion == rhs.mOCIVersion && mProcess == rhs.mProcess && mRoot == rhs.mRoot
-            && mHostname == rhs.mHostname && mMounts == rhs.mMounts && mLinux == rhs.mLinux && mVM == rhs.mVM;
-    }
+        return lhs.mOCIVersion == rhs.mOCIVersion && lhs.mProcess == rhs.mProcess && lhs.mRoot == rhs.mRoot
+            && lhs.mHostname == rhs.mHostname && lhs.mMounts == rhs.mMounts && lhs.mLinux == rhs.mLinux
+            && lhs.mVM == rhs.mVM;
+    };
 
     /**
      * Compares runtime spec.
@@ -667,7 +687,7 @@ struct RuntimeConfig {
      * @param rhs runtime spec to compare.
      * @return bool.
      */
-    bool operator!=(const RuntimeConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RuntimeConfig& lhs, const RuntimeConfig& rhs) { return !(lhs == rhs); };
 };
 
 /**
