@@ -367,7 +367,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator==(const String& str) const { return Array::operator==(str); };
+    bool operator==(const String& str) const { return Array::operator==(str); }; // NOSONAR cpp:S2807
 
     /**
      * Checks if str doesn't equal to another string.
@@ -375,7 +375,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator!=(const String& str) const { return Array::operator!=(str); };
+    bool operator!=(const String& str) const { return Array::operator!=(str); }; // NOSONAR cpp:S2807
 
     /**
      * Checks if str is less than another string.
@@ -383,7 +383,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator<(const String& str) const { return strcmp(CStr(), str.CStr()) < 0; }
+    bool operator<(const String& str) const { return strcmp(CStr(), str.CStr()) < 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if str is less or equal to another string.
@@ -391,7 +391,7 @@ public:
      * @param str string to compare with.
      * @return bool
      */
-    bool operator<=(const String& str) const { return strcmp(CStr(), str.CStr()) <= 0; }
+    bool operator<=(const String& str) const { return strcmp(CStr(), str.CStr()) <= 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if str is greater than another string.
@@ -399,7 +399,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator>(const String& str) const { return strcmp(CStr(), str.CStr()) > 0; }
+    bool operator>(const String& str) const { return strcmp(CStr(), str.CStr()) > 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if str is greater or equal to another string.
@@ -407,7 +407,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator>=(const String& str) const { return strcmp(CStr(), str.CStr()) >= 0; }
+    bool operator>=(const String& str) const { return strcmp(CStr(), str.CStr()) >= 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if C string equals to string.

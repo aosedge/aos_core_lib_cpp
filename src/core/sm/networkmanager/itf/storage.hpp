@@ -61,13 +61,13 @@ struct NetworkInfo {
      * @param networkInfo network information to compare.
      * @return bool.
      */
-    bool operator==(const NetworkInfo& networkInfo) const
+    friend bool operator==(const NetworkInfo& lhs, const NetworkInfo& networkInfo)
     {
-        return mNetworkID == networkInfo.mNetworkID && mSubnet == networkInfo.mSubnet && mIP == networkInfo.mIP
-            && mVlanID == networkInfo.mVlanID && mVlanIfName == networkInfo.mVlanIfName
-            && mBridgeIfName == networkInfo.mBridgeIfName;
+        return lhs.mNetworkID == networkInfo.mNetworkID && lhs.mSubnet == networkInfo.mSubnet
+            && lhs.mIP == networkInfo.mIP && lhs.mVlanID == networkInfo.mVlanID
+            && lhs.mVlanIfName == networkInfo.mVlanIfName && lhs.mBridgeIfName == networkInfo.mBridgeIfName;
         ;
-    }
+    };
 
     /**
      * Compares network information.
@@ -75,7 +75,7 @@ struct NetworkInfo {
      * @param networkInfo network information to compare.
      * @return bool.
      */
-    bool operator!=(const NetworkInfo& networkInfo) const { return !operator==(networkInfo); }
+    friend bool operator!=(const NetworkInfo& lhs, const NetworkInfo& networkInfo) { return !(lhs == networkInfo); };
 };
 
 /**

@@ -28,7 +28,10 @@ struct InstanceMonitoringParams {
      * @param rhs instance monitoring parameters to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceMonitoringParams& rhs) const { return mAlertRules == rhs.mAlertRules; }
+    friend bool operator==(const InstanceMonitoringParams& lhs, const InstanceMonitoringParams& rhs)
+    {
+        return lhs.mAlertRules == rhs.mAlertRules;
+    };
 
     /**
      * Compares instance monitoring parameters.
@@ -36,7 +39,10 @@ struct InstanceMonitoringParams {
      * @param rhs instance monitoring parameters to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceMonitoringParams& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceMonitoringParams& lhs, const InstanceMonitoringParams& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -51,14 +57,17 @@ struct PartitionUsage {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const PartitionUsage& rhs) const { return mName == rhs.mName && mUsedSize == rhs.mUsedSize; }
+    friend bool operator==(const PartitionUsage& lhs, const PartitionUsage& rhs)
+    {
+        return lhs.mName == rhs.mName && lhs.mUsedSize == rhs.mUsedSize;
+    };
 
     /**
      * Compares partition usages.
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const PartitionUsage& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PartitionUsage& lhs, const PartitionUsage& rhs) { return !(lhs == rhs); };
 };
 
 using PartitionUsageArray = StaticArray<PartitionUsage, cMaxNumPartitions>;
@@ -80,11 +89,11 @@ struct MonitoringData {
      * @param rhs monitoring data to compare with.
      * @return bool.
      */
-    bool operator==(const MonitoringData& rhs) const
+    friend bool operator==(const MonitoringData& lhs, const MonitoringData& rhs)
     {
-        return mCPU == rhs.mCPU && mRAM == rhs.mRAM && mPartitions == rhs.mPartitions && mDownload == rhs.mDownload
-            && mUpload == rhs.mUpload;
-    }
+        return lhs.mCPU == rhs.mCPU && lhs.mRAM == rhs.mRAM && lhs.mPartitions == rhs.mPartitions
+            && lhs.mDownload == rhs.mDownload && lhs.mUpload == rhs.mUpload;
+    };
 
     /**
      * Compares monitoring data.
@@ -92,7 +101,7 @@ struct MonitoringData {
      * @param rhs monitoring data to compare with.
      * @return bool.
      */
-    bool operator!=(const MonitoringData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const MonitoringData& lhs, const MonitoringData& rhs) { return !(lhs == rhs); };
 };
 
 using MonitoringDataArray = StaticArray<MonitoringData, cMonitoringItemsCount>;
@@ -110,7 +119,10 @@ struct InstanceStateInfo {
      * @param rhs instance state info to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceStateInfo& rhs) const { return mTimestamp == rhs.mTimestamp && mState == rhs.mState; }
+    friend bool operator==(const InstanceStateInfo& lhs, const InstanceStateInfo& rhs)
+    {
+        return lhs.mTimestamp == rhs.mTimestamp && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares instance state info.
@@ -118,7 +130,7 @@ struct InstanceStateInfo {
      * @param rhs instance state info to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceStateInfo& info) const { return !operator==(info); };
+    friend bool operator!=(const InstanceStateInfo& lhs, const InstanceStateInfo& info) { return !(lhs == info); };
 };
 
 using InstanceStateInfoArray = StaticArray<InstanceStateInfo, cMonitoringItemsCount>;
@@ -137,11 +149,11 @@ struct InstanceMonitoringData : public InstanceIdent {
      * @param rhs instance monitoring data to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceMonitoringData& rhs) const
+    friend bool operator==(const InstanceMonitoringData& lhs, const InstanceMonitoringData& rhs)
     {
-        return InstanceIdent::operator==(rhs) && mNodeID == rhs.mNodeID && mItems == rhs.mItems
-            && mStates == rhs.mStates;
-    }
+        return (static_cast<const InstanceIdent&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID && lhs.mItems == rhs.mItems
+            && lhs.mStates == rhs.mStates;
+    };
 
     /**
      * Compares instance monitoring data.
@@ -149,7 +161,10 @@ struct InstanceMonitoringData : public InstanceIdent {
      * @param data instance monitoring data to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceMonitoringData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceMonitoringData& lhs, const InstanceMonitoringData& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 using InstanceMonitoringDataArray = StaticArray<InstanceMonitoringData, cMaxNumInstances>;
@@ -168,10 +183,10 @@ struct NodeStateInfo {
      * @param rhs node state info to compare with.
      * @return bool.
      */
-    bool operator==(const NodeStateInfo& rhs) const
+    friend bool operator==(const NodeStateInfo& lhs, const NodeStateInfo& rhs)
     {
-        return mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsConnected == rhs.mIsConnected;
-    }
+        return lhs.mTimestamp == rhs.mTimestamp && lhs.mState == rhs.mState && lhs.mIsConnected == rhs.mIsConnected;
+    };
 
     /**
      * Compares node state info.
@@ -179,7 +194,7 @@ struct NodeStateInfo {
      * @param rhs node state info to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeStateInfo& rhs) const { return !operator==(rhs); };
+    friend bool operator!=(const NodeStateInfo& lhs, const NodeStateInfo& rhs) { return !(lhs == rhs); };
 };
 
 using NodeStateInfoArray = StaticArray<NodeStateInfo, cMonitoringItemsCount>;
@@ -198,10 +213,10 @@ struct NodeMonitoringData {
      * @param rhs node monitoring data to compare with.
      * @return bool.
      */
-    bool operator==(const NodeMonitoringData& rhs) const
+    friend bool operator==(const NodeMonitoringData& lhs, const NodeMonitoringData& rhs)
     {
-        return mNodeID == rhs.mNodeID && mItems == rhs.mItems && mStates == rhs.mStates;
-    }
+        return lhs.mNodeID == rhs.mNodeID && lhs.mItems == rhs.mItems && lhs.mStates == rhs.mStates;
+    };
 
     /**
      * Compares node monitoring data.
@@ -209,7 +224,7 @@ struct NodeMonitoringData {
      * @param rhs node monitoring data to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeMonitoringData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NodeMonitoringData& lhs, const NodeMonitoringData& rhs) { return !(lhs == rhs); };
 };
 
 using NodeMonitoringDataArray = StaticArray<NodeMonitoringData, cMaxNumNodes>;
@@ -227,10 +242,11 @@ struct Monitoring : public Protocol {
      * @param rhs monitoring message to compare with.
      * @return bool.
      */
-    bool operator==(const Monitoring& rhs) const
+    friend bool operator==(const Monitoring& lhs, const Monitoring& rhs)
     {
-        return Protocol::operator==(rhs) && mNodes == rhs.mNodes && mInstances == rhs.mInstances;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodes == rhs.mNodes
+            && lhs.mInstances == rhs.mInstances;
+    };
 
     /**
      * Compares monitoring message.
@@ -238,7 +254,7 @@ struct Monitoring : public Protocol {
      * @param rhs monitoring message to compare with.
      * @return bool.
      */
-    bool operator!=(const Monitoring& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Monitoring& lhs, const Monitoring& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

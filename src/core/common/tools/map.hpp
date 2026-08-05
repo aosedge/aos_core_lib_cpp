@@ -207,7 +207,7 @@ public:
      * @param other map to be compared with.
      * @return bool.
      */
-    bool operator==(const Map<Key, Value>& other) const
+    bool operator==(const Map<Key, Value>& other) const // NOSONAR cpp:S2807
     {
         if (Size() != other.Size()) {
             return false;
@@ -228,7 +228,7 @@ public:
      * @param other map to be compared with.
      * @return bool.
      */
-    bool operator!=(const Map<Key, Value>& other) const { return !(*this == other); }
+    bool operator!=(const Map<Key, Value>& other) const { return !(*this == other); } // NOSONAR cpp:S2807
 
     /**
      * Erases items range from map.

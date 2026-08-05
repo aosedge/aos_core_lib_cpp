@@ -24,7 +24,10 @@ struct CSRInfo {
      * @param rhs CSR info to compare with.
      * @return bool.
      */
-    bool operator==(const CSRInfo& rhs) const { return mType == rhs.mType && mCSR == rhs.mCSR; }
+    friend bool operator==(const CSRInfo& lhs, const CSRInfo& rhs)
+    {
+        return lhs.mType == rhs.mType && lhs.mCSR == rhs.mCSR;
+    };
 
     /**
      * Compares CSR info.
@@ -32,7 +35,7 @@ struct CSRInfo {
      * @param rhs CSR info to compare with.
      * @return bool.
      */
-    bool operator!=(const CSRInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const CSRInfo& lhs, const CSRInfo& rhs) { return !(lhs == rhs); };
 };
 
 using CSRInfoArray = StaticArray<CSRInfo, cCertsPerNodeCount>;
@@ -50,10 +53,11 @@ struct StartProvisioningRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const StartProvisioningRequest& rhs) const
+    friend bool operator==(const StartProvisioningRequest& lhs, const StartProvisioningRequest& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mPassword == rhs.mPassword;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mPassword == rhs.mPassword;
+    };
 
     /**
      * Compares start provisioning request.
@@ -61,7 +65,10 @@ struct StartProvisioningRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const StartProvisioningRequest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const StartProvisioningRequest& lhs, const StartProvisioningRequest& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -78,10 +85,11 @@ struct StartProvisioningResponse : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const StartProvisioningResponse& rhs) const
+    friend bool operator==(const StartProvisioningResponse& lhs, const StartProvisioningResponse& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mCSRs == rhs.mCSRs && mError == rhs.mError;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID && lhs.mCSRs == rhs.mCSRs
+            && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares start provisioning response.
@@ -89,7 +97,10 @@ struct StartProvisioningResponse : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const StartProvisioningResponse& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const StartProvisioningResponse& lhs, const StartProvisioningResponse& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -105,10 +116,10 @@ struct ProvisioningCertData {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const ProvisioningCertData& rhs) const
+    friend bool operator==(const ProvisioningCertData& lhs, const ProvisioningCertData& rhs)
     {
-        return mCertType == rhs.mCertType && mCertChain == rhs.mCertChain;
-    }
+        return lhs.mCertType == rhs.mCertType && lhs.mCertChain == rhs.mCertChain;
+    };
 
     /**
      * Compares provisioning certificate data.
@@ -116,7 +127,7 @@ struct ProvisioningCertData {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const ProvisioningCertData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ProvisioningCertData& lhs, const ProvisioningCertData& rhs) { return !(lhs == rhs); };
 };
 
 using ProvisioningCertArray = StaticArray<ProvisioningCertData, cCertsPerNodeCount>;
@@ -135,11 +146,11 @@ struct FinishProvisioningRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const FinishProvisioningRequest& rhs) const
+    friend bool operator==(const FinishProvisioningRequest& lhs, const FinishProvisioningRequest& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mCertificates == rhs.mCertificates
-            && mPassword == rhs.mPassword;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mCertificates == rhs.mCertificates && lhs.mPassword == rhs.mPassword;
+    };
 
     /**
      * Compares finish provisioning request.
@@ -147,7 +158,10 @@ struct FinishProvisioningRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const FinishProvisioningRequest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const FinishProvisioningRequest& lhs, const FinishProvisioningRequest& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -163,10 +177,10 @@ struct FinishProvisioningResponse : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const FinishProvisioningResponse& rhs) const
+    friend bool operator==(const FinishProvisioningResponse& lhs, const FinishProvisioningResponse& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mError == rhs.mError;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares finish provisioning response.
@@ -174,7 +188,10 @@ struct FinishProvisioningResponse : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const FinishProvisioningResponse& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const FinishProvisioningResponse& lhs, const FinishProvisioningResponse& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -190,10 +207,11 @@ struct DeprovisioningRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const DeprovisioningRequest& rhs) const
+    friend bool operator==(const DeprovisioningRequest& lhs, const DeprovisioningRequest& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mPassword == rhs.mPassword;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mPassword == rhs.mPassword;
+    };
 
     /**
      * Compares deprovisioning request.
@@ -201,7 +219,10 @@ struct DeprovisioningRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const DeprovisioningRequest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DeprovisioningRequest& lhs, const DeprovisioningRequest& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -217,10 +238,10 @@ struct DeprovisioningResponse : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const DeprovisioningResponse& rhs) const
+    friend bool operator==(const DeprovisioningResponse& lhs, const DeprovisioningResponse& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mError == rhs.mError;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares deprovisioning response.
@@ -228,7 +249,10 @@ struct DeprovisioningResponse : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const DeprovisioningResponse& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DeprovisioningResponse& lhs, const DeprovisioningResponse& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 } // namespace aos

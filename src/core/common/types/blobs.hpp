@@ -31,16 +31,16 @@ struct BlobInfo {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const BlobInfo& rhs) const
+    friend bool operator==(const BlobInfo& lhs, const BlobInfo& rhs)
     {
-        return mURLs == rhs.mURLs && mSHA256 == rhs.mSHA256 && mSize == rhs.mSize && mDecryptInfo == rhs.mDecryptInfo
-            && mSignInfo == rhs.mSignInfo;
-    }
+        return lhs.mURLs == rhs.mURLs && lhs.mSHA256 == rhs.mSHA256 && lhs.mSize == rhs.mSize
+            && lhs.mDecryptInfo == rhs.mDecryptInfo && lhs.mSignInfo == rhs.mSignInfo;
+    };
 
     /**
      * Compares blob info.
      */
-    bool operator!=(const BlobInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const BlobInfo& lhs, const BlobInfo& rhs) { return !(lhs == rhs); };
 };
 
 using BlobInfoArray = StaticArray<BlobInfo, cMaxNumBlobs>;
@@ -57,7 +57,10 @@ struct BlobURLsRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const BlobURLsRequest& rhs) const { return Protocol::operator==(rhs) && mDigests == rhs.mDigests; }
+    friend bool operator==(const BlobURLsRequest& lhs, const BlobURLsRequest& rhs)
+    {
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mDigests == rhs.mDigests;
+    };
 
     /**
      * Compares blob URLs request.
@@ -65,7 +68,7 @@ struct BlobURLsRequest : public Protocol {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const BlobURLsRequest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const BlobURLsRequest& lhs, const BlobURLsRequest& rhs) { return !(lhs == rhs); };
 };
 
 struct BlobURLsInfo : public Protocol {
@@ -77,7 +80,10 @@ struct BlobURLsInfo : public Protocol {
      * @param rhs blob URLs info to compare with.
      * @return bool.
      */
-    bool operator==(const BlobURLsInfo& rhs) const { return Protocol::operator==(rhs) && mItems == rhs.mItems; }
+    friend bool operator==(const BlobURLsInfo& lhs, const BlobURLsInfo& rhs)
+    {
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mItems == rhs.mItems;
+    };
 
     /**
      * Compares blob URLs info.
@@ -85,7 +91,7 @@ struct BlobURLsInfo : public Protocol {
      * @param rhs blob URLs info to compare with.
      * @return bool.
      */
-    bool operator!=(const BlobURLsInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const BlobURLsInfo& lhs, const BlobURLsInfo& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

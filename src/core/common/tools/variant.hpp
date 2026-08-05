@@ -238,14 +238,14 @@ public:
      * @param other input variant object.
      * @return bool.
      */
-    bool operator==(const Variant& other) const
+    friend bool operator==(const Variant& lhs, const Variant& other)
     {
-        if (mTypeIndex != other.mTypeIndex) {
+        if (lhs.mTypeIndex != other.mTypeIndex) {
             return false;
         }
 
-        return ApplyVisitor(EqualsVisitor {other});
-    }
+        return lhs.ApplyVisitor(EqualsVisitor {other});
+    };
 
     /**
      * Compares two variant objects.
@@ -253,7 +253,7 @@ public:
      * @param other input variant object.
      * @return bool.
      */
-    bool operator!=(const Variant& other) const { return !(*this == other); }
+    friend bool operator!=(const Variant& lhs, const Variant& other) { return !(lhs == other); };
 
     /**
      * Outputs variant object to log.

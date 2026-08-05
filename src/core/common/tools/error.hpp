@@ -266,7 +266,7 @@ public:
      * @param err error to compare with.
      * @return bool result.
      */
-    bool operator==(const Error& err) const { return mErr == err.mErr; };
+    friend bool operator==(const Error& lhs, const Error& err) { return lhs.mErr == err.mErr; };
 
     /**
      * Compares if error doesn't equal to another error value.
@@ -274,7 +274,7 @@ public:
      * @param err error to compare with.
      * @return bool result.
      */
-    bool operator!=(const Error& err) const { return mErr != err.mErr; };
+    friend bool operator!=(const Error& lhs, const Error& err) { return lhs.mErr != err.mErr; };
 
     /**
      * Compares if specified error value equals to error.
@@ -389,8 +389,11 @@ struct RetWithError {
     /**
      * Comparison operators.
      */
-    bool operator==(const RetWithError<T>& other) const { return mValue == other.mValue && mError == other.mError; }
-    bool operator!=(const RetWithError<T>& other) const { return !(*this == other); }
+    friend bool operator==(const RetWithError& lhs, const RetWithError<T>& other)
+    {
+        return lhs.mValue == other.mValue && lhs.mError == other.mError;
+    };
+    friend bool operator!=(const RetWithError& lhs, const RetWithError<T>& other) { return !(lhs == other); };
 
     /**
      * Holds returned value.
