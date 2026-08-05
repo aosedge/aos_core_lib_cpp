@@ -1129,7 +1129,7 @@ using SubjectArray = StaticArray<StaticString<cIDLen>, cMaxNumSubjects>;
 struct RunParameters {
     Optional<Duration> mStartInterval;
     Optional<Duration> mRestartInterval;
-    Optional<long>     mStartBurst;
+    Optional<int64_t>  mStartBurst;
 
     /**
      * Compares run parameters.
