@@ -26,10 +26,11 @@ struct SMInfo {
      * @param status SM status to compare with.
      * @return bool.
      */
-    bool operator==(const SMInfo& status) const
+    friend bool operator==(const SMInfo& lhs, const SMInfo& status)
     {
-        return mNodeID == status.mNodeID && mResources == status.mResources && mRuntimes == status.mRuntimes;
-    }
+        return lhs.mNodeID == status.mNodeID && lhs.mResources == status.mResources
+            && lhs.mRuntimes == status.mRuntimes;
+    };
 
     /**
      * Compares SM info.
@@ -37,7 +38,7 @@ struct SMInfo {
      * @param status SM info to compare with.
      * @return bool.
      */
-    bool operator!=(const SMInfo& status) const { return !operator==(status); }
+    friend bool operator!=(const SMInfo& lhs, const SMInfo& status) { return !(lhs == status); };
 };
 
 /**

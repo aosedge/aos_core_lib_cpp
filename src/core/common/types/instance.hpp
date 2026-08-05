@@ -38,13 +38,14 @@ struct InstanceInfoData {
      * @param rhs data to compare.
      * @return bool.
      */
-    bool operator==(const InstanceInfoData& rhs) const
+    friend bool operator==(const InstanceInfoData& lhs, const InstanceInfoData& rhs)
     {
-        return mVersion == rhs.mVersion && mManifestDigest == rhs.mManifestDigest && mRuntimeID == rhs.mRuntimeID
-            && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType && mUID == rhs.mUID && mGID == rhs.mGID
-            && mPriority == rhs.mPriority && mStoragePath == rhs.mStoragePath && mStatePath == rhs.mStatePath
-            && mEnvVars == rhs.mEnvVars && mMonitoringParams == rhs.mMonitoringParams;
-    }
+        return lhs.mVersion == rhs.mVersion && lhs.mManifestDigest == rhs.mManifestDigest
+            && lhs.mRuntimeID == rhs.mRuntimeID && lhs.mOwnerID == rhs.mOwnerID && lhs.mSubjectType == rhs.mSubjectType
+            && lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID && lhs.mPriority == rhs.mPriority
+            && lhs.mStoragePath == rhs.mStoragePath && lhs.mStatePath == rhs.mStatePath && lhs.mEnvVars == rhs.mEnvVars
+            && lhs.mMonitoringParams == rhs.mMonitoringParams;
+    };
 
     /**
      * Compares instance info data.
@@ -52,7 +53,7 @@ struct InstanceInfoData {
      * @param rhs data to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceInfoData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceInfoData& lhs, const InstanceInfoData& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -65,10 +66,10 @@ struct InstanceInfo : public InstanceIdent, public InstanceInfoData {
      * @param rhs info to compare.
      * @return bool.
      */
-    bool operator==(const InstanceInfo& rhs) const
+    friend bool operator==(const InstanceInfo& lhs, const InstanceInfo& rhs)
     {
-        return InstanceIdent::operator==(rhs) && InstanceInfoData::operator==(rhs);
-    }
+        return (static_cast<const InstanceIdent&>(lhs) == rhs) && (static_cast<const InstanceInfoData&>(lhs) == rhs);
+    };
 
     /**
      * Compares instance info.
@@ -76,7 +77,7 @@ struct InstanceInfo : public InstanceIdent, public InstanceInfoData {
      * @param rhs info to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceInfo& lhs, const InstanceInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -102,12 +103,12 @@ struct InstanceStatusData {
      * @param rhs instance status data to compare.
      * @return bool.
      */
-    bool operator==(const InstanceStatusData& rhs) const
+    friend bool operator==(const InstanceStatusData& lhs, const InstanceStatusData& rhs)
     {
-        return mNodeID == rhs.mNodeID && mRuntimeID == rhs.mRuntimeID && mManifestDigest == rhs.mManifestDigest
-            && mStateChecksum == rhs.mStateChecksum && mEnvVarsStatuses == rhs.mEnvVarsStatuses && mState == rhs.mState
-            && mError == rhs.mError;
-    }
+        return lhs.mNodeID == rhs.mNodeID && lhs.mRuntimeID == rhs.mRuntimeID
+            && lhs.mManifestDigest == rhs.mManifestDigest && lhs.mStateChecksum == rhs.mStateChecksum
+            && lhs.mEnvVarsStatuses == rhs.mEnvVarsStatuses && lhs.mState == rhs.mState && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares instance status data.
@@ -115,7 +116,7 @@ struct InstanceStatusData {
      * @param rhs instance status data to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceStatusData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceStatusData& lhs, const InstanceStatusData& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -130,10 +131,11 @@ struct InstanceStatus : public InstanceIdent, public InstanceStatusData {
      * @param rhs status to compare.
      * @return bool.
      */
-    bool operator==(const InstanceStatus& rhs) const
+    friend bool operator==(const InstanceStatus& lhs, const InstanceStatus& rhs)
     {
-        return InstanceIdent::operator==(rhs) && InstanceStatusData::operator==(rhs) && mVersion == rhs.mVersion;
-    }
+        return (static_cast<const InstanceIdent&>(lhs) == rhs) && (static_cast<const InstanceStatusData&>(lhs) == rhs)
+            && lhs.mVersion == rhs.mVersion;
+    };
 
     /**
      * Compares instance status.
@@ -141,7 +143,7 @@ struct InstanceStatus : public InstanceIdent, public InstanceStatusData {
      * @param rhs status to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceStatus& lhs, const InstanceStatus& rhs) { return !(lhs == rhs); };
 };
 
 /**

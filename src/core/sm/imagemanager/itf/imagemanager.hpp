@@ -31,11 +31,11 @@ struct UpdateItemInfo {
      * @param rhs info to compare.
      * @return bool.
      */
-    bool operator==(const UpdateItemInfo& rhs) const
+    friend bool operator==(const UpdateItemInfo& lhs, const UpdateItemInfo& rhs)
     {
-        return mID == rhs.mID && mType == rhs.mType && mVersion == rhs.mVersion
-            && mManifestDigest == rhs.mManifestDigest;
-    }
+        return lhs.mID == rhs.mID && lhs.mType == rhs.mType && lhs.mVersion == rhs.mVersion
+            && lhs.mManifestDigest == rhs.mManifestDigest;
+    };
 
     /**
      * Compares update item info.
@@ -43,7 +43,7 @@ struct UpdateItemInfo {
      * @param rhs info to compare.
      * @return bool.
      */
-    bool operator!=(const UpdateItemInfo& rhs) const { return !operator==(rhs); };
+    friend bool operator!=(const UpdateItemInfo& lhs, const UpdateItemInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -61,10 +61,10 @@ struct UpdateItemStatus {
      * @param rhs status to compare.
      * @return bool.
      */
-    bool operator==(const UpdateItemStatus& rhs) const
+    friend bool operator==(const UpdateItemStatus& lhs, const UpdateItemStatus& rhs)
     {
-        return mID == rhs.mID && mType == rhs.mType && mVersion == rhs.mVersion && mState == rhs.mState;
-    }
+        return lhs.mID == rhs.mID && lhs.mType == rhs.mType && lhs.mVersion == rhs.mVersion && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares update item status.
@@ -72,7 +72,7 @@ struct UpdateItemStatus {
      * @param rhs status to compare.
      * @return bool.
      */
-    bool operator!=(const UpdateItemStatus& rhs) const { return !operator==(rhs); };
+    friend bool operator!=(const UpdateItemStatus& lhs, const UpdateItemStatus& rhs) { return !(lhs == rhs); };
 };
 
 /**

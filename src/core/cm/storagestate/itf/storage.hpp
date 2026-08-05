@@ -31,11 +31,11 @@ struct InstanceInfo {
      * @param instance instance to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceInfo& instance) const
+    friend bool operator==(const InstanceInfo& lhs, const InstanceInfo& instance)
     {
-        return mInstanceIdent == instance.mInstanceIdent && mStorageQuota == instance.mStorageQuota
-            && mStateQuota == instance.mStateQuota && mStateChecksum == instance.mStateChecksum;
-    }
+        return lhs.mInstanceIdent == instance.mInstanceIdent && lhs.mStorageQuota == instance.mStorageQuota
+            && lhs.mStateQuota == instance.mStateQuota && lhs.mStateChecksum == instance.mStateChecksum;
+    };
 
     /**
      * Compares instance info.
@@ -43,7 +43,7 @@ struct InstanceInfo {
      * @param instance instance to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceInfo& instance) const { return !operator==(instance); }
+    friend bool operator!=(const InstanceInfo& lhs, const InstanceInfo& instance) { return !(lhs == instance); };
 };
 
 using InstanceInfoArray = StaticArray<InstanceInfo, cMaxNumInstances>;
