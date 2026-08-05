@@ -106,7 +106,7 @@ public:
         ItemEntry entry {assigned, 1};
 
         if (auto err = mItems.Emplace(key, entry); !err.IsNone()) {
-            mPool.Release(assigned);
+            (void)mPool.Release(assigned);
 
             return {0, AOS_ERROR_WRAP(err)};
         }

@@ -137,7 +137,7 @@ public:
     /**
      * Clears string.
      */
-    void Clear() { Resize(0); }
+    void Clear() { (void)Resize(0); }
 
     /**
      * Appends string.
@@ -273,8 +273,8 @@ public:
      */
     String& Trim(const String& chars)
     {
-        LeftTrim(chars);
-        RightTrim(chars);
+        (void)LeftTrim(chars);
+        (void)RightTrim(chars);
 
         return *this;
     }
@@ -548,7 +548,7 @@ public:
                 return err;
             }
 
-            dst.PushBack(byte);
+            (void)dst.PushBack(byte);
         }
 
         return ErrorEnum::eNone;
@@ -603,14 +603,14 @@ public:
 
         auto msg = inErr.Message();
         if (msg && *msg) {
-            Append(msg);
+            (void)Append(msg);
         } else {
-            Append(inErr.StrValue());
+            (void)Append(inErr.StrValue());
         }
 
         auto strErrno = inErr.StrErrno();
         if (strErrno && *strErrno) {
-            Append(" [").Append(strErrno).Append("]");
+            (void)Append(" [").Append(strErrno).Append("]");
         }
 
         if (inErr.FileName()) {
@@ -621,7 +621,7 @@ public:
                 return err;
             }
 
-            Append(" (").Append(inErr.FileName()).Append(":").Append(tmpBuf).Append(")");
+            (void)Append(" (").Append(inErr.FileName()).Append(":").Append(tmpBuf).Append(")");
         }
 
         return ErrorEnum::eNone;
@@ -827,7 +827,7 @@ public:
         : String()
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        String::operator=(str);
+        (void)String::operator=(str);
     }
 
     /**
@@ -837,7 +837,7 @@ public:
      */
     StaticString& operator=(const StaticString& str) noexcept
     {
-        String::operator=(str);
+        (void)String::operator=(str);
 
         return *this;
     }
@@ -851,7 +851,7 @@ public:
     StaticString(const String& str)
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        String::operator=(str);
+        (void)String::operator=(str);
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -862,7 +862,7 @@ public:
      */
     StaticString& operator=(const String& str)
     {
-        String::operator=(str);
+        (void)String::operator=(str);
 
         return *this;
     }
@@ -876,7 +876,7 @@ public:
     StaticString(const char* str)
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        String::operator=(str);
+        (void)String::operator=(str);
     }
 
     /**
@@ -887,7 +887,7 @@ public:
      */
     StaticString& operator=(const char* str)
     {
-        String::operator=(str);
+        (void)String::operator=(str);
 
         return *this;
     }

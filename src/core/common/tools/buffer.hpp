@@ -51,7 +51,7 @@ public:
     {
         assert(mSize >= buffer.mSize);
 
-        memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
+        (void)memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
 
         return *this;
     }

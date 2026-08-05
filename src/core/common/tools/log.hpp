@@ -215,7 +215,7 @@ public:
     {
         StaticString<12> tmpStr;
 
-        tmpStr.Convert(i);
+        (void)tmpStr.Convert(i);
 
         return *this << tmpStr;
     };
@@ -242,7 +242,7 @@ private:
     void AddPeriods()
     {
         if (mLogLine.Size() > 3) {
-            mLogLine.Resize(mLogLine.Size() - 3);
+            (void)mLogLine.Resize(mLogLine.Size() - 3);
             mLogLine += "...";
         }
     }

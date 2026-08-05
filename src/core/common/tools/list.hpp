@@ -117,7 +117,7 @@ protected:
         {
             Iterator it(*this);
 
-            operator++();
+            (void)operator++();
 
             return it;
         }
@@ -307,7 +307,7 @@ public:
     void Clear()
     {
         while (this->mSize > 0) {
-            Remove(Iterator(this->mTerminalNode.mNext));
+            (void)Remove(Iterator(this->mTerminalNode.mNext));
         }
     }
 

@@ -257,10 +257,10 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
         availableResource->mSharedCount--;
     }
 
-    restoreResources.Release();
-    restoreMaxNumInstances.Release();
-    restoreCPU.Release();
-    restoreRAM.Release();
+    (void)restoreResources.Release();
+    (void)restoreMaxNumInstances.Release();
+    (void)restoreCPU.Release();
+    (void)restoreRAM.Release();
 
     return ErrorEnum::eNone;
 }
