@@ -364,8 +364,8 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
         }
 
         // Ownership transferred to ECDSA_SIG object
-        r.Release();
-        s.Release();
+        (void)r.Release();
+        (void)s.Release();
 
         // Convert ECDSA_SIG to DER
         uint8_t* derSig = nullptr;
@@ -416,7 +416,7 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_MDWithRSAEncryption
         // implementation: PARAMETERS, always NULL in current standards
-        X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, NULL);
+        (void)X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, NULL);
 
         return alg.Release();
     }
@@ -438,7 +438,7 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_ECDSA_with_MD implementation:
         // there is no PARAMETERS for ECDSA
-        X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, NULL);
+        (void)X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, NULL);
 
         return alg.Release();
     }
@@ -539,7 +539,7 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
     StaticArray<uint8_t, EVP_MAX_MD_SIZE> digest;
     unsigned int                          digestLen = 0;
 
-    digest.Resize(digest.MaxSize());
+    (void)digest.Resize(digest.MaxSize());
 
     if (EVP_Digest(tbs, tbslen, digest.Get(), &digestLen, evpMd, NULL) != 1) {
         LOG_ERR() << "Digest calculation failed: err=" << OPENSSL_ERROR();
@@ -547,7 +547,7 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
         return 0;
     }
 
-    digest.Resize(digestLen);
+    (void)digest.Resize(digestLen);
 
     // Sign
     Array<uint8_t> signature {sig, static_cast<size_t>(sigsize)};
@@ -765,7 +765,7 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
 
     auto p = fullOID.Get();
     ASN1_put_object(&p, 0, rawOID.Size(), V_ASN1_OBJECT, V_ASN1_UNIVERSAL);
-    memcpy(p, rawOID.Get(), rawOID.Size());
+    (void)memcpy(p, rawOID.Get(), rawOID.Size());
 
     return {fullOID, ErrorEnum::eNone};
 }

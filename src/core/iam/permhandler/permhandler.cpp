@@ -137,7 +137,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()
             return {secret, err};
         }
 
-        secret.Assign(uuid::UUIDToString(uuid));
+        (void)secret.Assign(uuid::UUIDToString(uuid));
 
     } while (FindBySecret(secret) != mInstancesPerms.end());
 

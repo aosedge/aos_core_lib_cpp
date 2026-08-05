@@ -44,8 +44,8 @@ Error PKCS11RSAPrivateKey::Sign(
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    t->Append(GetPrefix(options.mHash));
-    t->Append(digest);
+    (void)t->Append(GetPrefix(options.mHash));
+    (void)t->Append(digest);
 
     CK_MECHANISM mechanism = {CKM_RSA_PKCS, nullptr, 0};
 

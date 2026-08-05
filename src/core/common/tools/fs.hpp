@@ -322,15 +322,15 @@ String& AppendPath(String& path, const Args&... args)
 {
     auto AppendPathEntry = [](String& path, const String& item) -> String& {
         if (path.Size() == 0 || *(path.end() - 1) == '/') {
-            path.Append(item);
+            (void)path.Append(item);
         } else {
-            path.Append("/").Append(item);
+            (void)path.Append("/").Append(item);
         }
 
         return path;
     };
 
-    (AppendPathEntry(path, args), ...);
+    (void)(AppendPathEntry(path, args), ...);
 
     return path;
 }
@@ -343,7 +343,7 @@ StaticString<cFilePathLen> JoinPath(const Args&... args)
 {
     StaticString<cFilePathLen> path;
 
-    AppendPath(path, args...);
+    (void)AppendPath(path, args...);
 
     return path;
 }

@@ -523,7 +523,7 @@ public:
         : Array<T>()
     {
         Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
     }
 
     /**
@@ -538,7 +538,7 @@ public:
      */
     StaticArray& operator=(const StaticArray& array) noexcept
     {
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
 
         return *this;
     }
@@ -552,7 +552,7 @@ public:
     StaticArray(const Array<T>& array)
     {
         Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -563,7 +563,7 @@ public:
      */
     StaticArray& operator=(const Array<T>& array)
     {
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
 
         return *this;
     }

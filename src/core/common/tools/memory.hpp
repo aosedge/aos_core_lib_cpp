@@ -221,7 +221,7 @@ public:
     void Reset(T* object = nullptr)
     {
         if (mObject) {
-            mDeleter(mObject);
+            (void)mDeleter(mObject);
             mObject = nullptr;
         }
 
@@ -366,7 +366,7 @@ public:
 
         if (count == 0) {
             // Unlock before disposing as disposal destroys this object (and its mutex).
-            lock.Unlock();
+            (void)lock.Unlock();
 
             Dispose();
         }
@@ -512,7 +512,7 @@ public:
         , mControlBlock(ptr.mControlBlock)
     {
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
     }
 
@@ -533,7 +533,7 @@ public:
         mControlBlock = ptr.mControlBlock;
 
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
 
         return *this;
@@ -551,7 +551,7 @@ public:
         , mControlBlock(ptr.mControlBlock)
     {
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
     }
 
@@ -569,7 +569,7 @@ public:
         mControlBlock = ptr.mControlBlock;
 
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
 
         return *this;
@@ -585,7 +585,7 @@ public:
     void Reset(AllocatorItf* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
     {
         if (mControlBlock) {
-            mControlBlock->Give();
+            (void)mControlBlock->Give();
         }
 
         mObject       = nullptr;

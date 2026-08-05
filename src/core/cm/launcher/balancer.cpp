@@ -96,7 +96,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         if (!imageIndex) {
             LOG_ERR() << "Can't allocate image index" << Log::Field("instance", id) << Log::Field(ErrorEnum::eNoMemory);
 
-            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+            (void)mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
 
             continue;
         }
@@ -104,7 +104,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
-            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
+            (void)mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
 
             continue;
         }
@@ -125,7 +125,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         if (!scheduleErr.IsNone()) {
             LOG_ERR() << "Can't schedule instance" << Log::Field(scheduleErr);
 
-            mInstanceManager->ScheduleInstance(instance, scheduleErr);
+            (void)mInstanceManager->ScheduleInstance(instance, scheduleErr);
         }
     }
 
@@ -192,17 +192,18 @@ Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
 
 void Balancer::FilterNodesByID(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
+    (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
 }
 
 void Balancer::FilterNodesByLabels(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
+    (void)nodes.RemoveIf(
+        [&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
 }
 
 void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
+    (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
 }
 
 RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
@@ -296,7 +297,7 @@ Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes
 
         // Remove node with no runtimes
         if (nodeRuntimes.IsEmpty()) {
-            runtimes.Remove(node);
+            (void)runtimes.Remove(node);
         }
     }
 
@@ -392,7 +393,7 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 
     auto topPriority = topPriorityNode->mFirst->GetConfig().mPriority;
 
-    nodes.RemoveIf(
+    (void)nodes.RemoveIf(
         [topPriority](const NodeRuntimes& item) { return item.mFirst->GetConfig().mPriority != topPriority; });
 }
 
