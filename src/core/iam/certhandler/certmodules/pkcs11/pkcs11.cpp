@@ -450,8 +450,8 @@ StaticString<pkcs11::cLabelLen> PKCS11Module::GetTokenLabel() const
 
 RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 {
-    const int paramCount
-        = static_cast<int>(mConfig.mSlotID.HasValue() + mConfig.mSlotIndex.HasValue() + !mConfig.mTokenLabel.IsEmpty());
+    const int32_t paramCount = static_cast<int32_t>(
+        mConfig.mSlotID.HasValue() + mConfig.mSlotIndex.HasValue() + !mConfig.mTokenLabel.IsEmpty());
 
     if (paramCount > 1) {
         LOG_ERR()

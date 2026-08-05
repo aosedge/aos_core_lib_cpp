@@ -57,7 +57,7 @@ void KeyMgmtFree(void* keydata)
     OPENSSL_free(keydata);
 }
 
-int KeyMgmtHas(const void* key, int selection)
+int32_t KeyMgmtHas(const void* key, int32_t selection)
 {
     const auto aosKey = static_cast<const AosPrivKey*>(key);
 
@@ -78,14 +78,14 @@ int KeyMgmtHas(const void* key, int selection)
     return 0;
 }
 
-const char* KeyMgmtQuery(int id)
+const char* KeyMgmtQuery(int32_t id)
 {
     (void)id;
 
     return cAosAlgorithm;
 }
 
-int KeyMgmtImport(void* keydata, int selection, const OSSL_PARAM* p)
+int32_t KeyMgmtImport(void* keydata, int32_t selection, const OSSL_PARAM* p)
 {
     if (selection != EVP_PKEY_KEYPAIR) {
         LOG_ERR() << "Not supported selection for AOS key: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eFailed));
@@ -115,7 +115,7 @@ int KeyMgmtImport(void* keydata, int selection, const OSSL_PARAM* p)
     return 1;
 }
 
-const OSSL_PARAM* KeyMgmtImportTypes(int selection)
+const OSSL_PARAM* KeyMgmtImportTypes(int32_t selection)
 {
     (void)selection;
 
@@ -134,7 +134,7 @@ struct AosSignCtx {
     Hash          mHash;
 };
 
-RetWithError<int> GetNidFromOID(const Array<uint8_t>& oid)
+RetWithError<int32_t> GetNidFromOID(const Array<uint8_t>& oid)
 {
     auto [fullOID, err] = GetFullOID(oid);
     if (!err.IsNone()) {
@@ -148,7 +148,7 @@ RetWithError<int> GetNidFromOID(const Array<uint8_t>& oid)
         return {-1, OPENSSL_ERROR()};
     }
 
-    int nid = OBJ_obj2nid(asn1obj.Get());
+    int32_t nid = OBJ_obj2nid(asn1obj.Get());
     if (nid == NID_undef) {
         return {-1, OPENSSL_ERROR()};
     }
@@ -156,7 +156,7 @@ RetWithError<int> GetNidFromOID(const Array<uint8_t>& oid)
     return {nid, ErrorEnum::eNone};
 }
 
-RetWithError<int> GetECCurveBitLen(int nid)
+RetWithError<int32_t> GetECCurveBitLen(int32_t nid)
 {
     switch (nid) {
     case NID_X9_62_prime192v1:
@@ -234,7 +234,7 @@ RetWithError<HashEnum> GetHashAlg(const ECDSAPublicKey& pubKey)
         return {HashEnum::eNone, err};
     }
 
-    int curveBitlen = 0;
+    int32_t curveBitlen = 0;
 
     Tie(curveBitlen, err) = GetECCurveBitLen(nid);
     if (!err.IsNone()) {
@@ -274,7 +274,7 @@ RetWithError<HashEnum> GetHashAlg(const PublicKeyItf& pubKey)
     }
 }
 
-RetWithError<int> GetSignAlgNID(const RSAPublicKey& pubKey)
+RetWithError<int32_t> GetSignAlgNID(const RSAPublicKey& pubKey)
 {
     auto [hashAlg, err] = GetHashAlg(pubKey);
     if (!err.IsNone()) {
@@ -305,7 +305,7 @@ RetWithError<int> GetSignAlgNID(const RSAPublicKey& pubKey)
     }
 }
 
-RetWithError<int> GetSignAlgNID(const ECDSAPublicKey& pubKey)
+RetWithError<int32_t> GetSignAlgNID(const ECDSAPublicKey& pubKey)
 {
     auto [hashAlg, err] = GetHashAlg(pubKey);
     if (!err.IsNone()) {
@@ -369,7 +369,7 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
 
         // Convert ECDSA_SIG to DER
         uint8_t* derSig = nullptr;
-        int      derLen = i2d_ECDSA_SIG(sig.Get(), &derSig);
+        int32_t  derLen = i2d_ECDSA_SIG(sig.Get(), &derSig);
         if (derLen <= 0) {
             return OPENSSL_ERROR();
         }
@@ -467,7 +467,7 @@ void SignFreeCtx(void* sigctx)
     OPENSSL_free(sigctx);
 }
 
-int DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PARAM params[])
+int32_t DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PARAM params[])
 {
     (void)params;
     (void)mdname;
@@ -510,7 +510,7 @@ int DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PARAM 
     return 1;
 }
 
-int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, const unsigned char* tbs, size_t tbslen)
+int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const uint8_t* tbs, size_t tbslen)
 {
     if (!ctx || !siglen || !tbs) {
         LOG_ERR() << "Invalid arguments: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument));
@@ -537,7 +537,7 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
     // Compute the hash.
     const EVP_MD*                         evpMd = aosCtx->mEvpMd;
     StaticArray<uint8_t, EVP_MAX_MD_SIZE> digest;
-    unsigned int                          digestLen = 0;
+    uint32_t                              digestLen = 0;
 
     (void)digest.Resize(digest.MaxSize());
 
@@ -571,7 +571,7 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
     return 1;
 }
 
-int SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
+int32_t SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
 {
     AosSignCtx* aosCtx = static_cast<AosSignCtx*>(ctx);
     if (!aosCtx || !aosCtx->mAosKey || !aosCtx->mAosKey->mPrivKey) {
@@ -596,7 +596,7 @@ int SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
         // Convert alg to DER
         uint8_t* outDer = nullptr;
 
-        int outLen = i2d_X509_ALGOR(alg.Get(), &outDer);
+        int32_t outLen = i2d_X509_ALGOR(alg.Get(), &outDer);
         if (outLen <= 0) {
             LOG_ERR() << "Alg to DER conversion failed: err=" << OPENSSL_ERROR();
 
@@ -625,7 +625,7 @@ const OSSL_PARAM* SignatureGettableCtxParams(void*)
  * Provider functions
  **********************************************************************************************************************/
 
-const OSSL_ALGORITHM* ProviderQuery(void* provctx, int operationID, int* noCache)
+const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t* noCache)
 {
     (void)provctx;
 
@@ -675,7 +675,7 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int operationID, int* noCache
     return NULL;
 }
 
-int ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const OSSL_DISPATCH** out, void** provctx)
+int32_t ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const OSSL_DISPATCH** out, void** provctx)
 {
     (void)handle;
     (void)in;
@@ -775,7 +775,7 @@ void AOS_OPENSSL_free(void* ptr)
     OPENSSL_free(ptr);
 }
 
-int ConvertHashAlgToNID(HashEnum hashAlg)
+int32_t ConvertHashAlgToNID(HashEnum hashAlg)
 {
     switch (hashAlg) {
     case HashEnum::eSHA1:

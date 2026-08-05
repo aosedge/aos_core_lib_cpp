@@ -295,7 +295,7 @@ public:
      * @return ASN1ParseResult.
      */
     asn1::ASN1ParseResult ReadInteger(
-        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int& value) override;
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int32_t& value) override;
 
     /**
      * Reads a large ASN.1 INTEGER (BigInt) as a byte array.
@@ -397,8 +397,8 @@ private:
         mutable mbedtls_pk_context mPrivKey;
     };
 
-    static int                             VerifyTime(void* data, mbedtls_x509_crt* crt, int depth, uint32_t* flags);
-    static RetWithError<Time>              ConvertTime(const mbedtls_x509_time& src);
+    static int32_t            VerifyTime(void* data, mbedtls_x509_crt* crt, int32_t depth, uint32_t* flags);
+    static RetWithError<Time> ConvertTime(const mbedtls_x509_time& src);
     static RetWithError<mbedtls_x509_time> ConvertTime(const Time& src);
 
     Error ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);

@@ -28,7 +28,7 @@ struct RecipientID {
  * CMS transport information.
  */
 struct TransRecipientInfo {
-    int                                mVersion;
+    int32_t                            mVersion;
     RecipientID                        mRID;
     asn1::AlgorithmIdentifier          mKeyEncryptionAlgorithm;
     StaticArray<uint8_t, cCertDERSize> mEncryptedKey;
@@ -47,7 +47,7 @@ struct EncryptedContentInfo {
  * CMS envelope data.
  */
 struct EnvelopeData {
-    int mVersion;
+    int32_t mVersion;
     // skip OriginatorInfo originatorInfo `asn1:"optional,implicit,tag:0"`
     StaticArray<TransRecipientInfo, cRecipientsInEnvelopeData> mRecipientInfos; // `asn1:"set"`
     EncryptedContentInfo                                       mEncryptedContent;

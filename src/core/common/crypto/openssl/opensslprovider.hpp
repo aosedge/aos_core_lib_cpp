@@ -98,7 +98,7 @@ void AOS_OPENSSL_free(void* ptr);
  * @param hashAlg hash algorithm.
  * @return int.
  */
-int ConvertHashAlgToNID(HashEnum hashAlg);
+int32_t ConvertHashAlgToNID(HashEnum hashAlg);
 
 } // namespace aos::crypto::openssl
 

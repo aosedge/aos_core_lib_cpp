@@ -26,7 +26,7 @@ Error ValidateSemver(const String& version);
  * @param version2 second version.
  * @return RetWithError<int>.
  */
-RetWithError<int> CompareSemver(const String& version1, const String& version2);
+RetWithError<int32_t> CompareSemver(const String& version1, const String& version2);
 
 } // namespace aos::semver
 
