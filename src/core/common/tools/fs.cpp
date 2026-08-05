@@ -381,7 +381,7 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff)
         return Error(errno);
     }
 
-    auto closeFile = DeferRelease(&fd, [](const int* fd) { (void)close(*fd); });
+    auto closeFile = DeferRelease(&fd, [](const int32_t* fd) { (void)close(*fd); });
 
     auto size = lseek(fd, 0, SEEK_END);
     if (size < 0) {
@@ -428,7 +428,7 @@ Error ReadFileToString(const String& fileName, String& text)
     return text.Resize(buff.Size());
 }
 
-Error ReadLine(int fd, size_t pos, String& line, const String& delimiter)
+Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter)
 {
     if (lseek(fd, pos, SEEK_SET) < 0) {
         return Error(errno);
@@ -573,7 +573,7 @@ Error File::Open(const String& path, Mode mode)
         return err;
     }
 
-    int flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
+    int32_t flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
 
     mFd = open(path.CStr(), flags, 0644);
     if (mFd < 0) {

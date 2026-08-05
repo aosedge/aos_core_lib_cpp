@@ -170,7 +170,7 @@ struct IndexContentDescriptor : public ContentDescriptor {
  * OCI image index.
  */
 struct ImageIndex {
-    int                                                   mSchemaVersion {cSchemeVersion};
+    int32_t                                               mSchemaVersion {cSchemeVersion};
     StaticString<cMediaTypeLen>                           mMediaType;
     StaticString<cArtifactTypeLen>                        mArtifactType;
     StaticArray<IndexContentDescriptor, cMaxNumManifests> mManifests;
@@ -200,7 +200,7 @@ struct ImageIndex {
  * OCI image manifest.
  */
 struct ImageManifest {
-    int                                           mSchemaVersion {cSchemeVersion};
+    int32_t                                       mSchemaVersion {cSchemeVersion};
     StaticString<cMediaTypeLen>                   mMediaType;
     StaticString<cArtifactTypeLen>                mArtifactType;
     ContentDescriptor                             mConfig;

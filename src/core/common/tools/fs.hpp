@@ -452,7 +452,7 @@ Error ReadFileToString(const String& fileName, String& text);
  * @param delimiter line delimiter.
  * @return Error.
  */
-Error ReadLine(int fd, size_t pos, String& line, const String& delimiter = "\n\0");
+Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter = "\n\0");
 
 /**
  * Overwrites file with a specified data.
@@ -531,7 +531,7 @@ public:
     Error WriteBlock(const Array<uint8_t>& buffer);
 
 private:
-    int mFd = -1;
+    int32_t mFd = -1;
 };
 
 /**

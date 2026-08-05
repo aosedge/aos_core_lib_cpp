@@ -231,7 +231,7 @@ public:
      *
      * @param initial initial semaphore value.
      */
-    explicit Semaphore(unsigned int initial = 1) { (void)sem_init(&mSem, 0, initial); }
+    explicit Semaphore(uint32_t initial = 1) { (void)sem_init(&mSem, 0, initial); }
 
     /**
      * Destroys Aos semaphore.
@@ -723,7 +723,7 @@ private:
     ConditionalVariable                                   mWaitCondVar;
     StaticQueue<StaticFunction<cMaxTaskSize>, cQueueSize> mQueue;
     bool                                                  mShutdown         = false;
-    int                                                   mPendingTaskCount = 0;
+    int32_t                                               mPendingTaskCount = 0;
 };
 
 } // namespace aos

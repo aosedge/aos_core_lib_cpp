@@ -211,7 +211,7 @@ public:
      * @param i integer to log.
      * @return Log&
      */
-    Log& operator<<(int i)
+    Log& operator<<(int32_t i)
     {
         StaticString<12> tmpStr;
 
@@ -248,7 +248,7 @@ private:
     }
 
     StaticString<cMaxLineLen> mLogLine;
-    int                       mFieldsCount = 0;
+    int32_t                   mFieldsCount = 0;
     String                    mModule;
     LogLevel                  mLevel;
 };
