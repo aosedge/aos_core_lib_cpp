@@ -143,7 +143,7 @@ Error UnitStatusHandler::SendFullUnitStatus()
         ClearUnitStatus();
         ClearUpdateStatuses();
 
-        mTimer.Stop();
+        (void)mTimer.Stop();
 
         LockGuard lock {mMutex};
 
@@ -390,13 +390,13 @@ void UnitStatusHandler::OnDisconnect()
     LockGuard lock {mMutex};
 
     mCloudConnected = false;
-    mTimer.Stop();
+    (void)mTimer.Stop();
 }
 
 Error UnitStatusHandler::SetUnitConfigStatus()
 {
     mUnitStatus.mUnitConfig.EmplaceValue();
-    mUnitStatus.mUnitConfig->EmplaceBack();
+    (void)mUnitStatus.mUnitConfig->EmplaceBack();
 
     auto& unitConfigStatus = mUnitStatus.mUnitConfig->Back();
 
@@ -422,7 +422,7 @@ Error UnitStatusHandler::SetNodesInfo()
     }
 
     mUnitStatus.mNodes.EmplaceValue();
-    mUnitStatus.mNodes->Resize(nodeIDs.Size());
+    (void)mUnitStatus.mNodes->Resize(nodeIDs.Size());
 
     for (size_t i = 0; i < nodeIDs.Size(); i++) {
         auto& nodeInfo = mUnitStatus.mNodes.GetValue()[i];
@@ -449,7 +449,7 @@ Error UnitStatusHandler::SetUpdateItemsStatus()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses);
+    (void)mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses);
 
     mUnitStatus.mUpdateItems.EmplaceValue();
 
@@ -504,7 +504,7 @@ Error UnitStatusHandler::SetInstancesStatus()
         static_cast<InstanceStatusData&>(instanceStatus) = static_cast<const InstanceStatusData&>(status);
         instanceStatus.mInstance                         = status.mInstance;
 
-        it->mInstances.PushBack(&instanceStatus);
+        (void)it->mInstances.PushBack(&instanceStatus);
     }
 
     return ErrorEnum::eNone;
@@ -514,7 +514,7 @@ Error UnitStatusHandler::SetUnitSubjects()
 {
     mUnitStatus.mUnitSubjects.EmplaceValue();
 
-    mIdentProvider->GetSubjects(*mUnitStatus.mUnitSubjects);
+    (void)mIdentProvider->GetSubjects(*mUnitStatus.mUnitSubjects);
 
     return ErrorEnum::eNone;
 }
@@ -587,14 +587,14 @@ void UnitStatusHandler::ClearUpdateStatuses()
 void UnitStatusHandler::StartTimer()
 {
     if (mTimerStarted) {
-        mTimer.Restart();
+        (void)mTimer.Restart();
 
         return;
     }
 
     mTimerStarted = true;
 
-    mTimer.Start(mUnitStatusSendTimeout, [this](void*) {
+    (void)mTimer.Start(mUnitStatusSendTimeout, [this](void*) {
         LockGuard lock {mMutex};
 
         mUnitStatus.mIsDeltaInfo = true;

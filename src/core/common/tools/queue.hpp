@@ -229,7 +229,7 @@ public:
     {
         while (mSize) {
             Back().mValue.~T();
-            Pop();
+            (void)Pop();
         }
 
         mHead = mTail = mBegin;

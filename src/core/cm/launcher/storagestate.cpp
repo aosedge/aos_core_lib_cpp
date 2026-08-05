@@ -103,8 +103,8 @@ Error StorageState::SetupStateStorage(const InstanceIdent& instanceIdent, const 
         return AOS_ERROR_WRAP(err);
     }
 
-    restoreStorageSize.Release();
-    restoreStateSize.Release();
+    (void)restoreStorageSize.Release();
+    (void)restoreStateSize.Release();
 
     LOG_DBG() << "Available storage and state" << Log::Field("state", *mAvailableState)
               << Log::Field("storage", *mAvailableStorage);

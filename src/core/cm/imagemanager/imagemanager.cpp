@@ -277,7 +277,9 @@ Error ImageManager::Cancel()
     LOG_DBG() << "Cancel image manager downloading";
 
     mCancel = true;
-    mCondVar.NotifyAll();
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (!mCurrentDownloadDigest.IsEmpty()) {
         if (auto err = mDownloader->Cancel(mCurrentDownloadDigest); !err.IsNone()) {
@@ -629,7 +631,10 @@ Error ImageManager::WaitForStop()
 {
     UniqueLock<Mutex> lock(mMutex); // NOSONAR cpp:S5486 - false positive; lock released before next WaitForStop()
 
-    mCondVar.Wait(lock, cRetryTimeout, [this]() { return mCancel; });
+    if (auto err = mCondVar.Wait(lock, cRetryTimeout, [this]() { return mCancel; });
+        !err.IsNone() && err != ErrorEnum::eTimeout) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (mCancel) {
         return ErrorEnum::eCanceled;
@@ -811,7 +816,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
                 !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove old version" << Log::Field(removeErr);
             } else {
-                storedItems.Erase(oldVersionIt);
+                (void)storedItems.Erase(oldVersionIt);
             }
         }
 
@@ -972,13 +977,13 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
                           << Log::Field(removeErr);
             }
 
-            space->Release();
+            (void)space->Release();
 
             return;
         }
 
         if (space) {
-            space->Accept();
+            (void)space->Accept();
         }
     });
 
@@ -1020,13 +1025,13 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
                           << Log::Field(removeErr);
             }
 
-            space->Release();
+            (void)space->Release();
 
             return;
         }
 
         if (space) {
-            space->Accept();
+            (void)space->Accept();
         }
     });
 
@@ -1068,12 +1073,12 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
                           << Log::Field(removeErr);
             }
 
-            space->Release();
+            (void)space->Release();
             return;
         }
 
         if (space) {
-            space->Accept();
+            (void)space->Accept();
         }
     });
 
@@ -1474,7 +1479,11 @@ bool ImageManager::StartAction()
 {
     UniqueLock lock {mMutex};
 
-    mCondVar.Wait(lock, [this]() { return !mInProgress || mCancel; });
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mInProgress || mCancel; }); !err.IsNone()) {
+        LOG_ERR() << "Failed to wait for image manager action" << Log::Field(err);
+
+        return false;
+    }
 
     const bool cancelledWhileRunning = mCancel && mInProgress;
 
@@ -1494,7 +1503,9 @@ void ImageManager::StopAction()
     LockGuard lock {mMutex};
 
     mInProgress = false;
-    mCondVar.NotifyAll();
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Failed to notify image manager stop" << Log::Field(err);
+    }
 }
 
 void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses)
@@ -1517,7 +1528,7 @@ void ImageManager::NotifyItemStatusChanged(
 {
     StaticArray<UpdateItemStatus, 1> status;
 
-    status.Resize(1);
+    (void)status.Resize(1);
 
     status[0].mItemID  = itemID;
     status[0].mType    = type;
@@ -1739,7 +1750,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
             auto hash = blobIterator->mPath;
 
             StaticString<oci::cDigestLen> blobDigest;
-            blobDigest.Append(algorithm).Append(":").Append(hash);
+            (void)blobDigest.Append(algorithm).Append(":").Append(hash);
 
             if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
                 auto filePath = fs::JoinPath(algorithmDir, hash);

@@ -104,7 +104,7 @@ Error Launcher::Start()
 
     StaticArray<AlertTag, 1> alertTags;
 
-    alertTags.PushBack(AlertTagEnum::eSystemQuotaAlert);
+    (void)alertTags.PushBack(AlertTagEnum::eSystemQuotaAlert);
 
     if (auto err = mAlertsProvider->SubscribeListener(alertTags, *this); !err.IsNone()) {
         return err;
@@ -170,8 +170,8 @@ Error Launcher::Stop()
     mNewSubjects.Reset();
     mInstanceStatuses.Clear();
 
-    mProcessUpdatesCondVar.NotifyAll();
-    mAllNodesConnectedCondVar.NotifyAll();
+    (void)mProcessUpdatesCondVar.NotifyAll();
+    (void)mAllNodesConnectedCondVar.NotifyAll();
 
     // Unsubscribe from providers.
     if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
@@ -199,7 +199,7 @@ Error Launcher::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
-    updateLock.Unlock();
+    (void)updateLock.Unlock();
 
     if (auto err = mWorkerThread.Join(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -217,7 +217,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     mDisableProcessUpdates    = true;
     auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
         self->mDisableProcessUpdates = false;
-        self->mProcessUpdatesCondVar.NotifyAll();
+        (void)self->mProcessUpdatesCondVar.NotifyAll();
     });
 
     LOG_INF() << "Run instances" << Log::Field("numRequests", requests.Size());
@@ -429,7 +429,7 @@ void Launcher::ProcessUpdate()
         {
             UniqueLock updateLock {mUpdateMutex};
 
-            mProcessUpdatesCondVar.Wait(updateLock, [this]() {
+            (void)mProcessUpdatesCondVar.Wait(updateLock, [this]() {
                 return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
                            || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged || mForceRebalance)
                     && !mDisableProcessUpdates;
@@ -520,7 +520,7 @@ void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
         return !mNodeManager.GetNodes().ContainsIf(notConnected) || !mIsRunning;
     };
 
-    mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
+    (void)mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
 }
 
 void Launcher::ProcessNotScheduledInstances()
@@ -529,7 +529,7 @@ void Launcher::ProcessNotScheduledInstances()
         [](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID.IsEmpty(); });
 
     mForceRebalance = hasNotScheduledInstance;
-    mProcessUpdatesCondVar.NotifyAll();
+    (void)mProcessUpdatesCondVar.NotifyAll();
 }
 
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
@@ -595,10 +595,10 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         return AOS_ERROR_WRAP(err);
     }
 
-    mProcessUpdatesCondVar.NotifyAll();
+    (void)mProcessUpdatesCondVar.NotifyAll();
     // Node is not connected untill it receives instance statuses.
     // So, we need to trigger notification for waiting nodes after we handled statuses.
-    mAllNodesConnectedCondVar.NotifyAll();
+    (void)mAllNodesConnectedCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -612,8 +612,8 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
     if (mNodeManager.UpdateNodeInfo(info)) {
         mIsNodeInfoChanged = true;
 
-        mProcessUpdatesCondVar.NotifyAll();
-        mAllNodesConnectedCondVar.NotifyAll();
+        (void)mProcessUpdatesCondVar.NotifyAll();
+        (void)mAllNodesConnectedCondVar.NotifyAll();
     }
 }
 
@@ -628,7 +628,7 @@ Error Launcher::OnAlertReceived(const AlertVariant& alert)
     }
 
     mAlertReceived = true;
-    mProcessUpdatesCondVar.NotifyAll();
+    (void)mProcessUpdatesCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -641,7 +641,7 @@ void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
 
     mNewSubjects.EmplaceValue(subjects);
 
-    mProcessUpdatesCondVar.NotifyAll();
+    (void)mProcessUpdatesCondVar.NotifyAll();
 }
 
 void Launcher::OnOverrideEnvVarsChanged()
@@ -650,7 +650,7 @@ void Launcher::OnOverrideEnvVarsChanged()
 
     mIsOverrideEnvVarsChanged = true;
 
-    mProcessUpdatesCondVar.NotifyAll();
+    (void)mProcessUpdatesCondVar.NotifyAll();
 }
 
 } // namespace aos::cm::launcher

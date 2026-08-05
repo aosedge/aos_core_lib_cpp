@@ -97,7 +97,7 @@ Error ImageManager::Start()
     }
 
     mProcessOutdatedItems = true;
-    mCV.NotifyAll();
+    (void)mCV.NotifyAll();
 
     if (auto err = mTimer.Start(
             mConfig.mRemoveOutdatedPeriod,
@@ -105,7 +105,7 @@ Error ImageManager::Start()
                 LockGuard lock {mMutex};
 
                 mProcessOutdatedItems = true;
-                mCV.NotifyAll();
+                (void)mCV.NotifyAll();
             },
             false);
         !err.IsNone()) {
@@ -134,7 +134,7 @@ Error ImageManager::Stop()
         }
 
         mClose = true;
-        mCV.NotifyAll();
+        (void)mCV.NotifyAll();
     }
 
     if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
@@ -493,7 +493,7 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, Instal
 
     auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
         if (waitInstalling) {
-            ReleaseInstallingBlob(*digest);
+            (void)ReleaseInstallingBlob(*digest);
         }
     });
 
@@ -662,7 +662,7 @@ Error ImageManager::InstallLayer(
     }
 
     auto releaseInstalling
-        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInstallingBlob(*digest); });
+        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { (void)ReleaseInstallingBlob(*digest); });
 
     {
         LockGuard lock {mMutex};
@@ -747,9 +747,9 @@ void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* sp
 
     if (space) {
         if (!err.IsNone()) {
-            space->Release();
+            (void)space->Release();
         } else {
-            space->Accept();
+            (void)space->Accept();
         }
     }
 }
@@ -783,7 +783,7 @@ Error ImageManager::ReleaseInstallingBlob(const String& digest)
     auto it = mInstallingBlobs.FindIf(
         [&digest](const StaticString<oci::cDigestLen>& installingDigest) { return installingDigest == digest; });
     if (it != mInstallingBlobs.end()) {
-        mInstallingBlobs.Erase(it);
+        (void)mInstallingBlobs.Erase(it);
     } else {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -883,10 +883,10 @@ void ImageManager::ReleaseInstallingItem(List<InstallItem>::Iterator it)
 {
     LockGuard lock {mMutex};
 
-    mInstallingItems.Erase(it);
+    (void)mInstallingItems.Erase(it);
 
     if (mInstallingItems.IsEmpty()) {
-        mCV.NotifyAll();
+        (void)mCV.NotifyAll();
     }
 }
 

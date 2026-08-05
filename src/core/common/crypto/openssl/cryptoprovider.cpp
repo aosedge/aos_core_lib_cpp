@@ -332,14 +332,14 @@ Error SetECDSAPubKey(const EVP_PKEY* src, Variant<ECDSAPublicKey, RSAPublicKey>&
     size_t                                   ecPointSize = 0;
     StaticArray<uint8_t, cECDSAPointDERSize> ecPoint;
 
-    ecPoint.Resize(ecPoint.MaxSize());
+    (void)ecPoint.Resize(ecPoint.MaxSize());
 
     if (EVP_PKEY_get_octet_string_param(src, OSSL_PKEY_PARAM_PUB_KEY, ecPoint.Get(), ecPoint.Size(), &ecPointSize)
         != 1) {
         return OPENSSL_ERROR();
     }
 
-    ecPoint.Resize(ecPointSize);
+    (void)ecPoint.Resize(ecPointSize);
 
     // get curve name
     char curveName[cOSSLMaxNameSize] = {};
@@ -962,7 +962,7 @@ Error SetIssuerAltNameURIs(const Array<StaticString<cURLLen>>& uris, X509* cert)
             return OPENSSL_ERROR();
         }
 
-        genName.Release();
+        (void)genName.Release();
     }
 
     // Create the issuerAltName extension (OID 2.5.29.18)
@@ -1288,7 +1288,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
 
 OpenSSLCryptoProvider::~OpenSSLCryptoProvider()
 {
-    mOpenSSLProvider.Unload();
+    (void)mOpenSSLProvider.Unload();
     OSSL_LIB_CTX_free(mLibCtx);
 }
 
@@ -1543,7 +1543,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> OpenSSLCryptoProvider::PEMToX509PrivKey(c
             return {{}, err};
         }
 
-        pkey.Release();
+        (void)pkey.Release();
 
         return {res, ErrorEnum::eNone};
     }
@@ -1600,8 +1600,8 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
             return AOS_ERROR_WRAP(ErrorEnum::eFailed);
         }
 
-        key.Trim(" ");
-        value.Trim(" ");
+        (void)key.Trim(" ");
+        (void)value.Trim(" ");
 
         // Add entry to X509_NAME
         auto nid = OBJ_txt2nid(key.CStr());
@@ -1841,7 +1841,7 @@ Error OpenSSLCryptoProvider::RandBuffer(Array<uint8_t>& buffer, size_t size)
         size = buffer.MaxSize();
     }
 
-    buffer.Resize(size);
+    (void)buffer.Resize(size);
 
     if (RAND_priv_bytes_ex(mLibCtx, buffer.Get(), static_cast<int>(size), cRNGStrength) != 1) {
         return OPENSSL_ERROR();
@@ -1880,9 +1880,9 @@ RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv5(const uuid::UUID& s
 
     StaticArray<uint8_t, cSHA1DigestSize> sha1;
 
-    sha1.Resize(sha1.MaxSize());
+    (void)sha1.Resize(sha1.MaxSize());
 
-    SHA1(buffer.Get(), buffer.Size(), sha1.Get());
+    (void)SHA1(buffer.Get(), buffer.Size(), sha1.Get());
 
     // copy lowest 16 bytes
     uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDSize);
@@ -2042,7 +2042,7 @@ Error OpenSSLCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
             return OPENSSL_ERROR();
         }
 
-        cert.Release();
+        (void)cert.Release();
     }
 
     // Create context
@@ -2210,7 +2210,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadBigInt(
         return {err, {}};
     }
 
-    BN_bn2bin(bn.Get(), result.Get());
+    (void)BN_bn2bin(bn.Get(), result.Get());
 
     // Return remaining data.
     auto remaining = Array<uint8_t>(p, data.Get() + len - p);
@@ -2366,7 +2366,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOctetString(
         return {AOS_ERROR_WRAP(err), {}};
     }
 
-    memcpy(result.Get(), dataPtr, static_cast<size_t>(dataLen));
+    (void)memcpy(result.Get(), dataPtr, static_cast<size_t>(dataLen));
 
     // Return remaining data.
     size_t         offset = static_cast<size_t>(p - data.Get());
@@ -2559,14 +2559,14 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Array<uint8_t>
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    output.Resize(output.MaxSize());
+    (void)output.Resize(output.MaxSize());
 
     int outLen = 0;
     if (EVP_EncryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int>(input.Size())) != 1) {
         return OPENSSL_ERROR();
     }
 
-    output.Resize(outLen);
+    (void)output.Resize(outLen);
 
     return ErrorEnum::eNone;
 }
@@ -2581,14 +2581,14 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::DecryptBlock(const Array<uint8_t>
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    output.Resize(output.MaxSize());
+    (void)output.Resize(output.MaxSize());
 
     int outLen = 0;
     if (EVP_DecryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int>(input.Size())) != 1) {
         return OPENSSL_ERROR();
     }
 
-    output.Resize(outLen);
+    (void)output.Resize(outLen);
 
     return ErrorEnum::eNone;
 }
@@ -2600,23 +2600,23 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::Finalize(Array<uint8_t>& output)
     }
 
     if (mEncrypt) {
-        output.Resize(output.MaxSize());
+        (void)output.Resize(output.MaxSize());
 
         int outLen = 0;
         if (EVP_EncryptFinal_ex(mCipherCtx, output.Get(), &outLen) != 1) {
             return OPENSSL_ERROR();
         }
 
-        output.Resize(outLen);
+        (void)output.Resize(outLen);
     } else {
-        output.Resize(output.MaxSize());
+        (void)output.Resize(output.MaxSize());
 
         int outLen = 0;
         if (EVP_DecryptFinal_ex(mCipherCtx, output.Get(), &outLen) != 1) {
             return OPENSSL_ERROR();
         }
 
-        output.Resize(outLen);
+        (void)output.Resize(outLen);
     }
 
     EVP_CIPHER_CTX_free(mCipherCtx);
@@ -2700,14 +2700,14 @@ Error OpenSSLCryptoProvider::OpenSSLRSAPrivKey::Decrypt(
                 return OPENSSL_ERROR();
             }
 
-            mResult.Resize(mResult.MaxSize());
+            (void)mResult.Resize(mResult.MaxSize());
 
             size_t outLen = mResult.MaxSize();
             if (EVP_PKEY_decrypt(ctx.Get(), mResult.Get(), &outLen, mCipher.Get(), mCipher.Size()) <= 0) {
                 return OPENSSL_ERROR();
             }
 
-            mResult.Resize(outLen);
+            (void)mResult.Resize(outLen);
 
             return ErrorEnum::eNone;
         }
@@ -2741,14 +2741,14 @@ Error OpenSSLCryptoProvider::OpenSSLRSAPrivKey::Decrypt(
                 return OPENSSL_ERROR();
             }
 
-            mResult.Resize(mResult.MaxSize());
+            (void)mResult.Resize(mResult.MaxSize());
 
             size_t outLen = mResult.Size();
             if (EVP_PKEY_decrypt(ctx.Get(), mResult.Get(), &outLen, mCipher.Get(), mCipher.Size()) <= 0) {
                 return OPENSSL_ERROR();
             }
 
-            mResult.Resize(outLen);
+            (void)mResult.Resize(outLen);
 
             return ErrorEnum::eNone;
         }

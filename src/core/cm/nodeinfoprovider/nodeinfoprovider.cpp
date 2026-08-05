@@ -97,10 +97,10 @@ Error NodeInfoProvider::Stop()
         }
 
         mRunning = false;
-        mCondVar.NotifyAll();
+        (void)mCondVar.NotifyAll();
     }
 
-    mThread.Join();
+    (void)mThread.Join();
 
     return ErrorEnum::eNone;
 }
@@ -274,7 +274,7 @@ void NodeInfoProvider::NotifyListeners(const NodeInfoCache& info)
         listener->OnNodeInfoChanged(*unitNodeInfo);
     }
 
-    mNotificationQueue.RemoveIf([&info](const auto& nodeID) { return nodeID == info.GetNodeID(); });
+    (void)mNotificationQueue.RemoveIf([&info](const auto& nodeID) { return nodeID == info.GetNodeID(); });
 }
 
 Error NodeInfoProvider::SendNotification(const NodeInfoCache& info, bool sendImmediately)
@@ -302,7 +302,7 @@ Error NodeInfoProvider::ScheduleNotification(const String& nodeID)
 
     LOG_DBG() << "Scheduled notification for node" << Log::Field("nodeID", nodeID);
 
-    mCondVar.NotifyAll();
+    (void)mCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -315,7 +315,7 @@ void NodeInfoProvider::Run()
         {
             UniqueLock lock {mMutex};
 
-            mCondVar.Wait(lock, [this]() { return !mRunning || !mNotificationQueue.IsEmpty(); });
+            (void)mCondVar.Wait(lock, [this]() { return !mRunning || !mNotificationQueue.IsEmpty(); });
 
             if (!mRunning) {
                 return;
@@ -335,7 +335,7 @@ void NodeInfoProvider::Run()
                 NotifyListeners(nodeInfo);
             }
 
-            mCondVar.Wait(lock, mConfig.mSMConnectionTimeout, [this]() { return !mRunning; });
+            (void)mCondVar.Wait(lock, mConfig.mSMConnectionTimeout, [this]() { return !mRunning; });
         }
     }
 }
