@@ -305,7 +305,7 @@ private:
     void CopyMessage(const char* msg)
     {
         if (msg != nullptr) {
-            snprintf(mMessage, sizeof(mMessage), "%s", msg);
+            (void)snprintf(mMessage, sizeof(mMessage), "%s", msg);
 
             return;
         }

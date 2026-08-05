@@ -86,7 +86,7 @@ Error FileIdentifier::ReadSystemId()
 {
     const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemInfo.mSystemID);
 
-    mSystemInfo.mSystemID.Trim(cWhiteSpaces);
+    (void)mSystemInfo.mSystemID.Trim(cWhiteSpaces);
 
     return AOS_ERROR_WRAP(err);
 }
@@ -116,8 +116,8 @@ Error FileIdentifier::ReadUnitModel()
         return AOS_ERROR_WRAP(err);
     }
 
-    mSystemInfo.mUnitModel.Trim(cWhiteSpaces);
-    mSystemInfo.mVersion.Trim(cWhiteSpaces);
+    (void)mSystemInfo.mUnitModel.Trim(cWhiteSpaces);
+    (void)mSystemInfo.mVersion.Trim(cWhiteSpaces);
 
     return ErrorEnum::eNone;
 }
