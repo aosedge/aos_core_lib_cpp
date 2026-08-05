@@ -33,10 +33,10 @@ struct PendingFirewallUpdate {
      * @param rhs pending firewall update to compare.
      * @return bool.
      */
-    bool operator==(const PendingFirewallUpdate& rhs) const
+    friend bool operator==(const PendingFirewallUpdate& lhs, const PendingFirewallUpdate& rhs)
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mFirewallRules == rhs.mFirewallRules;
-    }
+        return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mFirewallRules == rhs.mFirewallRules;
+    };
 
     /**
      * Compares pending firewall update.
@@ -44,7 +44,10 @@ struct PendingFirewallUpdate {
      * @param rhs pending firewall update to compare.
      * @return bool.
      */
-    bool operator!=(const PendingFirewallUpdate& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PendingFirewallUpdate& lhs, const PendingFirewallUpdate& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**

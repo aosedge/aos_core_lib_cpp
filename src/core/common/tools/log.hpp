@@ -258,7 +258,7 @@ private:
  */
 class LogVoid {
 public:
-    void operator&(const Log&) { }
+    friend void operator&(const LogVoid&, const Log&) { }
 };
 
 } // namespace aos
