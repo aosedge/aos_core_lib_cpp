@@ -101,10 +101,11 @@ struct FirewallRule {
      * @param rule firewall rule to compare.
      * @return bool.
      */
-    bool operator==(const FirewallRule& rule) const
+    friend bool operator==(const FirewallRule& lhs, const FirewallRule& rule)
     {
-        return mDstIP == rule.mDstIP && mDstPort == rule.mDstPort && mProto == rule.mProto && mSrcIP == rule.mSrcIP;
-    }
+        return lhs.mDstIP == rule.mDstIP && lhs.mDstPort == rule.mDstPort && lhs.mProto == rule.mProto
+            && lhs.mSrcIP == rule.mSrcIP;
+    };
 
     /**
      * Compares firewall rule.
@@ -112,7 +113,7 @@ struct FirewallRule {
      * @param rule firewall rule to compare.
      * @return bool.
      */
-    bool operator!=(const FirewallRule& rule) const { return !operator==(rule); }
+    friend bool operator!=(const FirewallRule& lhs, const FirewallRule& rule) { return !(lhs == rule); };
 };
 
 /**
@@ -130,10 +131,11 @@ struct NetworkParams {
      * @param rhs network parameters to compare.
      * @return bool.
      */
-    bool operator==(const NetworkParams& rhs) const
+    friend bool operator==(const NetworkParams& lhs, const NetworkParams& rhs)
     {
-        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP && mVlanID == rhs.mVlanID;
-    }
+        return lhs.mNetworkID == rhs.mNetworkID && lhs.mSubnet == rhs.mSubnet && lhs.mIP == rhs.mIP
+            && lhs.mVlanID == rhs.mVlanID;
+    };
 
     /**
      * Compares network parameters.
@@ -141,7 +143,7 @@ struct NetworkParams {
      * @param rhs network parameters to compare.
      * @return bool.
      */
-    bool operator!=(const NetworkParams& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NetworkParams& lhs, const NetworkParams& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -160,11 +162,11 @@ struct InstanceNetworkAllocation {
      * @param rhs instance network parameters to compare.
      * @return bool.
      */
-    bool operator==(const InstanceNetworkAllocation& rhs) const
+    friend bool operator==(const InstanceNetworkAllocation& lhs, const InstanceNetworkAllocation& rhs)
     {
-        return mNetworkID == rhs.mNetworkID && mSubnet == rhs.mSubnet && mIP == rhs.mIP
-            && mDNSServers == rhs.mDNSServers && mFirewallRules == rhs.mFirewallRules;
-    }
+        return lhs.mNetworkID == rhs.mNetworkID && lhs.mSubnet == rhs.mSubnet && lhs.mIP == rhs.mIP
+            && lhs.mDNSServers == rhs.mDNSServers && lhs.mFirewallRules == rhs.mFirewallRules;
+    };
 
     /**
      * Compares instance network parameters.
@@ -172,7 +174,10 @@ struct InstanceNetworkAllocation {
      * @param rhs instance network parameters to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceNetworkAllocation& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceNetworkAllocation& lhs, const InstanceNetworkAllocation& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -189,11 +194,11 @@ struct UpdateItemNetworkParams {
      * @param rhs item network data to compare.
      * @return bool.
      */
-    bool operator==(const UpdateItemNetworkParams& rhs) const
+    friend bool operator==(const UpdateItemNetworkParams& lhs, const UpdateItemNetworkParams& rhs)
     {
-        return mHosts == rhs.mHosts && mAllowedConnections == rhs.mAllowedConnections
-            && mExposedPorts == rhs.mExposedPorts;
-    }
+        return lhs.mHosts == rhs.mHosts && lhs.mAllowedConnections == rhs.mAllowedConnections
+            && lhs.mExposedPorts == rhs.mExposedPorts;
+    };
 
     /**
      * Compares item network data.
@@ -201,7 +206,10 @@ struct UpdateItemNetworkParams {
      * @param rhs item network data to compare.
      * @return bool.
      */
-    bool operator!=(const UpdateItemNetworkParams& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UpdateItemNetworkParams& lhs, const UpdateItemNetworkParams& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -235,7 +243,10 @@ struct Host {
      * @param rhs host to compare.
      * @return bool.
      */
-    bool operator==(const Host& rhs) const { return mIP == rhs.mIP && mHostname == rhs.mHostname; }
+    friend bool operator==(const Host& lhs, const Host& rhs)
+    {
+        return lhs.mIP == rhs.mIP && lhs.mHostname == rhs.mHostname;
+    };
 
     /**
      * Compares host.
@@ -243,7 +254,7 @@ struct Host {
      * @param rhs host to compare.
      * @return bool.
      */
-    bool operator!=(const Host& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Host& lhs, const Host& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -283,11 +294,11 @@ struct InstanceNetworkStateInfo {
      * @param rhs instance network state info to compare.
      * @return bool.
      */
-    bool operator==(const InstanceNetworkStateInfo& rhs) const
+    friend bool operator==(const InstanceNetworkStateInfo& lhs, const InstanceNetworkStateInfo& rhs)
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mNetworkID == rhs.mNetworkID && mIP == rhs.mIP
-            && mFirewallRules == rhs.mFirewallRules;
-    }
+        return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mNetworkID == rhs.mNetworkID && lhs.mIP == rhs.mIP
+            && lhs.mFirewallRules == rhs.mFirewallRules;
+    };
 
     /**
      * Compares instance network state info.
@@ -295,7 +306,10 @@ struct InstanceNetworkStateInfo {
      * @param rhs instance network state info to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceNetworkStateInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceNetworkStateInfo& lhs, const InstanceNetworkStateInfo& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 } // namespace aos
