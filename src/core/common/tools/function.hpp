@@ -53,7 +53,7 @@ public:
 
         assert(mBuffer);
 
-        memcpy(mBuffer, static_cast<void*>(function.mCallable), function.mCallable->Size());
+        (void)memcpy(mBuffer, static_cast<void*>(function.mCallable), function.mCallable->Size());
 
         mCallable = static_cast<CallableItf*>(mBuffer);
 
@@ -198,7 +198,7 @@ public:
     StaticFunction(const StaticFunction& function)
     {
         Function::SetBuffer(mBuffer);
-        Function::operator=(function);
+        (void)Function::operator=(function);
     }
 
     /**
@@ -209,7 +209,7 @@ public:
      */
     StaticFunction& operator=(const StaticFunction& function)
     {
-        Function::operator=(function);
+        (void)Function::operator=(function);
 
         return *this;
     }
@@ -223,7 +223,7 @@ public:
     StaticFunction(const Function& function)
     {
         Function::SetBuffer(mBuffer);
-        Function::operator=(function);
+        (void)Function::operator=(function);
     }
 
     // cppcheck-suppress duplInheritedMember

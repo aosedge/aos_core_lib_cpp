@@ -60,7 +60,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(Error(err, "get image config failed"));
     }
 
-    releaseConfigs.Release();
+    (void)releaseConfigs.Release();
 
     mInfo.mManifestDigest = imageDescriptor.mDigest;
 

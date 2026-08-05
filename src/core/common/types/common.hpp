@@ -616,7 +616,7 @@ struct InstanceFilter {
         StaticString<32> instanceStr = "*";
 
         if (instanceFilter.mInstance.HasValue()) {
-            instanceStr.Convert(*instanceFilter.mInstance);
+            (void)instanceStr.Convert(*instanceFilter.mInstance);
         }
 
         return log << "{" << (instanceFilter.mItemID.HasValue() ? *instanceFilter.mItemID : "*") << ":"

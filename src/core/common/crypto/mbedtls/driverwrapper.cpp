@@ -72,8 +72,8 @@ static int ExportRSAPublicKeyToDER(
     mbedtls_mpi_init(&n);
     mbedtls_mpi_init(&e);
 
-    mbedtls_mpi_read_binary(&n, rsaKey.GetN().Get(), rsaKey.GetN().Size());
-    mbedtls_mpi_read_binary(&e, rsaKey.GetE().Get(), rsaKey.GetE().Size());
+    (void)mbedtls_mpi_read_binary(&n, rsaKey.GetN().Get(), rsaKey.GetN().Size());
+    (void)mbedtls_mpi_read_binary(&e, rsaKey.GetE().Get(), rsaKey.GetE().Size());
 
     auto cleanup = [&]() {
         mbedtls_mpi_free(&n);
@@ -103,7 +103,7 @@ static int ExportRSAPublicKeyToDER(
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(&c, data, len));
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(&c, data, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE));
 
-    memmove(data, c, len);
+    (void)memmove(data, c, len);
     *dataLength = len;
 
     cleanup();
@@ -395,7 +395,7 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
 
     key->mAllocated = false;
 
-    psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
+    (void)psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
 }
 
 /***********************************************************************************************************************

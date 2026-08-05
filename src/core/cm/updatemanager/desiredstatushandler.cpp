@@ -92,7 +92,7 @@ Error DesiredStatusHandler::Stop()
         }
 
         mIsRunning = false;
-        mCondVar.NotifyOne();
+        (void)mCondVar.NotifyOne();
     }
 
     if (auto threadErr = mThread.Join(); !threadErr.IsNone() && err.IsNone()) {
@@ -152,13 +152,13 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
 {
     (void)statuses;
 
-    mCondVar.NotifyOne();
+    (void)mCondVar.NotifyOne();
 }
 
 void DesiredStatusHandler::StartUpdate(UpdateState state)
 {
     SetState(state);
-    mCondVar.NotifyOne();
+    (void)mCondVar.NotifyOne();
 }
 
 void DesiredStatusHandler::CancelUpdate()
@@ -245,11 +245,11 @@ void DesiredStatusHandler::Run()
                 }
 
                 if (stateAction != nullptr) {
-                    lock.Unlock();
+                    (void)lock.Unlock();
 
                     auto err = (this->*stateAction)();
 
-                    lock.Lock();
+                    (void)lock.Lock();
 
                     if (mCancelCurrentUpdate) {
                         break;
@@ -275,7 +275,7 @@ void DesiredStatusHandler::Run()
                 continue;
             }
 
-            mUnitStatusHandler->SendFullUnitStatus();
+            (void)mUnitStatusHandler->SendFullUnitStatus();
 
             if (mHasPendingDesiredStatus) {
                 LOG_DBG() << "Process pending desired status";
