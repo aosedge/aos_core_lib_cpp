@@ -84,7 +84,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err)
         , mErrno(0)
         , mFileName(fileName)
@@ -101,7 +101,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err.mErr)
         , mErrno(err.mErrno)
         , mFileName(fileName)
@@ -147,7 +147,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(Enum err, int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(Enum err, int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err)
         , mErrno(errNo < 0 ? -errNo : errNo)
         , mFileName(fileName)
@@ -165,7 +165,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : Error(errNo == 0 ? Enum::eNone : Enum::eRuntime, errNo, msg, fileName, lineNumber)
     {
     }
@@ -210,7 +210,7 @@ public:
      * Returns errno
      * @return int
      */
-    int Errno() const { return mErrno; }
+    int32_t Errno() const { return mErrno; }
 
     /**
      * Returns error file name.
@@ -224,7 +224,7 @@ public:
      *
      * @return int line number.
      */
-    int LineNumber() const { return mLineNumber; }
+    int32_t LineNumber() const { return mLineNumber; }
 
     /**
      * Returns errno string.
@@ -342,9 +342,9 @@ private:
     };
 
     Enum        mErr;
-    int         mErrno;
+    int32_t     mErrno;
     const char* mFileName;
-    int         mLineNumber;
+    int32_t     mLineNumber;
     char        mMessage[cMaxMessageLen];
 };
 

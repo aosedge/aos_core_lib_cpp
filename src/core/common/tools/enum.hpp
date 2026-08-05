@@ -57,7 +57,7 @@ public:
      *
      * @return int.
      */
-    operator int() const { return static_cast<int>(mValue); }
+    operator int32_t() const { return static_cast<int32_t>(mValue); }
 
     /**
      * Compares if EnumStringer equals to another EnumStringer.

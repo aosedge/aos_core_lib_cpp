@@ -33,8 +33,8 @@ using ObjectIdentifier = StaticString<cASN1ObjIdLen>;
  * ASN1 value.
  */
 struct ASN1Value {
-    int            mTagClass {};
-    int            mTagNumber {};
+    int32_t        mTagClass {};
+    int32_t        mTagNumber {};
     bool           mIsConstructed {};
     Array<uint8_t> mValue;
 
@@ -51,7 +51,7 @@ struct ASN1Value {
      * @param isConstructed indicates whether this value is a constructed type (true) or a primitive type (false).
      * @param content raw content of the ASN.1 value.
      */
-    ASN1Value(int tagClass, int tagNumber, bool isConstructed, const Array<uint8_t>& content)
+    ASN1Value(int32_t tagClass, int32_t tagNumber, bool isConstructed, const Array<uint8_t>& content)
         : mTagClass(tagClass)
         , mTagNumber(tagNumber)
         , mIsConstructed(isConstructed)
@@ -271,7 +271,7 @@ struct ASN1ParseOptions {
     /**
      * Optional tag to match during parsing.
      */
-    Optional<int> mTag;
+    Optional<int32_t> mTag;
 };
 
 /**
@@ -327,7 +327,7 @@ public:
      * @param[out] value result integer.
      * @return ASN1ParseResult.
      */
-    virtual ASN1ParseResult ReadInteger(const Array<uint8_t>& data, const ASN1ParseOptions& opt, int& value) = 0;
+    virtual ASN1ParseResult ReadInteger(const Array<uint8_t>& data, const ASN1ParseOptions& opt, int32_t& value) = 0;
 
     /**
      * Reads a large ASN.1 INTEGER (BigInt) as a byte array.

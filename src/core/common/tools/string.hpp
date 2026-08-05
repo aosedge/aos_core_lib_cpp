@@ -432,7 +432,7 @@ public:
      *
      * @return RetWithError<int>.
      */
-    RetWithError<int> ToInt() const { return atoi(CStr()); }
+    RetWithError<int32_t> ToInt() const { return atoi(CStr()); }
 
     /**
      * Converts sting to uint64.
@@ -633,7 +633,7 @@ public:
      * @param value int value.
      * @return Error.
      */
-    Error Convert(int value) { return ConvertValue(value, "%d"); }
+    Error Convert(int32_t value) { return ConvertValue(value, "%d"); }
 
     /**
      * Converts uint64_t to string.
@@ -790,7 +790,7 @@ public:
      * @return int: 0 - if strings are equal, <0 - if current string is less than str,
      *              >0 - if current string is greater than str.
      */
-    int Compare(const String& str, CaseSensitivity caseSensitivity = CaseSensitivity::CaseSensitive) const
+    int32_t Compare(const String& str, CaseSensitivity caseSensitivity = CaseSensitivity::CaseSensitive) const
     {
         if (caseSensitivity == CaseSensitivity::CaseSensitive) {
             return strcmp(CStr(), str.CStr());

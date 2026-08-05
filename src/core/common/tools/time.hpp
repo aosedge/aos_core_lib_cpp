@@ -415,7 +415,7 @@ public:
      * @param year year.
      * @return Error.
      */
-    Error GetDate(int* day, int* month = nullptr, int* year = nullptr) const
+    Error GetDate(int32_t* day, int32_t* month = nullptr, int32_t* year = nullptr) const
     {
         tm timeInfo {};
 
@@ -444,7 +444,7 @@ public:
      * @param sec sec.
      * @return Error.
      */
-    Error GetTime(int* hour, int* min = nullptr, int* sec = nullptr) const
+    Error GetTime(int32_t* hour, int32_t* min = nullptr, int32_t* sec = nullptr) const
     {
         tm timeInfo {};
 

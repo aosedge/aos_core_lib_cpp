@@ -67,7 +67,7 @@ struct SignOptions {
  * PKCS1v15 decryption options.
  */
 struct PKCS1v15DecryptionOptions {
-    int mKeySize = 0;
+    int32_t mKeySize = 0;
 };
 
 /**
