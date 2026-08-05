@@ -27,11 +27,11 @@ struct Config {
      * @param other config to compare.
      * @return bool.
      */
-    bool operator==(const Config& other) const
+    friend bool operator==(const Config& lhs, const Config& other)
     {
-        return mInstallPath == other.mInstallPath && mDownloadPath == other.mDownloadPath
-            && mUpdateItemTTL == other.mUpdateItemTTL && mRemoveOutdatedPeriod == other.mRemoveOutdatedPeriod;
-    }
+        return lhs.mInstallPath == other.mInstallPath && lhs.mDownloadPath == other.mDownloadPath
+            && lhs.mUpdateItemTTL == other.mUpdateItemTTL && lhs.mRemoveOutdatedPeriod == other.mRemoveOutdatedPeriod;
+    };
 
     /**
      * Compares config.
@@ -39,7 +39,7 @@ struct Config {
      * @param other config to compare.
      * @return bool.
      */
-    bool operator!=(const Config& other) const { return !operator==(other); }
+    friend bool operator!=(const Config& lhs, const Config& other) { return !(lhs == other); };
 };
 
 } // namespace aos::cm::imagemanager

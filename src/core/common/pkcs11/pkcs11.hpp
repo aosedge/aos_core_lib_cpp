@@ -631,7 +631,10 @@ private:
         SlotID mSlotID = 0;
         Flags  mFlags  = 0;
 
-        bool operator==(const SessionParams& other) const { return mSlotID == other.mSlotID && mFlags == other.mFlags; }
+        friend bool operator==(const SessionParams& lhs, const SessionParams& other)
+        {
+            return lhs.mSlotID == other.mSlotID && lhs.mFlags == other.mFlags;
+        };
     };
 
     RetWithError<SharedPtr<SessionContext>> PKCS11OpenSession(SlotID slotID, Flags flags);

@@ -338,7 +338,7 @@ public:
      * @param array to compare with.
      * @return bool.
      */
-    bool operator==(const Array& array) const
+    bool operator==(const Array& array) const // NOSONAR cpp:S2807
     {
         if (array.Size() != mSize) {
             return false;
@@ -359,7 +359,7 @@ public:
      * @param array to compare with.
      * @return bool.
      */
-    bool operator!=(const Array& array) const { return !operator==(array); };
+    bool operator!=(const Array& array) const { return !operator==(array); }; // NOSONAR cpp:S2807
 
     /**
      * Inserts items from range.

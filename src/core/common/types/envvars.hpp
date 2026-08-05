@@ -43,7 +43,10 @@ struct EnvVar {
      * @param rhs environment variable to compare with.
      * @return bool.
      */
-    bool operator==(const EnvVar& rhs) const { return mName == rhs.mName && mValue == rhs.mValue; }
+    friend bool operator==(const EnvVar& lhs, const EnvVar& rhs)
+    {
+        return lhs.mName == rhs.mName && lhs.mValue == rhs.mValue;
+    };
 
     /**
      * Compares environment variable.
@@ -51,7 +54,7 @@ struct EnvVar {
      * @param rhs environment variable to compare with.
      * @return bool.
      */
-    bool operator!=(const EnvVar& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const EnvVar& lhs, const EnvVar& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -71,7 +74,10 @@ struct EnvVarInfo : public EnvVar {
      * @param rhs environment variable info to compare with.
      * @return bool.
      */
-    bool operator==(const EnvVarInfo& rhs) const { return EnvVar::operator==(rhs) && mTTL == rhs.mTTL; }
+    friend bool operator==(const EnvVarInfo& lhs, const EnvVarInfo& rhs)
+    {
+        return (static_cast<const EnvVar&>(lhs) == rhs) && lhs.mTTL == rhs.mTTL;
+    };
 
     /**
      * Compares environment variable info.
@@ -79,7 +85,7 @@ struct EnvVarInfo : public EnvVar {
      * @param rhs environment variable info to compare with.
      * @return bool.
      */
-    bool operator!=(const EnvVarInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const EnvVarInfo& lhs, const EnvVarInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -116,10 +122,10 @@ struct EnvVarsInstanceInfo : public InstanceFilter {
      * @param rhs environment variable instance info to compare with.
      * @return bool.
      */
-    bool operator==(const EnvVarsInstanceInfo& rhs) const
+    friend bool operator==(const EnvVarsInstanceInfo& lhs, const EnvVarsInstanceInfo& rhs)
     {
-        return InstanceFilter::operator==(rhs) && mVariables == rhs.mVariables;
-    }
+        return (static_cast<const InstanceFilter&>(lhs) == rhs) && lhs.mVariables == rhs.mVariables;
+    };
 
     /**
      * Compares environment variable instance info.
@@ -127,7 +133,7 @@ struct EnvVarsInstanceInfo : public InstanceFilter {
      * @param rhs environment variable instance info to compare with.
      * @return bool.
      */
-    bool operator!=(const EnvVarsInstanceInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const EnvVarsInstanceInfo& lhs, const EnvVarsInstanceInfo& rhs) { return !(lhs == rhs); };
 };
 
 using EnvVarsInstanceInfoArray = StaticArray<EnvVarsInstanceInfo, cMaxNumInstances>;
@@ -145,7 +151,10 @@ struct EnvVarStatus {
      * @param rhs environment variable instance to compare with.
      * @return bool.
      */
-    bool operator==(const EnvVarStatus& rhs) const { return mName == rhs.mName && mError == rhs.mError; }
+    friend bool operator==(const EnvVarStatus& lhs, const EnvVarStatus& rhs)
+    {
+        return lhs.mName == rhs.mName && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares environment variable status.
@@ -153,7 +162,7 @@ struct EnvVarStatus {
      * @param rhs environment variable instance to compare with.
      * @return bool.
      */
-    bool operator!=(const EnvVarStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const EnvVarStatus& lhs, const EnvVarStatus& rhs) { return !(lhs == rhs); };
 };
 
 using EnvVarStatusArray = StaticArray<EnvVarStatus, cMaxNumEnvVariables>;
@@ -170,10 +179,10 @@ struct EnvVarsInstanceStatus : public InstanceIdent {
      * @param rhs environment variable instance status to compare with.
      * @return bool.
      */
-    bool operator==(const EnvVarsInstanceStatus& rhs) const
+    friend bool operator==(const EnvVarsInstanceStatus& lhs, const EnvVarsInstanceStatus& rhs)
     {
-        return InstanceIdent::operator==(rhs) && mStatuses == rhs.mStatuses;
-    }
+        return (static_cast<const InstanceIdent&>(lhs) == rhs) && lhs.mStatuses == rhs.mStatuses;
+    };
 
     /**
      * Compares environment variable instance status.
@@ -181,7 +190,10 @@ struct EnvVarsInstanceStatus : public InstanceIdent {
      * @param rhs environment variable instance status to compare with.
      * @return bool.
      */
-    bool operator!=(const EnvVarsInstanceStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const EnvVarsInstanceStatus& lhs, const EnvVarsInstanceStatus& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 using EnvVarsInstanceStatusArray = StaticArray<EnvVarsInstanceStatus, cMaxNumInstances>;
@@ -198,10 +210,10 @@ struct OverrideEnvVarsRequest : public Protocol {
      * @param rhs environment variable override request to compare with.
      * @return bool.
      */
-    bool operator==(const OverrideEnvVarsRequest& rhs) const
+    friend bool operator==(const OverrideEnvVarsRequest& lhs, const OverrideEnvVarsRequest& rhs)
     {
-        return Protocol::operator==(rhs) && mItems == rhs.mItems;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mItems == rhs.mItems;
+    };
 
     /**
      * Compares environment variable override request.
@@ -209,7 +221,10 @@ struct OverrideEnvVarsRequest : public Protocol {
      * @param rhs environment variable override request to compare with.
      * @return bool.
      */
-    bool operator!=(const OverrideEnvVarsRequest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const OverrideEnvVarsRequest& lhs, const OverrideEnvVarsRequest& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -224,10 +239,10 @@ struct OverrideEnvVarsStatuses : public Protocol {
      * @param rhs environment variable override statuses to compare with.
      * @return bool.
      */
-    bool operator==(const OverrideEnvVarsStatuses& rhs) const
+    friend bool operator==(const OverrideEnvVarsStatuses& lhs, const OverrideEnvVarsStatuses& rhs)
     {
-        return Protocol::operator==(rhs) && mStatuses == rhs.mStatuses;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mStatuses == rhs.mStatuses;
+    };
 
     /**
      * Compares environment variable override statuses.
@@ -235,7 +250,10 @@ struct OverrideEnvVarsStatuses : public Protocol {
      * @param statuses environment variable override statuses to compare with.
      * @return bool.
      */
-    bool operator!=(const OverrideEnvVarsStatuses& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const OverrideEnvVarsStatuses& lhs, const OverrideEnvVarsStatuses& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 } // namespace aos
