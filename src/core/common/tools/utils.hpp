@@ -9,6 +9,7 @@
 #define AOS_CORE_COMMON_TOOLS_UTILS_HPP_
 
 #include <cstddef>
+#include <cstdint>
 
 namespace aos {
 
@@ -28,7 +29,7 @@ constexpr size_t ArraySize(T (&)[cSize])
  * @param align alignment.
  * @return constexpr size_t aligned size.
  */
-constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int))
+constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int32_t))
 {
     return (size + align - 1) / align * align;
 };

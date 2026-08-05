@@ -156,7 +156,7 @@ struct Version {
      */
     friend Log& operator<<(Log& log, const Version& version)
     {
-        log << static_cast<int>(version.mMajor) << "." << static_cast<int>(version.mMinor);
+        log << static_cast<int32_t>(version.mMajor) << "." << static_cast<int32_t>(version.mMinor);
         return log;
     }
 };

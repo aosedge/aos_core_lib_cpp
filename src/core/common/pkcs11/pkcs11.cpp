@@ -29,7 +29,7 @@ Error ConvertFromPKCS11String(const Array<uint8_t>& src, String& dst)
         return ErrorEnum::eNone;
     }
 
-    int size = src.Size();
+    int32_t size = src.Size();
 
     if (!dst.Resize(size).IsNone()) {
         return ErrorEnum::eNoMemory;
@@ -38,7 +38,7 @@ Error ConvertFromPKCS11String(const Array<uint8_t>& src, String& dst)
     (void)memcpy(dst.Get(), src.Get(), size);
 
     // Trim string
-    for (int i = size - 1; i >= 0; --i) {
+    for (int32_t i = size - 1; i >= 0; --i) {
         if (dst[i] == ' ')
             --size;
         else
@@ -308,7 +308,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
     if (rv != CKR_OK) {
         LOG_ERR() << "Get function list failed: err = " << rv;
 
-        return {nullptr, static_cast<int>(rv)};
+        return {nullptr, static_cast<int32_t>(rv)};
     }
 
     return {functionList, ErrorEnum::eNone};
@@ -351,7 +351,7 @@ Error LibraryContext::Init(AllocatorItf& allocator)
     if (rv != CKR_OK) {
         LOG_ERR() << "Init library failed: err = " << rv;
 
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -374,7 +374,7 @@ Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& 
 
     CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -390,7 +390,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 
     CK_RV rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), nullptr, &count);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     auto err = slotList.Resize(count);
@@ -400,7 +400,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 
     rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), slotList.Get(), &count);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -416,7 +416,7 @@ Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 
     CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11SlotInfo(pkcsInfo, slotInfo);
@@ -432,7 +432,7 @@ Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 
     CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11TokenInfo(pkcsInfo, tokenInfo);
@@ -448,7 +448,7 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 
     CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11LibInfo(pkcsInfo, libInfo);
@@ -507,7 +507,7 @@ Error LibraryContext::CloseAllSessions(SlotID slotID)
 
     CK_RV rv = mFunctionList->C_CloseAllSessions(slotID);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -537,7 +537,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
 
     CK_RV rv = mFunctionList->C_OpenSession(slotID, flags, nullptr, nullptr, &handle);
     if (rv != CKR_OK) {
-        return {nullptr, static_cast<int>(rv)};
+        return {nullptr, static_cast<int32_t>(rv)};
     }
 
     auto session = MakeShared<SessionContext>(mAllocator, handle, mFunctionList);
@@ -572,7 +572,7 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
 
     CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -596,7 +596,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
     }
 
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -612,7 +612,7 @@ Error SessionContext::Logout()
 
     CK_RV rv = mFunctionList->C_Logout(mHandle);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -630,7 +630,7 @@ Error SessionContext::InitPIN(const String& pin)
 
     CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size());
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -654,7 +654,7 @@ Error SessionContext::GetAttributeValues(
 
     CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return GetAttributesValues(pkcsAttributes, values);
@@ -702,7 +702,7 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
     CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
     if (rv != CKR_OK) {
-        return {0, static_cast<int>(rv)};
+        return {0, static_cast<int32_t>(rv)};
     }
 
     return {objHandle, ErrorEnum::eNone};
@@ -718,7 +718,7 @@ Error SessionContext::DestroyObject(ObjectHandle object)
 
     CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -805,7 +805,7 @@ Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey)
 
     CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -819,7 +819,7 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
 
     CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -833,7 +833,7 @@ Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privK
 
     CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -847,7 +847,7 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
 
     CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -868,7 +868,7 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 
     CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size());
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -880,7 +880,7 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         return ErrorEnum::eWrongState;
     }
 
-    unsigned long foundObjectsCount = 0, chunk = 0;
+    uint64_t foundObjectsCount = 0, chunk = 0;
 
     (void)objects.Resize(objects.MaxSize());
 
@@ -892,7 +892,7 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         CK_RV rv = mFunctionList->C_FindObjects(
             mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
         if (rv != CKR_OK) {
-            return static_cast<int>(rv);
+            return static_cast<int32_t>(rv);
         }
 
         foundObjectsCount += chunk;
@@ -916,7 +916,7 @@ Error SessionContext::FindObjectsFinal() const
 
     CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -1039,7 +1039,7 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
         privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
 
     if (rv != CKR_OK) {
-        return {{}, static_cast<int>(rv)};
+        return {{}, static_cast<int32_t>(rv)};
     }
 
     return ExportPrivateKey(privKeyHandle, pubKeyHandle, keyTypeRSA);
@@ -1050,7 +1050,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
 {
     // only P384 (secp384r1) curve is supported for now
     if (curve != EllipticCurve::eP384) {
-        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int>(curve)
+        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int32_t>(curve)
                   << ", only P384 (secp384r1) is supported";
 
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
@@ -1096,7 +1096,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
         privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
 
     if (rv != CKR_OK) {
-        return {{}, static_cast<int>(rv)};
+        return {{}, static_cast<int32_t>(rv)};
     }
 
     return ExportPrivateKey(privKeyHandle, pubKeyHandle, keyTypeECDSA);
@@ -1218,7 +1218,7 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
 
     CK_RV rv = funcList->C_CreateObject(mSession->GetHandle(), certTempl.Get(), certTempl.Size(), &certHandle);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
