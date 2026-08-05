@@ -67,7 +67,7 @@ void Timer::ReleaseActiveCallback()
     mActiveCallbacks--;
 
     if (mActiveCallbacks == 0) {
-        mCondVar.NotifyAll();
+        (void)mCondVar.NotifyAll();
     }
 }
 
@@ -204,9 +204,9 @@ void Timer::ProcessTimers(void* arg)
 
         auto min = mRegisteredTimers.Min(cmpWakeupTime);
         if (min != mRegisteredTimers.end() && !(*min)->mWakeupTime.IsZero()) {
-            mCommonCondVar.Wait(lock, (*min)->mWakeupTime);
+            (void)mCommonCondVar.Wait(lock, (*min)->mWakeupTime);
         } else {
-            mCommonCondVar.Wait(lock);
+            (void)mCommonCondVar.Wait(lock);
         }
     }
 }

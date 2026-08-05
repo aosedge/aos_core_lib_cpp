@@ -64,10 +64,10 @@ Error NodeManager::Start()
         }
 
         // Add online provisioned node
-        mNodes.EmplaceBack();
+        (void)mNodes.EmplaceBack();
 
         mNodes.Back().Init(*mAllocator, nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
-        mNodes.Back().UpdateInfo(*nodeInfo);
+        (void)mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
     return ErrorEnum::eNone;
@@ -79,7 +79,7 @@ Error NodeManager::Stop()
 
     // Unlock waiting run requests.
     mNodesExpectedToSendStatus.Clear();
-    mStatusUpdateCondVar.NotifyAll();
+    (void)mStatusUpdateCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -174,7 +174,7 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
+            (void)mStatusUpdateCondVar.NotifyAll();
         }
     }
 
@@ -334,7 +334,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
     // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
     if (info.mState != NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
+            (void)mStatusUpdateCondVar.NotifyAll();
         }
     }
 
@@ -353,7 +353,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
         }
 
         mNodes.Back().Init(*mAllocator, info.mNodeID, *mNodeConfigProvider, *mRunner);
-        mNodes.Back().UpdateInfo(info);
+        (void)mNodes.Back().UpdateInfo(info);
 
         return true;
     }

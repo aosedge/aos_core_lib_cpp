@@ -46,7 +46,7 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
     }
 
     for (const auto& instanceNetworkInfo : *instanceNetworkInfos) {
-        mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo);
+        (void)mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo);
     }
 
     auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(mAllocator);
@@ -59,7 +59,7 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
     }
 
     for (const auto& networkInfo : *networkInfos) {
-        mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo);
+        (void)mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo);
     }
 
     return ErrorEnum::eNone;
@@ -210,7 +210,7 @@ Error NetworkManager::CreateInstanceNetwork(
         if (!err.IsNone()) {
             LockGuard lock {mMutex};
 
-            mInstanceNetworkInfos.Remove(*id);
+            (void)mInstanceNetworkInfos.Remove(*id);
             TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, nullptr);
         }
     });
@@ -266,7 +266,7 @@ Error NetworkManager::CreateInstanceNetwork(
 
         TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, &info->mAllocatedParams);
 
-        mInstanceNetworkInfos.Set(instanceID, *info);
+        (void)mInstanceNetworkInfos.Set(instanceID, *info);
     }
 
     if (err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
@@ -419,7 +419,7 @@ Error NetworkManager::GetHosts(const String& instanceID, Array<Host>& hosts) con
     StaticString<cHostNameLen> ownHosts {networkID};
 
     if (!hostname.IsEmpty()) {
-        ownHosts.Append(" ").Append(hostname);
+        (void)ownHosts.Append(" ").Append(hostname);
     }
 
     if (auto err = hosts.EmplaceBack(instanceIP, ownHosts); !err.IsNone()) {
@@ -499,7 +499,7 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
             if (auto errClear = ClearNetwork(it->mSecond); !errClear.IsNone()) {
                 LOG_WRN() << "Failed to clear network" << Log::Field("networkID", networkID) << Log::Field(errClear);
             } else {
-                mPhysicalNetworks.Remove(networkID);
+                (void)mPhysicalNetworks.Remove(networkID);
             }
         }
     }
@@ -531,7 +531,7 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
 
             instanceIdent = itInfo->mSecond.mNetworkConfig.mInstanceIdent;
             found         = true;
-            mInstanceNetworkInfos.Remove(instanceID);
+            (void)mInstanceNetworkInfos.Remove(instanceID);
         }
     }
 
@@ -565,7 +565,7 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
             return ErrorEnum::eNone;
         }
 
-        mNetworkProviders.Remove(networkID);
+        (void)mNetworkProviders.Remove(networkID);
     }
 
     if (auto err = mStorage->RemoveNetworkInfo(networkID); !err.IsNone()) {
@@ -605,7 +605,7 @@ Error NetworkManager::BeginBatch()
 
     auto cleanupStorage = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            self->mStorage->RollbackTransaction();
+            (void)self->mStorage->RollbackTransaction();
         }
     });
 
@@ -615,7 +615,7 @@ Error NetworkManager::BeginBatch()
 
     auto cleanupFirewall = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            self->mFirewall->AbortBatch();
+            (void)self->mFirewall->AbortBatch();
         }
     });
 
@@ -633,8 +633,8 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mFirewall->FlushBatch(); !err.IsNone()) {
         LOG_ERR() << "Failed to flush firewall batch" << Log::Field(err);
 
-        mNetMonitor->AbortBatch();
-        mStorage->RollbackTransaction();
+        (void)mNetMonitor->AbortBatch();
+        (void)mStorage->RollbackTransaction();
 
         ReapplyBatchEntries(failedInstanceIDs);
         ClearBatchState();
@@ -645,8 +645,8 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mNetMonitor->FlushBatch(); !err.IsNone()) {
         LOG_ERR() << "Failed to flush traffic monitor batch" << Log::Field(err);
 
-        mFirewall->Revert();
-        mStorage->RollbackTransaction();
+        (void)mFirewall->Revert();
+        (void)mStorage->RollbackTransaction();
 
         ReapplyBatchEntries(failedInstanceIDs);
         ClearBatchState();
@@ -657,12 +657,12 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mStorage->CommitTransaction(); !err.IsNone()) {
         LOG_ERR() << "Failed to commit batch transaction" << Log::Field(err);
 
-        mFirewall->Revert();
-        mNetMonitor->Revert();
-        mStorage->RollbackTransaction();
+        (void)mFirewall->Revert();
+        (void)mNetMonitor->Revert();
+        (void)mStorage->RollbackTransaction();
 
         for (const auto& entry : mBatchEntries) {
-            failedInstanceIDs.PushBack(entry.mInstanceID);
+            (void)failedInstanceIDs.PushBack(entry.mInstanceID);
         }
     }
 
@@ -678,7 +678,7 @@ void NetworkManager::ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInst
             LOG_ERR() << "Failed to reapply instance policy" << Log::Field("instanceID", entry.mInstanceID)
                       << Log::Field(err);
 
-            failedInstanceIDs.PushBack(entry.mInstanceID);
+            (void)failedInstanceIDs.PushBack(entry.mInstanceID);
         }
     }
 }
@@ -785,14 +785,14 @@ Error NetworkManager::PrepareUpdateItemNetworkParams(
     if (!params.mInstanceIdent.mItemID.IsEmpty() && !params.mInstanceIdent.mSubjectID.IsEmpty()) {
         StaticString<cHostNameLen> host;
 
-        host.Format("%d.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
+        (void)host.Format("%d.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
             params.mInstanceIdent.mItemID.CStr());
 
         if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        host.Format("%d.%s.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
+        (void)host.Format("%d.%s.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
             params.mInstanceIdent.mItemID.CStr(), networkID.CStr());
 
         if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
@@ -800,13 +800,13 @@ Error NetworkManager::PrepareUpdateItemNetworkParams(
         }
 
         if (params.mInstanceIdent.mInstance == 0) {
-            host.Format("%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr());
+            (void)host.Format("%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr());
 
             if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
 
-            host.Format("%s.%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr(),
+            (void)host.Format("%s.%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr(),
                 networkID.CStr());
 
             if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
@@ -1123,7 +1123,7 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
     }
 
     if (auto err = mPhysicalNetworks.PushBack(networkID); !err.IsNone()) {
-        ClearNetwork(it->mSecond);
+        (void)ClearNetwork(it->mSecond);
 
         return AOS_ERROR_WRAP(err);
     }
@@ -1670,7 +1670,7 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
             err = AOS_ERROR_WRAP(errRemove);
         }
 
-        mDNSServers.Remove(networkInfo.mNetworkID);
+        (void)mDNSServers.Remove(networkInfo.mNetworkID);
     }
 
     if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, mUplinkIfName);
@@ -1727,7 +1727,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
     if (!network.mInstanceIdent.mItemID.IsEmpty() && !network.mInstanceIdent.mSubjectID.IsEmpty()) {
         StaticString<cHostNameLen> host;
 
-        host.Format("%d.%s.%s", network.mInstanceIdent.mInstance, network.mInstanceIdent.mSubjectID.CStr(),
+        (void)host.Format("%d.%s.%s", network.mInstanceIdent.mInstance, network.mInstanceIdent.mSubjectID.CStr(),
             network.mInstanceIdent.mItemID.CStr());
 
         if (auto err = PushHostWithDomain(host, networkID, hosts); !err.IsNone()) {
@@ -1735,7 +1735,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
         }
 
         if (network.mInstanceIdent.mInstance == 0) {
-            host.Format("%s.%s", network.mInstanceIdent.mSubjectID.CStr(), network.mInstanceIdent.mItemID.CStr());
+            (void)host.Format("%s.%s", network.mInstanceIdent.mSubjectID.CStr(), network.mInstanceIdent.mItemID.CStr());
 
             if (auto err = PushHostWithDomain(host, networkID, hosts); !err.IsNone()) {
                 return err;
@@ -1944,7 +1944,7 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     auto cleanupBridge = DeferRelease(&network, [this, &err, bridgeCreated](const NetworkInfo* network) {
         if (!err.IsNone() && bridgeCreated) {
-            mNetIf->DeleteLink(network->mBridgeIfName);
+            (void)mNetIf->DeleteLink(network->mBridgeIfName);
         }
     });
 
@@ -1969,7 +1969,7 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     auto cleanupVlan = DeferRelease(&network, [this, &err, vlanCreated](const NetworkInfo* network) {
         if (!err.IsNone() && vlanCreated) {
-            mNetIf->DeleteLink(network->mVlanIfName);
+            (void)mNetIf->DeleteLink(network->mVlanIfName);
         }
     });
 
@@ -2023,7 +2023,7 @@ Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
 {
     ifName.Clear();
 
-    ifName.Append(ifPrefix);
+    (void)ifName.Append(ifPrefix);
 
     String randomString = String(ifName.Get() + ifPrefix.Size(), ifName.MaxSize() - ifPrefix.Size());
 
@@ -2031,7 +2031,7 @@ Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
         return AOS_ERROR_WRAP(err);
     }
 
-    ifName.Resize(ifName.Size() + randomString.Size());
+    (void)ifName.Resize(ifName.Size() + randomString.Size());
 
     return ErrorEnum::eNone;
 }

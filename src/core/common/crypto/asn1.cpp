@@ -24,9 +24,9 @@ RetWithError<StaticString<cTimeStrLen>> ConvertTimeToASN1Str(const Time& time)
 
     StaticString<cTimeStrLen> result;
 
-    result.Resize(result.MaxSize());
-    snprintf(result.Get(), result.Size(), "%04d%02d%02d%02d%02d%02dZ", year, month, day, hour, min, sec);
-    result.Resize(strlen(result.CStr()));
+    (void)result.Resize(result.MaxSize());
+    (void)snprintf(result.Get(), result.Size(), "%04d%02d%02d%02d%02d%02dZ", year, month, day, hour, min, sec);
+    (void)result.Resize(strlen(result.CStr()));
 
     return {result, ErrorEnum::eNone};
 }

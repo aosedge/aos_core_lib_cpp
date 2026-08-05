@@ -311,7 +311,7 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
                 LOG_ERR() << "Stopping watching instance" << Log::Field("ident", ident) << Log::Field(*err);
             }
 
-            mWatchedInstances.PopBack();
+            (void)mWatchedInstances.PopBack();
         }
     });
 
@@ -339,11 +339,11 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
 void Monitoring::StopWatchingInstance(const InstanceStatus& instanceStatus)
 {
-    mWatchedInstances.RemoveIf([&instanceStatus](const auto& instance) {
+    (void)mWatchedInstances.RemoveIf([&instanceStatus](const auto& instance) {
         return instance.mIdent == static_cast<const InstanceIdent&>(instanceStatus);
     });
 
-    mAverage.StopInstanceMonitoring(instanceStatus);
+    (void)mAverage.StopInstanceMonitoring(instanceStatus);
 }
 
 void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instanceMonitoringData)
@@ -367,7 +367,7 @@ void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instan
             LOG_ERR() << "Failed to get instance monitoring data" << Log::Field("ident", instance.mIdent)
                       << Log::Field(err);
 
-            instanceMonitoringData.PopBack();
+            (void)instanceMonitoringData.PopBack();
             continue;
         }
     }

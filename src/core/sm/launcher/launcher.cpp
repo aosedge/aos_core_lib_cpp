@@ -89,7 +89,7 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    lock.Unlock();
+    (void)lock.Unlock();
 
     LoadInstancesData(*storedInstances);
 
@@ -121,9 +121,9 @@ Error Launcher::Stop()
 
         LOG_DBG() << "Stop launcher";
 
-        mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
+        (void)mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
 
-        lock.Unlock();
+        (void)lock.Unlock();
 
         auto err = mLaunchPool.Run();
 
@@ -144,16 +144,16 @@ Error Launcher::Stop()
             }
         }
 
-        lock.Lock();
+        (void)lock.Lock();
 
         mIsRunning = false;
 
-        mCondVar.NotifyAll();
+        (void)mCondVar.NotifyAll();
     }
 
-    mThread.Join();
-    mRebootThread.Join();
-    mOfflineTTLHandler.Stop(Timer::StopMode::WaitForCallbacks);
+    (void)mThread.Join();
+    (void)mRebootThread.Join();
+    (void)mOfflineTTLHandler.Stop(Timer::StopMode::WaitForCallbacks);
 
     return stopErr;
 }
@@ -172,7 +172,7 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     });
 
     // Wait in case previous request is not yet finished
-    mThread.Join();
+    (void)mThread.Join();
 
     auto stop = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator, stopInstances);
     if (!stop) {
@@ -250,7 +250,7 @@ Error Launcher::RebootRequired(const String& runtimeID)
         return AOS_ERROR_WRAP(err);
     }
 
-    mCondVar.NotifyAll();
+    (void)mCondVar.NotifyAll();
 
     return ErrorEnum::eNone;
 }
@@ -259,7 +259,7 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
     UniqueLock lock {mMutex};
 
-    mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
+    (void)mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
 
     LOG_DBG() << "Get instances statuses" << Log::Field("count", mInstances.Size());
 
@@ -427,7 +427,8 @@ void Launcher::RunRebootThread()
         {
             UniqueLock lock {mMutex};
 
-            mCondVar.Wait(lock, [this]() { return !mIsRunning || (!mLaunchInProgress && !mRebootQueue.IsEmpty()); });
+            (void)mCondVar.Wait(
+                lock, [this]() { return !mIsRunning || (!mLaunchInProgress && !mRebootQueue.IsEmpty()); });
 
             if (!mIsRunning) {
                 return;
@@ -463,7 +464,7 @@ void Launcher::HandleOfflineTTLs()
 
     LOG_DBG() << "Start offline TTL handler";
 
-    mCondVar.Wait(lock, [this]() { return !mIsRunning || !mLaunchInProgress; });
+    (void)mCondVar.Wait(lock, [this]() { return !mIsRunning || !mLaunchInProgress; });
 
     if (!mIsRunning || !mOfflineTime.HasValue()) {
         return;
@@ -474,7 +475,7 @@ void Launcher::HandleOfflineTTLs()
     StopExpiredInstances(lock);
 
     mLaunchInProgress = false;
-    mCondVar.NotifyAll();
+    (void)mCondVar.NotifyAll();
 
     StartTTLTimer();
 }
@@ -555,13 +556,13 @@ void Launcher::StopExpiredInstances(UniqueLock<Mutex>& lock)
         }
     }
 
-    lock.Unlock();
+    (void)lock.Unlock();
 
     if (auto err = mOfflineTTLPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Offline TTL thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    lock.Lock();
+    (void)lock.Lock();
 }
 
 void Launcher::SendNodeInstancesStatuses()
@@ -877,7 +878,7 @@ void Launcher::StopAllNetworks()
             return;
         }
 
-        mNetworkManager->FlushBatch(*failedIDs);
+        (void)mNetworkManager->FlushBatch(*failedIDs);
 
         if (!failedIDs->IsEmpty()) {
             LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
@@ -1036,7 +1037,7 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
             return;
         }
 
-        mNetworkManager->FlushBatch(*failedIDs);
+        (void)mNetworkManager->FlushBatch(*failedIDs);
 
         for (const auto& failedID : *failedIDs) {
             auto instanceData = FindInstanceDataByID(failedID);
@@ -1118,7 +1119,7 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
             return;
         }
 
-        mNetworkManager->FlushBatch(*failedIDs);
+        (void)mNetworkManager->FlushBatch(*failedIDs);
 
         if (!failedIDs->IsEmpty()) {
             LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
@@ -1251,7 +1252,7 @@ void Launcher::FinishLaunch()
     LockGuard lock {mMutex};
 
     mLaunchInProgress = false;
-    mCondVar.NotifyAll();
+    (void)mCondVar.NotifyAll();
 }
 
 Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent)
@@ -1334,7 +1335,7 @@ void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
                 return item.mItemID == instanceData->mInfo.mItemID && item.mVersion == instanceData->mInfo.mVersion;
             });
             it == removeItems.end()) {
-            removeItems.EmplaceBack(UpdateItemInfo {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
+            (void)removeItems.EmplaceBack(UpdateItemInfo {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
         }
     }
 }
@@ -1394,7 +1395,7 @@ void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
                 return item.mID == startInstance.mItemID && item.mVersion == startInstance.mVersion;
             });
             it == installItems->end()) {
-            installItems->EmplaceBack(imagemanager::UpdateItemInfo {
+            (void)installItems->EmplaceBack(imagemanager::UpdateItemInfo {
                 startInstance.mItemID, startInstance.mType, startInstance.mVersion, startInstance.mManifestDigest});
         }
     }
@@ -1439,7 +1440,7 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     itInstance->mStatus.mState     = InstanceStateEnum::eInactive;
 
     if (auto err = mInstanceIDProvider->GetInstanceID(instanceInfo, itInstance->mInstanceID); !err.IsNone()) {
-        mInstances.Erase(itInstance);
+        (void)mInstances.Erase(itInstance);
 
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
@@ -1498,7 +1499,7 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
     for (const auto& instanceIdent : instances) {
         LOG_DBG() << "Remove instance data" << Log::Field("instance", instanceIdent);
 
-        mInstances.RemoveIf([this, &instanceIdent](const auto& instance) {
+        (void)mInstances.RemoveIf([this, &instanceIdent](const auto& instance) {
             return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
         });
     }
