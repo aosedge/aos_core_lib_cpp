@@ -138,7 +138,7 @@
  * Max number of instances.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_INSTANCES
-#define AOS_CONFIG_TYPES_MAX_NUM_INSTANCES 256
+#define AOS_CONFIG_TYPES_MAX_NUM_INSTANCES 260
 #endif
 
 /**
