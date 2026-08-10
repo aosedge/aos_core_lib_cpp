@@ -106,7 +106,7 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Process desired status";
+    LOG_INF() << "[profiling] Process desired status";
 
     LogDesiredStatus(desiredStatus);
 
@@ -337,7 +337,8 @@ Error DesiredStatusHandler::DownloadUpdateItems()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    LOG_DBG() << "Download update items" << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
+    LOG_INF() << "[profiling] Download update items start"
+              << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
 
     if (auto err = mImageManager->DownloadUpdateItems(mCurrentDesiredStatus.mUpdateItems,
             mCurrentDesiredStatus.mCertificates, mCurrentDesiredStatus.mCertificateChains, *itemsStatuses);
@@ -353,12 +354,14 @@ Error DesiredStatusHandler::DownloadUpdateItems()
         }
     }
 
+    LOG_INF() << "[profiling] Download update items end";
+
     return ErrorEnum::eNone;
 }
 
 Error DesiredStatusHandler::InstallDesiredStatus()
 {
-    LOG_DBG() << "Install desired status";
+    LOG_INF() << "[profiling] Install desired status start";
 
     for (const auto& node : mCurrentDesiredStatus.mNodes) {
         LOG_DBG() << "Set node state" << Log::Field("id", node.mNodeID) << Log::Field("state", node.mState);
@@ -401,6 +404,8 @@ Error DesiredStatusHandler::InstallDesiredStatus()
         }
     }
 
+    LOG_INF() << "[profiling] Install desired status end";
+
     return ErrorEnum::eNone;
 }
 
@@ -416,7 +421,7 @@ Error DesiredStatusHandler::LaunchInstances()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    LOG_DBG() << "Launch instances" << Log::Field("count", mCurrentDesiredStatus.mInstances.Size());
+    LOG_INF() << "[profiling] Launch instances start" << Log::Field("count", mCurrentDesiredStatus.mInstances.Size());
 
     for (const auto& desiredInstance : mCurrentDesiredStatus.mInstances) {
         launcher::RunInstanceRequest request {};
@@ -464,11 +469,15 @@ Error DesiredStatusHandler::LaunchInstances()
         }
     }
 
+    LOG_INF() << "[profiling] Launch instances end";
+
     return ErrorEnum::eNone;
 }
 
 Error DesiredStatusHandler::WaitInstancesActive()
 {
+    LOG_INF() << "[profiling] Wait instances active start";
+
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
     if (!instancesStatuses) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
@@ -500,6 +509,8 @@ Error DesiredStatusHandler::WaitInstancesActive()
         }
     }
 
+    LOG_INF() << "[profiling] Wait instances active end";
+
     return ErrorEnum::eNone;
 }
 
@@ -510,7 +521,8 @@ Error DesiredStatusHandler::FinalizeUpdate()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    LOG_DBG() << "Install update items" << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
+    LOG_INF() << "[profiling] Finalize desired status start"
+              << Log::Field("count", mCurrentDesiredStatus.mUpdateItems.Size());
 
     if (auto err = mImageManager->InstallUpdateItems(mCurrentDesiredStatus.mUpdateItems, *itemsStatuses);
         !err.IsNone()) {
@@ -524,6 +536,8 @@ Error DesiredStatusHandler::FinalizeUpdate()
                       << Log::Field(itemStatus.mError);
         }
     }
+
+    LOG_INF() << "[profiling] Finalize desired status end";
 
     return ErrorEnum::eNone;
 }

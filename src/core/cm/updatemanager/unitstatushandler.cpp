@@ -105,7 +105,7 @@ Error UnitStatusHandler::SendFullUnitStatus()
         mIsStatusProcessing = true;
     }
 
-    LOG_INF() << "Send full unit status";
+    LOG_INF() << "[profiling] Send full unit status";
 
     mUnitStatus.mIsDeltaInfo = false;
 

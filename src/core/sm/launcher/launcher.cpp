@@ -733,8 +733,14 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     RemoveInstances(stopInstances);
 
     if (!mFirstStart) {
+        LOG_INF() << "[profiling] Install items begin" << Log::Field("removeCount", removeItems->Size())
+                  << Log::Field("installCount", startInstances.Size());
+
         RemoveUpdateItems(*removeItems);
         InstallUpdateItems(startInstances);
+
+        LOG_INF() << "[profiling] Install items end";
+
         PrepareInstances(startInstances);
     }
 
@@ -917,6 +923,8 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
 
 void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
 {
+    LOG_INF() << "[profiling] Prepare instances begin" << Log::Field("count", startInstances.Size());
+
     for (const auto& instance : startInstances) {
         auto instanceData = FindInstanceData(instance);
         if (instanceData) {
@@ -956,6 +964,8 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
+
+    LOG_INF() << "[profiling] Prepare instances end";
 }
 
 Error Launcher::AddStartNetworkTask(InstanceData& instanceData)
