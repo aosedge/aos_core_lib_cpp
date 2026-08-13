@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/crypto/itf/certloader.hpp>
 #include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/tools/fs.hpp>
@@ -796,6 +797,10 @@ Error PKCS11Module::CreateCertificateChain(const SharedPtr<pkcs11::SessionContex
     }
 
     for (size_t i = 1; i < chain.Size(); i++) {
+        if (auto validateErr = crypto::ValidateCACert(chain[i]); !validateErr.IsNone()) {
+            return AOS_ERROR_WRAP(validateErr);
+        }
+
         bool hasCertificate = false;
 
         Tie(hasCertificate, err) = utils.HasCertificate(chain[i].mIssuer, chain[i].mSerial);
