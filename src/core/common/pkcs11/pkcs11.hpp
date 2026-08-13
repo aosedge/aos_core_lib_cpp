@@ -809,6 +809,7 @@ private:
 
     Error FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles);
     Error FindCertificateChain(const crypto::x509::Certificate& certificate, crypto::x509::CertificateChain& chain);
+    Error ValidateCertificateChain(const crypto::x509::CertificateChain& chain);
     RetWithError<SharedPtr<crypto::x509::Certificate>> FindCertificateByKeyID(const Array<uint8_t>& keyID);
 
     RetWithError<SharedPtr<crypto::x509::Certificate>> GetCertificate(ObjectHandle handle);

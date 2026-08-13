@@ -44,6 +44,12 @@ Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& ce
         return AOS_ERROR_WRAP(err);
     }
 
+    for (const auto& cert : mCACerts) {
+        if (auto err = ValidateCACert(cert); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     return ErrorEnum::eNone;
 }
 
