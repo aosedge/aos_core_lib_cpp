@@ -206,6 +206,34 @@ Error GetAuthorityKeyID(X509* cert, Array<uint8_t>& akid)
     return ErrorEnum::eNone;
 }
 
+Error GetBasicConstraints(X509* cert, bool& isCA)
+{
+    isCA = false;
+
+    auto ext = X509_get_ext_d2i(cert, NID_basic_constraints, nullptr, nullptr);
+    auto bc  = DeferRelease(static_cast<BASIC_CONSTRAINTS*>(ext), BASIC_CONSTRAINTS_free);
+    if (!bc) {
+        return ErrorEnum::eNone;
+    }
+
+    isCA = bc.Get()->ca != 0;
+
+    return ErrorEnum::eNone;
+}
+
+Error GetKeyUsage(X509* cert, Optional<uint32_t>& keyUsage)
+{
+    keyUsage.Reset();
+
+    if (X509_get_ext_by_NID(cert, NID_key_usage, -1) < 0) {
+        return ErrorEnum::eNone;
+    }
+
+    keyUsage.SetValue(X509_get_key_usage(cert));
+
+    return ErrorEnum::eNone;
+}
+
 Error GetIssuerAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
 {
     auto ext   = X509_get_ext_d2i(cert, NID_issuer_alt_name, nullptr, nullptr);
@@ -434,6 +462,16 @@ Error ConvertX509ToAos(X509* cert, x509::Certificate& resultCert)
 
     err = ConvertX509ToDER(cert, resultCert.mRaw);
     if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    resultCert.mVersion = static_cast<int>(X509_get_version(cert)) + 1;
+
+    if (err = GetBasicConstraints(cert, resultCert.mIsCA); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = GetKeyUsage(cert, resultCert.mKeyUsage); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

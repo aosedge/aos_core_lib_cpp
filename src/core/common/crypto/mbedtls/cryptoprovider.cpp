@@ -2060,6 +2060,15 @@ Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x5
 
     memcpy(cert.mRaw.Get(), crt->raw.p, crt->raw.len);
 
+    cert.mVersion = crt->version;
+    cert.mIsCA    = mbedtls_x509_crt_get_ca_istrue(crt) > 0;
+
+    cert.mKeyUsage.Reset();
+
+    if (mbedtls_x509_crt_has_ext_type(crt, MBEDTLS_X509_EXT_KEY_USAGE) != 0) {
+        cert.mKeyUsage.SetValue(static_cast<uint32_t>(crt->MBEDTLS_PRIVATE(key_usage)));
+    }
+
     return ErrorEnum::eNone;
 }
 
