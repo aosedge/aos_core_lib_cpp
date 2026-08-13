@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tools/logger.hpp>
 #include <core/common/tools/memory.hpp>
 
@@ -426,6 +427,10 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
 
         if (!parentFound) {
             return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+        }
+
+        if (auto err = crypto::ValidateCACert(chain[parentCert]); !err.IsNone()) {
+            return err;
         }
 
         currentCert = parentCert;
