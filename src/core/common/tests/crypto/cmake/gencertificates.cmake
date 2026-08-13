@@ -23,9 +23,12 @@ function(gencertificates TARGET CERTIFICATES_DIR)
     )
 
     message("\nCreate a CA self-signed certificate...")
+    file(WRITE ${CERTIFICATES_DIR}/ca.ext
+         "basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n"
+    )
     execute_process(
         COMMAND openssl x509 -signkey ${CERTIFICATES_DIR}/ca.key -days 365 -req -in ${CERTIFICATES_DIR}/ca.csr -out
-                ${CERTIFICATES_DIR}/ca.pem COMMAND_ERROR_IS_FATAL ANY
+                ${CERTIFICATES_DIR}/ca.pem -extfile ${CERTIFICATES_DIR}/ca.ext COMMAND_ERROR_IS_FATAL ANY
     )
 
     message("\nIssue a client certificate...")
