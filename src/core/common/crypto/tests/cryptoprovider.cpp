@@ -6,6 +6,7 @@
 
 #include <gmock/gmock.h>
 
+#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
@@ -888,6 +889,46 @@ TEST_P(CryptoProviderTest, VerifyECDSASignature)
 
     EXPECT_TRUE(
         mCryptoProvider->Verify(pubKey, HashEnum::eSHA384, x509::PaddingEnum::eNone, digest, signature).IsNone());
+}
+
+TEST_P(CryptoProviderTest, VerifyCACert)
+{
+    StaticString<cCertPEMLen>         buff;
+    StaticArray<x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/ca.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, certs).IsNone());
+    ASSERT_EQ(certs.Size(), 1u);
+
+    const auto& cert = certs[0];
+
+    EXPECT_EQ(cert.mVersion, x509::cX509Version3);
+    EXPECT_TRUE(cert.mIsCA);
+    ASSERT_TRUE(cert.mKeyUsage.HasValue());
+    EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cKeyCertSign, 0u);
+    EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cCRLSign, 0u);
+    EXPECT_FALSE(cert.mSubjectKeyId.IsEmpty());
+    EXPECT_EQ(cert.mIssuer, cert.mSubject);
+    ASSERT_TRUE(ValidateCACert(cert).IsNone());
+}
+
+TEST_P(CryptoProviderTest, VerifyLeafCert)
+{
+    StaticString<cCertPEMLen>         buff;
+    StaticArray<x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, certs).IsNone());
+    ASSERT_EQ(certs.Size(), 1u);
+
+    const auto& cert = certs[0];
+
+    EXPECT_EQ(cert.mVersion, x509::cX509Version3);
+    EXPECT_FALSE(cert.mIsCA);
+    ASSERT_TRUE(cert.mKeyUsage.HasValue());
+    EXPECT_EQ(cert.mKeyUsage.GetValue() & x509::keyusage::cKeyCertSign, 0u);
+    EXPECT_EQ(cert.mKeyUsage.GetValue() & x509::keyusage::cCRLSign, 0u);
+    EXPECT_FALSE(ValidateCACert(cert).IsNone());
 }
 
 TEST_P(CryptoProviderTest, VerifyCertChain)

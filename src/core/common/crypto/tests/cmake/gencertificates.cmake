@@ -30,6 +30,10 @@ endfunction()
 # Generate child certificate
 function(genchildcert CERTIFICATES_DIR FILE_NAME COMMONNAME PARENT_NAME)
     set(OUTPUT_DIR "${CERTIFICATES_DIR}")
+    set(EXT_FILE "${CERTIFICATES_DIR}/extensions.conf")
+    if(ARGC GREATER 4)
+        set(EXT_FILE "${ARGV4}")
+    endif()
 
     message(
         STATUS "Generating child certificate '${FILE_NAME}' with CN='${COMMONNAME}' using parent '${PARENT_NAME}'..."
@@ -53,7 +57,7 @@ function(genchildcert CERTIFICATES_DIR FILE_NAME COMMONNAME PARENT_NAME)
         -days
         365
         -extfile
-        "${CERTIFICATES_DIR}/extensions.conf"
+        "${EXT_FILE}"
         -in
         "${CERTIFICATES_DIR}/${FILE_NAME}.csr"
         -CA
@@ -70,6 +74,14 @@ function(gencertificates TARGET CERTIFICATES_DIR)
     set(OUTPUT_DIR "${CERTIFICATES_DIR}")
     file(MAKE_DIRECTORY "${CERTIFICATES_DIR}")
     write_file("${CERTIFICATES_DIR}/extensions.conf" "basicConstraints = CA:TRUE\n")
+    write_file(
+        "${CERTIFICATES_DIR}/leaf_extensions.conf"
+        "basicConstraints = CA:FALSE\nkeyUsage = digitalSignature,keyEncipherment\n"
+    )
+    write_file(
+        "${CERTIFICATES_DIR}/ca_extensions.conf"
+        "basicConstraints = critical,CA:TRUE\nkeyUsage = critical,keyCertSign,cRLSign\nsubjectKeyIdentifier = hash\n"
+    )
 
     message(STATUS "Generating PKCS11 test certificates in: ${CERTIFICATES_DIR}")
 
@@ -94,7 +106,7 @@ function(gencertificates TARGET CERTIFICATES_DIR)
     run_openssl(
         x509
         -extfile
-        "${CERTIFICATES_DIR}/extensions.conf"
+        "${CERTIFICATES_DIR}/ca_extensions.conf"
         -signkey
         "${CERTIFICATES_DIR}/ca.key"
         -days
@@ -108,11 +120,11 @@ function(gencertificates TARGET CERTIFICATES_DIR)
 
     message(STATUS "Issuing client certificates...")
     genchildcert("${CERTIFICATES_DIR}" "client_int" "client_int" "ca")
-    genchildcert("${CERTIFICATES_DIR}" "client" "client" "client_int")
+    genchildcert("${CERTIFICATES_DIR}" "client" "client" "client_int" "${CERTIFICATES_DIR}/leaf_extensions.conf")
 
     message(STATUS "Issuing server certificates...")
     genchildcert("${CERTIFICATES_DIR}" "server_int" "server_int" "ca")
-    genchildcert("${CERTIFICATES_DIR}" "server" "localhost" "server_int")
+    genchildcert("${CERTIFICATES_DIR}" "server" "localhost" "server_int" "${CERTIFICATES_DIR}/leaf_extensions.conf")
 
     target_compile_definitions(${TARGET} PUBLIC TEST_CERTIFICATES_DIR="${CERTIFICATES_DIR}")
 endfunction()
@@ -201,6 +213,8 @@ issuerAltName=URI:https://www.mytest.com"
         "basicConstraints=CA:TRUE"
         -addext
         "keyUsage=digitalSignature,keyEncipherment,keyCertSign,cRLSign"
+        -addext
+        "subjectKeyIdentifier=hash"
         -addext
         "extendedKeyUsage=serverAuth,clientAuth"
         -addext
