@@ -12,6 +12,7 @@
 #include <dlfcn.h>
 #endif
 
+#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tools/logger.hpp>
 
 #include "pkcs11.hpp"
@@ -1304,6 +1305,10 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> Utils::FindCertificateCh
         return {nullptr, err};
     }
 
+    if (err = ValidateCertificateChain(*chain); !err.IsNone()) {
+        return {nullptr, err};
+    }
+
     return {chain, err};
 }
 
@@ -1429,6 +1434,14 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, err};
         }
 
+        static constexpr uint8_t cSecp384r1OID[] = {0x2B, 0x81, 0x04, 0x00, 0x22};
+
+        if (*params != Array<uint8_t>(cSecp384r1OID, sizeof(cSecp384r1OID))) {
+            LOG_ERR() << "Unsupported elliptic curve, only P384 (secp384r1) is supported";
+
+            return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+        }
+
         auto pubKey = MakeUnique<crypto::ECDSAPublicKey>(&mAllocator, *params, *point);
         if (!pubKey) {
             return {{}, ErrorEnum::eNoMemory};
@@ -1504,6 +1517,29 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
     }
 
     return FindCertificateChain(*foundCert, chain);
+}
+
+Error Utils::ValidateCertificateChain(const crypto::x509::CertificateChain& chain)
+{
+    for (size_t i = 1; i < chain.Size(); ++i) {
+        const auto& child  = chain[i - 1];
+        const auto& parent = chain[i];
+
+        if (!child.mAuthorityKeyId.IsEmpty() && child.mAuthorityKeyId != parent.mSubjectKeyId) {
+            StaticString<crypto::cCertDNStringSize> subject;
+
+            mCryptoProvider.ASN1DecodeDN(parent.mSubject, subject);
+            LOG_ERR() << "Issuer authorityKeyIdentifier mismatch: subject=" << subject;
+
+            return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+        }
+
+        if (auto validateErr = crypto::ValidateCACert(parent); !validateErr.IsNone()) {
+            return validateErr;
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID(const Array<uint8_t>& keyID)
