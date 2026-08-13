@@ -26,7 +26,7 @@ set(HEADERS itf/certhandler.hpp itf/hsm.hpp itf/storage.hpp certhandler.hpp cert
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::iam::certmodules::pkcs11 aos::core::common::tools)
+set(LIBRARIES aos::core::iam::certmodules::pkcs11 aos::core::common::crypto aos::core::common::tools)
 
 # ######################################################################################################################
 # Target
