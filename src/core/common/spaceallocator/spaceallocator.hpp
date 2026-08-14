@@ -411,7 +411,8 @@ public:
                 return err;
             }
 
-            mSizeLimit = mPartition->mTotalSize * mPartition->mLimit / 100;
+            mLimitPercent = limit;
+            mSizeLimit    = mPartition->mTotalSize * mLimitPercent / 100;
         }
 
         return ErrorEnum::eNone;
@@ -428,7 +429,7 @@ public:
 
         Error err;
 
-        if (auto errRemovePartLimit = mPartition->RemoveLimit(mPartition->mLimit); !errRemovePartLimit.IsNone()) {
+        if (auto errRemovePartLimit = mPartition->RemoveLimit(mLimitPercent); !errRemovePartLimit.IsNone()) {
             err = errRemovePartLimit;
         }
 
@@ -701,6 +702,7 @@ private:
     }
 
     AllocatorItf*              mAllocator {};
+    size_t                     mLimitPercent {};
     size_t                     mSizeLimit {};
     size_t                     mAllocationCount {};
     size_t                     mAllocatedSize {};
