@@ -35,6 +35,7 @@ public:
     /**
      * Initializes storage state instance.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config config object.
      * @param storage storage instance.
      * @param sender sender instance.
@@ -43,8 +44,8 @@ public:
      * @param cryptoProvider crypto provider instance.
      * @return Error.
      */
-    Error Init(const Config& config, StorageItf& storage, SenderItf& sender, fs::FSPlatformItf& fsPlatform,
-        fs::FSWatcherItf& fsWatcher, crypto::HasherItf& hasher);
+    Error Init(AllocatorItf& allocator, const Config& config, StorageItf& storage, SenderItf& sender,
+        fs::FSPlatformItf& fsPlatform, fs::FSWatcherItf& fsWatcher, crypto::HasherItf& hasher);
 
     /**
      * Starts storage state instance.
@@ -145,7 +146,6 @@ private:
     static constexpr auto cHashAlgorithm          = crypto::HashEnum::eSHA3_224;
     static constexpr auto cNumSendNewStateThreads = 1;
     static constexpr auto cInstanceStringLen      = 8;
-    static constexpr auto cAllocatorSize          = sizeof(InstanceInfoArray) + sizeof(NewState);
 
     struct State {
         State(const InstanceIdent& instanceIdent, const String& filePath, size_t quota)
@@ -189,7 +189,7 @@ private:
     StaticString<cFilePathLen> GetStoragePath(const InstanceIdent& instanceIdent) const;
     Error                      CalculateChecksum(const String& data, Array<uint8_t>& checksum);
 
-    StaticAllocator<cAllocatorSize>                                         mAllocator;
+    AllocatorItf*                                                           mAllocator {};
     ThreadPool<cNumSendNewStateThreads, cMaxNumInstances, 2 * cFilePathLen> mThreadPool;
     Mutex                                                                   mMutex;
     Config                                                                  mConfig;

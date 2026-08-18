@@ -23,11 +23,6 @@ namespace aos::sm::networkmanager {
 static constexpr auto cMaxNumAliases = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_ALIASES;
 
 /**
- * Max number of hosts.
- */
-static constexpr auto cMaxNumHosts = AOS_CONFIG_NETWORKMANAGER_MAX_NUM_HOSTS;
-
-/**
  * Instance network config for Create (stored in DB).
  */
 struct InstanceNetworkConfig {

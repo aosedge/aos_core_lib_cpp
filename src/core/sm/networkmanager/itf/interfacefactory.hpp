@@ -31,13 +31,15 @@ public:
     virtual Error CreateBridge(const String& name, const String& ip, const String& subnet) = 0;
 
     /**
-     * Creates vlan interface.
+     * Creates vlan interface, optionally enslaved to a master bridge in the
+     * same operation.
      *
      * @param name vlan name.
      * @param vlanID vlan ID.
+     * @param master master bridge name to enslave to; empty for none.
      * @return Error.
      */
-    virtual Error CreateVlan(const String& name, uint64_t vlanID) = 0;
+    virtual Error CreateVlan(const String& name, uint64_t vlanID, const String& master) = 0;
 
     /**
      * Creates a parameter-less link of the given kind (e.g. "ifb", "dummy").

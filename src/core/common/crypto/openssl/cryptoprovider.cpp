@@ -350,7 +350,10 @@ Error ConvertEvpPKey(const EVP_PKEY* src, Variant<ECDSAPublicKey, RSAPublicKey>&
         return SetECDSAPubKey(src, dst);
     }
 
-    return ErrorEnum::eNotSupported;
+    LOG_ERR() << "Unsupported certificate public key algorithm: type=" << EVP_PKEY_base_id(src)
+              << ", only RSA and ECDSA are supported";
+
+    return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
 }
 
 Error ConvertX509ToDER(const X509* cert, Array<uint8_t>& derBlob)
@@ -1251,9 +1254,11 @@ OpenSSLCryptoProvider::~OpenSSLCryptoProvider()
     OSSL_LIB_CTX_free(mLibCtx);
 }
 
-Error OpenSSLCryptoProvider::Init()
+Error OpenSSLCryptoProvider::Init(AllocatorItf& allocator)
 {
     LOG_DBG() << "Init OpenSSL crypto provider";
+
+    mAllocator = &allocator;
 
     if (mLibCtx = OSSL_LIB_CTX_new(); !mLibCtx) {
         return OPENSSL_ERROR();
@@ -1490,7 +1495,10 @@ RetWithError<SharedPtr<PrivateKeyItf>> OpenSSLCryptoProvider::PEMToX509PrivKey(c
 
     auto type = EVP_PKEY_base_id(pkey.Get());
     if (type == EVP_PKEY_RSA) {
-        auto res = MakeShared<OpenSSLRSAPrivKey>(&mAllocator);
+        auto res = MakeShared<OpenSSLRSAPrivKey>(mAllocator);
+        if (!res) {
+            return {{}, ErrorEnum::eNoMemory};
+        }
 
         auto err = res->Init(pkey.Get());
         if (!err.IsNone()) {
@@ -1765,7 +1773,10 @@ RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(Hash algorith
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
     }
 
-    auto hasher = MakeUnique<OpenSSLHash>(&mAllocator);
+    auto hasher = MakeUnique<OpenSSLHash>(mAllocator);
+    if (!hasher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = hasher->Init(mLibCtx, algorithm.ToString().CStr());
     if (!err.IsNone()) {
@@ -1852,7 +1863,10 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESEncoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<OpenSSLAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<OpenSSLAESCipher>(mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(mLibCtx, key, iv, true);
     if (!err.IsNone()) {
@@ -1869,7 +1883,10 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESDecoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<OpenSSLAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<OpenSSLAESCipher>(mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(mLibCtx, key, iv, false);
     if (!err.IsNone()) {

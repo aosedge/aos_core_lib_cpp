@@ -8,7 +8,7 @@
 #define AOS_CORE_CM_LAUNCHER_STORAGESTATE_HPP_
 
 #include <core/cm/storagestate/itf/storagestate.hpp>
-#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/memory.hpp>
 
 namespace aos::cm::launcher {
 
@@ -21,9 +21,10 @@ public:
     /**
      * Initializes storage state.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param storageState storage state interface.
      */
-    void Init(storagestate::StorageStateItf& storageState);
+    void Init(AllocatorItf& allocator, storagestate::StorageStateItf& storageState);
 
     /**
      * Starts storage state.
@@ -77,13 +78,11 @@ public:
         size_t requestedStorageSize, size_t requestedStateSize, String& storagePath, String& statePath);
 
 private:
-    static constexpr auto cAllocatorSize = sizeof(size_t) * 2;
-
     storagestate::StorageStateItf* mStorageStateManager {};
 
-    StaticAllocator<cAllocatorSize> mAllocator;
-    SharedPtr<size_t>               mAvailableState;
-    SharedPtr<size_t>               mAvailableStorage;
+    AllocatorItf*     mAllocator {};
+    SharedPtr<size_t> mAvailableState;
+    SharedPtr<size_t> mAvailableStorage;
 };
 
 } // namespace aos::cm::launcher

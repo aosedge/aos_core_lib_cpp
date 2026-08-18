@@ -36,6 +36,7 @@ public:
     /**
      * Initializes image manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config image manager config.
      * @param storage stores internal persistent data.
      * @param blobInfoProvider retrieves blobs info.
@@ -48,8 +49,8 @@ public:
      * @param ociSpec parses OCI spec files.
      * @return Error.
      */
-    Error Init(const Config& config, StorageItf& storage, BlobInfoProviderItf& blobInfoProvider,
-        spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
+    Error Init(AllocatorItf& allocator, const Config& config, StorageItf& storage,
+        BlobInfoProviderItf& blobInfoProvider, spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
         spaceallocator::SpaceAllocatorItf& installSpaceAllocator, downloader::DownloaderItf& downloader,
         fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& cryptoHelper,
         fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec);
@@ -171,13 +172,23 @@ private:
     static constexpr auto cBlobsDirName = "blobs";
 
     static constexpr auto cMaxNumListeners    = 1;
-    static constexpr auto cMaxNumItemVersions = 2;
     static constexpr auto cRetryTimeout       = Time::cSeconds * 2;
     static constexpr auto cDigestAlgorithmLen = 16;
+    static constexpr auto cMaxNumItemVersions = 2;
+    static constexpr auto cMaxNumStoredItems  = cMaxNumUpdateItems * cMaxNumItemVersions;
+
+    /**
+     * Downloading space of a single blob. mSpace reserves only bytes to be written: mTotalSize - mExistingSize.
+     */
+    struct DownloadSpace {
+        UniquePtr<spaceallocator::SpaceItf> mSpace;
+        size_t                              mExistingSize {};
+        size_t                              mTotalSize {};
+    };
 
     Error RemoveOutdatedItems();
+    Error RemoveOldItemVersions(const String& itemID, Array<ItemInfo>& storedItems);
     Error WaitForStop();
-    Error AllocateSpaceForPartialDownloads();
     Error RemovePendingItems(const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses);
     Error CleanupDownloadingItems(const Array<UpdateItemInfo>& currentItems, const Array<ItemInfo>& storedItems);
     Error VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
@@ -207,13 +218,13 @@ private:
         const Array<crypto::CertificateInfo>&      certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains, UniquePtr<spaceallocator::SpaceItf>& space);
     Error DownloadBlob(const String& digest, const String& downloadPath, const String& installPath, BlobInfo& blobInfo,
-        UniquePtr<spaceallocator::SpaceItf>& downloadingSpace);
+        DownloadSpace& downloadSpace);
     Error GetBlobInfo(const String& digest, BlobInfo& blobInfo);
     Error CheckExistingBlob(const String& installPath);
-    Error PrepareDownloadSpace(const String& downloadPath, const BlobInfo& blobInfo, size_t& partialDownloadSize,
-        UniquePtr<spaceallocator::SpaceItf>& downloadingSpace);
-    Error PerformDownload(const BlobInfo& blobInfo, const String& downloadPath, size_t partialDownloadSize,
-        UniquePtr<spaceallocator::SpaceItf>& downloadingSpace);
+    Error PrepareDownloadSpace(const String& downloadPath, const BlobInfo& blobInfo, DownloadSpace& downloadSpace);
+    Error PerformDownload(const BlobInfo& blobInfo, const String& downloadPath, DownloadSpace& downloadSpace);
+    void  DiscardDownload(const String& downloadPath, DownloadSpace& downloadSpace);
+    void  AcceptDownloadSpace(DownloadSpace& downloadSpace, size_t bytesOnDisk);
     Error DecryptAndValidateBlob(const String& downloadPath, const String& installPath, const BlobInfo& blobInfo,
         const Array<crypto::CertificateInfo>&      certificates,
         const Array<crypto::CertificateChainInfo>& certificateChains,
@@ -253,10 +264,8 @@ private:
     ConditionalVariable           mCondVar;
     bool                          mCancel {};
     bool                          mInProgress {};
-    mutable StaticAllocator<(sizeof(StaticArray<ItemInfo, cMaxNumUpdateItems>) * 2) + sizeof(oci::ImageIndex)
-        + sizeof(oci::ImageManifest) + sizeof(StaticArray<BlobInfo, 1>)
-        + sizeof(StaticArray<uint8_t, crypto::cSHA256Size>) + sizeof(BlobInfo)>
-        mAllocator;
+
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::cm::imagemanager

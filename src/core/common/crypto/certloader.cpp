@@ -24,10 +24,11 @@ constexpr auto cSchemeMaxLength = Max(sizeof(cSchemeFile), sizeof(cSchemePKCS11)
  * CertLoader
  **********************************************************************************************************************/
 
-Error CertLoader::Init(x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager)
+Error CertLoader::Init(AllocatorItf& allocator, x509::ProviderItf& cryptoProvider, pkcs11::PKCS11Manager& pkcs11Manager)
 {
     LOG_DBG() << "Init cert loader";
 
+    mAllocator      = &allocator;
     mCryptoProvider = &cryptoProvider;
     mPKCS11         = &pkcs11Manager;
 
@@ -73,7 +74,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsChainByURL(
             return {nullptr, err};
         }
 
-        return pkcs11::Utils(session, *mCryptoProvider, mAllocator).FindCertificateChain(id, label);
+        return pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindCertificateChain(id, label);
     }
 
     return {nullptr, ErrorEnum::eInvalidArgument};
@@ -118,7 +119,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(const String
             return {nullptr, err};
         }
 
-        auto key = pkcs11::Utils(session, *mCryptoProvider, mAllocator).FindPrivateKey(id, label);
+        auto key = pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindPrivateKey(id, label);
 
         return {key.mValue.GetPrivKey(), key.mError};
     }
@@ -165,7 +166,11 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
 RetWithError<pkcs11::SlotID> CertLoader::FindToken(const pkcs11::LibraryContext& library, const String& token)
 {
     StaticArray<pkcs11::SlotID, pkcs11::cSlotListSize> slotList;
-    auto                                               tokenInfo = MakeUnique<pkcs11::TokenInfo>(&mAllocator);
+
+    auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(mAllocator);
+    if (!tokenInfo) {
+        return {0, ErrorEnum::eNoMemory};
+    }
 
     auto err = library.GetSlotList(true, slotList);
     if (!err.IsNone()) {
@@ -190,14 +195,20 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsFromFile(co
 {
     LOG_DBG() << "Load certs chain from file: fileName=" << fileName;
 
-    auto buff = MakeUnique<PEMCertChainBlob>(&mAllocator);
+    auto buff = MakeUnique<PEMCertChainBlob>(mAllocator);
+    if (!buff) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     auto err = fs::ReadFileToString(fileName, *buff);
     if (!err.IsNone()) {
         return {nullptr, err};
     }
 
-    auto certificates = MakeShared<x509::CertificateChain>(&mAllocator);
+    auto certificates = MakeShared<x509::CertificateChain>(mAllocator);
+    if (!certificates) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     err = mCryptoProvider->PEMToX509Certs(*buff, *certificates);
 
@@ -208,7 +219,10 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const Str
 {
     LOG_DBG() << "Load private key from file: fileName=" << fileName;
 
-    auto buff = MakeUnique<StaticString<cPrivKeyPEMLen>>(&mAllocator);
+    auto buff = MakeUnique<StaticString<cPrivKeyPEMLen>>(mAllocator);
+    if (!buff) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
 
     auto err = fs::ReadFileToString(fileName, *buff);
     if (!err.IsNone()) {
@@ -355,45 +369,32 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id)
 {
     id.Clear();
 
-    auto                 percentDetected = false;
-    aos::StaticString<2> hexByte;
+    if (idStr.Size() % 3 != 0) {
+        return aos::ErrorEnum::eInvalidArgument;
+    }
 
-    for (const auto& ch : idStr) {
-        if (ch == '%') {
-            if (percentDetected || hexByte.Size()) {
-                return aos::ErrorEnum::eInvalidArgument;
-            }
+    for (size_t i = 0; i < idStr.Size(); i += 3) {
+        if (idStr[i] != '%') {
+            return ErrorEnum::eInvalidArgument;
+        }
 
-            percentDetected = true;
-        } else if (percentDetected) {
-            auto err = hexByte.PushBack(ch);
-            if (!err.IsNone()) {
-                return err;
-            }
+        aos::StaticString<2> hexByte;
 
-            if (hexByte.Size() == hexByte.MaxSize()) {
-                percentDetected = false;
+        auto err = hexByte.Insert(hexByte.end(), idStr.begin() + i + 1, idStr.begin() + i + 3);
+        if (!err.IsNone()) {
+            return err;
+        }
 
-                uint8_t byte;
+        uint8_t byte;
 
-                aos::Tie(byte, err) = hexByte.HexToByte();
-                if (!err.IsNone()) {
-                    return err;
-                }
+        aos::Tie(byte, err) = hexByte.HexToByte();
+        if (!err.IsNone()) {
+            return err;
+        }
 
-                err = id.PushBack(byte);
-                if (!err.IsNone()) {
-                    return err;
-                }
-
-                hexByte.Clear();
-            }
-
-        } else {
-            auto err = id.PushBack(static_cast<uint8_t>(ch));
-            if (!err.IsNone()) {
-                return err;
-            }
+        err = id.PushBack(byte);
+        if (!err.IsNone()) {
+            return err;
         }
     }
 

@@ -67,6 +67,7 @@ Error EncodePKCS11ID(const Array<uint8_t>& id, String& idStr);
 
 /**
  * Decodes PKCS11 ID from percent-encoded string.
+ * Only fully percent-encoded input is supported, which is aligned with EncodePKCS11ID implementation.
  *
  * @param idStr percent-encoded string.
  * @param id PKCS11 ID.

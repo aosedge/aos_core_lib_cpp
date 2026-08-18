@@ -34,6 +34,14 @@ public:
     virtual Error CreateNetworkNamespace(const String& ns) = 0;
 
     /**
+     * Checks whether network namespace exists on the system.
+     *
+     * @param ns network namespace name.
+     * @return RetWithError<bool>.
+     */
+    virtual RetWithError<bool> IsNetworkNamespaceExist(const String& ns) const = 0;
+
+    /**
      * Returns network namespace path.
      *
      * @param ns network namespace name.

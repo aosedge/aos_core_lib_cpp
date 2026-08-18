@@ -9,6 +9,7 @@
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 using namespace testing;
 
@@ -26,6 +27,8 @@ protected:
         SpaceAllocator<1>::mPartitions.Clear();
         fs::RemoveAll(mPath);
     }
+
+    HeapAllocator mAllocator;
 
     StrictMock<FSPlatformMock>       mPlatformFS;
     StrictMock<ItemRemoverMock>      mRemover;
@@ -49,7 +52,7 @@ TEST_F(SpaceallocatorTest, AllocateSuccess)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -96,9 +99,9 @@ TEST_F(SpaceallocatorTest, MultipleAllocators)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(allocator1.Init(mPath, mPlatformFS).IsNone());
-    ASSERT_TRUE(allocator2.Init(mPath, mPlatformFS).IsNone());
-    ASSERT_TRUE(allocator3.Init(mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS).IsNone());
+    ASSERT_TRUE(allocator3.Init(mAllocator, mPath, mPlatformFS).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -167,7 +170,7 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 100, &mRemover).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 100, &mRemover).IsNone());
 
     std::vector<std::string> removedFiles;
     EXPECT_CALL(mRemover, RemoveItem(testing::_, testing::_))
@@ -268,7 +271,7 @@ TEST_F(SpaceallocatorTest, PartLimit)
     SpaceAllocator<2> mSpaceAllocator;
 
     // Initialize allocator with 50% limit
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, 50).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
         .WillOnce(Return(RetWithError<size_t>(totalExistSize, ErrorEnum::eNone)));
@@ -306,7 +309,7 @@ TEST_F(SpaceallocatorTest, ResizeSpace)
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
-    ASSERT_TRUE(mSpaceAllocator.Init(mPath, mPlatformFS, mLimit).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
         .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
@@ -331,6 +334,77 @@ TEST_F(SpaceallocatorTest, ResizeSpace)
 
     EXPECT_TRUE(space->Accept().IsNone());
 
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, ResizeSpaceEviction)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+
+    // Leave only 100K free after initial allocation
+    const size_t initialSize = mTotalSize - 100 * cKilobyte;
+
+    auto [space, err] = mSpaceAllocator.AllocateSpace(initialSize);
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_NE(space.Get(), nullptr);
+
+    const size_t outdatedItemSize = 256 * cKilobyte;
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("file1", "", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("file1"), String("")))
+        .WillOnce(Return(RetWithError<size_t>(outdatedItemSize, ErrorEnum::eNone)));
+
+    // Resize needs 200K delta but only 100K available — requires evicting "file1"
+    const size_t newSize = initialSize + 200 * cKilobyte;
+
+    ASSERT_TRUE(space->Resize(newSize).IsNone());
+    ASSERT_EQ(space->Size(), newSize);
+
+    ASSERT_TRUE(space->Accept().IsNone());
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, ResizeSpaceInsufficientSpace)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+
+    // Leave only 100K free after initial allocation
+    const size_t initialSize = mTotalSize - 100 * cKilobyte;
+
+    auto [space, err] = mSpaceAllocator.AllocateSpace(initialSize);
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_NE(space.Get(), nullptr);
+
+    // Resize needs 200K but only 100K available with no outdated items to evict
+    const size_t newSize = initialSize + 200 * cKilobyte;
+
+    ASSERT_EQ(space->Resize(newSize), ErrorEnum::eNoMemory);
+    ASSERT_EQ(space->Size(), initialSize);
+
+    ASSERT_TRUE(space->Release().IsNone());
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }
 

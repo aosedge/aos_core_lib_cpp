@@ -12,6 +12,7 @@
 #include <core/common/tests/mocks/nodehandlermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/time.hpp>
 
 #include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
@@ -40,6 +41,13 @@ const auto                cCVTimeout             = std::chrono::seconds(5);
 /***********************************************************************************************************************
  * Static
  **********************************************************************************************************************/
+
+static StaticArray<UnitInstanceStatus, cMaxNumInstances> sInstanceStatusStorage;
+
+void ResetInstanceStatusStorage()
+{
+    sInstanceStatusStorage.Clear();
+}
 
 void SetNodeInfo(UnitNodeInfo& nodeInfo, const String& nodeID, const String& nodeType,
     const NodeState& state = NodeStateEnum::eProvisioned, bool isConnected = true, Error error = ErrorEnum::eNone)
@@ -151,15 +159,19 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
     instancesStatuses.mPreinstalled = preinstalled;
 
     for (size_t i = 0; i < numInstances; i++) {
-        UnitInstanceStatus instanceStatus;
+        auto err = sInstanceStatusStorage.EmplaceBack();
+        EXPECT_TRUE(err.IsNone());
 
+        auto& instanceStatus = sInstanceStatusStorage.Back();
+
+        instanceStatus                 = {};
         instanceStatus.mInstance       = i;
         instanceStatus.mManifestDigest = "digest1";
         instanceStatus.mNodeID         = "node1";
         instanceStatus.mRuntimeID      = "runtime1";
         instanceStatus.mState          = state;
 
-        auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
+        err = instancesStatuses.mInstances.PushBack(&instanceStatus);
         EXPECT_TRUE(err.IsNone());
     }
 }
@@ -179,15 +191,19 @@ void ChangeInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
     instancesStatuses.mInstances.Clear();
 
     for (size_t i = 0; i < numInstances; i++) {
-        UnitInstanceStatus instanceStatus;
+        auto err = sInstanceStatusStorage.EmplaceBack();
+        EXPECT_TRUE(err.IsNone());
 
+        auto& instanceStatus = sInstanceStatusStorage.Back();
+
+        instanceStatus                 = {};
         instanceStatus.mInstance       = i;
         instanceStatus.mManifestDigest = "digest1";
         instanceStatus.mNodeID         = "node1";
         instanceStatus.mRuntimeID      = "runtime1";
         instanceStatus.mState          = state;
 
-        auto err = instancesStatuses.mInstances.PushBack(instanceStatus);
+        err = instancesStatuses.mInstances.PushBack(&instanceStatus);
         EXPECT_TRUE(err.IsNone());
     }
 }
@@ -295,11 +311,11 @@ void ConvertInstancesStatuses(
             status.mType           = unitInstanceStatus.mType;
             status.mSubjectID      = unitInstanceStatus.mSubjectID;
             status.mVersion        = unitInstanceStatus.mVersion;
-            status.mInstance       = instanceStatus.mInstance;
-            status.mNodeID         = instanceStatus.mNodeID;
-            status.mRuntimeID      = instanceStatus.mRuntimeID;
-            status.mManifestDigest = instanceStatus.mManifestDigest;
-            status.mState          = instanceStatus.mState;
+            status.mInstance       = instanceStatus->mInstance;
+            status.mNodeID         = instanceStatus->mNodeID;
+            status.mRuntimeID      = instanceStatus->mRuntimeID;
+            status.mManifestDigest = instanceStatus->mManifestDigest;
+            status.mState          = instanceStatus->mState;
             status.mPreinstalled   = unitInstanceStatus.mPreinstalled;
 
             instancesStatuses.PushBack(status);
@@ -324,9 +340,11 @@ protected:
 
     void SetUp() override
     {
+        ResetInstanceStatusStorage();
+
         Config config {cUnitStatusSendTimeout};
 
-        auto err = mUpdateManager.Init(config, mIdentProviderMock, mNodeHandlerMock, mUnitConfigMock,
+        auto err = mUpdateManager.Init(mAllocator, config, mIdentProviderMock, mNodeHandlerMock, mUnitConfigMock,
             mNodeInfoProviderMock, mImageManagerMock, mLauncherMock, mCloudConnectionMock, mSenderStub, mStorageStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize update manager: " << tests::utils::ErrorToStr(err);
 
@@ -411,6 +429,10 @@ protected:
         auto err = mUpdateManager.Stop();
         EXPECT_TRUE(err.IsNone()) << "Failed to stop update manager: " << tests::utils::ErrorToStr(err);
     }
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     UpdateManager                                    mUpdateManager;
     NiceMock<iamclient::IdentProviderMock>           mIdentProviderMock;
@@ -608,7 +630,7 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
             EXPECT_TRUE(err.IsNone());
 
             CreateInstanceStatus(statuses->Back(), instancesStatuses.mItemID, instancesStatuses.mSubjectID,
-                instanceStatus.mInstance, instancesStatuses.mVersion, instanceStatus);
+                instanceStatus->mInstance, instancesStatuses.mVersion, *instanceStatus);
         }
     }
 
@@ -627,7 +649,7 @@ TEST_F(UpdateManagerTest, SendDeltaUnitStatus)
             EXPECT_TRUE(err.IsNone());
 
             CreateInstanceStatus(statuses->Back(), instancesStatuses.mItemID, instancesStatuses.mSubjectID,
-                instanceStatus.mInstance, instancesStatuses.mVersion, instanceStatus);
+                instanceStatus->mInstance, instancesStatuses.mVersion, *instanceStatus);
         }
     }
 
@@ -811,11 +833,11 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
                     status.mItemID         = instancesStatuses.mItemID;
                     status.mSubjectID      = instancesStatuses.mSubjectID;
                     status.mVersion        = instancesStatuses.mVersion;
-                    status.mInstance       = instanceStatus.mInstance;
-                    status.mNodeID         = instanceStatus.mNodeID;
-                    status.mRuntimeID      = instanceStatus.mRuntimeID;
-                    status.mManifestDigest = instanceStatus.mManifestDigest;
-                    status.mState          = instanceStatus.mState;
+                    status.mInstance       = instanceStatus->mInstance;
+                    status.mNodeID         = instanceStatus->mNodeID;
+                    status.mRuntimeID      = instanceStatus->mRuntimeID;
+                    status.mManifestDigest = instanceStatus->mManifestDigest;
+                    status.mState          = instanceStatus->mState;
 
                     instances.PushBack(status);
                 }

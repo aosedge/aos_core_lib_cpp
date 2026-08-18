@@ -9,6 +9,7 @@
 
 #include <core/common/tests/mocks/nodeinfoprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/iam/nodemanager/nodemanager.hpp>
 
 #include "mocks/storagemock.hpp"
@@ -28,8 +29,12 @@ protected:
         tests::utils::InitLog();
 
         EXPECT_CALL(mStorage, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eNone));
-        ASSERT_TRUE(mManager.Init(mStorage).IsNone());
+        ASSERT_TRUE(mManager.Init(mAllocator, mStorage).IsNone());
     }
+
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
 
     StorageMock mStorage;
     NodeManager mManager;
@@ -85,7 +90,7 @@ TEST_F(NodeManagerTest, Init)
         return ErrorEnum::eNone;
     }));
 
-    ASSERT_TRUE(mManager.Init(mStorage).IsNone());
+    ASSERT_TRUE(mManager.Init(mAllocator, mStorage).IsNone());
 
     StaticArray<StaticString<cIDLen>, 2> ids;
 

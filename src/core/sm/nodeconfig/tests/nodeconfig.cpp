@@ -9,6 +9,7 @@
 
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/sm/nodeconfig/nodeconfig.hpp>
 
 #include "mocks/jsonprovidermock.hpp"
@@ -75,6 +76,10 @@ protected:
         ASSERT_TRUE(err.IsNone()) << "Failed to create test config file";
     }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     StrictMock<JSONProviderMock> mJSONProvider;
     NodeConfig                   mNodeConfig;
 };
@@ -89,7 +94,7 @@ TEST_F(NodeConfigTest, InitWithValidConfig)
 
     SetupValidNodeConfig();
 
-    auto err = mNodeConfig.Init({cTestConfigFile}, mJSONProvider);
+    auto err = mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 }
@@ -100,14 +105,14 @@ TEST_F(NodeConfigTest, InitWithInvalidConfig)
 
     EXPECT_CALL(mJSONProvider, NodeConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
 
-    auto err = mNodeConfig.Init({cTestConfigFile}, mJSONProvider);
+    auto err = mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 }
 
 TEST_F(NodeConfigTest, InitWithMissingConfigFile)
 {
-    auto err = mNodeConfig.Init({cTestConfigFile}, mJSONProvider);
+    auto err = mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 
@@ -125,7 +130,7 @@ TEST_F(NodeConfigTest, GetNodeConfigStatusValid)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     NodeConfigStatus status;
     auto             err = mNodeConfig.GetNodeConfigStatus(status);
@@ -142,7 +147,7 @@ TEST_F(NodeConfigTest, GetNodeConfigStatusWithError)
 
     EXPECT_CALL(mJSONProvider, NodeConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
 
-    auto err = mNodeConfig.Init({cTestConfigFile}, mJSONProvider);
+    auto err = mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider);
 
     EXPECT_TRUE(err.IsNone());
 
@@ -160,7 +165,7 @@ TEST_F(NodeConfigTest, GetNodeConfig)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     aos::NodeConfig config;
     auto            err = mNodeConfig.GetNodeConfig(config);
@@ -177,7 +182,7 @@ TEST_F(NodeConfigTest, CheckNodeConfigValidVersion)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     auto newConfig = CreateTestNodeConfig("2.0.0");
 
@@ -191,7 +196,7 @@ TEST_F(NodeConfigTest, CheckNodeConfigSameVersion)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     auto sameVersionConfig = CreateTestNodeConfig("1.0.0");
 
@@ -205,7 +210,7 @@ TEST_F(NodeConfigTest, CheckNodeConfigLowerVersion)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     auto lowerVersionConfig = CreateTestNodeConfig("0.9.0");
 
@@ -219,7 +224,7 @@ TEST_F(NodeConfigTest, CheckNodeConfigWithFailedState)
 
     EXPECT_CALL(mJSONProvider, NodeConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     auto newConfig = CreateTestNodeConfig("2.0.0");
 
@@ -233,7 +238,7 @@ TEST_F(NodeConfigTest, UpdateNodeConfigSuccess)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     auto newConfig = CreateTestNodeConfig("2.0.0");
 
@@ -255,7 +260,7 @@ TEST_F(NodeConfigTest, UpdateNodeConfigSameVersion)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     auto sameVersionConfig = CreateTestNodeConfig("1.0.0");
 
@@ -265,7 +270,7 @@ TEST_F(NodeConfigTest, UpdateNodeConfigSameVersion)
 
 TEST_F(NodeConfigTest, UpdateNodeConfigFromAbsentState)
 {
-    auto err = mNodeConfig.Init({cTestConfigFile}, mJSONProvider);
+    auto err = mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider);
     EXPECT_TRUE(err.IsNone());
 
     auto newConfig = CreateTestNodeConfig("1.0.0");
@@ -289,7 +294,7 @@ TEST_F(NodeConfigTest, SubscribeAndNotifyListener)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     class TestListener : public aos::nodeconfig::NodeConfigListenerItf {
     public:
@@ -325,7 +330,7 @@ TEST_F(NodeConfigTest, UnsubscribeListener)
 
     SetupValidNodeConfig();
 
-    ASSERT_TRUE(mNodeConfig.Init({cTestConfigFile}, mJSONProvider).IsNone());
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
     class TestListener : public aos::nodeconfig::NodeConfigListenerItf {
     public:

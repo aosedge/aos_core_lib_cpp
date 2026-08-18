@@ -83,15 +83,12 @@ TEST_F(AlertProcessorTest, CheckRulePointAlertDetection)
 {
     const ResourceType       resourceType = ResourceTypeEnum::eDownload;
     const AlertRulePoints    rulePoints   = {Time::cSeconds, 90, 95};
-    const ResourceIdentifier id           = {ResourceLevelEnum::eSystem, resourceType.GetValue(), {}, {}};
+    const String             nodeID       = "node-id";
+    const ResourceIdentifier id           = {nodeID, ResourceLevelEnum::eSystem, resourceType.GetValue(), {}};
 
     AlertProcessor alertProcessor;
 
-    {
-        AlertVariant alertTemplate;
-        alertTemplate.SetValue<SystemQuotaAlert>(CreateSystemQuotaAlert("node-id", resourceType.ToString(), 0));
-        ASSERT_TRUE(alertProcessor.Init(id, rulePoints, mAlertSender, alertTemplate).IsNone());
-    }
+    ASSERT_TRUE(alertProcessor.Init(id, rulePoints, mAlertSender).IsNone());
 
     Time currentTime = Time::Now();
 

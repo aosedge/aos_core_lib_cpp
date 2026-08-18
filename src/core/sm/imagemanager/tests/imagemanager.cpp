@@ -15,6 +15,7 @@
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #include <core/sm/imagemanager/imagemanager.hpp>
 
@@ -175,7 +176,7 @@ protected:
     {
         Config config {cTestImagePath, 0, cUpdateItemTTL, cRemoveOutdatedPeriod};
 
-        auto err = mImageManager.Init(config, mBlobInfoProviderMock, mSpaceAllocatorMock, mDownloaderMock,
+        auto err = mImageManager.Init(mAllocator, config, mBlobInfoProviderMock, mSpaceAllocatorMock, mDownloaderMock,
             mFileInfoProviderMock, mOCISpecMock, mImageHandlerMock, mStorageStub);
         EXPECT_TRUE(err.IsNone()) << "Failed to initialize image manager: " << tests::utils::ErrorToStr(err);
 
@@ -217,15 +218,18 @@ protected:
         EXPECT_TRUE(err.IsNone()) << "Failed to remove test image path: " << tests::utils::ErrorToStr(err);
     }
 
-    ImageManager                                           mImageManager;
-    NiceMock<BlobInfoProviderMock>                         mBlobInfoProviderMock;
-    NiceMock<spaceallocator::SpaceAllocatorMock>           mSpaceAllocatorMock;
-    NiceMock<downloader::DownloaderMock>                   mDownloaderMock;
-    NiceMock<fs::FileInfoProviderMock>                     mFileInfoProviderMock;
-    NiceMock<oci::OCISpecMock>                             mOCISpecMock;
-    NiceMock<ImageHandlerMock>                             mImageHandlerMock;
-    StorageStub                                            mStorageStub;
-    StaticAllocator<1 * sizeof(spaceallocator::SpaceMock)> mAllocator;
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
+    ImageManager                                 mImageManager;
+    NiceMock<BlobInfoProviderMock>               mBlobInfoProviderMock;
+    NiceMock<spaceallocator::SpaceAllocatorMock> mSpaceAllocatorMock;
+    NiceMock<downloader::DownloaderMock>         mDownloaderMock;
+    NiceMock<fs::FileInfoProviderMock>           mFileInfoProviderMock;
+    NiceMock<oci::OCISpecMock>                   mOCISpecMock;
+    NiceMock<ImageHandlerMock>                   mImageHandlerMock;
+    StorageStub                                  mStorageStub;
 };
 
 /***********************************************************************************************************************
@@ -459,15 +463,30 @@ TEST_F(ImageManagerTest, GetAllInstalledItems)
 TEST_F(ImageManagerTest, RemoveOutdatedItems)
 {
     std::vector<UpdateItemData> initialItems = {
-        {"item1", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved,
+        {"item1", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111", ItemStateEnum::eRemoved,
             Time::Now().Add(-(cUpdateItemTTL + 1 * Time::cSeconds))},
-        {"item2", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved,
+        {"item2", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222", ItemStateEnum::eRemoved,
             Time::Now().Add(-(cUpdateItemTTL + 1 * Time::cSeconds))},
-        {"item3", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved, Time::Now()},
-        {"item4", UpdateItemTypeEnum::eService, "1.0.0", "", ItemStateEnum::eRemoved, Time::Now()},
+        {"item3", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333", ItemStateEnum::eRemoved,
+            Time::Now()},
+        {"item4", UpdateItemTypeEnum::eService, "1.0.0",
+            "sha256:4444444444444444444444444444444444444444444444444444444444444444", ItemStateEnum::eRemoved,
+            Time::Now()},
     };
 
     mStorageStub.Init(initialItems);
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.image.config.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 512;
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(_, _))
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
 
     // Expect adding outdated items to space allocator for all deleted items
 
@@ -969,6 +988,72 @@ TEST_F(ImageManagerTest, RemoveOrphanLayers)
         EXPECT_EQ(GetLayerPath(imageConfig->mRootfs.mDiffIDs[0]), entry.path().c_str())
             << "Orphan layer not removed: " << entry.path().c_str();
     }
+}
+
+TEST_F(ImageManagerTest, RemoveOrphansPreservesInstallingBlobs)
+{
+    // Verify that blobs being downloaded during an active install are not deleted as orphans
+    // when RemoveOrphans runs concurrently via RemoveItem (called by the space allocator).
+
+    constexpr auto cManifestDigest = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+
+    UpdateItemInfo itemInfo {"component1", UpdateItemTypeEnum::eComponent, "1.0.0", cManifestDigest};
+
+    auto manifestPath = GetBlobPath(cManifestDigest);
+
+    auto imageManifest = std::make_unique<oci::ImageManifest>();
+
+    imageManifest->mConfig.mMediaType = "application/vnd.oci.empty.v1+json";
+    imageManifest->mConfig.mDigest    = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
+    imageManifest->mConfig.mSize      = 2;
+
+    // Block the manifest download after the file is created so RemoveOrphans can run
+    // while the install is still in progress.
+
+    std::promise<void> downloadStartedPromise;
+    std::promise<void> downloadResumePromise;
+
+    auto downloadStartedFuture = downloadStartedPromise.get_future();
+    auto downloadResumeFuture  = downloadResumePromise.get_future();
+
+    EXPECT_CALL(mDownloaderMock, Download(String(cManifestDigest), _, manifestPath))
+        .WillOnce(Invoke([&](const String&, const String&, const String& path) -> Error {
+            CreateFile(path.CStr());
+            downloadStartedPromise.set_value();
+            downloadResumeFuture.wait();
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mFileInfoProviderMock, GetFileInfo(_, _, _))
+        .WillOnce(DoAll(SetArgReferee<1>(GetFileInfoByDigest(cManifestDigest)), Return(ErrorEnum::eNone)));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageManifest(manifestPath, _))
+        .WillOnce(DoAll(SetArgReferee<1>(*imageManifest), Return(ErrorEnum::eNone)));
+
+    // Install in background: will block inside the manifest downloader.
+
+    auto installFuture = std::async(std::launch::async, [&]() { return mImageManager.InstallUpdateItem(itemInfo); });
+
+    // Wait until the manifest file exists on disk and the digest is already recorded
+    // in the installing item's blob list (added by InstallBlob before calling Download).
+
+    ASSERT_EQ(downloadStartedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+    // Trigger RemoveOrphans via ItemRemoverItf (as the space allocator would do).
+    // The manifest blob exists on disk but is not yet in storage — without AddInstallingItems
+    // it would be treated as an orphan and deleted.
+
+    static_cast<spaceallocator::ItemRemoverItf*>(&mImageManager)->RemoveItem("nonexistent", "1.0.0");
+
+    EXPECT_TRUE(std::filesystem::exists(manifestPath.CStr()))
+        << "Manifest blob was incorrectly deleted as orphan during active install";
+
+    // Let the download finish and verify the install completes successfully.
+
+    downloadResumePromise.set_value();
+
+    auto err = installFuture.get();
+    EXPECT_TRUE(err.IsNone()) << "Install failed: " << tests::utils::ErrorToStr(err);
 }
 
 } // namespace aos::sm::imagemanager

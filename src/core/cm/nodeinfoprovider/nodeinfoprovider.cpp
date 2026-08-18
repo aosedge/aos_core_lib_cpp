@@ -14,10 +14,12 @@ namespace aos::cm::nodeinfoprovider {
  * Public
  **********************************************************************************************************************/
 
-Error NodeInfoProvider::Init(const Config& config, iamclient::NodeInfoProviderItf& nodeInfoProvider)
+Error NodeInfoProvider::Init(
+    AllocatorItf& allocator, const Config& config, iamclient::NodeInfoProviderItf& nodeInfoProvider)
 {
     LOG_DBG() << "Init node info provider";
 
+    mAllocator        = &allocator;
     mNodeInfoProvider = &nodeInfoProvider;
 
     mConfig = config;
@@ -35,14 +37,20 @@ Error NodeInfoProvider::Start()
         return ErrorEnum::eWrongState;
     }
 
-    auto ids = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    auto ids = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(mAllocator);
+    if (!ids) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mNodeInfoProvider->GetAllNodeIDs(*ids); !err.IsNone()) {
         return err;
     }
 
     for (const auto& id : *ids) {
-        auto nodeInfo = MakeUnique<NodeInfo>(&mAllocator);
+        auto nodeInfo = MakeUnique<NodeInfo>(mAllocator);
+        if (!nodeInfo) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -249,7 +257,12 @@ NodeInfoCache* NodeInfoProvider::AddOrGetCacheItem(const String& nodeID)
 
 void NodeInfoProvider::NotifyListeners(const NodeInfoCache& info)
 {
-    auto unitNodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+    auto unitNodeInfo = MakeUnique<UnitNodeInfo>(mAllocator);
+    if (!unitNodeInfo) {
+        LOG_ERR() << "Can't allocate unit node info" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
 
     info.GetUnitNodeInfo(*unitNodeInfo);
 

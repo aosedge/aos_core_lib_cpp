@@ -7,13 +7,44 @@
 #ifndef AOS_CORE_SM_NETWORKMANAGER_ITF_INTERFACEMANAGER_HPP_
 #define AOS_CORE_SM_NETWORKMANAGER_ITF_INTERFACEMANAGER_HPP_
 
+#include <core/common/tools/enum.hpp>
 #include <core/common/types/common.hpp>
+#include <core/common/types/network.hpp>
 
 namespace aos::sm::networkmanager {
 
 /** @addtogroup sm Service Manager
  *  @{
  */
+
+/**
+ * Link kind type.
+ */
+class LinkKindType {
+public:
+    enum class Enum { eUnknown, eBridge, eVlan, eVeth };
+
+    static const Array<const char* const> GetStrings()
+    {
+        static const char* const sLinkKindStrings[] = {"unknown", "bridge", "vlan", "veth"};
+
+        return Array<const char* const>(sLinkKindStrings, ArraySize(sLinkKindStrings));
+    };
+};
+
+using LinkKindEnum = LinkKindType::Enum;
+using LinkKind     = EnumStringer<LinkKindType>;
+
+/**
+ * Network link attributes as seen on the system.
+ */
+struct LinkInfo {
+    StaticString<cInterfaceLen> mName;
+    LinkKind                    mKind;
+    StaticString<cInterfaceLen> mMaster;
+    uint64_t                    mVlanID {};
+    bool                        mUp {};
+};
 
 /**
  * Network interface manager interface.
@@ -24,6 +55,15 @@ public:
      * Destructor.
      */
     virtual ~InterfaceManagerItf() = default;
+
+    /**
+     * Returns link attributes as they are on the system.
+     *
+     * @param ifname interface name.
+     * @param[out] info link attributes.
+     * @return Error, eNotFound if the link doesn't exist.
+     */
+    virtual Error GetLink(const String& ifname, LinkInfo& info) const = 0;
 
     /**
      * Removes interface.
@@ -63,6 +103,37 @@ public:
      * @return Error.
      */
     virtual Error CreateVeth(const String& hostIfName, const String& peerIfName) = 0;
+
+    /**
+     * Creates a veth pair with the peer placed directly into the given network
+     * namespace, already named as peerIfName. The host side stays in the
+     * current namespace. Combines veth creation, namespace move and rename into
+     * a single netlink operation.
+     *
+     * @param hostIfName host-side veth name (current namespace).
+     * @param peerIfName peer-side veth name inside the target namespace.
+     * @param netNSPath path to the target netns (e.g. /run/netns/<id>).
+     * @param master master bridge name to enslave the host side to in the same
+     *               operation; empty for none.
+     * @return Error.
+     */
+    virtual Error CreateVethToNamespace(
+        const String& hostIfName, const String& peerIfName, const String& netNSPath, const String& master)
+        = 0;
+
+    /**
+     * Configures an interface inside a network namespace in a single namespace
+     * entry: brings it up, assigns the address and installs the default route.
+     *
+     * @param ifname interface name inside the namespace.
+     * @param ipWithMask IP in CIDR form, e.g. "10.0.0.5/24".
+     * @param gateway default-route gateway IP.
+     * @param netNSPath path to the instance netns.
+     * @return Error.
+     */
+    virtual Error ConfigureInstanceInterface(
+        const String& ifname, const String& ipWithMask, const String& gateway, const String& netNSPath)
+        = 0;
 
     /**
      * Moves a link into a network namespace identified by its /run/netns path.

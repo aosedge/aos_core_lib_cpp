@@ -14,9 +14,10 @@ namespace aos::cm::launcher {
  * Public
  **********************************************************************************************************************/
 
-void Balancer::Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-    MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
+void Balancer::Init(AllocatorItf& allocator, InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider,
+    NodeManager& nodeManager, MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner)
 {
+    mAllocator         = &allocator;
     mInstanceManager   = &instanceManager;
     mImageInfoProvider = &imageInfoProvider;
     mNodeManager       = &nodeManager;
@@ -91,12 +92,20 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
-        auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+        auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
+        if (!imageIndex) {
+            LOG_ERR() << "Can't allocate image index" << Log::Field("instance", id) << Log::Field(ErrorEnum::eNoMemory);
+
+            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+            continue;
+        }
 
         if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
+
             continue;
         }
 
@@ -106,8 +115,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            scheduleErr = ScheduleInstance(instance, manifest);
-            if (scheduleErr.IsNone()) {
+            if (scheduleErr = ScheduleInstance(instance, manifest); scheduleErr.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
                 break;
@@ -126,7 +134,10 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
 Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor)
 {
-    auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(&mAllocator);
+    auto nodes = MakeUnique<StaticArray<Node*, cMaxNumNodes>>(mAllocator);
+    if (!nodes) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
 
@@ -149,7 +160,7 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
     }
 
     // Schedule instance
-    auto&       node    = nodeRuntime.mFirst;
+    const auto& node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
     if (auto err = mInstanceManager->ScheduleInstance(instance, *node, runtime->mRuntimeID); !err.IsNone()) {
@@ -194,9 +205,12 @@ void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
     nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
 }
 
-RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, Array<Node*>& nodes)
+RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
 {
-    auto nodeRuntimes = MakeUnique<NodeRuntimes>(&mAllocator);
+    auto nodeRuntimes = MakeUnique<NodeRuntimes>(mAllocator);
+    if (!nodeRuntimes) {
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     if (auto err = CreateRuntimes(nodes, *nodeRuntimes); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -265,7 +279,7 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
     return {result, ErrorEnum::eNone};
 }
 
-Error Balancer::CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes)
+Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes)
 {
     for (auto node : nodes) {
         if (auto err = runtimes.Emplace(node); !err.IsNone()) {
@@ -339,7 +353,7 @@ void Balancer::FilterByCPU(Instance& instance, NodeRuntimes& nodes)
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         auto availCPU = node->GetAvailableCPU(runtime->mRuntimeID);
 
-        return instance.IsAvailableCpuOk(availCPU, node->GetConfig(), node->NeedBalancing());
+        return instance.IsAvailableCpuOk(availCPU, *node);
     };
 
     FilterRuntimes(nodes, filter);
@@ -350,7 +364,7 @@ void Balancer::FilterByRAM(Instance& instance, NodeRuntimes& nodes)
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         auto availRAM = node->GetAvailableRAM(runtime->mRuntimeID);
 
-        return instance.IsAvailableRamOk(availRAM, node->GetConfig(), node->NeedBalancing());
+        return instance.IsAvailableRamOk(availRAM, *node);
     };
 
     FilterRuntimes(nodes, filter);
@@ -384,7 +398,10 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 
 Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 {
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
+    if (!imageIndex) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (auto& instance : instances) {
         const auto& info    = instance->GetInfo();
@@ -444,6 +461,12 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
+        if (!node->IsConnected() || node->GetInfo().mState != NodeStateEnum::eProvisioned) {
+            LOG_WRN() << "Node is skipped from balancing" << Log::Field("nodeID", info.mNodeID);
+
+            continue;
+        }
+
         if (auto err = mInstanceManager->ScheduleInstance(instance, *node, info.mRuntimeID); !err.IsNone()) {
             LOG_WRN() << "Can't schedule instance" << Log::Field("instance", id) << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -459,7 +482,10 @@ Error Balancer::UpdateMonitoringData(bool isInitialUpdate)
     for (auto& node : mNodeManager->GetNodes()) {
         const auto& nodeID = node.GetInfo().mNodeID;
 
-        auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(&mAllocator);
+        auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(mAllocator);
+        if (!nodeMonitoring) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         // Monitoring data immediately after startup is not availble.
         // Assign zero consumption on start.

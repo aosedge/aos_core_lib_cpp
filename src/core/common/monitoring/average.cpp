@@ -47,8 +47,10 @@ void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
  * Public
  **********************************************************************************************************************/
 
-Error Average::Init(size_t windowCount)
+Error Average::Init(AllocatorItf& allocator, size_t windowCount)
 {
+    mAllocator = &allocator;
+
     mWindowCount = windowCount;
     if (mWindowCount == 0) {
         mWindowCount = 1;
@@ -80,6 +82,10 @@ Error Average::Update(const NodeMonitoringData& data)
             !err.IsNone()) {
             return err;
         }
+
+        if (auto err = averageInstance->mSecond.mRuntimeID.Assign(instance.mRuntimeID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -95,6 +101,10 @@ Error Average::GetData(NodeMonitoringData& data) const
 
     for (const auto& [instanceIdent, averageMonitoringData] : mAverageInstancesData) {
         if (auto err = data.mInstances.EmplaceBack(instanceIdent); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = data.mInstances.Back().mRuntimeID.Assign(averageMonitoringData.mRuntimeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -116,7 +126,10 @@ Error Average::StartInstanceMonitoring(const InstanceIdent& instanceIdent)
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
-    auto averageData = MakeUnique<AverageData>(&mAllocator);
+    auto averageData = MakeUnique<AverageData>(mAllocator);
+    if (!averageData) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mAverageInstancesData.Set(instanceIdent, *averageData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

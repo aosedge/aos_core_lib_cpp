@@ -11,12 +11,16 @@
 
 namespace aos::test {
 
-Error SoftHSMEnv::Init(
-    const String& pin, const String& label, const char* confFile, const char* tokensDir, const char* libPath)
+Error SoftHSMEnv::Init(AllocatorItf& allocator, const String& pin, const String& label, const char* confFile,
+    const char* tokensDir, const char* libPath)
 {
     // Clear softhsm directory
     fs::ClearDir(tokensDir);
     setenv("SOFTHSM2_CONF", confFile, true);
+
+    if (auto err = mManager.Init(allocator); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     mLibrary = mManager.OpenLibrary(libPath);
     if (!mLibrary) {

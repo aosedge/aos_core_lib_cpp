@@ -27,9 +27,10 @@ public:
     /**
      * Initializes the object.
      *
+     * @param allocator allocator to use for temporary and key objects.
      * @result Error.
      */
-    Error Init();
+    Error Init(AllocatorItf& allocator);
 
     /**
      * Creates a new certificate based on a template.
@@ -396,11 +397,6 @@ private:
         mutable mbedtls_pk_context mPrivKey;
     };
 
-    static constexpr auto cAllocatorSize
-        = AOS_CONFIG_CRYPTO_PUB_KEYS_COUNT * Max(sizeof(RSAPublicKey), sizeof(ECDSAPublicKey))
-        + AOS_CONFIG_CRYPTO_HASHER_COUNT * sizeof(MBedTLSHash)
-        + AOS_CONFIG_CRYPTO_PRIV_KEYS_COUNT * sizeof(MbedTLSRSAPrivKey);
-
     static int                             VerifyTime(void* data, mbedtls_x509_crt* crt, int depth, uint32_t* flags);
     static RetWithError<Time>              ConvertTime(const mbedtls_x509_time& src);
     static RetWithError<mbedtls_x509_time> ConvertTime(const Time& src);
@@ -432,7 +428,7 @@ private:
         mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent);
     Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ);
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::crypto

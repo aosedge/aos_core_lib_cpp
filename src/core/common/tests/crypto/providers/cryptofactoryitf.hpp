@@ -28,9 +28,10 @@ public:
     /**
      * Initializes crypto factory.
      *
+     * @param allocator allocator to use for crypto provider.
      * @return Error.
      */
-    virtual Error Init() = 0;
+    virtual Error Init(AllocatorItf& allocator) = 0;
 
     /**
      * Returns crypto factory name.

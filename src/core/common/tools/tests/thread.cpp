@@ -240,13 +240,11 @@ TEST(ThreadTest, ThreadPool)
     }
 
     EXPECT_TRUE(threadPool.Run().IsNone());
-    EXPECT_TRUE(threadPool.Wait().IsNone());
+    EXPECT_TRUE(threadPool.Shutdown().IsNone());
 
     EXPECT_EQ(value1, i);
     EXPECT_EQ(value2, i);
     EXPECT_EQ(value3, i);
-
-    EXPECT_TRUE(threadPool.Shutdown().IsNone());
 }
 
 TEST(ThreadTest, SemaphoreTest)

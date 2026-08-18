@@ -40,12 +40,13 @@ public:
     /**
      * Initializes alerts.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config configuration object.
      * @param sender alerts sender object.
      * @param cloudConnection cloud connection.
      * @return Error.
      */
-    Error Init(const alerts::Config& config, cm::alerts::SenderItf& sender,
+    Error Init(AllocatorItf& allocator, const alerts::Config& config, cm::alerts::SenderItf& sender,
         cloudconnection::CloudConnectionItf& cloudConnection);
 
     /**
@@ -96,7 +97,6 @@ public:
     Error UnsubscribeListener(AlertsListenerItf& listener) override;
 
 private:
-    static constexpr auto cAllocatorSize     = sizeof(AlertVariant) + sizeof(aos::Alerts);
     static constexpr auto cListenersMaxCount = 4;
     static constexpr auto cAlertTagsCount    = static_cast<size_t>(AlertTagEnum::eNumAlertTags);
 
@@ -111,7 +111,7 @@ private:
     void                   ShrinkCache(size_t count);
     void                   NotifyListeners(const AlertVariant& alert);
 
-    StaticAllocator<cAllocatorSize>                      mAllocator;
+    AllocatorItf*                                        mAllocator {};
     alerts::Config                                       mConfig;
     cm::alerts::SenderItf*                               mSender {};
     cloudconnection::CloudConnectionItf*                 mCloudConnection {};

@@ -4,28 +4,42 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "nodemanager.hpp"
-
 #include <core/common/tools/logger.hpp>
-#include <core/common/tools/memory.hpp>
+
+#include "nodemanager.hpp"
+#include "utils.hpp"
 
 namespace aos::cm::launcher {
+
+auto FilterActiveNodes(Array<Node>& array)
+{
+    auto cmp
+        = [](const Node& node) { return node.IsConnected() && node.GetInfo().mState == NodeStateEnum::eProvisioned; };
+
+    return Filter(array, cmp);
+}
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-void NodeManager::Init(nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner)
+void NodeManager::Init(AllocatorItf& allocator, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    unitconfig::NodeConfigProviderItf& nodeConfigProvider, InstanceRunnerItf& runner,
+    OverrideEnvVarsProcessor& overrideEnvVarsProcessor)
 {
-    mNodeInfoProvider   = &nodeInfoProvider;
-    mNodeConfigProvider = &nodeConfigProvider;
-    mRunner             = &runner;
+    mAllocator                = &allocator;
+    mNodeInfoProvider         = &nodeInfoProvider;
+    mNodeConfigProvider       = &nodeConfigProvider;
+    mRunner                   = &runner;
+    mOverrideEnvVarsProcessor = &overrideEnvVarsProcessor;
 }
 
 Error NodeManager::Start()
 {
-    auto nodes = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(&mAllocator);
+    auto nodes = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumNodes>>(mAllocator);
+    if (!nodes) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mNodeInfoProvider->GetAllNodeIDs(*nodes); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -33,7 +47,10 @@ Error NodeManager::Start()
 
     LOG_DBG() << "Start node manager" << Log::Field("nodes", nodes->Size());
 
-    auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+    auto nodeInfo = MakeUnique<UnitNodeInfo>(mAllocator);
+    if (!nodeInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (const auto& nodeID : *nodes) {
         if (auto err = mNodeInfoProvider->GetNodeInfo(nodeID, *nodeInfo); !err.IsNone()) {
@@ -49,7 +66,7 @@ Error NodeManager::Start()
         // Add online provisioned node
         mNodes.EmplaceBack();
 
-        mNodes.Back().Init(nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
+        mNodes.Back().Init(*mAllocator, nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
         mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
@@ -69,6 +86,8 @@ Error NodeManager::Stop()
 
 Error NodeManager::PrepareForBalancing(bool rebalancing)
 {
+    // Launcher utilizes scheduling implementation to load SM data for active instances on startup
+    // so we need to prepare for balancing all nodes.
     for (auto& node : mNodes) {
         node.PrepareForBalancing(rebalancing);
     }
@@ -93,11 +112,19 @@ Error NodeManager::LoadSMDataForActiveInstances(
         if (node == nullptr) {
             LOG_ERR() << "Can't find node" << Log::Field("instanceID", instanceID) << Log::Field("nodeID", nodeID)
                       << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNotFound));
+
             continue;
         }
 
-        auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(&mAllocator);
-        auto findDescErr     = FindImageDescriptor(
+        auto imageDescriptor = MakeUnique<oci::IndexContentDescriptor>(mAllocator);
+        if (!imageDescriptor) {
+            LOG_ERR() << "Can't allocate image descriptor" << Log::Field("instanceID", instanceID)
+                      << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+            continue;
+        }
+
+        auto findDescErr = FindImageDescriptor(
             instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
         if (!findDescErr.IsNone()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
@@ -114,7 +141,7 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        if (auto err = instance->Schedule(*node, runtimeID); !err.IsNone()) {
+        if (auto err = instance->LoadSMInfo(*node, runtimeID); !err.IsNone()) {
             LOG_ERR() << "Can't load instance" << Log::Field("nodeID", nodeID) << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -134,7 +161,7 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
             return AOS_ERROR_WRAP(err);
         }
 
-        mNodes.Back().Init(nodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
+        mNodes.Back().Init(*mAllocator, nodeID, *mNodeConfigProvider, *mRunner);
 
         node = FindNode(nodeID);
     }
@@ -158,7 +185,7 @@ Error NodeManager::GetConnectedNodes(Array<Node*>& nodes)
 {
     nodes.Clear();
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         if (auto err = nodes.PushBack(&node); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -187,12 +214,36 @@ Array<Node>& NodeManager::GetNodes()
     return mNodes;
 }
 
+Error NodeManager::ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instances)
+{
+    Error firstErr = ErrorEnum::eNone;
+
+    auto overrideEnvVars = mOverrideEnvVarsProcessor->GetOverrideEnvVars();
+
+    for (auto& instance : instances) {
+        if (auto [changed, err] = instance->OverrideEnvVars(*overrideEnvVars); !err.IsNone()) {
+            LOG_ERR() << "Can't override env vars" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
+                      << Log::Field(err);
+
+            if (firstErr.IsNone()) {
+                firstErr = err;
+            }
+        }
+    }
+
+    return firstErr;
+}
+
 Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
     const Array<InstanceStatus>& runningInstances)
 {
     Error firstErr = ErrorEnum::eNone;
 
-    for (auto& node : mNodes) {
+    if (auto err = ApplyOverrideEnvVars(scheduledInstances); !err.IsNone()) {
+        return err;
+    }
+
+    for (auto& node : FilterActiveNodes(mNodes)) {
         auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
@@ -211,7 +262,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
     // Wait for node statuses
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -223,6 +274,8 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
         return AOS_ERROR_WRAP(err);
     }
 
+    mOverrideEnvVarsProcessor->SendStatuses();
+
     return ErrorEnum::eNone;
 }
 
@@ -231,9 +284,13 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
 {
     Error firstErr = ErrorEnum::eNone;
 
+    if (auto err = ApplyOverrideEnvVars(activeInstances); !err.IsNone()) {
+        return err;
+    }
+
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : mNodes) {
+    for (auto& node : FilterActiveNodes(mNodes)) {
         if (!updatedNodes.Contains(node.GetInfo().mNodeID)) {
             continue;
         }
@@ -267,6 +324,8 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
         return AOS_ERROR_WRAP(err);
     }
 
+    mOverrideEnvVarsProcessor->SendStatuses();
+
     return ErrorEnum::eNone;
 }
 
@@ -281,12 +340,6 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 
     auto* node = FindNode(info.mNodeID);
     if (node != nullptr) {
-        if (info.mState != NodeStateEnum::eProvisioned) {
-            mNodes.Erase(node);
-
-            return true;
-        }
-
         return node->UpdateInfo(info);
     } else {
         if (info.mState != NodeStateEnum::eProvisioned) {
@@ -299,7 +352,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
             return false;
         }
 
-        mNodes.Back().Init(info.mNodeID, *mNodeConfigProvider, *mRunner, &mNodeAllocator);
+        mNodes.Back().Init(*mAllocator, info.mNodeID, *mNodeConfigProvider, *mRunner);
         mNodes.Back().UpdateInfo(info);
 
         return true;
@@ -313,7 +366,10 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 Error NodeManager::FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
     ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor)
 {
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
+    if (!imageIndex) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = imageInfoProvider.GetImageIndex(itemID, version, *imageIndex); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

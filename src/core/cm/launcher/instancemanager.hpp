@@ -34,6 +34,7 @@ public:
     /**
      * Initializes the instance manager with configuration and required interfaces.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config Configuration object.
      * @param imageInfoProvider Interface for retrieving service information from images.
      * @param storageState Interface for managing storage and state partitions.
@@ -42,7 +43,7 @@ public:
      * @param storage Interface to persistent storage.
      * @return Error.
      */
-    Error Init(const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
         storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
         IdentifierPoolValidator uidValidator, StorageItf& storage);
 
@@ -186,9 +187,8 @@ public:
      * Disables instance.
      *
      * @param instance instance.
-     * @return Error.
      */
-    Error DisableInstance(SharedPtr<Instance>& instance);
+    void DisableInstance(SharedPtr<Instance>& instance);
 
     /**
      * Updates monitoring data for active instances.
@@ -249,20 +249,11 @@ public:
      */
     Error ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
 
-    /**
-     * Overrides environment variables.
-     *
-     * @param envVars environment variables.
-     * @return bool true if env vars changed, false otherwise.
-     */
-    bool OverrideEnvVars(const OverrideEnvVarsRequest& envVars);
-
 private:
-    static constexpr auto cRemovePeriod  = Time::cDay;
-    static constexpr auto cAllocatorSize = Max(sizeof(ComponentInstance), sizeof(ServiceInstance)) * cMaxNumInstances
-        + sizeof(InstanceInfo) * cMaxNumInstances + sizeof(InstanceInfo) + sizeof(oci::ImageIndex);
-    static constexpr auto cInstanceAllocatorSize = sizeof(oci::ImageConfig) + sizeof(oci::ItemConfig)
-        + sizeof(InstanceStatus) + sizeof(oci::ImageIndex) + sizeof(EnvVarArray);
+    static constexpr auto cRemovePeriod = Time::cDay;
+
+    Error SetStatus(const InstanceStatus& status);
+    Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status);
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
@@ -273,6 +264,8 @@ private:
     Error ClearInstancesWithDeletedImages();
     template <typename Predicate>
     Error RemoveInstances(Array<SharedPtr<Instance>>& instances, Predicate predicate) const;
+
+    void ClearCacheIfLimitReached();
 
     RetWithError<SharedPtr<Instance>> CreateInstance(const InstanceInfo& info);
 
@@ -304,8 +297,7 @@ private:
     Timer mCleanInstancesTimer;
     Timer mInitTimer;
 
-    StaticAllocator<cAllocatorSize, cMaxNumInstances> mAllocator;
-    StaticAllocator<cInstanceAllocatorSize>           mInstanceAllocator;
+    AllocatorItf* mAllocator {};
 
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mActiveInstances;
     StaticArray<SharedPtr<Instance>, cMaxNumInstances> mScheduledInstances;
@@ -314,8 +306,7 @@ private:
     StaticArray<InstanceStatus, cMaxNumInstances> mPreinstalledComponents;
     StaticArray<InstanceStatus, cMaxNumInstances> mRunningInstances;
 
-    SubjectArray           mSubjects;
-    OverrideEnvVarsRequest mEnvVarsOverrides;
+    SubjectArray mSubjects;
 };
 
 /**

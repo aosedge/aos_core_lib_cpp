@@ -14,14 +14,15 @@ namespace aos::cm::imagemanager {
  * Public
  **********************************************************************************************************************/
 
-Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProviderItf& blobInfoProvider,
-    spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
+Error ImageManager::Init(AllocatorItf& allocator, const Config& config, StorageItf& storage,
+    BlobInfoProviderItf& blobInfoProvider, spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
     spaceallocator::SpaceAllocatorItf& installSpaceAllocator, downloader::DownloaderItf& downloader,
     fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& cryptoHelper,
     fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec)
 {
     LOG_DBG() << "Init image manager";
 
+    mAllocator                 = &allocator;
     mConfig                    = config;
     mStorage                   = &storage;
     mBlobInfoProvider          = &blobInfoProvider;
@@ -33,7 +34,7 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
     mFileInfoProvider          = &fileInfoProvider;
     mOCISpec                   = &ociSpec;
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumStoredItems>>(mAllocator);
     if (!items) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -51,10 +52,6 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, BlobInfoProv
     mBlobsDownloadPath = fs::JoinPath(mConfig.mDownloadPath, cBlobsDirName);
 
     if (auto err = fs::MakeDirAll(mBlobsDownloadPath); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = AllocateSpaceForPartialDownloads(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -97,7 +94,7 @@ Error ImageManager::Stop()
 {
     LOG_DBG() << "Stop image manager";
 
-    return mTimer.Stop();
+    return mTimer.Stop(Timer::StopMode::WaitForCallbacks);
 }
 
 Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
@@ -130,7 +127,7 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         statuses[i].mError   = ErrorEnum::eNone;
     }
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumStoredItems>>(mAllocator);
     if (!storedItems) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -220,7 +217,7 @@ Error ImageManager::InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, A
         statuses[i].mError   = ErrorEnum::eNone;
     }
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumStoredItems>>(mAllocator);
     if (!storedItems) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -300,7 +297,7 @@ Error ImageManager::GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses)
 
     LOG_DBG() << "Get update items statuses";
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumStoredItems>>(mAllocator);
     if (!items) {
         return ErrorEnum::eNoMemory;
     }
@@ -358,7 +355,7 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
 
     LOG_DBG() << "Get index digest" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(mAllocator);
     if (!items) {
         return ErrorEnum::eNoMemory;
     }
@@ -429,7 +426,7 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
 
     LOG_DBG() << "Get item current version" << Log::Field("itemID", itemID);
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(mAllocator);
     if (!items) {
         return ErrorEnum::eNoMemory;
     }
@@ -458,7 +455,7 @@ RetWithError<size_t> ImageManager::RemoveItem(const String& id, const String& ve
 
     LOG_DBG() << "Remove item" << Log::Field("id", id) << Log::Field("version", version);
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumItemVersions>>(mAllocator);
     if (!storedItems) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -508,7 +505,7 @@ Error ImageManager::RemoveOutdatedItems()
 
     LOG_DBG() << "Remove outdated items";
 
-    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto items = MakeUnique<StaticArray<ItemInfo, cMaxNumStoredItems>>(mAllocator);
     if (!items) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -557,6 +554,71 @@ Error ImageManager::RemoveOutdatedItems()
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::RemoveOldItemVersions(const String& itemID, Array<ItemInfo>& storedItems)
+{
+    size_t numVersions = 0;
+
+    for (const auto& item : storedItems) {
+        if (item.mItemID == itemID) {
+            numVersions++;
+        }
+    }
+
+    bool hasRemovedItems = false;
+
+    while (numVersions >= cMaxNumItemVersions) {
+        auto oldestIt = storedItems.end();
+
+        for (auto it = storedItems.begin(); it != storedItems.end(); ++it) {
+            if (it->mItemID != itemID || it->mState != ItemStateEnum::eRemoved) {
+                continue;
+            }
+
+            if (oldestIt == storedItems.end() || it->mTimestamp < oldestIt->mTimestamp) {
+                oldestIt = it;
+            }
+        }
+
+        if (oldestIt == storedItems.end()) {
+            break;
+        }
+
+        LOG_DBG() << "Remove old item version" << Log::Field("itemID", itemID)
+                  << Log::Field("version", oldestIt->mVersion);
+
+        if (auto err = mStorage->RemoveItem(itemID, oldestIt->mVersion); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mInstallSpaceAllocator->RestoreOutdatedItem(itemID, oldestIt->mVersion); !err.IsNone()) {
+            LOG_ERR() << "Failed to restore outdated item" << Log::Field("itemID", itemID)
+                      << Log::Field("version", oldestIt->mVersion) << Log::Field(err);
+        }
+
+        for (auto* listener : mListeners) {
+            listener->OnItemRemoved(itemID);
+        }
+
+        storedItems.Erase(oldestIt);
+
+        numVersions--;
+        hasRemovedItems = true;
+    }
+
+    if (hasRemovedItems) {
+        auto [totalSize, err] = CleanupOrphanedBlobs();
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        LOG_DBG() << "Cleaned up orphaned blobs" << Log::Field("size", totalSize);
+
+        mInstallSpaceAllocator->FreeSpace(totalSize);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::WaitForStop()
 {
     UniqueLock<Mutex> lock(mMutex);
@@ -565,54 +627,6 @@ Error ImageManager::WaitForStop()
 
     if (mCancel) {
         return ErrorEnum::eCanceled;
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error ImageManager::AllocateSpaceForPartialDownloads()
-{
-    LOG_DBG() << "Allocate space for partial downloads" << Log::Field("path", mBlobsDownloadPath);
-
-    auto algorithmDirIterator = fs::DirIterator(mBlobsDownloadPath);
-
-    while (algorithmDirIterator.Next()) {
-        auto algorithm    = algorithmDirIterator->mPath;
-        auto algorithmDir = fs::JoinPath(mBlobsDownloadPath, algorithm);
-
-        auto fileIterator = fs::DirIterator(algorithmDir);
-
-        while (fileIterator.Next()) {
-            auto fileName = fileIterator->mPath;
-            auto filePath = fs::JoinPath(algorithmDir, fileName);
-
-            auto [fileSize, sizeErr] = fs::CalculateSize(filePath);
-            if (!sizeErr.IsNone()) {
-                LOG_WRN() << "Failed to get size for partial download" << Log::Field("path", filePath)
-                          << Log::Field(sizeErr);
-
-                continue;
-            }
-
-            if (fileSize == 0) {
-                continue;
-            }
-
-            UniquePtr<spaceallocator::SpaceItf> space;
-            Error                               err;
-
-            if (Tie(space, err) = mDownloadingSpaceAllocator->AllocateSpace(fileSize); !err.IsNone()) {
-                LOG_ERR() << "Failed to allocate space for partial download" << Log::Field("path", filePath)
-                          << Log::Field("size", fileSize) << Log::Field(err);
-
-                return AOS_ERROR_WRAP(err);
-            }
-
-            space->Accept();
-
-            LOG_DBG() << "Allocated space for partial download" << Log::Field("path", filePath)
-                      << Log::Field("size", fileSize);
-        }
     }
 
     return ErrorEnum::eNone;
@@ -802,6 +816,11 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
         });
 
         if (sameVersionIt == storedItems.end()) {
+            if (auto err = RemoveOldItemVersions(itemInfo.mItemID, storedItems); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove old item versions" << Log::Field("id", itemInfo.mItemID)
+                          << Log::Field(err);
+            }
+
             ItemInfo newItem;
             newItem.mItemID      = itemInfo.mItemID;
             newItem.mType        = itemInfo.mType;
@@ -884,7 +903,7 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
         return AOS_ERROR_WRAP(err);
     }
 
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -898,7 +917,7 @@ Error ImageManager::DownloadItem(const UpdateItemInfo& itemInfo, const Array<cry
     LOG_DBG() << "Processing manifests" << Log::Field("count", imageIndex->mManifests.Size());
 
     for (const auto& manifestDescriptor : imageIndex->mManifests) {
-        auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+        auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
         if (!manifest) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -1080,11 +1099,18 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 {
     LOG_DBG() << "Ensure blob" << Log::Field("digest", digest);
 
-    auto                                blobInfo = MakeUnique<BlobInfo>(&mAllocator);
-    UniquePtr<spaceallocator::SpaceItf> downloadingSpace;
+    auto blobInfo = MakeUnique<BlobInfo>(mAllocator);
+    if (!blobInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    DownloadSpace downloadSpace;
+
+    auto discardDownload
+        = DeferRelease(&downloadSpace, [&](DownloadSpace* spacePtr) { DiscardDownload(downloadPath, *spacePtr); });
 
     do {
-        if (auto err = DownloadBlob(digest, downloadPath, installPath, *blobInfo, downloadingSpace); !err.IsNone()) {
+        if (auto err = DownloadBlob(digest, downloadPath, installPath, *blobInfo, downloadSpace); !err.IsNone()) {
             if (err == ErrorEnum::eAlreadyExist) {
                 return ErrorEnum::eNone;
             }
@@ -1096,8 +1122,6 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 
         if (auto err = mFileInfoProvider->GetFileInfo(downloadPath, downloadFileInfo, crypto::HashEnum::eSHA3_256);
             !err.IsNone()) {
-            downloadingSpace->Release();
-
             return AOS_ERROR_WRAP(err);
         }
 
@@ -1107,20 +1131,12 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 
         LOG_WRN() << "Download checksum mismatch, retrying download" << Log::Field("digest", digest);
 
-        downloadingSpace->Release();
-
-        if (auto removeErr = fs::RemoveAll(downloadPath); !removeErr.IsNone()) {
-            LOG_ERR() << "Failed to remove download path" << Log::Field("path", downloadPath) << Log::Field(removeErr);
-        }
+        DiscardDownload(downloadPath, downloadSpace);
     } while (true);
 
     auto err = DecryptAndValidateBlob(downloadPath, installPath, *blobInfo, certificates, certificateChains, space);
 
-    downloadingSpace->Release();
-
-    if (auto removeErr = fs::RemoveAll(downloadPath); !removeErr.IsNone()) {
-        LOG_ERR() << "Failed to remove download path" << Log::Field("path", downloadPath) << Log::Field(removeErr);
-    }
+    DiscardDownload(downloadPath, downloadSpace);
 
     return AOS_ERROR_WRAP(err);
 }
@@ -1132,7 +1148,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto blobsInfo = MakeUnique<StaticArray<BlobInfo, 1>>(&mAllocator);
+    auto blobsInfo = MakeUnique<StaticArray<BlobInfo, 1>>(mAllocator);
     if (!blobsInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1190,7 +1206,7 @@ Error ImageManager::CheckExistingBlob(const String& installPath)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
+    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(mAllocator);
     if (!expectedSHA256) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1212,39 +1228,90 @@ Error ImageManager::CheckExistingBlob(const String& installPath)
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::PrepareDownloadSpace(const String& downloadPath, const BlobInfo& blobInfo,
-    size_t& partialDownloadSize, UniquePtr<spaceallocator::SpaceItf>& downloadingSpace)
+Error ImageManager::PrepareDownloadSpace(
+    const String& downloadPath, const BlobInfo& blobInfo, DownloadSpace& downloadSpace)
 {
+    downloadSpace.mExistingSize = 0;
+    downloadSpace.mTotalSize    = blobInfo.mSize;
+
     auto [downloadExists, checkDownloadErr] = fs::FileExist(downloadPath);
     if (!checkDownloadErr.IsNone()) {
         return AOS_ERROR_WRAP(checkDownloadErr);
     }
 
-    partialDownloadSize = 0;
-
     if (downloadExists) {
-        auto [dirSize, getSizeErr] = fs::CalculateSize(downloadPath);
+        auto [partialSize, getSizeErr] = fs::CalculateSize(*mAllocator, downloadPath);
         if (!getSizeErr.IsNone()) {
             return AOS_ERROR_WRAP(getSizeErr);
         }
 
-        partialDownloadSize = dirSize;
-    }
+        if (partialSize > blobInfo.mSize) {
+            LOG_WRN() << "Partial download exceeds blob size, removing" << Log::Field("path", downloadPath)
+                      << Log::Field("size", partialSize) << Log::Field("blobSize", blobInfo.mSize);
 
-    mDownloadingSpaceAllocator->FreeSpace(partialDownloadSize);
+            if (auto err = fs::RemoveAll(downloadPath); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        } else {
+            downloadSpace.mExistingSize = partialSize;
+        }
+    }
 
     Error err;
 
-    Tie(downloadingSpace, err) = mDownloadingSpaceAllocator->AllocateSpace(blobInfo.mSize);
+    Tie(downloadSpace.mSpace, err)
+        = mDownloadingSpaceAllocator->AllocateSpace(blobInfo.mSize - downloadSpace.mExistingSize);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
+    LOG_DBG() << "Prepared download space" << Log::Field("path", downloadPath)
+              << Log::Field("existingSize", downloadSpace.mExistingSize) << Log::Field("blobSize", blobInfo.mSize);
+
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& downloadPath, size_t partialDownloadSize,
-    UniquePtr<spaceallocator::SpaceItf>& downloadingSpace)
+void ImageManager::DiscardDownload(const String& downloadPath, DownloadSpace& downloadSpace)
+{
+    if (!downloadSpace.mSpace) {
+        return;
+    }
+
+    if (auto err = fs::RemoveAll(downloadPath); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove download path" << Log::Field("path", downloadPath) << Log::Field(err);
+    }
+
+    if (downloadSpace.mExistingSize != 0) {
+        mDownloadingSpaceAllocator->FreeSpace(downloadSpace.mExistingSize);
+    }
+
+    if (auto err = downloadSpace.mSpace->Release(); !err.IsNone()) {
+        LOG_ERR() << "Failed to release downloading space" << Log::Field(err);
+    }
+
+    downloadSpace.mSpace.Reset();
+    downloadSpace.mExistingSize = 0;
+}
+
+void ImageManager::AcceptDownloadSpace(DownloadSpace& downloadSpace, size_t bytesOnDisk)
+{
+    if (!downloadSpace.mSpace) {
+        return;
+    }
+
+    if (bytesOnDisk < downloadSpace.mTotalSize) {
+        mDownloadingSpaceAllocator->FreeSpace(downloadSpace.mTotalSize - bytesOnDisk);
+    }
+
+    if (auto err = downloadSpace.mSpace->Accept(); !err.IsNone()) {
+        LOG_ERR() << "Failed to accept downloading space" << Log::Field(err);
+    }
+
+    downloadSpace.mSpace.Reset();
+    downloadSpace.mExistingSize = 0;
+}
+
+Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& downloadPath, DownloadSpace& downloadSpace)
 {
     {
         LockGuard lock {mMutex};
@@ -1258,16 +1325,6 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
         mCurrentDownloadDigest.Clear();
     });
 
-    StaticString<cFilePathLen> downloadDir;
-
-    if (auto err = fs::ParentPath(downloadPath, downloadDir); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = fs::MakeDirAll(downloadDir); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     while (true) {
         auto err = mDownloader->Download(blobInfo.mDigest, blobInfo.mURLs[0], downloadPath);
         if (!err.IsNone()) {
@@ -1275,27 +1332,15 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
                       << Log::Field("path", downloadPath) << Log::Field(AOS_ERROR_WRAP(err));
 
             if (err = WaitForStop(); !err.IsNone()) {
-                auto [newPartialSize, retrySizeErr] = fs::CalculateSize(downloadPath);
-                if (!retrySizeErr.IsNone()) {
+                auto [bytesOnDisk, sizeErr] = fs::CalculateSize(*mAllocator, downloadPath);
+                if (!sizeErr.IsNone()) {
                     LOG_WRN() << "Failed to get partial download size" << Log::Field("path", downloadPath)
-                              << Log::Field(retrySizeErr);
-
-                    downloadingSpace->Release();
+                              << Log::Field(sizeErr);
 
                     return err;
                 }
 
-                downloadingSpace->Release();
-
-                Error allocationErr;
-
-                Tie(downloadingSpace, allocationErr)
-                    = mDownloadingSpaceAllocator->AllocateSpace(newPartialSize - partialDownloadSize);
-                if (!allocationErr.IsNone()) {
-                    return AOS_ERROR_WRAP(allocationErr);
-                }
-
-                downloadingSpace->Accept();
+                AcceptDownloadSpace(downloadSpace, bytesOnDisk);
 
                 return err;
             }
@@ -1315,7 +1360,7 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
 }
 
 Error ImageManager::DownloadBlob(const String& digest, const String& downloadPath, const String& installPath,
-    BlobInfo& blobInfo, UniquePtr<spaceallocator::SpaceItf>& downloadingSpace)
+    BlobInfo& blobInfo, DownloadSpace& downloadSpace)
 {
     LOG_DBG() << "Download blob" << Log::Field("digest", digest);
 
@@ -1335,13 +1380,21 @@ Error ImageManager::DownloadBlob(const String& digest, const String& downloadPat
         return AOS_ERROR_WRAP(err);
     }
 
-    size_t partialDownloadSize = 0;
+    StaticString<cFilePathLen> downloadDir;
 
-    if (auto err = PrepareDownloadSpace(downloadPath, blobInfo, partialDownloadSize, downloadingSpace); !err.IsNone()) {
+    if (auto err = fs::ParentPath(downloadPath, downloadDir); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = PerformDownload(blobInfo, downloadPath, partialDownloadSize, downloadingSpace); !err.IsNone()) {
+    if (auto err = fs::MakeDirAll(downloadDir); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = PrepareDownloadSpace(downloadPath, blobInfo, downloadSpace); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = PerformDownload(blobInfo, downloadPath, downloadSpace); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1417,9 +1470,11 @@ bool ImageManager::StartAction()
 
     mCondVar.Wait(lock, [this]() { return !mInProgress || mCancel; });
 
-    if (mCancel) {
-        mCancel = false;
+    const bool cancelledWhileRunning = mCancel && mInProgress;
 
+    mCancel = false;
+
+    if (cancelledWhileRunning) {
         return false;
     }
 
@@ -1512,7 +1567,7 @@ Error ImageManager::VerifyBlobChecksum(const String& digest, const fs::FileInfo&
         return AOS_ERROR_WRAP(err);
     }
 
-    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(&mAllocator);
+    auto expectedSHA256 = MakeUnique<StaticArray<uint8_t, crypto::cSHA256Size>>(mAllocator);
     if (!expectedSHA256) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1541,7 +1596,7 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
     if (!imageIndex) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
@@ -1560,7 +1615,7 @@ Error ImageManager::VerifyItemBlobs(const String& indexDigest)
             return AOS_ERROR_WRAP(err);
         }
 
-        auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+        auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
         if (!manifest) {
             return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
         }
@@ -1603,7 +1658,7 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
             continue;
         }
 
-        auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+        auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
         if (!imageIndex) {
             continue;
         }
@@ -1623,7 +1678,7 @@ bool ImageManager::IsBlobUsedByItems(const String& blobDigest, const Array<ItemI
                 continue;
             }
 
-            auto manifest = MakeUnique<oci::ImageManifest>(&mAllocator);
+            auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
             if (!manifest) {
                 continue;
             }
@@ -1657,7 +1712,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
 
     size_t totalSize = 0;
 
-    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumUpdateItems>>(&mAllocator);
+    auto storedItems = MakeUnique<StaticArray<ItemInfo, cMaxNumStoredItems>>(mAllocator);
     if (!storedItems) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
@@ -1683,7 +1738,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
             if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
                 auto filePath = fs::JoinPath(algorithmDir, hash);
 
-                auto [blobSize, sizeErr] = fs::CalculateSize(filePath);
+                auto [blobSize, sizeErr] = fs::CalculateSize(*mAllocator, filePath);
                 if (!sizeErr.IsNone()) {
                     LOG_WRN() << "Failed to get blob size" << Log::Field("path", filePath) << Log::Field(sizeErr);
                 } else {

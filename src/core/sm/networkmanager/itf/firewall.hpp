@@ -43,10 +43,22 @@ struct OutputAccessConfig {
  * Per-instance firewall parameters.
  */
 struct InstanceFirewallParams {
-    StaticString<cIPLen>                                  mIP;
+    StaticString<cIPLen> mIP;
+    // Subnet (CIDR) of the instance network. Instances sharing it (same
+    // network) communicate without restrictions; only cross-network traffic
+    // is filtered by the access rules below.
+    StaticString<cSubnetLen>                              mSubnet;
     bool                                                  mAllowPublic {};
     StaticArray<InputAccessConfig, cMaxNumFirewallRules>  mInput;
     StaticArray<OutputAccessConfig, cMaxNumFirewallRules> mOutput;
+};
+
+/**
+ * Masquerade rule identity.
+ */
+struct MasqueradeParams {
+    StaticString<cSubnetLen>    mSubnet;
+    StaticString<cInterfaceLen> mOutIfName;
 };
 
 /**
@@ -65,7 +77,8 @@ public:
 
     /**
      * Starts the firewall: creates the `inet aos` table, base chains and
-     * netfilter hooks (forward filter, postrouting nat).
+     * netfilter hooks (forward filter, postrouting nat) when they are absent.
+     * Rules that are already there are left alone.
      *
      * @return Error.
      */
@@ -77,6 +90,21 @@ public:
      * @return Error.
      */
     virtual Error Stop() = 0;
+
+    /**
+     * Removes the instance chains and masquerade rules that no longer belong
+     * to anything known, keeping the rest in place.
+     *
+     * Called on start so that artifacts left by a crashed SM are reaped
+     * without touching the rules of the instances that kept running.
+     *
+     * @param knownInstanceIDs instance ids whose chains must be kept.
+     * @param knownMasquerades masquerade rules that must be kept.
+     * @return Error.
+     */
+    virtual Error RemoveOrphans(
+        const Array<StaticString<cIDLen>>& knownInstanceIDs, const Array<MasqueradeParams>& knownMasquerades)
+        = 0;
 
     /**
      * Adds a per-instance chain with the given input/output access rules.
@@ -130,6 +158,35 @@ public:
      * @return Error.
      */
     virtual Error RemoveMasquerade(const String& subnet, const String& outIf) = 0;
+
+    /**
+     * Opens a batch; AddInstance/RemoveInstance calls are staged until flush.
+     *
+     * @return Error.
+     */
+    virtual Error BeginBatch() = 0;
+
+    /**
+     * Flushes the staged batch atomically in a single nft transaction.
+     *
+     * @return Error.
+     */
+    virtual Error FlushBatch() = 0;
+
+    /**
+     * Discards the staged batch and leaves batch mode without applying anything to the kernel
+     * (unlike FlushBatch which commits, or Revert which undoes an already-applied batch).
+     *
+     * @return Error.
+     */
+    virtual Error AbortBatch() = 0;
+
+    /**
+     * Reverts the flushed batch, deleting everything it applied by handle.
+     *
+     * @return Error.
+     */
+    virtual Error Revert() = 0;
 };
 
 /** @}*/

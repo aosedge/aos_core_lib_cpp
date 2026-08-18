@@ -14,7 +14,7 @@ namespace aos::cm::updatemanager {
  * Public
  **********************************************************************************************************************/
 
-Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& identProvider,
+Error UpdateManager::Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
     iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
     launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender,
@@ -22,14 +22,14 @@ Error UpdateManager::Init(const Config& config, iamclient::IdentProviderItf& ide
 {
     LOG_DBG() << "Init update manager";
 
-    if (auto err
-        = mDesiredStatusHandler.Init(nodeHandler, unitConfig, imageManager, launcher, mUnitStatusHandler, storage);
+    if (auto err = mDesiredStatusHandler.Init(
+            allocator, nodeHandler, unitConfig, imageManager, launcher, mUnitStatusHandler, storage);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUnitStatusHandler.Init(
-            config, identProvider, unitConfig, nodeInfoProvider, imageManager, launcher, cloudConnection, sender);
+    if (auto err = mUnitStatusHandler.Init(allocator, config, identProvider, unitConfig, nodeInfoProvider, imageManager,
+            launcher, cloudConnection, sender);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

@@ -26,9 +26,10 @@ public:
     /**
      * Initializes crypto factory.
      *
+     * @param allocator allocator to use for crypto provider.
      * @return Error.
      */
-    Error Init() override;
+    Error Init(AllocatorItf& allocator) override;
 
     /**
      * Returns crypto factory name.

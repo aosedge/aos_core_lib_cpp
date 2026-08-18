@@ -7,80 +7,46 @@
 
 #include <gtest/gtest.h>
 
-#include <core/common/tools/allocator.hpp>
+#include <core/common/tools/heapallocator.hpp>
+#include <core/common/tools/memory.hpp>
 
 using namespace aos;
 
-TEST(AllocatorTest, Allocator)
+TEST(AllocatorTest, HeapAllocator)
 {
-    StaticAllocator<256> allocator;
+    HeapAllocator allocator;
 
-    EXPECT_EQ(allocator.MaxSize(), 256);
-    EXPECT_EQ(allocator.FreeSize(), 256);
+    auto* data = allocator.Allocate(128);
+    ASSERT_NE(data, nullptr);
 
-    struct TestItem {
-        void*  mData;
-        size_t mSize;
+    allocator.Free(data);
+
+    struct TestStruct {
+        TestStruct(int a, int b)
+            : mA(a)
+            , mB(b)
+        {
+        }
+
+        int mA;
+        int mB;
     };
 
-    TestItem testData[] = {{nullptr, 32}, {nullptr, 64}, {nullptr, 128}};
+    auto uPtr = MakeUnique<TestStruct>(&allocator, 1, 2);
+    ASSERT_TRUE(uPtr);
+    EXPECT_EQ(uPtr->mA, 1);
+    EXPECT_EQ(uPtr->mB, 2);
 
-    auto freeSize = allocator.MaxSize();
+    auto shPtr = MakeShared<TestStruct>(&allocator, 3, 4);
+    ASSERT_TRUE(shPtr);
+    EXPECT_EQ(shPtr->mA, 3);
+    EXPECT_EQ(shPtr->mB, 4);
 
-    for (auto& item : testData) {
-        item.mData = allocator.Allocate(item.mSize);
-        freeSize -= item.mSize;
-        EXPECT_EQ(allocator.FreeSize(), freeSize);
-    }
+    auto shPtr2 = shPtr;
+    EXPECT_EQ(shPtr2->mA, 3);
 
-    for (size_t i = 0; i < ArraySize(testData); i++) {
-        freeSize += testData[i].mSize;
-        allocator.Free(testData[i].mData);
-
-        EXPECT_EQ(allocator.FreeSize(), freeSize);
-    }
-
-    allocator.Allocate(32);
-
-    allocator.Clear();
-    EXPECT_EQ(allocator.FreeSize(), allocator.MaxSize());
-}
-
-TEST(AllocatorTest, New)
-{
-    StaticAllocator<256> allocator;
-
-    auto freeSize = allocator.MaxSize();
-
-    auto val1 = new (&allocator) uint8_t();
-    freeSize -= sizeof(uint8_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    auto val2 = new (&allocator) uint16_t();
-    freeSize -= sizeof(uint16_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    auto val3 = new (&allocator) uint32_t();
-    freeSize -= sizeof(uint32_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    auto val4 = new (&allocator) uint64_t();
-    freeSize -= sizeof(uint64_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    operator delete(val4, &allocator);
-    freeSize += sizeof(uint64_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    operator delete(val3, &allocator);
-    freeSize += sizeof(uint32_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    operator delete(val2, &allocator);
-    freeSize += sizeof(uint16_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
-
-    operator delete(val1, &allocator);
-    freeSize += sizeof(uint8_t);
-    EXPECT_EQ(allocator.FreeSize(), freeSize);
+    shPtr.Reset();
+    EXPECT_FALSE(shPtr);
+    EXPECT_TRUE(shPtr2);
+    EXPECT_EQ(shPtr2->mB, 4);
 }

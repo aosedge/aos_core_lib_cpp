@@ -7,73 +7,9 @@
 #include <core/common/tools/logger.hpp>
 
 #include "node.hpp"
+#include "utils.hpp"
 
 namespace aos::cm::launcher {
-
-template <typename T, class Cmp>
-class Filter {
-public:
-    class Iterator {
-    public:
-        Iterator(typename Array<T>::ConstIterator it, typename Array<T>::ConstIterator end, Cmp cmp)
-            : mIt(it)
-            , mEnd(end)
-            , mCmp(cmp)
-        {
-            while (mIt != mEnd && !mCmp(*mIt)) {
-                ++mIt;
-            }
-        }
-
-        Iterator& operator++()
-        {
-            assert(mIt != mEnd);
-
-            ++mIt;
-
-            while (mIt != mEnd && !mCmp(*mIt)) {
-                ++mIt;
-            }
-
-            return *this;
-        }
-
-        Iterator operator++(int)
-        {
-            assert(mIt != mEnd);
-
-            Iterator tmp = *this;
-
-            ++(*this);
-
-            return tmp;
-        }
-
-        bool operator==(const Iterator& other) const { return mIt == other.mIt; }
-        bool operator!=(const Iterator& other) const { return mIt != other.mIt; }
-
-        const T& operator*() const { return *mIt; }
-        const T* operator->() const { return mIt; }
-
-    private:
-        typename Array<T>::ConstIterator mIt;
-        typename Array<T>::ConstIterator mEnd;
-        Cmp                              mCmp;
-    };
-
-    Filter(const Array<T>& array, Cmp cmp)
-        : mArray(&array)
-        , mCmp(cmp)
-    {
-    }
-
-    Iterator begin() const { return Iterator(mArray->begin(), mArray->end(), mCmp); }
-    Iterator end() const { return Iterator(mArray->end(), mArray->end(), mCmp); }
-
-private:
-    const Array<T>* mArray;
-    Cmp             mCmp;
-};
 
 auto FilterActiveNodeInstances(const Array<InstanceStatus>& array, const String& nodeID)
 {
@@ -81,26 +17,26 @@ auto FilterActiveNodeInstances(const Array<InstanceStatus>& array, const String&
         return status.mNodeID == nodeID && status.mState != aos::InstanceStateEnum::eInactive;
     };
 
-    return Filter<InstanceStatus, decltype(cmp)>(array, cmp);
+    return Filter(array, cmp);
 }
 
 auto FilterByNode(const Array<SharedPtr<Instance>>& array, const String& nodeID)
 {
     auto cmp = [nodeID](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID == nodeID; };
 
-    return Filter<SharedPtr<Instance>, decltype(cmp)>(array, cmp);
+    return Filter(array, cmp);
 }
 
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-void Node::Init(const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
-    InstanceRunnerItf& instanceRunner, Allocator* allocator)
+void Node::Init(AllocatorItf& allocator, const String& id, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
+    InstanceRunnerItf& instanceRunner)
 {
     mNodeConfigProvider = &nodeConfigProvider;
     mInstanceRunner     = &instanceRunner;
-    mAllocator          = allocator;
+    mAllocator          = &allocator;
 
     mInfo.mNodeID = id;
     mInfo.mState  = NodeStateEnum::eUnprovisioned;
@@ -120,9 +56,8 @@ void Node::PrepareForBalancing(bool rebalancing)
         const auto& alertRules = mConfig.mAlertRules.GetValue();
         if (alertRules.mCPU.HasValue() || alertRules.mRAM.HasValue()) {
             if (alertRules.mCPU.HasValue()) {
-                const auto usedCPU = mTotalCPUUsage;
-                const auto maxTreshold
-                    = mInfo.mMaxDMIPS * static_cast<size_t>(alertRules.mCPU.GetValue().mMaxThreshold / 100.0);
+                const auto usedCPU     = mTotalCPUUsage;
+                const auto maxTreshold = mInfo.mMaxDMIPS * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
 
                 if (usedCPU > maxTreshold) {
                     mNeedBalancing = true;
@@ -130,9 +65,8 @@ void Node::PrepareForBalancing(bool rebalancing)
             }
 
             if (alertRules.mRAM.HasValue()) {
-                const auto usedRAM = mTotalRAMUsage;
-                const auto maxTreshold
-                    = mInfo.mMaxDMIPS * static_cast<size_t>(alertRules.mRAM.GetValue().mMaxThreshold / 100.0);
+                const auto usedRAM     = mTotalRAMUsage;
+                const auto maxTreshold = mInfo.mTotalRAM * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
 
                 if (usedRAM > maxTreshold) {
                     mNeedBalancing = true;
@@ -334,8 +268,15 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
 Error Node::SendScheduledInstances(
     const Array<SharedPtr<Instance>>& scheduledInstances, const Array<InstanceStatus>& runningInstances)
 {
-    auto stopInstances  = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!stopInstances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!startInstances) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {
         // Check if the instance is scheduled on this node (ident, runtime, node, and service version must match).
@@ -384,8 +325,16 @@ Error Node::SendScheduledInstances(
 RetWithError<bool> Node::ResendInstances(
     const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
-    auto   stopInstances        = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
-    auto   startInstances       = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    auto stopInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!stopInstances) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    auto startInstances = MakeUnique<StaticArray<aos::InstanceInfo, cMaxNumInstances>>(mAllocator);
+    if (!startInstances) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
     size_t runningNodeInstances = 0;
 
     for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {

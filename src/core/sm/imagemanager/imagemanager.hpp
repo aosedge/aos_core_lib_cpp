@@ -10,14 +10,18 @@
 #include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
+#include <core/common/tools/list.hpp>
+#include <core/common/tools/memory.hpp>
+#include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 
-#include "config.hpp"
 #include "itf/blobinfoprovider.hpp"
 #include "itf/imagehandler.hpp"
 #include "itf/imagemanager.hpp"
 #include "itf/iteminfoprovider.hpp"
 #include "itf/storage.hpp"
+
+#include "config.hpp"
 
 namespace aos::sm::imagemanager {
 
@@ -33,6 +37,7 @@ public:
     /**
      * Initializes image manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config image manager config.
      * @param blobInfoProvider blob info provider.
      * @param spaceAllocator space allocator.
@@ -43,7 +48,7 @@ public:
      * @param storage image manager storage.
      * @return Error.
      */
-    Error Init(const Config& config, BlobInfoProviderItf& blobInfoProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, BlobInfoProviderItf& blobInfoProvider,
         spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
         fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
         StorageItf& storage);
@@ -113,12 +118,15 @@ private:
     static constexpr auto cSizeFile            = "size";
     static constexpr auto cMaxNumItemVersions  = 2;
     // oci::cMaxNumLayers + 3 (layers + manifest + image config + aos service)
-    static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (oci::cMaxNumLayers + 3);
+    static constexpr auto cMaxNumItemBlobs       = oci::cMaxNumLayers + 3;
+    static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (cMaxNumItemBlobs);
     static constexpr auto cMaxNumInstalledLayers = cMaxNumUpdateItems * oci::cMaxNumLayers;
-    static constexpr auto cAllocatorSize
-        = cMaxNumConcurrentItems * (sizeof(oci::ImageManifest) + sizeof(oci::ImageConfig))
-        + sizeof(UpdateItemDataStaticArray) + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledBlobs>)
-        + sizeof(StaticArray<StaticString<cFilePathLen>, cMaxNumInstalledLayers>);
+    struct InstallItem {
+        StaticString<cIDLen>                                           mID;
+        StaticString<cVersionLen>                                      mVersion;
+        StaticArray<StaticString<oci::cDigestLen>, cMaxNumItemBlobs>   mBlobs;
+        StaticArray<StaticString<oci::cDigestLen>, oci::cMaxNumLayers> mLayers;
+    };
 
     RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
 
@@ -126,24 +134,31 @@ private:
     Error CreateLayerPath(const String& digest, String& path) const;
     Error ValidateBlob(const String& path, const String& digest) const;
     Error DownloadBlob(const String& path, const String& digest, size_t size);
-    Error InstallBlob(const oci::ContentDescriptor& descriptor, bool waitInProgress = true);
+    Error InstallBlob(
+        const oci::ContentDescriptor& descriptor, InstallItem* installItem = nullptr, bool waitInstalling = true);
     Error ValidateLayer(const String& path, const String& diffDigest) const;
     Error CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space);
     Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest);
-    Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest);
+    Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, InstallItem& installItem);
     Error GetBlobURL(const String& digest, String& url) const;
     void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
-    Error WaitForInProgressBlob(const String& digest);
-    Error ReleaseInProgressBlob(const String& digest);
-    Error AddNewUpdateItem(const UpdateItemInfo& itemInfo);
-    Error StoreUpdateItem(const UpdateItemInfo& itemInfo);
-    Error RemoveUpdateItem(const UpdateItemData& itemData);
+    Error WaitForInstallingBlob(const String& digest);
+    Error ReleaseInstallingBlob(const String& digest);
+    RetWithError<List<InstallItem>::Iterator> CreateInstallingItem(const UpdateItemInfo& itemInfo);
+    void                                      ReleaseInstallingItem(List<InstallItem>::Iterator it);
+    Error                InstallServiceLayers(const oci::ImageManifest& manifest, InstallItem& installItem);
+    Error                InstallComponentLayers(const oci::ImageManifest& manifest, InstallItem& installItem);
+    Error                AddNewUpdateItem(const UpdateItemInfo& itemInfo);
+    Error                StoreUpdateItem(const UpdateItemInfo& itemInfo);
+    Error                RemoveUpdateItem(const UpdateItemData& itemData);
     RetWithError<size_t> RemoveOldUpdateItems(Array<UpdateItemData>& itemsData);
     RetWithError<size_t> RemoveOldItemVersions(Array<UpdateItemData>& itemData);
     RetWithError<size_t> CropUpdateItems();
     Error                UpdateOutdatedItems();
     Error                HandleOutdatedItems();
     Error                HandleItemsIntegrity();
+    Error                AddInstallingItems(
+                       Array<StaticString<cFilePathLen>>& usedBlobs, Array<StaticString<cFilePathLen>>& usedLayers);
     Error CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
         Array<StaticString<cFilePathLen>>& itemLayers);
     RetWithError<size_t> RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs);
@@ -161,12 +176,13 @@ private:
     ImageHandlerItf*                   mImageHandler {};
     StorageItf*                        mStorage {};
 
-    mutable StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 
     Timer                                                             mTimer;
     mutable Mutex                                                     mMutex;
     ConditionalVariable                                               mCV;
-    StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mInProgressBlobs;
+    StaticList<InstallItem, cMaxNumConcurrentItems>                   mInstallingItems;
+    StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mInstallingBlobs;
     Thread<>                                                          mThread;
     bool                                                              mClose {};
     bool                                                              mProcessOutdatedItems {};

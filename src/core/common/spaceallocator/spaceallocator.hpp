@@ -12,6 +12,7 @@
 #include <core/common/tools/function.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "itf/spaceallocator.hpp"
 
@@ -25,7 +26,7 @@ struct Partition;
 struct OutdatedItem {
     StaticString<cIDLen>                    mID;
     StaticString<cVersionLen>               mVersion;
-    SpaceAllocatorItf*                      mAllocator {};
+    SpaceAllocatorItf*                      mSpaceAllocator {};
     StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
     Partition*                              mPartition {};
     ItemRemoverItf*                         mRemover {};
@@ -158,6 +159,47 @@ public:
     }
 
     /**
+     * Resizes allocated space without changing allocation count.
+     * Used by resize operations so that mAllocationCount tracks live Space objects only.
+     *
+     * @param deltaSize size delta: positive means more space is needed, negative means space is released.
+     * @return Error.
+     */
+    Error Resize(int64_t deltaSize)
+    {
+        LockGuard lock {mMutex};
+
+        if (deltaSize <= 0) {
+            mAvailableSize += static_cast<size_t>(-deltaSize);
+
+            return ErrorEnum::eNone;
+        }
+
+        const auto extra = static_cast<size_t>(deltaSize);
+
+        if (extra > mAvailableSize) {
+            if (mOutdatedItems.Size() == 0) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+
+            auto [freedSize, err] = RemoveOutdatedItems(extra - mAvailableSize);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            mAvailableSize += freedSize;
+
+            if (extra > mAvailableSize) {
+                return Error(ErrorEnum::eNoMemory, "not enough space");
+            }
+        }
+
+        mAvailableSize -= extra;
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
      * Add outdated item.
      *
      * @param item outdated item.
@@ -280,24 +322,24 @@ private:
      */
     class Space : public SpaceItf {
     public:
-        Space(size_t size, SpaceAllocator* allocator)
+        Space(size_t size, SpaceAllocator* spaceAllocator)
             : mSize(size)
-            , mAllocator(allocator)
+            , mSpaceAllocator(spaceAllocator)
         {
         }
 
-        Error Accept() override { return mAllocator->AllocateDone(); }
+        Error Accept() override { return mSpaceAllocator->AllocateDone(); }
 
         Error Release() override
         {
-            mAllocator->FreeSpace(mSize);
+            mSpaceAllocator->FreeSpace(mSize);
 
-            return mAllocator->AllocateDone();
+            return mSpaceAllocator->AllocateDone();
         }
 
         Error Resize(size_t size) override
         {
-            if (auto err = mAllocator->ResizeSpace(mSize, size); !err.IsNone()) {
+            if (auto err = mSpaceAllocator->ResizeSpace(mSize, size); !err.IsNone()) {
                 return err;
             }
 
@@ -310,7 +352,7 @@ private:
 
     private:
         size_t          mSize;
-        SpaceAllocator* mAllocator;
+        SpaceAllocator* mSpaceAllocator;
     };
 
 public:
@@ -322,16 +364,19 @@ public:
     /**
      * Initializes space allocator.
      *
+     * @param allocator allocator to use for space objects.
      * @param path path to allocate space.
      * @param platformFS platform file system.
      * @param limit limit in percents.
      * @param remover item remover.
      * @return Error.
      */
-    Error Init(const String& path, fs::FSPlatformItf& platformFS, size_t limit = 0, ItemRemoverItf* remover = nullptr)
+    Error Init(AllocatorItf& allocator, const String& path, fs::FSPlatformItf& platformFS, size_t limit = 0,
+        ItemRemoverItf* remover = nullptr)
     {
         LockGuard lock {mPartitionsMutex};
 
+        mAllocator  = &allocator;
         mRemover    = remover;
         mPlatformFS = &platformFS;
         mPath       = path;
@@ -420,7 +465,15 @@ public:
             return {nullptr, err};
         }
 
-        return UniquePtr<SpaceItf>(MakeUnique<Space>(&mAllocator, size, this));
+        auto space = MakeUnique<Space>(mAllocator, size, this);
+        if (!space) {
+            mPartition->Free(size);
+            Free(size);
+
+            return {nullptr, ErrorEnum::eNoMemory};
+        }
+
+        return UniquePtr<SpaceItf>(Move(space));
     };
 
     /**
@@ -466,12 +519,12 @@ public:
 
         OutdatedItem item;
 
-        item.mID        = id;
-        item.mVersion   = version;
-        item.mPartition = mPartition;
-        item.mRemover   = mRemover;
-        item.mTimestamp = timestamp;
-        item.mAllocator = this;
+        item.mID             = id;
+        item.mVersion        = version;
+        item.mPartition      = mPartition;
+        item.mRemover        = mRemover;
+        item.mTimestamp      = timestamp;
+        item.mSpaceAllocator = this;
 
         item.mFreeCallback
             = aos::StaticFunction<> {[this](void* sizePtr) { this->Free(reinterpret_cast<size_t>(sizePtr)); }};
@@ -501,13 +554,13 @@ private:
         }
 
         Free(oldSize);
-        mPartition->Free(oldSize);
 
         if (auto err = Allocate(newSize); !err.IsNone()) {
             return err;
         }
 
-        if (auto err = mPartition->Allocate(newSize); !err.IsNone()) {
+        if (auto err = mPartition->Resize(static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize));
+            !err.IsNone()) {
             Free(newSize);
 
             return err;
@@ -550,7 +603,7 @@ private:
         if (mAllocatedSize + size > mSizeLimit) {
             size_t outdatedCount = 0;
             for (const auto& item : mPartition->mOutdatedItems) {
-                if (item.mAllocator == this) {
+                if (item.mSpaceAllocator == this) {
                     outdatedCount++;
                 }
             }
@@ -590,7 +643,7 @@ private:
         size_t i         = 0;
 
         for (auto& item : mPartition->mOutdatedItems) {
-            if (item.mAllocator != this || freedSize >= size) {
+            if (item.mSpaceAllocator != this || freedSize >= size) {
                 mPartition->mOutdatedItems[i] = item;
                 i++;
 
@@ -647,15 +700,15 @@ private:
         return ErrorEnum::eNone;
     }
 
-    StaticAllocator<sizeof(Space) * cNumAllocations> mAllocator;
-    size_t                                           mSizeLimit {};
-    size_t                                           mAllocationCount {};
-    size_t                                           mAllocatedSize {};
-    StaticString<cFilePathLen>                       mPath;
-    ItemRemoverItf*                                  mRemover {};
-    fs::FSPlatformItf*                               mPlatformFS {};
-    Partition*                                       mPartition {};
-    Mutex                                            mMutex;
+    AllocatorItf*              mAllocator {};
+    size_t                     mSizeLimit {};
+    size_t                     mAllocationCount {};
+    size_t                     mAllocatedSize {};
+    StaticString<cFilePathLen> mPath;
+    ItemRemoverItf*            mRemover {};
+    fs::FSPlatformItf*         mPlatformFS {};
+    Partition*                 mPartition {};
+    Mutex                      mMutex;
 };
 
 } // namespace aos::spaceallocator

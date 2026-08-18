@@ -16,55 +16,55 @@ namespace {
  * Static
  **********************************************************************************************************************/
 
-class CreateAlertVisitor : public StaticVisitor<AlertVariant> {
+class CreateAlertVisitor : public StaticVisitor<void> {
 public:
-    CreateAlertVisitor(uint64_t currentValue, const Time& currentTime, const QuotaAlertState& state)
-        : mCurrentVal(currentValue)
+    CreateAlertVisitor(
+        const ResourceIdentifier& id, uint64_t currentValue, const Time& currentTime, const QuotaAlertState& state)
+        : mID(id)
+        , mCurrentVal(currentValue)
         , mCurrentTime(currentTime)
         , mState(state)
     {
     }
 
-    Res Visit(const SystemQuotaAlert& val) const
+    Res Visit(SystemQuotaAlert& val) const
     {
-        auto systemQuotaAlert = val;
-
-        systemQuotaAlert.mTimestamp = mCurrentTime;
-        systemQuotaAlert.mValue     = mCurrentVal;
-        systemQuotaAlert.mState     = mState;
-
-        Res result;
-        result.SetValue<SystemQuotaAlert>(systemQuotaAlert);
-
-        return result;
+        val.mNodeID    = mID.mNodeID;
+        val.mParameter = GetParameterName(mID);
+        val.mTimestamp = mCurrentTime;
+        val.mValue     = mCurrentVal;
+        val.mState     = mState;
     }
 
-    Res Visit(const InstanceQuotaAlert& val) const
+    Res Visit(InstanceQuotaAlert& val) const
     {
-        auto instanceQuotaAlert = val;
-
-        instanceQuotaAlert.mTimestamp = mCurrentTime;
-        instanceQuotaAlert.mValue     = mCurrentVal;
-        instanceQuotaAlert.mState     = mState;
-
-        Res result;
-        result.SetValue<InstanceQuotaAlert>(instanceQuotaAlert);
-
-        return result;
+        val.mParameter                   = GetParameterName(mID);
+        static_cast<InstanceIdent&>(val) = mID.mInstanceIdent.GetValue();
+        val.mTimestamp                   = mCurrentTime;
+        val.mValue                       = mCurrentVal;
+        val.mState                       = mState;
     }
 
     template <typename T>
     Res Visit(const T&) const
     {
         assert(false);
-
-        return {};
     }
 
 private:
-    uint64_t        mCurrentVal {};
-    Time            mCurrentTime;
-    QuotaAlertState mState;
+    String GetParameterName(const ResourceIdentifier& id) const
+    {
+        if (id.mPartitionName.HasValue()) {
+            return id.mPartitionName.GetValue(); // NOSONAR cpp:S5912 - String is used as a string view.
+        }
+
+        return id.mType.ToString(); // NOSONAR cpp:S5912 - String is used as a string view.
+    }
+
+    const ResourceIdentifier& mID;
+    uint64_t                  mCurrentVal {};
+    Time                      mCurrentTime;
+    QuotaAlertState           mState;
 };
 
 } // namespace
@@ -73,8 +73,7 @@ private:
  * Public
  **********************************************************************************************************************/
 
-Error AlertProcessor::Init(const ResourceIdentifier& id, const AlertRulePoints& rule, alerts::SenderItf& sender,
-    const AlertVariant& alertTemplate)
+Error AlertProcessor::Init(const ResourceIdentifier& id, const AlertRulePoints& rule, alerts::SenderItf& sender)
 {
     mID           = id;
     mMinTimeout   = rule.mMinTimeout;
@@ -84,8 +83,7 @@ Error AlertProcessor::Init(const ResourceIdentifier& id, const AlertRulePoints& 
     LOG_DBG() << "Create alert processor" << Log::Field("id", mID) << Log::Field("minThreshold", mMinThreshold)
               << Log::Field("maxThreshold", mMaxThreshold) << Log::Field("minTimeout", mMinTimeout);
 
-    mAlertSender   = &sender;
-    mAlertTemplate = alertTemplate;
+    mAlertSender = &sender;
 
     return ErrorEnum::eNone;
 }
@@ -187,9 +185,19 @@ Error AlertProcessor::HandleMinThreshold(uint64_t currentValue, const Time& curr
 
 Error AlertProcessor::SendAlert(uint64_t currentValue, const Time& currentTime, const QuotaAlertState& state)
 {
-    CreateAlertVisitor visitor(currentValue, currentTime, state);
+    AlertVariant alert;
 
-    auto alert = mAlertTemplate.ApplyVisitor(visitor);
+    if (mID.mLevel == ResourceLevelEnum::eSystem) {
+        alert.SetValue<SystemQuotaAlert>();
+    } else if (mID.mLevel == ResourceLevelEnum::eInstance) {
+        alert.SetValue<InstanceQuotaAlert>();
+    } else {
+        return Error(ErrorEnum::eInvalidArgument);
+    }
+
+    const CreateAlertVisitor visitor(mID, currentValue, currentTime, state);
+
+    alert.ApplyVisitor(visitor);
 
     if (auto err = mAlertSender->SendAlert(alert); !err.IsNone()) {
         LOG_ERR() << "Failed to send alert" << Log::Field(err);

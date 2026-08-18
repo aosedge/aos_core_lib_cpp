@@ -407,9 +407,9 @@ OpenSSLCryptoFactory::OpenSSLCryptoFactory()
 {
 }
 
-Error OpenSSLCryptoFactory::Init()
+Error OpenSSLCryptoFactory::Init(AllocatorItf& allocator)
 {
-    return mProvider.Init();
+    return mProvider.Init(allocator);
 }
 
 std::string OpenSSLCryptoFactory::GetName()

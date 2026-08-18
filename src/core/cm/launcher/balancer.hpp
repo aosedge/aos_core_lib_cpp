@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_BALANCER_HPP_
 #define AOS_CORE_CM_LAUNCHER_BALANCER_HPP_
 
+#include <core/common/tools/memory.hpp>
+
 #include "itf/instancerunner.hpp"
 #include "itf/launcher.hpp"
 #include "itf/monitoringprovider.hpp"
@@ -29,14 +31,15 @@ public:
     /**
      * Initializes runner with required managers and providers.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param instanceManager instance manager.
      * @param imageInfoProvider image info provider.
      * @param nodeManager node manager.
      * @param monitorProvider monitoring provider.
      * @param runner instance runner interface.
      */
-    void Init(InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider, NodeManager& nodeManager,
-        MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner);
+    void Init(AllocatorItf& allocator, InstanceManager& instanceManager, ImageInfoProvider& imageInfoProvider,
+        NodeManager& nodeManager, MonitoringProviderItf& monitorProvider, InstanceRunnerItf& runner);
 
     /**
      * Runs instances.
@@ -57,13 +60,6 @@ public:
 private:
     using NodeRuntimes = StaticMap<Node*, StaticArray<const RuntimeInfo*, cMaxNumNodeRuntimes>, cMaxNumInstances>;
 
-    static constexpr size_t cScheduleInstanceSize
-        = sizeof(oci::ImageIndex) + sizeof(StaticArray<Node*, cMaxNumNodes>) + sizeof(NodeRuntimes);
-    static constexpr size_t cPolicyBalancingSize = sizeof(oci::ImageIndex);
-    static constexpr size_t cMonitoringSize      = sizeof(monitoring::NodeMonitoringData);
-
-    static constexpr size_t cAllocatorSize = Max(cScheduleInstanceSize, cPolicyBalancingSize, cMonitoringSize);
-
     Error PerformNodeBalancing(Array<SharedPtr<Instance>>& instances);
 
     Error ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor);
@@ -75,9 +71,9 @@ private:
     void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
 
     // Selects runtime
-    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, Array<Node*>& nodes);
+    RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, const Array<Node*>& nodes);
 
-    Error CreateRuntimes(Array<Node*>& nodes, NodeRuntimes& runtimes);
+    Error CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes);
 
     template <typename Filter>
     void FilterRuntimes(NodeRuntimes& runtimes, Filter& filter);
@@ -99,7 +95,7 @@ private:
     InstanceRunnerItf*     mRunner {};
     SubjectArray           mSubjects;
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 /** @}*/

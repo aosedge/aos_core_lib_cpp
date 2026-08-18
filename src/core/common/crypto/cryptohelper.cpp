@@ -21,15 +21,20 @@ CryptoHelper::CryptoHelper()
 {
 }
 
-Error CryptoHelper::Init(iamclient::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider,
-    CertLoaderItf& certLoader, const String& serviceDiscoveryURL, const String& caCert)
+Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& certProvider,
+    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL,
+    const String& caCert)
 {
+    mAllocator           = &allocator;
     mCertProvider        = &certProvider;
     mCryptoProvider      = &cryptoProvider;
     mCertLoader          = &certLoader;
     mServiceDiscoveryURL = serviceDiscoveryURL;
 
-    auto caCertsPEM = MakeUnique<StaticString<cCertPEMLen>>(&mAllocator);
+    auto caCertsPEM = MakeUnique<StaticString<cCertPEMLen>>(mAllocator);
+    if (!caCertsPEM) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = fs::ReadFileToString(caCert, *caCertsPEM); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -110,7 +115,10 @@ Error CryptoHelper::ValidateSigns(const String& decryptedPath, const SignInfo& s
 {
     LockGuard lock {mSemaphore};
 
-    auto signCtx = MakeUnique<SignContext>(&mAllocator);
+    auto signCtx = MakeUnique<SignContext>(mAllocator);
+    if (!signCtx) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = AddCertificates(certs, *signCtx); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -131,8 +139,15 @@ Error CryptoHelper::DecryptMetadata(const Array<uint8_t>& input, Array<uint8_t>&
 {
     LockGuard lock {mSemaphore};
 
-    auto contentInfo = MakeUnique<ContentInfo>(&mAllocator);
-    auto symKey      = MakeUnique<StaticArray<uint8_t, cPrivKeyPEMLen>>(&mAllocator);
+    auto contentInfo = MakeUnique<ContentInfo>(mAllocator);
+    if (!contentInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto symKey = MakeUnique<StaticArray<uint8_t, cPrivKeyPEMLen>>(mAllocator);
+    if (!symKey) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = UnmarshalCMS(input, *contentInfo);
     if (!err.IsNone()) {
@@ -164,7 +179,11 @@ Error CryptoHelper::DecryptMetadata(const Array<uint8_t>& input, Array<uint8_t>&
 
 RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
 {
-    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
+    if (!certInfo) {
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
     if (auto err = mCertProvider->GetCert(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
@@ -205,7 +224,10 @@ Error CryptoHelper::GetServiceDiscoveryFromExtensions(const x509::Certificate& c
 Error CryptoHelper::GetServiceDiscoveryFromOrganization(
     const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls)
 {
-    auto subject = MakeUnique<StaticString<cCertSubjSize>>(&mAllocator);
+    auto subject = MakeUnique<StaticString<cCertSubjSize>>(mAllocator);
+    if (!subject) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mCryptoProvider->ASN1DecodeDN(cert.mSubject, *subject); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -221,8 +243,15 @@ Error CryptoHelper::GetServiceDiscoveryFromOrganization(
     auto valueStart    = orgPos + orgKey.Size();
     auto [valueEnd, _] = subject->FindSubstr(valueStart, ",");
 
-    auto orgName = MakeUnique<StaticString<cURLLen>>(&mAllocator);
-    auto url     = MakeUnique<StaticString<cURLLen>>(&mAllocator);
+    auto orgName = MakeUnique<StaticString<cURLLen>>(mAllocator);
+    if (!orgName) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto url = MakeUnique<StaticString<cURLLen>>(mAllocator);
+    if (!url) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto assignErr = orgName->Insert(orgName->begin(), subject->begin() + valueStart, subject->begin() + valueEnd);
     if (!assignErr.IsNone()) {
@@ -331,8 +360,15 @@ Error CryptoHelper::CheckSessionKey(
 
 Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder)
 {
-    auto inBlock  = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(&mAllocator);
-    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(&mAllocator);
+    auto inBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
+    if (!inBlock) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
+    if (!outBlock) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     fs::File inputFile, outputFile;
 
@@ -410,7 +446,10 @@ Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignCon
             continue;
         }
 
-        auto cert = MakeUnique<x509::Certificate>(&mAllocator);
+        auto cert = MakeUnique<x509::Certificate>(mAllocator);
+        if (!cert) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mCryptoProvider->DERToX509Cert(certInfo.mCertificate, *cert); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -475,7 +514,10 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
     }
 
     // Verify sign
-    auto hashSum = MakeUnique<StaticArray<uint8_t, cMaxHashSize>>(&mAllocator);
+    auto hashSum = MakeUnique<StaticArray<uint8_t, cMaxHashSize>>(mAllocator);
+    if (!hashSum) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = CalculateFileHash(file, hash, *mCryptoProvider, *hashSum); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -500,7 +542,10 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
     }
 
     // Verify certs
-    auto intermCertPool = MakeUnique<StaticArray<x509::Certificate, cMaxNumCertificates>>(&mAllocator);
+    auto intermCertPool = MakeUnique<StaticArray<x509::Certificate, cMaxNumCertificates>>(mAllocator);
+    if (!intermCertPool) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = CreateIntermCertPool(signCtx, *chain, *intermCertPool); !err.IsNone()) {
         return err;
@@ -856,7 +901,10 @@ Error CryptoHelper::ParseEncryptedContentInfo(const Array<uint8_t>& data, Encryp
 
 Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint8_t>& symmetricKey)
 {
-    auto certInfo = MakeUnique<CertInfo>(&mAllocator);
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
+    if (!certInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = mCertProvider->GetCert(cOfflineCert, info.mRID.mIssuer, info.mRID.mSerial, *certInfo);
     if (!err.IsNone()) {
@@ -920,7 +968,10 @@ Error CryptoHelper::DecryptMessage(
 
 Error CryptoHelper::DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& input, Array<uint8_t>& message)
 {
-    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(&mAllocator);
+    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
+    if (!outBlock) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (input.Size() % AESCipherItf::cBlockSize != 0) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "message should be a multiple of CBC block size"));

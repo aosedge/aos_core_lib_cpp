@@ -21,9 +21,10 @@ constexpr uint8_t PKCS11RSAPrivateKey::cSHA256Prefix[];
 constexpr uint8_t PKCS11RSAPrivateKey::cSHA384Prefix[];
 constexpr uint8_t PKCS11RSAPrivateKey::cSHA512Prefix[];
 
-PKCS11RSAPrivateKey::PKCS11RSAPrivateKey(
-    const SharedPtr<SessionContext>& session, ObjectHandle privKeyHandle, const crypto::RSAPublicKey& pubKey)
-    : mSession(session)
+PKCS11RSAPrivateKey::PKCS11RSAPrivateKey(AllocatorItf& allocator, const SharedPtr<SessionContext>& session,
+    ObjectHandle privKeyHandle, const crypto::RSAPublicKey& pubKey)
+    : mAllocator(allocator)
+    , mSession(session)
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)
 {
@@ -39,6 +40,9 @@ Error PKCS11RSAPrivateKey::Sign(
     const Array<uint8_t>& digest, const crypto::SignOptions& options, Array<uint8_t>& signature) const
 {
     auto t = MakeUnique<StaticArray<uint8_t, crypto::cSHA2DigestSize + cMaxPrefixSize>>(&mAllocator);
+    if (!t) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     t->Append(GetPrefix(options.mHash));
     t->Append(digest);

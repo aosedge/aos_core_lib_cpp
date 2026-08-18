@@ -20,12 +20,13 @@ public:
     /**
      * Constructs object instance.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param session session context.
      * @param privKeyHandle private key handle.
      * @param pubKey public key.
      */
-    PKCS11RSAPrivateKey(
-        const SharedPtr<SessionContext>& session, ObjectHandle privKeyHandle, const crypto::RSAPublicKey& pubKey);
+    PKCS11RSAPrivateKey(AllocatorItf& allocator, const SharedPtr<SessionContext>& session, ObjectHandle privKeyHandle,
+        const crypto::RSAPublicKey& pubKey);
 
     /**
      * Returns public part of a private key.
@@ -75,7 +76,7 @@ private:
 
     Array<uint8_t> GetPrefix(crypto::Hash hash) const;
 
-    mutable StaticAllocator<sizeof(StaticArray<uint8_t, crypto::cSHA2DigestSize + cMaxPrefixSize>)> mAllocator;
+    AllocatorItf& mAllocator;
 
     SharedPtr<SessionContext> mSession;
     ObjectHandle              mPrivKeyHandle;
@@ -167,11 +168,6 @@ private:
     ObjectHandle               mPrivKeyHandle;
     crypto::ECDSAPublicKey     mPublicKey;
 };
-
-/**
- * Maximum size of pkcs11 PrivateKey in bytes.
- */
-constexpr auto cPrivateKeyMaxSize = Max(sizeof(PKCS11RSAPrivateKey), sizeof(PKCS11ECDSAPrivateKey));
 
 } // namespace aos::pkcs11
 

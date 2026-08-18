@@ -16,6 +16,7 @@ namespace aos::sm::networkmanager {
 class NamespaceManagerMock : public NamespaceManagerItf {
 public:
     MOCK_METHOD(Error, CreateNetworkNamespace, (const String&), (override));
+    MOCK_METHOD(RetWithError<bool>, IsNetworkNamespaceExist, (const String&), (const, override));
     MOCK_METHOD(RetWithError<StaticString<cFilePathLen>>, GetNetworkNamespacePath, (const String&), (const, override));
     MOCK_METHOD(Error, DeleteNetworkNamespace, (const String&), (override));
 };

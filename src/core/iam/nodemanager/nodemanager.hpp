@@ -29,10 +29,11 @@ public:
     /**
      * Initializes node manager.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param storage node info storage.
      * @return Error.
      */
-    Error Init(StorageItf& storage);
+    Error Init(AllocatorItf& allocator, StorageItf& storage);
 
     /**
      * Updates whole information for a node.
@@ -94,8 +95,6 @@ public:
     Error UnsubscribeListener(iamclient::NodeInfoListenerItf& listener) override;
 
 private:
-    static constexpr auto cAllocatorSize
-        = sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) + 2 * sizeof(NodeInfo);
     static constexpr auto cMaxNumListeners = 1;
 
     NodeInfo*               GetNodeFromCache(const String& nodeID);
@@ -110,7 +109,7 @@ private:
     StaticArray<NodeInfo, cMaxNumNodes>                            mNodeInfoCache;
     mutable Mutex                                                  mMutex;
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 /** @}*/

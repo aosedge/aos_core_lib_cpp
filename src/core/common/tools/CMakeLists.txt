@@ -22,7 +22,6 @@ set(SOURCES fs.cpp semver.cpp time.cpp timer.cpp uuid.cpp)
 
 set(HEADERS
     algorithm.hpp
-    allocator.hpp
     array.hpp
     buffer.hpp
     config.hpp
@@ -30,6 +29,7 @@ set(HEADERS
     error.hpp
     fs.hpp
     function.hpp
+    heapallocator.hpp
     identifierpool.hpp
     list.hpp
     log.hpp

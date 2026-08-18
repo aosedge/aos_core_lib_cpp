@@ -16,6 +16,7 @@
 #include <core/common/tests/mocks/cloudconnectionmock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
+#include <core/common/tools/heapallocator.hpp>
 
 #include <core/cm/alerts/alerts.hpp>
 
@@ -125,6 +126,10 @@ class AlertsTest : public Test {
 protected:
     void SetUp() override { tests::utils::InitLog(); }
 
+    // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
+    // members are destroyed in reverse declaration order.
+    HeapAllocator mAllocator;
+
     alerts::Config                       mConfig {Time::cSeconds * 1};
     SenderStub                           mCommunication;
     cloudconnection::CloudConnectionMock mCloudConnection;
@@ -159,7 +164,7 @@ TEST_F(AlertsTest, DuplicatesAreSkipped)
             return ErrorEnum::eNone;
         }));
 
-    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->Start();
@@ -198,15 +203,15 @@ TEST_F(AlertsTest, AlertIsSkippedIfBufferIsFull)
 
     std::string message;
 
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
     for (size_t i = 0; i < cAlertsCacheSize; ++i) {
         auto alert = CreateCoreAlert(cTime, "node1", std::to_string(i));
 
-        auto err = mAlerts->OnAlertReceived(*alert);
+        err = mAlerts->OnAlertReceived(*alert);
         EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
     }
-
-    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->OnAlertReceived(*CreateCoreAlert(cTime, "node1", "skipped alert"));
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -264,7 +269,7 @@ TEST_F(AlertsTest, PackagesAreSent)
 
     mConfig.mSendPeriod = Time::cSeconds * 3;
 
-    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->Start();
@@ -311,7 +316,7 @@ TEST_F(AlertsTest, PackagesAreSentOnReconnect)
 
     std::vector<aos::Alerts> receivedPackages;
 
-    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->Start();
@@ -353,7 +358,7 @@ TEST_F(AlertsTest, ListenersAreNotified)
         AlertTagEnum::eCoreAlert,
     };
 
-    auto err = mAlerts->Init(mConfig, mCommunication, mCloudConnection);
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->SubscribeListener(

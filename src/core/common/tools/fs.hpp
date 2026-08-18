@@ -15,6 +15,7 @@
 #include <core/common/types/common.hpp>
 
 #include "config.hpp"
+#include "memory.hpp"
 #include "noncopyable.hpp"
 #include "string.hpp"
 
@@ -291,10 +292,11 @@ public:
     /**
      * Initializes file info provider.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param hashProvider hash provider.
      * @return Error.
      */
-    Error Init(crypto::HasherItf& hashProvider);
+    Error Init(AllocatorItf& allocator, crypto::HasherItf& hashProvider);
 
     /**
      * Gets file info.
@@ -306,6 +308,7 @@ public:
     Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) override;
 
 private:
+    AllocatorItf*      mAllocator {};
     crypto::HasherItf* mHashProvider {};
 };
 
@@ -474,10 +477,11 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
 /**
  * Calculates size of the file or directory.
  *
+ * @param allocator allocator to use for temporary objects.
  * @param path file or directory path.
  * @return RetWithError<size_t>.
  */
-RetWithError<size_t> CalculateSize(const String& path);
+RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path);
 
 /**
  * File class.

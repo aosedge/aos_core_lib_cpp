@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_TESTS_STUBS_SPACEALLOCATORSTUB_HPP_
 
 #include <core/common/spaceallocator/spaceallocator.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/memory.hpp>
 
 namespace aos::spaceallocator {
@@ -78,7 +79,12 @@ public:
      */
     RetWithError<UniquePtr<SpaceItf>> AllocateSpace(size_t size) override
     {
-        return {UniquePtr<SpaceItf>(MakeUnique<SpaceStub>(&mAllocator, size))};
+        auto space = MakeUnique<SpaceStub>(&mAllocator, size);
+        if (!space) {
+            return {nullptr, ErrorEnum::eNoMemory};
+        }
+
+        return UniquePtr<SpaceItf>(Move(space));
     }
 
     /**
@@ -133,7 +139,7 @@ public:
     Error AllocateDone() override { return ErrorEnum::eNone; }
 
 private:
-    StaticAllocator<1024> mAllocator;
+    HeapAllocator mAllocator;
 };
 
 } // namespace aos::spaceallocator

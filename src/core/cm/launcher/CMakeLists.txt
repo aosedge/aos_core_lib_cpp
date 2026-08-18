@@ -16,13 +16,13 @@ set(TARGET_NAME launcher)
 
 set(SOURCES
     balancer.cpp
-    gidpool.cpp
     imageinfoprovider.cpp
     instance.cpp
     instancemanager.cpp
     launcher.cpp
     node.cpp
     nodemanager.cpp
+    overrideenvvarsprocessor.cpp
     runrequestsloader.cpp
     storagestate.cpp
 )
@@ -32,7 +32,7 @@ set(SOURCES
 # ######################################################################################################################
 
 set(HEADERS
-    gidpool.hpp
+    idpool.hpp
     imageinfoprovider.hpp
     runrequestsloader.hpp
     itf/instancerunner.hpp

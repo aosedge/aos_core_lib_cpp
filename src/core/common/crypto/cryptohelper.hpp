@@ -8,6 +8,7 @@
 #define AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 
 #include <core/common/iamclient/itf/certprovider.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "itf/certloader.hpp"
 #include "itf/crypto.hpp"
@@ -97,6 +98,7 @@ public:
     /**
      * Initializes crypto helper.
      *
+     * @param allocator           allocator to use for temporary objects.
      * @param certProvider        certificate provider interface.
      * @param cryptoProvider      cryptographic provider interface.
      * @param certLoader          certificate loader interface.
@@ -104,8 +106,8 @@ public:
      * @param caCert              root certificate path.
      * @return Error.
      */
-    Error Init(iamclient::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader,
-        const String& serviceDiscoveryURL, const String& caCert);
+    Error Init(AllocatorItf& allocator, iamclient::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider,
+        CertLoaderItf& certLoader, const String& serviceDiscoveryURL, const String& caCert);
 
     /**
      * Retrieves available service discovery URLs.
@@ -157,11 +159,6 @@ private:
     static constexpr auto cRSAEncryptionOid = "1.2.840.113549.1.1.1";
     static constexpr auto cAES256CBCOid     = "2.16.840.1.101.3.4.1.42";
 
-    static constexpr auto cThreadHeapUsage = 2 * sizeof(CertInfo) + sizeof(StaticString<cCertSubjSize>)
-        + sizeof(StaticArray<uint8_t, cCertPEMLen>) + sizeof(SignContext) + sizeof(x509::Certificate)
-        + sizeof(StaticArray<uint8_t, cMaxHashSize>) + sizeof(StaticArray<x509::Certificate, cMaxNumCertificates>)
-        + sizeof(StaticArray<uint8_t, cFileChunkSize>) * 2 + sizeof(StaticString<cURLLen>) * 2;
-
     RetWithError<SharedPtr<x509::CertificateChain>> GetOnlineCert();
     Error                                           SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls);
     Error GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls);
@@ -201,8 +198,8 @@ private:
     StaticString<cURLLen>  mServiceDiscoveryURL;
     x509::CertificateChain mCACerts;
 
-    Semaphore                                                  mSemaphore;
-    StaticAllocator<cMaxNumConcurrentItems * cThreadHeapUsage> mAllocator;
+    Semaphore     mSemaphore;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::crypto

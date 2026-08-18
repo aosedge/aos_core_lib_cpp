@@ -17,11 +17,16 @@ class FirewallMock : public FirewallItf {
 public:
     MOCK_METHOD(Error, Start, (), (override));
     MOCK_METHOD(Error, Stop, (), (override));
+    MOCK_METHOD(Error, RemoveOrphans, (const Array<StaticString<cIDLen>>&, const Array<MasqueradeParams>&), (override));
     MOCK_METHOD(Error, AddInstance, (const String&, const InstanceFirewallParams&), (override));
     MOCK_METHOD(Error, RemoveInstance, (const String&), (override));
     MOCK_METHOD(Error, UpdateInstance, (const String&, const InstanceFirewallParams&), (override));
     MOCK_METHOD(Error, AddMasquerade, (const String&, const String&), (override));
     MOCK_METHOD(Error, RemoveMasquerade, (const String&, const String&), (override));
+    MOCK_METHOD(Error, BeginBatch, (), (override));
+    MOCK_METHOD(Error, FlushBatch, (), (override));
+    MOCK_METHOD(Error, AbortBatch, (), (override));
+    MOCK_METHOD(Error, Revert, (), (override));
 };
 
 } // namespace aos::sm::networkmanager

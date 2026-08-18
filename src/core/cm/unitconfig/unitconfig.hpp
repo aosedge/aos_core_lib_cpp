@@ -33,13 +33,14 @@ public:
     /**
      * Initializes unit config.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param config configuration.
      * @param nodeInfoProvider node info provider.
      * @param nodeConfigHandler node config handler.
      * @param jsonProvider JSON provider.
      * @return Error.
      */
-    Error Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
+    Error Init(AllocatorItf& allocator, const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
         NodeConfigHandlerItf& nodeConfigHandler, JSONProviderItf& jsonProvider);
 
     /**
@@ -114,9 +115,7 @@ private:
     Error           mUnitConfigError;
     UnitConfigState mUnitConfigState {UnitConfigStateEnum::eAbsent};
 
-    StaticAllocator<sizeof(NodeInfo) + sizeof(StaticString<cUnitConfigJSONLen>) + sizeof(NodeConfig)
-        + sizeof(UnitNodeInfo)>
-        mAllocator;
+    AllocatorItf* mAllocator {};
 
     StaticArray<NodeConfigStatus, cMaxNumNodes> mNodeConfigStatuses;
 

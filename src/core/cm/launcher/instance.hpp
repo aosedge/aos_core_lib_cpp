@@ -11,13 +11,12 @@
 
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/tools/identifierpool.hpp>
 #include <core/common/types/monitoring.hpp>
 #include <core/common/types/unitconfig.hpp>
 
 #include "itf/storage.hpp"
 
-#include "gidpool.hpp"
+#include "idpool.hpp"
 #include "imageinfoprovider.hpp"
 #include "nodeitf.hpp"
 #include "storagestate.hpp"
@@ -29,26 +28,6 @@ namespace aos::cm::launcher {
  */
 
 /**
- * UID range start.
- */
-static constexpr auto cUIDRangeBegin = 5000;
-
-/**
- * UID range end.
- */
-static constexpr auto cUIDRangeEnd = 10000;
-
-/**
- * Max number of locked IDs simultaneously.
- */
-static constexpr auto cMaxNumLockedUIDs = cMaxNumInstances;
-
-/**
- * User ID pool
- */
-using UIDPool = IdentifierRangePool<cUIDRangeBegin, cUIDRangeEnd, cMaxNumLockedUIDs>;
-
-/**
  * Base instance class.
  */
 class Instance {
@@ -56,12 +35,13 @@ public:
     /**
      * Constructs instance.
      *
+     * @param allocator instance allocator.
      * @param info instance information.
      * @param storage interface to persistent storage.
      * @param imageInfoProvider interface for retrieving service information from image.
-     * @param allocator instance allocator.
      */
-    Instance(const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
+    Instance(
+        AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Destructor.
@@ -158,21 +138,19 @@ public:
      * Checks whether available CPU fits instance requirements.
      *
      * @param availableCPU available CPU.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    virtual bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) = 0;
+    virtual bool IsAvailableCpuOk(size_t availableCPU, const NodeItf& node) = 0;
 
     /**
      * Checks whether available RAM fits instance requirements.
      *
      * @param availableRAM available RAM.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    virtual bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) = 0;
+    virtual bool IsAvailableRamOk(size_t availableRAM, const NodeItf& node) = 0;
 
     /**
      * Checks whether runtime type fits instance requirements.
@@ -233,6 +211,15 @@ public:
     virtual Error Schedule(NodeItf& node, const String& runtimeID) = 0;
 
     /**
+     * Loads SM instance info.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    virtual Error LoadSMInfo(NodeItf& node, const String& runtimeID) = 0;
+
+    /**
      * Overrides environment variables.
      *
      * @param envVars environment variables.
@@ -250,7 +237,7 @@ protected:
 
     StorageItf&        mStorage;
     ImageInfoProvider& mImageInfoProvider;
-    Allocator&         mAllocator;
+    AllocatorItf&      mAllocator;
 
     MonitoringData mMonitoringData;
 
@@ -266,13 +253,13 @@ public:
     /**
      * Constructs component instance.
      *
+     * @param allocator instance allocator.
      * @param info instance information.
      * @param storage interface to persistent storage.
      * @param imageInfoProvider interface for retrieving service information from image.
-     * @param allocator instance allocator.
      */
     ComponentInstance(
-        const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
+        AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Initializes component instance.
@@ -300,21 +287,19 @@ public:
      * Checks whether available CPU fits instance requirements.
      *
      * @param availableCPU available CPU.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableCpuOk(size_t availableCPU, const NodeItf& node) override;
 
     /**
      * Checks whether available RAM fits instance requirements.
      *
      * @param availableRAM available RAM.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableRamOk(size_t availableRAM, const NodeItf& node) override;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -340,6 +325,15 @@ public:
      * @return Error.
      */
     Error Schedule(NodeItf& node, const String& runtimeID) override;
+
+    /**
+     * Loads SM instance info
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    Error LoadSMInfo(NodeItf& node, const String& runtimeID) override;
 };
 
 /**
@@ -350,14 +344,14 @@ public:
     /**
      * Constructs service instance.
      *
+     * @param allocator instance allocator.
      * @param info instance information.
      * @param uidPool pool for managing user identifiers.
      * @param storage interface to persistent storage.
      * @param storageState interface for managing storage and state partitions.
-     * @param allocator instance allocator.
      */
-    ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-        StorageState& storageState, ImageInfoProvider& imageInfoProvider, Allocator& allocator);
+    ServiceInstance(AllocatorItf& allocator, const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool,
+        StorageItf& storage, StorageState& storageState, ImageInfoProvider& imageInfoProvider);
 
     /**
      * Initializes service instance.
@@ -385,21 +379,19 @@ public:
      * Checks whether available CPU fits instance requirements.
      *
      * @param availableCPU available CPU.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableCpuOk(size_t availableCPU, const NodeItf& node) override;
 
     /**
      * Checks whether available RAM fits instance requirements.
      *
      * @param availableRAM available RAM.
-     * @param nodeConfig node configuration.
-     * @param useMonitoringData whether to use monitoring data.
+     * @param node node.
      * @return bool.
      */
-    bool IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData) override;
+    bool IsAvailableRamOk(size_t availableRAM, const NodeItf& node) override;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -426,11 +418,20 @@ public:
      */
     Error Schedule(NodeItf& node, const String& runtimeID) override;
 
+    /**
+     * Loads SM instance info.
+     *
+     * @param node node interface.
+     * @param runtimeID runtime identifier.
+     * @return Error.
+     */
+    Error LoadSMInfo(NodeItf& node, const String& runtimeID) override;
+
 private:
     static constexpr auto cDefaultResourceRation = 50.0;
 
-    size_t GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData);
-    size_t GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData);
+    size_t GetRequestedCPU(const NodeItf& node);
+    size_t GetRequestedRAM(const NodeItf& node);
     size_t GetReqStateSize(const NodeConfig& nodeConfig);
     size_t GetReqStorageSize(const NodeConfig& nodeConfig);
 

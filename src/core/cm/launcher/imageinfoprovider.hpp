@@ -12,6 +12,7 @@
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/error.hpp>
+#include <core/common/tools/memory.hpp>
 #include <core/common/types/common.hpp>
 #include <core/common/types/desiredstatus.hpp>
 
@@ -25,10 +26,11 @@ public:
     /**
      * @brief Initializes image info provider.
      *
+     * @param allocator allocator to use for temporary objects.
      * @param itemInfoProvider item info provider.
      * @param ociSpec OCI spec.
      */
-    void Init(imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec);
+    void Init(AllocatorItf& allocator, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec);
 
     /**
      * Returns OCI image config for the specified instance/image identifiers.
@@ -59,13 +61,10 @@ public:
     Error GetImageIndex(const String& itemID, const String& version, oci::ImageIndex& imageIndex);
 
 private:
-    static constexpr auto cAllocatorSize = Max(sizeof(oci::ImageManifest) + sizeof(StaticString<cFilePathLen>) * 3,
-        sizeof(StaticString<cFilePathLen>) + sizeof(StaticString<oci::cDigestLen>));
-
     imagemanager::ItemInfoProviderItf* mItemInfoProvider {};
     oci::OCISpecItf*                   mOCISpec {};
 
-    StaticAllocator<cAllocatorSize> mAllocator;
+    AllocatorItf* mAllocator {};
 };
 
 } // namespace aos::cm::launcher

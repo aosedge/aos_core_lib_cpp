@@ -16,11 +16,13 @@ namespace aos::cm::unitconfig {
  * Public
  **********************************************************************************************************************/
 
-Error UnitConfig::Init(const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    NodeConfigHandlerItf& nodeConfigHandler, JSONProviderItf& jsonProvider)
+Error UnitConfig::Init(AllocatorItf& allocator, const Config& config,
+    nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, NodeConfigHandlerItf& nodeConfigHandler,
+    JSONProviderItf& jsonProvider)
 {
     LOG_DBG() << "Init unit config";
 
+    mAllocator         = &allocator;
     mUnitConfigFile    = config.mUnitConfigFile;
     mNodeInfoProvider  = &nodeInfoProvider;
     mNodeConfigHandler = &nodeConfigHandler;
@@ -83,7 +85,10 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
     }
 
     for (const auto& id : nodeIds) {
-        auto nodeInfo = MakeUnique<UnitNodeInfo>(&mAllocator);
+        auto nodeInfo = MakeUnique<UnitNodeInfo>(mAllocator);
+        if (!nodeInfo) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -102,7 +107,10 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
         }
 
         if (nodeConfigStatus.mVersion != config.mVersion || !nodeConfigStatus.mError.IsNone()) {
-            auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
+            auto nodeConfig = MakeUnique<NodeConfig>(mAllocator);
+            if (!nodeConfig) {
+                return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+            }
 
             if (auto err = FindNodeConfig(nodeInfo->mNodeID, nodeInfo->mNodeType, config, *nodeConfig); !err.IsNone()) {
                 return err;
@@ -143,7 +151,10 @@ Error UnitConfig::UpdateUnitConfig(const aos::UnitConfig& unitConfig)
 
     mUnitConfig = unitConfig;
 
-    auto unitConfigJSON = MakeUnique<StaticString<cUnitConfigJSONLen>>(&mAllocator);
+    auto unitConfigJSON = MakeUnique<StaticString<cUnitConfigJSONLen>>(mAllocator);
+    if (!unitConfigJSON) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     if (auto err = mJSONProvider->UnitConfigToJSON(unitConfig, *unitConfigJSON); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -163,8 +174,15 @@ Error UnitConfig::UpdateUnitConfig(const aos::UnitConfig& unitConfig)
     }
 
     for (const auto& id : nodeIds) {
-        auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
-        auto nodeInfo   = MakeUnique<UnitNodeInfo>(&mAllocator);
+        auto nodeConfig = MakeUnique<NodeConfig>(mAllocator);
+        if (!nodeConfig) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        auto nodeInfo = MakeUnique<UnitNodeInfo>(mAllocator);
+        if (!nodeInfo) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
         if (auto err = mNodeInfoProvider->GetNodeInfo(id, *nodeInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -196,6 +214,12 @@ void UnitConfig::OnNodeInfoChanged(const UnitNodeInfo& info)
               << Log::Field("state", info.mState) << Log::Field("isConnected", info.mIsConnected)
               << Log::Field(info.mError);
 
+    if (mUnitConfigState == UnitConfigStateEnum::eAbsent) {
+        LOG_DBG() << "Skip node config update due to unit config is absent" << Log::Field("nodeID", info.mNodeID);
+
+        return;
+    }
+
     if (mUnitConfigState != UnitConfigStateEnum::eInstalled) {
         LOG_WRN() << "Can't update node config due to state" << Log::Field("nodeID", info.mNodeID)
                   << Log::Field("state", mUnitConfigState) << Log::Field(mUnitConfigError);
@@ -221,7 +245,12 @@ void UnitConfig::OnNodeInfoChanged(const UnitNodeInfo& info)
         return;
     }
 
-    auto nodeConfig = MakeUnique<NodeConfig>(&mAllocator);
+    auto nodeConfig = MakeUnique<NodeConfig>(mAllocator);
+    if (!nodeConfig) {
+        LOG_ERR() << "Can't allocate node config" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
 
     if (auto err = FindNodeConfig(info.mNodeID, info.mNodeType, mUnitConfig, *nodeConfig); !err.IsNone()) {
         LOG_ERR() << "Error finding node config" << Log::Field(err);
@@ -244,7 +273,10 @@ Error UnitConfig::LoadConfig()
 {
     LOG_DBG() << "Load config";
 
-    auto unitConfig = MakeUnique<StaticString<cUnitConfigJSONLen>>(&mAllocator);
+    auto unitConfig = MakeUnique<StaticString<cUnitConfigJSONLen>>(mAllocator);
+    if (!unitConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto err = fs::ReadFileToString(mUnitConfigFile, *unitConfig);
     if (!err.IsNone()) {

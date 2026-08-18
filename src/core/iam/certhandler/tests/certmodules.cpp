@@ -9,6 +9,7 @@
 
 #include <core/common/tests/mocks/cryptomock.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tools/heapallocator.hpp>
 #include <core/iam/certhandler/certmodule.hpp>
 #include <core/iam/tests/mocks/certhandlermock.hpp>
 #include <core/iam/tests/stubs/certhandlerstub.hpp>
@@ -37,6 +38,9 @@ protected:
         mCertInfo.mNotAfter = Time::Now();
     }
 
+    // cppcheck-suppress unusedStructMember
+    HeapAllocator mAllocator;
+
     CertInfo mCertInfo;
 
     // cppcheck-suppress unusedStructMember
@@ -56,7 +60,7 @@ TEST_F(CertModuleTest, InitSucceeds)
 {
     CertModule certModule;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 }
 
@@ -67,7 +71,7 @@ TEST_F(CertModuleTest, InitSelfSignedModuleSucceeds)
     mModuleConfig.mIsSelfSigned    = true;
     mModuleConfig.mMaxCertificates = 1;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 }
 
@@ -78,7 +82,7 @@ TEST_F(CertModuleTest, InitFailsOnOneMaxCertsConfigValueForNonSelfSignedModule)
     mModuleConfig.mIsSelfSigned    = false;
     mModuleConfig.mMaxCertificates = 1;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eInvalidArgument, err) << "Invalid argument expected: " << err.StrValue();
 }
 
@@ -88,7 +92,7 @@ TEST_F(CertModuleTest, InitFailsOnZeroMaxCertsConfigValue)
 
     mModuleConfig.mMaxCertificates = 0;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eInvalidArgument, err) << "Invalid argument expected: " << err.StrValue();
 }
 
@@ -98,7 +102,7 @@ TEST_F(CertModuleTest, InitFailsNoMemory)
 
     mModuleConfig.mMaxCertificates = cCertsPerModule + 1;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNoMemory, err) << "No memory expected: " << err.StrValue();
 }
 
@@ -108,7 +112,7 @@ TEST_F(CertModuleTest, ApplyCert)
 
     mModuleConfig.mSkipValidation = true;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 
     EXPECT_CALL(mX509Provider, ASN1DecodeDN).WillRepeatedly(Return(ErrorEnum::eNone));
@@ -148,7 +152,7 @@ TEST_F(CertModuleTest, ApplyCertOldCertsAreTrimmed)
 
     mModuleConfig.mSkipValidation = true;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 
     err = mStorage.AddCertInfo(cCertType, mCertInfo);
@@ -187,7 +191,7 @@ TEST_F(CertModuleTest, ApplyCertOldCertsAreTrimmedOnMaxCertsLimitReached)
     mModuleConfig.mSkipValidation  = true;
     mModuleConfig.mMaxCertificates = cCertsPerModule;
 
-    auto err = certModule.Init(cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 
     for (size_t i = 0; i < cCertsPerModule; ++i) {

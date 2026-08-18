@@ -16,7 +16,7 @@ namespace aos::cm::launcher {
  **********************************************************************************************************************/
 
 Instance::Instance(
-    const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
+    AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider)
     : mInfo(info)
     , mStorage(storage)
     , mImageInfoProvider(imageInfoProvider)
@@ -37,8 +37,15 @@ Instance::Instance(
 
 Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
 {
-    mItemConfig  = MakeUnique<oci::ItemConfig>(&mAllocator);
+    mItemConfig = MakeUnique<oci::ItemConfig>(&mAllocator);
+    if (!mItemConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
     mImageConfig = MakeUnique<oci::ImageConfig>(&mAllocator);
+    if (!mImageConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
 
     auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
     if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
@@ -74,6 +81,11 @@ bool Instance::IsImageValid()
     }
 
     auto imageIndex = MakeUnique<oci::ImageIndex>(&mAllocator);
+    if (!imageIndex) {
+        LOG_ERR() << "Can't allocate image index" << Log::Field(ErrorEnum::eNoMemory);
+
+        return false;
+    }
 
     auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
     if (!err.IsNone()) {
@@ -196,6 +208,9 @@ bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
 RetWithError<bool> Instance::OverrideEnvVars(const OverrideEnvVarsRequest& envVars)
 {
     auto newEnvVars = MakeUnique<EnvVarArray>(&mAllocator);
+    if (!newEnvVars) {
+        return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
 
     for (const auto& item : envVars.mItems) {
         if (!item.Match(mInfo.mInstanceIdent)) {
@@ -280,8 +295,8 @@ Error Instance::SetDefaultRuntimes()
  **********************************************************************************************************************/
 
 ComponentInstance::ComponentInstance(
-    const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
-    : Instance(info, storage, imageInfoProvider, allocator)
+    AllocatorItf& allocator, const InstanceInfo& info, StorageItf& storage, ImageInfoProvider& imageInfoProvider)
+    : Instance(allocator, info, storage, imageInfoProvider)
 {
 }
 
@@ -316,20 +331,18 @@ Error ComponentInstance::Cache(bool disable)
     return ErrorEnum::eNone;
 }
 
-bool ComponentInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ComponentInstance::IsAvailableCpuOk(size_t availableCPU, const NodeItf& node)
 {
     (void)availableCPU;
-    (void)nodeConfig;
-    (void)useMonitoringData;
+    (void)node;
 
     return true;
 }
 
-bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ComponentInstance::IsAvailableRamOk(size_t availableRAM, const NodeItf& node)
 {
     (void)availableRAM;
-    (void)nodeConfig;
-    (void)useMonitoringData;
+    (void)node;
 
     return true;
 }
@@ -348,8 +361,11 @@ oci::BalancingPolicyEnum ComponentInstance::GetBalancingPolicy()
 
 Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
-    auto releaseConfig = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { mImageConfig = nullptr; });
+    return LoadSMInfo(node, runtimeID);
+}
 
+Error ComponentInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
+{
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
     mSMInfo.mVersion                     = mInfo.mVersion;
     mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
@@ -376,9 +392,9 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
  * ServiceInstance implementation
  **********************************************************************************************************************/
 
-ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool, StorageItf& storage,
-    StorageState& storageState, ImageInfoProvider& imageInfoProvider, Allocator& allocator)
-    : Instance(info, storage, imageInfoProvider, allocator)
+ServiceInstance::ServiceInstance(AllocatorItf& allocator, const InstanceInfo& info, UIDPool& uidPool, GIDPool& gidPool,
+    StorageItf& storage, StorageState& storageState, ImageInfoProvider& imageInfoProvider)
+    : Instance(allocator, info, storage, imageInfoProvider)
     , mUIDPool(uidPool)
     , mGIDPool(gidPool)
     , mStorageState(storageState)
@@ -387,28 +403,18 @@ ServiceInstance::ServiceInstance(const InstanceInfo& info, UIDPool& uidPool, GID
 
 Error ServiceInstance::Init()
 {
-    if (mInfo.mUID != 0) {
-        if (auto err = mUIDPool.TryAcquire(mInfo.mUID); !err.IsNone()) {
-            LOG_WRN() << "Can't add UID to pool" << Log::Field(err);
-        }
-    } else {
-        Error err;
-
-        Tie(mInfo.mUID, err) = mUIDPool.Acquire();
-        if (!err.IsNone()) {
-            LOG_WRN() << "Can't add UID to pool" << Log::Field(err);
-        }
-    }
-
-    gid_t gid;
+    Error uidErr;
     Error gidErr;
 
-    Tie(gid, gidErr) = mGIDPool.GetGID(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
+    Tie(mInfo.mUID, uidErr) = mUIDPool.Acquire(mInfo.mInstanceIdent, mInfo.mUID);
+    if (!uidErr.IsNone()) {
+        return AOS_ERROR_WRAP(uidErr);
+    }
+
+    Tie(mInfo.mGID, gidErr) = mGIDPool.Acquire(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
     if (!gidErr.IsNone()) {
         return AOS_ERROR_WRAP(gidErr);
     }
-
-    mInfo.mGID = gid;
 
     return ErrorEnum::eNone;
 }
@@ -417,24 +423,32 @@ Error ServiceInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
+    Error firstErr = ErrorEnum::eNone;
+
     if (auto err = mStorageState.Remove(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        return AOS_ERROR_WRAP(err);
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
     if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        return AOS_ERROR_WRAP(err);
+        if (firstErr.IsNone()) {
+            firstErr = AOS_ERROR_WRAP(err);
+        }
     }
 
-    if (auto err = mUIDPool.Release(mInfo.mUID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        return AOS_ERROR_WRAP(err);
+    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        if (firstErr.IsNone()) {
+            firstErr = AOS_ERROR_WRAP(err);
+        }
     }
 
     if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        return AOS_ERROR_WRAP(err);
+        if (firstErr.IsNone()) {
+            firstErr = AOS_ERROR_WRAP(err);
+        }
     }
 
-    return ErrorEnum::eNone;
+    return firstErr;
 }
 
 Error ServiceInstance::Cache(bool disable)
@@ -455,29 +469,29 @@ Error ServiceInstance::Cache(bool disable)
     return ErrorEnum::eNone;
 }
 
-bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeItf& node)
 {
     assert(mItemConfig);
 
-    auto requestedCPU = GetRequestedCPU(nodeConfig, useMonitoringData);
+    auto requestedCPU = GetRequestedCPU(node);
 
     bool ok = availableCPU >= requestedCPU;
 
-    LOG_DBG() << "Available CPU " << (ok ? "enough" : "not enough") << Log::Field("nodeID", nodeConfig.mNodeID)
+    LOG_DBG() << "Available CPU " << (ok ? "enough" : "not enough") << Log::Field("nodeID", node.GetConfig().mNodeID)
               << Log::Field("availableCPU", availableCPU) << Log::Field("requestedCPU", requestedCPU);
 
     return ok;
 }
 
-bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeConfig& nodeConfig, bool useMonitoringData)
+bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeItf& node)
 {
     assert(mItemConfig);
 
-    auto requestedRAM = GetRequestedRAM(nodeConfig, useMonitoringData);
+    auto requestedRAM = GetRequestedRAM(node);
 
     bool ok = availableRAM >= requestedRAM;
 
-    LOG_DBG() << "Available RAM " << (ok ? "enough" : "not enough") << Log::Field("nodeID", nodeConfig.mNodeID)
+    LOG_DBG() << "Available RAM " << (ok ? "enough" : "not enough") << Log::Field("nodeID", node.GetConfig().mNodeID)
               << Log::Field("availableRAM", availableRAM) << Log::Field("requestedRAM", requestedRAM);
 
     return ok;
@@ -507,10 +521,20 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
     assert(mItemConfig);
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
-        mItemConfig.Reset();
-        mImageConfig.Reset();
-    });
+    if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = LoadSMInfo(node, runtimeID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ServiceInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
+{
+    assert(mItemConfig);
 
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
     mSMInfo.mVersion                     = mInfo.mVersion;
@@ -533,10 +557,6 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
         mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
     }
 
-    if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -544,13 +564,15 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
     return ErrorEnum::eNone;
 }
 
-size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMonitoringData)
+size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
 {
     assert(mItemConfig);
 
     if (mItemConfig->mSkipResourceLimits) {
         return 0;
     }
+
+    const auto& nodeConfig = node.GetConfig();
 
     size_t requestedCPU = 0;
     auto   quota        = mItemConfig->mQuotas.mCPUDMIPSLimit;
@@ -561,7 +583,7 @@ size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMo
         requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (useMonitoringData) {
+    if (node.NeedBalancing()) {
         if (mMonitoringData.mCPU > requestedCPU) {
             return mMonitoringData.mCPU;
         }
@@ -570,13 +592,15 @@ size_t ServiceInstance::GetRequestedCPU(const NodeConfig& nodeConfig, bool useMo
     return requestedCPU;
 }
 
-size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMonitoringData)
+size_t ServiceInstance::GetRequestedRAM(const NodeItf& node)
 {
     assert(mItemConfig);
 
     if (mItemConfig->mSkipResourceLimits) {
         return 0;
     }
+
+    const auto& nodeConfig = node.GetConfig();
 
     size_t requestedRAM = 0;
     auto   quota        = mItemConfig->mQuotas.mRAMLimit;
@@ -587,7 +611,7 @@ size_t ServiceInstance::GetRequestedRAM(const NodeConfig& nodeConfig, bool useMo
         requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (useMonitoringData) {
+    if (node.NeedBalancing()) {
         if (mMonitoringData.mRAM > requestedRAM) {
             return mMonitoringData.mRAM;
         }
@@ -747,8 +771,8 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
 Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
 {
-    auto requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node.GetConfig(), false);
-    auto requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node.GetConfig(), false);
+    auto                     requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
+    auto                     requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
     Array<oci::ResourceInfo> requestedResources
         = mItemConfig->mSkipResourceLimits ? Array<oci::ResourceInfo>() : mItemConfig->mResources;
 

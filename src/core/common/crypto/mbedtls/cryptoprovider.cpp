@@ -574,9 +574,11 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
  * Public
  **********************************************************************************************************************/
 
-Error MbedTLSCryptoProvider::Init()
+Error MbedTLSCryptoProvider::Init(AllocatorItf& allocator)
 {
     LOG_DBG() << "Init mbedTLS crypto provider";
+
+    mAllocator = &allocator;
 
     auto ret = psa_crypto_init();
 
@@ -827,7 +829,10 @@ RetWithError<SharedPtr<PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(c
 {
     LOG_ERR() << "Create private key from PEM";
 
-    auto res = MakeShared<MbedTLSRSAPrivKey>(&mAllocator);
+    auto res = MakeShared<MbedTLSRSAPrivKey>(mAllocator);
+    if (!res) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = res->Init(pemBlob);
     if (!err.IsNone()) {
@@ -941,7 +946,11 @@ RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorith
         return {nullptr, ErrorEnum::eNotSupported};
     }
 
-    auto hasher = MakeUnique<MBedTLSHash>(&mAllocator, alg);
+    auto hasher = MakeUnique<MBedTLSHash>(mAllocator, alg);
+    if (!hasher) {
+        return {nullptr, ErrorEnum::eNoMemory};
+    }
+
     if (auto err = hasher->Init(); !err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
     }
@@ -1055,7 +1064,10 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESEncoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<MbedTLSAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<MbedTLSAESCipher>(mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(key, iv, true);
     if (!err.IsNone()) {
@@ -1072,7 +1084,10 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESDecoder(
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
     }
 
-    auto cipher = MakeUnique<MbedTLSAESCipher>(&mAllocator);
+    auto cipher = MakeUnique<MbedTLSAESCipher>(mAllocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
 
     auto err = cipher->Init(key, iv, false);
     if (!err.IsNone()) {
@@ -1915,7 +1930,10 @@ Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk
         return ParseECKey(mbedtls_pk_ec(*pk), cert);
 
     default:
-        return ErrorEnum::eNotFound;
+        LOG_ERR() << "Unsupported certificate public key algorithm: type=" << static_cast<int>(mbedtls_pk_get_type(pk))
+                  << ", only RSA and ECDSA are supported";
+
+        return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
     }
 }
 
