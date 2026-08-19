@@ -184,7 +184,7 @@ Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
 
     FilterNodesByResources(instance, nodes);
     if (nodes.IsEmpty()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no nodes with with service resources"));
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no nodes with service resources"));
     }
 
     return ErrorEnum::eNone;
@@ -238,12 +238,12 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
 
     FilterByNumInstances(*nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
+        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with available instance slots"))};
     }
 
     FilterTopPriorityNodes(*nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "failed top priority nodes filtering"))};
+        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes after top priority filtering"))};
     }
 
     // Select best node.
