@@ -78,6 +78,44 @@ TEST(ErrorTest, Basic)
     EXPECT_EQ(strcmp(errnoErr.StrErrno(), "Resource temporarily unavailable"), 0);
 }
 
+TEST(ErrorTest, ConstructFromEnumAndErrno)
+{
+    // Enum is preserved as given, independently of the errno value.
+
+    auto err = Error(ErrorEnum::eNotFound, ENODEV);
+
+    EXPECT_EQ(err.Value(), ErrorEnum::eNotFound);
+    EXPECT_EQ(err.Errno(), ENODEV);
+    EXPECT_EQ(strcmp(err.StrValue(), "not found"), 0);
+    EXPECT_EQ(strcmp(err.StrErrno(), strerror(ENODEV)), 0);
+
+    // Negative errno values are normalized to positive.
+
+    auto negErr = Error(ErrorEnum::eFailed, -EAGAIN);
+
+    EXPECT_EQ(negErr.Errno(), EAGAIN);
+
+    // Message, file name and line number are propagated as with the other constructors.
+
+    auto detailedErr = Error(ErrorEnum::eRuntime, ENODEV, "gRPC call failed", "file.cpp", 123);
+
+    EXPECT_EQ(detailedErr.Value(), ErrorEnum::eRuntime);
+    EXPECT_EQ(detailedErr.Errno(), ENODEV);
+    EXPECT_EQ(strcmp(detailedErr.Message(), "gRPC call failed"), 0);
+    EXPECT_EQ(strcmp(detailedErr.FileName(), "file.cpp"), 0);
+    EXPECT_EQ(detailedErr.LineNumber(), 123);
+
+    // With a non-zero errno set, Is() compares by errno rather than by enum, matching Error(int) behavior.
+
+    EXPECT_TRUE(Error(ErrorEnum::eNotFound, ENODEV).Is(Error(ErrorEnum::eFailed, ENODEV)));
+    EXPECT_FALSE(Error(ErrorEnum::eNotFound, ENODEV).Is(Error(ErrorEnum::eNotFound, EAGAIN)));
+
+    // A zero errno keeps enum-based comparison, distinguishing it from Error(int) which maps errno 0 to eNone.
+
+    EXPECT_TRUE(Error(ErrorEnum::eNotFound, 0).Is(ErrorEnum::eNotFound));
+    EXPECT_FALSE(Error(ErrorEnum::eNotFound, 0).IsNone());
+}
+
 TEST(ErrorTest, Messages)
 {
     EXPECT_EQ(strcmp(Error(ErrorEnum::eNone).Message(), ""), 0);
