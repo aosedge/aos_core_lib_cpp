@@ -127,19 +127,36 @@ public:
         return *this;
     }
 
-    // cppcheck-suppress noExplicitConstructor
     /**
-     * Constructs error instance from system errno value.
+     * Constructs error instance from both enum error and system errno value.
      *
-     * @param e errno.
+     * @param err error enum.
+     * @param errNo system errno value.
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
      */
-    Error(int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
-        : mErr(errNo == 0 ? Enum::eNone : Enum::eRuntime)
+    Error(Enum err, int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+        : mErr(err)
         , mErrno(errNo < 0 ? -errNo : errNo)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
         CopyMessage(msg);
+    }
+
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Constructs error instance from system errno value.
+     *
+     * @param errNo system errno value.
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
+     */
+    Error(int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+        : Error(errNo == 0 ? Enum::eNone : Enum::eRuntime, errNo, msg, fileName, lineNumber)
+    {
     }
 
     /**
