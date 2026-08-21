@@ -19,6 +19,17 @@ auto FilterActiveNodes(Array<Node>& array)
     return Filter(array, cmp);
 }
 
+auto FilterConnectedNodes(Array<Node>& array)
+{
+    auto cmp = [](const Node& node) {
+        return node.IsConnected()
+            && (node.GetInfo().mState == NodeStateEnum::eProvisioned
+                || node.GetInfo().mState == NodeStateEnum::ePaused);
+    };
+
+    return Filter(array, cmp);
+}
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -177,7 +188,7 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     node->NotifyInstanceStatusReceived();
 
-    if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
+    if (node->IsConnected()) {
         if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
             if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
                 LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
@@ -250,7 +261,9 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
         return err;
     }
 
-    for (auto& node : FilterActiveNodes(mNodes)) {
+    // Send to all connected nodes, including paused ones. Paused nodes are excluded from scheduling,
+    // so this results in stop requests for their currently running instances.
+    for (auto& node : FilterConnectedNodes(mNodes)) {
         auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
@@ -269,7 +282,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
     // Wait for node statuses
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : FilterActiveNodes(mNodes)) {
+    for (auto& node : FilterConnectedNodes(mNodes)) {
         if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -297,7 +310,8 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
 
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : FilterActiveNodes(mNodes)) {
+    // Include paused connected nodes so running instances can still be stopped on resend.
+    for (auto& node : FilterConnectedNodes(mNodes)) {
         if (!updatedNodes.Contains(node.GetInfo().mNodeID)) {
             continue;
         }
@@ -339,7 +353,7 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
 bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 {
     // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
-    if (info.mState != NodeStateEnum::eProvisioned) {
+    if (info.mState != NodeStateEnum::eProvisioned && info.mState != NodeStateEnum::ePaused) {
         if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
             if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
                 LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
