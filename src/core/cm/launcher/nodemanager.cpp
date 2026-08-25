@@ -70,10 +70,6 @@ Error NodeManager::Start()
 
         LOG_DBG() << "Get node info" << Log::Field("nodeID", nodeID) << Log::Field("state", nodeInfo->mState);
 
-        if (nodeInfo->mState != NodeStateEnum::eProvisioned) {
-            continue;
-        }
-
         // Add online provisioned node
         if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -365,10 +361,6 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
     if (node != nullptr) {
         return node->UpdateInfo(info);
     } else {
-        if (info.mState != NodeStateEnum::eProvisioned) {
-            return false;
-        }
-
         if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
             LOG_ERR() << "Can't add new node" << Log::Field(AOS_ERROR_WRAP(err));
 
