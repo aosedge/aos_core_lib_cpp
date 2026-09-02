@@ -78,6 +78,11 @@ public:
     // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs error instance from ErrorType::Enum.
+     *
+     * @param err error enum.
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
      */
     Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
         : mErr(err)
@@ -90,6 +95,11 @@ public:
 
     /**
      * Constructs error instance from another error.
+     *
+     * @param err error.
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
      */
     Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
         : mErr(err.mErr)
@@ -113,6 +123,7 @@ public:
      * Assigns error from another error.
      *
      * @param err error to copy from.
+     * @return Error&.
      */
     Error& operator=(const Error& err)
     {
@@ -161,6 +172,8 @@ public:
 
     /**
      * Checks if error is none.
+     *
+     * @return bool result.
      */
     bool IsNone() const { return mErr == Enum::eNone; }
 
