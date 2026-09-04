@@ -258,6 +258,10 @@ private:
     Error              CreateNetwork(const NetworkInfo& network);
     Error              DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error              GenerateIfName(String& ifName, const String& ifPrefix);
+    Error              RefreshUplinkInterface();
+    Error              ReassertMasquerades();
+    void               DeferFirewallUpdate(const aos::networkmanager::PendingFirewallUpdate& update);
+    void               TakeDeferredFirewallRules(const InstanceIdent& instanceIdent, InstanceNetworkAllocation* params);
 
     template <typename P>
     Error GenerateUniqueIfName(String& ifName, const String& ifPrefix, P&& isUnique)
@@ -287,6 +291,7 @@ private:
     InterfaceFactoryItf*                                                   mNetIfFactory {};
     aos::networkmanager::NetworkProviderItf*                               mNetworkProvider {};
     StaticString<cIDLen>                                                   mNodeID;
+    StaticString<cInterfaceLen>                                            mUplinkIfName;
     NetworkCache                                                           mRuntimeCache;
     StaticMap<StaticString<cIDLen>, NetworkInfo, cMaxNumOwners>            mNetworkProviders;
     StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>          mDNSServers;
@@ -294,6 +299,8 @@ private:
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                       mPhysicalNetworks;
     bool                                                                   mBatchMode {false};
     StaticArray<BatchEntry, cMaxNumInstances>                              mBatchEntries;
+
+    StaticArray<aos::networkmanager::PendingFirewallUpdate, cMaxNumConcurrentItems> mDeferredFirewallUpdates;
 
     mutable Mutex mMutex;
     AllocatorItf* mAllocator {};

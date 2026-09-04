@@ -194,7 +194,7 @@
  * Port len.
  */
 #ifndef AOS_CONFIG_TYPES_PORT_LEN
-#define AOS_CONFIG_TYPES_PORT_LEN 8
+#define AOS_CONFIG_TYPES_PORT_LEN 16
 #endif
 
 /**
@@ -516,7 +516,7 @@
  * Max number of exposed ports.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS
-#define AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS 8
+#define AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_PORTS 128
 #endif
 
 /**

@@ -49,7 +49,7 @@ struct InstanceFirewallParams {
     // is filtered by the access rules below.
     StaticString<cSubnetLen>                              mSubnet;
     bool                                                  mAllowPublic {};
-    StaticArray<InputAccessConfig, cMaxNumFirewallRules>  mInput;
+    StaticArray<InputAccessConfig, cMaxNumExposedPorts>   mInput;
     StaticArray<OutputAccessConfig, cMaxNumFirewallRules> mOutput;
 };
 
@@ -136,14 +136,14 @@ public:
     virtual Error UpdateInstance(const String& instanceID, const InstanceFirewallParams& params) = 0;
 
     /**
-     * Adds an IPMasq rule for the given subnet (egress via any interface but
-     * outIf, i.e. the bridge is excluded).
+     * Adds an IPMasq rule for the given subnet, matching egress through outIf
+     * so that only traffic leaving the unit is translated.
      *
      * Installed once per network on creation. Idempotent for repeated
      * subnet/outIf pairs.
      *
      * @param subnet source subnet (CIDR).
-     * @param outIf bridge interface name to exclude from masquerading.
+     * @param outIf uplink interface name to masquerade on.
      * @return Error.
      */
     virtual Error AddMasquerade(const String& subnet, const String& outIf) = 0;

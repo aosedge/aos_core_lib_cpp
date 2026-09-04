@@ -16,6 +16,7 @@ namespace aos::sm::networkmanager {
 class InterfaceManagerMock : public InterfaceManagerItf {
 public:
     MOCK_METHOD(Error, GetLink, (const String&, LinkInfo&), (const, override));
+    MOCK_METHOD(Error, GetUplinkInterface, (String&), (const, override));
     MOCK_METHOD(Error, DeleteLink, (const String&), (override));
     MOCK_METHOD(Error, SetupLink, (const String&, const String&), (override));
     MOCK_METHOD(Error, SetMasterLink, (const String&, const String&), (override));

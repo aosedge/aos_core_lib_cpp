@@ -66,6 +66,15 @@ public:
     virtual Error GetLink(const String& ifname, LinkInfo& info) const = 0;
 
     /**
+     * Returns the name of the interface the default route points to, i.e. the
+     * uplink the unit reaches the outside world through.
+     *
+     * @param[out] ifname uplink interface name.
+     * @return Error, eNotFound if there is no default route.
+     */
+    virtual Error GetUplinkInterface(String& ifname) const = 0;
+
+    /**
      * Removes interface.
      *
      * @param ifname interface name.

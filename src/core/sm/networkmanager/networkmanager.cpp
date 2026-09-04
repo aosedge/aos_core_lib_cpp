@@ -111,7 +111,15 @@ Error NetworkManager::Start()
         }
     });
 
+    if (err = RefreshUplinkInterface(); !err.IsNone()) {
+        return err;
+    }
+
     if (err = RemoveFirewallOrphans(); !err.IsNone()) {
+        return err;
+    }
+
+    if (err = ReassertMasquerades(); !err.IsNone()) {
         return err;
     }
 
@@ -198,10 +206,12 @@ Error NetworkManager::CreateInstanceNetwork(
 
     Error err;
 
-    auto rollbackCache = DeferRelease(&instanceID, [this, &err](const String* id) {
+    auto rollbackCache = DeferRelease(&instanceID, [this, &err, &instanceNetworkParameters](const String* id) {
         if (!err.IsNone()) {
             LockGuard lock {mMutex};
+
             mInstanceNetworkInfos.Remove(*id);
+            TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, nullptr);
         }
     });
 
@@ -251,14 +261,16 @@ Error NetworkManager::CreateInstanceNetwork(
         return err;
     }
 
-    if (err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     {
         LockGuard lock {mMutex};
 
+        TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, &info->mAllocatedParams);
+
         mInstanceNetworkInfos.Set(instanceID, *info);
+    }
+
+    if (err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -1446,6 +1458,55 @@ Error NetworkManager::ReconcileInstances()
     return ErrorEnum::eNone;
 }
 
+Error NetworkManager::RefreshUplinkInterface()
+{
+    StaticString<cInterfaceLen> uplink;
+
+    if (auto err = mNetIf->GetUplinkInterface(uplink); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(err, "no uplink interface to masquerade on"));
+    }
+
+    if (uplink.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "uplink interface name is empty"));
+    }
+
+    if (uplink != mUplinkIfName) {
+        LOG_DBG() << "Uplink interface resolved" << Log::Field("uplink", uplink);
+    }
+
+    mUplinkIfName = uplink;
+
+    return ErrorEnum::eNone;
+}
+
+// A default route that moves while SM is running is not tracked: that would
+// need a netlink route subscription, which is out of scope here.
+Error NetworkManager::ReassertMasquerades()
+{
+    auto networks = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(mAllocator);
+    if (!networks) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& [_, network] : mNetworkProviders) {
+            if (auto err = networks->PushBack(network); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    for (const auto& network : *networks) {
+        if (auto err = mFirewall->AddMasquerade(network.mSubnet, mUplinkIfName); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error NetworkManager::RemoveFirewallOrphans()
 {
     auto knownInstanceIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
@@ -1468,7 +1529,7 @@ Error NetworkManager::RemoveFirewallOrphans()
         }
 
         for (const auto& [_, network] : mNetworkProviders) {
-            if (auto err = knownMasquerades->PushBack({network.mSubnet, network.mBridgeIfName}); !err.IsNone()) {
+            if (auto err = knownMasquerades->PushBack({network.mSubnet, mUplinkIfName}); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1612,7 +1673,7 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
         mDNSServers.Remove(networkInfo.mNetworkID);
     }
 
-    if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, networkInfo.mBridgeIfName);
+    if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, mUplinkIfName);
         !errMasq.IsNone() && errMasq.Value() != ErrorEnum::eNotFound && err.IsNone()) {
         err = AOS_ERROR_WRAP(errMasq);
     }
@@ -1855,6 +1916,10 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     Error err;
 
+    if (err = RefreshUplinkInterface(); !err.IsNone()) {
+        return err;
+    }
+
     // A link may already be there when SM crashed without running its teardown.
     // Recreating it is not a no-op: the kernel takes RTM_NEWLINK without
     // NLM_F_EXCL as a modify request, so CreateVlan would push a freshly
@@ -1907,16 +1972,15 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
         }
     });
 
-    // Masquerade is a per-network property (one rule per subnet/bridge), so it
-    // is installed here on network creation rather than per instance.
-    if (err = mFirewall->AddMasquerade(network.mSubnet, network.mBridgeIfName); !err.IsNone()) {
+    // Masquerade is a per-network property (one rule per subnet), so it is
+    // installed here on network creation rather than per instance.
+    if (err = mFirewall->AddMasquerade(network.mSubnet, mUplinkIfName); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupMasquerade = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
         if (!err.IsNone()) {
-            if (auto errMasq = mFirewall->RemoveMasquerade(network->mSubnet, network->mBridgeIfName);
-                !errMasq.IsNone()) {
+            if (auto errMasq = mFirewall->RemoveMasquerade(network->mSubnet, mUplinkIfName); !errMasq.IsNone()) {
                 LOG_ERR() << "Failed to remove masquerade on CreateNetwork rollback"
                           << Log::Field("networkID", network->mNetworkID) << Log::Field(errMasq);
             }
@@ -1969,6 +2033,62 @@ Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
     ifName.Resize(ifName.Size() + randomString.Size());
 
     return ErrorEnum::eNone;
+}
+
+void NetworkManager::DeferFirewallUpdate(const aos::networkmanager::PendingFirewallUpdate& update)
+{
+    LOG_DBG() << "Defer firewall update" << Log::Field("instanceIdent", update.mInstanceIdent)
+              << Log::Field("rulesCount", update.mFirewallRules.Size());
+
+    for (auto& deferred : mDeferredFirewallUpdates) {
+        if (deferred.mInstanceIdent != update.mInstanceIdent) {
+            continue;
+        }
+
+        for (const auto& rule : update.mFirewallRules) {
+            if (deferred.mFirewallRules.Contains(rule)) {
+                continue;
+            }
+
+            if (auto err = deferred.mFirewallRules.PushBack(rule); !err.IsNone()) {
+                LOG_ERR() << "Failed to defer firewall rule" << Log::Field("instanceIdent", update.mInstanceIdent)
+                          << Log::Field(err);
+            }
+        }
+
+        return;
+    }
+
+    if (auto err = mDeferredFirewallUpdates.PushBack(update); !err.IsNone()) {
+        LOG_ERR() << "Failed to defer firewall update" << Log::Field("instanceIdent", update.mInstanceIdent)
+                  << Log::Field(err);
+    }
+}
+
+void NetworkManager::TakeDeferredFirewallRules(const InstanceIdent& instanceIdent, InstanceNetworkAllocation* params)
+{
+    for (auto it = mDeferredFirewallUpdates.begin(); it != mDeferredFirewallUpdates.end(); ++it) {
+        if (it->mInstanceIdent != instanceIdent) {
+            continue;
+        }
+
+        if (params != nullptr) {
+            for (const auto& rule : it->mFirewallRules) {
+                if (params->mFirewallRules.Contains(rule)) {
+                    continue;
+                }
+
+                if (auto err = params->mFirewallRules.PushBack(rule); !err.IsNone()) {
+                    LOG_ERR() << "Failed to apply deferred firewall rule" << Log::Field("instanceIdent", instanceIdent)
+                              << Log::Field(err);
+                }
+            }
+        }
+
+        mDeferredFirewallUpdates.Erase(it);
+
+        return;
+    }
 }
 
 void NetworkManager::OnPendingFirewallUpdate(
@@ -2025,13 +2145,22 @@ void NetworkManager::OnPendingFirewallUpdate(
         }
 
         if (instanceID.IsEmpty()) {
-            LOG_WRN() << "Instance not found for pending firewall update"
-                      << Log::Field("instanceIdent", update.mInstanceIdent);
+            DeferFirewallUpdate(update);
 
             return;
         }
 
-        allocatedParams->mFirewallRules = update.mFirewallRules;
+        for (const auto& rule : update.mFirewallRules) {
+            if (allocatedParams->mFirewallRules.Contains(rule)) {
+                continue;
+            }
+
+            if (auto err = allocatedParams->mFirewallRules.PushBack(rule); !err.IsNone()) {
+                LOG_ERR() << "Failed to add firewall rule" << Log::Field("instanceID", instanceID) << Log::Field(err);
+
+                return;
+            }
+        }
 
         auto info = MakeUnique<InstanceNetworkInfo>(
             mAllocator, instanceID, networkID, *networkConfig, *allocatedParams, hostIfName);
@@ -2050,7 +2179,7 @@ void NetworkManager::OnPendingFirewallUpdate(
         }
 
         if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            it->mSecond.mAllocatedParams.mFirewallRules = update.mFirewallRules;
+            it->mSecond.mAllocatedParams.mFirewallRules = allocatedParams->mFirewallRules;
         }
     }
 
