@@ -234,4 +234,22 @@ Error ValidateCACert(const x509::Certificate& cert)
     return CheckCAPublicKey(cert);
 }
 
+Error GetSystemIDFromCert(const String& uri, String& systemID)
+{
+    const auto prefixLen = String(cSystemIDURNPrefix).Size();
+
+    auto [pos, err] = uri.FindSubstr(0, cSystemIDURNPrefix);
+    if (!err.IsNone() || pos != 0 || uri.Size() <= prefixLen) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    systemID.Clear();
+
+    if (auto insertErr = systemID.Insert(systemID.begin(), uri.begin() + prefixLen, uri.end()); !insertErr.IsNone()) {
+        return AOS_ERROR_WRAP(insertErr);
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::crypto
