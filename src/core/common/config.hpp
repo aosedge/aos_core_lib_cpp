@@ -327,7 +327,7 @@
  * Max number of partitions.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS
-#define AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS 4
+#define AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS 6
 #endif
 
 /**
