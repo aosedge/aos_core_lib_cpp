@@ -1944,6 +1944,10 @@ Error MbedTLSCryptoProvider::ParseX509Certs(const mbedtls_x509_crt* currentCrt, 
         return err;
     }
 
+    if (auto err = GetX509CertSubjectAltNameURIs(cert, currentCrt); !err.IsNone()) {
+        return err;
+    }
+
     return GetX509CertExtensions(cert, currentCrt);
 }
 
@@ -2125,6 +2129,29 @@ RetWithError<mbedtls_x509_time> MbedTLSCryptoProvider::ConvertTime(const Time& s
     }
 
     return result;
+}
+
+Error MbedTLSCryptoProvider::GetX509CertSubjectAltNameURIs(x509::Certificate& cert, const mbedtls_x509_crt* crt) const
+{
+    for (const auto* san = &crt->subject_alt_names; san != nullptr; san = san->next) {
+        if (san->buf.tag != (MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
+            continue;
+        }
+
+        StaticString<cURLLen> uri;
+
+        if (auto err = uri.Insert(uri.begin(), reinterpret_cast<const char*>(san->buf.p),
+                reinterpret_cast<const char*>(san->buf.p) + san->buf.len);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = cert.mSubjectURLs.PushBack(uri); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, const mbedtls_x509_crt* crt) const
