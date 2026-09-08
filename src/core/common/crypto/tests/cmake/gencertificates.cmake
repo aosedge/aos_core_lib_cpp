@@ -403,3 +403,56 @@ function(cryptohelper_create_cms WORK_DIR INPUT_FILE RECIPIENT_CERT_NAME)
         "${WORK_DIR}/${RECIPIENT_CERT_NAME}.pem"
     )
 endfunction()
+
+#
+# Generates an online-like leaf certificate with System ID SAN URI (urn:aos:unit:...).
+#
+function(generate_unit_online_cert TARGET OUTPUT_DIR SYSTEM_ID)
+    set(OUTPUT_DIR "${OUTPUT_DIR}")
+    file(MAKE_DIRECTORY "${OUTPUT_DIR}")
+
+    set(CERT_EXT
+        "basicConstraints=CA:FALSE
+keyUsage=digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement
+extendedKeyUsage=serverAuth,clientAuth
+subjectAltName=URI:urn:aos:domain:aosedge.io,DNS:aos-dev.test,DNS:aosedge.io,DNS:subdomain.aosedge.io,URI:urn:aos:unit:${SYSTEM_ID}"
+    )
+
+    file(WRITE "${OUTPUT_DIR}/unit-online.ext" "${CERT_EXT}\n")
+
+    message(STATUS "Generating unit-online certificate with System ID '${SYSTEM_ID}'...")
+
+    run_openssl(
+        req
+        -new
+        -newkey
+        ec
+        -pkeyopt
+        ec_paramgen_curve:P-256
+        -nodes
+        -keyout
+        "${OUTPUT_DIR}/unit-online.key"
+        -out
+        "${OUTPUT_DIR}/unit-online.csr"
+        -subj
+        "/CN=${SYSTEM_ID}-online/serialNumber=${SYSTEM_ID}/O=aosedge.io"
+    )
+
+    run_openssl(
+        x509
+        -req
+        -in
+        "${OUTPUT_DIR}/unit-online.csr"
+        -signkey
+        "${OUTPUT_DIR}/unit-online.key"
+        -out
+        "${OUTPUT_DIR}/unit-online.crt"
+        -days
+        3650
+        -sha256
+        -extfile
+        "${OUTPUT_DIR}/unit-online.ext"
+    )
+
+    target_compile_definitions(${TARGET} PUBLIC UNIT_ONLINE_CERT_PATH="${OUTPUT_DIR}/unit-online.crt")
+endfunction()

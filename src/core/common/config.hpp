@@ -107,6 +107,13 @@
 #endif
 
 /**
+ * Hardware ID len.
+ */
+#ifndef AOS_CONFIG_TYPES_HARDWARE_ID_LEN
+#define AOS_CONFIG_TYPES_HARDWARE_ID_LEN 100
+#endif
+
+/**
  * Max number of subjects.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS

@@ -2234,6 +2234,58 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
             }
         }
 
+        if (!memcmp(next->buf.p, MBEDTLS_OID_SUBJECT_ALT_NAME, tagLen)) {
+            unsigned char* p = next->buf.p + tagLen;
+            size_t         len;
+
+            ret = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);
+            if (ret != 0) {
+                return AOS_ERROR_WRAP(ret);
+            }
+
+            unsigned char* end = p + len;
+
+            // SubjectAltName ::= GeneralNames ::= SEQUENCE OF GeneralName
+            ret = mbedtls_asn1_get_tag(&p, end, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
+            if (ret != 0) {
+                return AOS_ERROR_WRAP(ret);
+            }
+
+            unsigned char* seqEnd = p + len;
+
+            while (p < seqEnd) {
+                size_t         gnLen = 0;
+                unsigned char* save  = p;
+
+                // URI GeneralName is context-specific tag 6
+                ret = mbedtls_asn1_get_tag(&p, seqEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6);
+                if (ret == 0) {
+                    StaticString<cURLLen> str;
+                    if (auto insErr
+                        = str.Insert(str.begin(), reinterpret_cast<char*>(p), reinterpret_cast<char*>(p) + gnLen);
+                        !insErr.IsNone()) {
+                        return AOS_ERROR_WRAP(insErr);
+                    }
+
+                    if (auto pushErr = cert.mSubjectURLs.PushBack(str); !pushErr.IsNone()) {
+                        return AOS_ERROR_WRAP(pushErr);
+                    }
+
+                    p += gnLen;
+                    continue;
+                }
+
+                // Skip any other GeneralName CHOICE element
+                p   = save;
+                ret = mbedtls_asn1_get_tag(&p, seqEnd, &gnLen, *p & 0xFF);
+                if (ret != 0) {
+                    return AOS_ERROR_WRAP(ret);
+                }
+
+                p += gnLen;
+            }
+        }
+
         next = next->next;
     }
 

@@ -71,4 +71,26 @@ Error CalculateFileHash(const String& path, const Hash& algorithm, HasherItf& ha
     return ErrorEnum::eNone;
 }
 
+Error GetSystemIDFromCert(const String& uri, String& systemID)
+{
+    const auto prefixLen = String(cSystemIDURNPrefix).Size();
+
+    auto [pos, err] = uri.FindSubstr(0, cSystemIDURNPrefix);
+    if (!err.IsNone() || pos != 0 || uri.Size() <= prefixLen) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    systemID.Clear();
+
+    if (auto insertErr = systemID.Insert(systemID.begin(), uri.begin() + prefixLen, uri.end()); !insertErr.IsNone()) {
+        return AOS_ERROR_WRAP(insertErr);
+    }
+
+    if (systemID.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "system ID URN has empty value"));
+    }
+
+    return ErrorEnum::eNone;
+}
+
 } // namespace aos::crypto

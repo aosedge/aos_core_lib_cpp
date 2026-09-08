@@ -206,9 +206,9 @@ Error GetAuthorityKeyID(X509* cert, Array<uint8_t>& akid)
     return ErrorEnum::eNone;
 }
 
-Error GetIssuerAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
+Error GetAltNameURIs(X509* cert, int nid, Array<StaticString<cURLLen>>& uris)
 {
-    auto ext   = X509_get_ext_d2i(cert, NID_issuer_alt_name, nullptr, nullptr);
+    auto ext   = X509_get_ext_d2i(cert, nid, nullptr, nullptr);
     auto names = DeferRelease(static_cast<GENERAL_NAMES*>(ext),
         [](GENERAL_NAMES* names) { sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free); });
     if (!names) {
@@ -244,6 +244,16 @@ Error GetIssuerAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
     }
 
     return ErrorEnum::eNone;
+}
+
+Error GetIssuerAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
+{
+    return GetAltNameURIs(cert, NID_issuer_alt_name, uris);
+}
+
+Error GetSubjectAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
+{
+    return GetAltNameURIs(cert, NID_subject_alt_name, uris);
 }
 
 Error ConvertASN1Time(const ASN1_TIME* src, Time& dst)
@@ -418,6 +428,11 @@ Error ConvertX509ToAos(X509* cert, x509::Certificate& resultCert)
     }
 
     err = GetIssuerAltNameURIs(cert, resultCert.mIssuerURLs);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = GetSubjectAltNameURIs(cert, resultCert.mSubjectURLs);
     if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }

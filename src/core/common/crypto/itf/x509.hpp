@@ -171,6 +171,10 @@ struct Certificate {
      */
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mIssuerURLs;
     /**
+     * Subject alternative name URIs.
+     */
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> mSubjectURLs;
+    /**
      * Certificate validity period.
      */
     Time mNotBefore, mNotAfter;

@@ -70,3 +70,9 @@ cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.t
 cryptohelper_sign_file("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world.txt" "onlineTest2")
 
 cryptohelper_create_cms("${CMAKE_CURRENT_BINARY_DIR}/cryptohelper" "hello-world-cms.txt" "offline1")
+
+message("\n\n==================================================")
+message("Generating unit-online certificate for System ID tests...")
+message("==================================================")
+
+generate_unit_online_cert("${TARGET_PREFIX}_${TARGET_NAME}" "${CMAKE_CURRENT_BINARY_DIR}/unitonline" "test-unit")
