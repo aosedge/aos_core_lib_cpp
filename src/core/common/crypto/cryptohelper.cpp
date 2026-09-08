@@ -22,8 +22,7 @@ CryptoHelper::CryptoHelper()
 }
 
 Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& certProvider,
-    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL,
-    const String& caCert)
+    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL)
 {
     mAllocator           = &allocator;
     mCertProvider        = &certProvider;
@@ -31,20 +30,23 @@ Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& ce
     mCertLoader          = &certLoader;
     mServiceDiscoveryURL = serviceDiscoveryURL;
 
-    auto caCertsPEM = MakeUnique<StaticString<cCertPEMLen>>(mAllocator);
-    if (!caCertsPEM) {
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
+    if (!certInfo) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = fs::ReadFileToString(caCert, *caCertsPEM); !err.IsNone()) {
+    if (auto err = mCertProvider->GetCert(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mCryptoProvider->PEMToX509Certs(*caCertsPEM, mCACerts); !err.IsNone()) {
+    auto [chain, err] = mCertLoader->LoadCertsChainByURL(certInfo->mCertURL);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    return ErrorEnum::eNone;
+    mCACerts.Clear();
+
+    return mCACerts.PushBack(chain->Back());
 }
 
 Error CryptoHelper::GetServiceDiscoveryURLs(Array<StaticString<cURLLen>>& urls)
