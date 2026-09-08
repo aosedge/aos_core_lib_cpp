@@ -426,6 +426,17 @@ Error RemoveAll(const String& path);
 Error Rename(const String& oldPath, const String& newPath);
 
 /**
+ * Copies a file, including between different file systems. Removes an incomplete destination on failure.
+ * Source and destination must refer to different files. The destination is overwritten with mode 0644 for new files.
+ *
+ * @param allocator allocator for the copy buffer.
+ * @param srcPath source file path.
+ * @param dstPath destination file path.
+ * @return Error.
+ */
+Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dstPath);
+
+/**
  * Reads content of the file named by fileName into the buffer.
  *
  * @param fileName file name.
