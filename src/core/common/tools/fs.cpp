@@ -11,6 +11,7 @@
 #include <core/common/crypto/cryptoutils.hpp>
 
 #include "fs.hpp"
+#include "logger.hpp"
 #include "memory.hpp"
 
 namespace aos::fs {
@@ -370,6 +371,60 @@ Error Rename(const String& oldPath, const String& newPath)
     if (auto ret = rename(oldPath.CStr(), newPath.CStr()); ret != 0) {
         return errno;
     }
+
+    return ErrorEnum::eNone;
+}
+
+Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dstPath)
+{
+    auto buffer = MakeUnique<StaticArray<uint8_t, 16 * 1024>>(&allocator);
+    if (!buffer) {
+        return ErrorEnum::eNoMemory;
+    }
+
+    File source;
+    if (auto err = source.Open(srcPath, File::Mode::Read); !err.IsNone()) {
+        return err;
+    }
+
+    File destination;
+    if (auto err = destination.Open(dstPath, File::Mode::Write); !err.IsNone()) {
+        return err;
+    }
+
+    bool copied  = false;
+    auto cleanup = DeferRelease(&copied, [&destination, &dstPath](const bool* complete) {
+        if (!*complete) {
+            if (auto err = destination.Close(); !err.IsNone()) {
+                LOG_ERR() << "Failed to close incomplete copy: err=" << AOS_ERROR_WRAP(err);
+            }
+
+            if (auto err = Remove(dstPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove incomplete copy: err=" << AOS_ERROR_WRAP(err);
+            }
+        }
+    });
+
+    while (true) {
+        auto err = source.ReadBlock(*buffer);
+        if (!err.IsNone() && err != ErrorEnum::eEOF) {
+            return err;
+        }
+
+        if (auto writeErr = destination.WriteBlock(*buffer); !writeErr.IsNone()) {
+            return writeErr;
+        }
+
+        if (err == ErrorEnum::eEOF) {
+            break;
+        }
+    }
+
+    if (auto err = destination.Close(); !err.IsNone()) {
+        return err;
+    }
+
+    copied = true;
 
     return ErrorEnum::eNone;
 }

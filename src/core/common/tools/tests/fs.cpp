@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <fstream>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -280,6 +282,67 @@ TEST_F(FSTest, RenameFolder)
 
     EXPECT_EQ(fs::DirExist(testDir.c_str()), RetWithError<bool>(false));
     EXPECT_TRUE(std::filesystem::exists(newDir / "child/test.txt"));
+}
+
+TEST_F(FSTest, CopyFile)
+{
+    const auto source      = cBaseTestDir / "copy-source";
+    const auto destination = cBaseTestDir / "copy-destination";
+
+    for (const auto size : {0U, 16384U, 32769U}) {
+        const std::string content(size, 'x');
+        CreateFile(source.c_str(), content.c_str());
+        CreateFile(destination.c_str(), "old content that must be truncated");
+
+        ASSERT_TRUE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
+        EXPECT_TRUE(std::filesystem::exists(source));
+        std::ifstream     stream(destination, std::ios::binary);
+        const std::string actual((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+        EXPECT_EQ(actual, content);
+    }
+}
+
+TEST_F(FSTest, CopyFileAcrossFileSystems)
+{
+    struct stat sourceStat { };
+    struct stat destinationStat { };
+    if (stat(cBaseTestDir.c_str(), &sourceStat) != 0 || stat("/dev/shm", &destinationStat) != 0
+        || sourceStat.st_dev == destinationStat.st_dev || access("/dev/shm", W_OK) != 0) {
+        GTEST_SKIP() << "A writable /dev/shm on a different file system is required";
+    }
+
+    char directory[] = "/dev/shm/aos-copy-test-XXXXXX";
+    ASSERT_NE(mkdtemp(directory), nullptr);
+    auto       cleanup     = DeferRelease(directory, [](char* path) { fs::RemoveAll(path); });
+    const auto source      = cBaseTestDir / "cross-device-source";
+    const auto destination = std::filesystem::path(directory) / "destination";
+    CreateFile(source.c_str(), "cross-device contents");
+
+    ASSERT_TRUE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
+    EXPECT_TRUE(std::filesystem::exists(source));
+    StaticString<100> content;
+    ASSERT_TRUE(fs::ReadFileToString(destination.c_str(), content).IsNone());
+    EXPECT_EQ(content, "cross-device contents");
+}
+
+TEST_F(FSTest, CopyFileMissingSource)
+{
+    const auto destination = cBaseTestDir / "copy-destination";
+    CreateFile(destination.c_str(), "keep destination");
+
+    EXPECT_FALSE(fs::CopyFile(mAllocator, (cBaseTestDir / "missing").c_str(), destination.c_str()).IsNone());
+    CheckFile(destination.c_str(), "keep destination", 0666U);
+}
+
+TEST_F(FSTest, CopyFileReadFailureRemovesDestination)
+{
+    const auto source      = cBaseTestDir / "source-directory";
+    const auto destination = cBaseTestDir / "copy-destination";
+    ASSERT_TRUE(std::filesystem::create_directory(source));
+
+    EXPECT_FALSE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
+    EXPECT_FALSE(std::filesystem::exists(destination));
+    EXPECT_TRUE(std::filesystem::exists(source));
 }
 
 TEST_F(FSTest, ReadFile)

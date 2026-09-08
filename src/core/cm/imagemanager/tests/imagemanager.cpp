@@ -802,6 +802,84 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_Cancel_DownloadFailed)
     downloadThread.join();
 }
 
+TEST_F(ImageManagerTest, DownloadUpdateItems_UnencryptedBlob_CopiesToInstall)
+{
+    constexpr size_t cBlobSize = 1024;
+
+    StaticArray<UpdateItemInfo, 5>               itemsInfo;
+    StaticArray<crypto::CertificateInfo, 1>      certificates;
+    StaticArray<crypto::CertificateChainInfo, 1> certificateChains;
+    StaticArray<UpdateItemStatus, 5>             statuses;
+
+    UpdateItemInfo item;
+    item.mItemID      = "service1";
+    item.mType        = UpdateItemTypeEnum::eService;
+    item.mVersion     = "1.0.0";
+    item.mIndexDigest = cBlobDigest;
+    itemsInfo.PushBack(item);
+
+    ItemInfo storedItem;
+    EXPECT_CALL(mStorageMock, GetAllItemsInfos(_))
+        .Times(3)
+        .WillRepeatedly(Invoke([&storedItem](Array<ItemInfo>& items) {
+            if (!storedItem.mItemID.IsEmpty()) {
+                return items.PushBack(storedItem);
+            }
+
+            return Error(ErrorEnum::eNone);
+        }));
+    EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Invoke([&storedItem](const ItemInfo& addedItem) {
+        storedItem = addedItem;
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mBlobInfoProviderMock, GetBlobsInfos(_, _))
+        .WillOnce(Invoke([](const auto& digests, Array<BlobInfo>& blobsInfo) {
+            BlobInfo info;
+            info.mDigest = digests[0];
+            info.mSize   = cBlobSize;
+            info.mURLs.PushBack("http://test.com/blob");
+            info.mSignInfo.EmplaceValue();
+            for (size_t i = 0; i < crypto::cSHA256Size; i++) {
+                info.mSHA256.PushBack(static_cast<uint8_t>(i));
+            }
+
+            return blobsInfo.PushBack(info);
+        }));
+
+    EXPECT_CALL(mDownloadingSpaceAllocatorMock, AllocateSpace(cBlobSize)).WillOnce(Invoke([this](size_t) {
+        return MakeSpaceMock(0, 1);
+    }));
+
+    EXPECT_CALL(mInstallSpaceAllocatorMock, AllocateSpace(cBlobSize)).WillOnce(Invoke([this](size_t) {
+        return MakeSpaceMock(1, 0);
+    }));
+
+    EXPECT_CALL(mDownloaderMock, Download(_, _, _)).WillOnce(Invoke([this](const auto&, const auto&, const auto&) {
+        CreateFile(GetBlobDownloadPath(), cBlobSize);
+        return ErrorEnum::eNone;
+    }));
+
+    ExpectBlobChecksum(2);
+
+    EXPECT_CALL(mCryptoHelperMock, Decrypt(_, _, _)).Times(0);
+    EXPECT_CALL(mCryptoHelperMock, ValidateSigns(_, _, _, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mOCISpecMock, LoadImageIndex(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mStorageMock, UpdateItemState(_, _, ItemState(ItemStateEnum::ePending), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.DownloadUpdateItems(itemsInfo, certificates, certificateChains, statuses);
+
+    EXPECT_TRUE(err.IsNone());
+    ASSERT_EQ(statuses.Size(), 1);
+    EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
+
+    ExpectFileRemoved(GetBlobDownloadPath());
+    ExpectFileSize(fs::JoinPath(mConfig.mInstallPath, "blobs/sha256", cBlobHash), cBlobSize);
+}
+
 TEST_F(ImageManagerTest, DownloadUpdateItems_PartialDownload_AllocatesRemainingSize)
 {
     constexpr size_t cBlobSize    = 1024;
