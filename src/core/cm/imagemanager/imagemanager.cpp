@@ -1454,7 +1454,7 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
             return AOS_ERROR_WRAP(err);
         }
     } else {
-        if (err = fs::Rename(downloadPath, installPath); !err.IsNone()) {
+        if (err = fs::CopyFile(*mAllocator, downloadPath, installPath); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
