@@ -64,7 +64,9 @@ Error NodeManager::Start()
         }
 
         // Add online provisioned node
-        (void)mNodes.EmplaceBack();
+        if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
         mNodes.Back().Init(*mAllocator, nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
         (void)mNodes.Back().UpdateInfo(*nodeInfo);
