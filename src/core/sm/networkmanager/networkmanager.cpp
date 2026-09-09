@@ -46,7 +46,9 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
     }
 
     for (const auto& instanceNetworkInfo : *instanceNetworkInfos) {
-        (void)mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo);
+        if (auto err = mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(mAllocator);
@@ -59,7 +61,9 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
     }
 
     for (const auto& networkInfo : *networkInfos) {
-        (void)mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo);
+        if (auto err = mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -605,7 +609,9 @@ Error NetworkManager::BeginBatch()
 
     auto cleanupStorage = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            (void)self->mStorage->RollbackTransaction();
+            if (auto rollbackErr = self->mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+                LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+            }
         }
     });
 
@@ -615,7 +621,9 @@ Error NetworkManager::BeginBatch()
 
     auto cleanupFirewall = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            (void)self->mFirewall->AbortBatch();
+            if (auto abortErr = self->mFirewall->AbortBatch(); !abortErr.IsNone()) {
+                LOG_ERR() << "Failed to abort firewall batch" << Log::Field(abortErr);
+            }
         }
     });
 
@@ -633,8 +641,13 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mFirewall->FlushBatch(); !err.IsNone()) {
         LOG_ERR() << "Failed to flush firewall batch" << Log::Field(err);
 
-        (void)mNetMonitor->AbortBatch();
-        (void)mStorage->RollbackTransaction();
+        if (auto abortErr = mNetMonitor->AbortBatch(); !abortErr.IsNone()) {
+            LOG_ERR() << "Failed to abort traffic monitor batch" << Log::Field(abortErr);
+        }
+
+        if (auto rollbackErr = mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+            LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+        }
 
         ReapplyBatchEntries(failedInstanceIDs);
         ClearBatchState();
@@ -645,8 +658,13 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mNetMonitor->FlushBatch(); !err.IsNone()) {
         LOG_ERR() << "Failed to flush traffic monitor batch" << Log::Field(err);
 
-        (void)mFirewall->Revert();
-        (void)mStorage->RollbackTransaction();
+        if (auto revertErr = mFirewall->Revert(); !revertErr.IsNone()) {
+            LOG_ERR() << "Failed to revert firewall" << Log::Field(revertErr);
+        }
+
+        if (auto rollbackErr = mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+            LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+        }
 
         ReapplyBatchEntries(failedInstanceIDs);
         ClearBatchState();
@@ -657,12 +675,23 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mStorage->CommitTransaction(); !err.IsNone()) {
         LOG_ERR() << "Failed to commit batch transaction" << Log::Field(err);
 
-        (void)mFirewall->Revert();
-        (void)mNetMonitor->Revert();
-        (void)mStorage->RollbackTransaction();
+        if (auto revertErr = mFirewall->Revert(); !revertErr.IsNone()) {
+            LOG_ERR() << "Failed to revert firewall" << Log::Field(revertErr);
+        }
+
+        if (auto revertErr = mNetMonitor->Revert(); !revertErr.IsNone()) {
+            LOG_ERR() << "Failed to revert traffic monitor" << Log::Field(revertErr);
+        }
+
+        if (auto rollbackErr = mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+            LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+        }
 
         for (const auto& entry : mBatchEntries) {
-            (void)failedInstanceIDs.PushBack(entry.mInstanceID);
+            if (auto pushErr = failedInstanceIDs.PushBack(entry.mInstanceID); !pushErr.IsNone()) {
+                LOG_ERR() << "Failed to store failed instance ID" << Log::Field("instanceID", entry.mInstanceID)
+                          << Log::Field(pushErr);
+            }
         }
     }
 
