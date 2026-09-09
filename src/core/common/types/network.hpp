@@ -7,6 +7,8 @@
 #ifndef AOS_CORE_COMMON_TYPES_NETWORK_HPP_
 #define AOS_CORE_COMMON_TYPES_NETWORK_HPP_
 
+#include <core/common/tools/utils.hpp>
+
 #include "common.hpp"
 
 namespace aos {
@@ -72,9 +74,14 @@ static constexpr auto cMaxNumExposedPorts = AOS_CONFIG_TYPES_MAX_NUM_EXPOSED_POR
 static constexpr auto cExposedPortLen = cPortLen + cProtocolNameLen;
 
 /**
- * Max length of connection name.
+ * Max length of an allowed connection target (item ID or hostname).
  */
-static constexpr auto cConnectionNameLen = cIDLen + cExposedPortLen;
+static constexpr auto cConnectionTargetLen = Max(cIDLen, cHostNameLen);
+
+/**
+ * Max length of target/port/protocol, including separators.
+ */
+static constexpr auto cConnectionNameLen = cConnectionTargetLen + cExposedPortLen + 2;
 
 /**
  * Max number of allowed connections.
