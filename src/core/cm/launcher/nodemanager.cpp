@@ -79,7 +79,10 @@ Error NodeManager::Stop()
 
     // Unlock waiting run requests.
     mNodesExpectedToSendStatus.Clear();
-    (void)mStatusUpdateCondVar.NotifyAll();
+
+    if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -174,7 +177,9 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            (void)mStatusUpdateCondVar.NotifyAll();
+            if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+                LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         }
     }
 
@@ -334,7 +339,9 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
     // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
     if (info.mState != NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
-            (void)mStatusUpdateCondVar.NotifyAll();
+            if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+                LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         }
     }
 
