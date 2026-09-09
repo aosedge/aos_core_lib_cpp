@@ -502,7 +502,10 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, Instal
 
     auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
         if (waitInstalling) {
-            (void)ReleaseInstallingBlob(*digest);
+            if (auto releaseErr = ReleaseInstallingBlob(*digest); !releaseErr.IsNone()) {
+                LOG_ERR() << "Can't release installing blob" << Log::Field("digest", *digest)
+                          << Log::Field(AOS_ERROR_WRAP(releaseErr));
+            }
         }
     });
 
@@ -670,8 +673,12 @@ Error ImageManager::InstallLayer(
         return err;
     }
 
-    auto releaseInstalling
-        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { (void)ReleaseInstallingBlob(*digest); });
+    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
+        if (auto releaseErr = ReleaseInstallingBlob(*digest); !releaseErr.IsNone()) {
+            LOG_ERR() << "Can't release installing blob" << Log::Field("digest", *digest)
+                      << Log::Field(AOS_ERROR_WRAP(releaseErr));
+        }
+    });
 
     {
         LockGuard lock {mMutex};
@@ -756,9 +763,13 @@ void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* sp
 
     if (space) {
         if (!err.IsNone()) {
-            (void)space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         } else {
-            (void)space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     }
 }
