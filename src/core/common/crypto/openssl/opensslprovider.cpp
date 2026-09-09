@@ -416,7 +416,11 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_MDWithRSAEncryption
         // implementation: PARAMETERS, always NULL in current standards
-        (void)X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, NULL);
+        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, NULL) != 1) {
+            LOG_ERR() << "Set algorithm failed, err=" << OPENSSL_ERROR();
+
+            return nullptr;
+        }
 
         return alg.Release();
     }
@@ -438,7 +442,11 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_ECDSA_with_MD implementation:
         // there is no PARAMETERS for ECDSA
-        (void)X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, NULL);
+        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, NULL) != 1) {
+            LOG_ERR() << "Set algorithm failed, err=" << OPENSSL_ERROR();
+
+            return nullptr;
+        }
 
         return alg.Release();
     }

@@ -1830,7 +1830,9 @@ Error MbedTLSCryptoProvider::MbedTLSRSAPrivKey::Decrypt(
 
             // configure padding mode + hash
             mbedtls_md_type_t mdType = ConvertToMD(opts.mHash);
-            (void)mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, mdType);
+            if (mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, mdType) != 0) {
+                return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+            }
 
             (void)mResult.Resize(mResult.MaxSize());
 
