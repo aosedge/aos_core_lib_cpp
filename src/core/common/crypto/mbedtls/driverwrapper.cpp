@@ -72,18 +72,29 @@ static int32_t ExportRSAPublicKeyToDER(
     mbedtls_mpi_init(&n);
     mbedtls_mpi_init(&e);
 
-    (void)mbedtls_mpi_read_binary(&n, rsaKey.GetN().Get(), rsaKey.GetN().Size());
-    (void)mbedtls_mpi_read_binary(&e, rsaKey.GetE().Get(), rsaKey.GetE().Size());
-
     auto cleanup = [&]() {
         mbedtls_mpi_free(&n);
         mbedtls_mpi_free(&e);
     };
 
+    auto ret = mbedtls_mpi_read_binary(&n, rsaKey.GetN().Get(), rsaKey.GetN().Size());
+    if (ret != 0) {
+        cleanup();
+
+        return ret;
+    }
+
+    ret = mbedtls_mpi_read_binary(&e, rsaKey.GetE().Get(), rsaKey.GetE().Size());
+    if (ret != 0) {
+        cleanup();
+
+        return ret;
+    }
+
     // Write from the end of the buffer
     uint8_t* c = data + dataSize;
 
-    auto ret = mbedtls_asn1_write_mpi(&c, data, &e);
+    ret = mbedtls_asn1_write_mpi(&c, data, &e);
     if (ret < 0) {
         cleanup();
 
