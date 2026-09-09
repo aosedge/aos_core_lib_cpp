@@ -43,9 +43,17 @@ Error Monitoring::Start()
 
     auto unsubscribeOnError = DeferRelease(&err, [this](const Error* err) {
         if (!err->IsNone()) {
-            (void)mInstanceStatusProvider->UnsubscribeListener(*this);
-            (void)mNodeInfoProvider->UnsubscribeListener(*this);
-            (void)mCloudConnection->UnsubscribeListener(*this);
+            if (auto unsubErr = mInstanceStatusProvider->UnsubscribeListener(*this); !unsubErr.IsNone()) {
+                LOG_ERR() << "Can't unsubscribe instance status listener" << Log::Field(AOS_ERROR_WRAP(unsubErr));
+            }
+
+            if (auto unsubErr = mNodeInfoProvider->UnsubscribeListener(*this); !unsubErr.IsNone()) {
+                LOG_ERR() << "Can't unsubscribe node info listener" << Log::Field(AOS_ERROR_WRAP(unsubErr));
+            }
+
+            if (auto unsubErr = mCloudConnection->UnsubscribeListener(*this); !unsubErr.IsNone()) {
+                LOG_ERR() << "Can't unsubscribe cloud connection listener" << Log::Field(AOS_ERROR_WRAP(unsubErr));
+            }
         }
     });
 
@@ -91,9 +99,17 @@ Error Monitoring::Stop()
         return ErrorEnum::eWrongState;
     }
 
-    (void)mInstanceStatusProvider->UnsubscribeListener(*this);
-    (void)mNodeInfoProvider->UnsubscribeListener(*this);
-    (void)mCloudConnection->UnsubscribeListener(*this);
+    if (auto err = mInstanceStatusProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        LOG_ERR() << "Can't unsubscribe instance status listener" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        LOG_ERR() << "Can't unsubscribe node info listener" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mCloudConnection->UnsubscribeListener(*this); !err.IsNone()) {
+        LOG_ERR() << "Can't unsubscribe cloud connection listener" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     mIsRunning = false;
 
