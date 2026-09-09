@@ -283,7 +283,9 @@ void DesiredStatusHandler::Run()
                 continue;
             }
 
-            (void)mUnitStatusHandler->SendFullUnitStatus();
+            if (auto err = mUnitStatusHandler->SendFullUnitStatus(); !err.IsNone()) {
+                LOG_ERR() << "Can't send full unit status" << Log::Field(AOS_ERROR_WRAP(err));
+            }
 
             if (mHasPendingDesiredStatus) {
                 LOG_DBG() << "Process pending desired status";
