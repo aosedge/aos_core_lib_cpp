@@ -270,7 +270,9 @@ Error NetworkManager::CreateInstanceNetwork(
 
         TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, &info->mAllocatedParams);
 
-        (void)mInstanceNetworkInfos.Set(instanceID, *info);
+        if (err = mInstanceNetworkInfos.Set(instanceID, *info); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     if (err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
@@ -1152,7 +1154,9 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
     }
 
     if (auto err = mPhysicalNetworks.PushBack(networkID); !err.IsNone()) {
-        (void)ClearNetwork(it->mSecond);
+        if (auto clearErr = ClearNetwork(it->mSecond); !clearErr.IsNone()) {
+            LOG_ERR() << "Can't clear network after push failure" << Log::Field(AOS_ERROR_WRAP(clearErr));
+        }
 
         return AOS_ERROR_WRAP(err);
     }
@@ -1973,7 +1977,10 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     auto cleanupBridge = DeferRelease(&network, [this, &err, bridgeCreated](const NetworkInfo* network) {
         if (!err.IsNone() && bridgeCreated) {
-            (void)mNetIf->DeleteLink(network->mBridgeIfName);
+            if (auto deleteErr = mNetIf->DeleteLink(network->mBridgeIfName); !deleteErr.IsNone()) {
+                LOG_ERR() << "Can't delete bridge interface" << Log::Field("ifName", network->mBridgeIfName)
+                          << Log::Field(AOS_ERROR_WRAP(deleteErr));
+            }
         }
     });
 
@@ -1998,7 +2005,10 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     auto cleanupVlan = DeferRelease(&network, [this, &err, vlanCreated](const NetworkInfo* network) {
         if (!err.IsNone() && vlanCreated) {
-            (void)mNetIf->DeleteLink(network->mVlanIfName);
+            if (auto deleteErr = mNetIf->DeleteLink(network->mVlanIfName); !deleteErr.IsNone()) {
+                LOG_ERR() << "Can't delete vlan interface" << Log::Field("ifName", network->mVlanIfName)
+                          << Log::Field(AOS_ERROR_WRAP(deleteErr));
+            }
         }
     });
 
