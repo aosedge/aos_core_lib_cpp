@@ -143,7 +143,9 @@ Error UnitStatusHandler::SendFullUnitStatus()
         ClearUnitStatus();
         ClearUpdateStatuses();
 
-        (void)mTimer.Stop();
+        if (auto err = mTimer.Stop(); !err.IsNone()) {
+            LOG_ERR() << "Can't stop unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         LockGuard lock {mMutex};
 
@@ -390,13 +392,19 @@ void UnitStatusHandler::OnDisconnect()
     LockGuard lock {mMutex};
 
     mCloudConnected = false;
-    (void)mTimer.Stop();
+
+    if (auto err = mTimer.Stop(); !err.IsNone()) {
+        LOG_ERR() << "Can't stop unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error UnitStatusHandler::SetUnitConfigStatus()
 {
     mUnitStatus.mUnitConfig.EmplaceValue();
-    (void)mUnitStatus.mUnitConfig->EmplaceBack();
+
+    if (auto err = mUnitStatus.mUnitConfig->EmplaceBack(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto& unitConfigStatus = mUnitStatus.mUnitConfig->Back();
 
@@ -449,7 +457,9 @@ Error UnitStatusHandler::SetUpdateItemsStatus()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    (void)mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses);
+    if (auto err = mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     mUnitStatus.mUpdateItems.EmplaceValue();
 
@@ -514,7 +524,9 @@ Error UnitStatusHandler::SetUnitSubjects()
 {
     mUnitStatus.mUnitSubjects.EmplaceValue();
 
-    (void)mIdentProvider->GetSubjects(*mUnitStatus.mUnitSubjects);
+    if (auto err = mIdentProvider->GetSubjects(*mUnitStatus.mUnitSubjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -587,34 +599,41 @@ void UnitStatusHandler::ClearUpdateStatuses()
 void UnitStatusHandler::StartTimer()
 {
     if (mTimerStarted) {
-        (void)mTimer.Restart();
+        if (auto err = mTimer.Restart(); !err.IsNone()) {
+            LOG_ERR() << "Can't restart unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         return;
     }
 
     mTimerStarted = true;
 
-    (void)mTimer.Start(mUnitStatusSendTimeout, [this](void*) {
-        LockGuard lock {mMutex};
+    if (auto err = mTimer.Start(mUnitStatusSendTimeout,
+            [this](void*) {
+                LockGuard lock {mMutex};
 
-        mUnitStatus.mIsDeltaInfo = true;
+                mUnitStatus.mIsDeltaInfo = true;
 
-        LOG_INF() << "Send delta unit status";
+                LOG_INF() << "Send delta unit status";
 
-        if (auto err = SetItemsForPreinstalledInstances(); !err.IsNone()) {
-            LOG_ERR() << "Failed to set items for preinstalled instances" << Log::Field(err);
-        }
+                if (auto err = SetItemsForPreinstalledInstances(); !err.IsNone()) {
+                    LOG_ERR() << "Failed to set items for preinstalled instances" << Log::Field(err);
+                }
 
-        LogUnitStatus();
+                LogUnitStatus();
 
-        if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
-            LOG_ERR() << "Failed to send unit status" << Log::Field(err);
-        }
+                if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
+                    LOG_ERR() << "Failed to send unit status" << Log::Field(err);
+                }
 
-        ClearUnitStatus();
+                ClearUnitStatus();
 
+                mTimerStarted = false;
+            });
+        !err.IsNone()) {
         mTimerStarted = false;
-    });
+        LOG_ERR() << "Can't start unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error UnitStatusHandler::SetItemsForPreinstalledInstances()
