@@ -121,7 +121,9 @@ Error Launcher::Stop()
 
         LOG_DBG() << "Stop launcher";
 
-        (void)mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
+        if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; }); !err.IsNone()) {
+            LOG_ERR() << "Can't wait for launch finish" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         (void)lock.Unlock();
 
@@ -148,7 +150,9 @@ Error Launcher::Stop()
 
         mIsRunning = false;
 
-        (void)mCondVar.NotifyAll();
+        if (auto notifyErr = mCondVar.NotifyAll(); !notifyErr.IsNone()) {
+            LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(notifyErr));
+        }
     }
 
     (void)mThread.Join();
@@ -250,7 +254,9 @@ Error Launcher::RebootRequired(const String& runtimeID)
         return AOS_ERROR_WRAP(err);
     }
 
-    (void)mCondVar.NotifyAll();
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -259,7 +265,9 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
     UniqueLock lock {mMutex};
 
-    (void)mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; });
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; }); !err.IsNone()) {
+        LOG_ERR() << "Can't wait for launch finish" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     LOG_DBG() << "Get instances statuses" << Log::Field("count", mInstances.Size());
 
@@ -427,8 +435,11 @@ void Launcher::RunRebootThread()
         {
             UniqueLock lock {mMutex};
 
-            (void)mCondVar.Wait(
-                lock, [this]() { return !mIsRunning || (!mLaunchInProgress && !mRebootQueue.IsEmpty()); });
+            if (auto err = mCondVar.Wait(
+                    lock, [this]() { return !mIsRunning || (!mLaunchInProgress && !mRebootQueue.IsEmpty()); });
+                !err.IsNone()) {
+                LOG_ERR() << "Can't wait for reboot request" << Log::Field(AOS_ERROR_WRAP(err));
+            }
 
             if (!mIsRunning) {
                 return;
@@ -464,7 +475,9 @@ void Launcher::HandleOfflineTTLs()
 
     LOG_DBG() << "Start offline TTL handler";
 
-    (void)mCondVar.Wait(lock, [this]() { return !mIsRunning || !mLaunchInProgress; });
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mIsRunning || !mLaunchInProgress; }); !err.IsNone()) {
+        LOG_ERR() << "Can't wait for launch finish" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     if (!mIsRunning || !mOfflineTime.HasValue()) {
         return;
@@ -475,7 +488,10 @@ void Launcher::HandleOfflineTTLs()
     StopExpiredInstances(lock);
 
     mLaunchInProgress = false;
-    (void)mCondVar.NotifyAll();
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     StartTTLTimer();
 }
@@ -1252,7 +1268,10 @@ void Launcher::FinishLaunch()
     LockGuard lock {mMutex};
 
     mLaunchInProgress = false;
-    (void)mCondVar.NotifyAll();
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent)
