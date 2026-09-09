@@ -977,13 +977,17 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
                           << Log::Field(removeErr);
             }
 
-            (void)space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
 
             return;
         }
 
         if (space) {
-            (void)space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     });
 
@@ -1025,13 +1029,17 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
                           << Log::Field(removeErr);
             }
 
-            (void)space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
 
             return;
         }
 
         if (space) {
-            (void)space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     });
 
@@ -1073,12 +1081,17 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
                           << Log::Field(removeErr);
             }
 
-            (void)space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
+
             return;
         }
 
         if (space) {
-            (void)space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     });
 
