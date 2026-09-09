@@ -103,7 +103,9 @@ Error NodeInfoProvider::Stop()
         }
     }
 
-    (void)mThread.Join();
+    if (auto err = mThread.Join(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
