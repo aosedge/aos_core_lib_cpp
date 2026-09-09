@@ -155,9 +155,17 @@ Error Launcher::Stop()
         }
     }
 
-    (void)mThread.Join();
-    (void)mRebootThread.Join();
-    (void)mOfflineTTLHandler.Stop(Timer::StopMode::WaitForCallbacks);
+    if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mRebootThread.Join(); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mOfflineTTLHandler.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
 
     return stopErr;
 }
@@ -176,7 +184,9 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     });
 
     // Wait in case previous request is not yet finished
-    (void)mThread.Join();
+    if (auto joinErr = mThread.Join(); !joinErr.IsNone()) {
+        LOG_ERR() << "Can't join launcher thread" << Log::Field(AOS_ERROR_WRAP(joinErr));
+    }
 
     auto stop = MakeShared<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator, stopInstances);
     if (!stop) {
@@ -894,7 +904,9 @@ void Launcher::StopAllNetworks()
             return;
         }
 
-        (void)mNetworkManager->FlushBatch(*failedIDs);
+        if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
+            LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         if (!failedIDs->IsEmpty()) {
             LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
@@ -1053,7 +1065,9 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
             return;
         }
 
-        (void)mNetworkManager->FlushBatch(*failedIDs);
+        if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
+            LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         for (const auto& failedID : *failedIDs) {
             auto instanceData = FindInstanceDataByID(failedID);
@@ -1135,7 +1149,9 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
             return;
         }
 
-        (void)mNetworkManager->FlushBatch(*failedIDs);
+        if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
+            LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         if (!failedIDs->IsEmpty()) {
             LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
