@@ -1012,23 +1012,55 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
 
-    (void)pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)});
-    (void)pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeRSA, sizeof(keyTypeRSA)});
-    (void)pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    (void)pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)});
-    (void)pubKeyTempl.PushBack({CKA_ENCRYPT, &trueVal, sizeof(trueVal)});
-    (void)pubKeyTempl.PushBack({CKA_PUBLIC_EXPONENT, publicExp, sizeof(publicExp)});
-    (void)pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)});
-    (void)pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    (void)pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeRSA, sizeof(keyTypeRSA)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ENCRYPT, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_PUBLIC_EXPONENT, publicExp, sizeof(publicExp)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
-    (void)privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_DECRYPT, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)});
-    (void)privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    (void)privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_DECRYPT, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     CK_MECHANISM mechanism = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
 
@@ -1072,20 +1104,46 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
 
-    (void)pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)});
-    (void)pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeECDSA, sizeof(keyTypeECDSA)});
-    (void)pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    (void)pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)});
-    (void)pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)});
-    (void)pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    (void)pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeECDSA, sizeof(keyTypeECDSA)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
-    (void)privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)});
-    (void)privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)});
-    (void)privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    (void)privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     CK_MECHANISM mechanism = {CKM_ECDSA_KEY_PAIR_GEN, nullptr, 0};
 
@@ -1194,24 +1252,47 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
 
     StaticArray<uint8_t, crypto::cSerialNumDERSize> serialNum;
 
-    auto err = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum);
-    if (!err.IsNone()) {
-        return err;
+    auto encodeErr = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum);
+    if (!encodeErr.IsNone()) {
+        return encodeErr;
     }
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> certTempl;
 
-    (void)certTempl.PushBack({CKA_CLASS, &certClass, sizeof(certClass)});
-    (void)certTempl.PushBack({CKA_CERTIFICATE_TYPE, &certTypeX509, sizeof(certTypeX509)});
-    (void)certTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    (void)certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)});
-    (void)certTempl.PushBack({CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()});
-    (void)certTempl.PushBack({CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()});
-    (void)certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()});
-    (void)certTempl.PushBack({CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()});
-    (void)certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
+    if (auto err = certTempl.PushBack({CKA_CLASS, &certClass, sizeof(certClass)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_CERTIFICATE_TYPE, &certTypeX509, sizeof(certTypeX509)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
     if (!label.IsEmpty()) {
-        (void)certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+        if (auto err = certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     ObjectHandle certHandle = CK_INVALID_HANDLE;
