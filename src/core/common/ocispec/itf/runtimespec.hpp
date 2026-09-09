@@ -711,78 +711,138 @@ inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2Uni
     config.mProcess->mTerminal = true;
     config.mProcess->mUser     = {};
     config.mProcess->mArgs.Clear();
-    (void)config.mProcess->mArgs.PushBack("sh");
+
+    if (auto err = config.mProcess->mArgs.PushBack("sh"); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     config.mProcess->mEnv.Clear();
-    (void)config.mProcess->mEnv.PushBack("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
-    (void)config.mProcess->mEnv.PushBack("TERM=xterm");
+
+    constexpr const char* cDefaultEnv[]
+        = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "TERM=xterm"};
+
+    for (const auto* env : cDefaultEnv) {
+        if (auto err = config.mProcess->mEnv.PushBack(env); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     config.mProcess->mCwd             = "/";
     config.mProcess->mNoNewPrivileges = true;
 
     config.mProcess->mCapabilities.EmplaceValue();
 
-    config.mProcess->mCapabilities->mBounding.Clear();
-    (void)config.mProcess->mCapabilities->mBounding.PushBack("CAP_AUDIT_WRITE");
-    (void)config.mProcess->mCapabilities->mBounding.PushBack("CAP_KILL");
-    (void)config.mProcess->mCapabilities->mBounding.PushBack("CAP_NET_BIND_SERVICE");
-    config.mProcess->mCapabilities->mPermitted.Clear();
-    (void)config.mProcess->mCapabilities->mPermitted.PushBack("CAP_AUDIT_WRITE");
-    (void)config.mProcess->mCapabilities->mPermitted.PushBack("CAP_KILL");
-    (void)config.mProcess->mCapabilities->mPermitted.PushBack("CAP_NET_BIND_SERVICE");
-    config.mProcess->mCapabilities->mEffective.Clear();
-    (void)config.mProcess->mCapabilities->mEffective.PushBack("CAP_AUDIT_WRITE");
-    (void)config.mProcess->mCapabilities->mEffective.PushBack("CAP_KILL");
-    (void)config.mProcess->mCapabilities->mEffective.PushBack("CAP_NET_BIND_SERVICE");
+    constexpr const char* cDefaultCaps[] = {"CAP_AUDIT_WRITE", "CAP_KILL", "CAP_NET_BIND_SERVICE"};
+
+    StaticArray<StaticString<cMaxParamLen>, cMaxParamCount>* capsList[] = {
+        &config.mProcess->mCapabilities->mBounding,
+        &config.mProcess->mCapabilities->mPermitted,
+        &config.mProcess->mCapabilities->mEffective,
+    };
+
+    for (auto* caps : capsList) {
+        caps->Clear();
+
+        for (const auto* cap : cDefaultCaps) {
+            if (auto err = caps->PushBack(cap); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
 
     config.mProcess->mRlimits.Clear();
-    (void)config.mProcess->mRlimits.PushBack({"RLIMIT_NOFILE", 1024, 1024});
+
+    if (auto err = config.mProcess->mRlimits.PushBack({"RLIMIT_NOFILE", 1024, 1024}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     config.mHostname = "runc";
 
     config.mMounts.Clear();
-    (void)config.mMounts.EmplaceBack("proc", "/proc", "proc");
-    (void)config.mMounts.EmplaceBack("tmpfs", "/dev", "tmpfs", "nosuid,strictatime,mode=755,size=65536k");
-    (void)config.mMounts.EmplaceBack(
-        "devpts", "/dev/pts", "devpts", "nosuid,noexec,newinstance,ptmxmode=0666,mode=0620,gid=5");
-    (void)config.mMounts.EmplaceBack("shm", "/dev/shm", "tmpfs", "nosuid,noexec,nodev,mode=1777,size=65536k");
-    (void)config.mMounts.EmplaceBack("mqueue", "/dev/mqueue", "mqueue", "nosuid,noexec,nodev");
-    (void)config.mMounts.EmplaceBack("sysfs", "/sys", "sysfs", "nosuid,noexec,nodev,ro");
-    (void)config.mMounts.EmplaceBack("cgroup", "/sys/fs/cgroup", "cgroup", "nosuid,noexec,nodev,relatime,ro");
+
+    constexpr struct {
+        const char* mSource;
+        const char* mDestination;
+        const char* mType;
+        const char* mOptions;
+    } cDefaultMounts[] = {
+        {"proc", "/proc", "proc", ""},
+        {"tmpfs", "/dev", "tmpfs", "nosuid,strictatime,mode=755,size=65536k"},
+        {"devpts", "/dev/pts", "devpts", "nosuid,noexec,newinstance,ptmxmode=0666,mode=0620,gid=5"},
+        {"shm", "/dev/shm", "tmpfs", "nosuid,noexec,nodev,mode=1777,size=65536k"},
+        {"mqueue", "/dev/mqueue", "mqueue", "nosuid,noexec,nodev"},
+        {"sysfs", "/sys", "sysfs", "nosuid,noexec,nodev,ro"},
+        {"cgroup", "/sys/fs/cgroup", "cgroup", "nosuid,noexec,nodev,relatime,ro"},
+    };
+
+    for (const auto& mount : cDefaultMounts) {
+        if (auto err = config.mMounts.EmplaceBack(mount.mSource, mount.mDestination, mount.mType, mount.mOptions);
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     config.mLinux.EmplaceValue();
 
+    constexpr const char* cMaskedPaths[] = {
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/sys/firmware",
+    };
+
     config.mLinux->mMaskedPaths.Clear();
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/acpi");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/asound");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/kcore");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/keys");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/latency_stats");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/timer_list");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/timer_stats");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/sched_debug");
-    (void)config.mLinux->mMaskedPaths.PushBack("/proc/scsi");
-    (void)config.mLinux->mMaskedPaths.PushBack("/sys/firmware");
+
+    for (const auto* path : cMaskedPaths) {
+        if (auto err = config.mLinux->mMaskedPaths.PushBack(path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    constexpr const char* cReadonlyPaths[] = {"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"};
 
     config.mLinux->mReadonlyPaths.Clear();
-    (void)config.mLinux->mReadonlyPaths.PushBack("/proc/bus");
-    (void)config.mLinux->mReadonlyPaths.PushBack("/proc/fs");
-    (void)config.mLinux->mReadonlyPaths.PushBack("/proc/irq");
-    (void)config.mLinux->mReadonlyPaths.PushBack("/proc/sys");
-    (void)config.mLinux->mReadonlyPaths.PushBack("/proc/sysrq-trigger");
+
+    for (const auto* path : cReadonlyPaths) {
+        if (auto err = config.mLinux->mReadonlyPaths.PushBack(path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     config.mLinux->mResources.EmplaceValue();
 
     config.mLinux->mResources->mDevices.Clear();
-    (void)config.mLinux->mResources->mDevices.EmplaceBack("", "rwm", false);
+
+    if (auto err = config.mLinux->mResources->mDevices.EmplaceBack("", "rwm", false); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    constexpr LinuxNamespaceType cDefaultNamespaces[] = {
+        LinuxNamespaceEnum::ePID,
+        LinuxNamespaceEnum::eNetwork,
+        LinuxNamespaceEnum::eIPC,
+        LinuxNamespaceEnum::eUTS,
+        LinuxNamespaceEnum::eMount,
+    };
 
     config.mLinux->mNamespaces.Clear();
-    (void)config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::ePID);
-    (void)config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eNetwork);
-    (void)config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eIPC);
-    (void)config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eUTS);
-    (void)config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eMount);
+
+    for (const auto& nsType : cDefaultNamespaces) {
+        if (auto err = config.mLinux->mNamespaces.EmplaceBack(nsType); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
 
     if (isCgroup2UnifiedMode) {
-        (void)config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eCgroup);
+        if (auto err = config.mLinux->mNamespaces.EmplaceBack(LinuxNamespaceEnum::eCgroup); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
