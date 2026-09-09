@@ -97,7 +97,10 @@ Error NodeInfoProvider::Stop()
         }
 
         mRunning = false;
-        (void)mCondVar.NotifyAll();
+
+        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify node info provider" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 
     (void)mThread.Join();
@@ -302,7 +305,9 @@ Error NodeInfoProvider::ScheduleNotification(const String& nodeID)
 
     LOG_DBG() << "Scheduled notification for node" << Log::Field("nodeID", nodeID);
 
-    (void)mCondVar.NotifyAll();
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify node info provider" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -315,7 +320,10 @@ void NodeInfoProvider::Run()
         {
             UniqueLock lock {mMutex};
 
-            (void)mCondVar.Wait(lock, [this]() { return !mRunning || !mNotificationQueue.IsEmpty(); });
+            if (auto err = mCondVar.Wait(lock, [this]() { return !mRunning || !mNotificationQueue.IsEmpty(); });
+                !err.IsNone()) {
+                LOG_ERR() << "Can't wait for notification" << Log::Field(AOS_ERROR_WRAP(err));
+            }
 
             if (!mRunning) {
                 return;
@@ -335,7 +343,10 @@ void NodeInfoProvider::Run()
                 NotifyListeners(nodeInfo);
             }
 
-            (void)mCondVar.Wait(lock, mConfig.mSMConnectionTimeout, [this]() { return !mRunning; });
+            if (auto err = mCondVar.Wait(lock, mConfig.mSMConnectionTimeout, [this]() { return !mRunning; });
+                !err.IsNone() && err != ErrorEnum::eTimeout) {
+                LOG_ERR() << "Can't wait for SM connection timeout" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         }
     }
 }

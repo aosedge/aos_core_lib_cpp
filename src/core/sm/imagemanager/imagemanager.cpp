@@ -97,7 +97,10 @@ Error ImageManager::Start()
     }
 
     mProcessOutdatedItems = true;
-    (void)mCV.NotifyAll();
+
+    if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     if (auto err = mTimer.Start(
             mConfig.mRemoveOutdatedPeriod,
@@ -105,7 +108,10 @@ Error ImageManager::Start()
                 LockGuard lock {mMutex};
 
                 mProcessOutdatedItems = true;
-                (void)mCV.NotifyAll();
+
+                if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+                    LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+                }
             },
             false);
         !err.IsNone()) {
@@ -134,7 +140,10 @@ Error ImageManager::Stop()
         }
 
         mClose = true;
-        (void)mCV.NotifyAll();
+
+        if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 
     if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
@@ -886,7 +895,9 @@ void ImageManager::ReleaseInstallingItem(List<InstallItem>::Iterator it)
     (void)mInstallingItems.Erase(it);
 
     if (mInstallingItems.IsEmpty()) {
-        (void)mCV.NotifyAll();
+        if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 }
 
