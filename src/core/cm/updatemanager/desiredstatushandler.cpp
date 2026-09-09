@@ -92,7 +92,10 @@ Error DesiredStatusHandler::Stop()
         }
 
         mIsRunning = false;
-        (void)mCondVar.NotifyOne();
+
+        if (auto notifyErr = mCondVar.NotifyOne(); !notifyErr.IsNone()) {
+            LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(notifyErr));
+        }
     }
 
     if (auto threadErr = mThread.Join(); !threadErr.IsNone() && err.IsNone()) {
@@ -152,13 +155,18 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
 {
     (void)statuses;
 
-    (void)mCondVar.NotifyOne();
+    if (auto err = mCondVar.NotifyOne(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void DesiredStatusHandler::StartUpdate(UpdateState state)
 {
     SetState(state);
-    (void)mCondVar.NotifyOne();
+
+    if (auto err = mCondVar.NotifyOne(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void DesiredStatusHandler::CancelUpdate()
