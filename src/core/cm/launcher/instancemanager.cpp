@@ -674,15 +674,14 @@ Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& 
     return ErrorEnum::eNone;
 }
 
-Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
+void InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
 {
     instance->SetError(error);
 
     if (auto err = mScheduledInstances.EmplaceBack(instance); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
+                  << Log::Field(AOS_ERROR_WRAP(err));
     }
-
-    return ErrorEnum::eNone;
 }
 
 SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id, const String& version)

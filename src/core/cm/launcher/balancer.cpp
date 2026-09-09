@@ -96,7 +96,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         if (!imageIndex) {
             LOG_ERR() << "Can't allocate image index" << Log::Field("instance", id) << Log::Field(ErrorEnum::eNoMemory);
 
-            (void)mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
 
             continue;
         }
@@ -104,7 +104,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
 
-            (void)mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
+            mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
 
             continue;
         }
@@ -125,7 +125,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
         if (!scheduleErr.IsNone()) {
             LOG_ERR() << "Can't schedule instance" << Log::Field(scheduleErr);
 
-            (void)mInstanceManager->ScheduleInstance(instance, scheduleErr);
+            mInstanceManager->ScheduleInstance(instance, scheduleErr);
         }
     }
 
