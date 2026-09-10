@@ -20,7 +20,7 @@ namespace aos::sm::networkmanager {
 /**
  * Input access (exposed-port) rule.
  *
- * Translated to: `<proto> dport <port> accept` in the per-instance chain.
+ * Translated to: `<proto> dport <port> return` in the per-instance ingress chain.
  */
 struct InputAccessConfig {
     StaticString<cPortLen>         mPort;
@@ -30,7 +30,8 @@ struct InputAccessConfig {
 /**
  * Output access (egress allow) rule.
  *
- * Translated to: `ip daddr <dstIP> [ip saddr <srcIP>] <proto> dport <dstPort> accept`.
+ * Translated to: `ip saddr <instanceIP> ip daddr <dstIP> <proto> dport <dstPort> return`
+ * in the per-instance egress chain.
  */
 struct OutputAccessConfig {
     StaticString<cSubnetLen>       mDstIP;
@@ -65,7 +66,7 @@ struct MasqueradeParams {
  * Firewall interface.
  *
  * Owns a single nft table (`inet aos`) for the whole SM. Each instance gets
- * its own chain installed into the shared base chain; updates run in a
+ * its own ingress and egress chains installed through shared dispatch chains; updates run in a
  * single nft transaction (atomic delete-old + add-new).
  */
 class FirewallItf {
@@ -107,7 +108,7 @@ public:
         = 0;
 
     /**
-     * Adds a per-instance chain with the given input/output access rules.
+     * Adds per-instance ingress and egress chains with the given access rules.
      *
      * @param instanceID instance id.
      * @param params per-instance firewall parameters.
@@ -116,7 +117,7 @@ public:
     virtual Error AddInstance(const String& instanceID, const InstanceFirewallParams& params) = 0;
 
     /**
-     * Removes the per-instance chain.
+     * Removes the per-instance ingress and egress chains and dispatch rules.
      *
      * @param instanceID instance id.
      * @return Error.
@@ -124,7 +125,7 @@ public:
     virtual Error RemoveInstance(const String& instanceID) = 0;
 
     /**
-     * Atomically replaces the per-instance chain content with new rules.
+     * Atomically replaces the per-instance ingress and egress rules.
      *
      * Backing the OnPendingFirewallUpdate path; performed as a single nft
      * transaction so there is no window where rules are missing.
