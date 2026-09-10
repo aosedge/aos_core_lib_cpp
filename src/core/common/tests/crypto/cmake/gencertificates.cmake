@@ -31,6 +31,16 @@ function(gencertificates TARGET CERTIFICATES_DIR)
                 ${CERTIFICATES_DIR}/ca.pem -extfile ${CERTIFICATES_DIR}/ca.ext COMMAND_ERROR_IS_FATAL ANY
     )
 
+    message("\nCreate another CA with the same subject (CA rotation)...")
+    execute_process(
+        COMMAND openssl req -new -newkey rsa:2048 -nodes -out ${CERTIFICATES_DIR}/ca_old.csr -keyout
+                ${CERTIFICATES_DIR}/ca_old.key -nodes -subj "/CN=Aos Cloud" COMMAND_ERROR_IS_FATAL ANY
+    )
+    execute_process(
+        COMMAND openssl x509 -signkey ${CERTIFICATES_DIR}/ca_old.key -days 365 -req -in ${CERTIFICATES_DIR}/ca_old.csr
+                -out ${CERTIFICATES_DIR}/ca_old.pem -extfile ${CERTIFICATES_DIR}/ca.ext COMMAND_ERROR_IS_FATAL ANY
+    )
+
     message("\nIssue a client certificate...")
     execute_process(COMMAND openssl genrsa -out ${CERTIFICATES_DIR}/client.key 2048 COMMAND_ERROR_IS_FATAL ANY)
 
@@ -39,15 +49,26 @@ function(gencertificates TARGET CERTIFICATES_DIR)
                 "/CN=Aos Core" COMMAND_ERROR_IS_FATAL ANY
     )
 
+    file(
+        WRITE ${CERTIFICATES_DIR}/client.ext
+        "basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n"
+    )
+
     execute_process(
         COMMAND
             openssl x509 -req -days 365 -in ${CERTIFICATES_DIR}/client.csr -CA ${CERTIFICATES_DIR}/ca.pem -CAkey
-            ${CERTIFICATES_DIR}/ca.key -set_serial 01 -out ${CERTIFICATES_DIR}/client.cer COMMAND_ERROR_IS_FATAL ANY
+            ${CERTIFICATES_DIR}/ca.key -set_serial 01 -out ${CERTIFICATES_DIR}/client.cer -extfile
+            ${CERTIFICATES_DIR}/client.ext COMMAND_ERROR_IS_FATAL ANY
     )
 
     message("\nConvert PEM to DER...")
     execute_process(
         COMMAND openssl x509 -outform der -in ${CERTIFICATES_DIR}/ca.pem -out ${CERTIFICATES_DIR}/ca.cer.der
+                COMMAND_ERROR_IS_FATAL ANY
+    )
+
+    execute_process(
+        COMMAND openssl x509 -outform der -in ${CERTIFICATES_DIR}/ca_old.pem -out ${CERTIFICATES_DIR}/ca_old.cer.der
                 COMMAND_ERROR_IS_FATAL ANY
     )
 

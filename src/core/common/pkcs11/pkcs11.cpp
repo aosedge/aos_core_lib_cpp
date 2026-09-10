@@ -1494,7 +1494,25 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
 
     auto err = mSession->FindObjects(certTempl, handles);
     if (err.IsNone()) {
-        Tie(foundCert, err) = GetCertificate(handles[0]);
+        for (auto handle : handles) {
+            SharedPtr<crypto::x509::Certificate> candidate;
+
+            Tie(candidate, err) = GetCertificate(handle);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            if (certificate.mAuthorityKeyId.IsEmpty() || candidate->mSubjectKeyId == certificate.mAuthorityKeyId) {
+                foundCert = candidate;
+                break;
+            }
+        }
+
+        if (!foundCert && !certificate.mAuthorityKeyId.IsEmpty()) {
+            Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
+        } else if (!foundCert) {
+            err = ErrorEnum::eNotFound;
+        }
     } else if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyId.IsEmpty()) {
         Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
     } else {
