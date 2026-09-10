@@ -375,6 +375,60 @@ TEST_F(PKCS11Test, FindCertificateChain)
     ASSERT_EQ((*chain)[1].mIssuer, caCert.mIssuer);
 }
 
+TEST_F(PKCS11Test, FindCertificateChainSelectsIssuerByAKI)
+{
+    Error                     err = ErrorEnum::eNone;
+    SharedPtr<SessionContext> session;
+
+    Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
+    ASSERT_TRUE(err.IsNone());
+
+    uuid::UUID caOldId, caNewId, clientId;
+
+    Tie(caOldId, err) = uuid::StringToUUID("11111111-0404-0404-0404-121212121212");
+    ASSERT_TRUE(err.IsNone());
+
+    Tie(caNewId, err) = uuid::StringToUUID("22222222-0404-0404-0404-121212121212");
+    ASSERT_TRUE(err.IsNone());
+
+    Tie(clientId, err) = uuid::StringToUUID("33333333-0404-0404-0404-121212121212");
+    ASSERT_TRUE(err.IsNone());
+
+    StaticArray<uint8_t, crypto::cCertDERSize> derBlob;
+    crypto::x509::Certificate                  caOldCert, caNewCert, clientCert;
+
+    ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/ca_old.cer.der", derBlob).IsNone());
+    ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, caOldCert).IsNone());
+
+    ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/ca.cer.der", derBlob).IsNone());
+    ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, caNewCert).IsNone());
+
+    ASSERT_TRUE(fs::ReadFile(CERTIFICATES_DIR "/client.cer.der", derBlob).IsNone());
+    ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, clientCert).IsNone());
+
+    ASSERT_EQ(caOldCert.mSubject, caNewCert.mSubject);
+    ASSERT_NE(caOldCert.mSubjectKeyId, caNewCert.mSubjectKeyId);
+    ASSERT_FALSE(clientCert.mAuthorityKeyId.IsEmpty());
+    ASSERT_EQ(clientCert.mAuthorityKeyId, caNewCert.mSubjectKeyId);
+    ASSERT_NE(clientCert.mAuthorityKeyId, caOldCert.mSubjectKeyId);
+
+    // Import old CA first so subject search would prefer it without AKI matching.
+    ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(caOldId, mLabel, caOldCert).IsNone());
+    ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(caNewId, mLabel, caNewCert).IsNone());
+    ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(clientId, mLabel, clientCert).IsNone());
+
+    SharedPtr<crypto::x509::CertificateChain> chain;
+
+    Tie(chain, err) = Utils(mAllocator, session, *mCryptoProvider).FindCertificateChain(clientId, mLabel);
+
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_TRUE(chain);
+    ASSERT_EQ(chain->Size(), 2);
+    ASSERT_EQ((*chain)[0].mSubjectKeyId, clientCert.mSubjectKeyId);
+    ASSERT_EQ((*chain)[1].mSubjectKeyId, caNewCert.mSubjectKeyId);
+    ASSERT_EQ((*chain)[0].mAuthorityKeyId, (*chain)[1].mSubjectKeyId);
+}
+
 TEST_F(PKCS11Test, PKCS11RSAPrivateKeySign)
 {
     Error                     err = ErrorEnum::eNone;
