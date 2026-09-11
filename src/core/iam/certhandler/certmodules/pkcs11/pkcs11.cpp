@@ -972,26 +972,82 @@ PKCS11Module::SearchObject* PKCS11Module::FindObjectByID(Array<SearchObject>& ar
 Error PKCS11Module::GetX509Cert(
     const pkcs11::SessionContext& session, pkcs11::ObjectHandle object, crypto::x509::Certificate& cert)
 {
-    static constexpr auto cSingleAttribute = 1;
+    static constexpr auto cCertAttrCount = 3;
 
     auto certBuffer = MakeUnique<DERCert>(mAllocator);
     if (!certBuffer) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    StaticArray<pkcs11::AttributeType, cSingleAttribute> types;
-    StaticArray<Array<uint8_t>, cSingleAttribute>        values;
+    CK_OBJECT_CLASS     objClass = 0;
+    CK_CERTIFICATE_TYPE certType = 0;
 
-    types.PushBack(CKA_VALUE);
-    values.PushBack(*certBuffer);
+    certBuffer->Resize(certBuffer->MaxSize());
 
-    auto err = session.GetAttributeValues(object, types, values);
+    StaticArray<pkcs11::AttributeType, cCertAttrCount> types;
+    StaticArray<Array<uint8_t>, cCertAttrCount>        values;
+
+    auto err = types.PushBack(CKA_CLASS);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mCryptoProvider->DERToX509Cert(values[0], cert);
+    err = types.PushBack(CKA_CERTIFICATE_TYPE);
     if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = types.PushBack(CKA_VALUE);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = values.PushBack(Array<uint8_t>(reinterpret_cast<uint8_t*>(&objClass), sizeof(objClass)));
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = values.PushBack(Array<uint8_t>(reinterpret_cast<uint8_t*>(&certType), sizeof(certType)));
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = values.PushBack(*certBuffer);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = session.GetAttributeValues(object, types, values);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (objClass != CKO_CERTIFICATE) {
+        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", static_cast<int>(CKO_CERTIFICATE))
+                  << Log::Field("actual", static_cast<int>(objClass));
+
+        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+    }
+
+    // FindObject does not filter CKA_CERTIFICATE_TYPE.
+    if (certType != CKC_X_509) {
+        LOG_ERR() << "PKCS11 certificate type mismatch" << Log::Field("expected", static_cast<int>(CKC_X_509))
+                  << Log::Field("actual", static_cast<int>(certType));
+
+        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+    }
+
+    if (values[2].IsEmpty()) {
+        LOG_ERR() << "PKCS11 certificate CKA_VALUE is empty";
+
+        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+    }
+
+    // CKA_ID / CKA_LABEL: no need to recheck after get, FindObject already read them from this handle.
+    err = mCryptoProvider->DERToX509Cert(values[2], cert);
+    if (!err.IsNone()) {
+        LOG_ERR() << "PKCS11 certificate CKA_VALUE is not a valid X.509 DER certificate" << Log::Field(err);
+
         return AOS_ERROR_WRAP(err);
     }
 

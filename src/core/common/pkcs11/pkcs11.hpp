@@ -812,6 +812,11 @@ private:
     Error ValidateCertificateChain(const crypto::x509::CertificateChain& chain);
     RetWithError<SharedPtr<crypto::x509::Certificate>> FindCertificateByKeyID(const Array<uint8_t>& keyID);
 
+    /**
+     * Reads CKA_VALUE and parses DER. Verifies CKA_CLASS is CKO_CERTIFICATE.
+     * CKA_CERTIFICATE_TYPE / CKA_ID / CKA_LABEL: no need to recheck after get, the caller already selected
+     * the object (find template or subject/SKI search) and the handle uniquely identifies it.
+     */
     RetWithError<SharedPtr<crypto::x509::Certificate>> GetCertificate(ObjectHandle handle);
 
     SharedPtr<SessionContext>  mSession;

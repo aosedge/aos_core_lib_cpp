@@ -1283,6 +1283,11 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> Utils::FindCertificateCh
         return {nullptr, err};
     }
 
+    if (certHandles.Size() > 1) {
+        // No working-status event at this layer; warn and continue with the first handle.
+        LOG_WRN() << "Multiple PKCS11 certificate objects found" << Log::Field("count", certHandles.Size());
+    }
+
     SharedPtr<crypto::x509::Certificate> certificate;
 
     auto chain = MakeShared<crypto::x509::CertificateChain>(&mAllocator);
@@ -1466,11 +1471,14 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
 
 Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles)
 {
-    CK_OBJECT_CLASS certClass = CKO_CERTIFICATE;
+    CK_OBJECT_CLASS     certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE certTypeX509 = CKC_X_509;
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
+    // CKA_ID / CKA_LABEL / CKC_X_509 are applied here, no need to recheck after get.
     certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
     certTempl.PushBack({CKA_ID, id});
     certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
@@ -1483,10 +1491,13 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
         return ErrorEnum::eNone;
     }
 
-    CK_OBJECT_CLASS                                      certClass = CKO_CERTIFICATE;
+    CK_OBJECT_CLASS                                      certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE                                  certTypeX509 = CKC_X_509;
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
+    // Lookup by subject; CKC_X_509 in the find template. No expected CKA_ID / CKA_LABEL.
     certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
     certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
 
     StaticArray<ObjectHandle, cKeysPerToken> handles;
@@ -1494,12 +1505,19 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
 
     auto err = mSession->FindObjects(certTempl, handles);
     if (err.IsNone()) {
+        if (handles.Size() > 1) {
+            // No working-status event at this layer; warn and match by AKID/SKID.
+            LOG_WRN() << "Multiple PKCS11 issuer certificate objects found" << Log::Field("count", handles.Size());
+        }
+
         for (auto handle : handles) {
             SharedPtr<crypto::x509::Certificate> candidate;
 
             Tie(candidate, err) = GetCertificate(handle);
             if (!err.IsNone()) {
-                return err;
+                LOG_WRN() << "Skip certificate while searching issuer" << Log::Field(err);
+
+                continue;
             }
 
             if (certificate.mAuthorityKeyId.IsEmpty() || candidate->mSubjectKeyId == certificate.mAuthorityKeyId) {
@@ -1562,10 +1580,13 @@ Error Utils::ValidateCertificateChain(const crypto::x509::CertificateChain& chai
 
 RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID(const Array<uint8_t>& keyID)
 {
-    CK_OBJECT_CLASS                                      certClass = CKO_CERTIFICATE;
+    CK_OBJECT_CLASS                                      certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE                                  certTypeX509 = CKC_X_509;
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
+    // Lookup by SKI after parse; CKC_X_509 in the find template. No expected CKA_ID / CKA_LABEL.
     certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
 
     StaticArray<ObjectHandle, cKeysPerToken> handles;
 
@@ -1579,7 +1600,9 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
 
         Tie(certificate, err) = GetCertificate(handle);
         if (!err.IsNone()) {
-            return {nullptr, err};
+            LOG_WRN() << "Skip certificate while searching by key id" << Log::Field(err);
+
+            continue;
         }
 
         if (certificate->mSubjectKeyId == keyID) {
@@ -1597,12 +1620,16 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
         return {nullptr, ErrorEnum::eNoMemory};
     }
 
+    CK_OBJECT_CLASS                                     objClass = 0;
     StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
     StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
     certificate->mRaw.Resize(certificate->mRaw.MaxSize());
 
+    attrTypes.PushBack(CKA_CLASS);
     attrTypes.PushBack(CKA_VALUE);
+
+    attrValues.PushBack(ConvertToAttributeValue(objClass));
     attrValues.PushBack(certificate->mRaw);
 
     auto err = mSession->GetAttributeValues(handle, attrTypes, attrValues);
@@ -1610,10 +1637,24 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
         return {nullptr, err};
     }
 
-    certificate->mRaw.Resize(attrValues[0].Size());
+    if (objClass != CKO_CERTIFICATE) {
+        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", static_cast<int>(CKO_CERTIFICATE))
+                  << Log::Field("actual", static_cast<int>(objClass));
+
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
+    }
+
+    certificate->mRaw.Resize(attrValues[1].Size());
+    if (certificate->mRaw.IsEmpty()) {
+        LOG_ERR() << "PKCS11 certificate CKA_VALUE is empty";
+
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
+    }
 
     err = mCryptoProvider.DERToX509Cert(certificate->mRaw, *certificate);
     if (!err.IsNone()) {
+        LOG_ERR() << "PKCS11 certificate CKA_VALUE is not a valid X.509 DER certificate" << Log::Field(err);
+
         return {nullptr, err};
     }
 
