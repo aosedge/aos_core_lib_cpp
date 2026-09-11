@@ -51,7 +51,10 @@ struct DesiredNodeStateInfo {
      * @param rhs nodes state to compare.
      * @return bool.
      */
-    bool operator==(const DesiredNodeStateInfo& rhs) const { return mNodeID == rhs.mNodeID && mState == rhs.mState; }
+    friend bool operator==(const DesiredNodeStateInfo& lhs, const DesiredNodeStateInfo& rhs)
+    {
+        return lhs.mNodeID == rhs.mNodeID && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares desired nodes states.
@@ -59,7 +62,7 @@ struct DesiredNodeStateInfo {
      * @param rhs desired nodes state to compare.
      * @return bool.
      */
-    bool operator!=(const DesiredNodeStateInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DesiredNodeStateInfo& lhs, const DesiredNodeStateInfo& rhs) { return !(lhs == rhs); };
 };
 
 using DesiredNodeStateInfoArray = StaticArray<DesiredNodeStateInfo, cMaxNumNodes>;
@@ -79,11 +82,11 @@ struct UpdateItemInfo {
      *
      * @return bool.
      */
-    bool operator==(const UpdateItemInfo& rhs) const
+    friend bool operator==(const UpdateItemInfo& lhs, const UpdateItemInfo& rhs)
     {
-        return mItemID == rhs.mItemID && mOwnerID == rhs.mOwnerID && mVersion == rhs.mVersion
-            && mIndexDigest == rhs.mIndexDigest && mType == rhs.mType;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mOwnerID == rhs.mOwnerID && lhs.mVersion == rhs.mVersion
+            && lhs.mIndexDigest == rhs.mIndexDigest && lhs.mType == rhs.mType;
+    };
 
     /**
      * Compares update item info.
@@ -91,7 +94,7 @@ struct UpdateItemInfo {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const UpdateItemInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UpdateItemInfo& lhs, const UpdateItemInfo& rhs) { return !(lhs == rhs); };
 };
 
 using UpdateItemInfoArray = StaticArray<UpdateItemInfo, cMaxNumUpdateItems>;
@@ -114,11 +117,11 @@ struct DesiredInstanceInfo {
      * @param rhs desired instance info to compare.
      * @return bool.
      */
-    bool operator==(const DesiredInstanceInfo& rhs) const
+    friend bool operator==(const DesiredInstanceInfo& lhs, const DesiredInstanceInfo& rhs)
     {
-        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mPriority == rhs.mPriority
-            && mNumInstances == rhs.mNumInstances && mLabels == rhs.mLabels;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mSubjectID == rhs.mSubjectID && lhs.mPriority == rhs.mPriority
+            && lhs.mNumInstances == rhs.mNumInstances && lhs.mLabels == rhs.mLabels;
+    };
 
     /**
      * Compares instance info.
@@ -126,7 +129,7 @@ struct DesiredInstanceInfo {
      * @param rhs desired instance info to compare.
      * @return bool.
      */
-    bool operator!=(const DesiredInstanceInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DesiredInstanceInfo& lhs, const DesiredInstanceInfo& rhs) { return !(lhs == rhs); };
 };
 
 using DesiredInstanceInfoArray = StaticArray<DesiredInstanceInfo, cMaxNumInstances>;
@@ -149,12 +152,13 @@ struct DesiredStatus : public Protocol {
      * @param rhs desired status to compare with.
      * @return bool.
      */
-    bool operator==(const DesiredStatus& rhs) const
+    friend bool operator==(const DesiredStatus& lhs, const DesiredStatus& rhs)
     {
-        return Protocol::operator==(rhs) && mNodes == rhs.mNodes && mUnitConfig == rhs.mUnitConfig
-            && mUpdateItems == rhs.mUpdateItems && mInstances == rhs.mInstances && mSubjects == rhs.mSubjects
-            && mCertificates == rhs.mCertificates && mCertificateChains == rhs.mCertificateChains;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodes == rhs.mNodes
+            && lhs.mUnitConfig == rhs.mUnitConfig && lhs.mUpdateItems == rhs.mUpdateItems
+            && lhs.mInstances == rhs.mInstances && lhs.mSubjects == rhs.mSubjects
+            && lhs.mCertificates == rhs.mCertificates && lhs.mCertificateChains == rhs.mCertificateChains;
+    };
 
     /**
      * Compares desired status.
@@ -162,7 +166,7 @@ struct DesiredStatus : public Protocol {
      * @param rhs desired status to compare with.
      * @return bool.
      */
-    bool operator!=(const DesiredStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DesiredStatus& lhs, const DesiredStatus& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

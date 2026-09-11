@@ -173,7 +173,7 @@ private:
 
     static void* ThreadFunction(void* arg)
     {
-        static_cast<Thread*>(arg)->mFunction();
+        (void)static_cast<Thread*>(arg)->mFunction();
         static_cast<Thread*>(arg)->mFunction.Reset();
 
         return nullptr;
@@ -188,12 +188,12 @@ public:
     /**
      * Constructs Aos mutex.
      */
-    Mutex() { pthread_mutex_init(&mPMutex, nullptr); }
+    Mutex() { (void)pthread_mutex_init(&mPMutex, nullptr); }
 
     /**
      * Destroys Aos mutex.
      */
-    ~Mutex() { pthread_mutex_destroy(&mPMutex); }
+    ~Mutex() { (void)pthread_mutex_destroy(&mPMutex); }
 
     /**
      * Locks Aos mutex.
@@ -231,12 +231,12 @@ public:
      *
      * @param initial initial semaphore value.
      */
-    explicit Semaphore(unsigned int initial = 1) { sem_init(&mSem, 0, initial); }
+    explicit Semaphore(uint32_t initial = 1) { (void)sem_init(&mSem, 0, initial); }
 
     /**
      * Destroys Aos semaphore.
      */
-    ~Semaphore() { sem_destroy(&mSem); }
+    ~Semaphore() { (void)sem_destroy(&mSem); }
 
     /**
      * Locks semaphore.
@@ -278,7 +278,7 @@ public:
     /**
      * Destroys lock guard instance.
      */
-    ~LockGuard() { mLocker.Unlock(); }
+    ~LockGuard() { (void)mLocker.Unlock(); }
 
     /**
      * Returns current lock guard error.
@@ -317,7 +317,7 @@ public:
     ~UniqueLock()
     {
         if (mIsLocked) {
-            Unlock();
+            (void)Unlock();
         }
     }
 
@@ -382,7 +382,7 @@ public:
     /**
      * Destroys conditional variable.
      */
-    ~ConditionalVariable() { pthread_cond_destroy(&mCondVar); }
+    ~ConditionalVariable() { (void)pthread_cond_destroy(&mCondVar); }
 
     /**
      * Blocks the current thread until the condition variable is awakened.
@@ -625,21 +625,21 @@ public:
                     err = mQueue.Pop();
                     assert(err.IsNone());
 
-                    lock.Unlock();
+                    (void)lock.Unlock();
 
                     if (task) {
-                        task();
+                        (void)task();
                         task.Reset();
                     }
 
                     err = mTaskCondVar.NotifyOne();
                     assert(err.IsNone());
 
-                    lock.Lock();
+                    (void)lock.Lock();
 
                     mPendingTaskCount--;
 
-                    lock.Unlock();
+                    (void)lock.Unlock();
 
                     err = mWaitCondVar.NotifyAll();
                     assert(err.IsNone());
@@ -680,7 +680,7 @@ public:
 
         mShutdown = true;
 
-        lock.Unlock();
+        (void)lock.Unlock();
 
         auto err = mTaskCondVar.NotifyAll();
         if (!err.IsNone()) {
@@ -723,7 +723,7 @@ private:
     ConditionalVariable                                   mWaitCondVar;
     StaticQueue<StaticFunction<cMaxTaskSize>, cQueueSize> mQueue;
     bool                                                  mShutdown         = false;
-    int                                                   mPendingTaskCount = 0;
+    int32_t                                               mPendingTaskCount = 0;
 };
 
 } // namespace aos

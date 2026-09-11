@@ -42,7 +42,10 @@ struct CertIdent {
      * @param rhs cert ident to compare with.
      * @return bool.
      */
-    bool operator==(const CertIdent& rhs) const { return mType == rhs.mType && mNodeID == rhs.mNodeID; }
+    friend bool operator==(const CertIdent& lhs, const CertIdent& rhs)
+    {
+        return lhs.mType == rhs.mType && lhs.mNodeID == rhs.mNodeID;
+    };
 
     /**
      * Compares certificate identification.
@@ -50,7 +53,7 @@ struct CertIdent {
      * @param rhs cert ident to compare with.
      * @return bool.
      */
-    bool operator!=(const CertIdent& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const CertIdent& lhs, const CertIdent& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -66,7 +69,10 @@ struct NodeSecret {
      * @param rhs node secret to compare with.
      * @return bool.
      */
-    bool operator==(const NodeSecret& rhs) const { return mNodeID == rhs.mNodeID && mSecret == rhs.mSecret; }
+    friend bool operator==(const NodeSecret& lhs, const NodeSecret& rhs)
+    {
+        return lhs.mNodeID == rhs.mNodeID && lhs.mSecret == rhs.mSecret;
+    };
 
     /**
      * Compares node secrets.
@@ -74,7 +80,7 @@ struct NodeSecret {
      * @param rhs node secret to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeSecret& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NodeSecret& lhs, const NodeSecret& rhs) { return !(lhs == rhs); };
 };
 
 using NodeSecretArray = StaticArray<NodeSecret, cMaxNumNodes>;
@@ -92,7 +98,10 @@ struct UnitSecrets {
      * @param rhs unit secrets to compare with.
      * @return bool.
      */
-    bool operator==(const UnitSecrets& rhs) const { return mVersion == rhs.mVersion && mNodes == rhs.mNodes; }
+    friend bool operator==(const UnitSecrets& lhs, const UnitSecrets& rhs)
+    {
+        return lhs.mVersion == rhs.mVersion && lhs.mNodes == rhs.mNodes;
+    };
 
     /**
      * Compares unit secrets.
@@ -100,7 +109,7 @@ struct UnitSecrets {
      * @param rhs unit secrets to compare with.
      * @return bool.
      */
-    bool operator!=(const UnitSecrets& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitSecrets& lhs, const UnitSecrets& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -115,10 +124,10 @@ struct IssuedCertData : public CertIdent {
      * @param rhs cert data to compare with.
      * @return bool.
      */
-    bool operator==(const IssuedCertData& rhs) const
+    friend bool operator==(const IssuedCertData& lhs, const IssuedCertData& rhs)
     {
-        return CertIdent::operator==(rhs) && mCertificateChain == rhs.mCertificateChain;
-    }
+        return (static_cast<const CertIdent&>(lhs) == rhs) && lhs.mCertificateChain == rhs.mCertificateChain;
+    };
 
     /**
      * Compares issued certificate data.
@@ -126,7 +135,7 @@ struct IssuedCertData : public CertIdent {
      * @param rhs cert data to compare with.
      * @return bool.
      */
-    bool operator!=(const IssuedCertData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const IssuedCertData& lhs, const IssuedCertData& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -142,10 +151,10 @@ struct InstallCertStatus : public CertIdent {
      * @param rhs cert status to compare with.
      * @return bool.
      */
-    bool operator==(const InstallCertStatus& rhs) const
+    friend bool operator==(const InstallCertStatus& lhs, const InstallCertStatus& rhs)
     {
-        return CertIdent::operator==(rhs) && mSerial == rhs.mSerial && mError == rhs.mError;
-    }
+        return (static_cast<const CertIdent&>(lhs) == rhs) && lhs.mSerial == rhs.mSerial && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares install certificate status.
@@ -153,7 +162,7 @@ struct InstallCertStatus : public CertIdent {
      * @param rhs cert status to compare with.
      * @return bool.
      */
-    bool operator!=(const InstallCertStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstallCertStatus& lhs, const InstallCertStatus& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -170,10 +179,11 @@ struct RenewCertData : public CertIdent {
      * @return bool.
      */
 
-    bool operator==(const RenewCertData& rhs) const
+    friend bool operator==(const RenewCertData& lhs, const RenewCertData& rhs)
     {
-        return CertIdent::operator==(rhs) && mSerial == rhs.mSerial && mValidTill == rhs.mValidTill;
-    }
+        return (static_cast<const CertIdent&>(lhs) == rhs) && lhs.mSerial == rhs.mSerial
+            && lhs.mValidTill == rhs.mValidTill;
+    };
 
     /**
      * Compares renew certificate data.
@@ -181,7 +191,7 @@ struct RenewCertData : public CertIdent {
      * @param rhs cert data to compare with.
      * @return bool.
      */
-    bool operator!=(const RenewCertData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RenewCertData& lhs, const RenewCertData& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -196,7 +206,10 @@ struct IssueCertData : public CertIdent {
      * @param rhs cert data to compare with.
      * @return bool.
      */
-    bool operator==(const IssueCertData& rhs) const { return CertIdent::operator==(rhs) && mCSR == rhs.mCSR; }
+    friend bool operator==(const IssueCertData& lhs, const IssueCertData& rhs)
+    {
+        return (static_cast<const CertIdent&>(lhs) == rhs) && lhs.mCSR == rhs.mCSR;
+    };
 
     /**
      * Compares issue certificate data.
@@ -204,7 +217,7 @@ struct IssueCertData : public CertIdent {
      * @param rhs cert data to compare with.
      * @return bool.
      */
-    bool operator!=(const IssueCertData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const IssueCertData& lhs, const IssueCertData& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -220,10 +233,11 @@ struct RenewCertsNotification : public Protocol {
      * @param rhs cert notification to compare with.
      * @return bool.
      */
-    bool operator==(const RenewCertsNotification& rhs) const
+    friend bool operator==(const RenewCertsNotification& lhs, const RenewCertsNotification& rhs)
     {
-        return Protocol::operator==(rhs) && mCertificates == rhs.mCertificates && mUnitSecrets == rhs.mUnitSecrets;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mCertificates == rhs.mCertificates
+            && lhs.mUnitSecrets == rhs.mUnitSecrets;
+    };
 
     /**
      * Compares renew certificate notification.
@@ -231,7 +245,10 @@ struct RenewCertsNotification : public Protocol {
      * @param rhs cert notification to compare with.
      * @return bool.
      */
-    bool operator!=(const RenewCertsNotification& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RenewCertsNotification& lhs, const RenewCertsNotification& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -246,10 +263,10 @@ struct IssuedUnitCerts : public Protocol {
      * @param rhs unit certificates to compare with.
      * @return bool.
      */
-    bool operator==(const IssuedUnitCerts& rhs) const
+    friend bool operator==(const IssuedUnitCerts& lhs, const IssuedUnitCerts& rhs)
     {
-        return Protocol::operator==(rhs) && mCertificates == rhs.mCertificates;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mCertificates == rhs.mCertificates;
+    };
 
     /**
      * Compares issued unit certificates.
@@ -257,7 +274,7 @@ struct IssuedUnitCerts : public Protocol {
      * @param rhs unit certificates to compare with.
      * @return bool.
      */
-    bool operator!=(const IssuedUnitCerts& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const IssuedUnitCerts& lhs, const IssuedUnitCerts& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -272,7 +289,10 @@ struct IssueUnitCerts : public Protocol {
      * @param rhs unit certificates to compare with.
      * @return bool.
      */
-    bool operator==(const IssueUnitCerts& rhs) const { return Protocol::operator==(rhs) && mRequests == rhs.mRequests; }
+    friend bool operator==(const IssueUnitCerts& lhs, const IssueUnitCerts& rhs)
+    {
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mRequests == rhs.mRequests;
+    };
 
     /**
      * Compares issue unit certificates.
@@ -280,7 +300,7 @@ struct IssueUnitCerts : public Protocol {
      * @param rhs unit certificates to compare with.
      * @return bool.
      */
-    bool operator!=(const IssueUnitCerts& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const IssueUnitCerts& lhs, const IssueUnitCerts& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -295,10 +315,10 @@ struct InstallUnitCertsConfirmation : public Protocol {
      * @param rhs certificates confirmation to compare with.
      * @return bool.
      */
-    bool operator==(const InstallUnitCertsConfirmation& rhs) const
+    friend bool operator==(const InstallUnitCertsConfirmation& lhs, const InstallUnitCertsConfirmation& rhs)
     {
-        return Protocol::operator==(rhs) && mCertificates == rhs.mCertificates;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mCertificates == rhs.mCertificates;
+    };
 
     /**
      * Compares install unit certificates confirmation.
@@ -306,7 +326,10 @@ struct InstallUnitCertsConfirmation : public Protocol {
      * @param rhs certificates confirmation to compare with.
      * @return bool.
      */
-    bool operator!=(const InstallUnitCertsConfirmation& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstallUnitCertsConfirmation& lhs, const InstallUnitCertsConfirmation& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 } // namespace aos

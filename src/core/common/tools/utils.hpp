@@ -9,6 +9,7 @@
 #define AOS_CORE_COMMON_TOOLS_UTILS_HPP_
 
 #include <cstddef>
+#include <cstdint>
 
 namespace aos {
 
@@ -28,7 +29,7 @@ constexpr size_t ArraySize(T (&)[cSize])
  * @param align alignment.
  * @return constexpr size_t aligned size.
  */
-constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int))
+constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int32_t))
 {
     return (size + align - 1) / align * align;
 };
@@ -75,8 +76,11 @@ struct Pair {
     /**
      * Comparison operators.
      */
-    bool operator==(const Pair<F, S>& other) const { return mFirst == other.mFirst && mSecond == other.mSecond; }
-    bool operator!=(const Pair<F, S>& other) const { return !(*this == other); }
+    friend bool operator==(const Pair& lhs, const Pair<F, S>& other)
+    {
+        return lhs.mFirst == other.mFirst && lhs.mSecond == other.mSecond;
+    };
+    friend bool operator!=(const Pair& lhs, const Pair<F, S>& other) { return !(lhs == other); };
 
     /**
      * Pair first value.

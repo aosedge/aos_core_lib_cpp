@@ -37,15 +37,19 @@ struct InstanceNetworkConfig {
     uint64_t                                                          mUploadLimit {};
     uint64_t                                                          mDownloadLimit {};
 
-    bool operator==(const InstanceNetworkConfig& rhs) const
+    friend bool operator==(const InstanceNetworkConfig& lhs, const InstanceNetworkConfig& rhs)
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mHostname == rhs.mHostname && mAliases == rhs.mAliases
-            && mIngressKbit == rhs.mIngressKbit && mEgressKbit == rhs.mEgressKbit && mExposedPorts == rhs.mExposedPorts
-            && mAllowedConnections == rhs.mAllowedConnections && mHosts == rhs.mHosts
-            && mUploadLimit == rhs.mUploadLimit && mDownloadLimit == rhs.mDownloadLimit;
-    }
+        return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mHostname == rhs.mHostname
+            && lhs.mAliases == rhs.mAliases && lhs.mIngressKbit == rhs.mIngressKbit
+            && lhs.mEgressKbit == rhs.mEgressKbit && lhs.mExposedPorts == rhs.mExposedPorts
+            && lhs.mAllowedConnections == rhs.mAllowedConnections && lhs.mHosts == rhs.mHosts
+            && lhs.mUploadLimit == rhs.mUploadLimit && lhs.mDownloadLimit == rhs.mDownloadLimit;
+    };
 
-    bool operator!=(const InstanceNetworkConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceNetworkConfig& lhs, const InstanceNetworkConfig& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**

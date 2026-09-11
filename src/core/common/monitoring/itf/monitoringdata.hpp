@@ -37,11 +37,11 @@ struct InstanceMonitoringData {
      * @param rhs instance monitoring data to compare.
      * @return bool.
      */
-    bool operator==(const InstanceMonitoringData& rhs) const
+    friend bool operator==(const InstanceMonitoringData& lhs, const InstanceMonitoringData& rhs)
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mRuntimeID == rhs.mRuntimeID
-            && mMonitoringData == rhs.mMonitoringData;
-    }
+        return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mRuntimeID == rhs.mRuntimeID
+            && lhs.mMonitoringData == rhs.mMonitoringData;
+    };
 
     /**
      * Compares instance monitoring data.
@@ -49,7 +49,10 @@ struct InstanceMonitoringData {
      * @param data instance monitoring data to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceMonitoringData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceMonitoringData& lhs, const InstanceMonitoringData& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -66,10 +69,11 @@ struct NodeMonitoringData {
      * @param data node monitoring data to compare with.
      * @return bool.
      */
-    bool operator==(const NodeMonitoringData& data) const
+    friend bool operator==(const NodeMonitoringData& lhs, const NodeMonitoringData& data)
     {
-        return mNodeID == data.mNodeID && mMonitoringData == data.mMonitoringData && mInstances == data.mInstances;
-    }
+        return lhs.mNodeID == data.mNodeID && lhs.mMonitoringData == data.mMonitoringData
+            && lhs.mInstances == data.mInstances;
+    };
 
     /**
      * Compares node monitoring data.
@@ -77,7 +81,7 @@ struct NodeMonitoringData {
      * @param data node monitoring data to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeMonitoringData& data) const { return !operator==(data); }
+    friend bool operator!=(const NodeMonitoringData& lhs, const NodeMonitoringData& data) { return !(lhs == data); };
 };
 
 } // namespace aos::monitoring

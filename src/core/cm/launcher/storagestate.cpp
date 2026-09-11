@@ -87,24 +87,25 @@ Error StorageState::SetupStateStorage(const InstanceIdent& instanceIdent, const 
     auto availableStorage = *mAvailableStorage;
     *mAvailableStorage    = *mAvailableStorage - requestedStorageSize;
     auto restoreStorageSize
-        = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *mAvailableStorage = availableStorage; });
+        = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { *mAvailableStorage = availableStorage; });
 
     // Check available state size
     if (requestedStateSize > *mAvailableState) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "not enough state space"));
     }
 
-    auto availableState   = *mAvailableState;
-    *mAvailableState      = *mAvailableState - requestedStateSize;
-    auto restoreStateSize = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *mAvailableState = availableState; });
+    auto availableState = *mAvailableState;
+    *mAvailableState    = *mAvailableState - requestedStateSize;
+    auto restoreStateSize
+        = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { *mAvailableState = availableState; });
 
     // Setup storage and state
     if (auto err = mStorageStateManager->Setup(instanceIdent, setupParams, storagePath, statePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    restoreStorageSize.Release();
-    restoreStateSize.Release();
+    (void)restoreStorageSize.Release();
+    (void)restoreStateSize.Release();
 
     LOG_DBG() << "Available storage and state" << Log::Field("state", *mAvailableState)
               << Log::Field("storage", *mAvailableStorage);

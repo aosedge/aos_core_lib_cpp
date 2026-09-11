@@ -245,9 +245,8 @@ public:
      *
      * @param instance instance.
      * @param error error.
-     * @return Error.
      */
-    Error ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
+    void ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
 
 private:
     static constexpr auto cRemovePeriod = Time::cDay;

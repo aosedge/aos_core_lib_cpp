@@ -125,10 +125,11 @@ struct LogFilter : public InstanceFilter {
      * @param rhs log filter to compare with.
      * @return bool.
      */
-    bool operator==(const LogFilter& rhs) const
+    friend bool operator==(const LogFilter& lhs, const LogFilter& rhs)
     {
-        return InstanceFilter::operator==(rhs) && mFrom == rhs.mFrom && mTill == rhs.mTill && mNodes == rhs.mNodes;
-    }
+        return (static_cast<const InstanceFilter&>(lhs) == rhs) && lhs.mFrom == rhs.mFrom && lhs.mTill == rhs.mTill
+            && lhs.mNodes == rhs.mNodes;
+    };
 
     /**
      * Compares log filter.
@@ -136,7 +137,7 @@ struct LogFilter : public InstanceFilter {
      * @param rhs log filter to compare with.
      * @return bool.
      */
-    bool operator!=(const LogFilter& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LogFilter& lhs, const LogFilter& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -154,11 +155,11 @@ struct LogUploadOptions {
      * @param rhs log upload options to compare with.
      * @return bool.
      */
-    bool operator==(const LogUploadOptions& rhs) const
+    friend bool operator==(const LogUploadOptions& lhs, const LogUploadOptions& rhs)
     {
-        return mType == rhs.mType && mURL == rhs.mURL && mBearerToken == rhs.mBearerToken
-            && mBearerTokenTTL == rhs.mBearerTokenTTL;
-    }
+        return lhs.mType == rhs.mType && lhs.mURL == rhs.mURL && lhs.mBearerToken == rhs.mBearerToken
+            && lhs.mBearerTokenTTL == rhs.mBearerTokenTTL;
+    };
 
     /**
      * Compares log upload options.
@@ -166,7 +167,7 @@ struct LogUploadOptions {
      * @param rhs log upload options to compare with.
      * @return bool.
      */
-    bool operator!=(const LogUploadOptions& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const LogUploadOptions& lhs, const LogUploadOptions& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -183,11 +184,11 @@ struct RequestLog : public Protocol {
      * @param rhs log request to compare with.
      * @return bool.
      */
-    bool operator==(const RequestLog& rhs) const
+    friend bool operator==(const RequestLog& lhs, const RequestLog& rhs)
     {
-        return Protocol::operator==(rhs) && mLogType == rhs.mLogType && mFilter == rhs.mFilter
-            && mUploadOptions == rhs.mUploadOptions;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mLogType == rhs.mLogType && lhs.mFilter == rhs.mFilter
+            && lhs.mUploadOptions == rhs.mUploadOptions;
+    };
 
     /**
      * Compares log request.
@@ -195,7 +196,7 @@ struct RequestLog : public Protocol {
      * @param rhs log request to compare with.
      * @return bool.
      */
-    bool operator!=(const RequestLog& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RequestLog& lhs, const RequestLog& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -215,11 +216,12 @@ struct PushLog : public Protocol {
      * @param rhs push log to compare with.
      * @return bool.
      */
-    bool operator==(const PushLog& rhs) const
+    friend bool operator==(const PushLog& lhs, const PushLog& rhs)
     {
-        return Protocol::operator==(rhs) && mNodeID == rhs.mNodeID && mPartsCount == rhs.mPartsCount
-            && mPart == rhs.mPart && mContent == rhs.mContent && mStatus == rhs.mStatus && mError == rhs.mError;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mPartsCount == rhs.mPartsCount && lhs.mPart == rhs.mPart && lhs.mContent == rhs.mContent
+            && lhs.mStatus == rhs.mStatus && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares push log.
@@ -227,7 +229,7 @@ struct PushLog : public Protocol {
      * @param rhs push log to compare with.
      * @return bool.
      */
-    bool operator!=(const PushLog& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PushLog& lhs, const PushLog& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

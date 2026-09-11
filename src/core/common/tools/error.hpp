@@ -84,7 +84,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err)
         , mErrno(0)
         , mFileName(fileName)
@@ -101,7 +101,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err.mErr)
         , mErrno(err.mErrno)
         , mFileName(fileName)
@@ -147,7 +147,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(Enum err, int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(Enum err, int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err)
         , mErrno(errNo < 0 ? -errNo : errNo)
         , mFileName(fileName)
@@ -165,7 +165,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : Error(errNo == 0 ? Enum::eNone : Enum::eRuntime, errNo, msg, fileName, lineNumber)
     {
     }
@@ -210,7 +210,7 @@ public:
      * Returns errno
      * @return int
      */
-    int Errno() const { return mErrno; }
+    int32_t Errno() const { return mErrno; }
 
     /**
      * Returns error file name.
@@ -224,7 +224,7 @@ public:
      *
      * @return int line number.
      */
-    int LineNumber() const { return mLineNumber; }
+    int32_t LineNumber() const { return mLineNumber; }
 
     /**
      * Returns errno string.
@@ -266,7 +266,7 @@ public:
      * @param err error to compare with.
      * @return bool result.
      */
-    bool operator==(const Error& err) const { return mErr == err.mErr; };
+    friend bool operator==(const Error& lhs, const Error& err) { return lhs.mErr == err.mErr; };
 
     /**
      * Compares if error doesn't equal to another error value.
@@ -274,7 +274,7 @@ public:
      * @param err error to compare with.
      * @return bool result.
      */
-    bool operator!=(const Error& err) const { return mErr != err.mErr; };
+    friend bool operator!=(const Error& lhs, const Error& err) { return lhs.mErr != err.mErr; };
 
     /**
      * Compares if specified error value equals to error.
@@ -305,7 +305,7 @@ private:
     void CopyMessage(const char* msg)
     {
         if (msg != nullptr) {
-            snprintf(mMessage, sizeof(mMessage), "%s", msg);
+            (void)snprintf(mMessage, sizeof(mMessage), "%s", msg);
 
             return;
         }
@@ -342,9 +342,9 @@ private:
     };
 
     Enum        mErr;
-    int         mErrno;
+    int32_t     mErrno;
     const char* mFileName;
-    int         mLineNumber;
+    int32_t     mLineNumber;
     char        mMessage[cMaxMessageLen];
 };
 
@@ -389,8 +389,11 @@ struct RetWithError {
     /**
      * Comparison operators.
      */
-    bool operator==(const RetWithError<T>& other) const { return mValue == other.mValue && mError == other.mError; }
-    bool operator!=(const RetWithError<T>& other) const { return !(*this == other); }
+    friend bool operator==(const RetWithError& lhs, const RetWithError<T>& other)
+    {
+        return lhs.mValue == other.mValue && lhs.mError == other.mError;
+    };
+    friend bool operator!=(const RetWithError& lhs, const RetWithError<T>& other) { return !(lhs == other); };
 
     /**
      * Holds returned value.

@@ -57,7 +57,7 @@ public:
      *
      * @return int.
      */
-    operator int() const { return static_cast<int>(mValue); }
+    operator int32_t() const { return static_cast<int32_t>(mValue); }
 
     /**
      * Compares if EnumStringer equals to another EnumStringer.
@@ -65,7 +65,10 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator==(const EnumStringer<T>& stringer) const { return GetValue() == stringer.GetValue(); };
+    friend bool operator==(const EnumStringer& lhs, const EnumStringer<T>& stringer)
+    {
+        return lhs.GetValue() == stringer.GetValue();
+    };
 
     /**
      * Compares if EnumStringer doesn't equal to another EnumStringer.
@@ -73,7 +76,10 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator!=(const EnumStringer<T>& stringer) const { return GetValue() != stringer.GetValue(); };
+    friend bool operator!=(const EnumStringer& lhs, const EnumStringer<T>& stringer)
+    {
+        return lhs.GetValue() != stringer.GetValue();
+    };
 
     /**
      * Compares if EnumStringer equals to specified EnumStringer type.
@@ -81,7 +87,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator==(EnumType type) const { return GetValue() == type; };
+    friend bool operator==(const EnumStringer& lhs, EnumType type) { return lhs.GetValue() == type; };
 
     /**
      * Compares if EnumStringer doesn't equal to specified EnumStringer type.
@@ -89,7 +95,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator!=(EnumType type) const { return GetValue() != type; };
+    friend bool operator!=(const EnumStringer& lhs, EnumType type) { return lhs.GetValue() != type; };
 
     /**
      * Compares if specified EnumStringer type equals to EnumStringer.

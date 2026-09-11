@@ -206,7 +206,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     *availableRAM -= reqRAM;
-    auto restoreRAM = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *availableRAM += reqRAM; });
+    auto restoreRAM = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { *availableRAM += reqRAM; });
 
     // Adjust available CPU
     auto availableCPU = GetPtrToAvailableCPU(runtimeID);
@@ -219,7 +219,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     *availableCPU -= reqCPU;
-    auto restoreCPU = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *availableCPU += reqCPU; });
+    auto restoreCPU = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { *availableCPU += reqCPU; });
 
     // Adjust max number of instances
     auto maxNumInstances = GetPtrToMaxNumInstances(runtimeID);
@@ -232,11 +232,11 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     (*maxNumInstances)--;
-    auto restoreMaxNumInstances = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { (*maxNumInstances)++; });
+    auto restoreMaxNumInstances = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { (*maxNumInstances)++; });
 
     // Adjust shared resources
     auto curIt            = reqResources.begin();
-    auto restoreResources = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
+    auto restoreResources = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) {
         for (auto restoreIt = reqResources.begin(); restoreIt != curIt; ++restoreIt) {
             auto availableResource = mAvailableResources.FindIf(
                 [restoreIt](const ResourceInfo& info) { return info.mName == restoreIt->mName; });
@@ -257,10 +257,10 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
         availableResource->mSharedCount--;
     }
 
-    restoreResources.Release();
-    restoreMaxNumInstances.Release();
-    restoreCPU.Release();
-    restoreRAM.Release();
+    (void)restoreResources.Release();
+    (void)restoreMaxNumInstances.Release();
+    (void)restoreCPU.Release();
+    (void)restoreRAM.Release();
 
     return ErrorEnum::eNone;
 }

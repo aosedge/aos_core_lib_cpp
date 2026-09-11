@@ -67,7 +67,9 @@ void Timer::ReleaseActiveCallback()
     mActiveCallbacks--;
 
     if (mActiveCallbacks == 0) {
-        mCondVar.NotifyAll();
+        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify timer callbacks" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 }
 
@@ -204,9 +206,14 @@ void Timer::ProcessTimers(void* arg)
 
         auto min = mRegisteredTimers.Min(cmpWakeupTime);
         if (min != mRegisteredTimers.end() && !(*min)->mWakeupTime.IsZero()) {
-            mCommonCondVar.Wait(lock, (*min)->mWakeupTime);
+            if (auto err = mCommonCondVar.Wait(lock, (*min)->mWakeupTime);
+                !err.IsNone() && err != ErrorEnum::eTimeout) {
+                LOG_ERR() << "Can't wait for timer wakeup" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         } else {
-            mCommonCondVar.Wait(lock);
+            if (auto err = mCommonCondVar.Wait(lock); !err.IsNone()) {
+                LOG_ERR() << "Can't wait for timer" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         }
     }
 }

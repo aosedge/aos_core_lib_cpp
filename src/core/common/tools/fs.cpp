@@ -25,7 +25,7 @@ DirIterator::DirIterator(const String& path)
 {
 }
 
-DirIterator::DirIterator(DirIterator&& other)
+DirIterator::DirIterator(DirIterator&& other) noexcept
     : mDir(other.mDir)
     , mEntry(other.mEntry)
     , mRoot(other.mRoot)
@@ -33,7 +33,7 @@ DirIterator::DirIterator(DirIterator&& other)
     other.mDir = nullptr;
 }
 
-DirIterator& DirIterator::operator=(DirIterator&& other)
+DirIterator& DirIterator::operator=(DirIterator&& other) noexcept
 {
     if (this != &other) {
         mDir   = other.mDir;
@@ -49,7 +49,7 @@ DirIterator& DirIterator::operator=(DirIterator&& other)
 DirIterator::~DirIterator()
 {
     if (mDir) {
-        closedir(mDir);
+        (void)closedir(mDir);
     }
 }
 
@@ -124,7 +124,7 @@ StaticString<cFilePathLen> Dir(const String& path)
         }
     }
 
-    dir.Insert(dir.end(), path.begin(), it);
+    (void)dir.Insert(dir.end(), path.begin(), it);
 
     return dir;
 }
@@ -140,7 +140,7 @@ RetWithError<bool> DirExist(const String& path)
         return {false, errno};
     }
 
-    closedir(dir);
+    (void)closedir(dir);
 
     return true;
 }
@@ -274,7 +274,7 @@ Error ClearDir(const String& path)
 #endif
     }
 
-    closedir(dir);
+    (void)closedir(dir);
 
     return ErrorEnum::eNone;
 }
@@ -381,7 +381,7 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff)
         return Error(errno);
     }
 
-    auto closeFile = DeferRelease(&fd, [](const int* fd) { close(*fd); });
+    auto closeFile = DeferRelease(&fd, [](const int32_t* fd) { (void)close(*fd); });
 
     auto size = lseek(fd, 0, SEEK_END);
     if (size < 0) {
@@ -416,7 +416,7 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff)
 
 Error ReadFileToString(const String& fileName, String& text)
 {
-    text.Resize(text.MaxSize());
+    (void)text.Resize(text.MaxSize());
 
     auto buff = Array<uint8_t>(reinterpret_cast<uint8_t*>(text.Get()), text.Size());
 
@@ -428,13 +428,13 @@ Error ReadFileToString(const String& fileName, String& text)
     return text.Resize(buff.Size());
 }
 
-Error ReadLine(int fd, size_t pos, String& line, const String& delimiter)
+Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter)
 {
     if (lseek(fd, pos, SEEK_SET) < 0) {
         return Error(errno);
     }
 
-    line.Resize(line.MaxSize());
+    (void)line.Resize(line.MaxSize());
 
     ssize_t bytes = read(fd, line.Get(), line.MaxSize());
     if (bytes < 0) {
@@ -472,7 +472,7 @@ Error WriteFile(const String& fileName, const Array<uint8_t>& data, uint32_t per
         if (chunkSize < 0) {
             err = errno;
 
-            close(fd);
+            (void)close(fd);
 
             return Error(err);
         }
@@ -552,7 +552,7 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
             continue;
         }
 
-        dirIterators->Erase(&dirIt);
+        (void)dirIterators->Erase(&dirIt);
     }
 
     return {size};
@@ -564,7 +564,7 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
 
 File::~File()
 {
-    Close();
+    (void)Close();
 }
 
 Error File::Open(const String& path, Mode mode)
@@ -573,7 +573,7 @@ Error File::Open(const String& path, Mode mode)
         return err;
     }
 
-    int flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
+    int32_t flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
 
     mFd = open(path.CStr(), flags, 0644);
     if (mFd < 0) {
@@ -603,7 +603,7 @@ Error File::ReadBlock(Array<uint8_t>& buffer)
     }
 
     auto blockSize = buffer.MaxSize();
-    buffer.Resize(blockSize);
+    (void)buffer.Resize(blockSize);
 
     bool   eof       = false;
     size_t totalRead = 0;
@@ -620,7 +620,7 @@ Error File::ReadBlock(Array<uint8_t>& buffer)
         totalRead += result;
     }
 
-    buffer.Resize(totalRead);
+    (void)buffer.Resize(totalRead);
 
     return eof ? ErrorEnum::eEOF : ErrorEnum::eNone;
 }
@@ -658,7 +658,7 @@ Error BaseName(const String& path, String& base)
         return ErrorEnum::eNone;
     }
 
-    base.RightTrim("/");
+    (void)base.RightTrim("/");
 
     if (base.Size() == 0) {
         base = "/";
@@ -692,7 +692,7 @@ Error ParentPath(const String& path, String& parent)
         return ErrorEnum::eNone;
     }
 
-    parent.RightTrim("/");
+    (void)parent.RightTrim("/");
 
     if (parent.Size() == 0) {
         parent = "/";
@@ -724,7 +724,7 @@ Error ParentPath(const String& path, String& parent)
         return err;
     }
 
-    parent.RightTrim("/");
+    (void)parent.RightTrim("/");
 
     if (parent.Size() == 0) {
         parent = "/";

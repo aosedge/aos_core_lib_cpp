@@ -33,7 +33,7 @@ Error ToRelativePath(const String& base, const String& full, String& result)
         return AOS_ERROR_WRAP(err);
     }
 
-    result.LeftTrim("/");
+    (void)result.LeftTrim("/");
 
     return ErrorEnum::eNone;
 }
@@ -559,7 +559,7 @@ Error StorageState::StopStateWatching(const InstanceIdent& instanceIdent)
 
     auto err = mFSWatcher->Unsubscribe(it->mFilePath.CStr(), *this);
 
-    mStates.Erase(it);
+    (void)mStates.Erase(it);
 
     return err;
 }
@@ -670,7 +670,7 @@ StaticString<cFilePathLen> StorageState::GetStateDir(const InstanceIdent& instan
 {
     StaticString<cInstanceStringLen> instanceStr;
 
-    instanceStr.Convert(instanceIdent.mInstance);
+    (void)instanceStr.Convert(instanceIdent.mInstance);
 
     auto path = fs::JoinPath(mConfig.mStateDir, instanceIdent.mItemID, instanceIdent.mSubjectID, instanceStr);
 
@@ -688,7 +688,7 @@ StaticString<cFilePathLen> StorageState::GetStoragePath(const InstanceIdent& ins
 {
     StaticString<cInstanceStringLen> instanceStr;
 
-    instanceStr.Convert(instanceIdent.mInstance);
+    (void)instanceStr.Convert(instanceIdent.mInstance);
 
     return fs::JoinPath(mConfig.mStorageDir, instanceIdent.mItemID, instanceIdent.mSubjectID, instanceStr);
 }

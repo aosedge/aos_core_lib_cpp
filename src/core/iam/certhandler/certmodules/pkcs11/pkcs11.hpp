@@ -35,7 +35,7 @@ struct PKCS11ModuleConfig {
     /**
      * Slot index.
      */
-    Optional<int> mSlotIndex;
+    Optional<int32_t> mSlotIndex;
 
     /**
      * Token label.

@@ -90,7 +90,10 @@ struct AlertItem {
      * @param rhs alert item to compare with.
      * @return bool.
      */
-    bool operator==(const AlertItem& rhs) const { return mTimestamp == rhs.mTimestamp && mTag == rhs.mTag; }
+    friend bool operator==(const AlertItem& lhs, const AlertItem& rhs)
+    {
+        return lhs.mTimestamp == rhs.mTimestamp && lhs.mTag == rhs.mTag;
+    };
 
     /**
      * Compares alert item.
@@ -98,7 +101,7 @@ struct AlertItem {
      * @param rhs alert item to compare with.
      * @return bool.
      */
-    bool operator!=(const AlertItem& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const AlertItem& lhs, const AlertItem& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs alert item to log.
@@ -132,10 +135,11 @@ struct SystemAlert : public AlertItem {
      * @param rhs system alert to compare with.
      * @return bool.
      */
-    bool operator==(const SystemAlert& rhs) const
+    friend bool operator==(const SystemAlert& lhs, const SystemAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && mNodeID == rhs.mNodeID && mMessage == rhs.mMessage;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mMessage == rhs.mMessage;
+    };
 
     /**
      * Compares system alert.
@@ -143,7 +147,7 @@ struct SystemAlert : public AlertItem {
      * @param rhs system alert to compare with.
      * @return bool.
      */
-    bool operator!=(const SystemAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const SystemAlert& lhs, const SystemAlert& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs system alert to log.
@@ -182,11 +186,11 @@ struct CoreAlert : AlertItem {
      * @param rhs core alert to compare with.
      * @return bool.
      */
-    bool operator==(const CoreAlert& rhs) const
+    friend bool operator==(const CoreAlert& lhs, const CoreAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && mNodeID == rhs.mNodeID && mCoreComponent == rhs.mCoreComponent
-            && mMessage == rhs.mMessage;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mCoreComponent == rhs.mCoreComponent && lhs.mMessage == rhs.mMessage;
+    };
 
     /**
      * Compares core alert.
@@ -194,7 +198,7 @@ struct CoreAlert : AlertItem {
      * @param rhs core alert to compare with.
      * @return bool.
      */
-    bool operator!=(const CoreAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const CoreAlert& lhs, const CoreAlert& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs core alert to log.
@@ -233,11 +237,11 @@ struct ResourceAllocateAlert : AlertItem, InstanceIdent {
      * @param rhs resource allocate alert to compare with.
      * @return bool.
      */
-    bool operator==(const ResourceAllocateAlert& rhs) const
+    friend bool operator==(const ResourceAllocateAlert& lhs, const ResourceAllocateAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && InstanceIdent::operator==(rhs) && mNodeID == rhs.mNodeID
-            && mResource == rhs.mResource && mMessage == rhs.mMessage;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mNodeID == rhs.mNodeID && lhs.mResource == rhs.mResource && lhs.mMessage == rhs.mMessage;
+    };
 
     /**
      * Compares resource allocate alert.
@@ -245,7 +249,10 @@ struct ResourceAllocateAlert : AlertItem, InstanceIdent {
      * @param alert resource allocate alert to compare with.
      * @return bool.
      */
-    bool operator!=(const ResourceAllocateAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ResourceAllocateAlert& lhs, const ResourceAllocateAlert& rhs)
+    {
+        return !(lhs == rhs);
+    };
 
     /**
      * Outputs resource allocate alert to log.
@@ -311,11 +318,11 @@ struct SystemQuotaAlert : AlertItem {
      * @param rhs system quota alert to compare with.
      * @return bool.
      */
-    bool operator==(const SystemQuotaAlert& rhs) const
+    friend bool operator==(const SystemQuotaAlert& lhs, const SystemQuotaAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && mNodeID == rhs.mNodeID && mParameter == rhs.mParameter
-            && mValue == rhs.mValue && mState == rhs.mState;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID
+            && lhs.mParameter == rhs.mParameter && lhs.mValue == rhs.mValue && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares system quota alert.
@@ -323,7 +330,7 @@ struct SystemQuotaAlert : AlertItem {
      * @param rhs system quota alert to compare with.
      * @return bool.
      */
-    bool operator!=(const SystemQuotaAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const SystemQuotaAlert& lhs, const SystemQuotaAlert& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs system quota alert to log.
@@ -362,11 +369,11 @@ struct InstanceQuotaAlert : AlertItem, InstanceIdent {
      * @param rhs instance quota alert to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceQuotaAlert& rhs) const
+    friend bool operator==(const InstanceQuotaAlert& lhs, const InstanceQuotaAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && InstanceIdent::operator==(rhs) && mParameter == rhs.mParameter
-            && mValue == rhs.mValue && mState == rhs.mState;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mParameter == rhs.mParameter && lhs.mValue == rhs.mValue && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares instance quota alert.
@@ -374,7 +381,7 @@ struct InstanceQuotaAlert : AlertItem, InstanceIdent {
      * @param alert instance quota alert to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceQuotaAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceQuotaAlert& lhs, const InstanceQuotaAlert& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs instance quota alert to log.
@@ -464,12 +471,12 @@ struct DownloadAlert : AlertItem {
      * @param rhs download alert to compare with.
      * @return bool.
      */
-    bool operator==(const DownloadAlert& rhs) const
+    friend bool operator==(const DownloadAlert& lhs, const DownloadAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && mDigest == rhs.mDigest && mURL == rhs.mURL
-            && mDownloadedBytes == rhs.mDownloadedBytes && mTotalBytes == rhs.mTotalBytes && mState == rhs.mState
-            && mReason == rhs.mReason && mError == rhs.mError;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && lhs.mDigest == rhs.mDigest && lhs.mURL == rhs.mURL
+            && lhs.mDownloadedBytes == rhs.mDownloadedBytes && lhs.mTotalBytes == rhs.mTotalBytes
+            && lhs.mState == rhs.mState && lhs.mReason == rhs.mReason && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares download alert.
@@ -477,7 +484,7 @@ struct DownloadAlert : AlertItem {
      * @param rhs download alert to compare with.
      * @return bool.
      */
-    bool operator!=(const DownloadAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DownloadAlert& lhs, const DownloadAlert& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs download alert to log.
@@ -516,11 +523,11 @@ struct InstanceAlert : AlertItem, InstanceIdent {
      * @param rhs instance alert to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceAlert& rhs) const
+    friend bool operator==(const InstanceAlert& lhs, const InstanceAlert& rhs)
     {
-        return AlertItem::operator==(rhs) && InstanceIdent::operator==(rhs) && mVersion == rhs.mVersion
-            && mMessage == rhs.mMessage;
-    }
+        return (static_cast<const AlertItem&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mVersion == rhs.mVersion && lhs.mMessage == rhs.mMessage;
+    };
 
     /**
      * Compares instance alert.
@@ -528,7 +535,7 @@ struct InstanceAlert : AlertItem, InstanceIdent {
      * @param alert  instance alert to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceAlert& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceAlert& lhs, const InstanceAlert& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs instance alert to log.
@@ -562,7 +569,10 @@ struct Alerts : public Protocol {
      * @param alerts alerts to compare with.
      * @return bool.
      */
-    bool operator==(const Alerts& alerts) const { return Protocol::operator==(alerts) && mItems == alerts.mItems; }
+    friend bool operator==(const Alerts& lhs, const Alerts& alerts)
+    {
+        return (static_cast<const Protocol&>(lhs) == alerts) && lhs.mItems == alerts.mItems;
+    };
 
     /**
      * Compares alerts.
@@ -570,7 +580,7 @@ struct Alerts : public Protocol {
      * @param alerts alerts to compare with.
      * @return bool.
      */
-    bool operator!=(const Alerts& alerts) const { return !operator==(alerts); }
+    friend bool operator!=(const Alerts& lhs, const Alerts& alerts) { return !(lhs == alerts); };
 };
 
 } // namespace aos

@@ -163,7 +163,7 @@ public:
      *
      * @param ptr unique pointer to move from.
      */
-    UniquePtr(UniquePtr&& ptr)
+    UniquePtr(UniquePtr&& ptr) noexcept
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -174,7 +174,7 @@ public:
      *
      * @param ptr unique pointer to assign from.
      */
-    UniquePtr& operator=(UniquePtr&& ptr)
+    UniquePtr& operator=(UniquePtr&& ptr) noexcept
     {
         Reset();
 
@@ -191,7 +191,7 @@ public:
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
     // cppcheck-suppress noExplicitConstructor
-    UniquePtr(UniquePtr<P, D>&& ptr)
+    UniquePtr(UniquePtr<P, D>&& ptr) noexcept
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -203,7 +203,7 @@ public:
      * @param ptr unique pointer to assign from.
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
-    UniquePtr& operator=(UniquePtr<P, D>&& ptr)
+    UniquePtr& operator=(UniquePtr<P, D>&& ptr) noexcept
     {
         Reset();
 
@@ -221,7 +221,7 @@ public:
     void Reset(T* object = nullptr)
     {
         if (mObject) {
-            mDeleter(mObject);
+            (void)mDeleter(mObject);
             mObject = nullptr;
         }
 
@@ -366,7 +366,7 @@ public:
 
         if (count == 0) {
             // Unlock before disposing as disposal destroys this object (and its mutex).
-            lock.Unlock();
+            (void)lock.Unlock();
 
             Dispose();
         }
@@ -512,7 +512,7 @@ public:
         , mControlBlock(ptr.mControlBlock)
     {
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
     }
 
@@ -533,7 +533,7 @@ public:
         mControlBlock = ptr.mControlBlock;
 
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
 
         return *this;
@@ -551,7 +551,7 @@ public:
         , mControlBlock(ptr.mControlBlock)
     {
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
     }
 
@@ -569,7 +569,7 @@ public:
         mControlBlock = ptr.mControlBlock;
 
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
 
         return *this;
@@ -585,7 +585,7 @@ public:
     void Reset(AllocatorItf* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
     {
         if (mControlBlock) {
-            mControlBlock->Give();
+            (void)mControlBlock->Give();
         }
 
         mObject       = nullptr;

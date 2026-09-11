@@ -29,12 +29,12 @@ struct NodeConfig {
      * @param rhs node config to compare.
      * @return bool.
      */
-    bool operator==(const NodeConfig& rhs) const
+    friend bool operator==(const NodeConfig& lhs, const NodeConfig& rhs)
     {
-        return mNodeID == rhs.mNodeID && mNodeType == rhs.mNodeType && mVersion == rhs.mVersion
-            && mAlertRules == rhs.mAlertRules && mResourceRatios == rhs.mResourceRatios && mLabels == rhs.mLabels
-            && mPriority == rhs.mPriority;
-    }
+        return lhs.mNodeID == rhs.mNodeID && lhs.mNodeType == rhs.mNodeType && lhs.mVersion == rhs.mVersion
+            && lhs.mAlertRules == rhs.mAlertRules && lhs.mResourceRatios == rhs.mResourceRatios
+            && lhs.mLabels == rhs.mLabels && lhs.mPriority == rhs.mPriority;
+    };
 
     /**
      * Compares node configs.
@@ -42,7 +42,7 @@ struct NodeConfig {
      * @param rhs node config to compare.
      * @return bool.
      */
-    bool operator!=(const NodeConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NodeConfig& lhs, const NodeConfig& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -59,10 +59,10 @@ struct UnitConfig {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const UnitConfig& rhs) const
+    friend bool operator==(const UnitConfig& lhs, const UnitConfig& rhs)
     {
-        return mFormatVersion == rhs.mFormatVersion && mVersion == rhs.mVersion && mNodes == rhs.mNodes;
-    }
+        return lhs.mFormatVersion == rhs.mFormatVersion && lhs.mVersion == rhs.mVersion && lhs.mNodes == rhs.mNodes;
+    };
 
     /**
      * Compares unit config.
@@ -70,7 +70,7 @@ struct UnitConfig {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const UnitConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitConfig& lhs, const UnitConfig& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -114,12 +114,12 @@ struct UnitConfigStatus {
      * @param rhs unit config status to compare with.
      * @return bool.
      */
-    bool operator==(const UnitConfigStatus& rhs) const
+    friend bool operator==(const UnitConfigStatus& lhs, const UnitConfigStatus& rhs)
     {
-        return mVersion == rhs.mVersion && mState == rhs.mState && mError == rhs.mError;
-    }
+        return lhs.mVersion == rhs.mVersion && lhs.mState == rhs.mState && lhs.mError == rhs.mError;
+    };
 
-    bool operator!=(const UnitConfigStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitConfigStatus& lhs, const UnitConfigStatus& rhs) { return !(lhs == rhs); };
 };
 
 using NodeConfigStatus = UnitConfigStatus;

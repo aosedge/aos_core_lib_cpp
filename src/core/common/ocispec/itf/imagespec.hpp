@@ -78,11 +78,11 @@ struct Platform {
      * @param rhs platform to compare.
      * @return bool.
      */
-    bool operator==(const Platform& rhs) const
+    friend bool operator==(const Platform& lhs, const Platform& rhs)
     {
-        return mArchitecture == rhs.mArchitecture && mVariant == rhs.mVariant && mOS == rhs.mOS
-            && mOSVersion == rhs.mOSVersion && mOSFeatures == rhs.mOSFeatures;
-    }
+        return lhs.mArchitecture == rhs.mArchitecture && lhs.mVariant == rhs.mVariant && lhs.mOS == rhs.mOS
+            && lhs.mOSVersion == rhs.mOSVersion && lhs.mOSFeatures == rhs.mOSFeatures;
+    };
 
     /**
      * Compares platform.
@@ -90,7 +90,7 @@ struct Platform {
      * @param rhs platform to compare.
      * @return bool.
      */
-    bool operator!=(const Platform& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Platform& lhs, const Platform& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -126,10 +126,10 @@ struct ContentDescriptor {
      * @param rhs content descriptor to compare.
      * @return bool.
      */
-    bool operator==(const ContentDescriptor& rhs) const
+    friend bool operator==(const ContentDescriptor& lhs, const ContentDescriptor& rhs)
     {
-        return mMediaType == rhs.mMediaType && mDigest == rhs.mDigest && mSize == rhs.mSize;
-    }
+        return lhs.mMediaType == rhs.mMediaType && lhs.mDigest == rhs.mDigest && lhs.mSize == rhs.mSize;
+    };
 
     /**
      * Compares content descriptor.
@@ -137,7 +137,7 @@ struct ContentDescriptor {
      * @param rhs content descriptor to compare.
      * @return bool.
      */
-    bool operator!=(const ContentDescriptor& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ContentDescriptor& lhs, const ContentDescriptor& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -152,10 +152,10 @@ struct IndexContentDescriptor : public ContentDescriptor {
      * @param rhs index content descriptor to compare.
      * @return bool.
      */
-    bool operator==(const IndexContentDescriptor& rhs) const
+    friend bool operator==(const IndexContentDescriptor& lhs, const IndexContentDescriptor& rhs)
     {
-        return ContentDescriptor::operator==(rhs) && mPlatform == rhs.mPlatform;
-    }
+        return (static_cast<const ContentDescriptor&>(lhs) == rhs) && lhs.mPlatform == rhs.mPlatform;
+    };
 
     /**
      * Compares index content descriptor.
@@ -163,14 +163,17 @@ struct IndexContentDescriptor : public ContentDescriptor {
      * @param rhs index content descriptor to compare.
      * @return bool.
      */
-    bool operator!=(const IndexContentDescriptor& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const IndexContentDescriptor& lhs, const IndexContentDescriptor& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
  * OCI image index.
  */
 struct ImageIndex {
-    int                                                   mSchemaVersion {cSchemeVersion};
+    int32_t                                               mSchemaVersion {cSchemeVersion};
     StaticString<cMediaTypeLen>                           mMediaType;
     StaticString<cArtifactTypeLen>                        mArtifactType;
     StaticArray<IndexContentDescriptor, cMaxNumManifests> mManifests;
@@ -181,11 +184,11 @@ struct ImageIndex {
      * @param rhs index to compare.
      * @return bool.
      */
-    bool operator==(const ImageIndex& rhs) const
+    friend bool operator==(const ImageIndex& lhs, const ImageIndex& rhs)
     {
-        return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType
-            && mArtifactType == rhs.mArtifactType && mManifests == rhs.mManifests;
-    }
+        return lhs.mSchemaVersion == rhs.mSchemaVersion && lhs.mMediaType == rhs.mMediaType
+            && lhs.mArtifactType == rhs.mArtifactType && lhs.mManifests == rhs.mManifests;
+    };
 
     /**
      * Compares image index.
@@ -193,14 +196,14 @@ struct ImageIndex {
      * @param rhs index to compare.
      * @return bool.
      */
-    bool operator!=(const ImageIndex& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ImageIndex& lhs, const ImageIndex& rhs) { return !(lhs == rhs); };
 };
 
 /**
  * OCI image manifest.
  */
 struct ImageManifest {
-    int                                           mSchemaVersion {cSchemeVersion};
+    int32_t                                       mSchemaVersion {cSchemeVersion};
     StaticString<cMediaTypeLen>                   mMediaType;
     StaticString<cArtifactTypeLen>                mArtifactType;
     ContentDescriptor                             mConfig;
@@ -213,12 +216,12 @@ struct ImageManifest {
      * @param rhs manifest to compare.
      * @return bool.
      */
-    bool operator==(const ImageManifest& rhs) const
+    friend bool operator==(const ImageManifest& lhs, const ImageManifest& rhs)
     {
-        return mSchemaVersion == rhs.mSchemaVersion && mMediaType == rhs.mMediaType
-            && mArtifactType == rhs.mArtifactType && mConfig == rhs.mConfig && mLayers == rhs.mLayers
-            && mItemConfig == rhs.mItemConfig;
-    }
+        return lhs.mSchemaVersion == rhs.mSchemaVersion && lhs.mMediaType == rhs.mMediaType
+            && lhs.mArtifactType == rhs.mArtifactType && lhs.mConfig == rhs.mConfig && lhs.mLayers == rhs.mLayers
+            && lhs.mItemConfig == rhs.mItemConfig;
+    };
 
     /**
      * Compares image manifest.
@@ -226,7 +229,7 @@ struct ImageManifest {
      * @param rhs manifest to compare.
      * @return bool.
      */
-    bool operator!=(const ImageManifest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ImageManifest& lhs, const ImageManifest& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -242,7 +245,10 @@ struct Rootfs {
      * @param rhs rootfs config to compare.
      * @return bool.
      */
-    bool operator==(const Rootfs& rhs) const { return mDiffIDs == rhs.mDiffIDs && mType == rhs.mType; }
+    friend bool operator==(const Rootfs& lhs, const Rootfs& rhs)
+    {
+        return lhs.mDiffIDs == rhs.mDiffIDs && lhs.mType == rhs.mType;
+    };
 
     /**
      * Compares rootfs config.
@@ -250,7 +256,7 @@ struct Rootfs {
      * @param rhs rootfs config to compare.
      * @return bool.
      */
-    bool operator!=(const Rootfs& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Rootfs& lhs, const Rootfs& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -269,11 +275,11 @@ struct Config {
      * @param rhs image config part to compare.
      * @return bool.
      */
-    bool operator==(const Config& rhs) const
+    friend bool operator==(const Config& lhs, const Config& rhs)
     {
-        return mExposedPorts == rhs.mExposedPorts && mEnv == rhs.mEnv && mEntryPoint == rhs.mEntryPoint
-            && mCmd == rhs.mCmd && mWorkingDir == rhs.mWorkingDir;
-    }
+        return lhs.mExposedPorts == rhs.mExposedPorts && lhs.mEnv == rhs.mEnv && lhs.mEntryPoint == rhs.mEntryPoint
+            && lhs.mCmd == rhs.mCmd && lhs.mWorkingDir == rhs.mWorkingDir;
+    };
 
     /**
      * Compares image config part.
@@ -281,7 +287,7 @@ struct Config {
      * @param rhs image config part to compare.
      * @return bool.
      */
-    bool operator!=(const Config& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Config& lhs, const Config& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -299,7 +305,7 @@ struct ImageConfig : public Platform {
      * @param rhs image config to compare.
      * @return bool.
      */
-    bool operator==(const ImageConfig& rhs) const { return mConfig == rhs.mConfig; }
+    friend bool operator==(const ImageConfig& lhs, const ImageConfig& rhs) { return lhs.mConfig == rhs.mConfig; };
 
     /**
      * Compares image config.
@@ -307,7 +313,7 @@ struct ImageConfig : public Platform {
      * @param rhs image config to compare.
      * @return bool.
      */
-    bool operator!=(const ImageConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ImageConfig& lhs, const ImageConfig& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos::oci

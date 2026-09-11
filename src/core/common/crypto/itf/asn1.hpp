@@ -33,8 +33,8 @@ using ObjectIdentifier = StaticString<cASN1ObjIdLen>;
  * ASN1 value.
  */
 struct ASN1Value {
-    int            mTagClass {};
-    int            mTagNumber {};
+    int32_t        mTagClass {};
+    int32_t        mTagNumber {};
     bool           mIsConstructed {};
     Array<uint8_t> mValue;
 
@@ -51,7 +51,7 @@ struct ASN1Value {
      * @param isConstructed indicates whether this value is a constructed type (true) or a primitive type (false).
      * @param content raw content of the ASN.1 value.
      */
-    ASN1Value(int tagClass, int tagNumber, bool isConstructed, const Array<uint8_t>& content)
+    ASN1Value(int32_t tagClass, int32_t tagNumber, bool isConstructed, const Array<uint8_t>& content)
         : mTagClass(tagClass)
         , mTagNumber(tagNumber)
         , mIsConstructed(isConstructed)
@@ -83,11 +83,11 @@ struct ASN1Value {
      * @param other another ASN1Value to compare with.
      * @return bool.
      */
-    bool operator==(const ASN1Value& other) const
+    friend bool operator==(const ASN1Value& lhs, const ASN1Value& other)
     {
-        return mTagClass == other.mTagClass && mTagNumber == other.mTagNumber && mIsConstructed == other.mIsConstructed
-            && mValue == other.mValue;
-    }
+        return lhs.mTagClass == other.mTagClass && lhs.mTagNumber == other.mTagNumber
+            && lhs.mIsConstructed == other.mIsConstructed && lhs.mValue == other.mValue;
+    };
 
     /**
      * Compares ASN1Value.
@@ -95,7 +95,7 @@ struct ASN1Value {
      * @param other another ASN1Value to compare with.
      * @return bool.
      */
-    bool operator!=(const ASN1Value& other) const { return !(*this == other); }
+    friend bool operator!=(const ASN1Value& lhs, const ASN1Value& other) { return !(lhs == other); };
 };
 
 /**
@@ -119,14 +119,17 @@ struct Extension {
      * @param extension object to compare with.
      * @return bool.
      */
-    bool operator==(const Extension& extension) const { return extension.mID == mID && extension.mValue == mValue; }
+    friend bool operator==(const Extension& lhs, const Extension& extension)
+    {
+        return extension.mID == lhs.mID && extension.mValue == lhs.mValue;
+    };
     /**
      * Checks whether current object is not equal the the given one.
      *
      * @param extension object to compare with.
      * @return bool.
      */
-    bool operator!=(const Extension& extension) const { return !operator==(extension); }
+    friend bool operator!=(const Extension& lhs, const Extension& extension) { return !(lhs == extension); };
 };
 
 /**
@@ -245,10 +248,10 @@ struct ASN1ParseResult {
      * @param other another parse result to compare with.
      * @return bool.
      */
-    bool operator==(const ASN1ParseResult& other) const
+    friend bool operator==(const ASN1ParseResult& lhs, const ASN1ParseResult& other)
     {
-        return mError == other.mError && mRemaining == other.mRemaining;
-    }
+        return lhs.mError == other.mError && lhs.mRemaining == other.mRemaining;
+    };
 
     /**
      * Compares ASN1 parse results.
@@ -256,7 +259,7 @@ struct ASN1ParseResult {
      * @param other another parse result to compare with.
      * @return bool.
      */
-    bool operator!=(const ASN1ParseResult& other) const { return !(*this == other); }
+    friend bool operator!=(const ASN1ParseResult& lhs, const ASN1ParseResult& other) { return !(lhs == other); };
 };
 
 /**
@@ -271,7 +274,7 @@ struct ASN1ParseOptions {
     /**
      * Optional tag to match during parsing.
      */
-    Optional<int> mTag;
+    Optional<int32_t> mTag;
 };
 
 /**
@@ -327,7 +330,7 @@ public:
      * @param[out] value result integer.
      * @return ASN1ParseResult.
      */
-    virtual ASN1ParseResult ReadInteger(const Array<uint8_t>& data, const ASN1ParseOptions& opt, int& value) = 0;
+    virtual ASN1ParseResult ReadInteger(const Array<uint8_t>& data, const ASN1ParseOptions& opt, int32_t& value) = 0;
 
     /**
      * Reads a large ASN.1 INTEGER (BigInt) as a byte array.

@@ -103,7 +103,7 @@ Error PKCS11Module::SetOwner(const String& password)
     } else {
         err = GetUserPin(userPIN);
         if (!err.IsNone()) {
-            err = pkcs11::GenPIN(userPIN);
+            err = pkcs11::GenPIN(*mCryptoProvider, userPIN);
             if (!err.IsNone()) {
                 return err;
             }
@@ -244,7 +244,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
 
     err = TokenMemInfo();
     if (!err.IsNone()) {
-        pkcs11::Utils(*mAllocator, session, *mCryptoProvider).DeletePrivateKey(pendingKey.mKey);
+        (void)pkcs11::Utils(*mAllocator, session, *mCryptoProvider).DeletePrivateKey(pendingKey.mKey);
         return {nullptr, err};
     }
 
@@ -258,10 +258,10 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const Str
             LOG_ERR() << "Can't delete pending key: err=" << err;
         }
 
-        mPendingKeys.Erase(mPendingKeys.begin());
+        (void)mPendingKeys.Erase(mPendingKeys.begin());
     }
 
-    mPendingKeys.PushBack(pendingKey);
+    (void)mPendingKeys.PushBack(pendingKey);
 
     return {pendingKey.mKey.GetPrivKey(), ErrorEnum::eNone};
 }
@@ -283,7 +283,7 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
     for (auto it = mPendingKeys.begin(); it != mPendingKeys.end(); ++it) {
         if (CheckCertificate(certChain[0], *it->mKey.GetPrivKey())) {
             curKey.SetValue(*it);
-            mPendingKeys.Erase(it);
+            (void)mPendingKeys.Erase(it);
 
             break;
         }
@@ -450,8 +450,8 @@ StaticString<pkcs11::cLabelLen> PKCS11Module::GetTokenLabel() const
 
 RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 {
-    const int paramCount
-        = static_cast<int>(mConfig.mSlotID.HasValue() + mConfig.mSlotIndex.HasValue() + !mConfig.mTokenLabel.IsEmpty());
+    const int32_t paramCount = static_cast<int32_t>(
+        mConfig.mSlotID.HasValue() + mConfig.mSlotIndex.HasValue() + !mConfig.mTokenLabel.IsEmpty());
 
     if (paramCount > 1) {
         LOG_ERR()
@@ -698,22 +698,22 @@ Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObje
 
     StaticArray<pkcs11::ObjectAttribute, cSearchObjAttrCount> templ;
 
-    templ.EmplaceBack(CKA_TOKEN, Array<uint8_t>(&token, sizeof(token)));
+    (void)templ.EmplaceBack(CKA_TOKEN, Array<uint8_t>(&token, sizeof(token)));
 
     if (!filter.mID.IsEmpty()) {
-        templ.EmplaceBack(CKA_ID, filter.mID);
+        (void)templ.EmplaceBack(CKA_ID, filter.mID);
     }
 
     if (!filter.mLabel.IsEmpty()) {
         const auto labelPtr = reinterpret_cast<const uint8_t*>(filter.mLabel.Get());
 
-        templ.EmplaceBack(CKA_LABEL, Array<uint8_t>(labelPtr, filter.mLabel.Size()));
+        (void)templ.EmplaceBack(CKA_LABEL, Array<uint8_t>(labelPtr, filter.mLabel.Size()));
     }
 
     if (filter.mType.HasValue()) {
         const auto classPtr = reinterpret_cast<const uint8_t*>(&filter.mType.GetValue());
 
-        templ.EmplaceBack(CKA_CLASS, Array<uint8_t>(classPtr, sizeof(pkcs11::ObjectClass)));
+        (void)templ.EmplaceBack(CKA_CLASS, Array<uint8_t>(classPtr, sizeof(pkcs11::ObjectClass)));
     }
 
     // search object handles
@@ -727,8 +727,8 @@ Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObje
     // retrieve attributes(id & label) and add search objects
     StaticArray<pkcs11::AttributeType, cSearchObjAttrCount> searchAttrTypes;
 
-    searchAttrTypes.PushBack(CKA_ID);
-    searchAttrTypes.PushBack(CKA_LABEL);
+    (void)searchAttrTypes.PushBack(CKA_ID);
+    (void)searchAttrTypes.PushBack(CKA_LABEL);
 
     for (const auto& object : objects) {
         err = dst.EmplaceBack();
@@ -740,20 +740,20 @@ Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObje
 
         searchObject.mType   = filter.mType;
         searchObject.mHandle = object;
-        searchObject.mID.Resize(searchObject.mID.MaxSize());
+        (void)searchObject.mID.Resize(searchObject.mID.MaxSize());
 
         StaticArray<Array<uint8_t>, cSearchObjAttrCount> searchAttrValues;
         StaticArray<uint8_t, pkcs11::cLabelLen>          label;
 
-        searchAttrValues.PushBack(searchObject.mID);
-        searchAttrValues.PushBack(label);
+        (void)searchAttrValues.PushBack(searchObject.mID);
+        (void)searchAttrValues.PushBack(label);
 
         err = session.GetAttributeValues(object, searchAttrTypes, searchAttrValues);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        searchObject.mID.Resize(searchAttrValues[0].Size());
+        (void)searchObject.mID.Resize(searchAttrValues[0].Size());
 
         err = pkcs11::Utils::ConvertPKCS11String(searchAttrValues[1], searchObject.mLabel);
         if (!err.IsNone()) {
@@ -834,10 +834,10 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
 {
     const auto AddParam = [](const aos::String& name, const aos::String& param, bool opaque, String& paramList) {
         if (!paramList.IsEmpty()) {
-            paramList.Append(opaque ? ";" : "&");
+            (void)paramList.Append(opaque ? ";" : "&");
         }
 
-        paramList.Append(name).Append("=").Append(param);
+        (void)paramList.Append(name).Append("=").Append(param);
     };
 
     auto opaque = MakeUnique<StaticString<cURLLen>>(mAllocator);
@@ -950,8 +950,8 @@ Error PKCS11Module::GetValidInfo(const pkcs11::SessionContext& session, Array<Se
             return AOS_ERROR_WRAP(err);
         }
 
-        certs.Erase(cert);
-        pubKeys.Erase(pubKey);
+        (void)certs.Erase(cert);
+        (void)pubKeys.Erase(pubKey);
         privKey = privKeys.Erase(privKey);
     }
 
@@ -982,8 +982,8 @@ Error PKCS11Module::GetX509Cert(
     StaticArray<pkcs11::AttributeType, cSingleAttribute> types;
     StaticArray<Array<uint8_t>, cSingleAttribute>        values;
 
-    types.PushBack(CKA_VALUE);
-    values.PushBack(*certBuffer);
+    (void)types.PushBack(CKA_VALUE);
+    (void)values.PushBack(*certBuffer);
 
     auto err = session.GetAttributeValues(object, types, values);
     if (!err.IsNone()) {

@@ -37,7 +37,7 @@ public:
     /**
      * Destructs timer instance.
      */
-    ~Timer() { Stop(StopMode::WaitForCallbacks); }
+    ~Timer() { (void)Stop(StopMode::WaitForCallbacks); }
 
     /**
      * Starts timer.
@@ -77,7 +77,7 @@ public:
             }
 
             if (oneshot) {
-                Stop();
+                (void)Stop();
             }
 
             callback(arg);

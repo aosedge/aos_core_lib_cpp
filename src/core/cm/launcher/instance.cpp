@@ -47,7 +47,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
+    auto releaseConfigs = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { ResetConfigs(); });
     if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "get item config failed"));
     }
@@ -60,7 +60,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(Error(err, "get image config failed"));
     }
 
-    releaseConfigs.Release();
+    (void)releaseConfigs.Release();
 
     mInfo.mManifestDigest = imageDescriptor.mDigest;
 
@@ -771,10 +771,11 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
 Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
 {
-    auto                     requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
-    auto                     requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
-    Array<oci::ResourceInfo> requestedResources
-        = mItemConfig->mSkipResourceLimits ? Array<oci::ResourceInfo>() : mItemConfig->mResources;
+    auto                     requestedCPU       = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
+    auto                     requestedRAM       = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
+    Array<oci::ResourceInfo> requestedResources = mItemConfig->mSkipResourceLimits
+        ? Array<oci::ResourceInfo>()
+        : mItemConfig->mResources; // NOSONAR cpp:S5912 - Array serves as a view over StaticArray
 
     auto reserveErr
         = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);

@@ -176,7 +176,10 @@ public:
      * @param duration duration.
      * @result Duration.
      */
-    constexpr Duration operator+(const Duration& duration) const { return mDuration + duration.mDuration; }
+    friend constexpr Duration operator+(const Duration& lhs, const Duration& duration)
+    {
+        return lhs.mDuration + duration.mDuration;
+    };
 
     /**
      * Subtracts duration and returns result as a new object.
@@ -184,7 +187,10 @@ public:
      * @param duration duration.
      * @result Duration.
      */
-    constexpr Duration operator-(const Duration& duration) const { return mDuration - duration.mDuration; }
+    friend constexpr Duration operator-(const Duration& lhs, const Duration& duration)
+    {
+        return lhs.mDuration - duration.mDuration;
+    };
 
     /**
      * Multiplies duration and returns result as a new object.
@@ -192,7 +198,7 @@ public:
      * @param multiplier multiplier.
      * @result Duration.
      */
-    constexpr Duration operator*(int64_t multiplier) const { return mDuration * multiplier; }
+    friend constexpr Duration operator*(const Duration& lhs, int64_t multiplier) { return lhs.mDuration * multiplier; };
 
     /**
      * Divides duration and returns result as a new object.
@@ -200,12 +206,12 @@ public:
      * @param divider divider.
      * @result Duration.
      */
-    constexpr Duration operator/(const int64_t divider) const
+    friend constexpr Duration operator/(const Duration& lhs, const int64_t divider)
     {
         assert(divider != 0);
 
-        return mDuration / divider;
-    }
+        return lhs.mDuration / divider;
+    };
 
     /**
      * Returns true if duration is not zero.
@@ -220,7 +226,7 @@ public:
      * @param obj duration to compare with.
      * @result bool.
      */
-    bool operator==(const Duration& obj) const { return mDuration == obj.mDuration; }
+    friend bool operator==(const Duration& lhs, const Duration& obj) { return lhs.mDuration == obj.mDuration; };
 
     /**
      * Compares two durations.
@@ -228,7 +234,7 @@ public:
      * @param obj duration to compare with.
      * @result bool.
      */
-    bool operator!=(const Duration& obj) const { return !operator==(obj); }
+    friend bool operator!=(const Duration& lhs, const Duration& obj) { return !(lhs == obj); };
 
     /**
      * Compares two durations.
@@ -236,7 +242,7 @@ public:
      * @param obj duration to compare with.
      * @result bool.
      */
-    bool operator<(const Duration& obj) const { return mDuration < obj.mDuration; }
+    friend bool operator<(const Duration& lhs, const Duration& obj) { return lhs.mDuration < obj.mDuration; };
 
     /**
      * Compares two durations.
@@ -244,7 +250,7 @@ public:
      * @param obj duration to compare with.
      * @result bool.
      */
-    bool operator<=(const Duration& obj) const { return mDuration <= obj.mDuration; }
+    friend bool operator<=(const Duration& lhs, const Duration& obj) { return lhs.mDuration <= obj.mDuration; };
 
     /**
      * Compares two durations.
@@ -252,7 +258,7 @@ public:
      * @param obj duration to compare with.
      * @result bool.
      */
-    bool operator>(const Duration& obj) const { return mDuration > obj.mDuration; }
+    friend bool operator>(const Duration& lhs, const Duration& obj) { return lhs.mDuration > obj.mDuration; };
 
     /**
      * Compares two durations.
@@ -260,7 +266,7 @@ public:
      * @param obj duration to compare with.
      * @result bool.
      */
-    bool operator>=(const Duration& obj) const { return mDuration >= obj.mDuration; }
+    friend bool operator>=(const Duration& lhs, const Duration& obj) { return lhs.mDuration >= obj.mDuration; };
 
     /**
      * Returns ISO 8601 duration string representation.
@@ -415,7 +421,7 @@ public:
      * @param year year.
      * @return Error.
      */
-    Error GetDate(int* day, int* month = nullptr, int* year = nullptr) const
+    Error GetDate(int32_t* day, int32_t* month = nullptr, int32_t* year = nullptr) const
     {
         tm timeInfo {};
 
@@ -444,7 +450,7 @@ public:
      * @param sec sec.
      * @return Error.
      */
-    Error GetTime(int* hour, int* min = nullptr, int* sec = nullptr) const
+    Error GetTime(int32_t* hour, int32_t* min = nullptr, int32_t* sec = nullptr) const
     {
         tm timeInfo {};
 
@@ -478,11 +484,11 @@ public:
      * @param obj time object to compare with.
      * @result bool.
      */
-    bool operator<(const Time& obj) const
+    friend bool operator<(const Time& lhs, const Time& obj)
     {
-        return mTime.tv_sec < obj.mTime.tv_sec
-            || (mTime.tv_sec == obj.mTime.tv_sec && mTime.tv_nsec < obj.mTime.tv_nsec);
-    }
+        return lhs.mTime.tv_sec < obj.mTime.tv_sec
+            || (lhs.mTime.tv_sec == obj.mTime.tv_sec && lhs.mTime.tv_nsec < obj.mTime.tv_nsec);
+    };
 
     /**
      * Checks whether a current time is more than a specified one.
@@ -490,7 +496,7 @@ public:
      * @param obj time object to compare with.
      * @result bool.
      */
-    bool operator>(const Time& obj) const { return obj < *this; }
+    friend bool operator>(const Time& lhs, const Time& obj) { return obj < lhs; };
 
     /**
      * Checks whether a current time and a specified object represent the same time instant.
@@ -498,10 +504,10 @@ public:
      * @param obj time object to compare with.
      * @result bool.
      */
-    bool operator==(const Time& obj) const
+    friend bool operator==(const Time& lhs, const Time& obj)
     {
-        return mTime.tv_sec == obj.mTime.tv_sec && mTime.tv_nsec == obj.mTime.tv_nsec;
-    }
+        return lhs.mTime.tv_sec == obj.mTime.tv_sec && lhs.mTime.tv_nsec == obj.mTime.tv_nsec;
+    };
 
     /**
      * Checks whether a current time and a specified object don't represent the same time instant.
@@ -509,7 +515,7 @@ public:
      * @param obj time object to compare with.
      * @result bool.
      */
-    bool operator!=(const Time& obj) const { return !operator==(obj); }
+    friend bool operator!=(const Time& lhs, const Time& obj) { return !(lhs == obj); };
 
     /**
      * Prints time into log.

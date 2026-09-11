@@ -17,12 +17,12 @@ namespace aos::tests::utils {
 
 inline void InitLog()
 {
-    Log::SetCallback([](const String& module, LogLevel level, const String& message) {
+    Log::SetCallback([](const String& moduleName, LogLevel level, const String& message) {
         static std::mutex           sLogMutex;
         std::lock_guard<std::mutex> lock(sLogMutex);
         static const char* const    sLevelStrings[] = {"DBG", "INF", "WRN", "ERR"};
 
-        std::cout << sLevelStrings[static_cast<size_t>(level.GetValue())] << " | " << module.CStr() << " | "
+        std::cout << sLevelStrings[static_cast<size_t>(level.GetValue())] << " | " << moduleName.CStr() << " | "
                   << message.CStr() << std::endl;
     });
 }

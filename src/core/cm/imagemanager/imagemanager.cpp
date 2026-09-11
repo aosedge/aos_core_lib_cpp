@@ -277,7 +277,9 @@ Error ImageManager::Cancel()
     LOG_DBG() << "Cancel image manager downloading";
 
     mCancel = true;
-    mCondVar.NotifyAll();
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (!mCurrentDownloadDigest.IsEmpty()) {
         if (auto err = mDownloader->Cancel(mCurrentDownloadDigest); !err.IsNone()) {
@@ -371,7 +373,9 @@ Error ImageManager::GetIndexDigest(const String& itemID, const String& version, 
         return ErrorEnum::eNotFound;
     }
 
-    digest = it->mIndexDigest;
+    if (auto err = digest.Assign(it->mIndexDigest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -387,7 +391,9 @@ Error ImageManager::GetBlobPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = blobPath;
+    if (auto err = path.Assign(blobPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto [exists, err] = fs::FileExist(path);
     if (!err.IsNone()) {
@@ -444,7 +450,9 @@ Error ImageManager::GetItemCurrentVersion(const String& itemID, String& version)
         return ErrorEnum::eNotFound;
     }
 
-    version = it->mVersion;
+    if (auto err = version.Assign(it->mVersion); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -621,9 +629,12 @@ Error ImageManager::RemoveOldItemVersions(const String& itemID, Array<ItemInfo>&
 
 Error ImageManager::WaitForStop()
 {
-    UniqueLock<Mutex> lock(mMutex);
+    UniqueLock<Mutex> lock(mMutex); // NOSONAR cpp:S5486 - false positive; lock released before next WaitForStop()
 
-    mCondVar.Wait(lock, cRetryTimeout, [this]() { return mCancel; });
+    if (auto err = mCondVar.Wait(lock, cRetryTimeout, [this]() { return mCancel; });
+        !err.IsNone() && err != ErrorEnum::eTimeout) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (mCancel) {
         return ErrorEnum::eCanceled;
@@ -805,7 +816,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
                 !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove old version" << Log::Field(removeErr);
             } else {
-                storedItems.Erase(oldVersionIt);
+                (void)storedItems.Erase(oldVersionIt);
             }
         }
 
@@ -966,13 +977,17 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
                           << Log::Field(removeErr);
             }
 
-            space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
 
             return;
         }
 
         if (space) {
-            space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     });
 
@@ -1014,13 +1029,17 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
                           << Log::Field(removeErr);
             }
 
-            space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
 
             return;
         }
 
         if (space) {
-            space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     });
 
@@ -1062,12 +1081,17 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
                           << Log::Field(removeErr);
             }
 
-            space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
+
             return;
         }
 
         if (space) {
-            space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     });
 
@@ -1468,7 +1492,11 @@ bool ImageManager::StartAction()
 {
     UniqueLock lock {mMutex};
 
-    mCondVar.Wait(lock, [this]() { return !mInProgress || mCancel; });
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mInProgress || mCancel; }); !err.IsNone()) {
+        LOG_ERR() << "Failed to wait for image manager action" << Log::Field(err);
+
+        return false;
+    }
 
     const bool cancelledWhileRunning = mCancel && mInProgress;
 
@@ -1488,7 +1516,9 @@ void ImageManager::StopAction()
     LockGuard lock {mMutex};
 
     mInProgress = false;
-    mCondVar.NotifyAll();
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Failed to notify image manager stop" << Log::Field(err);
+    }
 }
 
 void ImageManager::NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses)
@@ -1511,7 +1541,7 @@ void ImageManager::NotifyItemStatusChanged(
 {
     StaticArray<UpdateItemStatus, 1> status;
 
-    status.Resize(1);
+    (void)status.Resize(1);
 
     status[0].mItemID  = itemID;
     status[0].mType    = type;
@@ -1733,7 +1763,7 @@ RetWithError<size_t> ImageManager::CleanupOrphanedBlobs()
             auto hash = blobIterator->mPath;
 
             StaticString<oci::cDigestLen> blobDigest;
-            blobDigest.Append(algorithm).Append(":").Append(hash);
+            (void)blobDigest.Append(algorithm).Append(":").Append(hash);
 
             if (!IsBlobUsedByItems(blobDigest, *storedItems)) {
                 auto filePath = fs::JoinPath(algorithmDir, hash);

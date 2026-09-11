@@ -92,7 +92,10 @@ Error DesiredStatusHandler::Stop()
         }
 
         mIsRunning = false;
-        mCondVar.NotifyOne();
+
+        if (auto notifyErr = mCondVar.NotifyOne(); !notifyErr.IsNone()) {
+            LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(notifyErr));
+        }
     }
 
     if (auto threadErr = mThread.Join(); !threadErr.IsNone() && err.IsNone()) {
@@ -152,13 +155,18 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
 {
     (void)statuses;
 
-    mCondVar.NotifyOne();
+    if (auto err = mCondVar.NotifyOne(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void DesiredStatusHandler::StartUpdate(UpdateState state)
 {
     SetState(state);
-    mCondVar.NotifyOne();
+
+    if (auto err = mCondVar.NotifyOne(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void DesiredStatusHandler::CancelUpdate()
@@ -245,11 +253,11 @@ void DesiredStatusHandler::Run()
                 }
 
                 if (stateAction != nullptr) {
-                    lock.Unlock();
+                    (void)lock.Unlock();
 
                     auto err = (this->*stateAction)();
 
-                    lock.Lock();
+                    (void)lock.Lock();
 
                     if (mCancelCurrentUpdate) {
                         break;
@@ -275,7 +283,9 @@ void DesiredStatusHandler::Run()
                 continue;
             }
 
-            mUnitStatusHandler->SendFullUnitStatus();
+            if (auto err = mUnitStatusHandler->SendFullUnitStatus(); !err.IsNone()) {
+                LOG_ERR() << "Can't send full unit status" << Log::Field(AOS_ERROR_WRAP(err));
+            }
 
             if (mHasPendingDesiredStatus) {
                 LOG_DBG() << "Process pending desired status";

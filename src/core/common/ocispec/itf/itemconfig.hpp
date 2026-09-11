@@ -42,14 +42,15 @@ struct ServiceQuotas {
      * @param rhs service quotas to compare.
      * @return bool.
      */
-    bool operator==(const ServiceQuotas& rhs) const
+    friend bool operator==(const ServiceQuotas& lhs, const ServiceQuotas& rhs)
     {
-        return mCPUDMIPSLimit == rhs.mCPUDMIPSLimit && mRAMLimit == rhs.mRAMLimit && mPIDsLimit == rhs.mPIDsLimit
-            && mNoFileLimit == rhs.mNoFileLimit && mTmpLimit == rhs.mTmpLimit && mStateLimit == rhs.mStateLimit
-            && mStorageLimit == rhs.mStorageLimit && mUploadSpeed == rhs.mUploadSpeed
-            && mDownloadSpeed == rhs.mDownloadSpeed && mUploadLimit == rhs.mUploadLimit
-            && mDownloadLimit == rhs.mDownloadLimit;
-    }
+        return lhs.mCPUDMIPSLimit == rhs.mCPUDMIPSLimit && lhs.mRAMLimit == rhs.mRAMLimit
+            && lhs.mPIDsLimit == rhs.mPIDsLimit && lhs.mNoFileLimit == rhs.mNoFileLimit
+            && lhs.mTmpLimit == rhs.mTmpLimit && lhs.mStateLimit == rhs.mStateLimit
+            && lhs.mStorageLimit == rhs.mStorageLimit && lhs.mUploadSpeed == rhs.mUploadSpeed
+            && lhs.mDownloadSpeed == rhs.mDownloadSpeed && lhs.mUploadLimit == rhs.mUploadLimit
+            && lhs.mDownloadLimit == rhs.mDownloadLimit;
+    };
 
     /**
      * Compares service quotas.
@@ -57,7 +58,7 @@ struct ServiceQuotas {
      * @param rhs service quotas to compare.
      * @return bool.
      */
-    bool operator!=(const ServiceQuotas& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ServiceQuotas& lhs, const ServiceQuotas& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -75,10 +76,10 @@ struct RequestedResources {
      * @param rhs requested resources to compare.
      * @return bool.
      */
-    bool operator==(const RequestedResources& rhs) const
+    friend bool operator==(const RequestedResources& lhs, const RequestedResources& rhs)
     {
-        return mCPU == rhs.mCPU && mRAM == rhs.mRAM && mStorage == rhs.mStorage && mState == rhs.mState;
-    }
+        return lhs.mCPU == rhs.mCPU && lhs.mRAM == rhs.mRAM && lhs.mStorage == rhs.mStorage && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares requested resources.
@@ -86,7 +87,7 @@ struct RequestedResources {
      * @param rhs requested resources to compare.
      * @return bool.
      */
-    bool operator!=(const RequestedResources& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RequestedResources& lhs, const RequestedResources& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -102,7 +103,10 @@ struct ResourceInfo {
      * @param rhs resource info to compare.
      * @return bool.
      */
-    bool operator==(const ResourceInfo& rhs) const { return mName == rhs.mName && mMode == rhs.mMode; }
+    friend bool operator==(const ResourceInfo& lhs, const ResourceInfo& rhs)
+    {
+        return lhs.mName == rhs.mName && lhs.mMode == rhs.mMode;
+    };
 
     /**
      * Compares resource info.
@@ -110,7 +114,7 @@ struct ResourceInfo {
      * @param rhs resource info to compare.
      * @return bool.
      */
-    bool operator!=(const ResourceInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ResourceInfo& lhs, const ResourceInfo& rhs) { return !(lhs == rhs); };
 };
 
 using ResourceInfos = StaticArray<ResourceInfo, cMaxNumNodeResources>;
@@ -165,15 +169,17 @@ struct ItemConfig {
      * @param rhs item config to compare.
      * @return bool.
      */
-    bool operator==(const ItemConfig& rhs) const
+    friend bool operator==(const ItemConfig& lhs, const ItemConfig& rhs)
     {
-        return mCreated == rhs.mCreated && mAuthor == rhs.mAuthor && mSkipResourceLimits == rhs.mSkipResourceLimits
-            && mHostname == rhs.mHostname && mBalancingPolicy == rhs.mBalancingPolicy && mRuntimes == rhs.mRuntimes
-            && mRunParameters == rhs.mRunParameters && mSysctl == rhs.mSysctl && mOfflineTTL == rhs.mOfflineTTL
-            && mPermissions == rhs.mPermissions && mResources == rhs.mResources && mQuotas == rhs.mQuotas
-            && mAllowedConnections == rhs.mAllowedConnections && mRequestedResources == rhs.mRequestedResources
-            && mAlertRules == rhs.mAlertRules;
-    }
+        return lhs.mCreated == rhs.mCreated && lhs.mAuthor == rhs.mAuthor
+            && lhs.mSkipResourceLimits == rhs.mSkipResourceLimits && lhs.mHostname == rhs.mHostname
+            && lhs.mBalancingPolicy == rhs.mBalancingPolicy && lhs.mRuntimes == rhs.mRuntimes
+            && lhs.mRunParameters == rhs.mRunParameters && lhs.mSysctl == rhs.mSysctl
+            && lhs.mOfflineTTL == rhs.mOfflineTTL && lhs.mPermissions == rhs.mPermissions
+            && lhs.mResources == rhs.mResources && lhs.mQuotas == rhs.mQuotas
+            && lhs.mAllowedConnections == rhs.mAllowedConnections && lhs.mRequestedResources == rhs.mRequestedResources
+            && lhs.mAlertRules == rhs.mAlertRules;
+    };
 
     /**
      * Compares item config.
@@ -181,7 +187,7 @@ struct ItemConfig {
      * @param rhs item config to compare.
      * @return bool.
      */
-    bool operator!=(const ItemConfig& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ItemConfig& lhs, const ItemConfig& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos::oci

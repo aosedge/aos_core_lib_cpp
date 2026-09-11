@@ -64,10 +64,12 @@ Error NodeManager::Start()
         }
 
         // Add online provisioned node
-        mNodes.EmplaceBack();
+        if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
 
         mNodes.Back().Init(*mAllocator, nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
-        mNodes.Back().UpdateInfo(*nodeInfo);
+        (void)mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
     return ErrorEnum::eNone;
@@ -79,7 +81,10 @@ Error NodeManager::Stop()
 
     // Unlock waiting run requests.
     mNodesExpectedToSendStatus.Clear();
-    mStatusUpdateCondVar.NotifyAll();
+
+    if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -133,7 +138,7 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+        auto releaseConfigs = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { instance->ResetConfigs(); });
         if (auto err = instance->LoadConfigs(*imageDescriptor); !err.IsNone()) {
             LOG_ERR() << "Can't load instance configs" << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(err));
@@ -174,7 +179,9 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
+            if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+                LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         }
     }
 
@@ -334,7 +341,9 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
     // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
     if (info.mState != NodeStateEnum::eProvisioned) {
         if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
+            if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+                LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+            }
         }
     }
 
@@ -353,7 +362,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
         }
 
         mNodes.Back().Init(*mAllocator, info.mNodeID, *mNodeConfigProvider, *mRunner);
-        mNodes.Back().UpdateInfo(info);
+        (void)mNodes.Back().UpdateInfo(info);
 
         return true;
     }

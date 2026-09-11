@@ -5,9 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdlib.h>
-#include <time.h>
-
 #if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
 #include <dlfcn.h>
 #endif
@@ -32,23 +29,23 @@ Error ConvertFromPKCS11String(const Array<uint8_t>& src, String& dst)
         return ErrorEnum::eNone;
     }
 
-    int size = src.Size();
+    int32_t size = src.Size();
 
     if (!dst.Resize(size).IsNone()) {
         return ErrorEnum::eNoMemory;
     }
 
-    memcpy(dst.Get(), src.Get(), size);
+    (void)memcpy(dst.Get(), src.Get(), size);
 
     // Trim string
-    for (int i = size - 1; i >= 0; --i) {
+    for (int32_t i = size - 1; i >= 0; --i) {
         if (dst[i] == ' ')
             --size;
         else
             break;
     }
 
-    dst.Resize(size);
+    (void)dst.Resize(size);
 
     return ErrorEnum::eNone;
 }
@@ -66,8 +63,8 @@ Error ConvertToPKCS11String(const String& src, CK_UTF8CHAR (&dst)[cSize])
         return ErrorEnum::eNoMemory;
     }
 
-    memset(dst, ' ', cSize);
-    memcpy(dst, src.CStr(), src.Size());
+    (void)memset(dst, ' ', cSize);
+    (void)memcpy(dst, src.CStr(), src.Size());
 
     return ErrorEnum::eNone;
 }
@@ -169,7 +166,7 @@ Error ConvertToPKCS11Attributes(const Array<ObjectAttribute>& src, Array<CK_ATTR
         tmp.pValue     = const_cast<uint8_t*>(attr.mValue.Get());
         tmp.ulValueLen = attr.mValue.Size();
 
-        dst.PushBack(tmp);
+        (void)dst.PushBack(tmp);
     }
 
     return ErrorEnum::eNone;
@@ -195,7 +192,7 @@ Error BuildAttributes(const Array<AttributeType>& types, Array<Array<uint8_t>>& 
         tmp.pValue     = static_cast<void*>(values[i].Get());
         tmp.ulValueLen = values[i].MaxSize();
 
-        dst.PushBack(tmp);
+        (void)dst.PushBack(tmp);
     }
 
     return ErrorEnum::eNone;
@@ -215,7 +212,7 @@ Error GetAttributesValues(const Array<CK_ATTRIBUTE>& src, Array<Array<uint8_t>>&
         }
 
         auto tmp = Array<uint8_t>(static_cast<uint8_t*>(attr.pValue), attr.ulValueLen);
-        values.PushBack(tmp);
+        (void)values.PushBack(tmp);
     }
 
     return ErrorEnum::eNone;
@@ -236,28 +233,18 @@ Array<uint8_t> ConvertToAttributeValue(T& val)
  * GenPIN
  **********************************************************************************************************************/
 
-Error GenPIN(String& pin)
+Error GenPIN(crypto::RandomItf& random, String& pin)
 {
     const auto cPinLength = Min<size_t>(cGenPINLen, pin.MaxSize());
 
-    pin.Clear();
+    StaticArray<uint8_t, cGenPINLen / 2> buffer;
 
-    srand(::time(nullptr)); // use current time as seed for random generator
+    if (auto err = random.RandBuffer(buffer, cPinLength / 2); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-    StaticString<sizeof(unsigned) * 2> chunk;
-
-    while (pin.Size() < cPinLength) {
-        unsigned value     = rand();
-        auto     byteArray = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-
-        auto err = chunk.ByteArrayToHex(byteArray);
-        if (!err.IsNone()) {
-            return err;
-        }
-
-        auto chunkSize = Min(cPinLength - pin.Size(), chunk.Size());
-
-        pin.Insert(pin.end(), chunk.begin(), chunk.begin() + chunkSize);
+    if (auto err = pin.ByteArrayToHex(buffer); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -321,7 +308,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
     if (rv != CKR_OK) {
         LOG_ERR() << "Get function list failed: err = " << rv;
 
-        return {nullptr, static_cast<int>(rv)};
+        return {nullptr, static_cast<int32_t>(rv)};
     }
 
     return {functionList, ErrorEnum::eNone};
@@ -364,7 +351,7 @@ Error LibraryContext::Init(AllocatorItf& allocator)
     if (rv != CKR_OK) {
         LOG_ERR() << "Init library failed: err = " << rv;
 
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -387,7 +374,7 @@ Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& 
 
     CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -403,7 +390,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 
     CK_RV rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), nullptr, &count);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     auto err = slotList.Resize(count);
@@ -413,7 +400,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 
     rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), slotList.Get(), &count);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -429,7 +416,7 @@ Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 
     CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11SlotInfo(pkcsInfo, slotInfo);
@@ -445,7 +432,7 @@ Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 
     CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11TokenInfo(pkcsInfo, tokenInfo);
@@ -461,7 +448,7 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 
     CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11LibInfo(pkcsInfo, libInfo);
@@ -490,7 +477,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
     }
 
     if (mSessions.Size() != mSessions.MaxSize()) {
-        mSessions.PushBack({params, session});
+        (void)mSessions.PushBack({params, session});
 
         return {session, ErrorEnum::eNone};
     }
@@ -520,7 +507,7 @@ Error LibraryContext::CloseAllSessions(SlotID slotID)
 
     CK_RV rv = mFunctionList->C_CloseAllSessions(slotID);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -550,7 +537,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
 
     CK_RV rv = mFunctionList->C_OpenSession(slotID, flags, nullptr, nullptr, &handle);
     if (rv != CKR_OK) {
-        return {nullptr, static_cast<int>(rv)};
+        return {nullptr, static_cast<int32_t>(rv)};
     }
 
     auto session = MakeShared<SessionContext>(mAllocator, handle, mFunctionList);
@@ -585,7 +572,7 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
 
     CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -609,7 +596,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
     }
 
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -625,7 +612,7 @@ Error SessionContext::Logout()
 
     CK_RV rv = mFunctionList->C_Logout(mHandle);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -643,7 +630,7 @@ Error SessionContext::InitPIN(const String& pin)
 
     CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size());
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -667,7 +654,7 @@ Error SessionContext::GetAttributeValues(
 
     CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return GetAttributesValues(pkcsAttributes, values);
@@ -715,7 +702,7 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
     CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
     if (rv != CKR_OK) {
-        return {0, static_cast<int>(rv)};
+        return {0, static_cast<int32_t>(rv)};
     }
 
     return {objHandle, ErrorEnum::eNone};
@@ -731,7 +718,7 @@ Error SessionContext::DestroyObject(ObjectHandle object)
 
     CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -749,7 +736,7 @@ Error SessionContext::Sign(
 
     CK_ULONG signSize = signature.MaxSize();
 
-    signature.Resize(signature.MaxSize());
+    (void)signature.Resize(signature.MaxSize());
 
     err = Sign(data, signature.Get(), &signSize);
     if (!err.IsNone()) {
@@ -772,7 +759,7 @@ Error SessionContext::Decrypt(
     // SoftHSM doesn't provide a precise size with Decrypt(data, nullptr, &resultSize) call.
     CK_ULONG resultSize = result.MaxSize();
 
-    result.Resize(result.MaxSize());
+    (void)result.Resize(result.MaxSize());
 
     err = Decrypt(data, result.Get(), &resultSize);
     if (!err.IsNone()) {
@@ -818,7 +805,7 @@ Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey)
 
     CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -832,7 +819,7 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
 
     CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -846,7 +833,7 @@ Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privK
 
     CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -860,7 +847,7 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
 
     CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -881,7 +868,7 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 
     CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size());
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -893,9 +880,9 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         return ErrorEnum::eWrongState;
     }
 
-    unsigned long foundObjectsCount = 0, chunk = 0;
+    uint64_t foundObjectsCount = 0, chunk = 0;
 
-    objects.Resize(objects.MaxSize());
+    (void)objects.Resize(objects.MaxSize());
 
     while (true) {
         if (foundObjectsCount == objects.MaxSize()) {
@@ -905,14 +892,14 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         CK_RV rv = mFunctionList->C_FindObjects(
             mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
         if (rv != CKR_OK) {
-            return static_cast<int>(rv);
+            return static_cast<int32_t>(rv);
         }
 
         foundObjectsCount += chunk;
 
         // success only when we ensured that all objects found
         if (chunk == 0) {
-            objects.Resize(foundObjectsCount);
+            (void)objects.Resize(foundObjectsCount);
 
             return objects.IsEmpty() ? ErrorEnum::eNotFound : ErrorEnum::eNone;
         }
@@ -929,7 +916,7 @@ Error SessionContext::FindObjectsFinal() const
 
     CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -969,7 +956,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 
 #if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
 
-    dlerror(); // clean previous error status
+    (void)dlerror(); // clean previous error status
 
     LOG_DBG() << "Load library: path=" << library;
 
@@ -989,7 +976,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
         return nullptr;
     }
 
-    mLibraries.EmplaceBack(library, ctx);
+    (void)mLibraries.EmplaceBack(library, ctx);
 
     return ctx;
 }
@@ -1025,23 +1012,55 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
 
-    pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)});
-    pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeRSA, sizeof(keyTypeRSA)});
-    pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_ENCRYPT, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_PUBLIC_EXPONENT, publicExp, sizeof(publicExp)});
-    pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)});
-    pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeRSA, sizeof(keyTypeRSA)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ENCRYPT, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_PUBLIC_EXPONENT, publicExp, sizeof(publicExp)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
-    privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_DECRYPT, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)});
-    privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_DECRYPT, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     CK_MECHANISM mechanism = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
 
@@ -1052,7 +1071,7 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
         privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
 
     if (rv != CKR_OK) {
-        return {{}, static_cast<int>(rv)};
+        return {{}, static_cast<int32_t>(rv)};
     }
 
     return ExportPrivateKey(privKeyHandle, pubKeyHandle, keyTypeRSA);
@@ -1063,7 +1082,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
 {
     // only P384 (secp384r1) curve is supported for now
     if (curve != EllipticCurve::eP384) {
-        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int>(curve)
+        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int32_t>(curve)
                   << ", only P384 (secp384r1) is supported";
 
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
@@ -1085,20 +1104,46 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
 
-    pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)});
-    pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeECDSA, sizeof(keyTypeECDSA)});
-    pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)});
-    pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeECDSA, sizeof(keyTypeECDSA)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
-    privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)});
-    privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     CK_MECHANISM mechanism = {CKM_ECDSA_KEY_PAIR_GEN, nullptr, 0};
 
@@ -1109,7 +1154,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
         privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
 
     if (rv != CKR_OK) {
-        return {{}, static_cast<int>(rv)};
+        return {{}, static_cast<int32_t>(rv)};
     }
 
     return ExportPrivateKey(privKeyHandle, pubKeyHandle, keyTypeECDSA);
@@ -1132,9 +1177,9 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> privKeyTempl;
 
-    privKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(privKeyClass)});
-    privKeyTempl.PushBack({CKA_ID, id});
-    privKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)privKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(privKeyClass)});
+    (void)privKeyTempl.PushBack({CKA_ID, id});
+    (void)privKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
     StaticArray<ObjectHandle, cKeysPerToken> privKeys;
 
@@ -1146,18 +1191,18 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
     // Find public part with matching attributes: id, label & key type.
     StaticArray<AttributeType, cSingleAttribute> keyTypeAttribute;
 
-    keyTypeAttribute.PushBack(CKA_KEY_TYPE);
+    (void)keyTypeAttribute.PushBack(CKA_KEY_TYPE);
 
     CK_KEY_TYPE                                          keyType;
     StaticArray<Array<uint8_t>, cSingleAttribute>        keyTypeValue;
     StaticArray<ObjectAttribute, cObjectAttributesCount> pubKeyTempl;
 
-    keyTypeValue.PushBack(ConvertToAttributeValue(keyType));
+    (void)keyTypeValue.PushBack(ConvertToAttributeValue(keyType));
 
-    pubKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(pubKeyClass)});
-    pubKeyTempl.PushBack({CKA_ID, id});
-    pubKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
-    pubKeyTempl.PushBack({CKA_KEY_TYPE, ConvertToAttributeValue(keyType)});
+    (void)pubKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(pubKeyClass)});
+    (void)pubKeyTempl.PushBack({CKA_ID, id});
+    (void)pubKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)pubKeyTempl.PushBack({CKA_KEY_TYPE, ConvertToAttributeValue(keyType)});
 
     StaticArray<ObjectHandle, cKeysPerToken> pubKeys;
 
@@ -1207,31 +1252,54 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
 
     StaticArray<uint8_t, crypto::cSerialNumDERSize> serialNum;
 
-    auto err = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum);
-    if (!err.IsNone()) {
-        return err;
+    auto encodeErr = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum);
+    if (!encodeErr.IsNone()) {
+        return encodeErr;
     }
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, &certClass, sizeof(certClass)});
-    certTempl.PushBack({CKA_CERTIFICATE_TYPE, &certTypeX509, sizeof(certTypeX509)});
-    certTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)});
-    certTempl.PushBack({CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()});
-    certTempl.PushBack({CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()});
-    certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()});
-    certTempl.PushBack({CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()});
-    certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
+    if (auto err = certTempl.PushBack({CKA_CLASS, &certClass, sizeof(certClass)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_CERTIFICATE_TYPE, &certTypeX509, sizeof(certTypeX509)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
     if (!label.IsEmpty()) {
-        certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+        if (auto err = certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     ObjectHandle certHandle = CK_INVALID_HANDLE;
 
     CK_RV rv = funcList->C_CreateObject(mSession->GetHandle(), certTempl.Get(), certTempl.Size(), &certHandle);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -1250,9 +1318,9 @@ RetWithError<bool> Utils::HasCertificate(const Array<uint8_t>& issuer, const Arr
     }
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_ISSUER, issuer});
-    certTempl.PushBack({CKA_SERIAL_NUMBER, asn1SerialNum});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_ISSUER, issuer});
+    (void)certTempl.PushBack({CKA_SERIAL_NUMBER, asn1SerialNum});
 
     StaticArray<ObjectHandle, cSingleObject> certHandles;
 
@@ -1319,9 +1387,9 @@ Error Utils::DeleteCertificate(const Array<uint8_t>& id, const String& label)
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_ID, id});
-    certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_ID, id});
+    (void)certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
     StaticArray<ObjectHandle, cKeysPerToken> certHandles;
 
@@ -1353,8 +1421,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
         StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
-        attrTypes.PushBack(CKA_MODULUS);
-        attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
+        (void)attrTypes.PushBack(CKA_MODULUS);
+        (void)attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
 
         auto n = MakeUnique<StaticArray<uint8_t, crypto::cRSAModulusSize>>(&mAllocator);
         if (!n) {
@@ -1366,8 +1434,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, ErrorEnum::eNoMemory};
         }
 
-        attrValues.PushBack(*n);
-        attrValues.PushBack(*e);
+        (void)attrValues.PushBack(*n);
+        (void)attrValues.PushBack(*e);
 
         auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
         if (!err.IsNone()) {
@@ -1393,8 +1461,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
         StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
-        attrTypes.PushBack(CKA_ECDSA_PARAMS);
-        attrTypes.PushBack(CKA_EC_POINT);
+        (void)attrTypes.PushBack(CKA_ECDSA_PARAMS);
+        (void)attrTypes.PushBack(CKA_EC_POINT);
 
         auto derEncodedParams = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
         if (!derEncodedParams) {
@@ -1406,8 +1474,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, ErrorEnum::eNoMemory};
         }
 
-        attrValues.PushBack(*derEncodedParams);
-        attrValues.PushBack(*derEncodedPoint);
+        (void)attrValues.PushBack(*derEncodedParams);
+        (void)attrValues.PushBack(*derEncodedPoint);
 
         auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
         if (!err.IsNone()) {
@@ -1470,9 +1538,9 @@ Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Arr
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_ID, id});
-    certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_ID, id});
+    (void)certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
     return mSession->FindObjects(certTempl, handles);
 }
@@ -1486,8 +1554,8 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
     CK_OBJECT_CLASS                                      certClass = CKO_CERTIFICATE;
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
 
     StaticArray<ObjectHandle, cKeysPerToken> handles;
     SharedPtr<crypto::x509::Certificate>     foundCert;
@@ -1565,7 +1633,7 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
     CK_OBJECT_CLASS                                      certClass = CKO_CERTIFICATE;
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
 
     StaticArray<ObjectHandle, cKeysPerToken> handles;
 
@@ -1600,17 +1668,17 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
     StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
     StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
-    certificate->mRaw.Resize(certificate->mRaw.MaxSize());
+    (void)certificate->mRaw.Resize(certificate->mRaw.MaxSize());
 
-    attrTypes.PushBack(CKA_VALUE);
-    attrValues.PushBack(certificate->mRaw);
+    (void)attrTypes.PushBack(CKA_VALUE);
+    (void)attrValues.PushBack(certificate->mRaw);
 
     auto err = mSession->GetAttributeValues(handle, attrTypes, attrValues);
     if (!err.IsNone()) {
         return {nullptr, err};
     }
 
-    certificate->mRaw.Resize(attrValues[0].Size());
+    (void)certificate->mRaw.Resize(attrValues[0].Size());
 
     err = mCryptoProvider.DERToX509Cert(certificate->mRaw, *certificate);
     if (!err.IsNone()) {

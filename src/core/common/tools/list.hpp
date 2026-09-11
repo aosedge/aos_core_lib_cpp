@@ -117,7 +117,7 @@ protected:
         {
             Iterator it(*this);
 
-            operator++();
+            (void)operator++();
 
             return it;
         }
@@ -154,7 +154,10 @@ protected:
          * @param other iterator to compare with.
          * @return bool.
          */
-        bool operator==(const Iterator& other) const { return mCurrentNode == other.mCurrentNode; }
+        friend bool operator==(const Iterator& lhs, const Iterator& other)
+        {
+            return lhs.mCurrentNode == other.mCurrentNode;
+        };
 
         /**
          * Checks if iterators are not equal.
@@ -162,7 +165,7 @@ protected:
          * @param other iterator to compare with.
          * @return bool.
          */
-        bool operator!=(const Iterator& other) const { return !operator==(other); }
+        friend bool operator!=(const Iterator& lhs, const Iterator& other) { return !(lhs == other); };
 
     private:
         friend class List<T>;
@@ -307,7 +310,7 @@ public:
     void Clear()
     {
         while (this->mSize > 0) {
-            Remove(Iterator(this->mTerminalNode.mNext));
+            (void)Remove(Iterator(this->mTerminalNode.mNext));
         }
     }
 

@@ -25,17 +25,17 @@ namespace aos {
  */
 template <typename... Ts>
 struct GetTypeIndex {
-    static constexpr int Value = -1;
+    static constexpr int32_t Value = -1;
 };
 
 template <typename T, typename... Ts>
 struct GetTypeIndex<T, T, Ts...> {
-    static constexpr int Value = 0;
+    static constexpr int32_t Value = 0;
 };
 
 template <typename T, typename U, typename... Ts>
 struct GetTypeIndex<T, U, Ts...> {
-    static constexpr int Value = 1 + GetTypeIndex<T, Ts...>::Value;
+    static constexpr int32_t Value = 1 + GetTypeIndex<T, Ts...>::Value;
 };
 
 /**
@@ -56,7 +56,7 @@ template <>
 class VisitorHelper<> {
 public:
     template <typename Variant, typename Visitor>
-    static typename Visitor::Res ApplyVisitor(int typeInd, const Visitor& visitor, Variant& variant)
+    static typename Visitor::Res ApplyVisitor(int32_t typeInd, const Visitor& visitor, Variant& variant)
     {
         (void)typeInd;
         (void)visitor;
@@ -72,7 +72,7 @@ template <typename T, typename... VarArgs>
 class VisitorHelper<T, VarArgs...> {
 public:
     template <typename Variant, typename Visitor>
-    static typename Visitor::Res ApplyVisitor(int typeInd, const Visitor& visitor, Variant& variant)
+    static typename Visitor::Res ApplyVisitor(int32_t typeInd, const Visitor& visitor, Variant& variant)
     {
         if (typeInd == 0) {
             auto& val = StaticCast(variant.GetPtr());
@@ -238,14 +238,14 @@ public:
      * @param other input variant object.
      * @return bool.
      */
-    bool operator==(const Variant& other) const
+    friend bool operator==(const Variant& lhs, const Variant& other)
     {
-        if (mTypeIndex != other.mTypeIndex) {
+        if (lhs.mTypeIndex != other.mTypeIndex) {
             return false;
         }
 
-        return ApplyVisitor(EqualsVisitor {other});
-    }
+        return lhs.ApplyVisitor(EqualsVisitor {other});
+    };
 
     /**
      * Compares two variant objects.
@@ -253,7 +253,7 @@ public:
      * @param other input variant object.
      * @return bool.
      */
-    bool operator!=(const Variant& other) const { return !(*this == other); }
+    friend bool operator!=(const Variant& lhs, const Variant& other) { return !(lhs == other); };
 
     /**
      * Outputs variant object to log.
@@ -278,7 +278,7 @@ public:
     ~Variant() { DestroyObject(); }
 
 private:
-    static constexpr int cInvalidTypeIndex = -1;
+    static constexpr int32_t cInvalidTypeIndex = -1;
 
     class LogVisitor : public StaticVisitor<Log&> {
     public:
@@ -352,7 +352,7 @@ private:
         }
     }
 
-    int mTypeIndex = cInvalidTypeIndex;
+    int32_t mTypeIndex = cInvalidTypeIndex;
     alignas(VarArgs...) uint8_t mBuffer[Max(sizeof(VarArgs)...)];
 };
 

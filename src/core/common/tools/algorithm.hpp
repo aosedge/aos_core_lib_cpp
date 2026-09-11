@@ -100,7 +100,7 @@ public:
      * @return bool.
      */
     template <typename C>
-    bool operator==(const C& container) const
+    bool operator==(const C& container) const // NOSONAR cpp:S2807
     {
         if (container.Size() != Size()) {
             return false;
@@ -122,7 +122,7 @@ public:
      * @return bool.
      */
     template <typename C>
-    bool operator!=(const C& container) const
+    bool operator!=(const C& container) const // NOSONAR cpp:S2807
     {
         return !operator==(container);
     }

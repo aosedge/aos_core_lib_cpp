@@ -142,18 +142,18 @@ public:
      * @param other instance to compare with.
      * @return bool.
      */
-    bool operator==(const Optional& other) const
+    friend bool operator==(const Optional& lhs, const Optional& other)
     {
-        if (!HasValue() && !other.HasValue()) {
+        if (!lhs.HasValue() && !other.HasValue()) {
             return true;
         }
 
-        if (HasValue() != other.HasValue()) {
+        if (lhs.HasValue() != other.HasValue()) {
             return false;
         }
 
-        return GetValue() == other.GetValue();
-    }
+        return lhs.GetValue() == other.GetValue();
+    };
 
     /**
      * Compares optional instances.
@@ -161,7 +161,7 @@ public:
      * @param other instance to compare with.
      * @return bool.
      */
-    bool operator!=(const Optional& other) const { return !operator==(other); }
+    friend bool operator!=(const Optional& lhs, const Optional& other) { return !(lhs == other); };
 
     /**
      * Returns pointer to contained value.

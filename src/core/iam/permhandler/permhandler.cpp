@@ -88,7 +88,9 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
                 return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
             }
 
-            servicePermissions = it.mPermissions;
+            if (auto err = servicePermissions.Assign(it.mPermissions); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
 
             return ErrorEnum::eNone;
         }
@@ -135,7 +137,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()
             return {secret, err};
         }
 
-        secret.Assign(uuid::UUIDToString(uuid));
+        (void)secret.Assign(uuid::UUIDToString(uuid));
 
     } while (FindBySecret(secret) != mInstancesPerms.end());
 

@@ -134,10 +134,11 @@ using SlotID = CK_SLOT_ID;
 /**
  * Generates random unique PIN.
  *
+ * @param random random generator.
  * @param[out] pin result pin.
  * @return Error.
  */
-Error GenPIN(String& pin);
+Error GenPIN(crypto::RandomItf& random, String& pin);
 
 /**
  * Any version information related to PKCS11 library.
@@ -155,7 +156,7 @@ struct Version {
      */
     friend Log& operator<<(Log& log, const Version& version)
     {
-        log << static_cast<int>(version.mMajor) << "." << static_cast<int>(version.mMinor);
+        log << static_cast<int32_t>(version.mMajor) << "." << static_cast<int32_t>(version.mMinor);
         return log;
     }
 };
@@ -630,7 +631,10 @@ private:
         SlotID mSlotID = 0;
         Flags  mFlags  = 0;
 
-        bool operator==(const SessionParams& other) const { return mSlotID == other.mSlotID && mFlags == other.mFlags; }
+        friend bool operator==(const SessionParams& lhs, const SessionParams& other)
+        {
+            return lhs.mSlotID == other.mSlotID && lhs.mFlags == other.mFlags;
+        };
     };
 
     RetWithError<SharedPtr<SessionContext>> PKCS11OpenSession(SlotID slotID, Flags flags);

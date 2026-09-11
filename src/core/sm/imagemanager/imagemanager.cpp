@@ -28,8 +28,13 @@ Error SplitDigest(const String& digest, String& alg, String& hash)
         return ErrorEnum::eInvalidArgument;
     }
 
-    alg  = digestList[0];
-    hash = digestList[1];
+    if (auto err = alg.Assign(digestList[0]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = hash.Assign(digestList[1]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -92,7 +97,10 @@ Error ImageManager::Start()
     }
 
     mProcessOutdatedItems = true;
-    mCV.NotifyAll();
+
+    if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     if (auto err = mTimer.Start(
             mConfig.mRemoveOutdatedPeriod,
@@ -100,7 +108,10 @@ Error ImageManager::Start()
                 LockGuard lock {mMutex};
 
                 mProcessOutdatedItems = true;
-                mCV.NotifyAll();
+
+                if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+                    LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+                }
             },
             false);
         !err.IsNone()) {
@@ -129,7 +140,10 @@ Error ImageManager::Stop()
         }
 
         mClose = true;
-        mCV.NotifyAll();
+
+        if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 
     if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
@@ -290,7 +304,9 @@ Error ImageManager::GetLayerPath(const String& digest, String& path) const
         return err;
     }
 
-    path = fs::JoinPath(path, cUnpackedLayerFolder);
+    if (auto err = path.Assign(fs::JoinPath(path, cUnpackedLayerFolder)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     LOG_DBG() << "Get layer path" << Log::Field("digest", digest) << Log::Field("path", path);
 
@@ -338,7 +354,9 @@ Error ImageManager::CreateBlobPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = fs::JoinPath(mConfig.mImagePath, cBlobsFolder, alg, hash);
+    if (auto err = path.Assign(fs::JoinPath(mConfig.mImagePath, cBlobsFolder, alg, hash)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -352,7 +370,9 @@ Error ImageManager::CreateLayerPath(const String& digest, String& path) const
         return AOS_ERROR_WRAP(err);
     }
 
-    path = fs::JoinPath(mConfig.mImagePath, cLayersFolder, alg, hash);
+    if (auto err = path.Assign(fs::JoinPath(mConfig.mImagePath, cLayersFolder, alg, hash)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -482,7 +502,10 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, Instal
 
     auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
         if (waitInstalling) {
-            ReleaseInstallingBlob(*digest);
+            if (auto releaseErr = ReleaseInstallingBlob(*digest); !releaseErr.IsNone()) {
+                LOG_ERR() << "Can't release installing blob" << Log::Field("digest", *digest)
+                          << Log::Field(AOS_ERROR_WRAP(releaseErr));
+            }
         }
     });
 
@@ -650,8 +673,12 @@ Error ImageManager::InstallLayer(
         return err;
     }
 
-    auto releaseInstalling
-        = DeferRelease(&descriptor.mDigest, [&](const String* digest) { ReleaseInstallingBlob(*digest); });
+    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
+        if (auto releaseErr = ReleaseInstallingBlob(*digest); !releaseErr.IsNone()) {
+            LOG_ERR() << "Can't release installing blob" << Log::Field("digest", *digest)
+                      << Log::Field(AOS_ERROR_WRAP(releaseErr));
+        }
+    });
 
     {
         LockGuard lock {mMutex};
@@ -718,7 +745,9 @@ Error ImageManager::GetBlobURL(const String& digest, String& url) const
         return Error(ErrorEnum::eNotFound, "blob URL not found");
     }
 
-    url = urls[0];
+    if (auto err = url.Assign(urls[0]); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -734,9 +763,13 @@ void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* sp
 
     if (space) {
         if (!err.IsNone()) {
-            space->Release();
+            if (auto spaceErr = space->Release(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't release space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         } else {
-            space->Accept();
+            if (auto spaceErr = space->Accept(); !spaceErr.IsNone()) {
+                LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(spaceErr));
+            }
         }
     }
 }
@@ -770,7 +803,7 @@ Error ImageManager::ReleaseInstallingBlob(const String& digest)
     auto it = mInstallingBlobs.FindIf(
         [&digest](const StaticString<oci::cDigestLen>& installingDigest) { return installingDigest == digest; });
     if (it != mInstallingBlobs.end()) {
-        mInstallingBlobs.Erase(it);
+        (void)mInstallingBlobs.Erase(it);
     } else {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -870,10 +903,12 @@ void ImageManager::ReleaseInstallingItem(List<InstallItem>::Iterator it)
 {
     LockGuard lock {mMutex};
 
-    mInstallingItems.Erase(it);
+    (void)mInstallingItems.Erase(it);
 
     if (mInstallingItems.IsEmpty()) {
-        mCV.NotifyAll();
+        if (auto err = mCV.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify image manager" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 }
 

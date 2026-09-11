@@ -51,7 +51,7 @@ public:
     {
         assert(mSize >= buffer.mSize);
 
-        memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
+        (void)memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
 
         return *this;
     }
@@ -62,13 +62,13 @@ public:
      * @param buffer buffer to compare with.
      * @return bool.
      */
-    bool operator==(const Buffer& buffer) const
+    friend bool operator==(const Buffer& lhs, const Buffer& buffer)
     {
-        if (mSize != buffer.Size()) {
+        if (lhs.mSize != buffer.Size()) {
             return false;
         }
 
-        return memcmp(mBuffer, buffer.Get(), mSize) == 0;
+        return memcmp(lhs.mBuffer, buffer.Get(), lhs.mSize) == 0;
     };
 
     /**
@@ -77,7 +77,7 @@ public:
      * @param buffer buffer to compare with.
      * @return bool.
      */
-    bool operator!=(const Buffer& buffer) const { return !operator==(buffer); };
+    friend bool operator!=(const Buffer& lhs, const Buffer& buffer) { return !(lhs == buffer); };
 
     /**
      * Returns pointer to the hold buffer.

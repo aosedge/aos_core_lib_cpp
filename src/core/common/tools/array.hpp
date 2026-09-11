@@ -309,7 +309,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(args...);
+        new (end()) T(args...); // NOSONAR cpp:S5912 - intentional type construction from derived args
 
         mSize++;
 
@@ -338,7 +338,7 @@ public:
      * @param array to compare with.
      * @return bool.
      */
-    bool operator==(const Array& array) const
+    bool operator==(const Array& array) const // NOSONAR cpp:S2807
     {
         if (array.Size() != mSize) {
             return false;
@@ -359,7 +359,7 @@ public:
      * @param array to compare with.
      * @return bool.
      */
-    bool operator!=(const Array& array) const { return !operator==(array); };
+    bool operator!=(const Array& array) const { return !operator==(array); }; // NOSONAR cpp:S2807
 
     /**
      * Inserts items from range.
@@ -519,11 +519,11 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray(const StaticArray& array)
+    StaticArray(const StaticArray& array) noexcept
         : Array<T>()
     {
         Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
     }
 
     /**
@@ -536,9 +536,9 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray& operator=(const StaticArray& array)
+    StaticArray& operator=(const StaticArray& array) noexcept
     {
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
 
         return *this;
     }
@@ -552,7 +552,7 @@ public:
     StaticArray(const Array<T>& array)
     {
         Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -563,7 +563,7 @@ public:
      */
     StaticArray& operator=(const Array<T>& array)
     {
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
 
         return *this;
     }

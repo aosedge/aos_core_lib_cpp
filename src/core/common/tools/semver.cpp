@@ -218,7 +218,7 @@ Error SplitVersion(String& version, String& basePart, String& prereleasePart, St
     return ErrorEnum::eNone;
 }
 
-RetWithError<int> CompareNumericIdentifiers(const String& identifier1, const String& identifier2)
+RetWithError<int32_t> CompareNumericIdentifiers(const String& identifier1, const String& identifier2)
 {
     auto result1 = identifier1.ToUint64();
     if (!result1.mError.IsNone()) {
@@ -241,7 +241,7 @@ RetWithError<int> CompareNumericIdentifiers(const String& identifier1, const Str
     return {0, ErrorEnum::eNone};
 }
 
-RetWithError<int> CompareStrIdentifiers(const String& identifier1, const String& identifier2)
+RetWithError<int32_t> CompareStrIdentifiers(const String& identifier1, const String& identifier2)
 {
     if (identifier1 < identifier2) {
         return {-1, ErrorEnum::eNone};
@@ -254,7 +254,7 @@ RetWithError<int> CompareStrIdentifiers(const String& identifier1, const String&
     return {0, ErrorEnum::eNone};
 }
 
-RetWithError<int> CompareBaseParts(String& version1, String& version2)
+RetWithError<int32_t> CompareBaseParts(String& version1, String& version2)
 {
     StaticArray<String, cMaxNumIdentifiers> identifiers1;
     StaticArray<String, cMaxNumIdentifiers> identifiers2;
@@ -293,7 +293,7 @@ RetWithError<int> CompareBaseParts(String& version1, String& version2)
     return {0, ErrorEnum::eNone};
 }
 
-RetWithError<int> ComparePrereleaseParts(String& version1, String& version2)
+RetWithError<int32_t> ComparePrereleaseParts(String& version1, String& version2)
 {
     StaticArray<String, cMaxNumIdentifiers> identifiers1;
     StaticArray<String, cMaxNumIdentifiers> identifiers2;
@@ -376,7 +376,7 @@ Error ValidateSemver(const String& version)
     return ErrorEnum::eNone;
 }
 
-RetWithError<int> CompareSemver(const String& version1, const String& version2)
+RetWithError<int32_t> CompareSemver(const String& version1, const String& version2)
 {
     if (auto err = ValidateSemver(version1); !err.IsNone()) {
         return {0, err};

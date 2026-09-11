@@ -443,7 +443,7 @@ Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignCon
     for (const auto& certInfo : certs) {
         StaticString<cCertFingerprintLen> fingerprint = certInfo.mFingerprint;
 
-        fingerprint.ToUpper();
+        (void)fingerprint.ToUpper();
 
         auto iter = ctx.mCerts.FindIf(
             [&fingerprint](const X509CertificateInfo& certInfo) { return certInfo.mFingerprint == fingerprint; });
@@ -492,7 +492,7 @@ Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, Sig
         ctx.mChains.Back().mFingerprints = chainInfo.mFingerprints;
 
         for (auto& fingerprint : ctx.mChains.Back().mFingerprints) {
-            fingerprint.ToUpper();
+            (void)fingerprint.ToUpper();
         }
     }
 
@@ -656,7 +656,7 @@ RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
 {
     StaticString<cAlgLen> upperHash = hashName;
 
-    upperHash.ToUpper();
+    (void)upperHash.ToUpper();
 
     if (upperHash == "SHA256") {
         return {HashEnum::eSHA256, ErrorEnum::eNone};
@@ -998,7 +998,7 @@ Error CryptoHelper::DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& i
             return AOS_ERROR_WRAP(err);
         }
 
-        message.Insert(message.end(), outBlock->begin(), outBlock->end());
+        (void)message.Insert(message.end(), outBlock->begin(), outBlock->end());
     }
 
     auto err = decoder.Finalize(*outBlock);
@@ -1006,7 +1006,7 @@ Error CryptoHelper::DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& i
         return AOS_ERROR_WRAP(err);
     }
 
-    message.Insert(message.end(), outBlock->begin(), outBlock->end());
+    (void)message.Insert(message.end(), outBlock->begin(), outBlock->end());
 
     return ErrorEnum::eNone;
 }

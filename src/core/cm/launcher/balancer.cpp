@@ -139,7 +139,7 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+    auto releaseConfigs = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { instance->ResetConfigs(); });
 
     if (auto err = instance->LoadConfigs(imageDescriptor); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't load instance configs"));
@@ -192,17 +192,18 @@ Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
 
 void Balancer::FilterNodesByID(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
+    (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
 }
 
 void Balancer::FilterNodesByLabels(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
+    (void)nodes.RemoveIf(
+        [&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
 }
 
 void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
+    (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
 }
 
 RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
@@ -296,7 +297,7 @@ Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes
 
         // Remove node with no runtimes
         if (nodeRuntimes.IsEmpty()) {
-            runtimes.Remove(node);
+            (void)runtimes.Remove(node);
         }
     }
 
@@ -392,7 +393,7 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 
     auto topPriority = topPriorityNode->mFirst->GetConfig().mPriority;
 
-    nodes.RemoveIf(
+    (void)nodes.RemoveIf(
         [topPriority](const NodeRuntimes& item) { return item.mFirst->GetConfig().mPriority != topPriority; });
 }
 
@@ -437,7 +438,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Load configs
-        auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+        auto releaseConfigs = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { instance->ResetConfigs(); });
 
         if (auto err = instance->LoadConfigs(*imageDescriptor); !err.IsNone()) {
             LOG_ERR() << "Can't load configs" << Log::Field("instance", id) << Log::Field(err);

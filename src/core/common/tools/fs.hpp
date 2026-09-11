@@ -202,7 +202,7 @@ public:
      *
      * @param other iterator to move from.
      */
-    DirIterator(DirIterator&& other);
+    DirIterator(DirIterator&& other) noexcept;
 
     /**
      * Move assignment.
@@ -210,7 +210,7 @@ public:
      * @param other iterator to move from.
      * @return DirIterator&.
      */
-    DirIterator& operator=(DirIterator&& other);
+    DirIterator& operator=(DirIterator&& other) noexcept;
 
     /**
      * Destructor.
@@ -229,7 +229,7 @@ public:
      *
      * @return String.
      */
-    String GetRootPath() const { return mRoot; }
+    String GetRootPath() const { return mRoot; } // NOSONAR cpp:S5912 - String serves as a view over StaticString
 
     /**
      * Returns current entry reference.
@@ -322,15 +322,15 @@ String& AppendPath(String& path, const Args&... args)
 {
     auto AppendPathEntry = [](String& path, const String& item) -> String& {
         if (path.Size() == 0 || *(path.end() - 1) == '/') {
-            path.Append(item);
+            (void)path.Append(item);
         } else {
-            path.Append("/").Append(item);
+            (void)path.Append("/").Append(item);
         }
 
         return path;
     };
 
-    (AppendPathEntry(path, args), ...);
+    (void)(AppendPathEntry(path, args), ...);
 
     return path;
 }
@@ -343,7 +343,7 @@ StaticString<cFilePathLen> JoinPath(const Args&... args)
 {
     StaticString<cFilePathLen> path;
 
-    AppendPath(path, args...);
+    (void)AppendPath(path, args...);
 
     return path;
 }
@@ -452,7 +452,7 @@ Error ReadFileToString(const String& fileName, String& text);
  * @param delimiter line delimiter.
  * @return Error.
  */
-Error ReadLine(int fd, size_t pos, String& line, const String& delimiter = "\n\0");
+Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter = "\n\0");
 
 /**
  * Overwrites file with a specified data.
@@ -531,7 +531,7 @@ public:
     Error WriteBlock(const Array<uint8_t>& buffer);
 
 private:
-    int mFd = -1;
+    int32_t mFd = -1;
 };
 
 /**

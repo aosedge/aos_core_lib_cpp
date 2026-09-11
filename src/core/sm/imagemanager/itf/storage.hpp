@@ -33,16 +33,17 @@ struct UpdateItemData {
     /**
      * Compares update item data.
      */
-    bool operator==(const UpdateItemData& rhs) const
+    friend bool operator==(const UpdateItemData& lhs, const UpdateItemData& rhs)
     {
-        return mID == rhs.mID && mType == rhs.mType && mVersion == rhs.mVersion
-            && mManifestDigest == rhs.mManifestDigest && mState == rhs.mState && mTimestamp == rhs.mTimestamp;
-    }
+        return lhs.mID == rhs.mID && lhs.mType == rhs.mType && lhs.mVersion == rhs.mVersion
+            && lhs.mManifestDigest == rhs.mManifestDigest && lhs.mState == rhs.mState
+            && lhs.mTimestamp == rhs.mTimestamp;
+    };
 
     /**
      * Compares update item data.
      */
-    bool operator!=(const UpdateItemData& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UpdateItemData& lhs, const UpdateItemData& rhs) { return !(lhs == rhs); };
 };
 
 /**

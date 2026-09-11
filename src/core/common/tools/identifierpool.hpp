@@ -107,7 +107,7 @@ public:
             return ErrorEnum::eNotFound;
         }
 
-        mLockedIds.Erase(it);
+        (void)mLockedIds.Erase(it);
 
         return ErrorEnum::eNone;
     }

@@ -60,11 +60,11 @@ struct NewState : public Protocol, public InstanceIdent {
      * @param rhs new state to compare with.
      * @return bool.
      */
-    bool operator==(const NewState& rhs) const
+    friend bool operator==(const NewState& lhs, const NewState& rhs)
     {
-        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum
-            && mState == rhs.mState;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mChecksum == rhs.mChecksum && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares new state.
@@ -72,7 +72,7 @@ struct NewState : public Protocol, public InstanceIdent {
      * @param rhs new state to compare with.
      * @return bool.
      */
-    bool operator!=(const NewState& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NewState& lhs, const NewState& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -88,11 +88,11 @@ struct UpdateState : public Protocol, public InstanceIdent {
      * @param rhs update state to compare with.
      * @return bool.
      */
-    bool operator==(const UpdateState& rhs) const
+    friend bool operator==(const UpdateState& lhs, const UpdateState& rhs)
     {
-        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum
-            && mState == rhs.mState;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mChecksum == rhs.mChecksum && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares update state.
@@ -100,7 +100,7 @@ struct UpdateState : public Protocol, public InstanceIdent {
      * @param rhs update state to compare with.
      * @return bool.
      */
-    bool operator!=(const UpdateState& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UpdateState& lhs, const UpdateState& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -117,11 +117,11 @@ struct StateAcceptance : public Protocol, public InstanceIdent {
      * @param rhs state acceptance to compare with.
      * @return bool.
      */
-    bool operator==(const StateAcceptance& rhs) const
+    friend bool operator==(const StateAcceptance& lhs, const StateAcceptance& rhs)
     {
-        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mChecksum == rhs.mChecksum
-            && mResult == rhs.mResult && mReason == rhs.mReason;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mChecksum == rhs.mChecksum && lhs.mResult == rhs.mResult && lhs.mReason == rhs.mReason;
+    };
 
     /**
      * Compares state acceptance.
@@ -129,7 +129,7 @@ struct StateAcceptance : public Protocol, public InstanceIdent {
      * @param rhs state acceptance to compare with.
      * @return bool.
      */
-    bool operator!=(const StateAcceptance& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const StateAcceptance& lhs, const StateAcceptance& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -144,10 +144,11 @@ struct StateRequest : public Protocol, public InstanceIdent {
      * @param rhs state request to compare with.
      * @return bool.
      */
-    bool operator==(const StateRequest& rhs) const
+    friend bool operator==(const StateRequest& lhs, const StateRequest& rhs)
     {
-        return Protocol::operator==(rhs) && InstanceIdent::operator==(rhs) && mDefault == rhs.mDefault;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && (static_cast<const InstanceIdent&>(lhs) == rhs)
+            && lhs.mDefault == rhs.mDefault;
+    };
 
     /**
      * Compares state request.
@@ -155,7 +156,7 @@ struct StateRequest : public Protocol, public InstanceIdent {
      * @param rhs state request to compare with.
      * @return bool.
      */
-    bool operator!=(const StateRequest& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const StateRequest& lhs, const StateRequest& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

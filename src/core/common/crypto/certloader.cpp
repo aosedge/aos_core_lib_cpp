@@ -350,7 +350,7 @@ Error EncodePKCS11ID(const Array<uint8_t>& id, String& idStr)
 
         StaticString<2> byteStr;
 
-        byteStr.ByteToHex(byte, true);
+        (void)byteStr.ByteToHex(byte, true);
 
         err = idStr.Insert(idStr.end(), byteStr.begin(), byteStr.end());
         if (!err.IsNone()) {

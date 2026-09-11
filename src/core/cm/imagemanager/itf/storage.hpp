@@ -29,11 +29,11 @@ struct ItemInfo {
      * @param rhs update item info to compare with.
      * @return bool.
      */
-    bool operator==(const ItemInfo& rhs) const
+    friend bool operator==(const ItemInfo& lhs, const ItemInfo& rhs)
     {
-        return mItemID == rhs.mItemID && mVersion == rhs.mVersion && mIndexDigest == rhs.mIndexDigest
-            && mState == rhs.mState && mTimestamp == rhs.mTimestamp;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mVersion == rhs.mVersion && lhs.mIndexDigest == rhs.mIndexDigest
+            && lhs.mState == rhs.mState && lhs.mTimestamp == rhs.mTimestamp;
+    };
 
     /**
      * Compares update item info.
@@ -41,7 +41,7 @@ struct ItemInfo {
      * @param rhs update item info to compare with.
      * @return bool.
      */
-    bool operator!=(const ItemInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ItemInfo& lhs, const ItemInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**

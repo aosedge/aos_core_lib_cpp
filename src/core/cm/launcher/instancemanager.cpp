@@ -95,7 +95,7 @@ Error InstanceManager::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto onInitTimerExpired = [this](void*) { SetExpiredStatus(); };
+    auto onInitTimerExpired = [this](void*) { (void)SetExpiredStatus(); };
 
     if (auto err = mInitTimer.Start(mConfig.mNodesConnectionTimeout, onInitTimerExpired); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -296,12 +296,12 @@ Error InstanceManager::SubmitScheduledInstances()
                 LOG_ERR() << "Cache instance failed" << Log::Field("instanceID", id) << AOS_ERROR_WRAP(err);
             }
 
-            mCachedInstances.PushBack(instance);
+            (void)mCachedInstances.PushBack(instance);
         }
     }
 
     mActiveInstances = mScheduledInstances;
-    mCachedInstances.RemoveIf([this](const SharedPtr<Instance>& instance) {
+    (void)mCachedInstances.RemoveIf([this](const SharedPtr<Instance>& instance) {
         return mActiveInstances.ContainsIf(
             [instance](const SharedPtr<Instance>& item) { return instance.Get() == item.Get(); });
     });
@@ -321,10 +321,10 @@ void InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
         LOG_ERR() << "Disable instance failed" << Log::Field("instanceID", id) << AOS_ERROR_WRAP(err);
     }
 
-    mCachedInstances.PushBack(instance);
+    (void)mCachedInstances.PushBack(instance);
 
-    mScheduledInstances.Remove(instance);
-    mActiveInstances.Remove(instance);
+    (void)mScheduledInstances.Remove(instance);
+    (void)mActiveInstances.Remove(instance);
 
     ClearCacheIfLimitReached();
 }
@@ -621,8 +621,9 @@ bool InstanceManager::IsScheduled(const InstanceIdent& id, const String& version
 
 Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<InstanceStatus>& statuses)
 {
-    mRunningInstances.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
-    mPreinstalledComponents.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
+    (void)mRunningInstances.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
+    (void)mPreinstalledComponents.RemoveIf(
+        [&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
 
     Error firstErr = ErrorEnum::eNone;
 
@@ -673,15 +674,14 @@ Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& 
     return ErrorEnum::eNone;
 }
 
-Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
+void InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
 {
     instance->SetError(error);
 
     if (auto err = mScheduledInstances.EmplaceBack(instance); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
+                  << Log::Field(AOS_ERROR_WRAP(err));
     }
-
-    return ErrorEnum::eNone;
 }
 
 SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id, const String& version)

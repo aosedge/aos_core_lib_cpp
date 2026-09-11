@@ -71,10 +71,10 @@ struct CertificateInfo {
      * @param rhs certificate info to compare with.
      * @return bool.
      */
-    bool operator==(const CertificateInfo& rhs) const
+    friend bool operator==(const CertificateInfo& lhs, const CertificateInfo& rhs)
     {
-        return mCertificate == rhs.mCertificate && mFingerprint == rhs.mFingerprint;
-    }
+        return lhs.mCertificate == rhs.mCertificate && lhs.mFingerprint == rhs.mFingerprint;
+    };
 
     /**
      * Compares certificate info.
@@ -82,7 +82,7 @@ struct CertificateInfo {
      * @param rhs certificate info to compare with.
      * @return bool.
      */
-    bool operator!=(const CertificateInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const CertificateInfo& lhs, const CertificateInfo& rhs) { return !(lhs == rhs); };
 };
 
 using CertificateInfoArray = StaticArray<CertificateInfo, crypto::cMaxNumCertificates>;
@@ -100,10 +100,10 @@ struct CertificateChainInfo {
      * @param rhs certificate chain info to compare with.
      * @return bool.
      */
-    bool operator==(const CertificateChainInfo& rhs) const
+    friend bool operator==(const CertificateChainInfo& lhs, const CertificateChainInfo& rhs)
     {
-        return mName == rhs.mName && mFingerprints == rhs.mFingerprints;
-    }
+        return lhs.mName == rhs.mName && lhs.mFingerprints == rhs.mFingerprints;
+    };
 
     /**
      * Compares certificate chain info.
@@ -111,7 +111,7 @@ struct CertificateChainInfo {
      * @param rhs certificate chain info to compare with.
      * @return bool.
      */
-    bool operator!=(const CertificateChainInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const CertificateChainInfo& lhs, const CertificateChainInfo& rhs) { return !(lhs == rhs); };
 };
 
 using CertificateChainInfoArray = StaticArray<CertificateChainInfo, cCertChainsCount>;
@@ -130,10 +130,10 @@ struct DecryptInfo {
      * @param rhs decryption info to compare with.
      * @return bool.
      */
-    bool operator==(const DecryptInfo& rhs) const
+    friend bool operator==(const DecryptInfo& lhs, const DecryptInfo& rhs)
     {
-        return mBlockAlg == rhs.mBlockAlg && mBlockIV == rhs.mBlockIV && mBlockKey == rhs.mBlockKey;
-    }
+        return lhs.mBlockAlg == rhs.mBlockAlg && lhs.mBlockIV == rhs.mBlockIV && lhs.mBlockKey == rhs.mBlockKey;
+    };
 
     /**
      * Compares decryption info.
@@ -141,7 +141,7 @@ struct DecryptInfo {
      * @param rhs decryption info to compare with.
      * @return bool.
      */
-    bool operator!=(const DecryptInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const DecryptInfo& lhs, const DecryptInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -159,11 +159,11 @@ struct SignInfo {
      * @param rhs sign info to compare with.
      * @return bool.
      */
-    bool operator==(const SignInfo& rhs) const
+    friend bool operator==(const SignInfo& lhs, const SignInfo& rhs)
     {
-        return mChainName == rhs.mChainName && mAlg == rhs.mAlg && mValue == rhs.mValue
-            && mTrustedTimestamp == rhs.mTrustedTimestamp && mOCSPValues == rhs.mOCSPValues;
-    }
+        return lhs.mChainName == rhs.mChainName && lhs.mAlg == rhs.mAlg && lhs.mValue == rhs.mValue
+            && lhs.mTrustedTimestamp == rhs.mTrustedTimestamp && lhs.mOCSPValues == rhs.mOCSPValues;
+    };
 
     /**
      * Compares sign info.
@@ -171,7 +171,7 @@ struct SignInfo {
      * @param rhs sign info to compare with.
      * @return bool.
      */
-    bool operator!=(const SignInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const SignInfo& lhs, const SignInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**

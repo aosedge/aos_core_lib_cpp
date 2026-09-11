@@ -158,11 +158,11 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
     for (const auto& extKeyUsage : mModuleConfig.mExtendedKeyUsage) {
         switch (extKeyUsage.GetValue()) {
         case ExtendedKeyUsageEnum::eClientAuth:
-            oids.PushBack(cOidExtKeyUsageClientAuth);
+            (void)oids.PushBack(cOidExtKeyUsageClientAuth);
             break;
 
         case ExtendedKeyUsageEnum::eServerAuth:
-            oids.PushBack(cOidExtKeyUsageServerAuth);
+            (void)oids.PushBack(cOidExtKeyUsageServerAuth);
             break;
 
         default:
@@ -383,7 +383,7 @@ Error CertModule::TrimCerts(const String& password)
             return AOS_ERROR_WRAP(err);
         }
 
-        certsInStorage->Erase(info);
+        (void)certsInStorage->Erase(info);
     }
 
     return ErrorEnum::eNone;
@@ -398,8 +398,8 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
     for (const auto& cert : chain) {
         StaticString<cDNStringLen> issuer, subject;
 
-        mX509Provider->ASN1DecodeDN(cert.mIssuer, issuer);
-        mX509Provider->ASN1DecodeDN(cert.mSubject, subject);
+        (void)mX509Provider->ASN1DecodeDN(cert.mIssuer, issuer);
+        (void)mX509Provider->ASN1DecodeDN(cert.mSubject, subject);
 
         LOG_DBG() << "Check certificate chain: issuer=" << issuer << ", subject=" << subject;
     }
@@ -464,7 +464,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
         }
 
         if (storedCert != nullptr) {
-            certsInStorage->Erase(storedCert);
+            (void)certsInStorage->Erase(storedCert);
         } else {
             LOG_WRN() << "Add missing cert to DB: type=" << GetCertType() << ", certInfo=" << moduleCert;
 
