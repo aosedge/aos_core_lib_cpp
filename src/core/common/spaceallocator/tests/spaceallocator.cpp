@@ -49,9 +49,6 @@ TEST_F(SpaceallocatorTest, AllocateSuccess)
     EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
 
-    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
-
     ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
@@ -95,9 +92,6 @@ TEST_F(SpaceallocatorTest, MultipleAllocators)
     EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
         .Times(3)
         .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
-
-    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
     ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS).IsNone());
     ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS).IsNone());
@@ -168,7 +162,7 @@ TEST_F(SpaceallocatorTest, OutdatedItems)
     // Reduce total size to account for filesystem overhead
     const size_t effectiveTotalSize = 1 * cKilobyte * cKilobyte - (50 * cKilobyte); // 1MB minus 50KB for fs overhead
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
+        .WillRepeatedly(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
 
     ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 100, &mRemover).IsNone());
 
@@ -266,7 +260,7 @@ TEST_F(SpaceallocatorTest, PartLimit)
     // Total size is 1MB minus filesystem overhead
     const size_t effectiveTotalSize = 1 * cKilobyte * cKilobyte - (50 * cKilobyte);
     EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
+        .WillRepeatedly(Return(RetWithError<size_t>(effectiveTotalSize, ErrorEnum::eNone)));
 
     SpaceAllocator<2> mSpaceAllocator;
 
@@ -299,15 +293,120 @@ TEST_F(SpaceallocatorTest, PartLimit)
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }
 
+TEST_F(SpaceallocatorTest, PartLimitPerAllocator)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+
+    SpaceAllocator<2> allocator1;
+    SpaceAllocator<2> allocator2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, 30).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, 20).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath)).WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    // each allocator is limited by its own part, not by the sum of the parts registered on the partition
+
+    auto [space1, err1] = allocator1.AllocateSpace(30 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    auto [space2, err2] = allocator1.AllocateSpace(1);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+
+    auto [space3, err3] = allocator2.AllocateSpace(30 * cKilobyte);
+    EXPECT_EQ(err3, ErrorEnum::eNoMemory);
+
+    auto [space4, err4] = allocator2.AllocateSpace(20 * cKilobyte);
+    ASSERT_TRUE(err4.IsNone());
+    ASSERT_NE(space4.Get(), nullptr);
+
+    ASSERT_TRUE(space1->Accept().IsNone());
+    ASSERT_TRUE(space4->Accept().IsNone());
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+    ASSERT_TRUE(allocator2.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, PartLimitFollowsTotalSize)
+{
+    constexpr size_t cTotalSize      = 100 * cKilobyte;
+    constexpr size_t cGrownTotalSize = 200 * cKilobyte;
+
+    SpaceAllocator<2> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath)).WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cGrownTotalSize, ErrorEnum::eNone)));
+
+    // the limit is taken from the total size read on the first allocation, not from the one read on init
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(50 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(1);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+
+    ASSERT_TRUE(space1->Release().IsNone());
+
+    // partition has grown while the allocator was running: the limit follows it
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cGrownTotalSize, ErrorEnum::eNone)));
+
+    auto [space3, err3] = mSpaceAllocator.AllocateSpace(100 * cKilobyte);
+    ASSERT_TRUE(err3.IsNone());
+    ASSERT_NE(space3.Get(), nullptr);
+
+    ASSERT_TRUE(space3->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, CloseRemovesOwnPartLimit)
+{
+    SpaceAllocator<1> allocator1;
+    SpaceAllocator<1> allocator2;
+    SpaceAllocator<1> allocator3;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(3)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, 60).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, 30).IsNone());
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+
+    // allocator2 still holds its part, so the partition has no room for another 80%
+
+    EXPECT_EQ(allocator3.Init(mAllocator, mPath, mPlatformFS, 80), ErrorEnum::eNoMemory);
+}
+
 TEST_F(SpaceallocatorTest, ResizeSpace)
 {
     SpaceAllocator<5> mSpaceAllocator;
 
     EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
-
-    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
     ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 
@@ -344,9 +443,6 @@ TEST_F(SpaceallocatorTest, ResizeSpaceEviction)
     EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
 
-    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
-
     ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
 
     EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
@@ -382,9 +478,6 @@ TEST_F(SpaceallocatorTest, ResizeSpaceInsufficientSpace)
 
     EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
-
-    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
-        .WillOnce(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
 
     ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
 

@@ -264,7 +264,6 @@ public:
 
     StaticString<cFilePathLen>                      mMountPoint;
     size_t                                          mLimit {};
-    size_t                                          mTotalSize {};
     size_t                                          mAllocatorCount {};
     fs::FSPlatformItf*                              mPlatformFS {};
     StaticArray<OutdatedItem, cMaxNumOutdatedItems> mOutdatedItems;
@@ -398,9 +397,7 @@ public:
 
             partitionIt = mPartitions.end() - 1;
 
-            if (auto err = NewPartition(mountPoint, partitionIt->mSecond); !err.IsNone()) {
-                return err;
-            }
+            NewPartition(mountPoint, partitionIt->mSecond);
         }
 
         mPartition = &partitionIt->mSecond;
@@ -411,7 +408,7 @@ public:
                 return err;
             }
 
-            mSizeLimit = mPartition->mTotalSize * mPartition->mLimit / 100;
+            mLimitPercent = limit;
         }
 
         return ErrorEnum::eNone;
@@ -428,7 +425,7 @@ public:
 
         Error err;
 
-        if (auto errRemovePartLimit = mPartition->RemoveLimit(mPartition->mLimit); !errRemovePartLimit.IsNone()) {
+        if (auto errRemovePartLimit = mPartition->RemoveLimit(mLimitPercent); !errRemovePartLimit.IsNone()) {
             err = errRemovePartLimit;
         }
 
@@ -569,16 +566,28 @@ private:
         return ErrorEnum::eNone;
     }
 
-    Error NewPartition(const String& path, Partition& partition)
+    void NewPartition(const String& path, Partition& partition)
     {
-        auto [totalSize, err] = mPlatformFS->GetTotalSize(path);
+        partition.mMountPoint = path;
+        partition.mPlatformFS = mPlatformFS;
+    }
+
+    // called with mMutex locked
+    Error UpdateSizes()
+    {
+        auto [totalSize, totalSizeErr] = mPlatformFS->GetTotalSize(mPartition->mMountPoint);
+        if (!totalSizeErr.IsNone()) {
+            return totalSizeErr;
+        }
+
+        mSizeLimit = totalSize * mLimitPercent / 100;
+
+        auto [allocatedSize, err] = mPlatformFS->GetDirSize(mPath);
         if (!err.IsNone()) {
             return err;
         }
 
-        partition.mMountPoint = path;
-        partition.mTotalSize  = totalSize;
-        partition.mPlatformFS = mPlatformFS;
+        mAllocatedSize = allocatedSize;
 
         return ErrorEnum::eNone;
     }
@@ -587,17 +596,14 @@ private:
     {
         LockGuard lock {mMutex};
 
-        if (mSizeLimit == 0) {
+        if (mLimitPercent == 0) {
             return ErrorEnum::eNone;
         }
 
         if (mAllocationCount == 0) {
-            auto [allocatedSize, err] = mPlatformFS->GetDirSize(mPath);
-            if (!err.IsNone()) {
+            if (auto err = UpdateSizes(); !err.IsNone()) {
                 return err;
             }
-
-            mAllocatedSize = allocatedSize;
         }
 
         if (mAllocatedSize + size > mSizeLimit) {
@@ -670,7 +676,7 @@ private:
     {
         LockGuard lock {mMutex};
 
-        if (mSizeLimit == 0) {
+        if (mLimitPercent == 0) {
             return;
         }
 
@@ -687,7 +693,7 @@ private:
     {
         LockGuard lock {mMutex};
 
-        if (mSizeLimit == 0) {
+        if (mLimitPercent == 0) {
             return ErrorEnum::eNone;
         }
 
@@ -701,6 +707,7 @@ private:
     }
 
     AllocatorItf*              mAllocator {};
+    size_t                     mLimitPercent {};
     size_t                     mSizeLimit {};
     size_t                     mAllocationCount {};
     size_t                     mAllocatedSize {};
