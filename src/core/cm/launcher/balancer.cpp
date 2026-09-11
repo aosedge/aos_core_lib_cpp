@@ -480,6 +480,12 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 Error Balancer::UpdateMonitoringData(bool isInitialUpdate)
 {
     for (auto& node : mNodeManager->GetNodes()) {
+        // Only connected provisioned nodes participate in scheduling. Nevertheless, paused nodes must still remain in
+        // mNodes so stop instance requests can be sent to them. Still, GetAverageMonitoring can fail, so skip
+        // monitoring data request for non-provisioned or disconnected nodes.
+        if (!node.IsConnected() || node.GetInfo().mState != NodeStateEnum::eProvisioned) {
+            continue;
+        }
         const auto& nodeID = node.GetInfo().mNodeID;
 
         auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(mAllocator);
