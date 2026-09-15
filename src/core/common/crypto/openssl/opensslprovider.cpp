@@ -578,7 +578,7 @@ int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const 
 
 int32_t SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
 {
-    AosSignCtx* aosCtx = static_cast<AosSignCtx*>(ctx);
+    auto* aosCtx = static_cast<AosSignCtx*>(ctx);
     if (!aosCtx || !aosCtx->mAosKey || !aosCtx->mAosKey->mPrivKey) {
         LOG_ERR() << "Aos context is not initalized: err=" << AOS_ERROR_WRAP(ErrorEnum::eWrongState);
 
