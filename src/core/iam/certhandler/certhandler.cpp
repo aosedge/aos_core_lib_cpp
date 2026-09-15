@@ -215,7 +215,7 @@ RetWithError<ModuleConfig> CertHandler::GetModuleConfig(const String& certType) 
 {
     LockGuard lock {mMutex};
 
-    auto* certModule = FindModule(certType);
+    const auto* certModule = FindModule(certType);
     if (certModule == nullptr) {
         return {ModuleConfig(), AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
     }
