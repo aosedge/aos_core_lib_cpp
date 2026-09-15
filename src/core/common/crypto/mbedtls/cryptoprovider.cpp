@@ -716,7 +716,7 @@ Error MbedTLSCryptoProvider::X509CertToPEM(const x509::Certificate& certificate,
     static constexpr auto cPEMBeginCert = "-----BEGIN CERTIFICATE-----\n";
     static constexpr auto cPEMEndCert   = "-----END CERTIFICATE-----\n";
 
-    size_t olen;
+    size_t olen = 0;
 
     if (auto ret = mbedtls_pem_write_buffer(cPEMBeginCert, cPEMEndCert, certificate.mRaw.Get(), certificate.mRaw.Size(),
             reinterpret_cast<uint8_t*>(dst.Get()), dst.Size(), &olen);
@@ -950,7 +950,7 @@ RetWithError<uint64_t> MbedTLSCryptoProvider::RandInt(uint64_t maxValue)
         return {0, AOS_ERROR_WRAP(ret)};
     }
 
-    uint64_t result;
+    uint64_t result = 0;
 
     if (auto ret = mbedtls_ctr_drbg_random(&ctrDrbg, reinterpret_cast<uint8_t*>(&result), sizeof(result)); ret != 0) {
         return {0, AOS_ERROR_WRAP(ret)};
@@ -2173,8 +2173,8 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
         }
 
         if (!memcmp(next->buf.p, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER, tagLen)) {
-            uint8_t* p = next->buf.p + tagLen;
-            size_t   len;
+            uint8_t* p   = next->buf.p + tagLen;
+            size_t   len = 0;
 
             err = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);
             if (err != 0) {
@@ -2211,8 +2211,8 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
         }
 
         if (!memcmp(next->buf.p, MBEDTLS_OID_ISSUER_ALT_NAME, tagLen)) {
-            uint8_t* p = next->buf.p + tagLen;
-            size_t   len;
+            uint8_t* p   = next->buf.p + tagLen;
+            size_t   len = 0;
 
             // Get OCTET STRING containing the extension value
             ret = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);

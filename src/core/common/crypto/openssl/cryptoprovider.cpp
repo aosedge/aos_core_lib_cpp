@@ -372,6 +372,9 @@ Error ConvertEvpPKey(const EVP_PKEY* src, Variant<ECDSAPublicKey, RSAPublicKey>&
 
     case EVP_PKEY_EC:
         return SetECDSAPubKey(src, dst);
+
+    default:
+        break;
     }
 
     LOG_ERR() << "Unsupported certificate public key algorithm: type=" << EVP_PKEY_base_id(src)
@@ -822,7 +825,7 @@ Error SetSKID(const Array<uint8_t>& derSKID, X509* cert)
             return OPENSSL_ERROR();
         }
     } else {
-        uint8_t  md[EVP_MAX_MD_SIZE];
+        uint8_t  md[EVP_MAX_MD_SIZE] {};
         uint32_t mdLen = 0;
 
         if (X509_pubkey_digest(cert, EVP_sha1(), md, &mdLen) != 1) {
@@ -874,7 +877,7 @@ Error SetAKID(const Array<uint8_t>& derAKID, X509* cert, const x509::Certificate
             }
         }
 
-        uint8_t  md[EVP_MAX_MD_SIZE];
+        uint8_t  md[EVP_MAX_MD_SIZE] {};
         uint32_t mdLen = 0;
 
         if (auto issuerCert = parentCert ? parentCert.Get() : cert;
@@ -1743,9 +1746,10 @@ Error OpenSSLCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& 
 
 Error OpenSSLCryptoProvider::ASN1DecodeOctetString(const Array<uint8_t>& src, Array<uint8_t>& result)
 {
-    const uint8_t* data = src.Get();
-    int64_t        xlen;
-    int32_t        tag, xclass;
+    const uint8_t* data   = src.Get();
+    int64_t        xlen   = 0;
+    int32_t        tag    = 0;
+    int32_t        xclass = 0;
 
     if (auto ret = ASN1_get_object(&data, &xlen, &tag, &xclass, src.Size()); ret != 0) {
         return OPENSSL_ERROR();
@@ -1766,9 +1770,10 @@ Error OpenSSLCryptoProvider::ASN1DecodeOctetString(const Array<uint8_t>& src, Ar
 
 Error OpenSSLCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<uint8_t>& result)
 {
-    const uint8_t* data = inOID.Get();
-    int64_t        xlen;
-    int32_t        tag, xclass;
+    const uint8_t* data   = inOID.Get();
+    int64_t        xlen   = 0;
+    int32_t        tag    = 0;
+    int32_t        xclass = 0;
 
     if (auto ret = ASN1_get_object(&data, &xlen, &tag, &xclass, inOID.Size()); ret != 0) {
         return OPENSSL_ERROR();
@@ -1978,12 +1983,12 @@ Error OpenSSLCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
     for (const auto& root : rootCerts) {
         auto derBuf = root.mRaw.Get();
 
-        auto cert = DeferRelease(d2i_X509(nullptr, &derBuf, root.mRaw.Size()), X509_free);
-        if (!cert) {
+        auto rootCert = DeferRelease(d2i_X509(nullptr, &derBuf, root.mRaw.Size()), X509_free);
+        if (!rootCert) {
             return OPENSSL_ERROR();
         }
 
-        if (X509_STORE_add_cert(store.Get(), cert.Get()) != 1) {
+        if (X509_STORE_add_cert(store.Get(), rootCert.Get()) != 1) {
             return OPENSSL_ERROR();
         }
     }
@@ -1997,16 +2002,16 @@ Error OpenSSLCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
     for (const auto& interm : intermCerts) {
         auto derBuf = interm.mRaw.Get();
 
-        auto cert = DeferRelease(d2i_X509(nullptr, &derBuf, interm.mRaw.Size()), X509_free);
-        if (!cert) {
+        auto intermCert = DeferRelease(d2i_X509(nullptr, &derBuf, interm.mRaw.Size()), X509_free);
+        if (!intermCert) {
             return OPENSSL_ERROR();
         }
 
-        if (sk_X509_push(chain.Get(), cert.Get()) == 0) {
+        if (sk_X509_push(chain.Get(), intermCert.Get()) == 0) {
             return OPENSSL_ERROR();
         }
 
-        (void)cert.Release();
+        (void)intermCert.Release();
     }
 
     // Create context

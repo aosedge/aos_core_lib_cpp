@@ -83,7 +83,7 @@ public:
             return err;
         }
 
-        pthread_attr_t attr;
+        pthread_attr_t attr {};
 
         if (auto ret = pthread_attr_init(&attr); ret != 0) {
             return ret;

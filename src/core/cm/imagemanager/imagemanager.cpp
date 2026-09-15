@@ -607,7 +607,7 @@ Error ImageManager::RemoveOldItemVersions(const String& itemID, Array<ItemInfo>&
             listener->OnItemRemoved(itemID);
         }
 
-        storedItems.Erase(oldestIt);
+        (void)storedItems.Erase(oldestIt);
 
         numVersions--;
         hasRemovedItems = true;
@@ -966,9 +966,9 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
     Error                               err;
     UniquePtr<spaceallocator::SpaceItf> space;
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
-        if (space && !err->IsNone()) {
-            LOG_ERR() << "Failed to load index" << Log::Field("digest", digest) << Log::Field(*err);
+    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+        if (space && !releaseErr->IsNone()) {
+            LOG_ERR() << "Failed to load index" << Log::Field("digest", digest) << Log::Field(*releaseErr);
 
             if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
@@ -1022,9 +1022,9 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
         return AOS_ERROR_WRAP(err);
     }
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
-        if (space && !err->IsNone()) {
-            LOG_ERR() << "Failed to load manifest" << Log::Field("digest", digest) << Log::Field(*err);
+    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+        if (space && !releaseErr->IsNone()) {
+            LOG_ERR() << "Failed to load manifest" << Log::Field("digest", digest) << Log::Field(*releaseErr);
 
             if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
@@ -1078,9 +1078,9 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
         return AOS_ERROR_WRAP(err);
     }
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
-        if (space && !err->IsNone()) {
-            LOG_ERR() << "Failed to load blob" << Log::Field("digest", descriptor.mDigest) << Log::Field(*err);
+    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+        if (space && !releaseErr->IsNone()) {
+            LOG_ERR() << "Failed to load blob" << Log::Field("digest", descriptor.mDigest) << Log::Field(*releaseErr);
 
             if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
@@ -1184,9 +1184,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
     }
 
     while (true) {
-        auto err = mBlobInfoProvider->GetBlobsInfos(digests, *blobsInfo);
-
-        if (!err.IsNone()) {
+        if (auto err = mBlobInfoProvider->GetBlobsInfos(digests, *blobsInfo); !err.IsNone()) {
             LOG_ERR() << "Failed to get blobs info" << Log::Field("digest", digest) << Log::Field(err);
 
             if (auto waitErr = WaitForStop(); !waitErr.IsNone()) {

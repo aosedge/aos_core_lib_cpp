@@ -2165,7 +2165,7 @@ void NetworkManager::TakeDeferredFirewallRules(const InstanceIdent& instanceIden
             }
         }
 
-        mDeferredFirewallUpdates.Erase(it);
+        (void)mDeferredFirewallUpdates.Erase(it);
 
         return;
     }
@@ -2286,8 +2286,8 @@ void NetworkManager::OnConnect()
 
         for (const auto& [id, info] : mInstanceNetworkInfos) {
             // Only sync running instances (present in runtime cache)
-            auto network = mRuntimeCache.Find(info.mNetworkID);
-            if (network == mRuntimeCache.end() || network->mSecond.Find(id) == network->mSecond.end()) {
+            if (auto network = mRuntimeCache.Find(info.mNetworkID);
+                network == mRuntimeCache.end() || network->mSecond.Find(id) == network->mSecond.end()) {
                 continue;
             }
 
