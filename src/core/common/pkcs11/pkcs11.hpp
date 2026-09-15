@@ -694,7 +694,8 @@ public:
     SharedPtr<crypto::PrivateKeyItf> GetPrivKey() { return mPrivKey; }
 
 private:
-    ObjectHandle                     mPrivHandle, mPubHandle;
+    ObjectHandle                     mPrivHandle;
+    ObjectHandle                     mPubHandle;
     SharedPtr<crypto::PrivateKeyItf> mPrivKey;
 };
 

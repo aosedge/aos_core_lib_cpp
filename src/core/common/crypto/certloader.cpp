@@ -240,7 +240,8 @@ namespace {
 Error FindUrlParam(const String& url, const String& paramName, String& paramValue)
 {
     Error  err   = ErrorEnum::eNone;
-    size_t start = 0, end = 0;
+    size_t start = 0;
+    size_t end   = 0;
 
     Tie(start, err) = url.FindSubstr(0, paramName);
 

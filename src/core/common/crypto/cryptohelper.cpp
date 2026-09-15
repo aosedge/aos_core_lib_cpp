@@ -302,7 +302,9 @@ Error CryptoHelper::Decrypt(const String& encryptedFile, const String& decrypted
     const auto& sessionKey       = decryptInfo.mBlockKey;
     const auto& sessionIV        = decryptInfo.mBlockIV;
 
-    StaticString<cAlgLen> algName, modeName, paddingName;
+    StaticString<cAlgLen> algName;
+    StaticString<cAlgLen> modeName;
+    StaticString<cAlgLen> paddingName;
 
     if (auto err = DecodeSymAlgNames(symmetricAlgName, algName, modeName, paddingName); !err.IsNone()) {
         return err;
@@ -645,7 +647,9 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
         return err;
     }
 
-    StaticString<cAlgLen> algName, hashName, paddingName;
+    StaticString<cAlgLen> algName;
+    StaticString<cAlgLen> hashName;
+    StaticString<cAlgLen> paddingName;
 
     if (auto err = DecodeSignAlgNames(signs.mAlg, algName, hashName, paddingName); !err.IsNone()) {
         return err;

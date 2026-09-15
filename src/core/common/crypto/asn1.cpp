@@ -10,7 +10,12 @@ namespace aos::crypto::asn1 {
 
 RetWithError<StaticString<cTimeStrLen>> ConvertTimeToASN1Str(const Time& time)
 {
-    int32_t day = 0, month = 0, year = 0, hour = 0, min = 0, sec = 0;
+    int32_t day   = 0;
+    int32_t month = 0;
+    int32_t year  = 0;
+    int32_t hour  = 0;
+    int32_t min   = 0;
+    int32_t sec   = 0;
 
     auto err = time.GetDate(&day, &month, &year);
     if (!err.IsNone()) {
