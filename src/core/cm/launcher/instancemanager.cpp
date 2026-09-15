@@ -283,7 +283,7 @@ Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& reques
 
 Error InstanceManager::SubmitScheduledInstances()
 {
-    for (auto& instance : mActiveInstances) {
+    for (const auto& instance : mActiveInstances) {
         auto isStashed = mScheduledInstances.ContainsIf(
             [&instance](const SharedPtr<Instance>& item) { return instance.Get() == item.Get(); });
 
@@ -340,7 +340,7 @@ void InstanceManager::ClearCacheIfLimitReached()
         }
     }
 
-    for (auto& instance : mCachedInstances) {
+    for (const auto& instance : mCachedInstances) {
         if (auto err = instance->Remove(); !err.IsNone()) {
             LOG_ERR() << "Remove cached instance failed" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent)
                       << AOS_ERROR_WRAP(err);
@@ -475,7 +475,7 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
 
 Error InstanceManager::LoadInstanceStatuses()
 {
-    for (auto& instance : mActiveInstances) {
+    for (const auto& instance : mActiveInstances) {
         if (!instance->GetInfo().mNodeID.IsEmpty()) {
             if (auto err = mRunningInstances.EmplaceBack(instance->GetStatus()); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
