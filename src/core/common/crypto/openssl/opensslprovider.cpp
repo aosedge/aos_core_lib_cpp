@@ -203,7 +203,7 @@ RetWithError<int32_t> GetECCurveBitLen(int32_t nid)
 
 RetWithError<HashEnum> GetHashAlg(const RSAPublicKey& pubKey)
 {
-    auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), pubKey.GetN().Size(), nullptr), BN_free);
+    auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr), BN_free);
     if (!bn) {
         return {HashEnum::eNone, OPENSSL_ERROR()};
     }
@@ -342,12 +342,12 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
         const uint8_t* sData    = signature.Get() + halfSize;
 
         // Create BIGNUMs from r and s
-        auto r = DeferRelease(BN_bin2bn(rData, halfSize, nullptr), BN_free);
+        auto r = DeferRelease(BN_bin2bn(rData, static_cast<int>(halfSize), nullptr), BN_free);
         if (!r) {
             return OPENSSL_ERROR();
         }
 
-        auto s = DeferRelease(BN_bin2bn(sData, halfSize, nullptr), BN_free);
+        auto s = DeferRelease(BN_bin2bn(sData, static_cast<int>(halfSize), nullptr), BN_free);
         if (!s) {
             return OPENSSL_ERROR();
         }
@@ -760,7 +760,7 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
 {
     StaticArray<uint8_t, cECDSAParamsOIDSize> fullOID;
 
-    auto size = ASN1_object_size(0, rawOID.Size(), V_ASN1_OBJECT);
+    auto size = ASN1_object_size(0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT);
     if (size <= 0) {
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
     }
@@ -770,7 +770,7 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
     }
 
     auto p = fullOID.Get();
-    ASN1_put_object(&p, 0, rawOID.Size(), V_ASN1_OBJECT, V_ASN1_UNIVERSAL);
+    ASN1_put_object(&p, 0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT, V_ASN1_UNIVERSAL);
     (void)memcpy(p, rawOID.Get(), rawOID.Size());
 
     return {fullOID, ErrorEnum::eNone};

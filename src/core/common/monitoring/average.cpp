@@ -23,20 +23,20 @@ constexpr T Round(double value)
 template <typename T>
 T GetValue(const T& value, size_t window)
 {
-    return Round<T>(static_cast<double>(value) / window);
+    return Round<T>(static_cast<double>(value) / static_cast<double>(window));
 }
 
 template <>
 double GetValue(const double& value, size_t window)
 {
-    return value / window;
+    return value / static_cast<double>(window);
 }
 
 template <typename T>
 void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
 {
     if (!isInitialized) {
-        value = newValue * window;
+        value = newValue * static_cast<double>(window);
     } else {
         value -= GetValue(value, window);
         value += newValue;

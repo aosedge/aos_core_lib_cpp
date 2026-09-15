@@ -1305,7 +1305,7 @@ Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    LOG_DBG() << "Network data: " << network->mSecond.Size();
+    LOG_DBG() << "Network data: " << static_cast<int32_t>(network->mSecond.Size());
 
     if (auto instance = network->mSecond.Find(instanceID); instance == network->mSecond.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);

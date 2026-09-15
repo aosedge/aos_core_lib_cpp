@@ -480,7 +480,7 @@ struct TieWrapper {
     template <typename U>
     TieWrapper<T>& operator=(RetWithError<U>&& src)
     {
-        mValue = Move(src.mValue);
+        mValue = static_cast<T>(Move(src.mValue));
         mError = src.mError;
 
         return *this;

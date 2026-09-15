@@ -168,7 +168,8 @@ Error CheckCAPublicKey(const x509::Certificate& cert)
     switch (pubKey.GetKeyType().GetValue()) {
     case KeyTypeEnum::eRSA: {
         if (const auto& rsa = static_cast<const RSAPublicKey&>(pubKey); rsa.GetN().Size() * 8 < 2048) {
-            LOG_WRN() << "CA certificate RSA public key length is below 2048 bits: bits=" << rsa.GetN().Size() * 8;
+            LOG_WRN() << "CA certificate RSA public key length is below 2048 bits: bits="
+                      << static_cast<int32_t>(rsa.GetN().Size() * 8);
         }
 
         return ErrorEnum::eNone;

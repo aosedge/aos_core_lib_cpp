@@ -290,14 +290,15 @@ Error CertModule::ValidateConfig()
 
     if (!mModuleConfig.mIsSelfSigned && mModuleConfig.mMaxCertificates < 2) {
         LOG_ERR() << "Max certificates module config must be set to at least 2 for non self signed modules: type="
-                  << GetCertType() << ", value=" << mModuleConfig.mMaxCertificates;
+                  << GetCertType() << ", value=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates);
 
         return ErrorEnum::eInvalidArgument;
     }
 
     if (mModuleConfig.mMaxCertificates > cCertsPerModule) {
         LOG_ERR() << "Max certificates module config exceeds application limit: type=" << GetCertType()
-                  << ", value=" << mModuleConfig.mMaxCertificates << ", limit=" << cCertsPerModule;
+                  << ", value=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates)
+                  << ", limit=" << cCertsPerModule;
 
         return ErrorEnum::eNoMemory;
     }
@@ -363,7 +364,8 @@ Error CertModule::TrimCerts(const String& password)
         assert(info != nullptr);
 
         LOG_DBG() << "Trim certificate to allocate space for a new one: type=" << GetCertType()
-                  << ", count=" << certsInStorage->Size() << ", max=" << mModuleConfig.mMaxCertificates;
+                  << ", count=" << static_cast<int32_t>(certsInStorage->Size())
+                  << ", max=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates);
 
         err = mHSM->RemoveCert(info->mCertURL, password);
         if (!err.IsNone()) {
