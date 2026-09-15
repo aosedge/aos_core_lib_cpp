@@ -183,7 +183,7 @@ protected:
         mTerminalNode.mPrev = &mTerminalNode;
     }
 
-    ListImpl(const ListImpl& list) = default;
+    ListImpl(const ListImpl& list) noexcept = default;
 
     virtual Node* AllocateNode() = 0;
 
@@ -269,7 +269,7 @@ public:
      *
      * @param list another list instance.
      */
-    List(const List& list) = default;
+    List(const List& list) noexcept = default;
 
     /**
      * Assigns existing list to the current one.
@@ -277,7 +277,7 @@ public:
      * @param list existing list.
      * @return List&.
      */
-    List& operator=(const List& list)
+    List& operator=(const List& list) noexcept
     {
         assert(mItems && list.Size() <= this->MaxSize());
 
@@ -566,7 +566,7 @@ public:
      *
      * @param list list to create from.
      */
-    StaticList(const StaticList& list)
+    StaticList(const StaticList& list) noexcept
         : List<T>()
     {
         List<T>::SetBuffer(mBuffer);
@@ -583,7 +583,7 @@ public:
      *
      * @param list list to create from.
      */
-    StaticList& operator=(const StaticList& list)
+    StaticList& operator=(const StaticList& list) noexcept
     {
         List<T>::operator=(list);
 

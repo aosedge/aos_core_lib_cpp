@@ -117,7 +117,7 @@ public:
      * @param other variant to copy from.
      */
     // cppcheck-suppress uninitMemberVar
-    Variant(const Variant& other) { CopyObject(other); }
+    Variant(const Variant& other) noexcept { CopyObject(other); }
 
     /**
      * Assignment operator.
@@ -127,7 +127,7 @@ public:
      */
     // cppcheck-suppress uninitMemberVar
     // cppcheck-suppress operatorEqVarError
-    Variant& operator=(const Variant& other)
+    Variant& operator=(const Variant& other) noexcept
     {
         if (this != &other) {
             CopyObject(other);
