@@ -395,7 +395,8 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
     }
 
     for (const auto& cert : chain) {
-        StaticString<cDNStringLen> issuer, subject;
+        StaticString<cDNStringLen> issuer;
+        StaticString<cDNStringLen> subject;
 
         (void)mX509Provider->ASN1DecodeDN(cert.mIssuer, issuer);
         (void)mX509Provider->ASN1DecodeDN(cert.mSubject, subject);

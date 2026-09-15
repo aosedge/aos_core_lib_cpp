@@ -218,7 +218,8 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
         return AOS_ERROR_WRAP(ret);
     }
 
-    StaticString<cTimeStrLen> notBefore, notAfter;
+    StaticString<cTimeStrLen> notBefore;
+    StaticString<cTimeStrLen> notAfter;
 
     Error err;
 
@@ -533,7 +534,8 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
     }
 
     // Read signature.
-    mbedtls_mpi r, s;
+    mbedtls_mpi r;
+    mbedtls_mpi s;
 
     mbedtls_mpi_init(&r);
     [[maybe_unused]] auto releaseR = DeferRelease(&r, mbedtls_mpi_free);
@@ -2009,7 +2011,8 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
 {
     StaticArray<uint8_t, cRSAModulusSize>     n;
     StaticArray<uint8_t, cRSAPubExponentSize> e;
-    mbedtls_mpi                               mpiN, mpiE;
+    mbedtls_mpi                               mpiN;
+    mbedtls_mpi                               mpiE;
 
     mbedtls_mpi_init(&mpiN);
     mbedtls_mpi_init(&mpiE);
@@ -2511,7 +2514,8 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
         return ErrorEnum::eInvalidArgument;
     }
 
-    StaticString<cTimeStrLen> notBefore, notAfter;
+    StaticString<cTimeStrLen> notBefore;
+    StaticString<cTimeStrLen> notAfter;
     Error                     err = ErrorEnum::eNone;
 
     Tie(notBefore, err) = asn1::ConvertTimeToASN1Str(templ.mNotBefore);
