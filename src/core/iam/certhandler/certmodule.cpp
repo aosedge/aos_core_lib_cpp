@@ -351,8 +351,8 @@ Error CertModule::TrimCerts(const String& password)
     }
 
     while (certsInStorage->Size() + 1 > mModuleConfig.mMaxCertificates) {
-        Time      minTime;
-        CertInfo* info = nullptr;
+        Time            minTime;
+        const CertInfo* info = nullptr;
 
         for (auto& cert : *certsInStorage) {
             if (minTime.IsZero() || cert.mNotAfter < minTime) {
@@ -452,7 +452,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
 
     // Add module certificates to storage.
     for (const auto& moduleCert : validCerts) {
-        CertInfo* storedCert = nullptr;
+        const CertInfo* storedCert = nullptr;
 
         for (auto& cert : *certsInStorage) {
             if (cert == moduleCert) {
