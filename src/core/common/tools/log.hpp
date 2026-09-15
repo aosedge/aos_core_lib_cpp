@@ -195,6 +195,15 @@ public:
         return *this;
     }
 
+    Log& operator<<(const FieldEntry<unsigned long>& field)
+    {
+        *this << (mFieldsCount > 0 ? ", " : ": ") << field.mKey << "=" << static_cast<int32_t>(field.mValue);
+
+        mFieldsCount++;
+
+        return *this;
+    }
+
     /**
      * Logs object that implements Stringer interface.
      *

@@ -243,7 +243,8 @@ StaticString<cTimeStrLen> Duration::ToISO8601String() const
         }
 
         if (total > 0) {
-            const auto rest = static_cast<double>(total) / Time::cSeconds.Nanoseconds() + static_cast<double>(seconds);
+            const auto rest = static_cast<double>(total) / static_cast<double>(Time::cSeconds.Nanoseconds())
+                + static_cast<double>(seconds);
 
             (void)snprintf(buffer, sizeof(buffer), "%0.9lfS", rest);
             (void)result.Append(buffer);

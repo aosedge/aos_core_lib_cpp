@@ -382,7 +382,7 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
         keyDescription->mHashAlg = hashAlg;
 
         LOG_DBG() << "Add Aos PSA key: keyType=" << privKey.GetPublic().GetKeyType() << ", keyID=" << keyID
-                  << ", slotNumber=" << keyDescription - sBuiltinKeys.begin();
+                  << ", slotNumber=" << static_cast<int32_t>(keyDescription - sBuiltinKeys.begin());
 
         return aos::RetWithError<KeyInfo>(
             KeyInfo {keyID, sMDTypes[static_cast<int32_t>(hashAlg)]}, aos::ErrorEnum::eNone);
@@ -443,13 +443,13 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
     (void)keyBufferLength;
 
     if (!keyBuffer) {
-        LOG_DBG() << "Get Aos built-in key size: slotNumber=" << slotNumber;
+        LOG_DBG() << "Get Aos built-in key size: slotNumber=" << static_cast<int32_t>(slotNumber);
     } else {
-        LOG_DBG() << "Get Aos built-in key: slotNumber=" << slotNumber;
+        LOG_DBG() << "Get Aos built-in key: slotNumber=" << static_cast<int32_t>(slotNumber);
     }
 
     if (slotNumber >= sBuiltinKeys.Size()) {
-        LOG_ERR() << "Slot number out of range: slotNumber = " << slotNumber;
+        LOG_ERR() << "Slot number out of range: slotNumber = " << static_cast<int32_t>(slotNumber);
 
         return PSA_ERROR_INVALID_ARGUMENT;
     }
@@ -468,7 +468,7 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
                        .GetECParamsOID();
         auto curveParameters = FindPsaECGroupByOID(oid);
         if (curveParameters.mSecond == 0) {
-            LOG_ERR() << "EC group not found: slotNumber = " << slotNumber;
+            LOG_ERR() << "EC group not found: slotNumber = " << static_cast<int32_t>(slotNumber);
 
             return PSA_ERROR_NOT_SUPPORTED;
         }

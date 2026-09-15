@@ -53,7 +53,7 @@ static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t
     size_t                   len = 0;
     [[maybe_unused]] int32_t ret = 0;
 
-    for (int32_t i = items.Size() - 1; i >= 0; i--) {
+    for (int32_t i = static_cast<int32_t>(items.Size()) - 1; i >= 0; i--) {
         const auto& item = items[i];
         MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_raw_buffer(p, start, item.Get(), item.Size()));
     }
@@ -61,7 +61,7 @@ static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED));
 
-    return len;
+    return static_cast<int32_t>(len);
 }
 
 static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, uint8_t** p, uint8_t* start)
@@ -69,7 +69,7 @@ static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, ui
     size_t  len = 0;
     int32_t ret = 0; // cppcheck-suppress variableScope
 
-    for (int32_t i = oids.Size() - 1; i >= 0; i--) {
+    for (int32_t i = static_cast<int32_t>(oids.Size()) - 1; i >= 0; i--) {
         const auto& oid = oids[i];
 
         mbedtls_asn1_buf resOID = {};
@@ -91,7 +91,7 @@ static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, ui
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED));
 
-    return len;
+    return static_cast<int32_t>(len);
 }
 
 static int32_t ASN1EncodeBigInt(const Array<uint8_t>& number, uint8_t** p, uint8_t* start)
@@ -106,7 +106,7 @@ static int32_t ASN1EncodeBigInt(const Array<uint8_t>& number, uint8_t** p, uint8
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_INTEGER));
 
-    return len;
+    return static_cast<int32_t>(len);
 }
 
 static Error ASN1RemoveTag(const Array<uint8_t>& src, Array<uint8_t>& dst, int32_t tag)
@@ -426,14 +426,16 @@ Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, x50
             return AOS_ERROR_WRAP(ret);
         }
 
-        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(&rsa, hash, digest.Size(), digest.Get(), signature.Get());
+        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(
+            &rsa, hash, static_cast<unsigned int>(digest.Size()), digest.Get(), signature.Get());
     } else if (padding == x509::PaddingEnum::ePSS) {
         ret = mbedtls_rsa_set_padding(&rsa, MBEDTLS_RSA_PKCS_V21, hash);
         if (ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
 
-        ret = mbedtls_rsa_rsassa_pss_verify(&rsa, hash, digest.Size(), digest.Get(), signature.Get());
+        ret = mbedtls_rsa_rsassa_pss_verify(
+            &rsa, hash, static_cast<unsigned int>(digest.Size()), digest.Get(), signature.Get());
     } else {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "not supported padding"));
     }
