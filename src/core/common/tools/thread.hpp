@@ -200,14 +200,14 @@ public:
      *
      * @return Error.
      */
-    Error Lock() { return pthread_mutex_lock(&mPMutex); }
+    Error Lock() { return pthread_mutex_lock(&mPMutex); } // NOSONAR cpp:S5486 - false positive; Mutex primitive
 
     /**
      * Unlocks Aos mutex.
      *
      * @return Error.
      */
-    Error Unlock() { return pthread_mutex_unlock(&mPMutex); }
+    Error Unlock() { return pthread_mutex_unlock(&mPMutex); } // NOSONAR cpp:S5489 - false positive; Mutex primitive
 
     /**
      * Converts mutex to pthread_mutex_t pointer.
