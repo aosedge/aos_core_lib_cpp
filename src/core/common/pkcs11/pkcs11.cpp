@@ -29,7 +29,7 @@ Error ConvertFromPKCS11String(const Array<uint8_t>& src, String& dst)
         return ErrorEnum::eNone;
     }
 
-    int32_t size = src.Size();
+    int32_t size = static_cast<int32_t>(src.Size());
 
     if (!dst.Resize(size).IsNone()) {
         return ErrorEnum::eNoMemory;
@@ -305,7 +305,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
     CK_FUNCTION_LIST_PTR functionList = nullptr;
 
     if (CK_RV rv = getFuncList(&functionList); rv != CKR_OK) {
-        LOG_ERR() << "Get function list failed: err = " << rv;
+        LOG_ERR() << "Get function list failed: err = " << static_cast<int32_t>(rv);
 
         return {nullptr, static_cast<int32_t>(rv)};
     }
@@ -344,7 +344,7 @@ Error LibraryContext::Init(AllocatorItf& allocator)
     initArgs.flags = CKF_OS_LOCKING_OK;
 
     if (auto rv = mFunctionList->C_Initialize(&initArgs); rv != CKR_OK) {
-        LOG_ERR() << "Init library failed: err = " << rv;
+        LOG_ERR() << "Init library failed: err = " << static_cast<int32_t>(rv);
 
         return static_cast<int32_t>(rv);
     }
@@ -455,7 +455,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Open session: slotID=" << slotID;
+    LOG_DBG() << "Open session: slotID=" << static_cast<int32_t>(slotID);
 
     SessionParams params = {slotID, flags};
 
@@ -519,7 +519,7 @@ LibraryContext::~LibraryContext()
 
     CK_RV rv = mFunctionList->C_Finalize(nullptr);
     if (rv != CKR_OK) {
-        LOG_ERR() << "Finalize library failed: err = " << rv;
+        LOG_ERR() << "Finalize library failed: err = " << static_cast<int32_t>(rv);
     }
 }
 
@@ -578,7 +578,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Login: userType=" << userType;
+    LOG_DBG() << "Login: userType=" << static_cast<int32_t>(userType);
 
     if (!mFunctionList || !mFunctionList->C_Login) {
         return ErrorEnum::eWrongState;
@@ -783,7 +783,7 @@ SessionContext::~SessionContext()
 
     CK_RV rv = mFunctionList->C_CloseSession(mHandle);
     if (rv != CKR_OK) {
-        LOG_ERR() << "Close session failed: error = " << rv;
+        LOG_ERR() << "Close session failed: error = " << static_cast<int32_t>(rv);
     }
 }
 

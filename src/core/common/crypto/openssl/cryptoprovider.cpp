@@ -513,12 +513,12 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const RSAPublicKey& pubKey, OSSL_LIB_CTX
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    auto n = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), pubKey.GetN().Size(), nullptr), BN_free);
+    auto n = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr), BN_free);
     if (!n) {
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    auto e = DeferRelease(BN_bin2bn(pubKey.GetE().Get(), pubKey.GetE().Size(), nullptr), BN_free);
+    auto e = DeferRelease(BN_bin2bn(pubKey.GetE().Get(), static_cast<int>(pubKey.GetE().Size()), nullptr), BN_free);
     if (!e) {
         return {nullptr, OPENSSL_ERROR()};
     }
@@ -576,7 +576,8 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const ECDSAPublicKey& pubKey, OSSL_LIB_C
     }
 
     auto octetStr = DeferRelease(ASN1_OCTET_STRING_new(), ASN1_OCTET_STRING_free);
-    if (ASN1_OCTET_STRING_set(octetStr.Get(), pubKey.GetECPoint().Get(), pubKey.GetECPoint().Size()) != 1) {
+    if (ASN1_OCTET_STRING_set(octetStr.Get(), pubKey.GetECPoint().Get(), static_cast<int>(pubKey.GetECPoint().Size()))
+        != 1) {
         return {nullptr, OPENSSL_ERROR()};
     }
 
@@ -763,7 +764,7 @@ Error SetSerial(const Array<uint8_t>& serial, X509* cert)
     } else {
         auto buf = serial.Get();
 
-        auto bnSerialRaw = DeferRelease(BN_bin2bn(buf, serial.Size(), nullptr), BN_free);
+        auto bnSerialRaw = DeferRelease(BN_bin2bn(buf, static_cast<int>(serial.Size()), nullptr), BN_free);
         if (!bnSerialRaw) {
             return OPENSSL_ERROR();
         }
@@ -937,7 +938,7 @@ Error SetIssuerAltNameURIs(const Array<StaticString<cURLLen>>& uris, X509* cert)
             return OPENSSL_ERROR();
         }
 
-        if (!ASN1_STRING_set(ia5.Get(), uri.CStr(), uri.Size())) {
+        if (!ASN1_STRING_set(ia5.Get(), uri.CStr(), static_cast<int>(uri.Size()))) {
             return OPENSSL_ERROR();
         }
 
@@ -1377,7 +1378,7 @@ Error OpenSSLCryptoProvider::CreateClientCert(const String& csrPEM, const String
     LOG_DBG() << "Create client certificate";
 
     // Parse CSR
-    auto bioCsr = DeferRelease(BIO_new_mem_buf(csrPEM.CStr(), csrPEM.Size()), BIO_free);
+    auto bioCsr = DeferRelease(BIO_new_mem_buf(csrPEM.CStr(), static_cast<int>(csrPEM.Size())), BIO_free);
     if (!bioCsr) {
         return ErrorEnum::eFailed;
     }
@@ -1388,7 +1389,7 @@ Error OpenSSLCryptoProvider::CreateClientCert(const String& csrPEM, const String
     }
 
     // Parse CA Private Key
-    auto bioCaKey = DeferRelease(BIO_new_mem_buf(caKeyPEM.CStr(), caKeyPEM.Size()), BIO_free);
+    auto bioCaKey = DeferRelease(BIO_new_mem_buf(caKeyPEM.CStr(), static_cast<int>(caKeyPEM.Size())), BIO_free);
     if (!bioCaKey) {
         return ErrorEnum::eFailed;
     }
@@ -1400,7 +1401,7 @@ Error OpenSSLCryptoProvider::CreateClientCert(const String& csrPEM, const String
     }
 
     // Parse CA Certificate
-    auto bioCaCert = DeferRelease(BIO_new_mem_buf(caCertPEM.CStr(), caCertPEM.Size()), BIO_free);
+    auto bioCaCert = DeferRelease(BIO_new_mem_buf(caCertPEM.CStr(), static_cast<int>(caCertPEM.Size())), BIO_free);
     if (!bioCaCert) {
         return ErrorEnum::eFailed;
     }
@@ -1417,7 +1418,7 @@ Error OpenSSLCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::C
 {
     LOG_DBG() << "Convert certs from PEM to x509";
 
-    auto bio = DeferRelease(BIO_new_mem_buf(pemBlob.CStr(), pemBlob.Size()), BIO_free);
+    auto bio = DeferRelease(BIO_new_mem_buf(pemBlob.CStr(), static_cast<int>(pemBlob.Size())), BIO_free);
     if (!bio) {
         return ErrorEnum::eFailed;
     }
@@ -1449,7 +1450,7 @@ Error OpenSSLCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::C
         }
 
         certCount++;
-        i = certStart + 1;
+        i = static_cast<int32_t>(certStart + 1);
     }
 
     if (certCount != resultCerts.Size()) {
@@ -1519,7 +1520,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> OpenSSLCryptoProvider::PEMToX509PrivKey(c
 {
     LOG_ERR() << "Create private key from PEM";
 
-    auto bio = DeferRelease(BIO_new_mem_buf(pemBlob.Get(), pemBlob.Size()), BIO_free);
+    auto bio = DeferRelease(BIO_new_mem_buf(pemBlob.Get(), static_cast<int>(pemBlob.Size())), BIO_free);
     if (!bio) {
         return {{}, OPENSSL_ERROR()};
     }
@@ -1685,7 +1686,7 @@ Error OpenSSLCryptoProvider::ASN1EncodeObjectIds(const Array<asn1::ObjectIdentif
 
 Error OpenSSLCryptoProvider::ASN1EncodeBigInt(const Array<uint8_t>& number, Array<uint8_t>& asn1Value)
 {
-    auto bn = DeferRelease(BN_signed_bin2bn(number.Get(), number.Size(), nullptr), BN_free);
+    auto bn = DeferRelease(BN_signed_bin2bn(number.Get(), static_cast<int>(number.Size()), nullptr), BN_free);
     if (!bn) {
         return OPENSSL_ERROR();
     }
@@ -2141,7 +2142,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadInteger(
         }
     }
 
-    value = ASN1_INTEGER_get(ai.Get());
+    value = static_cast<int32_t>(ASN1_INTEGER_get(ai.Get()));
 
     // Return remaining data.
     auto remaining = Array<uint8_t>(p, data.Get() + len - p);
@@ -2442,7 +2443,7 @@ Error OpenSSLCryptoProvider::OpenSSLHash::Finalize(Array<uint8_t>& hash)
         return err;
     }
 
-    uint32_t size = hash.Size();
+    uint32_t size = static_cast<uint32_t>(hash.Size());
     if (EVP_DigestFinal_ex(mMDCtx, hash.Get(), &size) != 1) {
         return OPENSSL_ERROR();
     }

@@ -343,7 +343,7 @@ struct SystemQuotaAlert : AlertItem {
     friend Log& operator<<(Log& log, const SystemQuotaAlert& alert)
     {
         return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mNodeID << ":" << alert.mParameter
-                   << ":" << alert.mValue << ":" << alert.mState << "}";
+                   << ":" << static_cast<int32_t>(alert.mValue) << ":" << alert.mState << "}";
     }
 };
 
@@ -394,7 +394,8 @@ struct InstanceQuotaAlert : AlertItem, InstanceIdent {
     friend Log& operator<<(Log& log, const InstanceQuotaAlert& alert)
     {
         return log << "{" << static_cast<const AlertItem&>(alert) << ":" << static_cast<const InstanceIdent&>(alert)
-                   << ":" << alert.mParameter << ":" << alert.mValue << ":" << alert.mState << "}";
+                   << ":" << alert.mParameter << ":" << static_cast<int32_t>(alert.mValue) << ":" << alert.mState
+                   << "}";
     }
 };
 
@@ -497,8 +498,9 @@ struct DownloadAlert : AlertItem {
     friend Log& operator<<(Log& log, const DownloadAlert& alert)
     {
         return log << "{" << static_cast<const AlertItem&>(alert) << ":" << alert.mDigest << ":" << alert.mURL << ":"
-                   << alert.mDownloadedBytes << ":" << alert.mTotalBytes << ":" << alert.mState << ":"
-                   << (alert.mReason.HasValue() ? *alert.mReason : "") << ":" << alert.mError << "}";
+                   << static_cast<int32_t>(alert.mDownloadedBytes) << ":" << static_cast<int32_t>(alert.mTotalBytes)
+                   << ":" << alert.mState << ":" << (alert.mReason.HasValue() ? *alert.mReason : "") << ":"
+                   << alert.mError << "}";
     }
 };
 
