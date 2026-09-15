@@ -39,7 +39,8 @@ Error StorageState::PrepareForBalancing()
     mAvailableStorage.Reset();
 
     if (mStorageStateManager->IsSamePartition()) {
-        mAvailableState = mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
+        mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
+        mAvailableState   = mAvailableStorage;
     } else {
         mAvailableState   = MakeShared<size_t>(mAllocator, 0);
         mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
