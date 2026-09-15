@@ -91,7 +91,7 @@ Error OverrideEnvVarsProcessor::AddStatuses(const String& nodeID, const Array<In
 {
     LockGuard lock {mMutex};
 
-    mNodeEnvVarStatuses.RemoveIf(
+    (void)mNodeEnvVarStatuses.RemoveIf(
         [&nodeID](const EnvVarsInstanceStatusWithNode& item) { return item.mNodeID == nodeID; });
 
     for (const auto& status : statuses) {
