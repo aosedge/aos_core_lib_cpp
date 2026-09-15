@@ -310,7 +310,7 @@ public:
      *
      * @param queue queue to create from.
      */
-    StaticQueue(const Queue<T>& queue)
+    StaticQueue(const Queue<T>& queue) // NOSONAR cpp:S1709
     {
         Queue<T>::SetBuffer(mBuffer);
         Queue<T>::operator=(queue);

@@ -133,7 +133,7 @@ public:
      *
      * @param buffer buffer to crate from.
      */
-    StaticBuffer(const Buffer& buffer)
+    StaticBuffer(const Buffer& buffer) // NOSONAR cpp:S1709
     {
         SetBuffer(mBuffer, cSize);
         Buffer::operator=(buffer);

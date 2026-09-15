@@ -557,7 +557,7 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray(const Array<T>& array)
+    StaticArray(const Array<T>& array) // NOSONAR cpp:S1709
     {
         Array<T>::SetBuffer(mBuffer);
         (void)Array<T>::operator=(array);

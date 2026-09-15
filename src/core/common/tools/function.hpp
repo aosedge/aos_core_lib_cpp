@@ -228,7 +228,7 @@ public:
      *
      * @param function function to create from.
      */
-    StaticFunction(const Function& function)
+    StaticFunction(const Function& function) // NOSONAR cpp:S1709
     {
         Function::SetBuffer(mBuffer);
         (void)Function::operator=(function);
@@ -257,7 +257,8 @@ public:
      */
     template <typename T>
     // cppcheck-suppress noExplicitConstructor
-    StaticFunction(T functor, void* arg = nullptr)
+    StaticFunction( // NOSONAR cpp:S1709
+        T functor, void* arg = nullptr)
     {
         Function::SetBuffer(mBuffer);
         Function::Capture(functor, arg);
