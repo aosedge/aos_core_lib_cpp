@@ -465,8 +465,8 @@ public:
             return err;
         }
 
-        (*this)[0] = upperCase ? toupper(high) : high;
-        (*this)[1] = upperCase ? toupper(low) : low;
+        (*this)[0] = upperCase ? static_cast<char>(toupper(high)) : high;
+        (*this)[1] = upperCase ? static_cast<char>(toupper(low)) : low;
 
         return ErrorEnum::eNone;
     }

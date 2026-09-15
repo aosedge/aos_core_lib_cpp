@@ -559,7 +559,7 @@ struct InstanceIdent {
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
         return log << "{" << instanceIdent.mType << ":" << instanceIdent.mPreinstalled << ":" << instanceIdent.mItemID
-                   << ":" << instanceIdent.mSubjectID << ":" << instanceIdent.mInstance << "}";
+                   << ":" << instanceIdent.mSubjectID << ":" << static_cast<int32_t>(instanceIdent.mInstance) << "}";
     }
 };
 
