@@ -324,7 +324,7 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
 {
     aos::LockGuard lock(sMutex);
 
-    for (psa_key_id_t keyID = MBEDTLS_PSA_KEY_ID_BUILTIN_MIN; keyID <= MBEDTLS_PSA_KEY_ID_BUILTIN_MAX; ++keyID) {
+    for (auto keyID = MBEDTLS_PSA_KEY_ID_BUILTIN_MIN; keyID <= MBEDTLS_PSA_KEY_ID_BUILTIN_MAX; ++keyID) {
         if (IsKeyInBuiltinList(keyID)) {
             continue;
         }
