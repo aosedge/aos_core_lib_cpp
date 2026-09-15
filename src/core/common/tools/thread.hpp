@@ -326,7 +326,8 @@ public:
      */
     Error Lock()
     {
-        if (mError = mLocker.Lock(); !mError.IsNone()) {
+        mError = mLocker.Lock();
+        if (!mError.IsNone()) {
             return mError;
         }
 
@@ -340,7 +341,8 @@ public:
      */
     Error Unlock()
     {
-        if (mError = mLocker.Unlock(); !mError.IsNone()) {
+        mError = mLocker.Unlock();
+        if (!mError.IsNone()) {
             return mError;
         }
 

@@ -542,7 +542,8 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
 
     auto session = MakeShared<SessionContext>(mAllocator, handle, mFunctionList);
     if (!session) {
-        if (rv = mFunctionList->C_CloseSession(handle); rv != CKR_OK) {
+        rv = mFunctionList->C_CloseSession(handle);
+        if (rv != CKR_OK) {
             LOG_ERR() << "Close session failed" << Log::Field("ret", rv);
         }
 
@@ -1376,7 +1377,8 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> Utils::FindCertificateCh
         return {nullptr, err};
     }
 
-    if (err = ValidateCertificateChain(*chain); !err.IsNone()) {
+    err = ValidateCertificateChain(*chain);
+    if (!err.IsNone()) {
         return {nullptr, err};
     }
 

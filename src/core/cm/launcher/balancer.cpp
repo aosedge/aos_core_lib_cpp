@@ -115,7 +115,8 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            if (scheduleErr = ScheduleInstance(instance, manifest); scheduleErr.IsNone()) {
+            scheduleErr = ScheduleInstance(instance, manifest);
+            if (scheduleErr.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
                 break;
