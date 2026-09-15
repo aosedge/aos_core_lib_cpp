@@ -54,7 +54,7 @@ public:
     MOCK_METHOD(Error, ASN1DecodeOctetString, (const Array<uint8_t>&, Array<uint8_t>&), (override));
     MOCK_METHOD(Error, ASN1DecodeOID, (const Array<uint8_t>&, Array<uint8_t>&), (override));
     MOCK_METHOD(Error, Verify,
-        ((const Variant<ECDSAPublicKey, RSAPublicKey>&), Hash, x509::Padding, const Array<uint8_t>&,
+        ((const Variant<ECDSAPublicKey, RSAPublicKey>&), const Hash&, const x509::Padding&, const Array<uint8_t>&,
             const Array<uint8_t>&),
         (override));
     MOCK_METHOD(Error, Verify,

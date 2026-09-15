@@ -125,7 +125,7 @@ public:
      * @param algorithm hash algorithm.
      * @return RetWithError<UniquePtr<HashItf>>.
      */
-    virtual RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) = 0;
+    virtual RetWithError<UniquePtr<HashItf>> CreateHash(const Hash& algorithm) = 0;
 
     /**
      * Destructor.

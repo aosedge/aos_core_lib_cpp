@@ -74,7 +74,7 @@ private:
     static constexpr auto cMaxPrefixSize = Max(sizeof(cSHA1Prefix), sizeof(cSHA224Prefix), sizeof(cSHA256Prefix),
         sizeof(cSHA384Prefix), sizeof(cSHA512Prefix));
 
-    Array<uint8_t> GetPrefix(crypto::Hash hash) const;
+    Array<uint8_t> GetPrefix(const crypto::Hash& hash) const;
 
     AllocatorItf& mAllocator;
 

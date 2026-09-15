@@ -781,8 +781,7 @@ Error ImageManager::GetBlobURL(const String& digest, String& url) const
     return ErrorEnum::eNone;
 }
 
-// cppcheck-suppress passedByValue
-void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err)
+void ImageManager::ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, const Error& err)
 {
     if (!err.IsNone()) {
         if (auto removeErr = fs::RemoveAll(path); !removeErr.IsNone()) {

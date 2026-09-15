@@ -76,7 +76,7 @@ struct AlertItem {
      *
      * @param tag alert tag.
      */
-    explicit AlertItem(AlertTag tag)
+    explicit AlertItem(const AlertTag& tag)
         : mTag(tag)
     {
     }
