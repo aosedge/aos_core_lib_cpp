@@ -67,7 +67,8 @@ Error Launcher::Init(AllocatorItf& allocator, const Config& config,
     mNodeManager.Init(allocator, *mNodeInfoProvider, *mNodeConfigProvider, *mRunner, mOverrideEnvVarsProcessor);
     mBalancer.Init(allocator, mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
 
-    if (err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this); !err.IsNone()) {
+    err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -514,7 +515,8 @@ void Launcher::ProcessUpdate()
         if (doRebalance) {
             mForceRebalance = false;
 
-            if (err = BalanceInstances(updateLock, true); !err.IsNone()) {
+            err = BalanceInstances(updateLock, true);
+            if (!err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
