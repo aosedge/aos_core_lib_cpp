@@ -161,25 +161,26 @@ private:
     static constexpr auto cAES256CBCOid     = "2.16.840.1.101.3.4.1.42";
 
     RetWithError<SharedPtr<x509::CertificateChain>> GetOnlineCert();
-    Error                                           SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls);
-    Error GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls);
+    Error SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls) const;
+    Error GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls) const;
     Error GetServiceDiscoveryFromOrganization(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls);
 
-    Error DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName);
+    Error DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName) const;
     Error GetSymmetricAlgInfo(const String& algName, const String& modeName, size_t& keySize, size_t& ivSize) const;
     Error CheckSessionKey(const String& symAlgName, const String& modeName, const Array<uint8_t>& sessionIV,
         const Array<uint8_t>& sessionKey) const;
 
     Error AddCertificates(const Array<CertificateInfo>& cert, SignContext& ctx);
-    Error AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx);
+    Error AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx) const;
     Error VerifySigns(const String& file, const SignInfo& signs, SignContext& signCtx);
 
-    RetWithError<x509::Certificate*> GetCert(SignContext& signCtx, const String& fingerprint);
-    Error                            GetSignCert(
-                                   SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain);
-    Error DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName);
-    RetWithError<Hash> DecodeHash(const String& hashName);
-    Error CreateIntermCertPool(SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool);
+    RetWithError<x509::Certificate*> GetCert(SignContext& signCtx, const String& fingerprint) const;
+    Error GetSignCert(SignContext& signCtx, const String& chainName, x509::Certificate*& signCert,
+        CertificateChainInfo*& chain) const;
+    Error DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName) const;
+    RetWithError<Hash> DecodeHash(const String& hashName) const;
+    Error              CreateIntermCertPool(
+                     SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool) const;
 
     Error UnmarshalCMS(const Array<uint8_t>& der, ContentInfo& content);
     Error ParseContentInfo(const Array<uint8_t>& data, ContentInfo& content);
@@ -188,7 +189,8 @@ private:
     Error ParseRID(const Array<uint8_t>& data, RecipientID& content);
     Error ParseEncryptedContentInfo(const Array<uint8_t>& data, EncryptedContentInfo& content);
     Error GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint8_t>& symmetricKey);
-    Error DecryptCMSKey(const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey);
+    Error DecryptCMSKey(
+        const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey) const;
     Error DecryptMessage(const EncryptedContentInfo& content, const Array<uint8_t>& symKey, Array<uint8_t>& message);
     Error DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& input, Array<uint8_t>& message);
 

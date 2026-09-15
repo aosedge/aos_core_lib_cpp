@@ -133,7 +133,8 @@ void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
     mMonitoringData = monitoringData;
 }
 
-bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID)
+bool Instance::IsRuntimeTypeOk(
+    const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID) const
 {
     assert(mItemConfig);
 
@@ -141,7 +142,7 @@ bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType,
         || (!mInfo.mDisableRebalancing && mItemConfig->mRuntimes.Contains(runtimeType));
 }
 
-bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
+bool Instance::IsPlatformOk(const PlatformInfo& platformInfo) const
 {
     assert(mImageConfig);
 
@@ -189,12 +190,12 @@ bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
     return true;
 }
 
-bool Instance::IsNodeIDOk(const String& nodeID)
+bool Instance::IsNodeIDOk(const String& nodeID) const
 {
     return !mInfo.mDisableRebalancing || mInfo.mNodeID == nodeID;
 }
 
-bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
+bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels) const
 {
     for (const auto& label : mInfo.mLabels) {
         if (!nodeLabels.Contains(label)) {
@@ -646,7 +647,7 @@ size_t ServiceInstance::GetReqStorageSize(const NodeConfig& nodeConfig)
     return requestedStorage;
 }
 
-size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quota)
+size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quota) const
 {
     if (quota.HasValue() && value > quota.GetValue()) {
         return quota.GetValue();
@@ -656,7 +657,7 @@ size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quot
 }
 
 size_t ServiceInstance::GetReqCPUFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -669,14 +670,14 @@ size_t ServiceInstance::GetReqCPUFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
 }
 
 size_t ServiceInstance::GetReqRAMFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -689,14 +690,14 @@ size_t ServiceInstance::GetReqRAMFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
 }
 
 size_t ServiceInstance::GetReqStateFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -709,14 +710,14 @@ size_t ServiceInstance::GetReqStateFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
 }
 
 size_t ServiceInstance::GetReqStorageFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 

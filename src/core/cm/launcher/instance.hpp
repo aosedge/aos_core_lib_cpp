@@ -159,7 +159,7 @@ public:
      * @param runtimeID runtime identifier.
      * @return bool.
      */
-    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID);
+    bool IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID) const;
 
     /**
      * Checks whether platform fits instance requirements.
@@ -167,7 +167,7 @@ public:
      * @param platformInfo platform info.
      * @return bool.
      */
-    bool IsPlatformOk(const PlatformInfo& platformInfo);
+    bool IsPlatformOk(const PlatformInfo& platformInfo) const;
 
     /**
      * Checks whether node ID fits instance requirements.
@@ -175,7 +175,7 @@ public:
      * @param nodeID node ID.
      * @return bool.
      */
-    bool IsNodeIDOk(const String& nodeID);
+    bool IsNodeIDOk(const String& nodeID) const;
 
     /**
      * Checks whether node resources fit instance requirements.
@@ -191,7 +191,7 @@ public:
      * @param nodeLabels node labels.
      * @return bool.
      */
-    bool AreNodeLabelsOk(const LabelsArray& nodeLabels);
+    bool AreNodeLabelsOk(const LabelsArray& nodeLabels) const;
 
     /**
      * Returns balancing policy.
@@ -435,11 +435,11 @@ private:
     size_t GetReqStateSize(const NodeConfig& nodeConfig);
     size_t GetReqStorageSize(const NodeConfig& nodeConfig);
 
-    size_t ClampResource(size_t value, const Optional<size_t>& quota);
-    size_t GetReqCPUFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
-    size_t GetReqRAMFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
-    size_t GetReqStateFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
-    size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios);
+    size_t ClampResource(size_t value, const Optional<size_t>& quota) const;
+    size_t GetReqCPUFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
+    size_t GetReqRAMFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
+    size_t GetReqStateFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
+    size_t GetReqStorageFromNodeConfig(const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const;
 
     Error ReserveRuntimeResources(NodeItf& node, const String& runtimeID);
     Error SetupStateStorage(const NodeConfig& nodeConfig, String& storagePath, String& statePath);

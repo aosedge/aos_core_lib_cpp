@@ -145,12 +145,12 @@ bool Node::UpdateInfo(const UnitNodeInfo& info)
     return nodeChanged;
 }
 
-size_t Node::GetAvailableCPU()
+size_t Node::GetAvailableCPU() const
 {
     return mAvailableCPU;
 }
 
-size_t Node::GetAvailableRAM()
+size_t Node::GetAvailableRAM() const
 {
     return mAvailableRAM;
 }
@@ -482,7 +482,7 @@ size_t* Node::GetPtrToMaxNumInstances(const String& runtimeID)
     return &mMaxInstances.Find(runtimeID)->mSecond;
 }
 
-void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info)
+void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info) const
 {
     static_cast<InstanceIdent&>(info) = static_cast<const InstanceIdent&>(status);
     info.mRuntimeID                   = status.mRuntimeID;

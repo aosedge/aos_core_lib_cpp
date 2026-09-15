@@ -213,7 +213,7 @@ protected:
         mSize++;
     }
 
-    void ReleaseNode(Node& node)
+    void ReleaseNode(Node& node) const
     {
         assert(node.mAllocated);
 
