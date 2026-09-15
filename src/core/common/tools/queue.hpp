@@ -57,7 +57,7 @@ public:
      *
      * @param queue queue to create from.
      */
-    Queue(const Queue& queue) = default;
+    Queue(const Queue& queue) noexcept = default;
 
     // cppcheck-suppress operatorEqVarError
     /**
@@ -67,7 +67,7 @@ public:
      *
      * @return Queue&.
      */
-    Queue& operator=(const Queue& queue)
+    Queue& operator=(const Queue& queue) noexcept
     {
         assert(mBegin && queue.mSize <= mMaxSize);
 

@@ -101,7 +101,7 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
+    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0) noexcept
         : mErr(err.mErr)
         , mErrno(err.mErrno)
         , mFileName(fileName)
@@ -125,7 +125,7 @@ public:
      * @param err error to copy from.
      * @return Error&.
      */
-    Error& operator=(const Error& err)
+    Error& operator=(const Error& err) noexcept
     {
         mErr   = err.mErr;
         mErrno = err.mErrno;
