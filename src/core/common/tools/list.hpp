@@ -197,7 +197,8 @@ protected:
             return nullptr;
         }
 
-        new (&node->mBuffer) T(args...);
+        new (&node->mBuffer) T(args...); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
+                                         // dtor; no heap allocator available
 
         return node;
     }
@@ -220,7 +221,7 @@ protected:
         assert(node.mAllocated);
 
         node.mAllocated = false;
-        reinterpret_cast<T*>(node.mBuffer)->~T();
+        reinterpret_cast<T*>(node.mBuffer)->~T(); // NOSONAR cpp:M23_329
     }
 
     void RemoveNode(Node& node)

@@ -23,7 +23,7 @@ namespace aos {
 /**
  * String instance.
  */
-class String : public Array<char> {
+class String : public Array<char> { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     enum class CaseSensitivity {
         CaseInsensitive,
@@ -62,6 +62,11 @@ public:
             *end() = 0;
         }
     }
+
+    /**
+     * Destructor.
+     */
+    ~String() = default;
 
     /**
      * Assigns string to string.
@@ -802,7 +807,7 @@ public:
  * @tparam cMaxSize max static string size.
  */
 template <size_t cMaxSize>
-class StaticString : public String {
+class StaticString : public String { // NOSONAR cpp:S3624 - StaticBuffer member handles its own cleanup
 public:
     /**
      * Creates static string.
@@ -825,6 +830,11 @@ public:
         String::SetBuffer(mBuffer, cMaxSize);
         (void)String::operator=(str);
     }
+
+    /**
+     * Destructor.
+     */
+    ~StaticString() = default;
 
     /**
      * Assigns string from another static string.
