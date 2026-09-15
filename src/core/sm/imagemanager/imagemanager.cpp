@@ -473,12 +473,12 @@ Error ImageManager::DownloadBlob(const String& path, const String& digest, size_
     UniquePtr<spaceallocator::SpaceItf> space;
     StaticString<cURLLen>               url;
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
-        if (!err->IsNone()) {
-            LOG_ERR() << "Failed to download blob" << Log::Field("digest", digest) << Log::Field(*err);
+    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+        if (!releaseErr->IsNone()) {
+            LOG_ERR() << "Failed to download blob" << Log::Field("digest", digest) << Log::Field(*releaseErr);
         }
 
-        ReleaseSpace(path, space.Get(), *err);
+        ReleaseSpace(path, space.Get(), *releaseErr);
     });
 
     err = GetBlobURL(digest, url);
@@ -643,12 +643,12 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
 
     UniquePtr<spaceallocator::SpaceItf> space;
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* err) {
-        if (!err->IsNone()) {
-            LOG_ERR() << "Failed to unpack layer" << Log::Field("diffDigest", diffDigest) << Log::Field(*err);
+    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+        if (!releaseErr->IsNone()) {
+            LOG_ERR() << "Failed to unpack layer" << Log::Field("diffDigest", diffDigest) << Log::Field(*releaseErr);
         }
 
-        ReleaseSpace(dstPath, space.Get(), *err);
+        ReleaseSpace(dstPath, space.Get(), *releaseErr);
     });
 
     if (size) {
@@ -979,8 +979,8 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
-    if (it != itemData.end()) {
+    if (auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
+        it != itemData.end()) {
         err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
             itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
         if (!err.IsNone()) {
