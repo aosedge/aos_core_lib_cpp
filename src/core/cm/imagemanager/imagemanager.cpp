@@ -968,7 +968,7 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
     Error                               err;
     UniquePtr<spaceallocator::SpaceItf> space;
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+    auto releaseSpace = DeferRelease(&err, [&space, &digest, &installPath](const Error* releaseErr) {
         if (space && !releaseErr->IsNone()) {
             LOG_ERR() << "Failed to load index" << Log::Field("digest", digest) << Log::Field(*releaseErr);
 
@@ -1024,7 +1024,7 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
         return AOS_ERROR_WRAP(err);
     }
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+    auto releaseSpace = DeferRelease(&err, [&space, &digest, &installPath](const Error* releaseErr) {
         if (space && !releaseErr->IsNone()) {
             LOG_ERR() << "Failed to load manifest" << Log::Field("digest", digest) << Log::Field(*releaseErr);
 
@@ -1080,7 +1080,7 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
         return AOS_ERROR_WRAP(err);
     }
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+    auto releaseSpace = DeferRelease(&err, [&space, &descriptor, &installPath](const Error* releaseErr) {
         if (space && !releaseErr->IsNone()) {
             LOG_ERR() << "Failed to load blob" << Log::Field("digest", descriptor.mDigest) << Log::Field(*releaseErr);
 
@@ -1138,8 +1138,8 @@ Error ImageManager::EnsureBlob(const String& digest, const String& downloadPath,
 
     DownloadSpace downloadSpace;
 
-    auto discardDownload
-        = DeferRelease(&downloadSpace, [&](DownloadSpace* spacePtr) { DiscardDownload(downloadPath, *spacePtr); });
+    auto discardDownload = DeferRelease(
+        &downloadSpace, [this, &downloadPath](DownloadSpace* spacePtr) { DiscardDownload(downloadPath, *spacePtr); });
 
     do {
         if (auto err = DownloadBlob(digest, downloadPath, installPath, *blobInfo, downloadSpace); !err.IsNone()) {
