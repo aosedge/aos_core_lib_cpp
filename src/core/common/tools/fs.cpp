@@ -719,7 +719,7 @@ Error BaseName(const String& path, String& base)
         return err;
     }
 
-    if (base.Size() == 0) {
+    if (base.IsEmpty()) {
         base = ".";
 
         return ErrorEnum::eNone;
@@ -727,7 +727,7 @@ Error BaseName(const String& path, String& base)
 
     (void)base.RightTrim("/");
 
-    if (base.Size() == 0) {
+    if (base.IsEmpty()) {
         base = "/";
         return ErrorEnum::eNone;
     }
@@ -755,13 +755,13 @@ Error ParentPath(const String& path, String& parent)
         return err;
     }
 
-    if (parent.Size() == 0) {
+    if (parent.IsEmpty()) {
         return ErrorEnum::eNone;
     }
 
     (void)parent.RightTrim("/");
 
-    if (parent.Size() == 0) {
+    if (parent.IsEmpty()) {
         parent = "/";
 
         return ErrorEnum::eNone;
@@ -793,7 +793,7 @@ Error ParentPath(const String& path, String& parent)
 
     (void)parent.RightTrim("/");
 
-    if (parent.Size() == 0) {
+    if (parent.IsEmpty()) {
         parent = "/";
     }
 
