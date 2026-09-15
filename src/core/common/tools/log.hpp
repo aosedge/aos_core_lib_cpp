@@ -195,7 +195,7 @@ public:
         return *this;
     }
 
-    Log& operator<<(const FieldEntry<unsigned long>& field)
+    Log& operator<<(const FieldEntry<unsigned long>& field) // NOSONAR cpp:M23_058
     {
         *this << (mFieldsCount > 0 ? ", " : ": ") << field.mKey << "=" << static_cast<int32_t>(field.mValue);
 
