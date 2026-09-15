@@ -9,7 +9,7 @@
 // clang-format behaves weird with asn1 macros. Had to separate them in a
 // dedicated header so it didn't pollute the rest of the code.
 
-typedef STACK_OF(ASN1_OBJECT) SEQ_OID;
+using SEQ_OID = STACK_OF(ASN1_OBJECT);
 
 ASN1_ITEM_TEMPLATE(SEQ_OID)
 // cppcheck-suppress unknownMacro
