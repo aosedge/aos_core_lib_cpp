@@ -97,8 +97,6 @@ Error GetIdentifiers(String& version, Array<String>& identifiers)
 
         pos = version.begin() + identPos;
     }
-
-    return ErrorEnum::eNone;
 }
 
 Error ValidateNumericIdentifier(const String& identifier)
