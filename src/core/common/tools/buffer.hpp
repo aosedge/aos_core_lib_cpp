@@ -19,7 +19,7 @@ namespace aos {
 /**
  * Buffer instance.
  */
-class Buffer {
+class Buffer { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     /**
      * Creates buffer from existing memory region.
@@ -39,6 +39,11 @@ public:
      * @param buffer another buffer instance.
      */
     Buffer(const Buffer& buffer) noexcept = default;
+
+    /**
+     * Destructor.
+     */
+    ~Buffer() = default;
 
     // cppcheck-suppress duplInheritedMember
     /**

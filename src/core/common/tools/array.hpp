@@ -21,7 +21,7 @@ namespace aos {
  * @tparam T array type.
  */
 template <typename T>
-class Array : public AlgorithmItf<T, T*, const T*> {
+class Array : public AlgorithmItf<T, T*, const T*> { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     using Iterator      = T*;
     using ConstIterator = const T*;
@@ -57,6 +57,11 @@ public:
      * @param array another array instance.
      */
     Array(const Array& array) noexcept = default;
+
+    /**
+     * Destructor.
+     */
+    ~Array() = default;
 
     // cppcheck-suppress uninitMemberVar
     // cppcheck-suppress operatorEqVarError
@@ -95,7 +100,7 @@ public:
         mSize = array.mSize;
 
         for (size_t i = 0; i < array.Size(); i++) {
-            new (&mItems[i]) T(array.mItems[i]);
+            new (&mItems[i]) T(array.mItems[i]); // NOSONAR cpp:M23_329
         }
 
         return ErrorEnum::eNone;
@@ -155,7 +160,7 @@ public:
 
         if (size > mSize) {
             for (auto it = end(); it != end() + size - mSize; it++) {
-                new (it) T();
+                new (it) T(); // NOSONAR cpp:M23_329
             }
         }
 
@@ -179,7 +184,7 @@ public:
 
         if (size > mSize) {
             for (auto it = end(); it != end() + size - mSize; it++) {
-                new (it) T(value);
+                new (it) T(value); // NOSONAR cpp:M23_329
             }
         }
 
@@ -270,7 +275,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(item);
+        new (end()) T(item); // NOSONAR cpp:M23_329
 
         mSize++;
 
@@ -289,7 +294,8 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(Move(item));
+        new (end()) T(Move(item)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit dtor;
+                                   // no heap allocator available
 
         mSize++;
 
@@ -382,11 +388,13 @@ public:
         }
 
         for (auto i = end() - pos - 1; i >= 0; i--) {
-            new (pos + size + i) T(*(pos + i));
+            new (pos + size + i) T(*(pos + i)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement
+                                                // new/explicit dtor; no heap allocator available
         }
 
         for (size_t i = 0; i < size; i++) {
-            new (pos + i) T(*(from + i));
+            new (pos + i) T(*(from + i)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
+                                          // dtor; no heap allocator available
         }
 
         mSize += size;

@@ -32,7 +32,7 @@ using ObjectIdentifier = StaticString<cASN1ObjIdLen>;
 /**
  * ASN1 value.
  */
-struct ASN1Value {
+struct ASN1Value { // NOSONAR cpp:S3624 - non-owning view, nothing to release
     int32_t        mTagClass {};
     int32_t        mTagNumber {};
     bool           mIsConstructed {};
@@ -63,6 +63,11 @@ struct ASN1Value {
      * Constructor.
      */
     ASN1Value(const ASN1Value& other) noexcept { *this = other; }
+
+    /**
+     * Destructor.
+     */
+    ~ASN1Value() = default;
 
     /**
      * Copy operator.
@@ -200,7 +205,8 @@ ASN1Reader<Reader> MakeASN1Reader(Reader&& reader)
 /**
  * Represents the result of an ASN.1 parsing operation.
  */
-struct ASN1ParseResult {
+struct ASN1ParseResult { // NOSONAR cpp:S3624 - mRemaining is a non-owning Array view into the parsed input buffer;
+                         // default dtor is correct, there is nothing for this struct to release
     Error          mError;
     Array<uint8_t> mRemaining;
 
@@ -227,6 +233,11 @@ struct ASN1ParseResult {
      * @param other source parse result object.
      */
     ASN1ParseResult(const ASN1ParseResult& other) { *this = other; }
+
+    /**
+     * Destructor.
+     */
+    ~ASN1ParseResult() = default;
 
     /**
      * Copy operator.

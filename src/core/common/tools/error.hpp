@@ -120,6 +120,11 @@ public:
     }
 
     /**
+     * Destructor.
+     */
+    ~Error() = default;
+
+    /**
      * Assigns error from another error.
      *
      * @param err error to copy from.
