@@ -200,7 +200,8 @@ Error PKCS11Module::Clear()
     return ErrorEnum::eNone;
 }
 
-RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(const String& password, crypto::KeyType keyType)
+RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
+    const String& password, const crypto::KeyType& keyType)
 {
     (void)password;
 

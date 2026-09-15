@@ -112,7 +112,7 @@ public:
      * @param moduleName log module name.
      * @param level log level type.
      */
-    Log(const String& moduleName, LogLevel level)
+    Log(const String& moduleName, const LogLevel& level)
         : mModule(moduleName)
         , mLevel(level) {};
 

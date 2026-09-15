@@ -141,7 +141,7 @@ private:
     Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest);
     Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, InstallItem& installItem);
     Error GetBlobURL(const String& digest, String& url) const;
-    void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
+    void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, const Error& err);
     Error WaitForInstallingBlob(const String& digest);
     Error ReleaseInstallingBlob(const String& digest);
     RetWithError<List<InstallItem>::Iterator> CreateInstallingItem(const UpdateItemInfo& itemInfo);

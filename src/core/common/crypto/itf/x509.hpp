@@ -386,8 +386,8 @@ public:
      * @param signature signature to verify against the digest.
      * @return Error.
      */
-    virtual Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
-        const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+    virtual Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+        const Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
         = 0;
 
     /**

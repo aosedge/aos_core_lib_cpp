@@ -39,7 +39,7 @@ public:
     MOCK_METHOD(Error, SetOwner, (const String&), (override));
     MOCK_METHOD(Error, Clear, (), (override));
     MOCK_METHOD(
-        RetWithError<SharedPtr<crypto::PrivateKeyItf>>, CreateKey, (const String&, crypto::KeyType), (override));
+        RetWithError<SharedPtr<crypto::PrivateKeyItf>>, CreateKey, (const String&, const crypto::KeyType&), (override));
     MOCK_METHOD(Error, ApplyCert, (const Array<crypto::x509::Certificate>&, CertInfo&, String&), (override));
     MOCK_METHOD(Error, RemoveCert, (const String&, const String&), (override));
     MOCK_METHOD(Error, RemoveKey, (const String&, const String&), (override));
