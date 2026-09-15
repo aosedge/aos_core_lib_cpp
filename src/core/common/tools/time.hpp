@@ -39,7 +39,7 @@ public:
      *
      * @param duration duration in nanoseconds.
      */
-    constexpr Duration(int64_t duration)
+    constexpr Duration(int64_t duration) // NOSONAR cpp:S1709
         : mDuration(duration)
     {
     }

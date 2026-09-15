@@ -152,7 +152,8 @@ public:
      * @param allocator allocator that object was allocated with.
      *
      */
-    UniquePtr(T* ptr = nullptr, AllocatorItf* allocator = nullptr)
+    UniquePtr(T*      ptr       = nullptr, // NOSONAR cpp:S1709
+        AllocatorItf* allocator = nullptr)
         : mObject(ptr)
         , mDeleter(DefaultDeleter<T>(allocator))
     {
@@ -191,7 +192,7 @@ public:
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
     // cppcheck-suppress noExplicitConstructor
-    UniquePtr(UniquePtr<P, D>&& ptr) noexcept
+    UniquePtr(UniquePtr<P, D>&& ptr) noexcept // NOSONAR cpp:S1709
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -497,7 +498,8 @@ public:
      * @param object object to adopt.
      * @param deleter functor destroying the object.
      */
-    SharedPtr(AllocatorItf* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
+    SharedPtr(AllocatorItf* allocator = nullptr, T* object = nullptr, // NOSONAR cpp:S1709
+        Deleter deleter = SmartPtrDeleter<T>)
     {
         Adopt(allocator, object, deleter);
     }
@@ -546,7 +548,7 @@ public:
      */
     template <typename P>
     // cppcheck-suppress noExplicitConstructor
-    SharedPtr(const SharedPtr<P>& ptr)
+    SharedPtr(const SharedPtr<P>& ptr) // NOSONAR cpp:S1709
         : mObject(ptr.mObject)
         , mControlBlock(ptr.mControlBlock)
     {

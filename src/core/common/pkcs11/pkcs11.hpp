@@ -671,8 +671,8 @@ public:
      * @param privHandle private key handle.
      * @param pubHandle public key handle.
      */
-    PrivateKey(ObjectHandle privHandle = 0, ObjectHandle pubHandle = 0,
-        const SharedPtr<crypto::PrivateKeyItf>& privKey = nullptr)
+    PrivateKey(ObjectHandle privHandle = 0, // NOSONAR cpp:S1709
+        ObjectHandle pubHandle = 0, const SharedPtr<crypto::PrivateKeyItf>& privKey = nullptr)
         : mPrivHandle(privHandle)
         , mPubHandle(pubHandle)
         , mPrivKey(privKey)
