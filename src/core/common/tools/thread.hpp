@@ -662,8 +662,7 @@ public:
     {
         UniqueLock lock(mMutex);
 
-        auto err = mWaitCondVar.Wait(lock, [this]() { return mPendingTaskCount == 0; });
-        if (!err.IsNone()) {
+        if (auto err = mWaitCondVar.Wait(lock, [this]() { return mPendingTaskCount == 0; }); !err.IsNone()) {
             return err;
         }
 

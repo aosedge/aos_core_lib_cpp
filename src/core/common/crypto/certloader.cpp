@@ -224,8 +224,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const Str
         return {nullptr, ErrorEnum::eNoMemory};
     }
 
-    auto err = fs::ReadFileToString(fileName, *buff);
-    if (!err.IsNone()) {
+    if (auto err = fs::ReadFileToString(fileName, *buff); !err.IsNone()) {
         return {nullptr, err};
     }
 
@@ -326,8 +325,7 @@ Error ParseFileURL(const String& url, String& path)
 {
     StaticString<cSchemeMaxLength> scheme;
 
-    auto err = ParseURLScheme(url, scheme);
-    if (!err.IsNone() || scheme != cSchemeFile) {
+    if (auto err = ParseURLScheme(url, scheme); !err.IsNone() || scheme != cSchemeFile) {
         return ErrorEnum::eFailed;
     }
 

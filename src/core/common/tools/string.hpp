@@ -343,7 +343,7 @@ public:
 
             if (oldSubstr.Size() < newSubstr.Size()) {
                 err = Insert(
-                        begin() + oldPos + oldSubstr.Size(), newSubstr.begin() + oldSubstr.Size(), newSubstr.end());
+                    begin() + oldPos + oldSubstr.Size(), newSubstr.begin() + oldSubstr.Size(), newSubstr.end());
                 if (!err.IsNone()) {
                     return err;
                 }
@@ -461,8 +461,7 @@ public:
         auto high = cDigits[val >> 4];
         auto low  = cDigits[val & 0xF];
 
-        auto err = Resize(2);
-        if (!err.IsNone()) {
+        if (auto err = Resize(2); !err.IsNone()) {
             return err;
         }
 
@@ -601,23 +600,20 @@ public:
     {
         Clear();
 
-        auto msg = inErr.Message();
-        if (msg && *msg) {
+        if (auto msg = inErr.Message(); msg && *msg) {
             (void)Append(msg);
         } else {
             (void)Append(inErr.StrValue());
         }
 
-        auto strErrno = inErr.StrErrno();
-        if (strErrno && *strErrno) {
+        if (auto strErrno = inErr.StrErrno(); strErrno && *strErrno) {
             (void)Append(" [").Append(strErrno).Append("]");
         }
 
         if (inErr.FileName()) {
             char tmpBuf[16];
 
-            auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber());
-            if (!err.IsNone()) {
+            if (auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber()); !err.IsNone()) {
                 return err;
             }
 

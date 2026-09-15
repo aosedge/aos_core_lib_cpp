@@ -225,9 +225,9 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
         mUnitStatus.mNodes.EmplaceValue();
     }
 
-    auto it = mUnitStatus.mNodes->FindIf(
-        [&info](const UnitNodeInfo& nodeInfo) { return nodeInfo.mNodeID == info.mNodeID; });
-    if (it != mUnitStatus.mNodes->end()) {
+    if (auto it = mUnitStatus.mNodes->FindIf(
+            [&info](const UnitNodeInfo& nodeInfo) { return nodeInfo.mNodeID == info.mNodeID; });
+        it != mUnitStatus.mNodes->end()) {
         *it = info;
     } else {
         if (auto err = mUnitStatus.mNodes->EmplaceBack(info); !err.IsNone()) {

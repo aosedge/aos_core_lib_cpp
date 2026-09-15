@@ -450,11 +450,10 @@ StaticString<pkcs11::cLabelLen> PKCS11Module::GetTokenLabel() const
 
 RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 {
-    const int32_t paramCount = static_cast<int32_t>(mConfig.mSlotID.HasValue())
-        + static_cast<int32_t>(mConfig.mSlotIndex.HasValue())
-        + static_cast<int32_t>(!mConfig.mTokenLabel.IsEmpty());
-
-    if (paramCount > 1) {
+    if (const int32_t paramCount = static_cast<int32_t>(mConfig.mSlotID.HasValue())
+            + static_cast<int32_t>(mConfig.mSlotIndex.HasValue())
+            + static_cast<int32_t>(!mConfig.mTokenLabel.IsEmpty());
+        paramCount > 1) {
         LOG_ERR()
             << "Only one parameter for slot identification should be specified (slotID or slotIndex or tokenLabel)";
 
@@ -530,8 +529,7 @@ RetWithError<bool> PKCS11Module::IsOwned() const
         return {false, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    auto err = mPKCS11->GetTokenInfo(mSlotID, *tokenInfo);
-    if (!err.IsNone()) {
+    if (auto err = mPKCS11->GetTokenInfo(mSlotID, *tokenInfo); !err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};
     }
 
@@ -627,8 +625,7 @@ Error PKCS11Module::GetUserPin(String& pin) const
         return ErrorEnum::eNone;
     }
 
-    auto err = fs::ReadFileToString(mConfig.mUserPINPath, pin);
-    if (!err.IsNone()) {
+    if (auto err = fs::ReadFileToString(mConfig.mUserPINPath, pin); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -769,8 +766,7 @@ Error PKCS11Module::TokenMemInfo() const
 {
     pkcs11::TokenInfo info;
 
-    auto err = mPKCS11->GetTokenInfo(mSlotID, info);
-    if (!err.IsNone()) {
+    if (auto err = mPKCS11->GetTokenInfo(mSlotID, info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -861,8 +857,7 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     if (!id.IsEmpty()) {
         StaticString<pkcs11::cIDStrLen> idStr;
 
-        auto err = crypto::EncodePKCS11ID(id, idStr);
-        if (!err.IsNone()) {
+        if (auto err = crypto::EncodePKCS11ID(id, idStr); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -879,8 +874,7 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     }
 
     // combine opaque & query parts of url
-    auto err = url.Format("%s:%s?%s", cPKCS11Scheme, opaque->CStr(), query->CStr());
-    if (!err.IsNone()) {
+    if (auto err = url.Format("%s:%s?%s", cPKCS11Scheme, opaque->CStr(), query->CStr()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -893,8 +887,7 @@ Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& i
     StaticString<pkcs11::cLabelLen> token;
     StaticString<pkcs11::cPINLen>   userPIN;
 
-    auto err = crypto::ParsePKCS11URL(url, library, token, label, id, userPIN);
-    if (!err.IsNone()) {
+    if (auto err = crypto::ParsePKCS11URL(url, library, token, label, id, userPIN); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

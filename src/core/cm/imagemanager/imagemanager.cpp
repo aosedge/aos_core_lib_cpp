@@ -792,24 +792,22 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
 
         LOG_DBG() << "Process item" << Log::Field("id", itemInfo.mItemID) << Log::Field("version", itemInfo.mVersion);
 
-        auto installedOrPendingIt = storedItems.FindIf([&itemInfo](const auto& stored) {
-            return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion
-                && (stored.mState == ItemStateEnum::eInstalled || stored.mState == ItemStateEnum::ePending);
-        });
-
-        if (installedOrPendingIt != storedItems.end()) {
+        if (auto installedOrPendingIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+                return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion
+                    && (stored.mState == ItemStateEnum::eInstalled || stored.mState == ItemStateEnum::ePending);
+            });
+            installedOrPendingIt != storedItems.end()) {
             LOG_DBG() << "Item already processed in first loop, skipping";
 
             continue;
         }
 
-        auto oldVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
-            return stored.mItemID == itemInfo.mItemID && stored.mVersion != itemInfo.mVersion
-                && (stored.mState == ItemStateEnum::ePending || stored.mState == ItemStateEnum::eFailed
-                    || stored.mState == ItemStateEnum::eDownloading);
-        });
-
-        if (oldVersionIt != storedItems.end()) {
+        if (auto oldVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+                return stored.mItemID == itemInfo.mItemID && stored.mVersion != itemInfo.mVersion
+                    && (stored.mState == ItemStateEnum::ePending || stored.mState == ItemStateEnum::eFailed
+                        || stored.mState == ItemStateEnum::eDownloading);
+            });
+            oldVersionIt != storedItems.end()) {
             LOG_DBG() << "Removing old version" << Log::Field("id", oldVersionIt->mItemID)
                       << Log::Field("version", oldVersionIt->mVersion);
 
@@ -821,13 +819,12 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
             }
         }
 
-        auto sameVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
-            return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion
-                && (stored.mState == ItemStateEnum::eDownloading || stored.mState == ItemStateEnum::eFailed
-                    || stored.mState == ItemStateEnum::eRemoved);
-        });
-
-        if (sameVersionIt == storedItems.end()) {
+        if (auto sameVersionIt = storedItems.FindIf([&itemInfo](const auto& stored) {
+                return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion
+                    && (stored.mState == ItemStateEnum::eDownloading || stored.mState == ItemStateEnum::eFailed
+                        || stored.mState == ItemStateEnum::eRemoved);
+            });
+            sameVersionIt == storedItems.end()) {
             if (auto err = RemoveOldItemVersions(itemInfo.mItemID, storedItems); !err.IsNone()) {
                 LOG_ERR() << "Failed to remove old item versions" << Log::Field("id", itemInfo.mItemID)
                           << Log::Field(err);
@@ -1359,8 +1356,7 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
     });
 
     while (true) {
-        auto err = mDownloader->Download(blobInfo.mDigest, blobInfo.mURLs[0], downloadPath);
-        if (!err.IsNone()) {
+        if (auto err = mDownloader->Download(blobInfo.mDigest, blobInfo.mURLs[0], downloadPath); !err.IsNone()) {
             LOG_ERR() << "Failed to download" << Log::Field("url", blobInfo.mURLs[0])
                       << Log::Field("path", downloadPath) << Log::Field(AOS_ERROR_WRAP(err));
 

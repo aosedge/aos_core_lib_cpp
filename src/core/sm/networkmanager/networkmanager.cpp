@@ -251,7 +251,7 @@ Error NetworkManager::CreateInstanceNetwork(
     }
 
     err = mNetworkProvider->AllocateInstanceNetwork(
-            instanceNetworkParameters.mInstanceIdent, networkID, mNodeID, *serviceData, *allocatedParams);
+        instanceNetworkParameters.mInstanceIdent, networkID, mNodeID, *serviceData, *allocatedParams);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -504,8 +504,8 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
     {
         LockGuard lock {mMutex};
 
-        auto network = mRuntimeCache.Find(networkID);
-        if (network != mRuntimeCache.end() && !network->mSecond.IsEmpty()) {
+        if (auto network = mRuntimeCache.Find(networkID);
+            network != mRuntimeCache.end() && !network->mSecond.IsEmpty()) {
             return err;
         }
 
@@ -536,8 +536,8 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
     {
         LockGuard lock {mMutex};
 
-        auto network = mRuntimeCache.Find(networkID);
-        if (network != mRuntimeCache.end() && network->mSecond.Find(instanceID) != network->mSecond.end()) {
+        if (auto network = mRuntimeCache.Find(networkID);
+            network != mRuntimeCache.end() && network->mSecond.Find(instanceID) != network->mSecond.end()) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "instance is still running, call Stop first"));
         }
 
@@ -574,8 +574,8 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
             }
         }
 
-        auto runtimeNetwork = mRuntimeCache.Find(networkID);
-        if (runtimeNetwork != mRuntimeCache.end() && !runtimeNetwork->mSecond.IsEmpty()) {
+        if (auto runtimeNetwork = mRuntimeCache.Find(networkID);
+            runtimeNetwork != mRuntimeCache.end() && !runtimeNetwork->mSecond.IsEmpty()) {
             return ErrorEnum::eNone;
         }
 
@@ -796,7 +796,7 @@ Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
     });
 
     err = mNetMonitor->StartInstanceMonitoring(entry.mInstanceID, info->mAllocatedParams.mIP,
-            info->mNetworkConfig.mDownloadLimit, info->mNetworkConfig.mUploadLimit);
+        info->mNetworkConfig.mDownloadLimit, info->mNetworkConfig.mUploadLimit);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -1102,7 +1102,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
     });
 
     err = mNetMonitor->StartInstanceMonitoring(
-            instanceID, networkParams.mIP, networkConfig.mDownloadLimit, networkConfig.mUploadLimit);
+        instanceID, networkParams.mIP, networkConfig.mDownloadLimit, networkConfig.mUploadLimit);
     if (!err.IsNone()) {
 
         return AOS_ERROR_WRAP(err);
@@ -1423,8 +1423,7 @@ Error NetworkManager::InitInstance(const String& instanceID, const String& netwo
         return err;
     }
 
-    err
-        = mNetMonitor->StartInstanceMonitoring(instanceID, instanceIP, config->mDownloadLimit, config->mUploadLimit);
+    err = mNetMonitor->StartInstanceMonitoring(instanceID, instanceIP, config->mDownloadLimit, config->mUploadLimit);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -1775,8 +1774,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto instanceData = networkData->mSecond.Find(instanceID);
-    if (instanceData == networkData->mSecond.end()) {
+    if (auto instanceData = networkData->mSecond.Find(instanceID); instanceData == networkData->mSecond.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
@@ -2217,8 +2215,7 @@ void NetworkManager::OnPendingFirewallUpdate(
                 *allocatedParams = item.mSecond.mAllocatedParams;
                 hostIfName       = item.mSecond.mHostIfName;
 
-                auto network = mRuntimeCache.Find(networkID);
-                if (network != mRuntimeCache.end()) {
+                if (auto network = mRuntimeCache.Find(networkID); network != mRuntimeCache.end()) {
                     isRunning = network->mSecond.Find(instanceID) != network->mSecond.end();
                 }
 
