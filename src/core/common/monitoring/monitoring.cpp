@@ -356,7 +356,7 @@ void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instan
         return;
     }
 
-    for (auto& instance : mWatchedInstances) {
+    for (const auto& instance : mWatchedInstances) {
         LOG_DBG() << "Get monitoring data for instance" << Log::Field("ident", instance.mIdent);
 
         if (auto err = instanceMonitoringData.EmplaceBack(); !err.IsNone()) {

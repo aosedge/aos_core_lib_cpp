@@ -391,7 +391,7 @@ void Launcher::UpdateInstanceStatuses()
 
 void Launcher::FailActivatingInstances()
 {
-    for (auto& instance : mInstanceManager.GetActiveInstances()) {
+    for (const auto& instance : mInstanceManager.GetActiveInstances()) {
         if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating
             && instance->GetStatus().mType != UpdateItemTypeEnum::eComponent) {
             const auto& instanceInfo = instance->GetInfo();

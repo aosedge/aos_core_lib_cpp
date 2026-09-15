@@ -642,7 +642,7 @@ Error UnitStatusHandler::SetItemsForPreinstalledInstances()
         return ErrorEnum::eNone;
     }
 
-    for (auto& instanceStatuses : *mUnitStatus.mInstances) {
+    for (const auto& instanceStatuses : *mUnitStatus.mInstances) {
         if (!instanceStatuses.mPreinstalled) {
             continue;
         }
