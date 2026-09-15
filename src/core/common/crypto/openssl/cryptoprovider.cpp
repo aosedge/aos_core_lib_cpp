@@ -1553,7 +1553,7 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
 
     static constexpr auto cDelims = ",/";
 
-    // Split input string (e.g., "CN=Aos Core/C=UA")
+    // Split the subject name into entries separated by comma or slash
     for (size_t i = 0, j = 0; i < commonName.Size(); i = j + 1) {
         Error err;
 
