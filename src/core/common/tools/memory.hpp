@@ -360,7 +360,7 @@ public:
      */
     size_t Give()
     {
-        UniqueLock<Mutex> lock(mMutex);
+        UniqueLock lock(mMutex);
 
         auto count = --mRefCount;
 
