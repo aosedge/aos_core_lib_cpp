@@ -56,7 +56,7 @@ public:
      *
      * @param array another array instance.
      */
-    Array(const Array& array) = default;
+    Array(const Array& array) noexcept = default;
 
     // cppcheck-suppress uninitMemberVar
     // cppcheck-suppress operatorEqVarError
@@ -66,7 +66,7 @@ public:
      * @param array existing array.
      * @return Array&.
      */
-    Array& operator=(const Array& array)
+    Array& operator=(const Array& array) noexcept
     {
         [[maybe_unused]] auto err = Assign(array);
         assert(err.IsNone());

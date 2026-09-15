@@ -38,7 +38,7 @@ public:
      *
      * @param buffer another buffer instance.
      */
-    Buffer(const Buffer& buffer) = default;
+    Buffer(const Buffer& buffer) noexcept = default;
 
     // cppcheck-suppress duplInheritedMember
     /**
@@ -47,7 +47,7 @@ public:
      * @param buffer to copy from.
      * @return Buffer&.
      */
-    Buffer& operator=(const Buffer& buffer)
+    Buffer& operator=(const Buffer& buffer) noexcept
     {
         assert(mSize >= buffer.mSize);
 

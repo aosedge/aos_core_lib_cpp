@@ -42,7 +42,7 @@ public:
      *
      * @param other.
      */
-    Optional(const Optional& other) { *this = other; }
+    Optional(const Optional& other) noexcept { *this = other; }
 
     /**
      * Copy operator.
@@ -50,7 +50,7 @@ public:
      * @param other.
      * @return Optional.
      */
-    Optional& operator=(const Optional& other)
+    Optional& operator=(const Optional& other) noexcept
     {
         if (other.HasValue()) {
             SetValue(other.GetValue());
