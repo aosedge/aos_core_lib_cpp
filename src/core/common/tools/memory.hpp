@@ -291,7 +291,7 @@ public:
      *
      * @return T& holding object value.
      */
-    T& operator*() const { return *(mObject); }
+    T& operator*() const { return *mObject; }
 
     /**
      * Destroys object.
@@ -629,7 +629,7 @@ public:
      *
      * @return T& holding object value.
      */
-    T& operator*() const { return *(mObject); }
+    T& operator*() const { return *mObject; }
 
     /**
      * Destroys shared pointer.
