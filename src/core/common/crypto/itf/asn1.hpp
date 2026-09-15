@@ -62,12 +62,12 @@ struct ASN1Value {
     /**
      * Constructor.
      */
-    ASN1Value(const ASN1Value& other) { *this = other; }
+    ASN1Value(const ASN1Value& other) noexcept { *this = other; }
 
     /**
      * Copy operator.
      */
-    ASN1Value& operator=(const ASN1Value& other)
+    ASN1Value& operator=(const ASN1Value& other) noexcept
     {
         mTagClass      = other.mTagClass;
         mTagNumber     = other.mTagNumber;

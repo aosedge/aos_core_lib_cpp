@@ -68,7 +68,7 @@ public:
      * Move constructor for a DefaultDeleter of a derived class.
      */
     template <typename P>
-    explicit DefaultDeleter(DefaultDeleter<P>&& other)
+    explicit DefaultDeleter(DefaultDeleter<P>&& other) noexcept
     {
         *this = Move(other);
     }
@@ -77,7 +77,7 @@ public:
      * Move assignment operator for a DefaultDeleter of a derived class.
      */
     template <typename P>
-    DefaultDeleter& operator=(DefaultDeleter<P>&& other)
+    DefaultDeleter& operator=(DefaultDeleter<P>&& other) noexcept
     {
         mAllocator = other.GetAllocator();
 
@@ -507,7 +507,7 @@ public:
      *
      * @param ptr pointer to create from.
      */
-    SharedPtr(const SharedPtr& ptr)
+    SharedPtr(const SharedPtr& ptr) noexcept
         : mObject(ptr.mObject)
         , mControlBlock(ptr.mControlBlock)
     {
@@ -521,7 +521,7 @@ public:
      *
      * @param ptr shared pointer to assign from.
      */
-    SharedPtr& operator=(const SharedPtr& ptr)
+    SharedPtr& operator=(const SharedPtr& ptr) noexcept
     {
         if (this == &ptr) {
             return *this;

@@ -55,7 +55,7 @@ public:
      *
      * @param str string.
      */
-    String(const String& str)
+    String(const String& str) noexcept
         : Array(str)
     {
         if (*end()) {
@@ -69,7 +69,7 @@ public:
      * @param str string.
      * @return String&.
      */
-    String& operator=(const String& str)
+    String& operator=(const String& str) noexcept
     {
         [[maybe_unused]] auto err = Assign(str);
         assert(err.IsNone());
