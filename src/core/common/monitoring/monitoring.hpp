@@ -90,7 +90,7 @@ private:
     void  ProcessMonitoring();
     void  GetInstanceMonitoringData(Array<InstanceMonitoringData>& instanceMonitoringData);
     void  ProcessAlerts(NodeMonitoringData& monitoringData);
-    void  ProcessAlerts(MonitoringData& monitoringData, AlertProcessorArray& alertProcessors);
+    void  ProcessAlerts(MonitoringData& monitoringData, AlertProcessorArray& alertProcessors) const;
     Error AddAlertProcessor(
         const AlertRulePoints& rule, const ResourceIdentifier& identifier, Array<AlertProcessor>& processors);
     Error SetNodeAlertProcessors(const Optional<AlertRules>& alertRules);

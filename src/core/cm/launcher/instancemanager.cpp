@@ -397,7 +397,7 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
  * Private
  **********************************************************************************************************************/
 
-Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status)
+Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status) const
 {
     if (auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
             return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
@@ -486,7 +486,7 @@ Error InstanceManager::LoadInstanceStatuses()
     return ErrorEnum::eNone;
 }
 
-Error InstanceManager::SetExpiredStatus()
+Error InstanceManager::SetExpiredStatus() const
 {
     for (auto& instance : mActiveInstances) {
         if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating) {
@@ -606,7 +606,7 @@ RetWithError<bool> InstanceManager::SetSubjects(const Array<StaticString<cIDLen>
     return {false, ErrorEnum::eNone};
 }
 
-bool InstanceManager::IsSubjectEnabled(const Instance& instance)
+bool InstanceManager::IsSubjectEnabled(const Instance& instance) const
 {
     return !instance.GetInfo().mIsUnitSubject || mSubjects.Contains(instance.GetInfo().mInstanceIdent.mSubjectID);
 }
@@ -721,7 +721,8 @@ SharedPtr<Instance> InstanceManager::FindReadyInstance(
     return nullptr;
 }
 
-uint64_t InstanceManager::FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version)
+uint64_t InstanceManager::FindIndexForNewInstance(
+    const String& itemID, const String& subjectID, const String& version) const
 {
     uint64_t schedInstance  = FindIndexForNewInstance(mScheduledInstances, itemID, subjectID, version);
     uint64_t activeInstance = FindIndexForNewInstance(mActiveInstances, itemID, subjectID, version);
@@ -784,8 +785,8 @@ SharedPtr<Instance> InstanceManager::FindInstance(const Array<SharedPtr<Instance
     return it != instances.end() ? *it : SharedPtr<Instance>();
 }
 
-uint64_t InstanceManager::FindIndexForNewInstance(
-    const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID, const String& version)
+uint64_t InstanceManager::FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
+    const String& subjectID, const String& version) const
 {
     uint64_t newIndex = 0;
 

@@ -359,13 +359,13 @@ Error LibraryContext::Init(AllocatorItf& allocator)
     return ErrorEnum::eNone;
 }
 
-Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& label)
+Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& label) const
 {
     if (!mFunctionList || !mFunctionList->C_InitToken) {
         return ErrorEnum::eWrongState;
     }
 
-    CK_UTF8CHAR pkcsLabel[cLabelLen];
+    CK_UTF8CHAR pkcsLabel[cLabelLen] {};
 
     if (auto err = ConvertToPKCS11String(label, pkcsLabel); !err.IsNone()) {
         return err;
@@ -496,7 +496,7 @@ void LibraryContext::ClearSessions()
     mSessions.Clear();
 }
 
-Error LibraryContext::CloseAllSessions(SlotID slotID)
+Error LibraryContext::CloseAllSessions(SlotID slotID) const
 {
     if (!mFunctionList || !mFunctionList->C_CloseAllSessions) {
         return ErrorEnum::eWrongState;

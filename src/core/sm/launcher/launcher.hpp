@@ -186,7 +186,7 @@ private:
     Error AddStopInstanceTask(InstanceData& instanceData);
     void  StopNetworks(const Array<InstanceIdent>& stopInstances);
     Error AddStopNetworkTask(InstanceData& instanceData);
-    Error StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData);
+    Error StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     void  StopAllInstances();
     void  StopAllNetworks();
     Error PrepareInstance(InstanceData& instanceData);
@@ -195,7 +195,7 @@ private:
     Error AddStartNetworkTask(InstanceData& instanceData);
     void  StartInstances(const Array<InstanceInfo>& startInstances);
     Error AddStartInstanceTask(InstanceData& instanceData);
-    Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData);
+    Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     Error StartLaunch();

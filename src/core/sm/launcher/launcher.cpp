@@ -836,7 +836,7 @@ Error Launcher::AddStopInstanceTask(InstanceData& instanceData)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData)
+Error Launcher::StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const
 {
     LOG_INF() << "Stop instance" << Log::Field("instance", instanceData.mInfo)
               << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID);
@@ -1225,7 +1225,7 @@ Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
     return ErrorEnum::eNone;
 }
 
-Error Launcher::StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData)
+Error Launcher::StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const
 {
     LOG_INF() << "Start instance" << Log::Field("instance", instanceData.mInfo)
               << Log::Field("runtimeID", instanceData.mInfo.mRuntimeID)

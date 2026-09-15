@@ -185,7 +185,7 @@ private:
     RetWithError<SharedPtr<pkcs11::SessionContext>> CreateSession(bool userLogin, const String& pin);
     void                                            CloseSession();
 
-    Error FindObject(pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst);
+    Error FindObject(pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst) const;
 
     Error TokenMemInfo() const;
 
@@ -195,7 +195,7 @@ private:
         const String& label, const Array<crypto::x509::Certificate>& chain);
 
     Error CreateURL(const String& label, const Array<uint8_t>& id, String& url);
-    Error ParseURL(const String& url, String& label, Array<uint8_t>& id);
+    Error ParseURL(const String& url, String& label, Array<uint8_t>& id) const;
 
     Error GetValidInfo(const pkcs11::SessionContext& session, Array<SearchObject>& certs, Array<SearchObject>& privKeys,
         Array<SearchObject>& pubKeys, Array<CertInfo>& resCerts);
@@ -205,7 +205,7 @@ private:
     Error CreateCertInfo(const crypto::x509::Certificate& cert, const Array<uint8_t>& keyID,
         const Array<uint8_t>& certID, CertInfo& certInfo);
     Error CreateInvalidURLs(const Array<SearchObject>& objects, Array<StaticString<cURLLen>>& urls);
-    void  PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects);
+    void  PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects) const;
 
     StaticString<cCertTypeLen> mCertType;
     PKCS11ModuleConfig         mConfig {};

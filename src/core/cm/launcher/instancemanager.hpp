@@ -210,7 +210,7 @@ public:
      * @param instance instance.
      * @return bool.
      */
-    bool IsSubjectEnabled(const Instance& instance);
+    bool IsSubjectEnabled(const Instance& instance) const;
 
     /**
      * Checks if instance is scheduled.
@@ -252,13 +252,13 @@ private:
     static constexpr auto cRemovePeriod = Time::cDay;
 
     Error SetStatus(const InstanceStatus& status);
-    Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status);
+    Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status) const;
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
     Error LoadInstanceStatuses();
 
-    Error SetExpiredStatus();
+    Error SetExpiredStatus() const;
     Error RemoveOutdatedInstances();
     Error ClearInstancesWithDeletedImages();
     template <typename Predicate>
@@ -271,7 +271,7 @@ private:
     SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id, const String& version);
     SharedPtr<Instance> FindReadyInstance(const String& itemID, const String& subjectID, const String& nodeID,
         const String& runtimeID, const String& version);
-    uint64_t            FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version);
+    uint64_t FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version) const;
 
     UniquePtr<InstanceInfo> CreateInfo(
         const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request);
@@ -281,7 +281,7 @@ private:
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
         const String& subjectID, const String& nodeID, const String& runtimeID, const String& version);
     uint64_t            FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
-                   const String& subjectID, const String& version);
+                   const String& subjectID, const String& version) const;
 
     SharedPtr<Instance> FindActiveInstanceByRuntime(const InstanceIdent& id, const String& runtimeID);
 

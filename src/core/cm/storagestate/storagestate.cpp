@@ -564,7 +564,7 @@ Error StorageState::StopStateWatching(const InstanceIdent& instanceIdent)
     return err;
 }
 
-Error StorageState::SetQuotas(const SetupParams& setupParams)
+Error StorageState::SetQuotas(const SetupParams& setupParams) const
 {
     LOG_DBG() << "Set quotas" << setupParams;
 

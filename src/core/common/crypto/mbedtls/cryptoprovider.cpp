@@ -1942,7 +1942,7 @@ Error MbedTLSCryptoProvider::ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::
     return GetX509CertExtensions(cert, currentCrt);
 }
 
-Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert)
+Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert) const
 {
     switch (mbedtls_pk_get_type(pk)) {
     case MBEDTLS_PK_RSA:
@@ -1959,13 +1959,13 @@ Error MbedTLSCryptoProvider::ParseX509CertPublicKey(const mbedtls_pk_context* pk
     }
 }
 
-Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert)
+Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert) const
 {
     StaticArray<uint8_t, cECDSAParamsOIDSize> paramsOID;
     StaticArray<uint8_t, cECDSAPointDERSize>  ecPoint;
 
     size_t      len = 0;
-    const char* oid;
+    const char* oid = nullptr;
 
     auto ret = mbedtls_oid_get_oid_by_ec_grp(eckey->MBEDTLS_PRIVATE(grp).id, &oid, &len);
     if (ret != 0) {
@@ -1997,7 +1997,7 @@ Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert)
+Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert) const
 {
     StaticArray<uint8_t, cRSAModulusSize>     n;
     StaticArray<uint8_t, cRSAPubExponentSize> e;
@@ -2034,7 +2034,7 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
     return aos::ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt)
+Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt) const
 {
     if (auto err = cert.mSubject.Resize(crt->subject_raw.len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -2121,7 +2121,7 @@ RetWithError<mbedtls_x509_time> MbedTLSCryptoProvider::ConvertTime(const Time& s
     return result;
 }
 
-Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt)
+Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt) const
 {
     mbedtls_asn1_buf buf = crt->v3_ext;
 
@@ -2261,7 +2261,7 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
     return ErrorEnum::eNone;
 }
 
-void MbedTLSCryptoProvider::InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk)
+void MbedTLSCryptoProvider::InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk) const
 {
     mbedtls_x509write_csr_init(&csr);
     mbedtls_pk_init(&pk);
@@ -2290,9 +2290,9 @@ Error MbedTLSCryptoProvider::SetCSRProperties(
     return SetCSRExtraExtensions(csr, templ);
 }
 
-Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ)
+Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ) const
 {
-    mbedtls_x509_san_list sanList[cAltDNSNamesCount];
+    mbedtls_x509_san_list sanList[cAltDNSNamesCount] {};
     size_t                dnsNameCount = templ.mDNSNames.Size();
 
     if (templ.mDNSNames.IsEmpty()) {
@@ -2312,7 +2312,7 @@ Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, 
     return AOS_ERROR_WRAP(mbedtls_x509write_csr_set_subject_alternative_name(&csr, sanList));
 }
 
-Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ)
+Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ) const
 {
     for (const auto& extension : templ.mExtraExtensions) {
         mbedtls_asn1_buf resOID = {};
@@ -2337,7 +2337,7 @@ Error MbedTLSCryptoProvider::SetCSRExtraExtensions(mbedtls_x509write_csr& csr, c
     return ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR)
+Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR) const
 {
     (void)pemCSR.Resize(pemCSR.MaxSize());
 
@@ -2352,7 +2352,7 @@ Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pem
     return ErrorEnum::eNone;
 }
 
-RetWithError<KeyInfo> MbedTLSCryptoProvider::SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey)
+RetWithError<KeyInfo> MbedTLSCryptoProvider::SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey) const
 {
     auto statusAddKey = AosPsaAddKey(privKey);
     if (!statusAddKey.mError.IsNone()) {
@@ -2369,7 +2369,7 @@ RetWithError<KeyInfo> MbedTLSCryptoProvider::SetupOpaqueKey(mbedtls_pk_context& 
 }
 
 Error MbedTLSCryptoProvider::InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
-    mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy)
+    mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy) const
 {
     mbedtls_x509write_crt_init(&cert);
     mbedtls_pk_init(&pk);
@@ -2425,7 +2425,7 @@ Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cert& ce
     return SetCertificateAuthorityKeyIdentifier(cert, templ, parent);
 }
 
-Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert)
+Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert) const
 {
     (void)pemCert.Resize(pemCert.MaxSize());
 
@@ -2441,7 +2441,7 @@ Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, S
 }
 
 Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
-    mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ)
+    mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ) const
 {
     if (templ.mSerial.IsEmpty()) {
         mbedtls_mpi serial;
@@ -2467,7 +2467,7 @@ Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
 }
 
 Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
-    mbedtls_x509write_cert& cert, const x509::Certificate& templ)
+    mbedtls_x509write_cert& cert, const x509::Certificate& templ) const
 {
     if (templ.mSubjectKeyId.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_subject_key_identifier(&cert));
@@ -2479,7 +2479,7 @@ Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
 }
 
 Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(
-    mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent)
+    mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent) const
 {
     if (!parent.mSubjectKeyId.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
@@ -2496,7 +2496,8 @@ Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(
         templ.mAuthorityKeyId.Size()));
 }
 
-Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ)
+Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
+    mbedtls_x509write_cert& cert, const x509::Certificate& templ) const
 {
     if (templ.mNotBefore.IsZero() || templ.mNotAfter.IsZero()) {
         return ErrorEnum::eInvalidArgument;
