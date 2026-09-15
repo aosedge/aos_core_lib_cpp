@@ -62,7 +62,7 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
             return AOS_ERROR_WRAP(err);
         }
 
-        if (certsInStorage->Size() == 0) {
+        if (certsInStorage->IsEmpty()) {
             return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
