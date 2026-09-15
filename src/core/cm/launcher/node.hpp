@@ -73,14 +73,14 @@ public:
      *
      * @return size_t.
      */
-    size_t GetAvailableCPU();
+    size_t GetAvailableCPU() const;
 
     /**
      * Returns available RAM.
      *
      * @return size_t.
      */
-    size_t GetAvailableRAM();
+    size_t GetAvailableRAM() const;
 
     /**
      * Returns available CPU for runtime.
@@ -175,7 +175,7 @@ private:
     size_t* GetPtrToAvailableRAM(const String& runtimeID);
     size_t* GetPtrToMaxNumInstances(const String& runtimeID);
 
-    void Convert(const InstanceStatus& status, aos::InstanceInfo& info);
+    void Convert(const InstanceStatus& status, aos::InstanceInfo& info) const;
 
     unitconfig::NodeConfigProviderItf* mNodeConfigProvider {};
     InstanceRunnerItf*                 mInstanceRunner {};
