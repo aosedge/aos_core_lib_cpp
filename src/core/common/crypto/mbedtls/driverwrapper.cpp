@@ -437,8 +437,9 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
     return PSA_SUCCESS;
 }
 
-psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attributes_t* attributes, uint8_t* keyBuffer,
-    size_t keyBufferSize, size_t* keyBufferLength)
+psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attributes_t* attributes,
+    uint8_t* keyBuffer, // NOSONAR cpp:S995 - fixed external API signature
+    size_t keyBufferSize, size_t* keyBufferLength) // NOSONAR cpp:S995 - fixed external API signature
 {
     (void)keyBuffer;
     (void)keyBufferLength;
@@ -495,7 +496,8 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
 }
 
 psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, const uint8_t* key_buffer,
-    size_t key_buffer_size, psa_algorithm_t alg, const uint8_t* hash, size_t hash_length, uint8_t* signature,
+    size_t key_buffer_size, psa_algorithm_t alg, const uint8_t* hash, size_t hash_length,
+    uint8_t* signature, // NOSONAR cpp:S995 - fixed external API signature
     size_t signature_size, size_t* signature_length)
 {
     (void)key_buffer;

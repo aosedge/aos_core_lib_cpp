@@ -66,8 +66,8 @@ private:
 
     // Selects nodes
     Error SelectNodes(Instance& instance, Array<Node*>& nodes) const;
-    void  FilterNodesByID(Instance& instance, Array<Node*>& nodes) const;
-    void  FilterNodesByLabels(Instance& instance, Array<Node*>& nodes) const;
+    void  FilterNodesByID(const Instance& instance, Array<Node*>& nodes) const;
+    void  FilterNodesByLabels(const Instance& instance, Array<Node*>& nodes) const;
     void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes) const;
 
     // Selects runtime
@@ -77,8 +77,8 @@ private:
 
     template <typename Filter>
     void FilterRuntimes(NodeRuntimes& runtimes, Filter& filter) const;
-    void FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes) const;
-    void FilterByPlatform(Instance& instance, NodeRuntimes& runtimes) const;
+    void FilterByRuntimeType(const Instance& instance, NodeRuntimes& runtimes) const;
+    void FilterByPlatform(const Instance& instance, NodeRuntimes& runtimes) const;
     void FilterByCPU(Instance& instance, NodeRuntimes& runtimes) const;
     void FilterByRAM(Instance& instance, NodeRuntimes& runtimes) const;
     void FilterByNumInstances(NodeRuntimes& runtimes) const;
