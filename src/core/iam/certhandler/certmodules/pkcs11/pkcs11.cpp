@@ -509,7 +509,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
             }
 
             if ((tokenInfo->mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
-                freeSlotID.SetValue(static_cast<unsigned int>(slotID));
+                freeSlotID.SetValue(static_cast<uint32_t>(slotID));
             }
         }
     }
