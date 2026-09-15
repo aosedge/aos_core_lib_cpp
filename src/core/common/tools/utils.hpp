@@ -279,7 +279,7 @@ public:
  * @tparam T type.
  * @tparam v value.
  */
-template <typename T, T v>
+template <typename T, auto v>
 struct IntegralConstant {
     static constexpr T value = v;
     using ValueType          = T;
