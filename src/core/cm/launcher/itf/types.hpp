@@ -24,7 +24,7 @@ class InstanceStateType {
 public:
     enum class Enum { eActive, eDisabled, eCached };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sInstanceStateStrings[] = {
             "active",

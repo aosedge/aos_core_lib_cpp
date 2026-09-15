@@ -27,7 +27,7 @@ public:
         eCrashLog,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sLogTypeStrings[] = {
             "systemLog",
@@ -54,7 +54,7 @@ public:
         eAbsent,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sLogStatusStrings[] = {
             "ok",
@@ -79,7 +79,7 @@ public:
         eHTTPS,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "https",

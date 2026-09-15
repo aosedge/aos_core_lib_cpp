@@ -24,7 +24,7 @@ public:
         ePaused,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "provisioned",
