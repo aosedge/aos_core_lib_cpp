@@ -961,7 +961,7 @@ Error PKCS11Module::GetValidInfo(const pkcs11::SessionContext& session, Array<Se
 
 PKCS11Module::SearchObject* PKCS11Module::FindObjectByID(Array<SearchObject>& array, const Array<uint8_t>& id)
 {
-    for (SearchObject* cur = array.begin(); cur != array.end(); cur++) {
+    for (auto* cur = array.begin(); cur != array.end(); cur++) {
         if (cur->mID == id) {
             return cur;
         }
