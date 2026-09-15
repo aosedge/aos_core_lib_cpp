@@ -55,7 +55,7 @@ public:
      * @param period traffic period.
      * @return Error.
      */
-    virtual Error SetTrafficPeriod(TrafficPeriod period) = 0;
+    virtual Error SetTrafficPeriod(const TrafficPeriod& period) = 0;
 
     /**
      * Creates instance network: requests node network from CM, allocates IP, stores in DB.

@@ -74,13 +74,13 @@ private:
 
     void  Run();
     void  LogDesiredStatus(const DesiredStatus& desiredStatus) const;
-    void  SetState(UpdateState state);
+    void  SetState(const UpdateState& state);
     Error DownloadUpdateItems();
     Error InstallDesiredStatus();
     Error LaunchInstances();
     Error WaitInstancesActive();
     Error FinalizeUpdate();
-    void  StartUpdate(UpdateState state = UpdateStateEnum::eDownloading);
+    void  StartUpdate(const UpdateState& state = UpdateStateEnum::eDownloading);
     void  CancelUpdate();
     bool  IsSameUpdate(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateRequired(const DesiredStatus& desiredStatus) const;

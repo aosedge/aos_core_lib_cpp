@@ -421,7 +421,7 @@ struct LinuxNamespace {
     /**
      * Creates LinuxNamespace.
      */
-    explicit LinuxNamespace(LinuxNamespaceType type, const String& path = "")
+    explicit LinuxNamespace(const LinuxNamespaceType& type, const String& path = "")
         : mType(type)
         , mPath(path)
     {

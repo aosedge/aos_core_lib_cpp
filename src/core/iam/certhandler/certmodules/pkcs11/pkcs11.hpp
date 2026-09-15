@@ -103,7 +103,8 @@ public:
      * @param keyType key type.
      * @return RetWithError<SharedPtr<crypto::PrivateKeyItf>>.
      */
-    RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(const String& password, crypto::KeyType keyType) override;
+    RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(
+        const String& password, const crypto::KeyType& keyType) override;
 
     /**
      * Applies certificate chain to a module.

@@ -95,7 +95,7 @@ Error FileInfoProvider::Init(AllocatorItf& allocator, crypto::HasherItf& hashPro
     return ErrorEnum::eNone;
 }
 
-Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg)
+Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info, const crypto::Hash& hashAlg)
 {
     auto [size, err] = CalculateSize(*mAllocator, path);
     if (!err.IsNone()) {

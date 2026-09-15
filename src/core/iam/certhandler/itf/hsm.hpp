@@ -48,7 +48,8 @@ public:
      * @param keyType key type.
      * @return RetWithError<SharedPtr<crypto::PrivateKeyItf>>.
      */
-    virtual RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(const String& password, crypto::KeyType keyType)
+    virtual RetWithError<SharedPtr<crypto::PrivateKeyItf>> CreateKey(
+        const String& password, const crypto::KeyType& keyType)
         = 0;
 
     /**
