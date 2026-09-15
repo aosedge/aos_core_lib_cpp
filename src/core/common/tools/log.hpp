@@ -164,9 +164,7 @@ public:
      */
     Log& operator<<(const String& str)
     {
-        auto freeSize = mLogLine.MaxSize() - mLogLine.Size();
-
-        if (str.Size() > freeSize) {
+        if (auto freeSize = mLogLine.MaxSize() - mLogLine.Size(); str.Size() > freeSize) {
             [[maybe_unused]] auto err = mLogLine.Insert(mLogLine.end(), str.begin(), str.begin() + freeSize);
             assert(err.IsNone());
 
@@ -222,9 +220,7 @@ public:
 
     Log& operator<<(const Error& err)
     {
-        StaticString<cMaxErrorStrLen> tmpStr;
-
-        if (tmpStr.Convert(err).IsNone()) {
+        if (StaticString<cMaxErrorStrLen> tmpStr; tmpStr.Convert(err).IsNone()) {
             return *this << tmpStr;
         }
 

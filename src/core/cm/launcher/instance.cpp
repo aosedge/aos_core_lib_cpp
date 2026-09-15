@@ -87,8 +87,8 @@ bool Instance::IsImageValid()
         return false;
     }
 
-    auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
-    if (!err.IsNone()) {
+    if (auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
+        !err.IsNone()) {
         return false;
     }
 
@@ -268,9 +268,7 @@ Error Instance::SetDefaultRuntimes()
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    auto& runtimes = mItemConfig->mRuntimes;
-
-    if (runtimes.IsEmpty()) {
+    if (auto& runtimes = mItemConfig->mRuntimes; runtimes.IsEmpty()) {
         static const char* cDefaultRuntimes[] = {
             "crun",
             "runc",
@@ -760,9 +758,9 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
         reqStorage = 0;
     }
 
-    auto err
+    if (auto err
         = mStorageState.SetupStateStorage(mInfo.mInstanceIdent, params, reqStorage, reqState, storagePath, statePath);
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -777,9 +775,9 @@ Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runt
         ? Array<oci::ResourceInfo>()
         : mItemConfig->mResources; // NOSONAR cpp:S5912 - Array serves as a view over StaticArray
 
-    auto reserveErr
+    if (auto reserveErr
         = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);
-    if (!reserveErr.IsNone()) {
+        !reserveErr.IsNone()) {
         return AOS_ERROR_WRAP(reserveErr);
     }
 
