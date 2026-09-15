@@ -895,7 +895,7 @@ private:
 /**
  * Interface used to convert derived type to string.
  */
-class Stringer {
+class Stringer { // NOSONAR cpp:S1235 - non-virtual so EnumStringer<T> stays constexpr-friendly
 public:
     /**
      * Returns string representation of derived class.

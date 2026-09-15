@@ -16,7 +16,7 @@ namespace aos {
  * Template used to convert enum to strings.
  */
 template <class T>
-class EnumStringer : public Stringer {
+class EnumStringer : public Stringer { // NOSONAR cpp:S1235 - virtual dtor would break constexpr array usage
 public:
     using EnumType = typename T::Enum;
 

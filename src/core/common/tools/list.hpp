@@ -185,6 +185,8 @@ protected:
 
     ListImpl(const ListImpl& list) noexcept = default;
 
+    ~ListImpl() = default;
+
     virtual Node* AllocateNode() = 0;
 
     template <typename... Args>
