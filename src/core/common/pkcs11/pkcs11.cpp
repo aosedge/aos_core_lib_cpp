@@ -904,8 +904,6 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
             return objects.IsEmpty() ? ErrorEnum::eNotFound : ErrorEnum::eNone;
         }
     }
-
-    return ErrorEnum::eFailed;
 }
 
 Error SessionContext::FindObjectsFinal() const
