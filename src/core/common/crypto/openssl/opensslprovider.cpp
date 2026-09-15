@@ -558,7 +558,7 @@ int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const 
     (void)digest.Resize(digestLen);
 
     // Sign
-    Array<uint8_t> signature {sig, static_cast<size_t>(sigsize)};
+    Array<uint8_t> signature {sig, sigsize};
 
     auto err = privKey->Sign(digest, {aosCtx->mHash}, signature);
     if (!err.IsNone()) {
