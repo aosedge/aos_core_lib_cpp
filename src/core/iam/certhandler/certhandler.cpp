@@ -56,8 +56,7 @@ Error CertHandler::SetOwner(const String& certType, const String& password)
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto err = certModule->SetOwner(password);
-    if (!err.IsNone()) {
+    if (auto err = certModule->SetOwner(password); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -75,8 +74,7 @@ Error CertHandler::Clear(const String& certType)
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto err = certModule->Clear();
-    if (!err.IsNone()) {
+    if (auto err = certModule->Clear(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -100,8 +98,7 @@ Error CertHandler::CreateKey(
         return key.mError;
     }
 
-    auto err = certModule->CreateCSR(subjectCommonName, *key.mValue, pemCSR);
-    if (!err.IsNone()) {
+    if (auto err = certModule->CreateCSR(subjectCommonName, *key.mValue, pemCSR); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -119,8 +116,7 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& pemCer
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto err = certModule->ApplyCert(pemCert, info);
-    if (!err.IsNone()) {
+    if (auto err = certModule->ApplyCert(pemCert, info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -208,8 +204,7 @@ Error CertHandler::CreateSelfSignedCert(const String& certType, const String& pa
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto err = certModule->CreateSelfSignedCert(password);
-    if (!err.IsNone()) {
+    if (auto err = certModule->CreateSelfSignedCert(password); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -252,8 +247,7 @@ Error CertHandler::UpdateCerts(CertModule& certModule)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto err = certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo);
-    if (!err.IsNone()) {
+    if (auto err = certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

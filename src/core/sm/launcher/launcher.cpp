@@ -204,9 +204,9 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     }
 
     err = mThread.Run([this, stop, start](void*) {
-            UpdateInstancesImpl(*stop, *start);
-            FinishLaunch();
-        });
+        UpdateInstancesImpl(*stop, *start);
+        FinishLaunch();
+    });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -703,11 +703,11 @@ void Launcher::LoadInstancesData(const Array<InstanceInfo>& storedInstances)
         }
 
         err = mLaunchPool.AddTask([this, instanceData](void*) {
-                if (auto err = LoadInstanceData(*instanceData); !err.IsNone()) {
-                    LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceData->mInfo)
-                              << Log::Field(AOS_ERROR_WRAP(err));
-                }
-            });
+            if (auto err = LoadInstanceData(*instanceData); !err.IsNone()) {
+                LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceData->mInfo)
+                          << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        });
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceInfo)
                       << Log::Field(AOS_ERROR_WRAP(err));
@@ -977,13 +977,13 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
         }
 
         err = mLaunchPool.AddTask([this, instanceData](void*) {
-                if (auto err = PrepareInstance(*instanceData); !err.IsNone()) {
-                    LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData->mInfo)
-                              << Log::Field(AOS_ERROR_WRAP(err));
+            if (auto err = PrepareInstance(*instanceData); !err.IsNone()) {
+                LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData->mInfo)
+                          << Log::Field(AOS_ERROR_WRAP(err));
 
-                    SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
-                }
-            });
+                SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            }
+        });
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to prepare instance" << Log::Field("instance", instance)
                       << Log::Field(AOS_ERROR_WRAP(err));
@@ -1293,11 +1293,10 @@ void Launcher::FinishLaunch()
 
 Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent)
 {
-    auto it = mInstances.FindIf([&instanceIdent](const auto& instance) {
-        return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
-    });
-
-    if (it != mInstances.end()) {
+    if (auto it = mInstances.FindIf([&instanceIdent](const auto& instance) {
+            return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
+        });
+        it != mInstances.end()) {
         return it;
     }
 
@@ -1311,8 +1310,8 @@ Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instance
 
 Launcher::InstanceData* Launcher::FindInstanceDataByID(const String& instanceID)
 {
-    auto it = mInstances.FindIf([&instanceID](const auto& instance) { return instance.mInstanceID == instanceID; });
-    if (it != mInstances.end()) {
+    if (auto it = mInstances.FindIf([&instanceID](const auto& instance) { return instance.mInstanceID == instanceID; });
+        it != mInstances.end()) {
         return it;
     }
 
@@ -1321,8 +1320,8 @@ Launcher::InstanceData* Launcher::FindInstanceDataByID(const String& instanceID)
 
 RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID)
 {
-    auto it = mRuntimes.FindIf([&runtimeID](const auto& it) { return it.mSecond == runtimeID; });
-    if (it != mRuntimes.end()) {
+    if (auto it = mRuntimes.FindIf([&runtimeID](const auto& it) { return it.mSecond == runtimeID; });
+        it != mRuntimes.end()) {
         return it->mFirst;
     }
 

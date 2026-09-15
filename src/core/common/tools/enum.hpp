@@ -122,9 +122,7 @@ public:
      */
     const String ToString() const override
     {
-        auto strings = T::GetStrings();
-
-        if (static_cast<size_t>(mValue) < strings.Size()) {
+        if (auto strings = T::GetStrings(); static_cast<size_t>(mValue) < strings.Size()) {
             return strings[static_cast<size_t>(mValue)];
         }
 

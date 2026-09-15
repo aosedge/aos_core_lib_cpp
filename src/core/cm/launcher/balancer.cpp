@@ -62,9 +62,9 @@ Error Balancer::LoadSMDataForActiveInstances()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto loadErr
+    if (auto loadErr
         = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), *mImageInfoProvider);
-    if (!loadErr.IsNone()) {
+        !loadErr.IsNone()) {
         return AOS_ERROR_WRAP(loadErr);
     }
 
@@ -411,9 +411,9 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         const auto& version = info.mVersion;
 
         // Check for running instance
-        bool isInstanceRunning
+        if (bool isInstanceRunning
             = !info.mManifestDigest.IsEmpty() && !info.mNodeID.IsEmpty() && !info.mRuntimeID.IsEmpty();
-        if (!isInstanceRunning) {
+            !isInstanceRunning) {
             continue;
         }
 
