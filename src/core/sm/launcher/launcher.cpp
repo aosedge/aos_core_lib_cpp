@@ -1303,9 +1303,16 @@ Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instance
     return nullptr;
 }
 
-Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent) const
+const Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent) const
 {
-    return const_cast<Launcher*>(this)->FindInstanceData(instanceIdent);
+    if (auto it = mInstances.FindIf([&instanceIdent](const auto& instance) {
+            return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
+        });
+        it != mInstances.end()) {
+        return it;
+    }
+
+    return nullptr;
 }
 
 Launcher::InstanceData* Launcher::FindInstanceDataByID(const String& instanceID)
@@ -1328,9 +1335,14 @@ RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID)
     return nullptr;
 }
 
-RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID) const
+const RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID) const
 {
-    return const_cast<Launcher*>(this)->FindInstanceRuntime(runtimeID);
+    if (auto it = mRuntimes.FindIf([&runtimeID](const auto& it) { return it.mSecond == runtimeID; });
+        it != mRuntimes.end()) {
+        return it->mFirst;
+    }
+
+    return nullptr;
 }
 
 RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent)
@@ -1343,9 +1355,14 @@ RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent)
     return FindInstanceRuntime(instanceData->mInfo.mRuntimeID);
 }
 
-RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent) const
+const RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent) const
 {
-    return const_cast<Launcher*>(this)->FindInstanceRuntime(instanceIdent);
+    const auto* const instanceData = FindInstanceData(instanceIdent);
+    if (!instanceData) {
+        return nullptr;
+    }
+
+    return FindInstanceRuntime(instanceData->mInfo.mRuntimeID);
 }
 
 void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
