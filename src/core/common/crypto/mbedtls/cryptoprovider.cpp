@@ -427,16 +427,16 @@ Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, x50
             return AOS_ERROR_WRAP(ret);
         }
 
-        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(
-            &rsa, hash, static_cast<unsigned int>(digest.Size()), digest.Get(), signature.Get());
+        ret = mbedtls_rsa_rsassa_pkcs1_v15_verify(&rsa, hash, static_cast<unsigned int>(digest.Size()), digest.Get(),
+            signature.Get()); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
     } else if (padding == x509::PaddingEnum::ePSS) {
         ret = mbedtls_rsa_set_padding(&rsa, MBEDTLS_RSA_PKCS_V21, hash);
         if (ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
 
-        ret = mbedtls_rsa_rsassa_pss_verify(
-            &rsa, hash, static_cast<unsigned int>(digest.Size()), digest.Get(), signature.Get());
+        ret = mbedtls_rsa_rsassa_pss_verify(&rsa, hash, static_cast<unsigned int>(digest.Size()), digest.Get(),
+            signature.Get()); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
     } else {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "not supported padding"));
     }
