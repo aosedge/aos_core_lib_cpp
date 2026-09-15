@@ -118,8 +118,7 @@ Error ImageManager::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto err = mThread.Run([this](void*) { ProcessOutdatedItems(); });
-    if (!err.IsNone()) {
+    if (auto err = mThread.Run([this](void*) { ProcessOutdatedItems(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -983,7 +982,7 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
     auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
     if (it != itemData.end()) {
         err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
-                itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+            itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -1006,7 +1005,7 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
     }
 
     err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
-            itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
+        itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }

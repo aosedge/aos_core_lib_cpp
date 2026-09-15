@@ -57,8 +57,7 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
     }
 
     if (serial.IsEmpty()) {
-        auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
-        if (!err.IsNone()) {
+        if (auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -82,8 +81,7 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
         return ErrorEnum::eNone;
     }
 
-    auto err = mStorage->GetCertInfo(issuer, serial, resCert);
-    if (!err.IsNone()) {
+    if (auto err = mStorage->GetCertInfo(issuer, serial, resCert); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -92,8 +90,7 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
 
 Error CertModule::SetOwner(const String& password)
 {
-    auto err = mHSM->SetOwner(password);
-    if (!err.IsNone()) {
+    if (auto err = mHSM->SetOwner(password); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

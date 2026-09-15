@@ -121,8 +121,8 @@ Error Average::StartInstanceMonitoring(const InstanceIdent& instanceIdent)
 {
     LOG_DBG() << "Start average instance monitoring" << Log::Field("ident", instanceIdent);
 
-    auto averageInstance = mAverageInstancesData.Find(instanceIdent);
-    if (averageInstance != mAverageInstancesData.end()) {
+    if (auto averageInstance = mAverageInstancesData.Find(instanceIdent);
+        averageInstance != mAverageInstancesData.end()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
@@ -142,8 +142,7 @@ Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
 {
     LOG_DBG() << "Stop average instance monitoring" << Log::Field("ident", instanceIdent);
 
-    auto err = mAverageInstancesData.Remove(instanceIdent);
-    if (!err.IsNone()) {
+    if (auto err = mAverageInstancesData.Remove(instanceIdent); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
