@@ -110,7 +110,7 @@ public:
      * @param period traffic period.
      * @return Error
      */
-    Error SetTrafficPeriod(TrafficPeriod period) override;
+    Error SetTrafficPeriod(const TrafficPeriod& period) override;
 
     /**
      * Creates instance network.

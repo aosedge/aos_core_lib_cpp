@@ -161,7 +161,7 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
     }
 }
 
-void DesiredStatusHandler::StartUpdate(UpdateState state)
+void DesiredStatusHandler::StartUpdate(const UpdateState& state)
 {
     SetState(state);
 
@@ -326,7 +326,7 @@ void DesiredStatusHandler::LogDesiredStatus(const DesiredStatus& desiredStatus) 
     }
 }
 
-void DesiredStatusHandler::SetState(UpdateState state)
+void DesiredStatusHandler::SetState(const UpdateState& state)
 {
     if (mUpdateState == state) {
         return;
