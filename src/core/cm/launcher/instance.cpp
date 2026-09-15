@@ -582,8 +582,8 @@ size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
     }
 
     if (node.NeedBalancing()) {
-        if (mMonitoringData.mCPU > requestedCPU) {
-            return mMonitoringData.mCPU;
+        if (mMonitoringData.mCPU > static_cast<double>(requestedCPU)) {
+            return static_cast<size_t>(mMonitoringData.mCPU);
         }
     }
 
@@ -729,7 +729,7 @@ size_t ServiceInstance::GetReqStorageFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;

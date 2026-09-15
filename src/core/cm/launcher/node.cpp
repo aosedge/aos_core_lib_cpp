@@ -56,19 +56,21 @@ void Node::PrepareForBalancing(bool rebalancing)
         const auto& alertRules = mConfig.mAlertRules.GetValue();
         if (alertRules.mCPU.HasValue() || alertRules.mRAM.HasValue()) {
             if (alertRules.mCPU.HasValue()) {
-                const auto usedCPU     = mTotalCPUUsage;
-                const auto maxTreshold = mInfo.mMaxDMIPS * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
+                const auto usedCPU = mTotalCPUUsage;
+                const auto maxTreshold
+                    = static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
 
-                if (usedCPU > maxTreshold) {
+                if (static_cast<double>(usedCPU) > maxTreshold) {
                     mNeedBalancing = true;
                 }
             }
 
             if (alertRules.mRAM.HasValue()) {
-                const auto usedRAM     = mTotalRAMUsage;
-                const auto maxTreshold = mInfo.mTotalRAM * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
+                const auto usedRAM = mTotalRAMUsage;
+                const auto maxTreshold
+                    = static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
 
-                if (usedRAM > maxTreshold) {
+                if (static_cast<double>(usedRAM) > maxTreshold) {
                     mNeedBalancing = true;
                 }
             }
@@ -83,11 +85,13 @@ void Node::PrepareForBalancing(bool rebalancing)
         if (mConfig.mAlertRules.HasValue()) {
             const auto& alertRules = mConfig.mAlertRules.GetValue();
             if (alertRules.mCPU.HasValue()) {
-                totalCPU = static_cast<size_t>(mInfo.mMaxDMIPS * alertRules.mCPU.GetValue().mMinThreshold / 100.0);
+                totalCPU = static_cast<size_t>(
+                    static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMinThreshold / 100.0);
             }
 
             if (alertRules.mRAM.HasValue()) {
-                totalRAM = static_cast<size_t>(mInfo.mTotalRAM * alertRules.mRAM.GetValue().mMinThreshold / 100.0);
+                totalRAM = static_cast<size_t>(
+                    static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMinThreshold / 100.0);
             }
         }
     }
@@ -110,7 +114,7 @@ void Node::PrepareForBalancing(bool rebalancing)
 
 void Node::UpdateMonitoringData(const monitoring::NodeMonitoringData& monitoringData)
 {
-    mTotalCPUUsage = monitoringData.mMonitoringData.mCPU;
+    mTotalCPUUsage = static_cast<size_t>(monitoringData.mMonitoringData.mCPU);
     mTotalRAMUsage = monitoringData.mMonitoringData.mRAM;
 
     mSystemCPUUsage = GetSystemCPUUsage(monitoringData);
@@ -396,14 +400,14 @@ size_t Node::GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringD
     size_t instanceUsage = 0;
 
     for (const auto& instance : monitoringData.mInstances) {
-        instanceUsage += instance.mMonitoringData.mCPU;
+        instanceUsage += static_cast<size_t>(instance.mMonitoringData.mCPU);
     }
 
-    if (instanceUsage > monitoringData.mMonitoringData.mCPU) {
+    if (static_cast<double>(instanceUsage) > monitoringData.mMonitoringData.mCPU) {
         return 0;
     }
 
-    return monitoringData.mMonitoringData.mCPU - instanceUsage;
+    return static_cast<size_t>(monitoringData.mMonitoringData.mCPU - static_cast<double>(instanceUsage));
 }
 
 size_t Node::GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringData) const
