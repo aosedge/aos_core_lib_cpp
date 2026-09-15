@@ -121,7 +121,7 @@ public:
     void Clear()
     {
         for (auto it = begin(); it != end(); it++) {
-            it->~T();
+            it->~T(); // NOSONAR cpp:S1235 - exact static type
         }
 
         mSize = 0;
@@ -432,7 +432,7 @@ public:
         const auto* curEnd = end();
 
         for (auto it = first; it != last; ++it) {
-            it->~T();
+            it->~T(); // NOSONAR cpp:S1235 - exact static type, dtor never called via a base pointer
             mSize--;
         }
 
@@ -441,7 +441,7 @@ public:
         for (T* it = const_cast<T*>(last); it != curEnd; ++it, ++curFirst) { // NOSONAR cpp:M23_090
             // cppcheck-suppress constStatement
             new (const_cast<void*>(static_cast<const void*>(curFirst))) T(Move(*it)); // NOSONAR cpp:M23_090
-            it->~T();
+            it->~T(); // NOSONAR cpp:S1235 - exact static type, dtor never called via a base pointer
         }
 
         return const_cast<Iterator>(first); // NOSONAR cpp:M23_090
