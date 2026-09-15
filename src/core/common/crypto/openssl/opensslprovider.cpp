@@ -674,6 +674,9 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
 
     case OSSL_OP_STORE:
         return nullptr;
+
+    default:
+        break;
     }
 
     return nullptr;

@@ -533,8 +533,8 @@ public:
         dst.Clear();
 
         for (size_t i = 0; i < Size(); i += 2) {
-            Error   err = ErrorEnum::eNone;
-            uint8_t byte;
+            Error   err  = ErrorEnum::eNone;
+            uint8_t byte = 0;
 
             char hex[] = {(*this)[i], '0', '\0'};
 
@@ -565,7 +565,7 @@ public:
         Clear();
 
         for (const auto val : src) {
-            char digits[3];
+            char digits[3] {};
 
             auto err = String(digits, 2).ByteToHex(val, upperCase);
             if (!err.IsNone()) {
@@ -611,7 +611,7 @@ public:
         }
 
         if (inErr.FileName()) {
-            char tmpBuf[16];
+            char tmpBuf[16] {};
 
             if (auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber()); !err.IsNone()) {
                 return err;
