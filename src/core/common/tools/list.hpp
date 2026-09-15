@@ -197,8 +197,7 @@ protected:
             return nullptr;
         }
 
-        new (&node->mBuffer) T(args...); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
-                                         // dtor; no heap allocator available
+        new (&node->mBuffer) T(Forward<Args>(args)...); // NOSONAR cpp:M23_329
 
         return node;
     }
@@ -344,7 +343,7 @@ public:
     template <typename... Args>
     Error EmplaceBack(Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(args...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...);
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
@@ -381,7 +380,7 @@ public:
     template <typename... Args>
     Error EmplaceFront(Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(args...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...);
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
@@ -401,7 +400,7 @@ public:
     template <typename... Args>
     Error Emplace(ConstIterator pos, Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(args...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...);
         if (!node) {
             return ErrorEnum::eNoMemory;
         }

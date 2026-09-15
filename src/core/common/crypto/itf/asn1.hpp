@@ -199,7 +199,7 @@ private:
 template <typename Reader>
 ASN1Reader<Reader> MakeASN1Reader(Reader&& reader)
 {
-    return ASN1Reader<Reader>(Move(reader));
+    return ASN1Reader<Reader>(Forward<Reader>(reader));
 }
 
 /**
