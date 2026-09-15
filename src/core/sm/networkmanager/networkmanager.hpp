@@ -11,6 +11,7 @@
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
 
 #include <core/common/networkmanager/itf/networkprovider.hpp>
@@ -31,7 +32,7 @@ namespace aos::sm::networkmanager {
 /**
  * Network manager.
  */
-class NetworkManager : public NetworkManagerItf {
+class NetworkManager : public NetworkManagerItf, private NonCopyable {
 public:
     /**
      * Creates network manager instance.
