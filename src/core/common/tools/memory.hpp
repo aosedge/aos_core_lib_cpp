@@ -315,7 +315,7 @@ private:
 template <typename T, typename Deleter>
 inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
 {
-    return UniquePtr<T, Deleter>(ptr, Move(deleter));
+    return UniquePtr<T, Deleter>(ptr, Forward<Deleter>(deleter));
 }
 
 /**
@@ -409,7 +409,7 @@ public:
     template <typename... Args>
     explicit SharedObjectControlBlock(AllocatorItf& allocator, Args&&... args)
         : SharedControlBlock(allocator)
-        , mObject(args...)
+        , mObject(Forward<Args>(args)...)
     {
     }
 
@@ -693,7 +693,7 @@ inline UniquePtr<T> MakeUnique(AllocatorItf* allocator, Args&&... args)
         return UniquePtr<T>();
     }
 
-    return UniquePtr<T>(new (data) T(args...),
+    return UniquePtr<T>(new (data) T(Forward<Args>(args)...),
         DefaultDeleter<T>(allocator)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
                                        // dtor; no heap allocator available
 }
@@ -717,9 +717,9 @@ inline SharedPtr<T> MakeShared(AllocatorItf* allocator, Args&&... args)
         return SharedPtr<T>();
     }
 
-    auto* controlBlock = new (data)
-        SharedObjectControlBlock<T>(*allocator, args...); // NOSONAR cpp:M23_329 - fixed-capacity container needs
-                                                          // placement new/explicit dtor; no heap allocator available
+    auto* controlBlock = new (data) SharedObjectControlBlock<T>(*allocator,
+        Forward<Args>(args)...); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit dtor;
+                                 // no heap allocator available
 
     return SharedPtr<T>(controlBlock, controlBlock->GetObject());
 }
