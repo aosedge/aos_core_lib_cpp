@@ -119,7 +119,7 @@ private:
     static constexpr auto cMaxNumItemVersions  = 2;
     // oci::cMaxNumLayers + 3 (layers + manifest + image config + aos service)
     static constexpr auto cMaxNumItemBlobs       = oci::cMaxNumLayers + 3;
-    static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (cMaxNumItemBlobs);
+    static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * cMaxNumItemBlobs;
     static constexpr auto cMaxNumInstalledLayers = cMaxNumUpdateItems * oci::cMaxNumLayers;
     struct InstallItem {
         StaticString<cIDLen>                                           mID;
