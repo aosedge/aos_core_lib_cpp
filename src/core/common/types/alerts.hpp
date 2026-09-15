@@ -47,7 +47,7 @@ public:
         eNumAlertTags,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sAlertTagStrings[] = {
             "systemAlert",
@@ -280,7 +280,7 @@ public:
         eFall,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "raise",
@@ -429,7 +429,7 @@ public:
         eFinished,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "started",
