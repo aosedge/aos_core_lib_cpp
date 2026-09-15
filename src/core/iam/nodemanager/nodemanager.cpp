@@ -201,7 +201,12 @@ NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
 
 const NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID) const
 {
-    return const_cast<NodeManager*>(this)->GetNodeFromCache(nodeID);
+    if (auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
+        it != mNodeInfoCache.end()) {
+        return it;
+    }
+
+    return nullptr;
 }
 
 Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)

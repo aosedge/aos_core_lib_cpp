@@ -77,7 +77,7 @@ void ConvertFromPKCS11Version(const CK_VERSION& src, Version& dst)
 
 CK_UTF8CHAR_PTR ConvertToPKCS11UTF8CHARPTR(const char* src)
 {
-    return reinterpret_cast<CK_UTF8CHAR_PTR>(const_cast<char*>(src));
+    return reinterpret_cast<CK_UTF8CHAR_PTR>(const_cast<char*>(src)); // NOSONAR cpp:M23_090
 }
 
 Error ConvertFromPKCS11SlotInfo(const CK_SLOT_INFO& src, SlotInfo& dst)
@@ -163,7 +163,7 @@ Error ConvertToPKCS11Attributes(const Array<ObjectAttribute>& src, Array<CK_ATTR
         CK_ATTRIBUTE tmp;
 
         tmp.type       = attr.mType;
-        tmp.pValue     = const_cast<uint8_t*>(attr.mValue.Get());
+        tmp.pValue     = const_cast<uint8_t*>(attr.mValue.Get()); // NOSONAR cpp:M23_090
         tmp.ulValueLen = attr.mValue.Size();
 
         (void)dst.PushBack(tmp);
@@ -220,7 +220,7 @@ Error GetAttributesValues(const Array<CK_ATTRIBUTE>& src, Array<Array<uint8_t>>&
 
 Array<uint8_t> ConvertToAttributeValue(const String& val)
 {
-    return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(val.Get())), val.Size()};
+    return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(val.Get())), val.Size()}; // NOSONAR cpp:M23_090
 }
 
 template <typename T>
@@ -806,7 +806,8 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
         return ErrorEnum::eWrongState;
     }
 
-    if (CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
+    if (CK_RV rv = mFunctionList->C_Sign(
+            mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize); // NOSONAR cpp:M23_090
         rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
@@ -833,7 +834,8 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
         return ErrorEnum::eWrongState;
     }
 
-    if (CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
+    if (CK_RV rv = mFunctionList->C_Decrypt(
+            mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize); // NOSONAR cpp:M23_090
         rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
@@ -1016,10 +1018,13 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     if (auto err = pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)}); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+    if (auto err
+        = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1038,10 +1043,13 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+    if (auto err
+        = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1101,10 +1109,13 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     if (auto err = pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)}); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+    if (auto err
+        = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1120,10 +1131,13 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+    if (auto err
+        = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1250,26 +1264,32 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
     if (auto err = certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-    if (auto err = certTempl.PushBack({CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()});
+    if (auto err = certTempl.PushBack(
+            {CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()}); // NOSONAR cpp:M23_090
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-    if (auto err = certTempl.PushBack({CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()});
+    if (auto err = certTempl.PushBack(
+            {CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()}); // NOSONAR cpp:M23_090
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
     if (auto err = certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()}); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-    if (auto err = certTempl.PushBack({CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()});
+    if (auto err = certTempl.PushBack(
+            {CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()}); // NOSONAR cpp:M23_090
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
-    if (auto err = certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); !err.IsNone()) {
+    if (auto err = certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
     if (!label.IsEmpty()) {
-        if (auto err = certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); !err.IsNone()) {
+        if (auto err
+            = certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+            !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
