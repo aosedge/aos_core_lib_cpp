@@ -214,18 +214,18 @@ private:
     Error CreateNetwork(
         const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
 
-    InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent);
-    InstanceData*      FindInstanceData(const InstanceIdent& instanceIdent) const;
-    InstanceData*      FindInstanceDataByID(const String& instanceID);
-    RuntimeItf*        FindInstanceRuntime(const String& runtimeID);
-    RuntimeItf*        FindInstanceRuntime(const String& runtimeID) const;
-    RuntimeItf*        FindInstanceRuntime(const InstanceIdent& instanceIdent);
-    RuntimeItf*        FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
-    Optional<Duration> GetMinOfflineTTL() const;
-    void               StartTTLTimer();
-    void               StopExpiredInstances(UniqueLock<Mutex>& lock);
-    void               SendNodeInstancesStatuses();
-    Error              InitInstances(const Array<InstanceInfo>& instancesInfo);
+    InstanceData*       FindInstanceData(const InstanceIdent& instanceIdent);
+    const InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
+    InstanceData*       FindInstanceDataByID(const String& instanceID);
+    RuntimeItf*         FindInstanceRuntime(const String& runtimeID);
+    const RuntimeItf*   FindInstanceRuntime(const String& runtimeID) const;
+    RuntimeItf*         FindInstanceRuntime(const InstanceIdent& instanceIdent);
+    const RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
+    Optional<Duration>  GetMinOfflineTTL() const;
+    void                StartTTLTimer();
+    void                StopExpiredInstances(UniqueLock<Mutex>& lock);
+    void                SendNodeInstancesStatuses();
+    Error               InitInstances(const Array<InstanceInfo>& instancesInfo);
 
     AllocatorItf*                                                         mAllocator {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
