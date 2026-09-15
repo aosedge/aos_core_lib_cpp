@@ -47,9 +47,9 @@ const char* ConsumeChar(const char* s, char ch)
 
 const char* ConsumeDate(const char* s, struct tm* tm_time)
 {
-    char year[4 + 1];
-    char month[2 + 1];
-    char day[2 + 1];
+    char year[4 + 1] {};
+    char month[2 + 1] {};
+    char day[2 + 1] {};
 
     s = ConsumeChars(s, year, 4);
     if (!s) {
@@ -85,9 +85,9 @@ const char* ConsumeDate(const char* s, struct tm* tm_time)
 
 const char* ConsumeTime(const char* s, struct tm* tm_time, int64_t* nsec)
 {
-    char hour[2 + 1];
-    char minute[2 + 1];
-    char second[2 + 1];
+    char hour[2 + 1] {};
+    char minute[2 + 1] {};
+    char second[2 + 1] {};
 
     s = ConsumeChars(s, hour, 2);
     if (!s) {
@@ -182,7 +182,7 @@ StaticString<cTimeStrLen> Duration::ToISO8601String() const
     StaticString<cTimeStrLen> result = (mDuration < 0) ? "-P" : "P";
 
     auto total = llabs(mDuration);
-    char buffer[16];
+    char buffer[16] {};
 
     if (auto years = total / Time::cYear.Nanoseconds(); years > 0) {
         (void)snprintf(buffer, sizeof(buffer), "%lldY", years);

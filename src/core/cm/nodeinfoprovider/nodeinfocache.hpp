@@ -101,7 +101,6 @@ private:
     Optional<NodeInfo>   mNodeInfo;
     Optional<SMInfo>     mSMInfo;
     Time                 mLastUpdate {Time::Now()};
-    bool                 mSMReceived {};
     bool                 mHasSMComponent {true};
 };
 

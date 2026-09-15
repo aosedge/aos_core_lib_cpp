@@ -125,8 +125,8 @@ static int32_t ExportRSAPublicKeyToDER(
 static aos::Pair<psa_ecc_family_t, size_t> FindPsaECGroupByOID(const aos::Array<uint8_t>& oid)
 {
     for (int32_t i = MBEDTLS_ECP_DP_NONE; i < MBEDTLS_ECP_DP_MAX; ++i) {
-        const char* groupOID;
-        size_t      groupOIDSize;
+        const char* groupOID     = nullptr;
+        size_t      groupOIDSize = 0;
 
         if (mbedtls_oid_get_oid_by_ec_grp(static_cast<mbedtls_ecp_group_id>(i), &groupOID, &groupOIDSize) == 0) {
             aos::Array<uint8_t> knownOIDBuf(reinterpret_cast<const uint8_t*>(groupOID), groupOIDSize);
@@ -173,8 +173,8 @@ static aos::Pair<psa_ecc_family_t, size_t> FindPsaECGroupByOID(const aos::Array<
 static aos::Pair<aos::Error, mbedtls_ecp_group_id> FindECPGroupByOID(const aos::Array<uint8_t>& oid)
 {
     for (int32_t i = MBEDTLS_ECP_DP_NONE; i < MBEDTLS_ECP_DP_MAX; ++i) {
-        const char* groupOID;
-        size_t      groupOIDSize;
+        const char* groupOID     = nullptr;
+        size_t      groupOIDSize = 0;
 
         if (mbedtls_oid_get_oid_by_ec_grp(static_cast<mbedtls_ecp_group_id>(i), &groupOID, &groupOIDSize) == 0) {
             aos::Array<uint8_t> knownOIDBuf(reinterpret_cast<const uint8_t*>(groupOID), groupOIDSize);
@@ -340,7 +340,7 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
             PSA_KEY_PERSISTENCE_DEFAULT, PSA_CRYPTO_AOS_DRIVER_LOCATION);
         keyDescription->mPrivKey = &privKey;
 
-        aos::crypto::HashEnum hashAlg;
+        aos::crypto::HashEnum hashAlg {};
 
         switch (privKey.GetPublic().GetKeyType().GetValue()) {
         case aos::crypto::KeyTypeEnum::eRSA: {
@@ -398,7 +398,7 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
 
     LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
-    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& candidate) { return candidate.mKeyID == keyID; });
     if (key == sBuiltinKeys.end()) {
         return;
     }
@@ -423,7 +423,7 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
 
     aos::LockGuard lock(sMutex);
 
-    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == appKeyID; });
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& candidate) { return candidate.mKeyID == appKeyID; });
     if (key == sBuiltinKeys.end()) {
         LOG_ERR() << "Built-in key not found: keyID = " << keyID;
 

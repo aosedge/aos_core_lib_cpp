@@ -163,10 +163,9 @@ public:
     }
 
 private:
-    SharedPtr<SessionContext>  mSession;
-    crypto::x509::ProviderItf& mCryptoProvider;
-    ObjectHandle               mPrivKeyHandle;
-    crypto::ECDSAPublicKey     mPublicKey;
+    SharedPtr<SessionContext> mSession;
+    ObjectHandle              mPrivKeyHandle;
+    crypto::ECDSAPublicKey    mPublicKey;
 };
 
 } // namespace aos::pkcs11

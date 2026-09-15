@@ -139,7 +139,7 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
         return {nullptr, ErrorEnum::eFailed};
     }
 
-    pkcs11::SlotID                    slotID;
+    pkcs11::SlotID                    slotID {};
     Error                             err = ErrorEnum::eNone;
     SharedPtr<pkcs11::SessionContext> session;
 
@@ -383,7 +383,7 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id)
             return err;
         }
 
-        uint8_t byte;
+        uint8_t byte = 0;
 
         aos::Tie(byte, err) = hexByte.HexToByte();
         if (!err.IsNone()) {
