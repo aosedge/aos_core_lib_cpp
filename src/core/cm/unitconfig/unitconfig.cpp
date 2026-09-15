@@ -76,6 +76,7 @@ Error UnitConfig::CheckUnitConfig(const aos::UnitConfig& config)
                   << Log::Field(mUnitConfigError);
     } else if (auto err = CheckVersion(config.mVersion); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    } else {
     }
 
     StaticArray<StaticString<cIDLen>, cMaxNumNodes> nodeIds;
@@ -147,6 +148,7 @@ Error UnitConfig::UpdateUnitConfig(const aos::UnitConfig& unitConfig)
         if (auto err = CheckVersion(unitConfig.mVersion); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+    } else {
     }
 
     mUnitConfig = unitConfig;
