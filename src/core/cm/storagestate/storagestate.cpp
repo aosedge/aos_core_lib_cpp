@@ -239,6 +239,7 @@ Error StorageState::Setup(
         }
     } else if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    } else {
     }
 
     err = PrepareStorage(instanceIdent, setupParams, storagePath);

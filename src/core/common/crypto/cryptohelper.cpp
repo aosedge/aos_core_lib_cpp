@@ -551,6 +551,7 @@ Error CryptoHelper::GetSymmetricAlgInfo(
         keySize = 32;
 
         return ErrorEnum::eNone;
+    } else {
     }
 
     return ErrorEnum::eNotSupported;

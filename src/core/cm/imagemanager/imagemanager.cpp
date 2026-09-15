@@ -857,6 +857,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
                 LOG_ERR() << "Failed to restore outdated item" << Log::Field("itemID", itemInfo.mItemID)
                           << Log::Field("version", itemInfo.mVersion) << Log::Field(err);
             }
+        } else {
         }
 
         NotifyItemStatusChanged(

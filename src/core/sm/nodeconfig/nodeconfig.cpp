@@ -63,6 +63,7 @@ Error NodeConfig::UpdateNodeConfig(const aos::NodeConfig& config)
         if (auto err = CheckVersion(config.mVersion); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+    } else {
     }
 
     mNodeConfig = config;

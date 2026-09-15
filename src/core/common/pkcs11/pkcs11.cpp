@@ -1601,6 +1601,7 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
             Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
         } else if (!foundCert) {
             err = ErrorEnum::eNotFound;
+        } else {
         }
     } else if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyId.IsEmpty()) {
         Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
