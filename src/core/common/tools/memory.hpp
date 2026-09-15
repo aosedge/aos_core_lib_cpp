@@ -99,7 +99,7 @@ public:
     void operator()(T* ptr)
     {
         if (mAllocator) {
-            ptr->~T();
+            ptr->~T(); // NOSONAR cpp:M23_329
             mAllocator->Free(ptr);
         }
     }
@@ -115,7 +115,7 @@ template <typename T>
 inline void SmartPtrDeleter(void* ptr, AllocatorItf* allocator)
 {
     if (ptr) {
-        static_cast<T*>(ptr)->~T();
+        static_cast<T*>(ptr)->~T(); // NOSONAR cpp:M23_329
 
         if (allocator) {
             allocator->Free(ptr);
@@ -425,7 +425,7 @@ private:
     {
         auto& allocator = mAllocator;
 
-        this->~SharedObjectControlBlock();
+        this->~SharedObjectControlBlock(); // NOSONAR cpp:M23_329
         allocator.Free(this);
     }
 
@@ -468,7 +468,7 @@ private:
             mDeleter(mObject, &allocator);
         }
 
-        this->~SharedAdoptControlBlock();
+        this->~SharedAdoptControlBlock(); // NOSONAR cpp:M23_329
         allocator.Free(this);
     }
 
@@ -664,8 +664,10 @@ private:
             return;
         }
 
-        mControlBlock = new (data) SharedAdoptControlBlock<T>(*allocator, object, deleter);
-        mObject       = object;
+        mControlBlock = new (data) SharedAdoptControlBlock<T>(
+            *allocator, object, deleter); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
+                                          // dtor; no heap allocator available
+        mObject = object;
     }
 
     T*                  mObject {};
@@ -691,7 +693,9 @@ inline UniquePtr<T> MakeUnique(AllocatorItf* allocator, Args&&... args)
         return UniquePtr<T>();
     }
 
-    return UniquePtr<T>(new (data) T(args...), DefaultDeleter<T>(allocator));
+    return UniquePtr<T>(new (data) T(args...),
+        DefaultDeleter<T>(allocator)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
+                                       // dtor; no heap allocator available
 }
 
 /**
@@ -713,7 +717,9 @@ inline SharedPtr<T> MakeShared(AllocatorItf* allocator, Args&&... args)
         return SharedPtr<T>();
     }
 
-    auto* controlBlock = new (data) SharedObjectControlBlock<T>(*allocator, args...);
+    auto* controlBlock = new (data)
+        SharedObjectControlBlock<T>(*allocator, args...); // NOSONAR cpp:M23_329 - fixed-capacity container needs
+                                                          // placement new/explicit dtor; no heap allocator available
 
     return SharedPtr<T>(controlBlock, controlBlock->GetObject());
 }

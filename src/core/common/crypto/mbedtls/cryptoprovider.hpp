@@ -14,6 +14,8 @@
 #include <mbedtls/x509_csr.h>
 #include <psa/crypto_types.h>
 
+#include <core/common/tools/noncopyable.hpp>
+
 #include "../itf/crypto.hpp"
 #include "driverwrapper.hpp"
 
@@ -448,7 +450,7 @@ private:
         StaticArray<uint8_t, AESCipherItf::cGCMTagSize> mTag;
     };
 
-    class MbedTLSRSAPrivKey : public crypto::PrivateKeyItf {
+    class MbedTLSRSAPrivKey : public crypto::PrivateKeyItf, private NonCopyable {
     public:
         MbedTLSRSAPrivKey();
 

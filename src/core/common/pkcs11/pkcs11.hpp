@@ -11,6 +11,7 @@
 #include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
 #include <core/common/tools/uuid.hpp>
@@ -343,7 +344,7 @@ struct ObjectAttribute {
 /**
  * Encapsulates session-related routines of Cryptoki API.
  */
-class SessionContext {
+class SessionContext : private NonCopyable {
 public:
     /**
      * Constructs object instance.
@@ -485,7 +486,7 @@ private:
 /**
  * Static PKCS11 library context.
  */
-class StaticLibraryContext {
+class StaticLibraryContext : private NonCopyable {
 protected:
     /**
      * Initializes object instance.
@@ -505,7 +506,7 @@ using PKCS11LibraryContext = StaticLibraryContext;
 /**
  * Dynamic PKCS11 library context.
  */
-class DynamicLibraryContext {
+class DynamicLibraryContext : private NonCopyable {
 public:
     /**
      * Sets dynamic library handle.

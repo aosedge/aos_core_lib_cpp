@@ -22,7 +22,7 @@ namespace aos {
  * @tparam T
  */
 template <typename T>
-class Queue {
+class Queue { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     /**
      * Creates queue.
@@ -59,6 +59,11 @@ public:
      */
     Queue(const Queue& queue) noexcept = default;
 
+    /**
+     * Destructor.
+     */
+    ~Queue() = default;
+
     // cppcheck-suppress operatorEqVarError
     /**
      * Copy queue from another queue.
@@ -86,7 +91,7 @@ public:
         auto it = queue.mHead;
 
         while (mSize < queue.mSize) {
-            new (mTail) T(*it);
+            new (mTail) T(*it); // NOSONAR cpp:M23_329
 
             it++;
             if (it == queue.mEnd) {
@@ -117,7 +122,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (mTail) T(item);
+        new (mTail) T(item); // NOSONAR cpp:M23_329
         mSize++;
         mTail++;
 
@@ -229,7 +234,7 @@ public:
     void Clear()
     {
         while (mSize) {
-            Back().mValue.~T();
+            Back().mValue.~T(); // NOSONAR cpp:M23_329
             (void)Pop();
         }
 
