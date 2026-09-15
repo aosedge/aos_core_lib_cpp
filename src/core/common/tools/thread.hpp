@@ -524,7 +524,7 @@ public:
     /**
      * Creates thread pool instance.
      */
-    ThreadPool() { }
+    ThreadPool() = default;
 
     /**
      * Adds task to task queue.

@@ -38,7 +38,7 @@ public:
  */
 class CloudConnectionItf {
 public:
-    virtual ~CloudConnectionItf() { }
+    virtual ~CloudConnectionItf() = default;
 
     /**
      * Subscribes to cloud connection events.
