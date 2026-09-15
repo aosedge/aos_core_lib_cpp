@@ -676,6 +676,7 @@ Error File::ReadBlock(Array<uint8_t>& buffer) const
             eof = true;
             break; // EOF
         } else {
+            // normal read, handled below
         }
 
         totalRead += result;

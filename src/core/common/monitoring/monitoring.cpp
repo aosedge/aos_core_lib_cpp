@@ -91,6 +91,7 @@ void NormalizeMonitoringData(NodeMonitoringData& monitoringData)
                 LOG_ERR() << "Failed to normalize monitoring data: cannot add partition usage"
                           << Log::Field("partition", partition.mName) << Log::Field("error", err);
             } else {
+                // partition usage added successfully, nothing to do
             }
         }
     }
