@@ -51,7 +51,7 @@ Error AddDNSNames(const Array<StaticString<cDNSNameLen>>& dnsNames, STACK_OF(X50
     }
 
     for (const auto& dns : dnsNames) {
-        auto generalName = a2i_GENERAL_NAME(NULL, NULL, NULL, GEN_DNS, dns.CStr(), 0);
+        auto generalName = a2i_GENERAL_NAME(nullptr, nullptr, nullptr, GEN_DNS, dns.CStr(), 0);
         if (generalName == nullptr) {
             return OPENSSL_ERROR();
         }
@@ -561,7 +561,7 @@ RetWithError<const char*> GetCurveName(const Array<uint8_t>& rawOID)
 
     const uint8_t* oidPtr = fullOID.Get();
 
-    auto asn1oid = DeferRelease(d2i_ASN1_OBJECT(NULL, &oidPtr, fullOID.Size()), ASN1_OBJECT_free);
+    auto asn1oid = DeferRelease(d2i_ASN1_OBJECT(nullptr, &oidPtr, fullOID.Size()), ASN1_OBJECT_free);
     if (!asn1oid) {
         return {"", OPENSSL_ERROR()};
     }
@@ -989,7 +989,7 @@ RetWithError<EVP_MD_CTX*> CreateSignCtx(const PrivateKeyItf& privKey, OSSL_LIB_C
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    EVP_PKEY* evpKey = NULL;
+    EVP_PKEY* evpKey = nullptr;
 
     if (EVP_PKEY_fromdata_init(pKeyCtx.Get()) != 1) {
         return {nullptr, OPENSSL_ERROR()};
@@ -1663,7 +1663,7 @@ Error OpenSSLCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
         return ErrorEnum::eNone;
     }
 
-    auto buf = DeferRelease(X509_NAME_oneline(name.Get(), 0, 0), openssl::AOS_OPENSSL_free);
+    auto buf = DeferRelease(X509_NAME_oneline(name.Get(), nullptr, 0), openssl::AOS_OPENSSL_free);
 
     result.Clear();
 
