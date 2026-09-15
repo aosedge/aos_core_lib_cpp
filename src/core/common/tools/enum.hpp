@@ -35,7 +35,7 @@ public:
      *
      * @param value curent enum value.
      */
-    constexpr EnumStringer(EnumType value)
+    constexpr EnumStringer(EnumType value) // NOSONAR cpp:S1709
         : mValue(value) {};
 
     /**
@@ -50,14 +50,20 @@ public:
      *
      * @return EnumType.
      */
-    operator EnumType() const { return mValue; }
+    operator EnumType() const // NOSONAR cpp:S1709
+    {
+        return mValue;
+    }
 
     /**
      * Casts to int.
      *
      * @return int.
      */
-    operator int32_t() const { return static_cast<int32_t>(mValue); }
+    operator int32_t() const // NOSONAR cpp:S1709
+    {
+        return static_cast<int32_t>(mValue);
+    }
 
     /**
      * Compares if EnumStringer equals to another EnumStringer.

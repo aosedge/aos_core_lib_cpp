@@ -70,7 +70,7 @@ protected:
          */
         template <bool WasConst = IsConst, typename = EnableIf<IsConst || !WasConst>>
         // cppcheck-suppress noExplicitConstructor
-        Iterator(const Iterator<WasConst>& it)
+        Iterator(const Iterator<WasConst>& it) // NOSONAR cpp:S1709
             : mCurrentNode(it.mCurrentNode)
         {
         }
@@ -598,7 +598,7 @@ public:
      *
      * @param list list to create from.
      */
-    StaticList(const List<T>& list)
+    StaticList(const List<T>& list) // NOSONAR cpp:S1709
     {
         List<T>::SetBuffer(mBuffer);
         List<T>::operator=(list);
