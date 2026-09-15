@@ -66,7 +66,6 @@ struct NetworkInfo {
         return lhs.mNetworkID == networkInfo.mNetworkID && lhs.mSubnet == networkInfo.mSubnet
             && lhs.mIP == networkInfo.mIP && lhs.mVlanID == networkInfo.mVlanID
             && lhs.mVlanIfName == networkInfo.mVlanIfName && lhs.mBridgeIfName == networkInfo.mBridgeIfName;
-        ;
     };
 
     /**
