@@ -73,7 +73,7 @@ private:
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
 
     void  Run();
-    void  LogDesiredStatus(const DesiredStatus& desiredStatus);
+    void  LogDesiredStatus(const DesiredStatus& desiredStatus) const;
     void  SetState(UpdateState state);
     Error DownloadUpdateItems();
     Error InstallDesiredStatus();

@@ -179,7 +179,7 @@ private:
     Error CreateStateFileIfNotExist(const String& path, const SetupParams& params) const;
     Error StartStateWatching(const InstanceIdent& instanceIdent, const String& path, size_t quota);
     Error StopStateWatching(const InstanceIdent& instanceIdent);
-    Error SetQuotas(const SetupParams& setupParams);
+    Error SetQuotas(const SetupParams& setupParams) const;
     Error SendNewStateIfFileChanged(State& state);
     Error RemoveFromSystem(const InstanceIdent& instanceIdent);
     bool  QuotasAreEqual(const InstanceInfo& lhs, const SetupParams& rhs) const;

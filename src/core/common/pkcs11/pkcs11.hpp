@@ -560,7 +560,7 @@ public:
      * @param label token label.
      * @return Error.
      */
-    Error InitToken(SlotID slotID, const String& pin, const String& label);
+    Error InitToken(SlotID slotID, const String& pin, const String& label) const;
 
     /**
      * Returns list of slots in the system.
@@ -618,7 +618,7 @@ public:
      * @param slotID slot identifier.
      * @return Error.
      */
-    Error CloseAllSessions(SlotID slotID);
+    Error CloseAllSessions(SlotID slotID) const;
 
     /**
      * Destroys object instance.
@@ -812,7 +812,7 @@ public:
 private:
     RetWithError<PrivateKey> ExportPrivateKey(ObjectHandle privKey, ObjectHandle pubKey, CK_KEY_TYPE keyType);
 
-    Error FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles);
+    Error FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles) const;
     Error FindCertificateChain(const crypto::x509::Certificate& certificate, crypto::x509::CertificateChain& chain);
     Error ValidateCertificateChain(const crypto::x509::CertificateChain& chain);
     RetWithError<SharedPtr<crypto::x509::Certificate>> FindCertificateByKeyID(const Array<uint8_t>& keyID);

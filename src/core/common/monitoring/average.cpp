@@ -153,7 +153,7 @@ Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
  * Private
  **********************************************************************************************************************/
 
-Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized)
+Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized) const
 {
     UpdateValue(data.mCPU, newData.mCPU, mWindowCount, isInitialized);
     UpdateValue(data.mRAM, newData.mRAM, mWindowCount, isInitialized);

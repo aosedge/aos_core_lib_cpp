@@ -299,7 +299,7 @@ void DesiredStatusHandler::Run()
     }
 }
 
-void DesiredStatusHandler::LogDesiredStatus(const DesiredStatus& desiredStatus)
+void DesiredStatusHandler::LogDesiredStatus(const DesiredStatus& desiredStatus) const
 {
     for (const auto& node : desiredStatus.mNodes) {
         LOG_INF() << "Desired status node" << Log::Field("id", node.mNodeID) << Log::Field("state", node.mState);

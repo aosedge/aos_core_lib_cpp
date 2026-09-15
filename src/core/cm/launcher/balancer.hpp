@@ -65,24 +65,24 @@ private:
     Error ScheduleInstance(SharedPtr<Instance>& instance, const oci::IndexContentDescriptor& imageDescriptor);
 
     // Selects nodes
-    Error SelectNodes(Instance& instance, Array<Node*>& nodes);
-    void  FilterNodesByID(Instance& instance, Array<Node*>& nodes);
-    void  FilterNodesByLabels(Instance& instance, Array<Node*>& nodes);
-    void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes);
+    Error SelectNodes(Instance& instance, Array<Node*>& nodes) const;
+    void  FilterNodesByID(Instance& instance, Array<Node*>& nodes) const;
+    void  FilterNodesByLabels(Instance& instance, Array<Node*>& nodes) const;
+    void  FilterNodesByResources(Instance& instance, Array<Node*>& nodes) const;
 
     // Selects runtime
     RetWithError<Pair<Node*, const RuntimeInfo*>> SelectRuntime(Instance& instance, const Array<Node*>& nodes);
 
-    Error CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes);
+    Error CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes) const;
 
     template <typename Filter>
-    void FilterRuntimes(NodeRuntimes& runtimes, Filter& filter);
-    void FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes);
-    void FilterByPlatform(Instance& instance, NodeRuntimes& runtimes);
-    void FilterByCPU(Instance& instance, NodeRuntimes& runtimes);
-    void FilterByRAM(Instance& instance, NodeRuntimes& runtimes);
-    void FilterByNumInstances(NodeRuntimes& runtimes);
-    void FilterTopPriorityNodes(NodeRuntimes& nodes);
+    void FilterRuntimes(NodeRuntimes& runtimes, Filter& filter) const;
+    void FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes) const;
+    void FilterByPlatform(Instance& instance, NodeRuntimes& runtimes) const;
+    void FilterByCPU(Instance& instance, NodeRuntimes& runtimes) const;
+    void FilterByRAM(Instance& instance, NodeRuntimes& runtimes) const;
+    void FilterByNumInstances(NodeRuntimes& runtimes) const;
+    void FilterTopPriorityNodes(NodeRuntimes& nodes) const;
 
     Error PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances);
     Error PrepareForBalancing(bool rebalancing, bool isInitialUpdate = false);

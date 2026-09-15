@@ -656,7 +656,7 @@ Error File::Close()
     return ErrorEnum::eNone;
 }
 
-Error File::ReadBlock(Array<uint8_t>& buffer)
+Error File::ReadBlock(Array<uint8_t>& buffer) const
 {
     if (mFd < 0) {
         return ErrorEnum::eWrongState;
@@ -685,7 +685,7 @@ Error File::ReadBlock(Array<uint8_t>& buffer)
     return eof ? ErrorEnum::eEOF : ErrorEnum::eNone;
 }
 
-Error File::WriteBlock(const Array<uint8_t>& buffer)
+Error File::WriteBlock(const Array<uint8_t>& buffer) const
 {
     if (mFd < 0) {
         return ErrorEnum::eWrongState;

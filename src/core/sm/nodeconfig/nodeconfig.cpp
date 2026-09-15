@@ -181,7 +181,7 @@ Error NodeConfig::LoadConfig()
     return ErrorEnum::eNone;
 }
 
-Error NodeConfig::CheckVersion(const String& version)
+Error NodeConfig::CheckVersion(const String& version) const
 {
     LOG_DBG() << "Check version" << Log::Field("version", mNodeConfig.mVersion) << Log::Field("newVersion", version);
 
