@@ -304,8 +304,7 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 
     CK_FUNCTION_LIST_PTR functionList = nullptr;
 
-    CK_RV rv = getFuncList(&functionList);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = getFuncList(&functionList); rv != CKR_OK) {
         LOG_ERR() << "Get function list failed: err = " << rv;
 
         return {nullptr, static_cast<int32_t>(rv)};
@@ -344,15 +343,18 @@ Error LibraryContext::Init(AllocatorItf& allocator)
 
     initArgs.flags = CKF_OS_LOCKING_OK;
 
-    auto rv = mFunctionList->C_Initialize(&initArgs);
-#else
-    auto rv = mFunctionList->C_Initialize(nullptr);
-#endif
-    if (rv != CKR_OK) {
+    if (auto rv = mFunctionList->C_Initialize(&initArgs); rv != CKR_OK) {
         LOG_ERR() << "Init library failed: err = " << rv;
 
         return static_cast<int32_t>(rv);
     }
+#else
+    if (auto rv = mFunctionList->C_Initialize(nullptr); rv != CKR_OK) {
+        LOG_ERR() << "Init library failed: err = " << rv;
+
+        return static_cast<int32_t>(rv);
+    }
+#endif
 
     return ErrorEnum::eNone;
 }
@@ -365,15 +367,14 @@ Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& 
 
     CK_UTF8CHAR pkcsLabel[cLabelLen];
 
-    auto err = ConvertToPKCS11String(label, pkcsLabel);
-    if (!err.IsNone()) {
+    if (auto err = ConvertToPKCS11String(label, pkcsLabel); !err.IsNone()) {
         return err;
     }
 
     const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
 
-    CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
+        rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -393,8 +394,7 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
         return static_cast<int32_t>(rv);
     }
 
-    auto err = slotList.Resize(count);
-    if (!err.IsNone()) {
+    if (auto err = slotList.Resize(count); !err.IsNone()) {
         return err;
     }
 
@@ -414,8 +414,7 @@ Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 
     CK_SLOT_INFO pkcsInfo;
 
-    CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -430,8 +429,7 @@ Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 
     CK_TOKEN_INFO pkcsInfo;
 
-    CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -446,8 +444,7 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 
     CK_INFO pkcsInfo;
 
-    CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -505,8 +502,7 @@ Error LibraryContext::CloseAllSessions(SlotID slotID)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_CloseAllSessions(slotID);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_CloseAllSessions(slotID); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -571,8 +567,7 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -611,8 +606,7 @@ Error SessionContext::Logout()
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Logout(mHandle);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_Logout(mHandle); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -629,8 +623,7 @@ Error SessionContext::InitPIN(const String& pin)
 
     const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
 
-    CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size());
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size()); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -648,13 +641,12 @@ Error SessionContext::GetAttributeValues(
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsAttributes;
 
-    Error err = BuildAttributes(types, values, pkcsAttributes);
-    if (!err.IsNone()) {
+    if (Error err = BuildAttributes(types, values, pkcsAttributes); !err.IsNone()) {
         return err;
     }
 
-    CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
+        rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -665,8 +657,7 @@ Error SessionContext::FindObjects(const Array<ObjectAttribute>& templ, Array<Obj
 {
     LockGuard lock {mMutex};
 
-    Error initErr = FindObjectsInit(templ);
-    if (!initErr.IsNone()) {
+    if (Error initErr = FindObjectsInit(templ); !initErr.IsNone()) {
         return initErr;
     }
 
@@ -694,15 +685,14 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
 
-    Error err = ConvertToPKCS11Attributes(templ, pkcsTempl);
-    if (!err.IsNone()) {
+    if (Error err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
         return {0, err};
     }
 
     ObjectHandle objHandle = CK_INVALID_HANDLE;
 
-    CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
+        rv != CKR_OK) {
         return {0, static_cast<int32_t>(rv)};
     }
 
@@ -717,8 +707,7 @@ Error SessionContext::DestroyObject(ObjectHandle object)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -804,8 +793,7 @@ Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -818,8 +806,8 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
+        rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -832,8 +820,7 @@ Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privK
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -846,8 +833,8 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
+        rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -862,13 +849,11 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
 
-    Error err = ConvertToPKCS11Attributes(templ, pkcsTempl);
-    if (!err.IsNone()) {
+    if (Error err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
         return err;
     }
 
-    CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size());
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size()); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -890,9 +875,9 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
             return ErrorEnum::eNoMemory;
         }
 
-        CK_RV rv = mFunctionList->C_FindObjects(
-            mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
-        if (rv != CKR_OK) {
+        if (CK_RV rv = mFunctionList->C_FindObjects(
+                mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
+            rv != CKR_OK) {
             return static_cast<int32_t>(rv);
         }
 
@@ -913,8 +898,7 @@ Error SessionContext::FindObjectsFinal() const
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle); rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -1066,10 +1050,9 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     ObjectHandle privKeyHandle = CK_INVALID_HANDLE;
     ObjectHandle pubKeyHandle  = CK_INVALID_HANDLE;
 
-    CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
-        privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
-
-    if (rv != CKR_OK) {
+    if (CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
+            privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
+        rv != CKR_OK) {
         return {{}, static_cast<int32_t>(rv)};
     }
 
@@ -1149,10 +1132,9 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     ObjectHandle privKeyHandle = CK_INVALID_HANDLE;
     ObjectHandle pubKeyHandle  = CK_INVALID_HANDLE;
 
-    CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
-        privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
-
-    if (rv != CKR_OK) {
+    if (CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
+            privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
+        rv != CKR_OK) {
         return {{}, static_cast<int32_t>(rv)};
     }
 
@@ -1228,8 +1210,7 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
 
 Error Utils::DeletePrivateKey(const PrivateKey& key)
 {
-    auto err = mSession->DestroyObject(key.GetPrivHandle());
-    if (!err.IsNone()) {
+    if (auto err = mSession->DestroyObject(key.GetPrivHandle()); !err.IsNone()) {
         return err;
     }
 
@@ -1251,8 +1232,7 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
 
     StaticArray<uint8_t, crypto::cSerialNumDERSize> serialNum;
 
-    auto encodeErr = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum);
-    if (!encodeErr.IsNone()) {
+    if (auto encodeErr = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum); !encodeErr.IsNone()) {
         return encodeErr;
     }
 
@@ -1296,8 +1276,8 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
 
     ObjectHandle certHandle = CK_INVALID_HANDLE;
 
-    CK_RV rv = funcList->C_CreateObject(mSession->GetHandle(), certTempl.Get(), certTempl.Size(), &certHandle);
-    if (rv != CKR_OK) {
+    if (CK_RV rv = funcList->C_CreateObject(mSession->GetHandle(), certTempl.Get(), certTempl.Size(), &certHandle);
+        rv != CKR_OK) {
         return static_cast<int32_t>(rv);
     }
 
@@ -1442,8 +1422,7 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         (void)attrValues.PushBack(*n);
         (void)attrValues.PushBack(*e);
 
-        auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
-        if (!err.IsNone()) {
+        if (auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues); !err.IsNone()) {
             return {{}, err};
         }
 
@@ -1507,9 +1486,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, err};
         }
 
-        static constexpr uint8_t cSecp384r1OID[] = {0x2B, 0x81, 0x04, 0x00, 0x22};
-
-        if (*params != Array<uint8_t>(cSecp384r1OID, sizeof(cSecp384r1OID))) {
+        if (static constexpr uint8_t cSecp384r1OID[] = {0x2B, 0x81, 0x04, 0x00, 0x22};
+            *params != Array<uint8_t>(cSecp384r1OID, sizeof(cSecp384r1OID))) {
             LOG_ERR() << "Unsupported elliptic curve, only P384 (secp384r1) is supported";
 
             return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};

@@ -213,9 +213,8 @@ static int32_t ExportECPublicKeyToDER(
         return ret;
     }
 
-    const aos::Array<uint8_t>& point = ecKey.GetECPoint();
-
-    if ((ret = mbedtls_ecp_point_read_binary(&grp, &q, point.Get(), point.Size())) != 0) {
+    if (const aos::Array<uint8_t>& point = ecKey.GetECPoint();
+        (ret = mbedtls_ecp_point_read_binary(&grp, &q, point.Get(), point.Size())) != 0) {
         cleanup();
 
         return ret;
@@ -294,8 +293,7 @@ aos::RetWithError<aos::crypto::HashEnum> GetRSAAlgFromPubKey(const aos::crypto::
     mbedtls_mpi n;
     mbedtls_mpi_init(&n);
 
-    auto ret = mbedtls_mpi_read_binary(&n, pubKey.GetN().Get(), pubKey.GetN().Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_mpi_read_binary(&n, pubKey.GetN().Get(), pubKey.GetN().Size()); ret != 0) {
         mbedtls_mpi_free(&n);
 
         return aos::RetWithError<aos::crypto::HashEnum>(aos::crypto::HashEnum::eNone, ret);
@@ -516,8 +514,7 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
                 aos::Array<uint8_t> digest(hash, hash_length);
                 aos::Array<uint8_t> signatureArray(signature, signature_size);
 
-                auto err = key.mPrivKey->Sign(digest, options, signatureArray);
-                if (!err.IsNone()) {
+                if (auto err = key.mPrivKey->Sign(digest, options, signatureArray); !err.IsNone()) {
                     LOG_ERR() << "Sign failed: " << err;
 
                     return PSA_ERROR_GENERIC_ERROR;
@@ -551,10 +548,10 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
         if (key.mKeyID == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA: {
-                auto ret
+                if (auto ret
                     = ExportRSAPublicKeyToDER(static_cast<const aos::crypto::RSAPublicKey&>(key.mPrivKey->GetPublic()),
                         data, data_size, data_length);
-                if (ret != 0) {
+                    ret != 0) {
                     LOG_ERR() << "Error exporting RSA public key: " << ret;
 
                     return PSA_ERROR_GENERIC_ERROR;
@@ -564,10 +561,10 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
             }
 
             case aos::crypto::KeyTypeEnum::eECDSA: {
-                auto ret
+                if (auto ret
                     = ExportECPublicKeyToDER(static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()),
                         data, data_size, data_length);
-                if (ret != 0) {
+                    ret != 0) {
                     LOG_ERR() << "Error exporting EC public key: " << ret;
 
                     return PSA_ERROR_GENERIC_ERROR;

@@ -167,8 +167,7 @@ Error CheckCAPublicKey(const x509::Certificate& cert)
 
     switch (pubKey.GetKeyType().GetValue()) {
     case KeyTypeEnum::eRSA: {
-        const auto& rsa = static_cast<const RSAPublicKey&>(pubKey);
-        if (rsa.GetN().Size() * 8 < 2048) {
+        if (const auto& rsa = static_cast<const RSAPublicKey&>(pubKey); rsa.GetN().Size() * 8 < 2048) {
             LOG_WRN() << "CA certificate RSA public key length is below 2048 bits: bits=" << rsa.GetN().Size() * 8;
         }
 
@@ -176,8 +175,8 @@ Error CheckCAPublicKey(const x509::Certificate& cert)
     }
 
     case KeyTypeEnum::eECDSA: {
-        const auto& ecdsa = static_cast<const ECDSAPublicKey&>(pubKey);
-        if (!IsSupportedECCurve(ecdsa.GetECParamsOID())) {
+        if (const auto& ecdsa = static_cast<const ECDSAPublicKey&>(pubKey);
+            !IsSupportedECCurve(ecdsa.GetECParamsOID())) {
             LOG_ERR() << "CA certificate public key curve mismatch: unsupported curve: "
                       << GetECCurveName(ecdsa.GetECParamsOID());
 

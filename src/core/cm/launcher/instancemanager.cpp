@@ -234,9 +234,9 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
 RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInstanceRequest& request,
     const String& nodeID, const String& runtimeID, const Array<SharedPtr<Instance>>& newInstances)
 {
-    auto instance
+    if (auto instance
         = FindReadyInstance(request.mItemID, request.mSubjectInfo.mSubjectID, nodeID, runtimeID, request.mVersion);
-    if (instance) {
+        instance) {
         return {instance, ErrorEnum::eNone};
     }
 
@@ -274,8 +274,7 @@ Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& reques
 
     auto firstErr = RemoveInstances(mActiveInstances, matchRequest);
 
-    auto cachedErr = RemoveInstances(mCachedInstances, matchRequest);
-    if (firstErr.IsNone() && !cachedErr.IsNone()) {
+    if (auto cachedErr = RemoveInstances(mCachedInstances, matchRequest); firstErr.IsNone() && !cachedErr.IsNone()) {
         firstErr = cachedErr;
     }
 
@@ -400,12 +399,11 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
 
 Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status)
 {
-    auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
-        return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
-            && item.mVersion == status.mVersion;
-    });
-
-    if (existing != statuses.end()) {
+    if (auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
+            return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
+                && item.mVersion == status.mVersion;
+        });
+        existing != statuses.end()) {
         *existing = status;
 
         return ErrorEnum::eNone;
@@ -543,9 +541,8 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
         return true;
     };
 
-    Error firstErr  = RemoveInstances(mActiveInstances, activeCmp);
-    Error cachedErr = RemoveInstances(mCachedInstances, cachedCmp);
-    if (firstErr.IsNone() && !cachedErr.IsNone()) {
+    Error firstErr = RemoveInstances(mActiveInstances, activeCmp);
+    if (Error cachedErr = RemoveInstances(mCachedInstances, cachedCmp); firstErr.IsNone() && !cachedErr.IsNone()) {
         firstErr = cachedErr;
     }
 
@@ -647,8 +644,7 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
         firstErr = err;
     }
 
-    auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
-    if (instance) {
+    if (auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion); instance) {
         if (auto err = instance->UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
         }

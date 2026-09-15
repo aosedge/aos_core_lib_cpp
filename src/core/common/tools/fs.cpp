@@ -150,8 +150,7 @@ RetWithError<bool> FileExist(const String& path)
 {
     struct stat s;
 
-    auto ret = stat(path.CStr(), &s);
-    if (ret != 0) {
+    if (auto ret = stat(path.CStr(), &s); ret != 0) {
         if (errno == ENOENT) {
             return false;
         }
@@ -168,8 +167,7 @@ RetWithError<bool> FileExist(const String& path)
 
 Error MakeDir(const String& path)
 {
-    auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-    if (ret != 0 && errno != EEXIST) {
+    if (auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO); ret != 0 && errno != EEXIST) {
         return errno;
     }
 
@@ -206,8 +204,7 @@ Error MakeDirAll(const String& path)
         }
     }
 
-    auto err = MakeDir(path);
-    if (!err.IsNone()) {
+    if (auto err = MakeDir(path); !err.IsNone()) {
         return err;
     }
 
@@ -257,8 +254,7 @@ Error ClearDir(const String& path)
         }
 #else
         if (entry->d_type == DT_DIR) {
-            auto err = ClearDir(entryPath);
-            if (!err.IsNone()) {
+            if (auto err = ClearDir(entryPath); !err.IsNone()) {
                 return err;
             }
 
@@ -349,8 +345,7 @@ Error RemoveAll(const String& path)
     }
 
     if (S_ISDIR(s.st_mode)) {
-        auto err = ClearDir(path);
-        if (!err.IsNone()) {
+        if (auto err = ClearDir(path); !err.IsNone()) {
             return err;
         }
 
@@ -448,8 +443,7 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff)
         return errno;
     }
 
-    auto err = buff.Resize(size);
-    if (!err.IsNone()) {
+    if (auto err = buff.Resize(size); !err.IsNone()) {
         return err;
     }
 
@@ -475,8 +469,7 @@ Error ReadFileToString(const String& fileName, String& text)
 
     auto buff = Array<uint8_t>(reinterpret_cast<uint8_t*>(text.Get()), text.Size());
 
-    auto err = ReadFile(fileName, buff);
-    if (!err.IsNone()) {
+    if (auto err = ReadFile(fileName, buff); !err.IsNone()) {
         return err;
     }
 

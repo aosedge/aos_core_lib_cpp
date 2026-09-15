@@ -66,18 +66,16 @@ static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t
 
 static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, uint8_t** p, uint8_t* start)
 {
-    size_t len = 0;
-    // cppcheck-suppress variableScope
-    int32_t ret;
+    size_t  len = 0;
+    int32_t ret = 0; // cppcheck-suppress variableScope
 
     for (int32_t i = oids.Size() - 1; i >= 0; i--) {
         const auto& oid = oids[i];
 
         mbedtls_asn1_buf resOID = {};
 
-        ret = mbedtls_oid_from_numeric_string(&resOID, oid.Get(), oid.Size());
-        if (ret != 0) {
-            return ret;
+        if (auto oidRet = mbedtls_oid_from_numeric_string(&resOID, oid.Get(), oid.Size()); oidRet != 0) {
+            return oidRet;
         }
 
         ret = mbedtls_asn1_write_oid(p, start, reinterpret_cast<const char*>(resOID.p), resOID.len);
@@ -116,18 +114,15 @@ static Error ASN1RemoveTag(const Array<uint8_t>& src, Array<uint8_t>& dst, int32
     uint8_t* p   = const_cast<uint8_t*>(src.Get());
     size_t   len = 0;
 
-    int32_t ret = mbedtls_asn1_get_tag(&p, src.end(), &len, tag);
-    if (ret < 0) {
+    if (auto ret = mbedtls_asn1_get_tag(&p, src.end(), &len, tag); ret < 0) {
         return ret;
     }
 
-    size_t tagAndLenSize = p - src.Get();
-    if (src.Size() - tagAndLenSize != len) {
+    if (size_t tagAndLenSize = p - src.Get(); src.Size() - tagAndLenSize != len) {
         return ErrorEnum::eInvalidArgument;
     }
 
-    auto err = dst.Resize(len);
-    if (!err.IsNone()) {
+    if (auto err = dst.Resize(len); !err.IsNone()) {
         return err;
     }
 
@@ -140,7 +135,7 @@ static Error ParseDN(const mbedtls_x509_name& dn, String& result)
 {
     (void)result.Resize(result.MaxSize());
 
-    int32_t ret = mbedtls_x509_dn_gets(result.Get(), result.Size(), &dn);
+    auto ret = mbedtls_x509_dn_gets(result.Get(), result.Size(), &dn);
     if (ret <= 0) {
         return AOS_ERROR_WRAP(ret);
     }
@@ -163,15 +158,15 @@ static Error ParsePrivateKey(const String& pemCAKey, mbedtls_pk_context& privKey
 
     const char* pers = "test";
 
-    int32_t ret = mbedtls_ctr_drbg_seed(
-        &ctrDrbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const uint8_t*>(pers), strlen(pers));
-    if (ret != 0) {
+    if (auto ret = mbedtls_ctr_drbg_seed(
+            &ctrDrbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const uint8_t*>(pers), strlen(pers));
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    ret = mbedtls_pk_parse_key(&privKey, reinterpret_cast<const uint8_t*>(pemCAKey.Get()), pemCAKey.Size() + 1, nullptr,
-        0, mbedtls_ctr_drbg_random, &ctrDrbg);
-    if (ret != 0) {
+    if (auto ret = mbedtls_pk_parse_key(&privKey, reinterpret_cast<const uint8_t*>(pemCAKey.Get()), pemCAKey.Size() + 1,
+            nullptr, 0, mbedtls_ctr_drbg_random, &ctrDrbg);
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -192,14 +187,11 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
     // set CSR properties
     StaticString<crypto::cCertSubjSize> subject;
 
-    Error err = ParseDN(csr.subject, subject);
-    if (!err.IsNone()) {
+    if (auto err = ParseDN(csr.subject, subject); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    int32_t ret = mbedtls_x509write_crt_set_subject_name(&clientCert, subject.Get());
-    if (ret != 0) {
-
+    if (auto ret = mbedtls_x509write_crt_set_subject_name(&clientCert, subject.Get()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -208,13 +200,11 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
     // set CA certificate properties
     StaticString<crypto::cCertIssuerSize> issuer;
 
-    err = ParseDN(caCert.subject, issuer);
-    if (!err.IsNone()) {
+    if (auto err = ParseDN(caCert.subject, issuer); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    ret = mbedtls_x509write_crt_set_issuer_name(&clientCert, issuer.Get());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_set_issuer_name(&clientCert, issuer.Get()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -222,12 +212,15 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
     mbedtls_x509write_crt_set_issuer_key(&clientCert, const_cast<mbedtls_pk_context*>(&caKey));
 
     // set additional properties: serial, valid time interval
-    ret = mbedtls_x509write_crt_set_serial_raw(&clientCert, const_cast<uint8_t*>(serial.Get()), serial.Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_set_serial_raw(
+            &clientCert, const_cast<uint8_t*>(serial.Get()), serial.Size()); // NOSONAR cpp:M23_090
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
     StaticString<cTimeStrLen> notBefore, notAfter;
+
+    Error err;
 
     Tie(notBefore, err) = asn1::ConvertTimeToASN1Str(Time::Now());
     if (!err.IsNone()) {
@@ -243,17 +236,16 @@ static Error CreateClientCert(const mbedtls_x509_csr& csr, const mbedtls_pk_cont
     (void)notBefore.RightTrim("Z");
     (void)notAfter.RightTrim("Z");
 
-    ret = mbedtls_x509write_crt_set_validity(&clientCert, notBefore.CStr(), notAfter.CStr());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_set_validity(&clientCert, notBefore.CStr(), notAfter.CStr()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
     // write client certificate to the buffer
     (void)pemClientCert.Resize(pemClientCert.MaxSize());
 
-    ret = mbedtls_x509write_crt_pem(&clientCert, reinterpret_cast<uint8_t*>(pemClientCert.Get()),
-        pemClientCert.Size() + 1, mbedtls_ctr_drbg_random, nullptr);
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_pem(&clientCert, reinterpret_cast<uint8_t*>(pemClientCert.Get()),
+            pemClientCert.Size() + 1, mbedtls_ctr_drbg_random, nullptr);
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -299,10 +291,9 @@ Error GetASN1Object(
     tag = tagNumber;
 
     // Read length.
-    size_t  len = 0;
-    int32_t ret = mbedtls_asn1_get_len(const_cast<uint8_t**>(&p), end, &len);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+    size_t len = 0;
+    if (auto ret = mbedtls_asn1_get_len(const_cast<uint8_t**>(&p), end, &len);
+        ret != 0) { // NOSONAR cpp:M23_090        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
     length = static_cast<int64_t>(len);
@@ -329,8 +320,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     bool    isConstructed = false;
 
     // Parse ASN.1 header: tag + length, pointer moves to content start
-    Error err = GetASN1Object(&p, length, tag, xclass, isConstructed, data.Size());
-    if (!err.IsNone()) {
+    if (Error err = GetASN1Object(&p, length, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
         if (opt.mOptional) {
             return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
         }
@@ -377,8 +367,9 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
         int32_t elemClass  = 0;
 
         const uint8_t* nextPtr = elemPtr;
-        err = GetASN1Object(&nextPtr, elemLength, elemTag, elemClass, isConstructed, static_cast<int64_t>(bytesLeft));
-        if (!err.IsNone()) {
+        if (auto err
+            = GetASN1Object(&nextPtr, elemLength, elemTag, elemClass, isConstructed, static_cast<int64_t>(bytesLeft));
+            !err.IsNone()) {
             return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse element")), {}};
         }
 
@@ -415,7 +406,7 @@ Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, x50
     mbedtls_rsa_init(&rsa);
     [[maybe_unused]] auto releaseRSA = DeferRelease(&rsa, mbedtls_rsa_free);
 
-    int32_t ret = mbedtls_rsa_import_raw(&rsa, pubKey.GetN().Get(), pubKey.GetN().Size(), nullptr, 0, // P - unused
+    auto ret = mbedtls_rsa_import_raw(&rsa, pubKey.GetN().Get(), pubKey.GetN().Size(), nullptr, 0, // P - unused
         nullptr, 0, // Q - unused
         nullptr, 0, // D - unused
         pubKey.GetE().Get(), pubKey.GetE().Size());
@@ -517,30 +508,26 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
     oidBuf.len = pubKey.GetECParamsOID().Size();
     oidBuf.tag = MBEDTLS_ASN1_OID;
 
-    mbedtls_ecp_group_id grpID;
-    int32_t              ret = mbedtls_oid_get_ec_grp(&oidBuf, &grpID);
-    if (ret != 0) {
+    mbedtls_ecp_group_id grpID = MBEDTLS_ECP_DP_NONE;
+    if (auto ret = mbedtls_oid_get_ec_grp(&oidBuf, &grpID); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    ret = mbedtls_ecp_group_load(&grp, grpID);
-    if (ret != 0) {
+    if (auto ret = mbedtls_ecp_group_load(&grp, grpID); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    ret = mbedtls_ecp_point_read_binary(&grp, &ecPoint, pubKey.GetECPoint().Get(), pubKey.GetECPoint().Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_ecp_point_read_binary(&grp, &ecPoint, pubKey.GetECPoint().Get(), pubKey.GetECPoint().Size());
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    ret = mbedtls_ecp_set_public_key(grpID, &keypair, &ecPoint);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ret);
+    if (auto pubRet = mbedtls_ecp_set_public_key(grpID, &keypair, &ecPoint); pubRet != 0) {
+        return AOS_ERROR_WRAP(pubRet);
     }
 
-    ret = mbedtls_ecdsa_from_keypair(&ctx, &keypair);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ret);
+    if (auto keyRet = mbedtls_ecdsa_from_keypair(&ctx, &keypair); keyRet != 0) {
+        return AOS_ERROR_WRAP(keyRet);
     }
 
     // Read signature.
@@ -608,8 +595,7 @@ Error MbedTLSCryptoProvider::CreateCSR(const x509::CSR& templ, const PrivateKeyI
 
     mbedtls_x509write_csr_set_md_alg(&csr, ret.mValue.mMDType);
 
-    auto err = SetCSRProperties(csr, key, templ);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = SetCSRProperties(csr, key, templ); err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -626,15 +612,15 @@ Error MbedTLSCryptoProvider::CreateCertificate(
 
     LOG_DBG() << "Create certificate";
 
-    auto err = InitializeCertificate(cert, pk, ctrDrbg, entropy);
+    auto initErr = InitializeCertificate(cert, pk, ctrDrbg, entropy);
 
     auto freeCert    = DeferRelease(&cert, mbedtls_x509write_crt_free);
     auto freePK      = DeferRelease(&pk, mbedtls_pk_free);
     auto freeCtrDrbg = DeferRelease(&ctrDrbg, mbedtls_ctr_drbg_free);
     auto freeEntropy = DeferRelease(&entropy, mbedtls_entropy_free);
 
-    if (err != ErrorEnum::eNone) {
-        return err;
+    if (initErr != ErrorEnum::eNone) {
+        return initErr;
     }
 
     auto ret = SetupOpaqueKey(pk, privKey);
@@ -648,8 +634,7 @@ Error MbedTLSCryptoProvider::CreateCertificate(
 
     mbedtls_x509write_crt_set_md_alg(&cert, ret.mValue.mMDType);
 
-    err = SetCertificateProperties(cert, pk, ctrDrbg, templ, parent);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = SetCertificateProperties(cert, pk, ctrDrbg, templ, parent); err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -659,7 +644,6 @@ Error MbedTLSCryptoProvider::CreateCertificate(
 Error MbedTLSCryptoProvider::CreateClientCert(const String& pemCSR, const String& pemCAKey, const String& pemCACert,
     const Array<uint8_t>& serial, String& pemClientCert)
 {
-    Error              err = ErrorEnum::eNone;
     mbedtls_x509_csr   csr;
     mbedtls_pk_context caKey;
     mbedtls_x509_crt   caCrt;
@@ -677,8 +661,7 @@ Error MbedTLSCryptoProvider::CreateClientCert(const String& pemCSR, const String
     mbedtls_pk_init(&caKey);
     [[maybe_unused]] auto freeKey = DeferRelease(&caKey, mbedtls_pk_free);
 
-    err = ParsePrivateKey(pemCAKey, caKey);
-    if (!err.IsNone()) {
+    if (auto err = ParsePrivateKey(pemCAKey, caKey); !err.IsNone()) {
         return err;
     }
 
@@ -704,23 +687,21 @@ Error MbedTLSCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::C
     mbedtls_x509_crt_init(&crt);
     [[maybe_unused]] auto freeCRT = DeferRelease(&crt, mbedtls_x509_crt_free);
 
-    int32_t ret = mbedtls_x509_crt_parse(&crt, reinterpret_cast<const uint8_t*>(pemBlob.CStr()), pemBlob.Size() + 1);
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509_crt_parse(&crt, reinterpret_cast<const uint8_t*>(pemBlob.CStr()), pemBlob.Size() + 1);
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
     mbedtls_x509_crt* currentCrt = &crt;
 
     while (currentCrt != nullptr) {
-        auto err = resultCerts.EmplaceBack();
-        if (!err.IsNone()) {
+        if (auto err = resultCerts.EmplaceBack(); !err.IsNone()) {
             return err;
         }
 
         auto& cert = resultCerts.Back();
 
-        err = ParseX509Certs(currentCrt, cert);
-        if (!err.IsNone()) {
+        if (auto err = ParseX509Certs(currentCrt, cert); !err.IsNone()) {
             return err;
         }
 
@@ -737,9 +718,9 @@ Error MbedTLSCryptoProvider::X509CertToPEM(const x509::Certificate& certificate,
 
     size_t olen;
 
-    auto ret = mbedtls_pem_write_buffer(cPEMBeginCert, cPEMEndCert, certificate.mRaw.Get(), certificate.mRaw.Size(),
-        reinterpret_cast<uint8_t*>(dst.Get()), dst.Size(), &olen);
-    if (ret != 0) {
+    if (auto ret = mbedtls_pem_write_buffer(cPEMBeginCert, cPEMEndCert, certificate.mRaw.Get(), certificate.mRaw.Size(),
+            reinterpret_cast<uint8_t*>(dst.Get()), dst.Size(), &olen);
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -761,8 +742,7 @@ Error MbedTLSCryptoProvider::DERToX509Cert(const Array<uint8_t>& derBlob, x509::
     mbedtls_x509_crt_init(&crt);
     [[maybe_unused]] auto freeCRT = DeferRelease(&crt, mbedtls_x509_crt_free);
 
-    int32_t ret = mbedtls_x509_crt_parse_der(&crt, derBlob.Get(), derBlob.Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509_crt_parse_der(&crt, derBlob.Get(), derBlob.Size()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -773,8 +753,7 @@ Error MbedTLSCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
 {
     mbedtls_asn1_named_data* dn {};
 
-    int32_t ret = mbedtls_x509_string_to_names(&dn, commonName.CStr());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509_string_to_names(&dn, commonName.CStr()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -785,8 +764,7 @@ Error MbedTLSCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
     uint8_t* start = result.Get();
     uint8_t* p     = start + result.Size();
 
-    ret = mbedtls_x509_write_names(&p, start, dn);
-    if (ret < 0) {
+    if (auto ret = mbedtls_x509_write_names(&p, start, dn); ret < 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -804,14 +782,13 @@ Error MbedTLSCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
     uint8_t* p   = const_cast<uint8_t*>(dn.begin());
     size_t   tmp = 0;
 
-    auto ret = mbedtls_asn1_get_tag(&p, dn.end(), &tmp, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
-    if (ret != 0) {
+    if (auto ret = mbedtls_asn1_get_tag(&p, dn.end(), &tmp, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
+        ret != 0) {
         return ret;
     }
 
-    ret = mbedtls_x509_get_name(&p, dn.end(), &tmpDN);
-    if (ret != 0) {
-        return ret;
+    if (auto nameRet = mbedtls_x509_get_name(&p, dn.end(), &tmpDN); nameRet != 0) {
+        return nameRet;
     }
 
     (void)result.Resize(result.MaxSize());
@@ -835,8 +812,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> MbedTLSCryptoProvider::PEMToX509PrivKey(c
         return {{}, ErrorEnum::eNoMemory};
     }
 
-    auto err = res->Init(pemBlob);
-    if (!err.IsNone()) {
+    if (auto err = res->Init(pemBlob); !err.IsNone()) {
         return {{}, err};
     }
 
@@ -1033,8 +1009,7 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
 
     StaticArray<uint8_t, cSHA1InputDataSize> buffer = space;
 
-    auto err = buffer.Insert(buffer.end(), name.begin(), name.end());
-    if (!err.IsNone()) {
+    if (auto err = buffer.Insert(buffer.end(), name.begin(), name.end()); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1042,8 +1017,7 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
 
     (void)sha1.Resize(sha1.MaxSize());
 
-    int32_t ret = mbedtls_sha1(buffer.Get(), buffer.Size(), sha1.Get());
-    if (ret != 0) {
+    if (auto ret = mbedtls_sha1(buffer.Get(), buffer.Size(), sha1.Get()); ret != 0) {
         return {{}, AOS_ERROR_WRAP(ret)};
     }
 
@@ -1066,8 +1040,7 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESCipher(
         return {{}, ErrorEnum::eNoMemory};
     }
 
-    auto err = cipher->Init(key, iv, encrypt);
-    if (!err.IsNone()) {
+    if (auto err = cipher->Init(key, iv, encrypt); !err.IsNone()) {
         return {{}, err};
     }
 
@@ -1157,20 +1130,18 @@ Error MbedTLSCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
 
     // Load root certificates.
     for (const auto& r : rootCerts) {
-        int32_t ret = mbedtls_x509_crt_parse(&root, r.mRaw.Get(), r.mRaw.Size());
-        if (ret != 0) {
+        if (auto ret = mbedtls_x509_crt_parse(&root, r.mRaw.Get(), r.mRaw.Size()); ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
     }
 
     // Load intermediate certificates.
-    if (int32_t ret = mbedtls_x509_crt_parse(&interm, cert.mRaw.Get(), cert.mRaw.Size()); ret != 0) {
+    if (auto ret = mbedtls_x509_crt_parse(&interm, cert.mRaw.Get(), cert.mRaw.Size()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
     for (const auto& i : intermCerts) {
-        int32_t ret = mbedtls_x509_crt_parse(&interm, i.mRaw.Get(), i.mRaw.Size());
-        if (ret != 0) {
+        if (auto ret = mbedtls_x509_crt_parse(&interm, i.mRaw.Get(), i.mRaw.Size()); ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
     }
@@ -1178,10 +1149,10 @@ Error MbedTLSCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
     // Verify  target certificate.
     uint32_t flags = 0;
 
-    int32_t ret = mbedtls_x509_crt_verify(
-        &interm, &root, nullptr, nullptr, &flags, &MbedTLSCryptoProvider::VerifyTime, &curTime);
-    if (ret != 0) {
-        char vrfyBuff[256];
+    if (auto ret = mbedtls_x509_crt_verify(
+            &interm, &root, nullptr, nullptr, &flags, &MbedTLSCryptoProvider::VerifyTime, &curTime);
+        ret != 0) {
+        char vrfyBuff[256] {};
         (void)mbedtls_x509_crt_verify_info(vrfyBuff, sizeof(vrfyBuff), "", flags);
 
         return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, vrfyBuff));
@@ -1237,13 +1208,11 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadStruct(
     // Read length
     size_t len = 0;
 
-    int32_t ret = mbedtls_asn1_get_len(&p, end, &len);
-    if (ret != 0) {
+    if (auto ret = mbedtls_asn1_get_len(&p, end, &len); ret != 0) {
         return {AOS_ERROR_WRAP(ErrorEnum::eFailed), {}};
     }
 
-    size_t offset = static_cast<size_t>(p - data.Get());
-    if (data.Size() < len + offset) {
+    if (size_t offset = static_cast<size_t>(p - data.Get()); data.Size() < len + offset) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "insufficient data size for ASN.1 content")), {}};
     }
 
@@ -1285,19 +1254,18 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadInteger(
     const uint8_t* p   = data.Get();
     const uint8_t* end = p + data.Size();
 
-    int32_t ret = mbedtls_asn1_get_int(const_cast<uint8_t**>(&p), end, &value);
-    if (ret != 0) {
-        if (opt.mOptional) {
-            return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-        }
-
-        return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse INTEGER")), {}};
+    if (auto ret = mbedtls_asn1_get_int(const_cast<uint8_t**>(&p), end, &value);
+        ret != 0) { // NOSONAR cpp:M23_090        if (opt.mOptional) {
+        return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
     }
 
-    // Remaining data
-    auto remaining = Array<uint8_t>(p, end - p);
+    return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse INTEGER")), {}};
+}
 
-    return {ErrorEnum::eNone, remaining};
+// Remaining data
+auto remaining = Array<uint8_t>(p, end - p);
+
+return {ErrorEnum::eNone, remaining};
 }
 
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadBigInt(
@@ -1314,26 +1282,25 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadBigInt(
     mbedtls_mpi_init(&mpi);
     [[maybe_unused]] auto mpiRelease = DeferRelease(&mpi, mbedtls_mpi_free);
 
-    int32_t ret = mbedtls_asn1_get_mpi(const_cast<uint8_t**>(&p), end, &mpi);
-    if (ret != 0) {
-        if (opt.mOptional) {
-            return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-        }
-        return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse BIG INTEGER")), {}};
+    if (auto ret = mbedtls_asn1_get_mpi(const_cast<uint8_t**>(&p), end, &mpi);
+        ret != 0) { // NOSONAR cpp:M23_090        if (opt.mOptional) {
+        return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
     }
+    return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse BIG INTEGER")), {}};
+}
 
-    // Export MPI to big-endian byte array
-    size_t mpiLen = mbedtls_mpi_size(&mpi);
-    if (auto err = result.Resize(mpiLen); !err.IsNone()) {
-        return {AOS_ERROR_WRAP(err), {}};
-    }
+// Export MPI to big-endian byte array
+size_t mpiLen = mbedtls_mpi_size(&mpi);
+if (auto err = result.Resize(mpiLen); !err.IsNone()) {
+    return {AOS_ERROR_WRAP(err), {}};
+}
 
-    (void)mbedtls_mpi_write_binary(&mpi, result.Get(), mpiLen);
+(void)mbedtls_mpi_write_binary(&mpi, result.Get(), mpiLen);
 
-    // Remaining data
-    auto remaining = Array<uint8_t>(p, end - p);
+// Remaining data
+auto remaining = Array<uint8_t>(p, end - p);
 
-    return {ErrorEnum::eNone, remaining};
+return {ErrorEnum::eNone, remaining};
 }
 
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOID(
@@ -1349,35 +1316,35 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOID(
     mbedtls_asn1_buf buf {};
 
     // Parse the OID tag and length
-    int32_t ret = mbedtls_asn1_get_tag(const_cast<uint8_t**>(&p), end, &buf.len, MBEDTLS_ASN1_OID);
-    if (ret != 0) {
-        if (opt.mOptional) {
-            return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-        }
-
-        return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse OID")), {}};
+    auto ret = mbedtls_asn1_get_tag(
+        const_cast<uint8_t**>(&p), end, &buf.len, MBEDTLS_ASN1_OID); // NOSONAR cpp:M23_090    if (ret != 0) {
+    if (opt.mOptional) {
+        return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
     }
 
-    buf.tag = MBEDTLS_ASN1_OID;
-    buf.p   = const_cast<uint8_t*>(p);
+    return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse OID")), {}};
+}
 
-    // Convert DER bytes to dotted string
-    if (auto err = oid.Resize(oid.MaxSize()); !err.IsNone()) {
-        return {AOS_ERROR_WRAP(err), {}};
-    }
+buf.tag = MBEDTLS_ASN1_OID;
+buf.p   = const_cast<uint8_t*>(p);
 
-    ret = mbedtls_oid_get_numeric_string(oid.Get(), oid.Size(), &buf);
-    if (ret < 0) {
-        return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to convert OID to string")), {}};
-    }
+// Convert DER bytes to dotted string
+if (auto err = oid.Resize(oid.MaxSize()); !err.IsNone()) {
+    return {AOS_ERROR_WRAP(err), {}};
+}
 
-    (void)oid.Resize(ret);
+ret = mbedtls_oid_get_numeric_string(oid.Get(), oid.Size(), &buf);
+if (ret < 0) {
+    return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to convert OID to string")), {}};
+}
 
-    // Remaining data
-    p += buf.len;
-    auto remaining = Array<uint8_t>(p, end - p);
+(void)oid.Resize(ret);
 
-    return {ErrorEnum::eNone, remaining};
+// Remaining data
+p += buf.len;
+auto remaining = Array<uint8_t>(p, end - p);
+
+return {ErrorEnum::eNone, remaining};
 }
 
 /**
@@ -1465,10 +1432,10 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOctetString(
     const uint8_t* p   = data.Get();
     const uint8_t* end = p + data.Size();
 
-    size_t  len = 0;
-    int32_t ret = mbedtls_asn1_get_tag(const_cast<uint8_t**>(&p), end, &len, MBEDTLS_ASN1_OCTET_STRING);
-
-    if (ret != 0) {
+    size_t len = 0;
+    if (auto ret = mbedtls_asn1_get_tag(const_cast<uint8_t**>(&p), end, &len, // NOSONAR cpp:M23_090
+            MBEDTLS_ASN1_OCTET_STRING);
+        ret != 0) {
         if (opt.mOptional) {
             return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
         }
@@ -1507,8 +1474,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadRawValue(
     int32_t xclass        = 0;
     bool    isConstructed = false;
 
-    Error err = GetASN1Object(&p, len, tag, xclass, isConstructed, data.Size());
-    if (!err.IsNone()) {
+    if (Error err = GetASN1Object(&p, len, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
         if (opt.mOptional) {
             return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
         }
@@ -1687,8 +1653,7 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::Update(const Array<uint8_t>& inpu
     (void)output.Resize(output.MaxSize());
 
     size_t outLen = 0;
-
-    if (mbedtls_cipher_update(&mCtx, input.Get(), input.Size(), output.Get(), &outLen) != 0) {
+    if (auto ret = mbedtls_cipher_update(&mCtx, input.Get(), input.Size(), output.Get(), &outLen); ret != 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
@@ -1813,8 +1778,7 @@ MbedTLSCryptoProvider::MbedTLSRSAPrivKey::MbedTLSRSAPrivKey()
 
 Error MbedTLSCryptoProvider::MbedTLSRSAPrivKey::Init(const String& pemBlob)
 {
-    auto err = ParsePrivateKey(pemBlob, mPrivKey);
-    if (!err.IsNone()) {
+    if (auto err = ParsePrivateKey(pemBlob, mPrivKey); !err.IsNone()) {
         return err;
     }
 
@@ -1865,10 +1829,10 @@ Error MbedTLSCryptoProvider::MbedTLSRSAPrivKey::Decrypt(
             auto rsa = mbedtls_pk_rsa(*mPrivKey);
             (void)mResult.Resize(mResult.MaxSize());
 
-            size_t  olen = 0;
-            int32_t ret  = mbedtls_rsa_pkcs1_decrypt(
-                rsa, mbedtls_ctr_drbg_random, mDRBG, &olen, mCipher.Get(), mResult.Get(), mResult.Size());
-            if (ret != 0) {
+            size_t olen = 0;
+            if (auto ret = mbedtls_rsa_pkcs1_decrypt(
+                    rsa, mbedtls_ctr_drbg_random, mDRBG, &olen, mCipher.Get(), mResult.Get(), mResult.Size());
+                ret != 0) {
                 return AOS_ERROR_WRAP(ErrorEnum::eFailed);
             }
 
@@ -1885,17 +1849,17 @@ Error MbedTLSCryptoProvider::MbedTLSRSAPrivKey::Decrypt(
             auto rsa = mbedtls_pk_rsa(*mPrivKey);
 
             // configure padding mode + hash
-            mbedtls_md_type_t mdType = ConvertToMD(opts.mHash);
-            if (mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, mdType) != 0) {
+            if (mbedtls_md_type_t mdType = ConvertToMD(opts.mHash);
+                mbedtls_rsa_set_padding(rsa, MBEDTLS_RSA_PKCS_V21, mdType) != 0) {
                 return AOS_ERROR_WRAP(ErrorEnum::eFailed);
             }
 
             (void)mResult.Resize(mResult.MaxSize());
 
-            size_t  olen = 0;
-            int32_t ret  = mbedtls_rsa_rsaes_oaep_decrypt(rsa, mbedtls_ctr_drbg_random, mDRBG, nullptr, 0, // label
-                 &olen, mCipher.Get(), mResult.Get(), mResult.Size());
-            if (ret != 0) {
+            size_t olen = 0;
+            if (auto ret = mbedtls_rsa_rsaes_oaep_decrypt(rsa, mbedtls_ctr_drbg_random, mDRBG, nullptr, 0, &olen,
+                    mCipher.Get(), mResult.Get(), mResult.Size());
+                ret != 0) {
                 return AOS_ERROR_WRAP(ErrorEnum::eFailed);
             }
 
@@ -1922,9 +1886,9 @@ Error MbedTLSCryptoProvider::MbedTLSRSAPrivKey::Decrypt(
 
     const char* pers = "test";
 
-    int32_t ret = mbedtls_ctr_drbg_seed(
-        &ctrDrbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const uint8_t*>(pers), strlen(pers));
-    if (ret != 0) {
+    if (auto ret = mbedtls_ctr_drbg_seed(
+            &ctrDrbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const uint8_t*>(pers), strlen(pers));
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -1965,13 +1929,11 @@ int32_t MbedTLSCryptoProvider::VerifyTime(void* data, mbedtls_x509_crt* crt, int
 
 Error MbedTLSCryptoProvider::ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert)
 {
-    auto err = GetX509CertData(cert, currentCrt);
-    if (!err.IsNone()) {
+    if (auto err = GetX509CertData(cert, currentCrt); !err.IsNone()) {
         return err;
     }
 
-    err = ParseX509CertPublicKey(&currentCrt->pk, cert);
-    if (!err.IsNone()) {
+    if (auto err = ParseX509CertPublicKey(&currentCrt->pk, cert); !err.IsNone()) {
         return err;
     }
 
@@ -2008,15 +1970,13 @@ Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::
         return AOS_ERROR_WRAP(ret);
     }
 
-    auto err = paramsOID.Resize(len);
-    if (!err.IsNone()) {
+    if (auto err = paramsOID.Resize(len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     (void)memcpy(paramsOID.Get(), oid, len);
 
-    err = ecPoint.Resize(ecPoint.MaxSize());
-    if (!err.IsNone()) {
+    if (auto err = ecPoint.Resize(ecPoint.MaxSize()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -2026,8 +1986,7 @@ Error MbedTLSCryptoProvider::ParseECKey(const mbedtls_ecp_keypair* eckey, x509::
         return AOS_ERROR_WRAP(ret);
     }
 
-    err = ecPoint.Resize(len);
-    if (!err.IsNone()) {
+    if (auto err = ecPoint.Resize(len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -2048,28 +2007,23 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
     [[maybe_unused]] auto freeN = DeferRelease(&mpiN, mbedtls_mpi_free);
     [[maybe_unused]] auto freeE = DeferRelease(&mpiE, mbedtls_mpi_free);
 
-    auto ret = mbedtls_rsa_export(rsa, &mpiN, nullptr, nullptr, nullptr, &mpiE);
-    if (ret != 0) {
+    if (auto ret = mbedtls_rsa_export(rsa, &mpiN, nullptr, nullptr, nullptr, &mpiE); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    auto err = n.Resize(mbedtls_mpi_size(&mpiN));
-    if (!err.IsNone()) {
+    if (auto err = n.Resize(mbedtls_mpi_size(&mpiN)); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = e.Resize(mbedtls_mpi_size(&mpiE));
-    if (!err.IsNone()) {
+    if (auto err = e.Resize(mbedtls_mpi_size(&mpiE)); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    ret = mbedtls_mpi_write_binary(&mpiN, n.Get(), n.Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_mpi_write_binary(&mpiN, n.Get(), n.Size()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    ret = mbedtls_mpi_write_binary(&mpiE, e.Get(), e.Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_mpi_write_binary(&mpiE, e.Get(), e.Size()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -2080,26 +2034,25 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
 
 Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt)
 {
-    auto err = cert.mSubject.Resize(crt->subject_raw.len);
-    if (!err.IsNone()) {
+    if (auto err = cert.mSubject.Resize(crt->subject_raw.len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     (void)memcpy(cert.mSubject.Get(), crt->subject_raw.p, crt->subject_raw.len);
 
-    err = cert.mIssuer.Resize(crt->issuer_raw.len);
-    if (!err.IsNone()) {
+    if (auto err = cert.mIssuer.Resize(crt->issuer_raw.len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     (void)memcpy(cert.mIssuer.Get(), crt->issuer_raw.p, crt->issuer_raw.len);
 
-    err = cert.mSerial.Resize(crt->serial.len);
-    if (!err.IsNone()) {
+    if (auto err = cert.mSerial.Resize(crt->serial.len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     (void)memcpy(cert.mSerial.Get(), crt->serial.p, crt->serial.len);
+
+    Error err;
 
     aos::Tie(cert.mNotBefore, err) = ConvertTime(crt->valid_from);
     if (!err.IsNone()) {
@@ -2111,9 +2064,8 @@ Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x5
         return AOS_ERROR_WRAP(err);
     }
 
-    err = cert.mRaw.Resize(crt->raw.len);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto rawErr = cert.mRaw.Resize(crt->raw.len); !rawErr.IsNone()) {
+        return AOS_ERROR_WRAP(rawErr);
     }
 
     (void)memcpy(cert.mRaw.Get(), crt->raw.p, crt->raw.len);
@@ -2283,8 +2235,8 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
                 uint8_t* gnEnd = p + gnLen;
 
                 // Parse context-specific tag 6 (GEN_URI)
-                ret = mbedtls_asn1_get_tag(&p, gnEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6);
-                if (ret == 0) {
+                if (auto uriRet = mbedtls_asn1_get_tag(&p, gnEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6);
+                    uriRet == 0) {
                     StaticString<cURLLen> str;
                     if (auto insErr
                         = str.Insert(str.begin(), reinterpret_cast<char*>(p), reinterpret_cast<char*>(p) + gnLen);
@@ -2293,7 +2245,7 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
                     }
 
                     if (auto pushErr = cert.mIssuerURLs.PushBack(str); !pushErr.IsNone()) {
-                        return AOS_ERROR_WRAP(err);
+                        return AOS_ERROR_WRAP(pushErr);
                     }
                 }
 
@@ -2321,18 +2273,15 @@ Error MbedTLSCryptoProvider::SetCSRProperties(
     mbedtls_x509write_csr_set_key(&csr, &pk);
 
     StaticString<cCertSubjSize> subject;
-    auto                        err = ASN1DecodeDN(templ.mSubject, subject);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = ASN1DecodeDN(templ.mSubject, subject); err != ErrorEnum::eNone) {
         return err;
     }
 
-    auto ret = mbedtls_x509write_csr_set_subject_name(&csr, subject.CStr());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_csr_set_subject_name(&csr, subject.CStr()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    err = SetCSRAlternativeNames(csr, templ);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = SetCSRAlternativeNames(csr, templ); err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -2390,9 +2339,9 @@ Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pem
 {
     (void)pemCSR.Resize(pemCSR.MaxSize());
 
-    auto ret = mbedtls_x509write_csr_pem(
-        &csr, reinterpret_cast<uint8_t*>(pemCSR.Get()), pemCSR.Size() + 1, nullptr, nullptr);
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_csr_pem(
+            &csr, reinterpret_cast<uint8_t*>(pemCSR.Get()), pemCSR.Size() + 1, nullptr, nullptr);
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -2408,8 +2357,7 @@ RetWithError<KeyInfo> MbedTLSCryptoProvider::SetupOpaqueKey(mbedtls_pk_context& 
         return statusAddKey;
     }
 
-    auto ret = mbedtls_pk_setup_opaque(&pk, statusAddKey.mValue.mKeyID);
-    if (ret != 0) {
+    if (auto ret = mbedtls_pk_setup_opaque(&pk, statusAddKey.mValue.mKeyID); ret != 0) {
         AosPsaRemoveKey(statusAddKey.mValue.mKeyID);
 
         return RetWithError<KeyInfo>(statusAddKey.mValue, AOS_ERROR_WRAP(ret));
@@ -2439,42 +2387,36 @@ Error MbedTLSCryptoProvider::SetCertificateProperties(mbedtls_x509write_cert& ce
     mbedtls_x509write_crt_set_subject_key(&cert, &pk);
     mbedtls_x509write_crt_set_issuer_key(&cert, &pk);
 
-    auto err = SetCertificateSerialNumber(cert, ctrDrbg, templ);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = SetCertificateSerialNumber(cert, ctrDrbg, templ); err != ErrorEnum::eNone) {
         return err;
     }
 
     StaticString<cCertDNStringSize> subject;
 
-    err = ASN1DecodeDN(templ.mSubject, subject);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = ASN1DecodeDN(templ.mSubject, subject); err != ErrorEnum::eNone) {
         return err;
     }
 
-    auto ret = mbedtls_x509write_crt_set_subject_name(&cert, subject.CStr());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_set_subject_name(&cert, subject.CStr()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    err = SetCertificateValidityPeriod(cert, templ);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = SetCertificateValidityPeriod(cert, templ); err != ErrorEnum::eNone) {
         return err;
     }
 
     StaticString<cCertDNStringSize> issuer;
 
-    err = ASN1DecodeDN((!parent.mSubject.IsEmpty() ? parent.mSubject : templ.mIssuer), issuer);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = ASN1DecodeDN((!parent.mSubject.IsEmpty() ? parent.mSubject : templ.mIssuer), issuer);
+        err != ErrorEnum::eNone) {
         return err;
     }
 
-    ret = mbedtls_x509write_crt_set_issuer_name(&cert, issuer.CStr());
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_set_issuer_name(&cert, issuer.CStr()); ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
-    err = SetCertificateSubjectKeyIdentifier(cert, templ);
-    if (err != ErrorEnum::eNone) {
+    if (auto err = SetCertificateSubjectKeyIdentifier(cert, templ); err != ErrorEnum::eNone) {
         return err;
     }
 
@@ -2485,9 +2427,9 @@ Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, S
 {
     (void)pemCert.Resize(pemCert.MaxSize());
 
-    auto ret = mbedtls_x509write_crt_pem(
-        &cert, reinterpret_cast<uint8_t*>(pemCert.Get()), pemCert.Size() + 1, mbedtls_ctr_drbg_random, nullptr);
-    if (ret != 0) {
+    if (auto ret = mbedtls_x509write_crt_pem(
+            &cert, reinterpret_cast<uint8_t*>(pemCert.Get()), pemCert.Size() + 1, mbedtls_ctr_drbg_random, nullptr);
+        ret != 0) {
         return AOS_ERROR_WRAP(ret);
     }
 
@@ -2505,20 +2447,17 @@ Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
 
         [[maybe_unused]] auto freeSerial = DeferRelease(&serial, mbedtls_mpi_free);
 
-        auto ret
+        if (auto ret
             = mbedtls_mpi_fill_random(&serial, MBEDTLS_X509_RFC5280_MAX_SERIAL_LEN, mbedtls_ctr_drbg_random, &ctrDrbg);
-        if (ret != 0) {
+            ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
 
-        ret = mbedtls_mpi_shift_r(&serial, 1);
-        if (ret != 0) {
+        if (auto ret = mbedtls_mpi_shift_r(&serial, 1); ret != 0) {
             return AOS_ERROR_WRAP(ret);
         }
 
-        ret = mbedtls_x509write_crt_set_serial(&cert, &serial);
-
-        return AOS_ERROR_WRAP(ret);
+        return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_serial(&cert, &serial));
     }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_serial_raw(

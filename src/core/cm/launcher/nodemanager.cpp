@@ -136,9 +136,9 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        auto findDescErr = FindImageDescriptor(
-            instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
-        if (!findDescErr.IsNone()) {
+        if (auto findDescErr = FindImageDescriptor(
+                instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
+            !findDescErr.IsNone()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
                       << Log::Field("manifestDigest", manifestDigest) << Log::Field(AOS_ERROR_WRAP(findDescErr));
 
@@ -284,9 +284,9 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
         }
     }
 
-    auto err
+    if (auto err
         = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -335,9 +335,9 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
         return firstErr;
     }
 
-    auto err
+    if (auto err
         = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
