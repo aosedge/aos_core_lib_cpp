@@ -90,6 +90,7 @@ void NormalizeMonitoringData(NodeMonitoringData& monitoringData)
             } else if (auto err = nodeMonitoringData.mPartitions.EmplaceBack(partition); !err.IsNone()) {
                 LOG_ERR() << "Failed to normalize monitoring data: cannot add partition usage"
                           << Log::Field("partition", partition.mName) << Log::Field("error", err);
+            } else {
             }
         }
     }
