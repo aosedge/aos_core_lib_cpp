@@ -236,7 +236,7 @@ struct SlotInfo {
     {
         log << "{manufacturer = " << slotInfo.mManufacturerID << ", description = " << slotInfo.mSlotDescription
             << ", hwVersion = " << slotInfo.mHardwareVersion << ", fwVersion = " << slotInfo.mFirmwareVersion
-            << ", flags = " << slotInfo.mFlags << "}";
+            << ", flags = " << static_cast<int32_t>(slotInfo.mFlags) << "}";
         return log;
     }
 };
@@ -307,10 +307,11 @@ struct TokenInfo {
         log << "{label = " << tokenInfo.mLabel << ", manufacturer = " << tokenInfo.mManufacturerID
             << ", model = " << tokenInfo.mModel << ", serial = " << tokenInfo.mSerialNumber
             << ", hwVersion = " << tokenInfo.mHardwareVersion << ", fwVersion = " << tokenInfo.mFirmwareVersion
-            << ", publicMemory = " << tokenInfo.mTotalPublicMemory - tokenInfo.mFreePublicMemory << "/"
-            << tokenInfo.mTotalPublicMemory
-            << ", privateMemory = " << tokenInfo.mTotalPrivateMemory - tokenInfo.mFreePrivateMemory << "/"
-            << tokenInfo.mTotalPrivateMemory << ", flags = " << tokenInfo.mFlags << "}";
+            << ", publicMemory = " << static_cast<int32_t>(tokenInfo.mTotalPublicMemory - tokenInfo.mFreePublicMemory)
+            << "/" << static_cast<int32_t>(tokenInfo.mTotalPublicMemory) << ", privateMemory = "
+            << static_cast<int32_t>(tokenInfo.mTotalPrivateMemory - tokenInfo.mFreePrivateMemory) << "/"
+            << static_cast<int32_t>(tokenInfo.mTotalPrivateMemory)
+            << ", flags = " << static_cast<int32_t>(tokenInfo.mFlags) << "}";
         return log;
     }
 };

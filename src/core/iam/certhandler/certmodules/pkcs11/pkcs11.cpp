@@ -133,9 +133,9 @@ Error PKCS11Module::SetOwner(const String& password)
     }
 
     if (!mTeeLoginType.IsEmpty()) {
-        LOG_DBG() << "Init PIN: pin=" << userPIN << ", session=" << session->GetHandle();
+        LOG_DBG() << "Init PIN: pin=" << userPIN << ", session=" << static_cast<int32_t>(session->GetHandle());
     } else {
-        LOG_DBG() << "Init PIN: session=" << session->GetHandle();
+        LOG_DBG() << "Init PIN: session=" << static_cast<int32_t>(session->GetHandle());
     }
 
     err = session->InitPIN(userPIN);
@@ -180,12 +180,12 @@ Error PKCS11Module::Clear()
     err = FindObject(*session, *filter, *objects);
     if (err.IsNone()) {
         for (const auto& object : *objects) {
-            LOG_DBG() << "Destroy object: " << object.mHandle;
+            LOG_DBG() << "Destroy object: " << static_cast<int32_t>(object.mHandle);
 
             auto destroyErr = session->DestroyObject(object.mHandle);
             if (!destroyErr.IsNone()) {
                 err = AOS_ERROR_WRAP(destroyErr);
-                LOG_ERR() << "Can't delete object: handle=" << object.mHandle;
+                LOG_ERR() << "Can't delete object: handle=" << static_cast<int32_t>(object.mHandle);
             }
         }
     }
@@ -508,7 +508,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
             }
 
             if ((tokenInfo->mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
-                freeSlotID.SetValue(slotID);
+                freeSlotID.SetValue(static_cast<unsigned int>(slotID));
             }
         }
     }
@@ -556,14 +556,14 @@ Error PKCS11Module::PrintInfo(pkcs11::SlotID slotID) const
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "SlotID=" << slotID << ", slotInfo=" << slotInfo;
+    LOG_DBG() << "SlotID=" << static_cast<int32_t>(slotID) << ", slotInfo=" << slotInfo;
 
     err = mPKCS11->GetTokenInfo(slotID, tokenInfo);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "SlotID=" << slotID << ", tokenInfo=" << tokenInfo;
+    LOG_DBG() << "SlotID=" << static_cast<int32_t>(slotID) << ", tokenInfo=" << tokenInfo;
 
     return ErrorEnum::eNone;
 }
@@ -643,7 +643,7 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> PKCS11Module::CreateSession(bool
         }
     }
 
-    LOG_DBG() << "Create session: session=" << mSession->GetHandle() << ", slotID=" << mSlotID;
+    LOG_DBG() << "Create session: session=" << static_cast<int32_t>(mSession->GetHandle()) << ", slotID=" << mSlotID;
 
     auto sessionInfo = MakeShared<pkcs11::SessionInfo>(mAllocator);
     if (!sessionInfo) {
@@ -667,13 +667,13 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> PKCS11Module::CreateSession(bool
     }
 
     if (userLogin && !isUserLoggedIn) {
-        LOG_DBG() << "User login: session=" << mSession->GetHandle() << ", slotID=" << mSlotID;
+        LOG_DBG() << "User login: session=" << static_cast<int32_t>(mSession->GetHandle()) << ", slotID=" << mSlotID;
 
         return {mSession, AOS_ERROR_WRAP(mSession->Login(CKU_USER, mUserPIN))};
     }
 
     if (!userLogin && !isSOLoggedIn) {
-        LOG_DBG() << "SO login: session=" << mSession->GetHandle() << ", slotID=" << mSlotID;
+        LOG_DBG() << "SO login: session=" << static_cast<int32_t>(mSession->GetHandle()) << ", slotID=" << mSlotID;
 
         return {mSession, AOS_ERROR_WRAP(mSession->Login(CKU_SO, pin))};
     }
@@ -770,9 +770,11 @@ Error PKCS11Module::TokenMemInfo() const
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "Token mem info: publicMemory=" << info.mTotalPublicMemory - info.mFreePublicMemory << "/"
-              << info.mTotalPublicMemory << ", privateMemory=" << info.mTotalPrivateMemory - info.mFreePrivateMemory
-              << "/" << info.mTotalPrivateMemory;
+    LOG_DBG() << "Token mem info: publicMemory="
+              << static_cast<int32_t>(info.mTotalPublicMemory - info.mFreePublicMemory) << "/"
+              << static_cast<int32_t>(info.mTotalPublicMemory)
+              << ", privateMemory=" << static_cast<int32_t>(info.mTotalPrivateMemory - info.mFreePrivateMemory) << "/"
+              << static_cast<int32_t>(info.mTotalPrivateMemory);
 
     return ErrorEnum::eNone;
 }
