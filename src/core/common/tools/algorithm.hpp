@@ -304,7 +304,7 @@ public:
     {
         auto res = static_cast<const AlgorithmItf&>(*this).Min(cmp);
 
-        return const_cast<I>(res);
+        return const_cast<I>(res); // NOSONAR cpp:M23_090
     }
 
     /**
