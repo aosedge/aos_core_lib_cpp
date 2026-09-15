@@ -467,11 +467,13 @@ Error ConvertX509ToAos(X509* cert, x509::Certificate& resultCert)
 
     resultCert.mVersion = static_cast<int>(X509_get_version(cert)) + 1;
 
-    if (err = GetBasicConstraints(cert, resultCert.mIsCA); !err.IsNone()) {
+    err = GetBasicConstraints(cert, resultCert.mIsCA);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = GetKeyUsage(cert, resultCert.mKeyUsage); !err.IsNone()) {
+    err = GetKeyUsage(cert, resultCert.mKeyUsage);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1320,7 +1322,8 @@ Error OpenSSLCryptoProvider::Init(AllocatorItf& allocator)
 
     mAllocator = &allocator;
 
-    if (mLibCtx = OSSL_LIB_CTX_new(); !mLibCtx) {
+    mLibCtx = OSSL_LIB_CTX_new();
+    if (!mLibCtx) {
         return OPENSSL_ERROR();
     }
 

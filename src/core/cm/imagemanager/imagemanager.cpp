@@ -712,7 +712,8 @@ Error ImageManager::CleanupDownloadingItems(
                 } else {
                     LOG_DBG() << "Remove blob" << Log::Field("path", filePath);
 
-                    if (err = fs::RemoveAll(filePath); !err.IsNone()) {
+                    err = fs::RemoveAll(filePath);
+                    if (!err.IsNone()) {
                         LOG_ERR() << "Failed to remove blob" << Log::Field("path", filePath) << Log::Field(err);
                     }
                 }
@@ -991,11 +992,13 @@ Error ImageManager::LoadIndex(const String& digest, const String& downloadPath, 
         }
     });
 
-    if (err = EnsureBlob(digest, downloadPath, installPath, certificates, certificateChains, space); !err.IsNone()) {
+    err = EnsureBlob(digest, downloadPath, installPath, certificates, certificateChains, space);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = mOCISpec->LoadImageIndex(installPath, imageIndex); !err.IsNone()) {
+    err = mOCISpec->LoadImageIndex(installPath, imageIndex);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1011,12 +1014,14 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
     UniquePtr<spaceallocator::SpaceItf> space;
 
     StaticString<cFilePathLen> downloadPath;
-    if (err = GetBlobFilePath(mBlobsDownloadPath, digest, downloadPath); !err.IsNone()) {
+    err = GetBlobFilePath(mBlobsDownloadPath, digest, downloadPath);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     StaticString<cFilePathLen> installPath;
-    if (err = GetBlobFilePath(mBlobsInstallPath, digest, installPath); !err.IsNone()) {
+    err = GetBlobFilePath(mBlobsInstallPath, digest, installPath);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1043,11 +1048,13 @@ Error ImageManager::LoadManifest(const String& digest, const Array<crypto::Certi
         }
     });
 
-    if (err = EnsureBlob(digest, downloadPath, installPath, certificates, certificateChains, space); !err.IsNone()) {
+    err = EnsureBlob(digest, downloadPath, installPath, certificates, certificateChains, space);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = mOCISpec->LoadImageManifest(installPath, manifest); !err.IsNone()) {
+    err = mOCISpec->LoadImageManifest(installPath, manifest);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1063,12 +1070,14 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
     UniquePtr<spaceallocator::SpaceItf> space;
 
     StaticString<cFilePathLen> downloadPath;
-    if (err = GetBlobFilePath(mBlobsDownloadPath, descriptor.mDigest, downloadPath); !err.IsNone()) {
+    err = GetBlobFilePath(mBlobsDownloadPath, descriptor.mDigest, downloadPath);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     StaticString<cFilePathLen> installPath;
-    if (err = GetBlobFilePath(mBlobsInstallPath, descriptor.mDigest, installPath); !err.IsNone()) {
+    err = GetBlobFilePath(mBlobsInstallPath, descriptor.mDigest, installPath);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1095,8 +1104,8 @@ Error ImageManager::LoadBlob(const oci::ContentDescriptor& descriptor,
         }
     });
 
-    if (err = EnsureBlob(descriptor.mDigest, downloadPath, installPath, certificates, certificateChains, space);
-        !err.IsNone()) {
+    err = EnsureBlob(descriptor.mDigest, downloadPath, installPath, certificates, certificateChains, space);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1355,7 +1364,8 @@ Error ImageManager::PerformDownload(const BlobInfo& blobInfo, const String& down
             LOG_ERR() << "Failed to download" << Log::Field("url", blobInfo.mURLs[0])
                       << Log::Field("path", downloadPath) << Log::Field(AOS_ERROR_WRAP(err));
 
-            if (err = WaitForStop(); !err.IsNone()) {
+            err = WaitForStop();
+            if (!err.IsNone()) {
                 auto [bytesOnDisk, sizeErr] = fs::CalculateSize(*mAllocator, downloadPath);
                 if (!sizeErr.IsNone()) {
                     LOG_WRN() << "Failed to get partial download size" << Log::Field("path", downloadPath)
@@ -1441,20 +1451,24 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
 
     StaticString<cFilePathLen> installDir;
 
-    if (err = fs::ParentPath(installPath, installDir); !err.IsNone()) {
+    err = fs::ParentPath(installPath, installDir);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = fs::MakeDirAll(installDir); !err.IsNone()) {
+    err = fs::MakeDirAll(installDir);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     if (blobInfo.mDecryptInfo.HasValue()) {
-        if (err = mCryptoHelper->Decrypt(downloadPath, installPath, *blobInfo.mDecryptInfo); !err.IsNone()) {
+        err = mCryptoHelper->Decrypt(downloadPath, installPath, *blobInfo.mDecryptInfo);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     } else {
-        if (err = fs::CopyFile(*mAllocator, downloadPath, installPath); !err.IsNone()) {
+        err = fs::CopyFile(*mAllocator, downloadPath, installPath);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -1462,8 +1476,8 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
     LOG_DBG() << "Decrypted successfully" << Log::Field("path", installPath);
 
     if (blobInfo.mSignInfo.HasValue()) {
-        if (err = mCryptoHelper->ValidateSigns(installPath, *blobInfo.mSignInfo, certificateChains, certificates);
-            !err.IsNone()) {
+        err = mCryptoHelper->ValidateSigns(installPath, *blobInfo.mSignInfo, certificateChains, certificates);
+        if (!err.IsNone()) {
             if (auto removeErr = fs::RemoveAll(installPath); !removeErr.IsNone()) {
                 LOG_ERR() << "Failed to remove install file" << Log::Field("path", installPath)
                           << Log::Field(removeErr);
@@ -1475,11 +1489,13 @@ Error ImageManager::DecryptAndValidateBlob(const String& downloadPath, const Str
 
     fs::FileInfo fileInfo;
 
-    if (err = mFileInfoProvider->GetFileInfo(installPath, fileInfo); !err.IsNone()) {
+    err = mFileInfoProvider->GetFileInfo(installPath, fileInfo);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = VerifyBlobChecksum(blobInfo.mDigest, fileInfo); !err.IsNone()) {
+    err = VerifyBlobChecksum(blobInfo.mDigest, fileInfo);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

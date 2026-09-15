@@ -335,16 +335,16 @@ public:
             }
 
             if (oldSubstr.Size() > newSubstr.Size()) {
-                if (err = Remove(begin() + oldPos + newSubstr.Size(), begin() + oldPos + oldSubstr.Size());
-                    !err.IsNone()) {
+                err = Remove(begin() + oldPos + newSubstr.Size(), begin() + oldPos + oldSubstr.Size());
+                if (!err.IsNone()) {
                     return err;
                 }
             }
 
             if (oldSubstr.Size() < newSubstr.Size()) {
-                if (err = Insert(
+                err = Insert(
                         begin() + oldPos + oldSubstr.Size(), newSubstr.begin() + oldSubstr.Size(), newSubstr.end());
-                    !err.IsNone()) {
+                if (!err.IsNone()) {
                     return err;
                 }
             }
