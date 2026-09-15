@@ -107,7 +107,7 @@ Error ValidateNumericIdentifier(const String& identifier)
         return err;
     }
 
-    if (identifier.Size() == 0) {
+    if (identifier.IsEmpty()) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -124,7 +124,7 @@ Error ValidateStrIdentifier(const String& identifier)
         return err;
     }
 
-    if (identifier.Size() == 0) {
+    if (identifier.IsEmpty()) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -139,7 +139,7 @@ Error ValidateBasePart(String& version)
         return err;
     }
 
-    if (identifiers.Size() == 0 || identifiers.Size() > 3) {
+    if (identifiers.IsEmpty() || identifiers.Size() > 3) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -263,7 +263,7 @@ RetWithError<int32_t> CompareBaseParts(String& version1, String& version2)
         return {0, err};
     }
 
-    if (identifiers1.Size() == 0 || identifiers1.Size() > 3) {
+    if (identifiers1.IsEmpty() || identifiers1.Size() > 3) {
         return {0, ErrorEnum::eInvalidArgument};
     }
 
@@ -271,7 +271,7 @@ RetWithError<int32_t> CompareBaseParts(String& version1, String& version2)
         return {0, err};
     }
 
-    if (identifiers2.Size() == 0 || identifiers2.Size() > 3) {
+    if (identifiers2.IsEmpty() || identifiers2.Size() > 3) {
         return {0, ErrorEnum::eInvalidArgument};
     }
 
