@@ -43,7 +43,7 @@ class KeyAlgorithm {
 public:
     enum class Enum { eRSA, eECDSA };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sContentTypeStrings[] = {"RSA", "ECDSA"};
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
