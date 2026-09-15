@@ -349,7 +349,9 @@ RetWithError<int32_t> ComparePrereleaseParts(String& version1, String& version2)
 Error ValidateSemver(const String& version)
 {
     StaticString<cVersionLen> tmpVersion(version);
-    String                    basePart, prereleasePart, metadataPart;
+    String                    basePart;
+    String                    prereleasePart;
+    String                    metadataPart;
 
     if (auto err = SplitVersion(tmpVersion, basePart, prereleasePart, metadataPart); !err.IsNone()) {
         return err;
@@ -386,8 +388,12 @@ RetWithError<int32_t> CompareSemver(const String& version1, const String& versio
 
     StaticString<cVersionLen> tmpVersion1(version1);
     StaticString<cVersionLen> tmpVersion2(version2);
-    String                    basePart1, prereleasePart1, metadataPart1;
-    String                    basePart2, prereleasePart2, metadataPart2;
+    String                    basePart1;
+    String                    prereleasePart1;
+    String                    metadataPart1;
+    String                    basePart2;
+    String                    prereleasePart2;
+    String                    metadataPart2;
 
     if (auto err = SplitVersion(tmpVersion1, basePart1, prereleasePart1, metadataPart1); !err.IsNone()) {
         return {0, err};

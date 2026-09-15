@@ -67,7 +67,8 @@ static aos::Mutex sMutex;
 static int32_t ExportRSAPublicKeyToDER(
     const aos::crypto::RSAPublicKey& rsaKey, uint8_t* data, size_t dataSize, size_t* dataLength)
 {
-    mbedtls_mpi n, e;
+    mbedtls_mpi n;
+    mbedtls_mpi e;
 
     mbedtls_mpi_init(&n);
     mbedtls_mpi_init(&e);
