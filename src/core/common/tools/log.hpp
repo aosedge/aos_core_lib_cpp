@@ -58,7 +58,7 @@ class LogLevelType {
 public:
     enum class Enum { eDebug, eInfo, eWarning, eError, eNumLevels };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sLogLevelStrings[] = {"debug", "info", "warning", "error"};
 

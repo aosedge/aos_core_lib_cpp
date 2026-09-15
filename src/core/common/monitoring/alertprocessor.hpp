@@ -22,7 +22,7 @@ public:
         eInstance,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sResourceLevelStrings[] = {
             "system",
@@ -49,7 +49,7 @@ public:
         ePartition,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sResourceTypeStrings[] = {
             "cpu",
