@@ -615,7 +615,7 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const ECDSAPublicKey& pubKey, OSSL_LIB_C
 RetWithError<EVP_PKEY*> GetEvpPublicKey(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, OSSL_LIB_CTX* libCtx)
 {
     struct EVP_PKEYConverter : StaticVisitor<RetWithError<EVP_PKEY*>> {
-        EVP_PKEYConverter(OSSL_LIB_CTX* ctx)
+        explicit EVP_PKEYConverter(OSSL_LIB_CTX* ctx)
             : mLibCtx(ctx)
         {
         }

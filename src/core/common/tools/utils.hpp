@@ -156,7 +156,8 @@ struct Pair {
      * @param @args arguments to create a second parameter.
      */
     template <typename... Args>
-    Pair(const F& f, Args&&... args)
+    Pair(const F& f, Args&&... args) // NOSONAR cpp:S1709 - implicit conversion from the underlying/raw type is
+                                     // intentional, core to this type's value-semantics ergonomics
         : mFirst(f)
         , mSecond(Forward<Args>(args)...)
     {
@@ -309,7 +310,10 @@ struct IntegralConstant {
     static constexpr T value = v;
     using ValueType          = T;
     using Type               = IntegralConstant;
-    constexpr operator ValueType() const noexcept { return value; }
+    constexpr operator ValueType() const noexcept // NOSONAR cpp:S1709
+    {
+        return value;
+    }
 };
 
 /**
