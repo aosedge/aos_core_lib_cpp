@@ -252,7 +252,7 @@ public:
      */
     String& RightTrim(const String& chars)
     {
-        while (Size() > 0) {
+        while (!IsEmpty()) {
             if (chars.Find(Back()) != chars.end()) {
                 [[maybe_unused]] auto err = PopBack();
                 assert(err.IsNone());
@@ -499,7 +499,7 @@ public:
             return {0, ErrorEnum::eNoMemory};
         }
 
-        if (Size() == 0) {
+        if (IsEmpty()) {
             return {0, ErrorEnum::eInvalidArgument};
         }
 
@@ -746,7 +746,7 @@ public:
      */
     RetWithError<size_t> FindSubstr(size_t startPos, const String& substr) const
     {
-        if (substr.Size() == 0 || substr.Size() > Size()) {
+        if (substr.IsEmpty() || substr.Size() > Size()) {
             return {Size(), ErrorEnum::eNotFound};
         }
 

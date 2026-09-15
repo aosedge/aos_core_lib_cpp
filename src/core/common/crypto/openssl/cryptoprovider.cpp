@@ -1191,7 +1191,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     asn1::ASN1ReaderItf& asn1reader,
     int32_t              expectedUniversalTag) // V_ASN1_SEQUENCE or V_ASN1_SET
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNone, {}};
     }
 
@@ -2087,7 +2087,7 @@ Error OpenSSLCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadStruct(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& asn1reader)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNone, {}};
     }
 
@@ -2162,7 +2162,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadSet(
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadInteger(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int32_t& value)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -2190,7 +2190,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadInteger(
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadBigInt(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -2229,7 +2229,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadBigInt(
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOID(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ObjectIdentifier& oid)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -2280,7 +2280,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOID(
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadAID(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::AlgorithmIdentifier& aid)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         aid = {};
 
         return {ErrorEnum::eNotFound, data};
@@ -2344,7 +2344,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadAID(
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOctetString(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         result = {};
 
         return {ErrorEnum::eNotFound, data};
@@ -2386,7 +2386,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOctetString(
 asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadRawValue(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1Value& result)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         result = {};
 
         return {ErrorEnum::eNotFound, data};

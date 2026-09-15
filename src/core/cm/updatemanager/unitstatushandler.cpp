@@ -253,7 +253,7 @@ void UnitStatusHandler::OnItemsStatusesChanged(const Array<UpdateItemStatus>& st
         return;
     }
 
-    if (!mUnitStatus.mUpdateItems.HasValue() && statuses.Size() > 0) {
+    if (!mUnitStatus.mUpdateItems.HasValue() && !statuses.IsEmpty()) {
         mUnitStatus.mUpdateItems.EmplaceValue();
     }
 
@@ -290,7 +290,7 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
     }
 
-    if (!mCloudConnected || mIsStatusProcessing || statuses.Size() == 0) {
+    if (!mCloudConnected || mIsStatusProcessing || statuses.IsEmpty()) {
         return;
     }
 
