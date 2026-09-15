@@ -473,7 +473,7 @@ Error ImageManager::DownloadBlob(const String& path, const String& digest, size_
     UniquePtr<spaceallocator::SpaceItf> space;
     StaticString<cURLLen>               url;
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+    auto releaseSpace = DeferRelease(&err, [this, &digest, &path, &space](const Error* releaseErr) {
         if (!releaseErr->IsNone()) {
             LOG_ERR() << "Failed to download blob" << Log::Field("digest", digest) << Log::Field(*releaseErr);
         }
@@ -511,7 +511,7 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, Instal
         }
     }
 
-    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
+    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [this, &waitInstalling](const String* digest) {
         if (waitInstalling) {
             if (auto releaseErr = ReleaseInstallingBlob(*digest); !releaseErr.IsNone()) {
                 LOG_ERR() << "Can't release installing blob" << Log::Field("digest", *digest)
@@ -643,7 +643,7 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
 
     UniquePtr<spaceallocator::SpaceItf> space;
 
-    auto releaseSpace = DeferRelease(&err, [&](const Error* releaseErr) {
+    auto releaseSpace = DeferRelease(&err, [this, &diffDigest, &dstPath, &space](const Error* releaseErr) {
         if (!releaseErr->IsNone()) {
             LOG_ERR() << "Failed to unpack layer" << Log::Field("diffDigest", diffDigest) << Log::Field(*releaseErr);
         }

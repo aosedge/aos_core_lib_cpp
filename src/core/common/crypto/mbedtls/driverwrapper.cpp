@@ -73,7 +73,7 @@ static int32_t ExportRSAPublicKeyToDER(
     mbedtls_mpi_init(&n);
     mbedtls_mpi_init(&e);
 
-    auto cleanup = [&]() {
+    auto cleanup = [&n, &e]() {
         mbedtls_mpi_free(&n);
         mbedtls_mpi_free(&e);
     };
@@ -202,7 +202,7 @@ static int32_t ExportECPublicKeyToDER(
     mbedtls_ecp_point q;
     mbedtls_ecp_point_init(&q);
 
-    auto cleanup = [&]() {
+    auto cleanup = [&grp, &q]() {
         mbedtls_ecp_group_free(&grp);
         mbedtls_ecp_point_free(&q);
     };
