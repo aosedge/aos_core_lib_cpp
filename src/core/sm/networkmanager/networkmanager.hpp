@@ -272,7 +272,7 @@ private:
                 return err;
             }
 
-            if (isUnique(ifName)) {
+            if (Forward<P>(isUnique)(ifName)) {
                 return ErrorEnum::eNone;
             }
         }
