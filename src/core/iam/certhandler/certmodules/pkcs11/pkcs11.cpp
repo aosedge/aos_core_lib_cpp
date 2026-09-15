@@ -689,7 +689,7 @@ void PKCS11Module::CloseSession()
 }
 
 Error PKCS11Module::FindObject(
-    pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst) const
+    const pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst) const
 {
     static constexpr auto cSearchObjAttrCount = 4;
 
