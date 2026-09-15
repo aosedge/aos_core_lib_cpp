@@ -80,7 +80,8 @@ public:
         }
 
         mSize = 0;
-        mHead = mTail = mBegin;
+        mTail = mBegin;
+        mHead = mTail;
 
         auto it = queue.mHead;
 
@@ -232,8 +233,9 @@ public:
             (void)Pop();
         }
 
-        mHead = mTail = mBegin;
-        mSize         = 0;
+        mTail = mBegin;
+        mHead = mTail;
+        mSize = 0;
     }
 
     /**
