@@ -28,7 +28,7 @@ public:
      * @param size region size.
      */
     Buffer(const void* buffer, size_t size)
-        : mBuffer(const_cast<RemoveConstType<void>*>(buffer))
+        : mBuffer(const_cast<void*>(buffer)) // NOSONAR cpp:M23_090
         , mSize(size)
     {
     }

@@ -43,7 +43,7 @@ public:
      * @param str C string.
      */
     String(const char* str)
-        : Array(const_cast<char*>(str), str ? strlen(str) : 0)
+        : Array(const_cast<char*>(str), str ? strlen(str) : 0) // NOSONAR cpp:M23_090
     {
         if (str && *end()) {
             *end() = 0;

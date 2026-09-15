@@ -584,9 +584,10 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const ECDSAPublicKey& pubKey, OSSL_LIB_C
     auto octetStrBuffer = ASN1_STRING_get0_data(octetStr.Get());
     auto octetStrLen    = ASN1_STRING_length(octetStr.Get());
 
-    OSSL_PARAM params[] = {
-        OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, const_cast<char*>(curveName), 0),
-        OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY, const_cast<uint8_t*>(octetStrBuffer), octetStrLen),
+    OSSL_PARAM params[] = {OSSL_PARAM_construct_utf8_string(
+                               OSSL_PKEY_PARAM_GROUP_NAME, const_cast<char*>(curveName), 0), // NOSONAR cpp:M23_090
+        OSSL_PARAM_construct_octet_string(
+            OSSL_PKEY_PARAM_PUB_KEY, const_cast<uint8_t*>(octetStrBuffer), octetStrLen), // NOSONAR cpp:M23_090
         OSSL_PARAM_construct_end()};
 
     auto ctx = DeferRelease(EVP_PKEY_CTX_new_from_name(libCtx, "EC", nullptr), EVP_PKEY_CTX_free);
@@ -982,7 +983,7 @@ RetWithError<EVP_MD_CTX*> CreateSignCtx(const PrivateKeyItf& privKey, OSSL_LIB_C
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    auto* privKeyPtr = const_cast<PrivateKeyItf*>(&privKey);
+    auto* privKeyPtr = const_cast<PrivateKeyItf*>(&privKey); // NOSONAR cpp:M23_090
     if (OSSL_PARAM privKeyParams[] = {OSSL_PARAM_octet_string(openssl::cPKeyParamAosKeyPair,
                                           reinterpret_cast<void*>(privKeyPtr), sizeof(privKeyPtr)),
             OSSL_PARAM_END};
@@ -1604,7 +1605,8 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
-        auto res = X509_NAME_add_entry_by_NID(name.Get(), nid, MBSTRING_UTF8, (uint8_t*)value.CStr(), -1, -1, 0);
+        auto res = X509_NAME_add_entry_by_NID(
+            name.Get(), nid, MBSTRING_UTF8, (uint8_t*)value.CStr(), -1, -1, 0); // NOSONAR cpp:M23_090
         if (res != 1) {
             return OPENSSL_ERROR();
         }
