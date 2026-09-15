@@ -42,7 +42,8 @@ public:
      *
      * @param str C string.
      */
-    String(const char* str)
+    String(const char* str) // NOSONAR cpp:S1709 - implicit conversion from the underlying/raw type is intentional, core
+                            // to this type's value-semantics ergonomics
         : Array(const_cast<char*>(str), str ? strlen(str) : 0) // NOSONAR cpp:M23_090
     {
         if (str && *end()) {
@@ -854,7 +855,7 @@ public:
      *
      * @param str string to create from.
      */
-    StaticString(const String& str)
+    StaticString(const String& str) // NOSONAR cpp:S1709
     {
         String::SetBuffer(mBuffer, cMaxSize);
         (void)String::operator=(str);
@@ -879,7 +880,7 @@ public:
      *
      * @param str initial value.
      */
-    StaticString(const char* str)
+    StaticString(const char* str) // NOSONAR cpp:S1709
     {
         String::SetBuffer(mBuffer, cMaxSize);
         (void)String::operator=(str);
