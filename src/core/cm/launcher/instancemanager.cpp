@@ -312,7 +312,7 @@ Error InstanceManager::SubmitScheduledInstances()
     return ErrorEnum::eNone;
 }
 
-void InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
+void InstanceManager::DisableInstance(const SharedPtr<Instance>& instance)
 {
     if (auto err = instance->Cache(true); !err.IsNone()) {
         const auto& id = instance->GetInfo().mInstanceIdent;

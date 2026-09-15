@@ -121,7 +121,7 @@ public:
      * @param privKeyHandle private key handle.
      * @param pubKey public key.
      */
-    PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session, crypto::x509::ProviderItf& cryptoProvider,
+    PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session, const crypto::x509::ProviderItf& cryptoProvider,
         ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey);
 
     /**

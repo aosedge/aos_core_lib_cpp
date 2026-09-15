@@ -192,12 +192,12 @@ Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes) const
     return ErrorEnum::eNone;
 }
 
-void Balancer::FilterNodesByID(Instance& instance, Array<Node*>& nodes) const
+void Balancer::FilterNodesByID(const Instance& instance, Array<Node*>& nodes) const
 {
     (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
 }
 
-void Balancer::FilterNodesByLabels(Instance& instance, Array<Node*>& nodes) const
+void Balancer::FilterNodesByLabels(const Instance& instance, Array<Node*>& nodes) const
 {
     (void)nodes.RemoveIf(
         [&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
@@ -329,9 +329,9 @@ void Balancer::FilterRuntimes(NodeRuntimes& runtimes, Filter& filter) const
     }
 }
 
-void Balancer::FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes) const
+void Balancer::FilterByRuntimeType(const Instance& instance, NodeRuntimes& runtimes) const
 {
-    auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
+    auto filter = [&instance](const Node* node, const RuntimeInfo* runtime) {
         (void)node;
 
         return instance.IsRuntimeTypeOk(runtime->mRuntimeType, runtime->mRuntimeID);
@@ -340,9 +340,9 @@ void Balancer::FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes) c
     FilterRuntimes(runtimes, filter);
 }
 
-void Balancer::FilterByPlatform(Instance& instance, NodeRuntimes& runtimes) const
+void Balancer::FilterByPlatform(const Instance& instance, NodeRuntimes& runtimes) const
 {
-    auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
+    auto filter = [&instance](const Node* node, const RuntimeInfo* runtime) {
         (void)node;
 
         return instance.IsPlatformOk(*runtime);
