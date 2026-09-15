@@ -111,8 +111,8 @@ static int32_t ASN1EncodeBigInt(const Array<uint8_t>& number, uint8_t** p, uint8
 
 static Error ASN1RemoveTag(const Array<uint8_t>& src, Array<uint8_t>& dst, int32_t tag)
 {
-    uint8_t* p   = const_cast<uint8_t*>(src.Get());
-    size_t   len = 0;
+    auto*  p   = const_cast<uint8_t*>(src.Get());
+    size_t len = 0;
 
     if (auto ret = mbedtls_asn1_get_tag(&p, src.end(), &len, tag); ret < 0) {
         return ret;
@@ -352,14 +352,14 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     }
 
     // Verify sufficient data
-    size_t offset = static_cast<size_t>(p - data.Get());
+    auto offset = static_cast<size_t>(p - data.Get());
     if (data.Size() < length + offset) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "insufficient data size for ASN.1 content")), {}};
     }
 
     // Iterate over the elements inside the container
     const uint8_t* elemPtr   = p;
-    size_t         bytesLeft = static_cast<size_t>(length);
+    auto           bytesLeft = static_cast<size_t>(length);
 
     while (bytesLeft > 0) {
         int64_t elemLength = 0;
@@ -779,8 +779,8 @@ Error MbedTLSCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
 {
     mbedtls_asn1_named_data tmpDN = {};
 
-    uint8_t* p   = const_cast<uint8_t*>(dn.begin());
-    size_t   tmp = 0;
+    auto*  p   = const_cast<uint8_t*>(dn.begin());
+    size_t tmp = 0;
 
     if (auto ret = mbedtls_asn1_get_tag(&p, dn.end(), &tmp, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
         ret != 0) {
@@ -880,7 +880,7 @@ Error MbedTLSCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
 
 RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorithm)
 {
-    psa_algorithm_t alg = PSA_ALG_NONE;
+    auto alg = PSA_ALG_NONE;
 
     switch (algorithm.GetValue()) {
     case HashEnum::eSHA1:
@@ -1168,7 +1168,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadStruct(
         return {ErrorEnum::eNone, {}};
     }
 
-    uint8_t*       p   = const_cast<uint8_t*>(data.Get());
+    auto*          p   = const_cast<uint8_t*>(data.Get());
     const uint8_t* end = p + data.Size();
 
     // Read tag
@@ -1212,7 +1212,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadStruct(
         return {AOS_ERROR_WRAP(ErrorEnum::eFailed), {}};
     }
 
-    if (size_t offset = static_cast<size_t>(p - data.Get()); data.Size() < len + offset) {
+    if (auto offset = static_cast<size_t>(p - data.Get()); data.Size() < len + offset) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "insufficient data size for ASN.1 content")), {}};
     }
 
@@ -1490,7 +1490,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadRawValue(
         }
     }
 
-    size_t offset = static_cast<size_t>(p - data.Get());
+    auto offset = static_cast<size_t>(p - data.Get());
     if (data.Size() < len + offset) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "insufficient data size")), {}};
     }
