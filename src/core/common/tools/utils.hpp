@@ -35,101 +35,6 @@ constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int32_t))
 };
 
 /**
- * Implements struct of pair fields.
- * @tparam F
- * @tparam S
- */
-template <typename F, typename S>
-struct Pair {
-    /**
-     * Default constructor.
-     */
-    Pair()
-        : mFirst()
-        , mSecond()
-    {
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param @f first value
-     * @param @s second value
-     */
-    Pair(const F& f, const S& s)
-        : mFirst(f)
-        , mSecond(s) {};
-
-    /**
-     * Constructor.
-     *
-     * @param @f first value.
-     * @param @args arguments to create a second parameter.
-     */
-    template <typename... Args>
-    Pair(const F& f, Args&&... args)
-        : mFirst(f)
-        , mSecond(args...)
-    {
-    }
-
-    /**
-     * Comparison operators.
-     */
-    friend bool operator==(const Pair& lhs, const Pair<F, S>& other)
-    {
-        return lhs.mFirst == other.mFirst && lhs.mSecond == other.mSecond;
-    };
-    friend bool operator!=(const Pair& lhs, const Pair<F, S>& other) { return !(lhs == other); };
-
-    /**
-     * Pair first value.
-     */
-    F mFirst;
-
-    /**
-     * Pair second value.
-     */
-    S mSecond;
-};
-
-/**
- * Returns min from two value.
- */
-template <typename T>
-constexpr T Min(T a, T b)
-{
-    return (a < b) ? a : b;
-};
-
-/**
- * Returns max from two value.
- */
-template <typename T>
-constexpr T Max(T a, T b)
-{
-    return (a > b) ? a : b;
-};
-
-/**
- * Returns min value.
- */
-template <typename T, typename... Args>
-constexpr T Min(T value, Args... args)
-{
-    return Min(value, Min(args...));
-};
-
-/**
- * Returns max value.
- */
-template <typename T, typename... Args>
-constexpr T Max(T value, Args... args)
-{
-    return Max(value, Max(args...));
-}
-
-/**
  * Remove reference template.
  *
  * @tparam T reference type.
@@ -188,9 +93,129 @@ using RemoveConstType = typename RemoveConst<T>::type;
  * @tparam T object to move.
  */
 template <typename T>
-inline typename RemoveRef<T>::type&& Move(T&& object)
+inline typename RemoveRef<T>::type&& Move(T&& object) // NOSONAR cpp:M23_279 - this function itself implements the
+                                                      // move idiom, it must not forward its argument
 {
     return static_cast<typename RemoveRef<T>::type&&>(object);
+}
+
+/**
+ * Forward template. Preserves the value category of a forwarding reference argument when
+ * passing it on to another function.
+ *
+ * @tparam T object to forward.
+ */
+template <typename T>
+inline T&& Forward(typename RemoveRef<T>::type& object)
+{
+    return static_cast<T&&>(object);
+}
+
+/**
+ * Forward template. Preserves the value category of a forwarding reference argument when
+ * passing it on to another function.
+ *
+ * @tparam T object to forward.
+ */
+template <typename T>
+inline T&& Forward(typename RemoveRef<T>::type&& object)
+{
+    return static_cast<T&&>(object);
+}
+
+/**
+ * Implements struct of pair fields.
+ * @tparam F
+ * @tparam S
+ */
+template <typename F, typename S>
+struct Pair {
+    /**
+     * Default constructor.
+     */
+    Pair()
+        : mFirst()
+        , mSecond()
+    {
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param @f first value
+     * @param @s second value
+     */
+    Pair(const F& f, const S& s)
+        : mFirst(f)
+        , mSecond(s) {};
+
+    /**
+     * Constructor.
+     *
+     * @param @f first value.
+     * @param @args arguments to create a second parameter.
+     */
+    template <typename... Args>
+    Pair(const F& f, Args&&... args)
+        : mFirst(f)
+        , mSecond(Forward<Args>(args)...)
+    {
+    }
+
+    /**
+     * Comparison operators.
+     */
+    friend bool operator==(const Pair& lhs, const Pair<F, S>& other)
+    {
+        return lhs.mFirst == other.mFirst && lhs.mSecond == other.mSecond;
+    };
+    friend bool operator!=(const Pair& lhs, const Pair<F, S>& other) { return !(lhs == other); };
+
+    /**
+     * Pair first value.
+     */
+    F mFirst;
+
+    /**
+     * Pair second value.
+     */
+    S mSecond;
+};
+
+/**
+ * Returns min from two value.
+ */
+template <typename T>
+constexpr T Min(T a, T b)
+{
+    return (a < b) ? a : b;
+};
+
+/**
+ * Returns max from two value.
+ */
+template <typename T>
+constexpr T Max(T a, T b)
+{
+    return (a > b) ? a : b;
+};
+
+/**
+ * Returns min value.
+ */
+template <typename T, typename... Args>
+constexpr T Min(T value, Args... args)
+{
+    return Min(value, Min(args...));
+};
+
+/**
+ * Returns max value.
+ */
+template <typename T, typename... Args>
+constexpr T Max(T value, Args... args)
+{
+    return Max(value, Max(args...));
 }
 
 /**
@@ -264,7 +289,7 @@ template <typename B, typename D>
 struct IsBaseOf {
 private:
     using Yes = char[1];
-    using No = char[2];
+    using No  = char[2];
 
     static Yes& Test(B*);
     static No&  Test(...);
