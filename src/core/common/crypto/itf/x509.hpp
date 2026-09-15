@@ -122,7 +122,7 @@ namespace x509 {
 /**
  * X.509 v3 version number (Certificate.mVersion).
  */
-constexpr int cX509Version3 = 3;
+constexpr int32_t cX509Version3 = 3;
 
 /**
  * X.509 KeyUsage bits (RFC 5280 / OpenSSL / mbedTLS layout).
@@ -203,7 +203,7 @@ struct Certificate {
     /**
      * X.509 version (1 = v1, 2 = v2, 3 = v3).
      */
-    int mVersion {};
+    int32_t mVersion {};
     /**
      * Basic Constraints CA flag (CA:TRUE).
      */
