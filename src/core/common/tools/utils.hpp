@@ -136,7 +136,7 @@ constexpr T Max(T value, Args... args)
  */
 template <typename T>
 struct RemoveRef {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -146,7 +146,7 @@ struct RemoveRef {
  */
 template <typename T>
 struct RemoveRef<T&> {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -156,7 +156,7 @@ struct RemoveRef<T&> {
  */
 template <typename T>
 struct RemoveRef<T&&> {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -166,7 +166,7 @@ struct RemoveRef<T&&> {
  */
 template <typename T>
 struct RemoveConst {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -176,7 +176,7 @@ struct RemoveConst {
  */
 template <typename T>
 struct RemoveConst<const T> {
-    typedef T type;
+    using type = T;
 };
 
 template <class T>
@@ -202,7 +202,7 @@ inline typename RemoveRef<T>::type&& Move(T&& object)
  */
 template <bool B, typename T, typename F>
 struct ConditionalStruct {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -213,7 +213,7 @@ struct ConditionalStruct {
  */
 template <typename T, typename F>
 struct ConditionalStruct<false, T, F> {
-    typedef F type;
+    using type = F;
 };
 
 /**
@@ -242,7 +242,7 @@ struct EnableStruct { };
  */
 template <typename T>
 struct EnableStruct<true, T> {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -263,8 +263,8 @@ using EnableIf = typename EnableStruct<B, T>::type;
 template <typename B, typename D>
 struct IsBaseOf {
 private:
-    typedef char Yes[1];
-    typedef char No[2];
+    using Yes = char[1];
+    using No = char[2];
 
     static Yes& Test(B*);
     static No&  Test(...);
