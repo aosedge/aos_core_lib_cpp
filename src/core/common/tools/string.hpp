@@ -902,7 +902,7 @@ public:
      *
      * @return string.
      */
-    virtual const String ToString() const = 0;
+    virtual String ToString() const = 0;
 };
 
 } // namespace aos

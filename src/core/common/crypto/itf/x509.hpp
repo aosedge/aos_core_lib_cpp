@@ -146,7 +146,7 @@ class PaddingType {
 public:
     enum class Enum { ePKCS1v1_5, ePSS, eNone };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sContentTypeStrings[] = {"PKCS1v1_5", "PSS", "Node"};
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));

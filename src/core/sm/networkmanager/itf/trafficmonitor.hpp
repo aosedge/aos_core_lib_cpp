@@ -22,7 +22,7 @@ class TrafficPeriodType {
 public:
     enum class Enum { eMinutePeriod, eHourPeriod, eDayPeriod, eMonthPeriod, eYearPeriod };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sTrafficPeriodStrings[] = {"minute", "hour", "day", "month", "year"};
 

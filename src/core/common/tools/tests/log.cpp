@@ -68,7 +68,7 @@ public:
     {
     }
 
-    const String ToString() const override { return String(mStr); }
+    String ToString() const override { return String(mStr); }
 
 private:
     const char* mStr;

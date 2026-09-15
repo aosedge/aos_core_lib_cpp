@@ -120,7 +120,7 @@ public:
      *
      * @return string.
      */
-    const String ToString() const override
+    String ToString() const override
     {
         if (auto strings = T::GetStrings(); static_cast<size_t>(mValue) < strings.Size()) {
             return strings[static_cast<size_t>(mValue)];
