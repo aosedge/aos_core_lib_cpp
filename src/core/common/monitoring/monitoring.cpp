@@ -379,11 +379,11 @@ void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instan
     }
 }
 
-void Monitoring::ProcessAlerts(NodeMonitoringData& monitoringData)
+void Monitoring::ProcessAlerts(const NodeMonitoringData& monitoringData)
 {
     ProcessAlerts(monitoringData.mMonitoringData, mNodeAlertProcessors);
 
-    for (auto& instanceData : monitoringData.mInstances) {
+    for (const auto& instanceData : monitoringData.mInstances) {
         auto it = mWatchedInstances.FindIf(
             [&instanceData](const auto& instance) { return instance.mIdent == instanceData.mInstanceIdent; });
         if (it == mWatchedInstances.end()) {
@@ -394,7 +394,7 @@ void Monitoring::ProcessAlerts(NodeMonitoringData& monitoringData)
     }
 }
 
-void Monitoring::ProcessAlerts(MonitoringData& monitoringData, AlertProcessorArray& alertProcessors) const
+void Monitoring::ProcessAlerts(const MonitoringData& monitoringData, AlertProcessorArray& alertProcessors) const
 {
     for (auto& alertProcessor : alertProcessors) {
         auto [currentValue, err] = GetCurrentUsage(alertProcessor.GetID(), monitoringData);

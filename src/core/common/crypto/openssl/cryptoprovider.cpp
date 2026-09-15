@@ -157,7 +157,7 @@ Error ConvertASN1IntToBN(const ASN1_INTEGER* src, Array<uint8_t>& dst)
     return ErrorEnum::eNone;
 }
 
-Error GetSubjectKeyID(X509* cert, Array<uint8_t>& skid)
+Error GetSubjectKeyID(const X509* cert, Array<uint8_t>& skid)
 {
     auto ext = X509_get_ext_d2i(cert, NID_subject_key_identifier, nullptr, nullptr);
 
@@ -178,7 +178,7 @@ Error GetSubjectKeyID(X509* cert, Array<uint8_t>& skid)
     return ErrorEnum::eNone;
 }
 
-Error GetAuthorityKeyID(X509* cert, Array<uint8_t>& akid)
+Error GetAuthorityKeyID(const X509* cert, Array<uint8_t>& akid)
 {
     auto ext = X509_get_ext_d2i(cert, NID_authority_key_identifier, nullptr, nullptr);
 
@@ -203,7 +203,7 @@ Error GetAuthorityKeyID(X509* cert, Array<uint8_t>& akid)
     return ErrorEnum::eNone;
 }
 
-Error GetBasicConstraints(X509* cert, bool& isCA)
+Error GetBasicConstraints(const X509* cert, bool& isCA)
 {
     isCA = false;
 
@@ -231,7 +231,7 @@ Error GetKeyUsage(X509* cert, Optional<uint32_t>& keyUsage)
     return ErrorEnum::eNone;
 }
 
-Error GetIssuerAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
+Error GetIssuerAltNameURIs(const X509* cert, Array<StaticString<cURLLen>>& uris)
 {
     auto ext   = X509_get_ext_d2i(cert, NID_issuer_alt_name, nullptr, nullptr);
     auto names = DeferRelease(static_cast<GENERAL_NAMES*>(ext),
@@ -469,7 +469,7 @@ Error ConvertX509ToAos(X509* cert, x509::Certificate& resultCert)
     return ErrorEnum::eNone;
 }
 
-Error ConvertX509ToPEM(X509* cer, OSSL_LIB_CTX* libCtx, String& pem)
+Error ConvertX509ToPEM(const X509* cer, OSSL_LIB_CTX* libCtx, String& pem)
 {
     auto bio = DeferRelease(BIO_new_ex(libCtx, BIO_s_mem()), BIO_free);
     if (!bio) {
@@ -1027,8 +1027,8 @@ Error Sign(const PrivateKeyItf& privKey, X509* cer, OSSL_LIB_CTX* libCtx)
     return ErrorEnum::eNone;
 }
 
-Error CreateClientCert(X509_REQ* csr, EVP_PKEY* caKey, X509* caCert, OSSL_LIB_CTX* libCtx, const Array<uint8_t>& serial,
-    String& clientCertPEM)
+Error CreateClientCert(X509_REQ* csr, EVP_PKEY* caKey, const X509* caCert, OSSL_LIB_CTX* libCtx,
+    const Array<uint8_t>& serial, String& clientCertPEM)
 {
     auto clientCert = DeferRelease(X509_new_ex(libCtx, nullptr), X509_free);
     if (!clientCert) {
@@ -1074,7 +1074,7 @@ Error CreateClientCert(X509_REQ* csr, EVP_PKEY* caKey, X509* caCert, OSSL_LIB_CT
     return ConvertX509ToPEM(clientCert.Get(), libCtx, clientCertPEM);
 }
 
-Error ConvertToPEM(X509_REQ* csr, String& pem)
+Error ConvertToPEM(const X509_REQ* csr, String& pem)
 {
     auto bio = DeferRelease(BIO_new(BIO_s_mem()), BIO_free);
     if (!bio) {
