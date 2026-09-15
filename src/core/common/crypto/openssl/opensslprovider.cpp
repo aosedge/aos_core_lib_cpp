@@ -59,9 +59,8 @@ void KeyMgmtFree(void* keydata)
 
 int32_t KeyMgmtHas(const void* key, int32_t selection)
 {
-    const auto aosKey = static_cast<const AosPrivKey*>(key);
-
-    if (!(selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY || selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY)
+    if (const auto aosKey = static_cast<const AosPrivKey*>(key);
+        !(selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY || selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY)
         && (aosKey == nullptr || aosKey->mPrivKey == nullptr)) {
         return 1;
     }
@@ -95,8 +94,7 @@ int32_t KeyMgmtImport(void* keydata, int32_t selection, const OSSL_PARAM* p)
 
     auto aosKey = static_cast<AosPrivKey*>(keydata);
 
-    const OSSL_PARAM* pKeyParam = OSSL_PARAM_locate_const(p, cPKeyParamAosKeyPair);
-    if (pKeyParam != nullptr) {
+    if (const OSSL_PARAM* pKeyParam = OSSL_PARAM_locate_const(p, cPKeyParamAosKeyPair); pKeyParam != nullptr) {
         if (pKeyParam->data_type != OSSL_PARAM_OCTET_STRING) {
             LOG_ERR() << "Wrong data type for AOS key: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eFailed));
 
@@ -378,8 +376,7 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
 
         signature.Clear();
 
-        auto err = signature.Insert(signature.begin(), derSig, derSig + derLen);
-        if (!err.IsNone()) {
+        if (auto err = signature.Insert(signature.begin(), derSig, derSig + derLen); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -594,8 +591,7 @@ int32_t SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
         return 0;
     }
 
-    OSSL_PARAM* p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID);
-    if (p != nullptr) {
+    if (OSSL_PARAM* p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID); p != nullptr) {
         auto alg = DeferRelease(GetSignAlg(aosCtx->mAosKey->mPrivKey->GetPublic()), X509_ALGOR_free);
         if (!alg) {
             return 0;
@@ -766,8 +762,7 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
     }
 
-    auto err = fullOID.Resize(size);
-    if (!err.IsNone()) {
+    if (auto err = fullOID.Resize(size); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 

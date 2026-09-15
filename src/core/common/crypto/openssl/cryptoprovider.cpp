@@ -122,13 +122,11 @@ Error ConvertX509NameToDer(const X509_NAME* src, Array<uint8_t>& dst)
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
-    auto err = dst.Resize(derSize);
-    if (!err.IsNone()) {
+    if (auto err = dst.Resize(derSize); !err.IsNone()) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
-    auto dstBuf = dst.Get();
-    if (i2d_X509_NAME(src, &dstBuf) <= 0) {
+    if (auto dstBuf = dst.Get(); i2d_X509_NAME(src, &dstBuf) <= 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
@@ -148,8 +146,7 @@ Error ConvertASN1IntToBN(const ASN1_INTEGER* src, Array<uint8_t>& dst)
 
     int32_t size = BN_num_bytes(bn.Get());
 
-    auto err = dst.Resize(size);
-    if (!err.IsNone()) {
+    if (auto err = dst.Resize(size); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -358,8 +355,7 @@ Error SetECDSAPubKey(const EVP_PKEY* src, Variant<ECDSAPublicKey, RSAPublicKey>&
 
     StaticArray<uint8_t, cECDSAParamsOIDSize> groupOID;
 
-    auto err = groupOID.Insert(groupOID.begin(), objData, objData + objDataLen);
-    if (!err.IsNone()) {
+    if (auto err = groupOID.Insert(groupOID.begin(), objData, objData + objDataLen); !err.IsNone()) {
         return err;
     }
 
@@ -415,65 +411,54 @@ Error ConvertX509ToDER(const X509* cert, Array<uint8_t>& derBlob)
 
 Error ConvertX509ToAos(X509* cert, x509::Certificate& resultCert)
 {
-    auto err = ConvertX509NameToDer(X509_get_subject_name(cert), resultCert.mSubject);
-    if (!err.IsNone()) {
+    if (auto err = ConvertX509NameToDer(X509_get_subject_name(cert), resultCert.mSubject); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ConvertX509NameToDer(X509_get_issuer_name(cert), resultCert.mIssuer);
-    if (!err.IsNone()) {
+    if (auto err = ConvertX509NameToDer(X509_get_issuer_name(cert), resultCert.mIssuer); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ConvertASN1IntToBN(X509_get_serialNumber(cert), resultCert.mSerial);
-    if (!err.IsNone()) {
+    if (auto err = ConvertASN1IntToBN(X509_get_serialNumber(cert), resultCert.mSerial); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ConvertEvpPKey(X509_get_pubkey(cert), resultCert.mPublicKey);
-    if (!err.IsNone()) {
+    if (auto err = ConvertEvpPKey(X509_get_pubkey(cert), resultCert.mPublicKey); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = GetSubjectKeyID(cert, resultCert.mSubjectKeyId);
-    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = GetSubjectKeyID(cert, resultCert.mSubjectKeyId); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = GetAuthorityKeyID(cert, resultCert.mAuthorityKeyId);
-    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = GetAuthorityKeyID(cert, resultCert.mAuthorityKeyId);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = GetIssuerAltNameURIs(cert, resultCert.mIssuerURLs);
-    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = GetIssuerAltNameURIs(cert, resultCert.mIssuerURLs); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ConvertASN1Time(X509_get_notBefore(cert), resultCert.mNotBefore);
-    if (!err.IsNone()) {
+    if (auto err = ConvertASN1Time(X509_get_notBefore(cert), resultCert.mNotBefore); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ConvertASN1Time(X509_get_notAfter(cert), resultCert.mNotAfter);
-    if (!err.IsNone()) {
+    if (auto err = ConvertASN1Time(X509_get_notAfter(cert), resultCert.mNotAfter); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = ConvertX509ToDER(cert, resultCert.mRaw);
-    if (!err.IsNone()) {
+    if (auto err = ConvertX509ToDER(cert, resultCert.mRaw); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     resultCert.mVersion = static_cast<int>(X509_get_version(cert)) + 1;
 
-    err = GetBasicConstraints(cert, resultCert.mIsCA);
-    if (!err.IsNone()) {
+    if (auto err = GetBasicConstraints(cert, resultCert.mIsCA); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = GetKeyUsage(cert, resultCert.mKeyUsage);
-    if (!err.IsNone()) {
+    if (auto err = GetKeyUsage(cert, resultCert.mKeyUsage); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -500,8 +485,7 @@ Error ConvertX509ToPEM(X509* cer, OSSL_LIB_CTX* libCtx, String& pem)
 
     pem.Clear();
 
-    auto err = pem.Insert(pem.begin(), mem->data, mem->data + mem->length);
-    if (!err.IsNone()) {
+    if (auto err = pem.Insert(pem.begin(), mem->data, mem->data + mem->length); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -800,8 +784,7 @@ Error SetNotBefore(const Time& notBefore, X509* cert)
 {
     auto notBeforeASN1 = DeferRelease(ASN1_UTCTIME_new(), ASN1_TIME_free);
 
-    auto err = SetTime(notBefore, notBeforeASN1.Get());
-    if (!err.IsNone()) {
+    if (auto err = SetTime(notBefore, notBeforeASN1.Get()); !err.IsNone()) {
         return err;
     }
 
@@ -816,8 +799,7 @@ Error SetNotAfter(const Time& notAfter, X509* cert)
 {
     auto notAfterASN1 = DeferRelease(ASN1_UTCTIME_new(), ASN1_TIME_free);
 
-    auto err = SetTime(notAfter, notAfterASN1.Get());
-    if (!err.IsNone()) {
+    if (auto err = SetTime(notAfter, notAfterASN1.Get()); !err.IsNone()) {
         return err;
     }
 
@@ -895,8 +877,8 @@ Error SetAKID(const Array<uint8_t>& derAKID, X509* cert, const x509::Certificate
         uint8_t  md[EVP_MAX_MD_SIZE];
         uint32_t mdLen = 0;
 
-        auto issuerCert = parentCert ? parentCert.Get() : cert;
-        if (X509_pubkey_digest(issuerCert, EVP_sha1(), md, &mdLen) != 1) {
+        if (auto issuerCert = parentCert ? parentCert.Get() : cert;
+            X509_pubkey_digest(issuerCert, EVP_sha1(), md, &mdLen) != 1) { // NOSONAR cpp:S4790 - RFC 5280 keyIdentifier
             return OPENSSL_ERROR();
         }
 
@@ -927,8 +909,7 @@ Error SetAKID(const Array<uint8_t>& derAKID, X509* cert, const x509::Certificate
 
 Error SetIssuerAltNameURIs(const Array<StaticString<cURLLen>>& uris, X509* cert)
 {
-    int32_t extIndex = X509_get_ext_by_NID(cert, NID_issuer_alt_name, -1);
-    if (extIndex >= 0) {
+    if (int32_t extIndex = X509_get_ext_by_NID(cert, NID_issuer_alt_name, -1); extIndex >= 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
@@ -997,12 +978,11 @@ RetWithError<EVP_MD_CTX*> CreateSignCtx(const PrivateKeyItf& privKey, OSSL_LIB_C
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    PrivateKeyItf* privKeyPtr      = const_cast<PrivateKeyItf*>(&privKey);
-    OSSL_PARAM     privKeyParams[] = {
-        OSSL_PARAM_octet_string(openssl::cPKeyParamAosKeyPair, reinterpret_cast<void*>(privKeyPtr), sizeof(privKeyPtr)),
-        OSSL_PARAM_END};
-
-    if (EVP_PKEY_fromdata(pKeyCtx.Get(), &evpKey, EVP_PKEY_KEYPAIR, privKeyParams) != 1) {
+    PrivateKeyItf* privKeyPtr = const_cast<PrivateKeyItf*>(&privKey);
+    if (OSSL_PARAM privKeyParams[] = {OSSL_PARAM_octet_string(openssl::cPKeyParamAosKeyPair,
+                                          reinterpret_cast<void*>(privKeyPtr), sizeof(privKeyPtr)),
+            OSSL_PARAM_END};
+        EVP_PKEY_fromdata(pKeyCtx.Get(), &evpKey, EVP_PKEY_KEYPAIR, privKeyParams) != 1) {
         return {nullptr, OPENSSL_ERROR()};
     }
 
@@ -1063,10 +1043,9 @@ Error CreateClientCert(X509_REQ* csr, EVP_PKEY* caKey, X509* caCert, OSSL_LIB_CT
     }
 
     // Set validity period to 1 year
-    auto notBefore = DeferRelease(ASN1_TIME_set(nullptr, time(nullptr)), ASN1_TIME_free);
-    auto notAfter  = DeferRelease(ASN1_TIME_adj(nullptr, time(nullptr), 365, 0), ASN1_TIME_free);
-
-    if (X509_set_notBefore(clientCert.Get(), notBefore.Get()) != 1
+    if (auto notBefore = DeferRelease(ASN1_TIME_set(nullptr, time(nullptr)), ASN1_TIME_free),
+        notAfter       = DeferRelease(ASN1_TIME_adj(nullptr, time(nullptr), 365, 0), ASN1_TIME_free);
+        X509_set_notBefore(clientCert.Get(), notBefore.Get()) != 1
         || X509_set_notAfter(clientCert.Get(), notAfter.Get()) != 1) {
         return OPENSSL_ERROR();
     }
@@ -1103,8 +1082,7 @@ Error ConvertToPEM(X509_REQ* csr, String& pem)
 
     pem.Clear();
 
-    auto err = pem.Insert(pem.begin(), mem->data, mem->data + mem->length);
-    if (!err.IsNone()) {
+    if (auto err = pem.Insert(pem.begin(), mem->data, mem->data + mem->length); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1167,8 +1145,7 @@ Error SetVerificationOptions(const x509::VerifyOptions& opts, X509_STORE_CTX* st
             return OPENSSL_ERROR(); // or appropriate error handling
         }
 
-        auto err = SetTime(opts.mCurrentTime, curTime.Get());
-        if (!err.IsNone()) {
+        if (auto err = SetTime(opts.mCurrentTime, curTime.Get()); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -1201,7 +1178,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     int64_t        length = 0;
     int32_t        tag = 0, xclass = 0;
 
-    int32_t ret = ASN1_get_object(&p, &length, &tag, &xclass, data.Size());
+    auto ret = ASN1_get_object(&p, &length, &tag, &xclass, data.Size());
     if ((ret & cASN1GetObjectError) != 0) {
         return {ErrorEnum::eFailed, {}};
     }
@@ -1230,8 +1207,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
         }
     }
 
-    bool isConstructed = (ret & V_ASN1_CONSTRUCTED) != 0;
-    if (!isConstructed) {
+    if (bool isConstructed = (ret & V_ASN1_CONSTRUCTED) != 0; !isConstructed) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "expected constructed ASN.1 element")), {}};
     }
 
@@ -1296,8 +1272,7 @@ RetWithError<UniquePtr<AESCipherItf>> MakeAESCipher(
         return {{}, ErrorEnum::eNoMemory};
     }
 
-    auto err = cipher->Init(libCtx, key, iv, encrypt);
-    if (!err.IsNone()) {
+    if (auto err = cipher->Init(libCtx, key, iv, encrypt); !err.IsNone()) {
         return {{}, err};
     }
 
@@ -1448,15 +1423,13 @@ Error OpenSSLCryptoProvider::PEMToX509Certs(const String& pemBlob, Array<x509::C
     while ((cert = PEM_read_bio_X509(bio.Get(), nullptr, nullptr, nullptr)) != nullptr) {
         auto freeCert = DeferRelease(cert, X509_free);
 
-        auto err = resultCerts.EmplaceBack();
-        if (!err.IsNone()) {
+        if (auto err = resultCerts.EmplaceBack(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
         auto& resultCert = resultCerts.Back();
 
-        err = ConvertX509ToAos(cert, resultCert);
-        if (!err.IsNone()) {
+        if (auto err = ConvertX509ToAos(cert, resultCert); !err.IsNone()) {
             return err;
         }
     }
@@ -1524,18 +1497,15 @@ Error OpenSSLCryptoProvider::CreateCSR(const x509::CSR& templ, const PrivateKeyI
         return OPENSSL_ERROR();
     }
 
-    auto err = AddTemplParams(templ, csr.Get());
-    if (!err.IsNone()) {
+    if (auto err = AddTemplParams(templ, csr.Get()); !err.IsNone()) {
         return err;
     }
 
-    err = SetPublicKey(privKey.GetPublic(), csr.Get(), mLibCtx);
-    if (!err.IsNone()) {
+    if (auto err = SetPublicKey(privKey.GetPublic(), csr.Get(), mLibCtx); !err.IsNone()) {
         return err;
     }
 
-    err = Sign(privKey, csr.Get(), mLibCtx);
-    if (!err.IsNone()) {
+    if (auto err = Sign(privKey, csr.Get(), mLibCtx); !err.IsNone()) {
         return err;
     }
 
@@ -1556,15 +1526,13 @@ RetWithError<SharedPtr<PrivateKeyItf>> OpenSSLCryptoProvider::PEMToX509PrivKey(c
         return {{}, OPENSSL_ERROR()};
     }
 
-    auto type = EVP_PKEY_base_id(pkey.Get());
-    if (type == EVP_PKEY_RSA) {
+    if (auto type = EVP_PKEY_base_id(pkey.Get()); type == EVP_PKEY_RSA) {
         auto res = MakeShared<OpenSSLRSAPrivKey>(mAllocator);
         if (!res) {
             return {{}, ErrorEnum::eNoMemory};
         }
 
-        auto err = res->Init(pkey.Get());
-        if (!err.IsNone()) {
+        if (auto err = res->Init(pkey.Get()); !err.IsNone()) {
             return {{}, err};
         }
 
@@ -1615,13 +1583,11 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
 
         StaticString<cOSSLMaxNameSize> key, value;
 
-        err = key.Insert(key.begin(), entry.begin(), entry.begin() + pos);
-        if (!err.IsNone()) {
+        if (auto keyErr = key.Insert(key.begin(), entry.begin(), entry.begin() + pos); !keyErr.IsNone()) {
             return AOS_ERROR_WRAP(ErrorEnum::eFailed);
         }
 
-        err = value.Insert(value.begin(), entry.begin() + pos + 1, entry.end());
-        if (!err.IsNone()) {
+        if (auto valueErr = value.Insert(value.begin(), entry.begin() + pos + 1, entry.end()); !valueErr.IsNone()) {
             return AOS_ERROR_WRAP(ErrorEnum::eFailed);
         }
 
@@ -1649,8 +1615,7 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
 
     result.Clear();
 
-    auto err = result.Insert(result.begin(), der, der + derLen);
-    if (!err.IsNone()) {
+    if (auto err = result.Insert(result.begin(), der, der + derLen); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1670,15 +1635,13 @@ Error OpenSSLCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
 
     result.Clear();
 
-    auto err = result.Insert(result.begin(), buf.Get(), buf.Get() + strlen(buf.Get()));
-    if (!err.IsNone()) {
+    if (auto err = result.Insert(result.begin(), buf.Get(), buf.Get() + strlen(buf.Get())); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     // To be compatible with MBedTLS implementation replace separators with ", "
     // and remove leading "/"
-    err = result.LeftTrim("/").Replace("/", ", ");
-    if (!err.IsNone()) {
+    if (auto err = result.LeftTrim("/").Replace("/", ", "); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1737,8 +1700,7 @@ Error OpenSSLCryptoProvider::ASN1EncodeBigInt(const Array<uint8_t>& number, Arra
 
     auto releaseBuf = DeferRelease(buf, openssl::AOS_OPENSSL_free);
 
-    auto err = asn1Value.Insert(asn1Value.begin(), buf, buf + len);
-    if (!err.IsNone()) {
+    if (auto err = asn1Value.Insert(asn1Value.begin(), buf, buf + len); !err.IsNone()) {
         return err;
     }
 
@@ -1772,8 +1734,7 @@ Error OpenSSLCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& 
 
     auto releaseBuf = DeferRelease(buf, openssl::AOS_OPENSSL_free);
 
-    auto err = asn1Value.Insert(asn1Value.begin(), buf, buf + len);
-    if (!err.IsNone()) {
+    if (auto err = asn1Value.Insert(asn1Value.begin(), buf, buf + len); !err.IsNone()) {
         return err;
     }
 
@@ -1786,8 +1747,7 @@ Error OpenSSLCryptoProvider::ASN1DecodeOctetString(const Array<uint8_t>& src, Ar
     int64_t        xlen;
     int32_t        tag, xclass;
 
-    int32_t ret = ASN1_get_object(&data, &xlen, &tag, &xclass, src.Size());
-    if (ret != 0) {
+    if (auto ret = ASN1_get_object(&data, &xlen, &tag, &xclass, src.Size()); ret != 0) {
         return OPENSSL_ERROR();
     }
 
@@ -1797,8 +1757,7 @@ Error OpenSSLCryptoProvider::ASN1DecodeOctetString(const Array<uint8_t>& src, Ar
 
     result.Clear();
 
-    auto err = result.Insert(result.begin(), data, data + xlen);
-    if (!err.IsNone()) {
+    if (auto err = result.Insert(result.begin(), data, data + xlen); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1811,8 +1770,7 @@ Error OpenSSLCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
     int64_t        xlen;
     int32_t        tag, xclass;
 
-    int32_t ret = ASN1_get_object(&data, &xlen, &tag, &xclass, inOID.Size());
-    if (ret != 0) {
+    if (auto ret = ASN1_get_object(&data, &xlen, &tag, &xclass, inOID.Size()); ret != 0) {
         return OPENSSL_ERROR();
     }
 
@@ -1822,8 +1780,7 @@ Error OpenSSLCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
 
     result.Clear();
 
-    auto err = result.Insert(result.begin(), data, data + xlen);
-    if (!err.IsNone()) {
+    if (auto err = result.Insert(result.begin(), data, data + xlen); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1841,8 +1798,7 @@ RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(Hash algorith
         return {{}, ErrorEnum::eNoMemory};
     }
 
-    auto err = hasher->Init(mLibCtx, algorithm.ToString().CStr());
-    if (!err.IsNone()) {
+    if (auto err = hasher->Init(mLibCtx, algorithm.ToString().CStr()); !err.IsNone()) {
         return {{}, err};
     }
 
@@ -1898,8 +1854,7 @@ RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv5(const uuid::UUID& s
 
     StaticArray<uint8_t, cSHA1InputDataSize> buffer = space;
 
-    auto err = buffer.Insert(buffer.end(), name.begin(), name.end());
-    if (!err.IsNone()) {
+    if (auto err = buffer.Insert(buffer.end(), name.begin(), name.end()); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1973,8 +1928,7 @@ Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
         return OPENSSL_ERROR();
     }
 
-    auto keyType = EVP_PKEY_base_id(pkey);
-    if (keyType == EVP_PKEY_RSA) {
+    if (auto keyType = EVP_PKEY_base_id(pkey); keyType == EVP_PKEY_RSA) {
         int32_t opensslPadding = -1;
         if (padding == x509::PaddingEnum::ePKCS1v1_5) {
             opensslPadding = RSA_PKCS1_PADDING;
@@ -2001,8 +1955,7 @@ Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    int32_t ret = EVP_PKEY_verify(ctx, signature.Get(), signature.Size(), digest.Get(), digest.Size());
-    if (ret != 1) {
+    if (auto ret = EVP_PKEY_verify(ctx, signature.Get(), signature.Size(), digest.Get(), digest.Size()); ret != 1) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "verification failed"));
     }
 
@@ -2098,7 +2051,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadStruct(
     int64_t        length = 0;
     int32_t        tag = 0, xclass = 0;
 
-    int32_t ret = ASN1_get_object(&p, &length, &tag, &xclass, data.Size());
+    auto ret = ASN1_get_object(&p, &length, &tag, &xclass, data.Size());
     if ((ret & cASN1GetObjectError) != 0) {
         return {ErrorEnum::eFailed, {}};
     }
@@ -2216,7 +2169,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadBigInt(
         return {OPENSSL_ERROR(), {}};
     }
 
-    int32_t numBytes = BN_num_bytes(bn.Get());
+    auto numBytes = BN_num_bytes(bn.Get());
     if (auto err = result.Resize(numBytes); !err.IsNone()) {
         return {err, {}};
     }
@@ -2400,8 +2353,8 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadRawValue(
     int32_t        tag    = 0;
     int32_t        xclass = 0;
 
-    int32_t ret = ASN1_get_object(&p, &length, &tag, &xclass, data.Size());
-    if ((ret & 0x80) != 0) { // cASN1GetObjectError = 0x80
+    if (auto ret = ASN1_get_object(&p, &length, &tag, &xclass, data.Size());
+        (ret & 0x80) != 0) { // cASN1GetObjectError = 0x80
         return {ErrorEnum::eFailed, {}};
     }
 
@@ -2480,8 +2433,7 @@ Error OpenSSLCryptoProvider::OpenSSLHash::Finalize(Array<uint8_t>& hash)
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    auto err = hash.Resize(EVP_MD_size(mType));
-    if (!err.IsNone()) {
+    if (auto err = hash.Resize(EVP_MD_size(mType)); !err.IsNone()) {
         return err;
     }
 
@@ -2496,8 +2448,7 @@ Error OpenSSLCryptoProvider::OpenSSLHash::Finalize(Array<uint8_t>& hash)
     EVP_MD_CTX_free(mMDCtx);
     mMDCtx = nullptr;
 
-    err = hash.Resize(size);
-    if (!err.IsNone()) {
+    if (auto err = hash.Resize(size); !err.IsNone()) {
         return err;
     }
 

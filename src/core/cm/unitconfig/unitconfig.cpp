@@ -332,8 +332,8 @@ Error UnitConfig::FindNodeConfig(
         return AOS_ERROR_WRAP(mUnitConfigError);
     }
 
-    auto node = config.mNodes.FindIf([&](const NodeConfig& node) { return node.mNodeID == nodeID; });
-    if (node != config.mNodes.end()) {
+    if (auto node = config.mNodes.FindIf([&](const NodeConfig& node) { return node.mNodeID == nodeID; });
+        node != config.mNodes.end()) {
         nodeConfig = *node;
     } else {
         node = config.mNodes.FindIf([&](const NodeConfig& node) { return node.mNodeType == nodeType; });

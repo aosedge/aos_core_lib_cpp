@@ -191,8 +191,8 @@ Error NodeManager::UnsubscribeListener(iamclient::NodeInfoListenerItf& listener)
 
 NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
 {
-    auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
-    if (it != mNodeInfoCache.end()) {
+    if (auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
+        it != mNodeInfoCache.end()) {
         return it;
     }
 

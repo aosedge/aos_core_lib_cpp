@@ -101,8 +101,7 @@ RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
 
     CertTypes certTypes;
 
-    auto err = mCertHandler->GetCertTypes(certTypes);
-    if (!err.IsNone()) {
+    if (auto err = mCertHandler->GetCertTypes(certTypes); !err.IsNone()) {
         return {certTypes, AOS_ERROR_WRAP(err)};
     }
 

@@ -107,8 +107,7 @@ public:
      */
     Error Set(const Key& key, const Value& value)
     {
-        auto cur = Find(key);
-        if (cur != end()) {
+        if (auto cur = Find(key); cur != end()) {
             // cppcheck-suppress unreadVariable
             cur->mSecond = value;
 
@@ -128,8 +127,7 @@ public:
     template <typename... Args>
     Error Emplace(const Key& key, Args&&... args)
     {
-        ConstIterator it = Find(key);
-        if (it == end()) {
+        if (ConstIterator it = Find(key); it == end()) {
             return mItems.EmplaceBack(key, args...);
         }
 
