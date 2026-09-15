@@ -45,7 +45,7 @@ public:
      * @param size C array size.
      */
     Array(const T* items, size_t size)
-        : mItems(const_cast<RemoveConstType<T>*>(items))
+        : mItems(const_cast<T*>(items)) // NOSONAR cpp:M23_090
         , mSize(size)
         , mMaxSize(size)
     {
@@ -270,7 +270,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (const_cast<RemoveConstType<T>*>(end())) T(item);
+        new (end()) T(item);
 
         mSize++;
 
@@ -289,7 +289,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (const_cast<RemoveConstType<T>*>(end())) T(Move(item));
+        new (end()) T(Move(item));
 
         mSize++;
 
@@ -438,13 +438,13 @@ public:
 
         auto curFirst = first;
 
-        for (T* it = const_cast<RemoveConstType<T>*>(last); it != curEnd; ++it, ++curFirst) {
+        for (T* it = const_cast<T*>(last); it != curEnd; ++it, ++curFirst) { // NOSONAR cpp:M23_090
             // cppcheck-suppress constStatement
-            new (const_cast<RemoveConstType<T>*>(curFirst)) T(Move(*it));
+            new (const_cast<T*>(curFirst)) T(Move(*it)); // NOSONAR cpp:M23_090
             it->~T();
         }
 
-        return const_cast<Iterator>(first);
+        return const_cast<Iterator>(first); // NOSONAR cpp:M23_090
     }
 
     /**

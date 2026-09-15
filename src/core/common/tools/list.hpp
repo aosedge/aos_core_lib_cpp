@@ -403,7 +403,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node);
+        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node); // NOSONAR cpp:M23_090
 
         return ErrorEnum::eNone;
     }
@@ -422,7 +422,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node);
+        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node); // NOSONAR cpp:M23_090
 
         return ErrorEnum::eNone;
     }
@@ -484,10 +484,10 @@ public:
     Iterator Erase(ConstIterator first, ConstIterator last) override
     {
         for (auto it = first; it != last; ++it) {
-            ListImpl<T>::RemoveNode(*const_cast<RemoveConstType<Node>*>(it.mCurrentNode));
+            ListImpl<T>::RemoveNode(*const_cast<Node*>(it.mCurrentNode)); // NOSONAR cpp:M23_090
         }
 
-        return Iterator(const_cast<Node*>(last.mCurrentNode));
+        return Iterator(const_cast<Node*>(last.mCurrentNode)); // NOSONAR cpp:M23_090
     }
 
     /**
