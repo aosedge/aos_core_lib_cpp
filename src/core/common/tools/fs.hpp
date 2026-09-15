@@ -497,7 +497,7 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path);
 /**
  * File class.
  */
-class File {
+class File : private NonCopyable {
 public:
     /**
      * File open mode.
