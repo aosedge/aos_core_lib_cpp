@@ -38,7 +38,7 @@ struct AosPrivKey {
     PrivateKeyItf* mPrivKey;
 };
 
-static void* KeyMgmtNew(void* provctx)
+void* KeyMgmtNew(void* provctx)
 {
     (void)provctx;
 
