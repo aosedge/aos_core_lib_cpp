@@ -276,7 +276,7 @@ public:
         eNumComponents,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sTargetTypeStrings[] = {
             "CM",
@@ -311,7 +311,7 @@ public:
         eRuntime,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "service",
@@ -347,7 +347,7 @@ public:
         eNumCertificates,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "offline",
@@ -381,7 +381,7 @@ public:
         eFailed,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "unknown",
@@ -408,7 +408,7 @@ class InstanceStateType {
 public:
     enum class Enum { eActivating, eActive, eInactive, eFailed };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {"activating", "active", "inactive", "failed"};
 
@@ -431,7 +431,7 @@ public:
         eError,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "unprovisioned",
@@ -457,7 +457,7 @@ public:
         eAosComponents,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "MainNode",
@@ -481,7 +481,7 @@ public:
         eUser,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "group",

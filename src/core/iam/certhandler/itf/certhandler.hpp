@@ -40,7 +40,7 @@ class ExtendedKeyUsageType {
 public:
     enum class Enum { eClientAuth, eServerAuth };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sContentTypeStrings[] = {"clientAuth", "serverAuth"};
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
