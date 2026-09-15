@@ -66,7 +66,7 @@ Error PKCS11RSAPrivateKey::Decrypt(
     return mSession->Decrypt(&mech, mPrivKeyHandle, cipher, result);
 }
 
-Array<uint8_t> PKCS11RSAPrivateKey::GetPrefix(crypto::Hash hash) const
+Array<uint8_t> PKCS11RSAPrivateKey::GetPrefix(const crypto::Hash& hash) const
 {
     switch (hash.GetValue()) {
     case crypto::HashEnum::eSHA1:
