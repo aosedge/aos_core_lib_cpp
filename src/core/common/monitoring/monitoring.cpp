@@ -307,12 +307,12 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
     Error err = ErrorEnum::eNone;
 
-    auto stopWatchOnError = DeferRelease(&err, [&](const Error* err) {
-        if (!err->IsNone()) {
-            if (err->Is(ErrorEnum::eNotSupported)) {
+    auto stopWatchOnError = DeferRelease(&err, [&](const Error* releaseErr) {
+        if (!releaseErr->IsNone()) {
+            if (releaseErr->Is(ErrorEnum::eNotSupported)) {
                 LOG_DBG() << "Instance monitoring is not supported" << Log::Field("ident", ident);
             } else {
-                LOG_ERR() << "Stopping watching instance" << Log::Field("ident", ident) << Log::Field(*err);
+                LOG_ERR() << "Stopping watching instance" << Log::Field("ident", ident) << Log::Field(*releaseErr);
             }
 
             (void)mWatchedInstances.PopBack();

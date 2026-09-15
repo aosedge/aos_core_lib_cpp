@@ -192,8 +192,8 @@ Error ValidateMetadataPart(String& version)
 
 Error SplitVersion(String& version, String& basePart, String& prereleasePart, String& metadataPart)
 {
-    size_t prereleasePos;
-    size_t metadataPos;
+    size_t prereleasePos = 0;
+    size_t metadataPos   = 0;
     Error  err;
 
     Tie(prereleasePos, err) = version.FindSubstr(0, "-");

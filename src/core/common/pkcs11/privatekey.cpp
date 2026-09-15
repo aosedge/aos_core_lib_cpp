@@ -100,8 +100,8 @@ RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::PKCS1v15D
 
 RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::OAEPDecryptionOptions& options) const
 {
-    CK_MECHANISM_TYPE    hashAlg;
-    CK_RSA_PKCS_MGF_TYPE mgf;
+    CK_MECHANISM_TYPE    hashAlg = 0;
+    CK_RSA_PKCS_MGF_TYPE mgf     = 0;
 
     switch (options.mHash.GetValue()) {
     case crypto::HashEnum::eSHA1:
@@ -158,10 +158,11 @@ RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::OAEPDecry
 PKCS11ECDSAPrivateKey::PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session,
     crypto::x509::ProviderItf& cryptoProvider, ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey)
     : mSession(session)
-    , mCryptoProvider(cryptoProvider)
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)
 {
+    (void)cryptoProvider;
+
     LOG_DBG() << "Create EC private key";
 }
 

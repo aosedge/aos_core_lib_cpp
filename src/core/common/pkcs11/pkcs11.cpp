@@ -529,7 +529,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
         return {nullptr, ErrorEnum::eWrongState};
     }
 
-    SessionHandle handle;
+    SessionHandle handle {};
 
     CK_RV rv = mFunctionList->C_OpenSession(slotID, flags, nullptr, nullptr, &handle);
     if (rv != CKR_OK) {
@@ -1174,7 +1174,7 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
 
     (void)keyTypeAttribute.PushBack(CKA_KEY_TYPE);
 
-    CK_KEY_TYPE                                          keyType;
+    CK_KEY_TYPE                                          keyType {};
     StaticArray<Array<uint8_t>, cSingleAttribute>        keyTypeValue;
     StaticArray<ObjectAttribute, cObjectAttributesCount> pubKeyTempl;
 
@@ -1508,14 +1508,18 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
 
         return {pkcsKey, ErrorEnum::eNone};
     }
+
+    default:
+        break;
     }
 
-    LOG_ERR() << "Unsupported key type: keyType=" << keyType << ", only RSA and ECDSA (secp384r1) are supported";
+    LOG_ERR() << "Unsupported key type: keyType=" << static_cast<int32_t>(keyType)
+              << ", only RSA and ECDSA (secp384r1) are supported";
 
     return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
 }
 
-Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles)
+Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles) const
 {
     CK_OBJECT_CLASS     certClass    = CKO_CERTIFICATE;
     CK_CERTIFICATE_TYPE certTypeX509 = CKC_X_509;
@@ -1610,7 +1614,7 @@ Error Utils::ValidateCertificateChain(const crypto::x509::CertificateChain& chai
         if (!child.mAuthorityKeyId.IsEmpty() && child.mAuthorityKeyId != parent.mSubjectKeyId) {
             StaticString<crypto::cCertDNStringSize> subject;
 
-            mCryptoProvider.ASN1DecodeDN(parent.mSubject, subject);
+            (void)mCryptoProvider.ASN1DecodeDN(parent.mSubject, subject);
             LOG_ERR() << "Issuer authorityKeyIdentifier mismatch: subject=" << subject;
 
             return AOS_ERROR_WRAP(ErrorEnum::eFailed);

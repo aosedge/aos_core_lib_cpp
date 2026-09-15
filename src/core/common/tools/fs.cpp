@@ -222,7 +222,7 @@ Error ClearDir(const String& path)
         return errno;
     }
 
-    dirent* entry;
+    dirent* entry = nullptr;
 
     while ((entry = readdir(dir)) != nullptr) {
         auto entryName = String(entry->d_name);
