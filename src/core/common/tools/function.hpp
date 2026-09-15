@@ -36,7 +36,7 @@ public:
      *
      * @param function function to create from.
      */
-    Function(const Function& function) = default;
+    Function(const Function& function) noexcept = default;
 
     // cppcheck-suppress operatorEqVarError
     /**
@@ -45,7 +45,7 @@ public:
      * @param function function to assign from.
      * @return Function&.
      */
-    Function& operator=(const Function& function)
+    Function& operator=(const Function& function) noexcept
     {
         if (!function.mCallable) {
             return *this;
@@ -195,7 +195,7 @@ public:
      *
      * @param function static function to create from.
      */
-    StaticFunction(const StaticFunction& function)
+    StaticFunction(const StaticFunction& function) noexcept
     {
         Function::SetBuffer(mBuffer);
         (void)Function::operator=(function);
@@ -207,7 +207,7 @@ public:
      * @param function static function to assign from.
      * @return StaticFunction&.
      */
-    StaticFunction& operator=(const StaticFunction& function)
+    StaticFunction& operator=(const StaticFunction& function) noexcept
     {
         (void)Function::operator=(function);
 
