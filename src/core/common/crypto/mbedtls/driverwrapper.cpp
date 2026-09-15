@@ -503,7 +503,7 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
 
     LOG_DBG() << "Sign hash";
 
-    for (auto& key : sBuiltinKeys) {
+    for (const auto& key : sBuiltinKeys) {
         if (key.mKeyID == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA:
@@ -544,7 +544,7 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
 
     LOG_DBG() << "Export public key";
 
-    for (auto& key : sBuiltinKeys) {
+    for (const auto& key : sBuiltinKeys) {
         if (key.mKeyID == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA: {

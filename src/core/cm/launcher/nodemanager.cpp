@@ -278,7 +278,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
     // Wait for node statuses
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : FilterConnectedNodes(mNodes)) {
+    for (const auto& node : FilterConnectedNodes(mNodes)) {
         if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

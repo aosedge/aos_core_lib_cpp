@@ -60,7 +60,7 @@ bool DirIterator::Next()
         return false;
     }
 
-    struct dirent* entry = nullptr;
+    const struct dirent* entry = nullptr;
 
     while ((entry = readdir(mDir)) != nullptr) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
@@ -222,7 +222,7 @@ Error ClearDir(const String& path)
         return errno;
     }
 
-    dirent* entry = nullptr;
+    const dirent* entry = nullptr;
 
     while ((entry = readdir(dir)) != nullptr) {
         auto entryName = String(entry->d_name);

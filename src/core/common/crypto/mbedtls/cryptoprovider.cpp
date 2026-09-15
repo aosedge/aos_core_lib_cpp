@@ -2230,7 +2230,7 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
                 return AOS_ERROR_WRAP(ret);
             }
 
-            uint8_t* end = p + len;
+            const uint8_t* end = p + len;
 
             // Iterate over GeneralNames sequence
             while (p < end) {
@@ -2242,7 +2242,7 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
                     return AOS_ERROR_WRAP(ret);
                 }
 
-                uint8_t* gnEnd = p + gnLen;
+                const uint8_t* gnEnd = p + gnLen;
 
                 // Parse context-specific tag 6 (GEN_URI)
                 if (auto uriRet = mbedtls_asn1_get_tag(&p, gnEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6);
