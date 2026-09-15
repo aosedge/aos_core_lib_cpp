@@ -254,7 +254,10 @@ private:
  */
 class LogVoid {
 public:
-    friend void operator&(const LogVoid&, const Log&) { }
+    friend void operator&(const LogVoid&, const Log&)
+    {
+        /* intentional no-op: enables conditional logging via void*& idiom */
+    }
 };
 
 } // namespace aos
