@@ -440,7 +440,7 @@ public:
 
         for (T* it = const_cast<T*>(last); it != curEnd; ++it, ++curFirst) { // NOSONAR cpp:M23_090
             // cppcheck-suppress constStatement
-            new (const_cast<T*>(curFirst)) T(Move(*it)); // NOSONAR cpp:M23_090
+            new (const_cast<void*>(static_cast<const void*>(curFirst))) T(Move(*it)); // NOSONAR cpp:M23_090
             it->~T();
         }
 
