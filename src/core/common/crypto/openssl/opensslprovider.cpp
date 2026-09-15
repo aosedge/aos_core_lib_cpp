@@ -205,7 +205,7 @@ RetWithError<int32_t> GetECCurveBitLen(int32_t nid)
 
 RetWithError<HashEnum> GetHashAlg(const RSAPublicKey& pubKey)
 {
-    auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), pubKey.GetN().Size(), NULL), BN_free);
+    auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), pubKey.GetN().Size(), nullptr), BN_free);
     if (!bn) {
         return {HashEnum::eNone, OPENSSL_ERROR()};
     }
@@ -416,7 +416,7 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_MDWithRSAEncryption
         // implementation: PARAMETERS, always NULL in current standards
-        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, NULL) != 1) {
+        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, nullptr) != 1) {
             LOG_ERR() << "Set algorithm failed, err=" << OPENSSL_ERROR();
 
             return nullptr;
@@ -442,7 +442,7 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_ECDSA_with_MD implementation:
         // there is no PARAMETERS for ECDSA
-        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, NULL) != 1) {
+        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, nullptr) != 1) {
             LOG_ERR() << "Set algorithm failed, err=" << OPENSSL_ERROR();
 
             return nullptr;
@@ -549,7 +549,7 @@ int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const 
 
     (void)digest.Resize(digest.MaxSize());
 
-    if (EVP_Digest(tbs, tbslen, digest.Get(), &digestLen, evpMd, NULL) != 1) {
+    if (EVP_Digest(tbs, tbslen, digest.Get(), &digestLen, evpMd, nullptr) != 1) {
         LOG_ERR() << "Digest calculation failed: err=" << OPENSSL_ERROR();
 
         return 0;
@@ -677,10 +677,10 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
         return cKeyMgmAlgorithms;
 
     case OSSL_OP_STORE:
-        return NULL;
+        return nullptr;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 int32_t ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const OSSL_DISPATCH** out, void** provctx)

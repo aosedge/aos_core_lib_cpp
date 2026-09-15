@@ -2176,7 +2176,7 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbed
     }
 
     mbedtls_asn1_sequence extns;
-    extns.next = NULL;
+    extns.next = nullptr;
 
     auto ret = mbedtls_asn1_get_sequence_of(
         &buf.p, buf.p + buf.len, &extns, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
