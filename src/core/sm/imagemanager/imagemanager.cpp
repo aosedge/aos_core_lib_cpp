@@ -202,7 +202,8 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 
     LOG_DBG() << "Install manifest blob" << Log::Field("digest", itemInfo.mManifestDigest);
 
-    if (err = InstallBlob(manifestDescriptor, &installItem); !err.IsNone()) {
+    err = InstallBlob(manifestDescriptor, &installItem);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -213,33 +214,39 @@ Error ImageManager::InstallUpdateItem(const UpdateItemInfo& itemInfo)
 
     StaticString<cFilePathLen> path;
 
-    if (err = CreateBlobPath(itemInfo.mManifestDigest, path); !err.IsNone()) {
+    err = CreateBlobPath(itemInfo.mManifestDigest, path);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+    err = mOCISpec->LoadImageManifest(path, *manifest);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     if (manifest->mItemConfig.HasValue()) {
         LOG_DBG() << "Install item config blob" << Log::Field("digest", manifest->mItemConfig->mDigest);
 
-        if (err = InstallBlob(*manifest->mItemConfig, &installItem); !err.IsNone()) {
+        err = InstallBlob(*manifest->mItemConfig, &installItem);
+        if (!err.IsNone()) {
             return err;
         }
     }
 
     if (itemInfo.mType == UpdateItemTypeEnum::eService) {
-        if (err = InstallServiceLayers(*manifest, installItem); !err.IsNone()) {
+        err = InstallServiceLayers(*manifest, installItem);
+        if (!err.IsNone()) {
             return err;
         }
     } else {
-        if (err = InstallComponentLayers(*manifest, installItem); !err.IsNone()) {
+        err = InstallComponentLayers(*manifest, installItem);
+        if (!err.IsNone()) {
             return err;
         }
     }
 
-    if (err = StoreUpdateItem(itemInfo); !err.IsNone()) {
+    err = StoreUpdateItem(itemInfo);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -424,7 +431,8 @@ Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) 
 
     StaticString<oci::cDigestLen> digest;
 
-    if (err = fs::ReadFileToString(path, digest); !err.IsNone()) {
+    err = fs::ReadFileToString(path, digest);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -434,11 +442,13 @@ Error ImageManager::ValidateLayer(const String& path, const String& diffDigest) 
 
     StaticString<cFilePathLen> dstPath;
 
-    if (err = CreateLayerPath(diffDigest, dstPath); !err.IsNone()) {
+    err = CreateLayerPath(diffDigest, dstPath);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = fs::ReadFileToString(fs::JoinPath(dstPath, cDigestFile), digest); !err.IsNone()) {
+    err = fs::ReadFileToString(fs::JoinPath(dstPath, cDigestFile), digest);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -472,7 +482,8 @@ Error ImageManager::DownloadBlob(const String& path, const String& digest, size_
         ReleaseSpace(path, space.Get(), *err);
     });
 
-    if (err = GetBlobURL(digest, url); !err.IsNone()) {
+    err = GetBlobURL(digest, url);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -485,7 +496,8 @@ Error ImageManager::DownloadBlob(const String& path, const String& digest, size_
 
     LOG_DBG() << "Download blob" << Log::Field("digest", digest) << Log::Field("size", size) << Log::Field("url", url);
 
-    if (err = mDownloader->Download(digest, url, path); !err.IsNone()) {
+    err = mDownloader->Download(digest, url, path);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -533,30 +545,36 @@ Error ImageManager::InstallBlob(const oci::ContentDescriptor& descriptor, Instal
     }
 
     if (exists) {
-        if (err = ValidateBlob(path, descriptor.mDigest); err.IsNone()) {
+        err = ValidateBlob(path, descriptor.mDigest);
+        if (err.IsNone()) {
             return ErrorEnum::eNone;
         }
 
-        if (err = fs::RemoveAll(path); !err.IsNone()) {
+        err = fs::RemoveAll(path);
+        if (!err.IsNone()) {
             LOG_ERR() << "Failed to remove blob" << Log::Field("digest", descriptor.mDigest) << Log::Field(err);
         }
     }
 
     StaticString<cFilePathLen> parentPath;
 
-    if (err = fs::ParentPath(path, parentPath); !err.IsNone()) {
+    err = fs::ParentPath(path, parentPath);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = fs::MakeDirAll(parentPath); !err.IsNone()) {
+    err = fs::MakeDirAll(parentPath);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = DownloadBlob(path, descriptor.mDigest, descriptor.mSize); !err.IsNone()) {
+    err = DownloadBlob(path, descriptor.mDigest, descriptor.mSize);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = ValidateBlob(path, descriptor.mDigest); !err.IsNone()) {
+    err = ValidateBlob(path, descriptor.mDigest);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -573,25 +591,30 @@ Error ImageManager::CreateLayerMetadata(const String& path, size_t size, spaceal
     LOG_DBG() << "Create layer metadata" << Log::Field("path", path) << Log::Field("digest", digest)
               << Log::Field("size", size);
 
-    if (err = space->Resize(space->Size() + digest.Size()); !err.IsNone()) {
+    err = space->Resize(space->Size() + digest.Size());
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = fs::WriteStringToFile(fs::JoinPath(path, cDigestFile), digest, 0600); !err.IsNone()) {
+    err = fs::WriteStringToFile(fs::JoinPath(path, cDigestFile), digest, 0600);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     StaticString<64> sizeStr;
 
-    if (err = sizeStr.Convert(size); !err.IsNone()) {
+    err = sizeStr.Convert(size);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = space->Resize(space->Size() + sizeStr.Size()); !err.IsNone()) {
+    err = space->Resize(space->Size() + sizeStr.Size());
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = fs::WriteStringToFile(fs::JoinPath(path, cSizeFile), sizeStr, 0600); !err.IsNone()) {
+    err = fs::WriteStringToFile(fs::JoinPath(path, cSizeFile), sizeStr, 0600);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -636,30 +659,34 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
         }
     }
 
-    if (err = mImageHandler->UnpackLayer(path, fs::JoinPath(dstPath, cUnpackedLayerFolder), descriptor.mMediaType);
-        !err.IsNone()) {
+    err = mImageHandler->UnpackLayer(path, fs::JoinPath(dstPath, cUnpackedLayerFolder), descriptor.mMediaType);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = CreateLayerMetadata(dstPath, size, space.Get()); !err.IsNone()) {
+    err = CreateLayerMetadata(dstPath, size, space.Get());
+    if (!err.IsNone()) {
         return err;
     }
 
     LOG_DBG() << "Remove packed layer" << Log::Field("path", path);
 
-    if (err = fs::RemoveAll(path); !err.IsNone()) {
+    err = fs::RemoveAll(path);
+    if (!err.IsNone()) {
         LOG_ERR() << "Failed to remove packed layer" << Log::Field("path", path) << Log::Field(err);
     } else {
         mSpaceAllocator->FreeSpace(descriptor.mSize);
     }
 
-    if (err = space->Resize(space->Size() + diffDigest.Size()); !err.IsNone()) {
+    err = space->Resize(space->Size() + diffDigest.Size());
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     LOG_DBG() << "Create diff digest file" << Log::Field("diffDigest", diffDigest) << Log::Field("path", path);
 
-    if (err = fs::WriteStringToFile(path, diffDigest, 0600); !err.IsNone()) {
+    err = fs::WriteStringToFile(path, diffDigest, 0600);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -706,7 +733,8 @@ Error ImageManager::InstallLayer(
     }
 
     if (exists) {
-        if (err = ValidateLayer(path, diffDigest); !err.IsNone()) {
+        err = ValidateLayer(path, diffDigest);
+        if (!err.IsNone()) {
             LOG_WRN() << "Layer validation failed" << Log::Field("path", path) << Log::Field("diffDigest", diffDigest)
                       << Log::Field(err);
         } else {
@@ -717,11 +745,13 @@ Error ImageManager::InstallLayer(
     LOG_DBG() << "Install layer blob" << Log::Field("digest", descriptor.mDigest)
               << Log::Field("diffDigest", diffDigest);
 
-    if (err = InstallBlob(descriptor, nullptr, false); !err.IsNone()) {
+    err = InstallBlob(descriptor, nullptr, false);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = UnpackLayer(path, descriptor, diffDigest); !err.IsNone()) {
+    err = UnpackLayer(path, descriptor, diffDigest);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -930,7 +960,8 @@ RetWithError<size_t> ImageManager::CropUpdateItems()
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (err = mStorage->GetAllUpdateItems(*itemsData); !err.IsNone()) {
+    err = mStorage->GetAllUpdateItems(*itemsData);
+    if (!err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
@@ -944,15 +975,16 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
     StaticArray<UpdateItemData, cMaxNumItemVersions> itemData;
     Error                                            err;
 
-    if (err = mStorage->GetUpdateItem(itemInfo.mID, itemData); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    err = mStorage->GetUpdateItem(itemInfo.mID, itemData);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto it = itemData.FindIf([&](const UpdateItemData& data) { return data.mVersion == itemInfo.mVersion; });
     if (it != itemData.end()) {
-        if (err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+        err = mStorage->UpdateUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
                 itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
-            !err.IsNone()) {
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -973,9 +1005,9 @@ Error ImageManager::StoreUpdateItem(const UpdateItemInfo& itemInfo)
         }
     }
 
-    if (err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
+    err = mStorage->AddUpdateItem(UpdateItemData {itemInfo.mID, itemInfo.mType, itemInfo.mVersion,
             itemInfo.mManifestDigest, ItemStateEnum::eInstalled, Time::Now()});
-        !err.IsNone()) {
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1205,7 +1237,8 @@ Error ImageManager::HandleItemsIntegrity()
             LOG_ERR() << "Update item integrity error" << Log::Field("itemID", itemData.mID)
                       << Log::Field("version", itemData.mVersion) << Log::Field(err);
 
-            if (err = RemoveUpdateItem(itemData); !err.IsNone()) {
+            err = RemoveUpdateItem(itemData);
+            if (!err.IsNone()) {
                 LOG_ERR() << "Failed to remove invalid item" << Log::Field("itemID", itemData.mID)
                           << Log::Field("version", itemData.mVersion) << Log::Field(err);
             }
@@ -1365,7 +1398,8 @@ RetWithError<size_t> ImageManager::RemoveOrphanBlobs(const Array<StaticString<cF
 
             LOG_DBG() << "Remove orphaned blob" << Log::Field("path", blobPath) << Log::Field("size", blobSize);
 
-            if (err = fs::RemoveAll(blobPath); !err.IsNone()) {
+            err = fs::RemoveAll(blobPath);
+            if (!err.IsNone()) {
                 LOG_ERR() << "Failed to remove orphaned blob" << Log::Field(err);
             }
         }
@@ -1406,7 +1440,8 @@ RetWithError<size_t> ImageManager::RemoveOrphanLayers(const Array<StaticString<c
 
             LOG_DBG() << "Remove orphaned layer" << Log::Field("path", layerPath) << Log::Field("size", layerSize);
 
-            if (err = fs::RemoveAll(layerPath); !err.IsNone()) {
+            err = fs::RemoveAll(layerPath);
+            if (!err.IsNone()) {
                 LOG_ERR() << "Failed to remove orphaned layer" << Log::Field(err);
             }
         }
