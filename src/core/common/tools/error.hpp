@@ -84,7 +84,8 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
+    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
+        int32_t lineNumber = 0)
         : mErr(err)
         , mErrno(0)
         , mFileName(fileName)
@@ -170,7 +171,8 @@ public:
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
+    Error(int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
+        int32_t lineNumber = 0)
         : Error(errNo == 0 ? Enum::eNone : Enum::eRuntime, errNo, msg, fileName, lineNumber)
     {
     }
@@ -372,7 +374,7 @@ struct RetWithError {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(const T& value, const Error& error = ErrorEnum::eNone)
+    RetWithError(const T& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709
         : mValue(value)
         , mError(error)
     {
@@ -385,7 +387,7 @@ struct RetWithError {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(T&& value, const Error& error = ErrorEnum::eNone)
+    RetWithError(T&& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709 - enables "return value;"
         : mValue(Move(value))
         , mError(error)
     {
@@ -425,7 +427,7 @@ struct RetWithError<T&> {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(T& value, const Error& error = ErrorEnum::eNone)
+    RetWithError(T& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709
         : mValue(value)
         , mError(error)
     {

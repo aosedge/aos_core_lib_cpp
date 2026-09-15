@@ -35,7 +35,10 @@ public:
      *
      * @param value.
      */
-    Optional(const T& value) { SetValue(value); }
+    Optional(const T& value) // NOSONAR cpp:S1709
+    {
+        SetValue(value);
+    }
 
     /**
      * Copy constructor.
