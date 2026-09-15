@@ -194,7 +194,8 @@ struct Certificate {
     /**
      * Certificate validity period.
      */
-    Time mNotBefore, mNotAfter;
+    Time mNotBefore;
+    Time mNotAfter;
     /**
      * Public key.
      */

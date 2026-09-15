@@ -868,7 +868,8 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         return ErrorEnum::eWrongState;
     }
 
-    uint64_t foundObjectsCount = 0, chunk = 0;
+    uint64_t foundObjectsCount = 0;
+    uint64_t chunk             = 0;
 
     (void)objects.Resize(objects.MaxSize());
 
