@@ -172,7 +172,7 @@ Error StorageState::AcceptState(const StateAcceptance& state)
     LOG_DBG() << "State acceptance" << Log::Field("instanceIdent", static_cast<const InstanceIdent&>(state))
               << Log::Field("reason", state.mReason);
 
-    auto it = mStates.FindIf(([&state](const auto& item) { return item.mInstanceIdent == state; }));
+    auto it = mStates.FindIf([&state](const auto& item) { return item.mInstanceIdent == state; });
     if (it == mStates.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
