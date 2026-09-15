@@ -61,7 +61,8 @@ Error DesiredStatusHandler::Start()
     if (updateState != UpdateStateEnum::eNone) {
         LOG_INF() << "Resuming update from state" << Log::Field("state", updateState);
 
-        if (err = mStorage->GetDesiredStatus(mPendingDesiredStatus); !err.IsNone()) {
+        err = mStorage->GetDesiredStatus(mPendingDesiredStatus);
+        if (!err.IsNone()) {
             LOG_ERR() << "Failed to get desired status" << Log::Field(err);
         }
 

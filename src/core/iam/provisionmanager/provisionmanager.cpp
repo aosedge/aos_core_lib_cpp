@@ -36,14 +36,16 @@ Error ProvisionManager::StartProvisioning(const String& password)
 
     CertTypes certTypes;
 
-    if (err = mCertHandler->GetCertTypes(certTypes); !err.IsNone()) {
+    err = mCertHandler->GetCertTypes(certTypes);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     for (const auto& certType : certTypes) {
         LOG_DBG() << "Clear cert storage" << Log::Field("type", certType);
 
-        if (err = mCertHandler->Clear(certType); !err.IsNone()) {
+        err = mCertHandler->Clear(certType);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -51,7 +53,8 @@ Error ProvisionManager::StartProvisioning(const String& password)
     for (const auto& certType : certTypes) {
         LOG_DBG() << "Set owner" << Log::Field("type", certType);
 
-        if (err = mCertHandler->SetOwner(certType, password); !err.IsNone()) {
+        err = mCertHandler->SetOwner(certType, password);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -63,13 +66,15 @@ Error ProvisionManager::StartProvisioning(const String& password)
         if (certModuleConfig.mValue.mIsSelfSigned) {
             LOG_DBG() << "Create self signed cert" << Log::Field("type", certType);
 
-            if (err = mCertHandler->CreateSelfSignedCert(certType, password); !err.IsNone()) {
+            err = mCertHandler->CreateSelfSignedCert(certType, password);
+            if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
     }
 
-    if (err = mCallback->OnEncryptDisk(password); !err.IsNone()) {
+    err = mCallback->OnEncryptDisk(password);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

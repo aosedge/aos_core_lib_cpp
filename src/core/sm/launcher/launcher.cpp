@@ -141,7 +141,8 @@ Error Launcher::Stop()
         }
 
         for (auto& it : mRuntimes) {
-            if (err = it.mFirst->Stop(); !err.IsNone() && stopErr.IsNone()) {
+            err = it.mFirst->Stop();
+            if (!err.IsNone() && stopErr.IsNone()) {
                 stopErr = AOS_ERROR_WRAP(err);
             }
         }
@@ -202,11 +203,11 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
         return err;
     }
 
-    if (err = mThread.Run([this, stop, start](void*) {
+    err = mThread.Run([this, stop, start](void*) {
             UpdateInstancesImpl(*stop, *start);
             FinishLaunch();
         });
-        !err.IsNone()) {
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -701,13 +702,13 @@ void Launcher::LoadInstancesData(const Array<InstanceInfo>& storedInstances)
             continue;
         }
 
-        if (err = mLaunchPool.AddTask([this, instanceData](void*) {
+        err = mLaunchPool.AddTask([this, instanceData](void*) {
                 if (auto err = LoadInstanceData(*instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceData->mInfo)
                               << Log::Field(AOS_ERROR_WRAP(err));
                 }
             });
-            !err.IsNone()) {
+        if (!err.IsNone()) {
             LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceInfo)
                       << Log::Field(AOS_ERROR_WRAP(err));
         }
@@ -975,7 +976,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
             continue;
         }
 
-        if (err = mLaunchPool.AddTask([this, instanceData](void*) {
+        err = mLaunchPool.AddTask([this, instanceData](void*) {
                 if (auto err = PrepareInstance(*instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData->mInfo)
                               << Log::Field(AOS_ERROR_WRAP(err));
@@ -983,7 +984,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances)
                     SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
                 }
             });
-            !err.IsNone()) {
+        if (!err.IsNone()) {
             LOG_ERR() << "Failed to prepare instance" << Log::Field("instance", instance)
                       << Log::Field(AOS_ERROR_WRAP(err));
 
