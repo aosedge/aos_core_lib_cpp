@@ -188,7 +188,7 @@ public:
      *
      * @param instance instance.
      */
-    void DisableInstance(SharedPtr<Instance>& instance);
+    void DisableInstance(const SharedPtr<Instance>& instance);
 
     /**
      * Updates monitoring data for active instances.

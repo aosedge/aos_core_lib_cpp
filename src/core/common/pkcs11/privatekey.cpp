@@ -156,7 +156,7 @@ RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::OAEPDecry
  **********************************************************************************************************************/
 
 PKCS11ECDSAPrivateKey::PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session,
-    crypto::x509::ProviderItf& cryptoProvider, ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey)
+    const crypto::x509::ProviderItf& cryptoProvider, ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey)
     : mSession(session)
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)

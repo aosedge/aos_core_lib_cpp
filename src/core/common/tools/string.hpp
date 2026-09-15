@@ -201,7 +201,7 @@ public:
      * @param to past the end pointer of the input range to be removed.
      * @return Error.
      */
-    Error Remove(char* from, char* to)
+    Error Remove(char* from, const char* to)
     {
         if (from < begin() || from > end()) {
             return ErrorEnum::eInvalidArgument;

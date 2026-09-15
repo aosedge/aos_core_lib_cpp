@@ -48,7 +48,7 @@ static constexpr auto cMbedTLSASN1Universal = 0;
  * Static
  **********************************************************************************************************************/
 
-static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t** p, uint8_t* start)
+static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t** p, const uint8_t* start)
 {
     size_t                   len = 0;
     [[maybe_unused]] int32_t ret = 0;
@@ -64,7 +64,7 @@ static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t
     return static_cast<int32_t>(len);
 }
 
-static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, uint8_t** p, uint8_t* start)
+static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, uint8_t** p, const uint8_t* start)
 {
     size_t  len = 0;
     int32_t ret = 0; // cppcheck-suppress variableScope
@@ -94,7 +94,7 @@ static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, ui
     return static_cast<int32_t>(len);
 }
 
-static int32_t ASN1EncodeBigInt(const Array<uint8_t>& number, uint8_t** p, uint8_t* start)
+static int32_t ASN1EncodeBigInt(const Array<uint8_t>& number, uint8_t** p, const uint8_t* start)
 {
     size_t                   len = 0;
     [[maybe_unused]] int32_t ret = 0;
@@ -595,7 +595,7 @@ Error MbedTLSCryptoProvider::CreateCSR(const x509::CSR& templ, const PrivateKeyI
 
     auto keyID = ret.mValue.mKeyID;
 
-    auto cleanupPSA = DeferRelease(&keyID, [](psa_key_id_t* keyPtr) { AosPsaRemoveKey(*keyPtr); });
+    auto cleanupPSA = DeferRelease(&keyID, [](const psa_key_id_t* keyPtr) { AosPsaRemoveKey(*keyPtr); });
 
     mbedtls_x509write_csr_set_md_alg(&csr, ret.mValue.mMDType);
 
@@ -634,7 +634,7 @@ Error MbedTLSCryptoProvider::CreateCertificate(
 
     auto keyID = ret.mValue.mKeyID;
 
-    auto cleanupPSA = DeferRelease(&keyID, [](psa_key_id_t* keyPtr) { AosPsaRemoveKey(*keyPtr); });
+    auto cleanupPSA = DeferRelease(&keyID, [](const psa_key_id_t* keyPtr) { AosPsaRemoveKey(*keyPtr); });
 
     mbedtls_x509write_crt_set_md_alg(&cert, ret.mValue.mMDType);
 
@@ -1916,7 +1916,9 @@ MbedTLSCryptoProvider::MbedTLSRSAPrivKey::~MbedTLSRSAPrivKey()
  * Private
  **********************************************************************************************************************/
 
-int32_t MbedTLSCryptoProvider::VerifyTime(void* data, mbedtls_x509_crt* crt, int32_t, uint32_t* flags)
+// clang-format off
+int32_t MbedTLSCryptoProvider::VerifyTime(void* data, mbedtls_x509_crt* crt, int32_t, uint32_t* flags) // NOSONAR cpp:S995 - fixed external API signature
+// clang-format on
 {
     const auto time = static_cast<Time*>(data);
 
@@ -1939,7 +1941,7 @@ int32_t MbedTLSCryptoProvider::VerifyTime(void* data, mbedtls_x509_crt* crt, int
     return 0;
 }
 
-Error MbedTLSCryptoProvider::ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert)
+Error MbedTLSCryptoProvider::ParseX509Certs(const mbedtls_x509_crt* currentCrt, x509::Certificate& cert)
 {
     if (auto err = GetX509CertData(cert, currentCrt); !err.IsNone()) {
         return err;
@@ -2045,7 +2047,7 @@ Error MbedTLSCryptoProvider::ParseRSAKey(const mbedtls_rsa_context* rsa, x509::C
     return aos::ErrorEnum::eNone;
 }
 
-Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt) const
+Error MbedTLSCryptoProvider::GetX509CertData(x509::Certificate& cert, const mbedtls_x509_crt* crt) const
 {
     if (auto err = cert.mSubject.Resize(crt->subject_raw.len); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -2132,7 +2134,7 @@ RetWithError<mbedtls_x509_time> MbedTLSCryptoProvider::ConvertTime(const Time& s
     return result;
 }
 
-Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt) const
+Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, const mbedtls_x509_crt* crt) const
 {
     mbedtls_asn1_buf buf = crt->v3_ext;
 
