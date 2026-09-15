@@ -552,6 +552,7 @@ Error CryptoHelper::GetSymmetricAlgInfo(
 
         return ErrorEnum::eNone;
     } else {
+        // unsupported algorithm, handled below
     }
 
     return ErrorEnum::eNotSupported;

@@ -858,6 +858,7 @@ Error ImageManager::ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInf
                           << Log::Field("version", itemInfo.mVersion) << Log::Field(err);
             }
         } else {
+            // item already in a state that requires no action
         }
 
         NotifyItemStatusChanged(

@@ -76,6 +76,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsChainByURL(
 
         return pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindCertificateChain(id, label);
     } else {
+        // unsupported scheme, handled below
     }
 
     return {nullptr, ErrorEnum::eInvalidArgument};
@@ -124,6 +125,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(const String
 
         return {key.mValue.GetPrivKey(), key.mError};
     } else {
+        // unsupported scheme, handled below
     }
 
     return {nullptr, ErrorEnum::eInvalidArgument};

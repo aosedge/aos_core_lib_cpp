@@ -240,6 +240,7 @@ Error StorageState::Setup(
     } else if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     } else {
+        // storage state info already exists, nothing to do
     }
 
     err = PrepareStorage(instanceIdent, setupParams, storagePath);
