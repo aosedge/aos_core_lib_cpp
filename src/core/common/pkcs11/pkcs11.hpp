@@ -623,7 +623,7 @@ public:
     /**
      * Destroys object instance.
      */
-    ~LibraryContext();
+    virtual ~LibraryContext();
 
 private:
     static constexpr auto cSessionsMaxCount = AOS_CONFIG_PKCS11_SESSION_POOL_MAX_SIZE;
