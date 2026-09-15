@@ -19,7 +19,7 @@ public:
     MOCK_METHOD(Error, GetInstanceTraffic, (const String& instanceID, uint64_t& inputTraffic, uint64_t& outputTraffic),
         (const, override));
     MOCK_METHOD(Error, GetSystemTraffic, (uint64_t & inputTraffic, uint64_t& outputTraffic), (const, override));
-    MOCK_METHOD(Error, SetTrafficPeriod, (TrafficPeriod period), (override));
+    MOCK_METHOD(Error, SetTrafficPeriod, (const TrafficPeriod& period), (override));
     MOCK_METHOD(Error, CreateInstanceNetwork,
         (const String& instanceID, const String& networkID, const InstanceNetworkConfig& networkConfig), (override));
     MOCK_METHOD(Error, StartInstanceNetwork, (const String& instanceID, const String& networkID), (override));

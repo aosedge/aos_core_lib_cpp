@@ -1811,7 +1811,7 @@ Error OpenSSLCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
     return ErrorEnum::eNone;
 }
 
-RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(Hash algorithm)
+RetWithError<UniquePtr<HashItf>> OpenSSLCryptoProvider::CreateHash(const Hash& algorithm)
 {
     if (algorithm == HashEnum::eNone) {
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument)};
@@ -1924,8 +1924,8 @@ RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESDecoder(
     return CreateAESCipher(mode, key, iv, false);
 }
 
-Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc,
-    x509::Padding padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+    const x509::Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
 {
     auto [pkey, err] = GetEvpPublicKey(pubKey, mLibCtx);
     if (!err.IsNone()) {

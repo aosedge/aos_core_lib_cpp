@@ -172,7 +172,7 @@ public:
      * @param algorithm hash algorithm.
      * @return RetWithError<UniquePtr<HashItf>>.
      */
-    RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
+    RetWithError<UniquePtr<HashItf>> CreateHash(const Hash& algorithm) override;
 
     /**
      * Generates random integer value in range [0..maxValue].
@@ -239,8 +239,8 @@ public:
      * @param signature signature to verify against the digest.
      * @return Error.
      */
-    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, x509::Padding padding,
-        const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
+    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+        const x509::Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
 
     /**
      * Verifies the certificate against a chain of intermediate and root certificates.

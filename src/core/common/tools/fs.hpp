@@ -281,7 +281,9 @@ public:
      * @param[out] info file info.
      * @return Error.
      */
-    virtual Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) = 0;
+    virtual Error GetFileInfo(
+        const String& path, FileInfo& info, const crypto::Hash& hashAlg = crypto::HashEnum::eSHA256)
+        = 0;
 };
 
 /**
@@ -305,7 +307,8 @@ public:
      * @param[out] info file info.
      * @return Error.
      */
-    Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) override;
+    Error GetFileInfo(
+        const String& path, FileInfo& info, const crypto::Hash& hashAlg = crypto::HashEnum::eSHA256) override;
 
 private:
     AllocatorItf*      mAllocator {};

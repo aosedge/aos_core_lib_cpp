@@ -400,7 +400,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     return {ErrorEnum::eNone, remaining};
 }
 
-Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, x509::Padding padding,
+Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, const x509::Padding& padding,
     const Array<uint8_t>& digest, const Array<uint8_t>& signature)
 {
     mbedtls_rsa_context rsa;
@@ -448,7 +448,7 @@ Error VerifyRSASignature(const RSAPublicKey& pubKey, mbedtls_md_type_t hash, x50
     return ErrorEnum::eNone;
 }
 
-mbedtls_md_type_t ConvertToMD(Hash hash)
+mbedtls_md_type_t ConvertToMD(const Hash& hash)
 {
     switch (hash.GetValue()) {
     case HashEnum::eSHA1:
@@ -882,7 +882,7 @@ Error MbedTLSCryptoProvider::ASN1DecodeOID(const Array<uint8_t>& inOID, Array<ui
     return crypto::ASN1RemoveTag(inOID, dst, MBEDTLS_ASN1_OID);
 }
 
-RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(Hash algorithm)
+RetWithError<UniquePtr<HashItf>> MbedTLSCryptoProvider::CreateHash(const Hash& algorithm)
 {
     auto alg = PSA_ALG_NONE;
 
@@ -1077,8 +1077,8 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESDecoder(
     return CreateAESCipher(mode, key, iv, false);
 }
 
-Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc,
-    x509::Padding padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+    const x509::Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
 {
     if (digest.IsEmpty() || signature.IsEmpty()) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
@@ -1086,7 +1086,7 @@ Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>&
 
     struct SignatureVerifier : StaticVisitor<Error> {
     public:
-        SignatureVerifier(mbedtls_md_type_t hash, x509::Padding padding, const Array<uint8_t>& digest,
+        SignatureVerifier(mbedtls_md_type_t hash, const x509::Padding& padding, const Array<uint8_t>& digest,
             const Array<uint8_t>& signature)
             : mHash(hash)
             , mPadding(padding)

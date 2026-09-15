@@ -188,7 +188,7 @@ Error NetworkManager::GetInstanceTraffic(
     return AOS_ERROR_WRAP(err);
 }
 
-Error NetworkManager::SetTrafficPeriod(TrafficPeriod period)
+Error NetworkManager::SetTrafficPeriod(const TrafficPeriod& period)
 {
     LOG_DBG() << "Set traffic period" << Log::Field("period", period);
 
