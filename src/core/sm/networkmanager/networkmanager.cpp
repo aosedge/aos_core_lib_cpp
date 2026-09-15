@@ -2104,7 +2104,7 @@ Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
 
     (void)ifName.Append(ifPrefix);
 
-    String randomString = String(ifName.Get() + ifPrefix.Size(), ifName.MaxSize() - ifPrefix.Size());
+    auto randomString = String(ifName.Get() + ifPrefix.Size(), ifName.MaxSize() - ifPrefix.Size());
 
     if (auto err = crypto::GenerateRandomString<cMaxNetworkIDLen / 2>(randomString, *mRandom); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);

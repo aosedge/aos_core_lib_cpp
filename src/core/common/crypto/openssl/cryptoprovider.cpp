@@ -250,7 +250,7 @@ Error GetIssuerAltNameURIs(X509* cert, Array<StaticString<cURLLen>>& uris)
         }
 
         const ASN1_IA5STRING* uri  = name->d.uniformResourceIdentifier;
-        const char*           data = reinterpret_cast<const char*>(ASN1_STRING_get0_data(uri));
+        const auto*           data = reinterpret_cast<const char*>(ASN1_STRING_get0_data(uri));
         const int32_t         len  = ASN1_STRING_length(uri);
 
         if (len <= 0 || !data) {
@@ -978,7 +978,7 @@ RetWithError<EVP_MD_CTX*> CreateSignCtx(const PrivateKeyItf& privKey, OSSL_LIB_C
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    PrivateKeyItf* privKeyPtr = const_cast<PrivateKeyItf*>(&privKey);
+    auto* privKeyPtr = const_cast<PrivateKeyItf*>(&privKey);
     if (OSSL_PARAM privKeyParams[] = {OSSL_PARAM_octet_string(openssl::cPKeyParamAosKeyPair,
                                           reinterpret_cast<void*>(privKeyPtr), sizeof(privKeyPtr)),
             OSSL_PARAM_END};
@@ -1211,14 +1211,14 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "expected constructed ASN.1 element")), {}};
     }
 
-    size_t offset = static_cast<size_t>(p - data.Get());
+    auto offset = static_cast<size_t>(p - data.Get());
     if (data.Size() < length + offset) {
         return {AOS_ERROR_WRAP(ErrorEnum::eNoMemory), {}};
     }
 
     // Iterate over the elements inside the container
     const uint8_t* elemPtr   = p;
-    size_t         bytesLeft = static_cast<size_t>(length);
+    auto           bytesLeft = static_cast<size_t>(length);
     while (bytesLeft > 0) {
         int64_t        elemLength = 0;
         int32_t        elemTag = 0, elemClass = 0;
@@ -1237,7 +1237,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
 
         // Element content pointer after header
         const uint8_t* elemContent    = nextPtr;
-        size_t         elemContentLen = static_cast<size_t>(elemLength);
+        auto           elemContentLen = static_cast<size_t>(elemLength);
 
         auto content = Array<uint8_t>(elemContent, elemContentLen);
         if (auto err = asn1reader.OnASN1Element(asn1::ASN1Value {elemClass, elemTag, elemConstructed, content});
@@ -2086,7 +2086,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadStruct(
     }
 
     // Verify sufficient data size.
-    size_t offset = static_cast<size_t>(p - data.Get());
+    auto offset = static_cast<size_t>(p - data.Get());
     if (data.Size() < length + offset) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "insufficient data size for ASN.1 content")), {}};
     }
@@ -2123,7 +2123,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadInteger(
     }
 
     const uint8_t* p   = data.Get();
-    int64_t        len = static_cast<int64_t>(data.Size());
+    auto           len = static_cast<int64_t>(data.Size());
 
     auto ai = DeferRelease(d2i_ASN1_INTEGER(nullptr, &p, len), ASN1_INTEGER_free);
     if (!ai) {
@@ -2151,7 +2151,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadBigInt(
     }
 
     const uint8_t* p   = data.Get();
-    int64_t        len = static_cast<int64_t>(data.Size());
+    auto           len = static_cast<int64_t>(data.Size());
 
     auto ai = DeferRelease(d2i_ASN1_INTEGER(nullptr, &p, len), ASN1_INTEGER_free);
     if (!ai) {
@@ -2190,7 +2190,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOID(
     }
 
     const uint8_t* p   = data.Get();
-    int64_t        len = static_cast<int64_t>(data.Size());
+    auto           len = static_cast<int64_t>(data.Size());
 
     auto obj = DeferRelease(d2i_ASN1_OBJECT(nullptr, &p, len), ASN1_OBJECT_free);
     if (!obj) {
@@ -2217,7 +2217,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOID(
     }
 
     // Return remaining data.
-    size_t         offset = static_cast<size_t>(p - data.Get());
+    auto           offset = static_cast<size_t>(p - data.Get());
     Array<uint8_t> remaining(data.Get() + offset, data.Size() - offset);
 
     return {ErrorEnum::eNone, remaining};
@@ -2307,7 +2307,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOctetString(
     }
 
     const uint8_t* p   = data.Get();
-    int64_t        len = static_cast<int64_t>(data.Size());
+    auto           len = static_cast<int64_t>(data.Size());
 
     auto octetStr = DeferRelease(d2i_ASN1_OCTET_STRING(nullptr, &p, len), ASN1_OCTET_STRING_free);
     if (!octetStr) {
@@ -2333,7 +2333,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadOctetString(
     (void)memcpy(result.Get(), dataPtr, static_cast<size_t>(dataLen));
 
     // Return remaining data.
-    size_t         offset = static_cast<size_t>(p - data.Get());
+    auto           offset = static_cast<size_t>(p - data.Get());
     Array<uint8_t> remaining(data.Get() + offset, data.Size() - offset);
 
     return {ErrorEnum::eNone, remaining};
@@ -2367,7 +2367,7 @@ asn1::ASN1ParseResult OpenSSLCryptoProvider::ReadRawValue(
     }
 
     // Calculate offset to content start
-    size_t offset = static_cast<size_t>(p - data.Get());
+    auto offset = static_cast<size_t>(p - data.Get());
 
     if (data.Size() < length + offset) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "insufficient data size for ASN.1 content")), {}};
