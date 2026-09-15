@@ -270,7 +270,7 @@ private:
     static No&  Test(...);
 
 public:
-    static const bool value = sizeof(Test(static_cast<D*>(0))) == sizeof(Yes);
+    static const bool value = sizeof(Test(static_cast<D*>(nullptr))) == sizeof(Yes);
 };
 
 /**
