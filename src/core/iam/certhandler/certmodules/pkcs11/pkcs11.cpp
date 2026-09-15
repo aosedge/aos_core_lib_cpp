@@ -90,7 +90,8 @@ Error PKCS11Module::SetOwner(const String& password)
         return AOS_ERROR_WRAP(err);
     }
 
-    StaticString<pkcs11::cPINLen> userPIN, soPIN;
+    StaticString<pkcs11::cPINLen> userPIN;
+    StaticString<pkcs11::cPINLen> soPIN;
 
     if (!mTeeLoginType.IsEmpty()) {
         err = GetTeeUserPIN(mTeeLoginType, mConfig.mUID, mConfig.mGID, userPIN);

@@ -139,7 +139,8 @@ private:
     StaticString<cCertTypeLen> mCertType;
     ModuleConfig               mModuleConfig {};
 
-    StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts, mInvalidKeys;
+    StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts;
+    StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidKeys;
 
     AllocatorItf* mAllocator {};
 };
