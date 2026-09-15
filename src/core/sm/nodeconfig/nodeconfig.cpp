@@ -64,6 +64,7 @@ Error NodeConfig::UpdateNodeConfig(const aos::NodeConfig& config)
             return AOS_ERROR_WRAP(err);
         }
     } else {
+        // version check not required, nothing to do
     }
 
     mNodeConfig = config;
