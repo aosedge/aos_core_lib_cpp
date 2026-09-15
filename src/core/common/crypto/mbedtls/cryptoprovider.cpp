@@ -2396,7 +2396,7 @@ Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pem
         return AOS_ERROR_WRAP(ret);
     }
 
-    (void)pemCSR.Resize(strlen(reinterpret_cast<const char*>(pemCSR.CStr())));
+    (void)pemCSR.Resize(strlen(pemCSR.CStr()));
 
     return ErrorEnum::eNone;
 }
