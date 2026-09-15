@@ -146,7 +146,7 @@ public:
     {
         DestroyObject();
 
-        new (mBuffer) T(args...);
+        new (mBuffer) T(args...); // NOSONAR cpp:M23_329
 
         mTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
     }
@@ -161,7 +161,7 @@ public:
     {
         DestroyObject();
 
-        new (mBuffer) T(value);
+        new (mBuffer) T(value); // NOSONAR cpp:M23_329
 
         mTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
     }
@@ -301,7 +301,7 @@ private:
         template <typename T>
         static void Visit(T& val)
         {
-            val.~T();
+            val.~T(); // NOSONAR cpp:M23_329
         }
     };
 

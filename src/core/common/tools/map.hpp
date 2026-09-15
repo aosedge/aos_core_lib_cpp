@@ -271,7 +271,7 @@ private:
  * @tparam cMaxSize max size.
  */
 template <typename Key, typename Value, size_t cMaxSize>
-class StaticMap : public Map<Key, Value> {
+class StaticMap : public Map<Key, Value> { // NOSONAR cpp:S3624 - StaticArray member handles its own cleanup
 public:
     StaticMap()
         : Map<Key, Value>(mArray)
@@ -283,6 +283,8 @@ public:
         , mArray(map.mArray)
     {
     }
+
+    ~StaticMap() = default;
 
     StaticMap& operator=(const StaticMap& map) noexcept
     {

@@ -36,7 +36,10 @@ public:
      *
      * @param function function to create from.
      */
-    Function(const Function& function) noexcept = default;
+    // Deleted: the defaulted copy would copy mCallable/mBuffer as raw pointers, aliasing the
+    // source's storage instead of this object's own buffer. Copy via StaticFunction<N> instead,
+    // which never invokes this constructor.
+    Function(const Function& function) = delete;
 
     // cppcheck-suppress operatorEqVarError
     /**
@@ -66,7 +69,7 @@ public:
     void Reset()
     {
         if (mCallable) {
-            mCallable->~CallableItf();
+            mCallable->~CallableItf(); // NOSONAR cpp:M23_329
             mCallable = nullptr;
         }
     }
@@ -91,7 +94,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        mCallable = new (mBuffer) Capturer<T>(functor, arg);
+        mCallable = new (mBuffer) Capturer<T>(functor, arg); // NOSONAR cpp:M23_329
 
         return ErrorEnum::eNone;
     }
@@ -200,6 +203,11 @@ public:
         Function::SetBuffer(mBuffer);
         (void)Function::operator=(function);
     }
+
+    /**
+     * Destroys static function.
+     */
+    ~StaticFunction() = default;
 
     /**
      * Assigns one static function to another.

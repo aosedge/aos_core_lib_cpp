@@ -183,7 +183,7 @@ private:
 /**
  * Aos mutex.
  */
-class Mutex {
+class Mutex { // NOSONAR cpp:S3624 - kept copyable: some containers embed a Mutex by value before sharing it
 public:
     /**
      * Constructs Aos mutex.
@@ -224,7 +224,7 @@ private:
 /**
  * Aos semaphore.
  */
-class Semaphore {
+class Semaphore : private NonCopyable {
 public:
     /**
      * Constructs Aos semaphore.
