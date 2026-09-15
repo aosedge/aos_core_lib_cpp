@@ -321,7 +321,7 @@ template <typename... Args>
 String& AppendPath(String& path, const Args&... args)
 {
     auto AppendPathEntry = [](String& path, const String& item) -> String& {
-        if (path.Size() == 0 || *(path.end() - 1) == '/') {
+        if (path.IsEmpty() || *(path.end() - 1) == '/') {
             (void)path.Append(item);
         } else {
             (void)path.Append("/").Append(item);

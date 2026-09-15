@@ -76,7 +76,7 @@ public:
      *
      * @return bool.
      */
-    bool IsEmpty() const { return Size() == 0; }
+    bool IsEmpty() const { return Size() == 0; } // NOSONAR cpp:S1155 - IsEmpty implementation
 
     /**
      * Checks if container is full.
@@ -91,7 +91,7 @@ public:
      *
      * @return bool.
      */
-    explicit operator bool() const { return Size() > 0; }
+    explicit operator bool() const { return !IsEmpty(); }
 
     /**
      * Checks if container equals to another container.

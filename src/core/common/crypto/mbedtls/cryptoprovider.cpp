@@ -317,7 +317,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     asn1::ASN1ReaderItf& asn1reader,
     int32_t              expectedUniversalTag) // MBEDTLS_ASN1_SEQUENCE or MBEDTLS_ASN1_SET
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNone, {}};
     }
 
@@ -1193,7 +1193,7 @@ Error MbedTLSCryptoProvider::Verify(const Array<x509::Certificate>& rootCerts,
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadStruct(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& asn1reader)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNone, {}};
     }
 
@@ -1278,7 +1278,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadSequence(
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadInteger(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int32_t& value)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -1303,7 +1303,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadInteger(
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadBigInt(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -1339,7 +1339,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadBigInt(
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOID(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ObjectIdentifier& oid)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -1393,7 +1393,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOID(
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadAID(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::AlgorithmIdentifier& aid)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         aid = {};
 
         return {ErrorEnum::eNotFound, data};
@@ -1458,7 +1458,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadAID(
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOctetString(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -1496,7 +1496,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOctetString(
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadRawValue(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1Value& result)
 {
-    if (opt.mOptional && data.Size() == 0) {
+    if (opt.mOptional && data.IsEmpty()) {
         return {ErrorEnum::eNotFound, data};
     }
 
@@ -2344,7 +2344,7 @@ Error MbedTLSCryptoProvider::SetCSRAlternativeNames(mbedtls_x509write_csr& csr, 
     mbedtls_x509_san_list sanList[cAltDNSNamesCount];
     size_t                dnsNameCount = templ.mDNSNames.Size();
 
-    if (templ.mDNSNames.Size() == 0) {
+    if (templ.mDNSNames.IsEmpty()) {
         return ErrorEnum::eNone;
     }
 

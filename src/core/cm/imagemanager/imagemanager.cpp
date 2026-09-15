@@ -136,7 +136,7 @@ Error ImageManager::DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
         return AOS_ERROR_WRAP(err);
     }
 
-    if (itemsInfo.Size() == 0) {
+    if (itemsInfo.IsEmpty()) {
         auto err = RemovePendingItems(*storedItems, statuses);
         if (!err.IsNone()) {
             LOG_ERR() << "Failed to remove pending items" << Log::Field(err);
