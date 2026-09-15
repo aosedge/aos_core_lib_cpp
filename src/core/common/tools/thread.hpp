@@ -285,7 +285,7 @@ public:
      *
      * @return Error.
      */
-    Error GetError() { return mError; }
+    Error GetError() const { return mError; }
 
 private:
     Locker& mLocker;
@@ -502,7 +502,7 @@ public:
      *
      * @return Error.
      */
-    Error GetError() { return mError; }
+    Error GetError() const { return mError; }
 
 private:
     static constexpr auto cClockID = AOS_CONFIG_THREAD_CLOCK_ID;

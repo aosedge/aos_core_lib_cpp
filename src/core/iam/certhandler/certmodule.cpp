@@ -280,7 +280,7 @@ Error CertModule::CreateSelfSignedCert(const String& password)
  * Private
  **********************************************************************************************************************/
 
-Error CertModule::ValidateConfig()
+Error CertModule::ValidateConfig() const
 {
     if (mModuleConfig.mMaxCertificates == 0) {
         LOG_ERR() << "Max certificates module config must be greater than 0: type=" << GetCertType();

@@ -687,7 +687,8 @@ void PKCS11Module::CloseSession()
     mPKCS11->ClearSessions();
 }
 
-Error PKCS11Module::FindObject(pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst)
+Error PKCS11Module::FindObject(
+    pkcs11::SessionContext& session, const SearchObject& filter, Array<SearchObject>& dst) const
 {
     static constexpr auto cSearchObjAttrCount = 4;
 
@@ -883,7 +884,7 @@ Error PKCS11Module::CreateURL(const String& label, const Array<uint8_t>& id, Str
     return ErrorEnum::eNone;
 }
 
-Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& id)
+Error PKCS11Module::ParseURL(const String& url, String& label, Array<uint8_t>& id) const
 {
     StaticString<cFilePathLen>      library;
     StaticString<pkcs11::cLabelLen> token;
@@ -1089,7 +1090,7 @@ Error PKCS11Module::CreateInvalidURLs(const Array<SearchObject>& objects, Array<
     return ErrorEnum::eNone;
 }
 
-void PKCS11Module::PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects)
+void PKCS11Module::PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects) const
 {
     for (const auto& object : objects) {
         LOG_WRN() << "Invalid " << objectType << " found: certType=" << mCertType
