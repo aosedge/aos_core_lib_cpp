@@ -406,7 +406,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
     return chain;
 }
 
-Error CryptoHelper::SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls)
+Error CryptoHelper::SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls) const
 {
     if (urls.IsEmpty()) {
         LOG_WRN() << "Service discovery URL can't be found in certificate and will be used from config";
@@ -417,7 +417,8 @@ Error CryptoHelper::SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& 
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls)
+Error CryptoHelper::GetServiceDiscoveryFromExtensions(
+    const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls) const
 {
     if (auto err = urls.Insert(urls.begin(), cert.mIssuerURLs.begin(), cert.mIssuerURLs.end()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -482,7 +483,8 @@ Error CryptoHelper::GetServiceDiscoveryFromOrganization(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName)
+Error CryptoHelper::DecodeSymAlgNames(
+    const String& algString, String& algName, String& modeName, String& paddingName) const
 {
     // alg string example: AES128/CBC/PKCS7PADDING
     static constexpr auto cAlgoParts = 3;
@@ -608,7 +610,7 @@ Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignCon
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx)
+Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx) const
 {
     ctx.mChains.Clear();
 
@@ -705,7 +707,7 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
     return ErrorEnum::eNone;
 }
 
-RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, const String& fingerprint)
+RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, const String& fingerprint) const
 {
     auto iter = signCtx.mCerts.FindIf(
         [&fingerprint](const X509CertificateInfo& info) { return info.mFingerprint == fingerprint; });
@@ -718,7 +720,7 @@ RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, con
 }
 
 Error CryptoHelper::GetSignCert(
-    SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain)
+    SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain) const
 {
     auto chainIt
         = signCtx.mChains.FindIf([&chainName](const CertificateChainInfo& chain) { return chain.mName == chainName; });
@@ -746,7 +748,8 @@ Error CryptoHelper::GetSignCert(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName)
+Error CryptoHelper::DecodeSignAlgNames(
+    const String& algString, String& algName, String& hashName, String& paddingName) const
 {
     // alg string example: RSA/SHA256/PKCS1v1_5 or RSA/SHA256
     static constexpr auto cAlgoParts = 3;
@@ -788,7 +791,7 @@ Error CryptoHelper::DecodeSignAlgNames(const String& algString, String& algName,
     return ErrorEnum::eNone;
 }
 
-RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
+RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName) const
 {
     StaticString<cAlgLen> upperHash = hashName;
 
@@ -810,7 +813,7 @@ RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
 }
 
 Error CryptoHelper::CreateIntermCertPool(
-    SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool)
+    SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool) const
 {
     pool.Clear();
 
@@ -1062,7 +1065,7 @@ Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint
 }
 
 Error CryptoHelper::DecryptCMSKey(
-    const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey)
+    const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey) const
 {
     if (ktri.mKeyEncryptionAlgorithm.mOID != cRSAEncryptionOid) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "unknown public encryption OID"));

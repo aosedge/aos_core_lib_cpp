@@ -475,31 +475,31 @@ private:
     static RetWithError<mbedtls_x509_time> ConvertTime(const Time& src);
 
     Error ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
-    Error GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
-    Error ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
-    Error ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
+    Error GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt) const;
+    Error GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt) const;
+    Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert) const;
+    Error ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert) const;
+    Error ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert) const;
 
-    void  InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk);
+    void  InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk) const;
     Error SetCSRProperties(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const x509::CSR& templ);
-    Error SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ);
-    Error SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ);
-    Error WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR);
+    Error SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ) const;
+    Error SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ) const;
+    Error WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR) const;
 
-    RetWithError<KeyInfo> SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey);
+    RetWithError<KeyInfo> SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey) const;
 
     Error InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
-        mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy);
+        mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy) const;
     Error SetCertificateProperties(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
         mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ, const x509::Certificate& parent);
-    Error WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert);
+    Error WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert) const;
     Error SetCertificateSerialNumber(
-        mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ);
-    Error SetCertificateSubjectKeyIdentifier(mbedtls_x509write_cert& cert, const x509::Certificate& templ);
+        mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ) const;
+    Error SetCertificateSubjectKeyIdentifier(mbedtls_x509write_cert& cert, const x509::Certificate& templ) const;
     Error SetCertificateAuthorityKeyIdentifier(
-        mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent);
-    Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ);
+        mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent) const;
+    Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ) const;
 
     AllocatorItf* mAllocator {};
 };

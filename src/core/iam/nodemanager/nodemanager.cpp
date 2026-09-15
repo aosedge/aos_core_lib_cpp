@@ -274,7 +274,7 @@ RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache(const NodeInfo& info)
     return &mNodeInfoCache.Back();
 }
 
-void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo)
+void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo) const
 {
     LOG_INF() << "Node info changed" << Log::Field("nodeID", nodeInfo.mNodeID) << Log::Field("state", nodeInfo.mState)
               << Log::Field("connected", nodeInfo.mIsConnected) << Log::Field(nodeInfo.mError);

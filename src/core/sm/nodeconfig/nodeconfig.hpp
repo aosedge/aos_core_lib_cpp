@@ -88,7 +88,7 @@ private:
     static constexpr auto cMaxNumListeners = 4;
 
     Error LoadConfig();
-    Error CheckVersion(const String& version);
+    Error CheckVersion(const String& version) const;
 
     aos::nodeconfig::JSONProviderItf* mJSONProvider {};
     StaticString<cFilePathLen>        mNodeConfigFile;

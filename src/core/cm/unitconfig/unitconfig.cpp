@@ -305,7 +305,7 @@ Error UnitConfig::LoadConfig()
     return ErrorEnum::eNone;
 }
 
-Error UnitConfig::CheckVersion(const String& version)
+Error UnitConfig::CheckVersion(const String& version) const
 {
     LOG_DBG() << "Check version" << Log::Field("version", mUnitConfig.mVersion) << Log::Field("newVersion", version);
 
@@ -326,17 +326,17 @@ Error UnitConfig::CheckVersion(const String& version)
 }
 
 Error UnitConfig::FindNodeConfig(
-    const String& nodeID, const String& nodeType, const aos::UnitConfig& config, NodeConfig& nodeConfig)
+    const String& nodeID, const String& nodeType, const aos::UnitConfig& config, NodeConfig& nodeConfig) const
 {
     if (mUnitConfigState == UnitConfigStateEnum::eFailed) {
         return AOS_ERROR_WRAP(mUnitConfigError);
     }
 
-    if (auto node = config.mNodes.FindIf([&](const NodeConfig& node) { return node.mNodeID == nodeID; });
+    if (auto node = config.mNodes.FindIf([&](const NodeConfig& candidate) { return candidate.mNodeID == nodeID; });
         node != config.mNodes.end()) {
         nodeConfig = *node;
     } else {
-        node = config.mNodes.FindIf([&](const NodeConfig& node) { return node.mNodeType == nodeType; });
+        node = config.mNodes.FindIf([&](const NodeConfig& candidate) { return candidate.mNodeType == nodeType; });
         if (node != config.mNodes.end()) {
             nodeConfig = *node;
         } else {
