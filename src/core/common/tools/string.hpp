@@ -729,8 +729,11 @@ public:
     {
         Clear();
 
+        // NOSONAR justification (cppsecurity:S5145): flagged because a traced value (e.g. a numeric PKCS11 slot ID)
+        // reaches one of "args"; only the fixed "format" literal controls what snprintf does with them, and a plain
+        // numeric %d argument cannot inject anything.
         // cppcheck-suppress wrongPrintfScanfArgNum
-        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...);
+        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...); // NOSONAR cppsecurity:S5145
         if (ret < 0) {
             return ret;
         }
