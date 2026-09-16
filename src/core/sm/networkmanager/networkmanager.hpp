@@ -272,7 +272,7 @@ private:
                 return err;
             }
 
-            if (Forward<P>(isUnique)(ifName)) {
+            if (Forward<P>(isUnique)(ifName)) { // NOSONAR cpp:M23_279
                 return ErrorEnum::eNone;
             }
         }
