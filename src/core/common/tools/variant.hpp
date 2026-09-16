@@ -177,7 +177,7 @@ public:
         [[maybe_unused]] static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
         assert(mTypeIndex == cTypeIndex);
 
-        return *reinterpret_cast<T*>(mBuffer);
+        return *reinterpret_cast<T*>(mBuffer); // NOSONAR cpp:S3630
     }
 
     /**
@@ -191,7 +191,7 @@ public:
         [[maybe_unused]] static constexpr auto cTypeIndex = GetTypeIndex<T, VarArgs...>::Value;
         assert(mTypeIndex == cTypeIndex);
 
-        return *reinterpret_cast<const T*>(mBuffer);
+        return *reinterpret_cast<const T*>(mBuffer); // NOSONAR cpp:S3630
     }
 
     /**
