@@ -80,21 +80,11 @@ protected:
          *
          * @return Reference.
          */
-        // NOSONAR justification (cpp:S3630, next 3 methods): fixed-capacity container needs to view its raw storage
+        // NOSONAR justification (cpp:S3630, next 2 methods): fixed-capacity container needs to view its raw storage
         // buffer as T*; no heap allocator available.
         Reference operator*() const
         {
             return *reinterpret_cast<Pointer>(mCurrentNode->mBuffer); // NOSONAR cpp:S3630
-        }
-
-        /**
-         * Dereference operator.
-         *
-         * @return Pointer.
-         */
-        Pointer operator&() const
-        {
-            return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); // NOSONAR cpp:S3630
         }
 
         /**

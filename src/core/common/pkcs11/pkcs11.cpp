@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <core/common/config.hpp>
+
 #if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
 #include <dlfcn.h>
 #endif
@@ -29,7 +31,7 @@ Error ConvertFromPKCS11String(const Array<uint8_t>& src, String& dst)
         return ErrorEnum::eNone;
     }
 
-    int32_t size = static_cast<int32_t>(src.Size());
+    auto size = static_cast<int32_t>(src.Size());
 
     if (!dst.Resize(size).IsNone()) {
         return ErrorEnum::eNoMemory;
@@ -1090,7 +1092,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     CK_BBOOL        trueVal      = CK_TRUE;
     CK_BBOOL        falseVal     = CK_FALSE;
 
-    static uint8_t cP384OID[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22};
+    static constexpr uint8_t cP384OID[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22};
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
@@ -1107,7 +1109,9 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
-    if (auto err = pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)}); !err.IsNone()) {
+    if (auto err = pubKeyTempl.PushBack(
+            {CKA_ECDSA_PARAMS, const_cast<uint8_t*>(cP384OID), sizeof(cP384OID)}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
     if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090

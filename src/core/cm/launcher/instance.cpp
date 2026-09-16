@@ -48,7 +48,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto releaseConfigs = DeferRelease([&]() { ResetConfigs(); });
+    auto releaseConfigs = DeferRelease([this]() { ResetConfigs(); });
     if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "get item config failed"));
     }
@@ -265,7 +265,7 @@ Error Instance::SetDefaultRuntimes()
     }
 
     if (auto& runtimes = mItemConfig->mRuntimes; runtimes.IsEmpty()) {
-        static const char* cDefaultRuntimes[] = {
+        static constexpr const char* const cDefaultRuntimes[] = {
             "crun",
             "runc",
         };

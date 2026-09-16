@@ -239,7 +239,7 @@ public:
 private:
     static LogCallback& GetCallback()
     {
-        static LogCallback sLogCallback = nullptr;
+        static LogCallback sLogCallback = nullptr; // NOSONAR cpp:M23_233 - mutable log callback
 
         return sLogCallback;
     }
