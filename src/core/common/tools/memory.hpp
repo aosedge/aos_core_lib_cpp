@@ -320,6 +320,39 @@ inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
 }
 
 /**
+ * Adapts a no-argument callback to UniquePtr's Deleter(T*) calling convention.
+ */
+template <typename Deleter>
+class NoArgDeleterAdapter {
+public:
+    explicit NoArgDeleterAdapter(Deleter&& deleter)
+        : mDeleter(Move(deleter))
+    {
+    }
+
+    void operator()(int*) { mDeleter(); }
+
+private:
+    Deleter mDeleter;
+};
+
+/**
+ * Defers a no-argument cleanup callback till the end of the current scope.
+ *
+ * @tparam Deleter type of the deleter.
+ * @param deleter functor to be invoked at scope exit.
+ * @return UniquePtr<int, NoArgDeleterAdapter<Deleter>>.
+ */
+template <typename Deleter>
+inline UniquePtr<int, NoArgDeleterAdapter<Deleter>> DeferRelease(Deleter&& deleter)
+{
+    static int sSentinel;
+
+    return UniquePtr<int, NoArgDeleterAdapter<Deleter>>(
+        &sSentinel, NoArgDeleterAdapter<Deleter>(Forward<Deleter>(deleter)));
+}
+
+/**
  * Base class for shared pointer control blocks.
  *
  * Owns the reference count and knows how to dispose of itself (and whatever it holds) through

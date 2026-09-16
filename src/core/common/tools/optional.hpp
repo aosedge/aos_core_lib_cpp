@@ -79,7 +79,7 @@ public:
     {
         assert(HasValue());
         // cppcheck-suppress invalidPointerCast
-        return *reinterpret_cast<T*>(mBuffer);
+        return *reinterpret_cast<T*>(mBuffer); // NOSONAR cpp:S3630
     }
 
     /**
@@ -91,7 +91,7 @@ public:
     {
         assert(HasValue());
         // cppcheck-suppress invalidPointerCast
-        return *reinterpret_cast<const T*>(mBuffer);
+        return *reinterpret_cast<const T*>(mBuffer); // NOSONAR cpp:S3630
     }
 
     /**
@@ -104,7 +104,8 @@ public:
     {
         if (HasValue()) {
             // cppcheck-suppress invalidPointerCast
-            *reinterpret_cast<T*>(mBuffer) = value;
+            *reinterpret_cast<T*>(mBuffer) = value; // NOSONAR cpp:S3630 - fixed-capacity container needs to view its
+                                                    // raw storage buffer as T*; no heap allocator available
         } else {
             ::new (static_cast<void*>(mBuffer)) T(value); // NOSONAR cpp:M23_329 - fixed-capacity container needs
                                                           // placement new/explicit dtor; no heap allocator available

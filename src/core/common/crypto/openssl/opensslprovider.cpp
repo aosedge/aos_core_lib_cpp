@@ -641,14 +641,32 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
     *noCache = 0;
 
     static const OSSL_DISPATCH cSignFunctions[]
-        = {{OSSL_FUNC_SIGNATURE_NEWCTX, reinterpret_cast<void (*)(void)>(SignNewCtx)},
-            {OSSL_FUNC_SIGNATURE_FREECTX, reinterpret_cast<void (*)(void)>(SignFreeCtx)},
+        = {{OSSL_FUNC_SIGNATURE_NEWCTX,
+               reinterpret_cast<void (*)(void)>(
+                   SignNewCtx)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
+                                 // every provider function as void(*)(void)
+            {OSSL_FUNC_SIGNATURE_FREECTX,
+                reinterpret_cast<void (*)(void)>(
+                    SignFreeCtx)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                   // stores every provider function as void(*)(void)
 
-            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT, reinterpret_cast<void (*)(void)>(DgstSignInit)},
-            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN, reinterpret_cast<void (*)(void)>(DgstSign)},
+            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT,
+                reinterpret_cast<void (*)(void)>(
+                    DgstSignInit)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                    // stores every provider function as void(*)(void)
+            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN,
+                reinterpret_cast<void (*)(void)>(
+                    DgstSign)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
+                                // every provider function as void(*)(void)
 
-            {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGetCtxParams)},
-            {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGettableCtxParams)},
+            {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS,
+                reinterpret_cast<void (*)(void)>(
+                    SignatureGetCtxParams)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table,
+                                             // which stores every provider function as void(*)(void)
+            {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS,
+                reinterpret_cast<void (*)(void)>(
+                    SignatureGettableCtxParams)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH
+                                                  // table, which stores every provider function as void(*)(void)
 
             OSSL_DISPATCH_END};
 
@@ -656,14 +674,32 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
         = {{cAosEncryption, cAosSignerProvider, cSignFunctions, "AOS Signature"}, OSSL_ALGORITHM_END};
 
     static const OSSL_DISPATCH cKeyMgmFunctions[]
-        = {{OSSL_FUNC_KEYMGMT_NEW, reinterpret_cast<void (*)(void)>(KeyMgmtNew)},
-            {OSSL_FUNC_KEYMGMT_FREE, reinterpret_cast<void (*)(void)>(KeyMgmtFree)},
+        = {{OSSL_FUNC_KEYMGMT_NEW,
+               reinterpret_cast<void (*)(void)>(
+                   KeyMgmtNew)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
+                                 // every provider function as void(*)(void)
+            {OSSL_FUNC_KEYMGMT_FREE,
+                reinterpret_cast<void (*)(void)>(
+                    KeyMgmtFree)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                   // stores every provider function as void(*)(void)
 
-            {OSSL_FUNC_KEYMGMT_HAS, reinterpret_cast<void (*)(void)>(KeyMgmtHas)},
-            {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, reinterpret_cast<void (*)(void)>(KeyMgmtQuery)},
+            {OSSL_FUNC_KEYMGMT_HAS,
+                reinterpret_cast<void (*)(void)>(
+                    KeyMgmtHas)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                  // stores every provider function as void(*)(void)
+            {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
+                reinterpret_cast<void (*)(void)>(
+                    KeyMgmtQuery)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                    // stores every provider function as void(*)(void)
 
-            {OSSL_FUNC_KEYMGMT_IMPORT, reinterpret_cast<void (*)(void)>(KeyMgmtImport)},
-            {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, reinterpret_cast<void (*)(void)>(KeyMgmtImportTypes)},
+            {OSSL_FUNC_KEYMGMT_IMPORT,
+                reinterpret_cast<void (*)(void)>(
+                    KeyMgmtImport)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                     // stores every provider function as void(*)(void)
+            {OSSL_FUNC_KEYMGMT_IMPORT_TYPES,
+                reinterpret_cast<void (*)(void)>(
+                    KeyMgmtImportTypes)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table,
+                                          // which stores every provider function as void(*)(void)
 
             OSSL_DISPATCH_END};
 
@@ -701,8 +737,13 @@ int32_t ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, co
     *provctx = OSSL_LIB_CTX_new();
 
     static const OSSL_DISPATCH provfns[]
-        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, reinterpret_cast<void (*)(void)>(ProviderQuery)},
-            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)}, OSSL_DISPATCH_END};
+        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION,
+               reinterpret_cast<void (*)(void)>(
+                   ProviderQuery)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
+                                    // stores every provider function as void(*)(void)
+            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)},
+            OSSL_DISPATCH_END}; // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
+                                // every provider function as void(*)(void)
 
     *out = provfns;
 
