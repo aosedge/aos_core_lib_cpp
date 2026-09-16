@@ -145,8 +145,7 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        auto releaseConfigs
-            = DeferRelease(reinterpret_cast<int32_t*>(1), [&instance](int32_t*) { instance->ResetConfigs(); });
+        auto releaseConfigs = DeferRelease([&instance]() { instance->ResetConfigs(); });
         if (auto err = instance->LoadConfigs(*imageDescriptor); !err.IsNone()) {
             LOG_ERR() << "Can't load instance configs" << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(err));

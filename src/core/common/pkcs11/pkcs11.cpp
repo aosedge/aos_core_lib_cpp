@@ -294,7 +294,8 @@ DynamicLibraryContext::~DynamicLibraryContext()
 
 RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 {
-    auto getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle, "C_GetFunctionList"));
+    auto getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle,
+        "C_GetFunctionList")); // NOSONAR cpp:S3630 - required to convert dlsym's void* result to a function pointer
 
     if (getFuncList == nullptr) {
         LOG_ERR() << "Can't find get function list function: dlsym err = " << dlerror();
