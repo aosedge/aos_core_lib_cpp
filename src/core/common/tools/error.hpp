@@ -37,7 +37,7 @@ constexpr static auto cMaxErrorStrLen = AOS_CONFIG_TOOLS_ERROR_STR_LEN;
 /**
  * Aos errors.
  */
-class Error {
+class Error { // NOSONAR cpp:S3624 - non-owning members, nothing to release
 public:
     // NOTE: new error type should be added also to private GetStrings() method below and covered
     // with unit test: TEST(CommonTest, ErrorMessages).
