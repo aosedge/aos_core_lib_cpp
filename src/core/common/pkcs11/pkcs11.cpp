@@ -294,8 +294,7 @@ DynamicLibraryContext::~DynamicLibraryContext()
 
 RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 {
-    auto getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle,
-        "C_GetFunctionList")); // NOSONAR cpp:S3630 - required to convert dlsym's void* result to a function pointer
+    auto getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle, "C_GetFunctionList")); // NOSONAR cpp:S3630
 
     if (getFuncList == nullptr) {
         LOG_ERR() << "Can't find get function list function: dlsym err = " << dlerror();
@@ -1712,8 +1711,8 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
     }
 
     if (objClass != CKO_CERTIFICATE) {
-        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", static_cast<int>(CKO_CERTIFICATE))
-                  << Log::Field("actual", static_cast<int>(objClass));
+        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", CKO_CERTIFICATE)
+                  << Log::Field("actual", objClass);
 
         return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
     }
