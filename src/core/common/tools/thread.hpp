@@ -306,7 +306,6 @@ public:
      */
     explicit UniqueLock(Locker& lock)
         : mLocker(lock)
-        , mIsLocked(false)
     {
         mError = Lock();
     }
@@ -367,7 +366,7 @@ public:
 
 private:
     Locker& mLocker;
-    bool    mIsLocked;
+    bool    mIsLocked = false;
     Error   mError;
 };
 
