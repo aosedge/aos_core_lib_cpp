@@ -87,8 +87,7 @@ Error StorageState::SetupStateStorage(const InstanceIdent& instanceIdent, const 
 
     auto availableStorage   = *mAvailableStorage;
     *mAvailableStorage      = *mAvailableStorage - requestedStorageSize;
-    auto restoreStorageSize = DeferRelease(
-        reinterpret_cast<int32_t*>(1), [this, &availableStorage](int32_t*) { *mAvailableStorage = availableStorage; });
+    auto restoreStorageSize = DeferRelease([this, &availableStorage]() { *mAvailableStorage = availableStorage; });
 
     // Check available state size
     if (requestedStateSize > *mAvailableState) {
@@ -97,8 +96,7 @@ Error StorageState::SetupStateStorage(const InstanceIdent& instanceIdent, const 
 
     auto availableState   = *mAvailableState;
     *mAvailableState      = *mAvailableState - requestedStateSize;
-    auto restoreStateSize = DeferRelease(
-        reinterpret_cast<int32_t*>(1), [this, &availableState](int32_t*) { *mAvailableState = availableState; });
+    auto restoreStateSize = DeferRelease([this, &availableState]() { *mAvailableState = availableState; });
 
     // Setup storage and state
     if (auto err = mStorageStateManager->Setup(instanceIdent, setupParams, storagePath, statePath); !err.IsNone()) {

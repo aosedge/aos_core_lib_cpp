@@ -47,7 +47,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int32_t*>(1), [&](int32_t*) { ResetConfigs(); });
+    auto releaseConfigs = DeferRelease([&]() { ResetConfigs(); });
     if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "get item config failed"));
     }
