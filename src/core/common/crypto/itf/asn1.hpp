@@ -199,15 +199,13 @@ private:
 template <typename Reader>
 ASN1Reader<Reader> MakeASN1Reader(Reader&& reader)
 {
-    return ASN1Reader<Reader>(Forward<Reader>(reader)); // NOSONAR cpp:M23_279 - this library's Forward() plays the
-                                                        // role of std::forward
+    return ASN1Reader<Reader>(Forward<Reader>(reader)); // NOSONAR cpp:M23_279
 }
 
 /**
  * Represents the result of an ASN.1 parsing operation.
  */
-struct ASN1ParseResult { // NOSONAR cpp:S3624 - mRemaining is a non-owning Array view into the parsed input buffer;
-                         // default dtor is correct, there is nothing for this struct to release
+struct ASN1ParseResult { // NOSONAR cpp:S3624 - non-owning view, nothing to release
     Error          mError;
     Array<uint8_t> mRemaining;
 

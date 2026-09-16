@@ -35,16 +35,14 @@ public:
      */
     using Array::Array;
 
-    // TODO: automatically make const String from const char*. // NOSONAR cpp:S1135 - not a oneliner, tracked as a
-    // known follow-up rather than done ad hoc here
+    // TODO: automatically make const String from const char*. // NOSONAR cpp:S1135
     // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs string from C string.
      *
      * @param str C string.
      */
-    String(const char* str) // NOSONAR cpp:S1709 - implicit conversion from the underlying/raw type is intentional, core
-                            // to this type's value-semantics ergonomics
+    String(const char* str) // NOSONAR cpp:S1709
         : Array(const_cast<char*>(str), str ? strlen(str) : 0) // NOSONAR cpp:M23_090
     {
         if (str && *end()) {
@@ -730,12 +728,10 @@ public:
     {
         Clear();
 
-        // NOSONAR justification: cppsecurity:S5145 is flagged because a traced value (e.g. a numeric PKCS11 slot ID)
-        // reaches one of "args"; only "format" controls what snprintf does with them, and a plain numeric %d
-        // argument cannot inject anything. cpp:S5281 (format string not a literal) is inherent to this being a
-        // general-purpose Format() helper - the format string is necessarily a runtime parameter, not a literal.
         // cppcheck-suppress wrongPrintfScanfArgNum
-        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...); // NOSONAR cppsecurity:S5145 cpp:S5281
+        auto ret
+            = snprintf(Get(), MaxSize() + 1, format.CStr(), args...); // NOSONAR cppsecurity:S5145 cpp:S5281 -
+                                                                      // generic Format() helper, runtime format string
         if (ret < 0) {
             return ret;
         }
