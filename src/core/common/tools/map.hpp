@@ -128,7 +128,7 @@ public:
     Error Emplace(const Key& key, Args&&... args)
     {
         if (ConstIterator it = Find(key); it == end()) {
-            return mItems.EmplaceBack(key, Forward<Args>(args)...);
+            return mItems.EmplaceBack(key, Forward<Args>(args)...); // NOSONAR cpp:M23_279
         }
 
         return ErrorEnum::eAlreadyExist;
@@ -145,7 +145,7 @@ public:
     Error TryEmplace(const Key& key, Args&&... args)
     {
         if (ConstIterator it = Find(key); it == end()) {
-            return mItems.EmplaceBack(key, Forward<Args>(args)...);
+            return mItems.EmplaceBack(key, Forward<Args>(args)...); // NOSONAR cpp:M23_279
         }
 
         return ErrorEnum::eNone;

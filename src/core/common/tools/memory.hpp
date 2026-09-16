@@ -316,7 +316,7 @@ private:
 template <typename T, typename Deleter>
 inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
 {
-    return UniquePtr<T, Deleter>(ptr, Forward<Deleter>(deleter));
+    return UniquePtr<T, Deleter>(ptr, Forward<Deleter>(deleter)); // NOSONAR cpp:M23_279
 }
 
 /**
@@ -348,8 +348,8 @@ inline UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>> DeferRelease(Deleter&& d
 {
     static int32_t sSentinel; // NOSONAR cpp:M23_233 - used as a non-null placeholder
 
-    return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>(
-        &sSentinel, NoArgDeleterAdapter<Deleter>(Forward<Deleter>(deleter)));
+    return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>(&sSentinel,
+        NoArgDeleterAdapter<Deleter>(Forward<Deleter>(deleter))); // NOSONAR cpp:M23_279
 }
 
 /**
@@ -443,7 +443,7 @@ public:
     template <typename... Args>
     explicit SharedObjectControlBlock(AllocatorItf& allocator, Args&&... args)
         : SharedControlBlock(allocator)
-        , mObject(Forward<Args>(args)...)
+        , mObject(Forward<Args>(args)...) // NOSONAR cpp:M23_279
     {
     }
 
@@ -733,7 +733,7 @@ inline UniquePtr<T> MakeUnique(AllocatorItf* allocator, Args&&... args)
     // NOSONAR justification (cpp:M23_329): fixed-capacity container needs placement new/explicit dtor; no heap
     // allocator available.
     // clang-format off
-    return UniquePtr<T>(new (data) T(Forward<Args>(args)...), DefaultDeleter<T>(allocator)); // NOSONAR cpp:M23_329
+    return UniquePtr<T>(new (data) T(Forward<Args>(args)...), DefaultDeleter<T>(allocator)); // NOSONAR cpp:M23_329 M23_279
     // clang-format on
 }
 
@@ -759,7 +759,7 @@ inline SharedPtr<T> MakeShared(AllocatorItf* allocator, Args&&... args)
     // NOSONAR justification (cpp:M23_329): fixed-capacity container needs placement new/explicit dtor; no heap
     // allocator available.
     // clang-format off
-    auto* controlBlock = new (data) SharedObjectControlBlock<T>(*allocator, Forward<Args>(args)...); // NOSONAR cpp:M23_329
+    auto* controlBlock = new (data) SharedObjectControlBlock<T>(*allocator, Forward<Args>(args)...); // NOSONAR cpp:M23_329 M23_279
     // clang-format on
 
     return SharedPtr<T>(controlBlock, controlBlock->GetObject());

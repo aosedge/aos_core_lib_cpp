@@ -354,7 +354,7 @@ Error CertModule::TrimCerts(const String& password)
         Time            minTime;
         const CertInfo* info = nullptr;
 
-        for (auto& cert : *certsInStorage) {
+        for (const auto& cert : *certsInStorage) {
             if (minTime.IsZero() || cert.mNotAfter < minTime) {
                 minTime = cert.mNotAfter;
                 info    = &cert;
@@ -455,7 +455,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
     for (const auto& moduleCert : validCerts) {
         const CertInfo* storedCert = nullptr;
 
-        for (auto& cert : *certsInStorage) {
+        for (const auto& cert : *certsInStorage) {
             if (cert == moduleCert) {
                 storedCert = &cert;
 
