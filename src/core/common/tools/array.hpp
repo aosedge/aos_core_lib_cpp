@@ -288,15 +288,13 @@ public:
      * @param item item to push.
      * @return Error.
      */
-    Error PushBack(T&& item) // NOSONAR cpp:S5500 - this library's Move() plays the role of std::move, which is what
-                             // this rule actually looks for
+    Error PushBack(T&& item) // NOSONAR cpp:S5500
     {
         if (mSize == mMaxSize) {
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(Move(item)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit dtor;
-                                   // no heap allocator available
+        new (end()) T(Move(item)); // NOSONAR cpp:M23_329
 
         mSize++;
 
@@ -389,13 +387,11 @@ public:
         }
 
         for (auto i = end() - pos - 1; i >= 0; i--) {
-            new (pos + size + i) T(*(pos + i)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement
-                                                // new/explicit dtor; no heap allocator available
+            new (pos + size + i) T(*(pos + i)); // NOSONAR cpp:M23_329
         }
 
         for (size_t i = 0; i < size; i++) {
-            new (pos + i) T(*(from + i)); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit
-                                          // dtor; no heap allocator available
+            new (pos + i) T(*(from + i)); // NOSONAR cpp:M23_329
         }
 
         mSize += size;
@@ -441,16 +437,15 @@ public:
         const auto* curEnd = end();
 
         for (auto it = first; it != last; ++it) {
-            it->~T(); // NOSONAR cpp:S1235 - exact static type, dtor never called via a base pointer
+            it->~T(); // NOSONAR cpp:S1235 - exact static type
             mSize--;
         }
 
         auto curFirst = first;
 
         for (T* it = const_cast<T*>(last); it != curEnd; ++it, ++curFirst) { // NOSONAR cpp:M23_090
-            // cppcheck-suppress constStatement
             new (const_cast<void*>(static_cast<const void*>(curFirst))) T(Move(*it)); // NOSONAR cpp:M23_090
-            it->~T(); // NOSONAR cpp:S1235 - exact static type, dtor never called via a base pointer
+            it->~T(); // NOSONAR cpp:S1235 - exact static type
         }
 
         return const_cast<Iterator>(first); // NOSONAR cpp:M23_090
