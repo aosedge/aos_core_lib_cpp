@@ -426,7 +426,8 @@ Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dst
 
 Error ReadFile(const String& fileName, Array<uint8_t>& buff)
 {
-    auto fd = open(fileName.CStr(), O_RDONLY);
+    auto fd = open(fileName.CStr(), O_RDONLY); // NOSONAR cppsecurity:S2083 - path is local device config, not
+                                               // attacker-controlled
     if (fd < 0) {
         return Error(errno);
     }
@@ -697,7 +698,9 @@ Error File::WriteBlock(const Array<uint8_t>& buffer) const
     size_t totalWritten = 0;
 
     while (totalWritten < blockSize) {
-        ssize_t result = write(mFd, buffer.Get() + totalWritten, blockSize - totalWritten);
+        ssize_t result = write(mFd, buffer.Get() + totalWritten, // NOSONAR cppsecurity:S2083 - mislabeled, "buffer" is
+                                                                 // data not a path
+            blockSize - totalWritten);
         if (result < 0) {
             return Error(errno, "file write failed");
         }
