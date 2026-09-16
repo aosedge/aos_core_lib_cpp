@@ -394,7 +394,7 @@ Error NetworkManager::GetResolvServers(const String& instanceID, Array<StaticStr
     }
 
     if (servers.IsEmpty()) {
-        if (auto err = servers.EmplaceBack("8.8.8.8"); !err.IsNone()) {
+        if (auto err = servers.EmplaceBack("8.8.8.8"); !err.IsNone()) { // NOSONAR cpp:S1313 - public DNS fallback
             return AOS_ERROR_WRAP(err);
         }
     }

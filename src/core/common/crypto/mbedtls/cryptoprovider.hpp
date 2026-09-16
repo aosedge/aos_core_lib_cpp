@@ -476,7 +476,7 @@ private:
     static RetWithError<Time> ConvertTime(const mbedtls_x509_time& src);
     static RetWithError<mbedtls_x509_time> ConvertTime(const Time& src);
 
-    Error ParseX509Certs(const mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
+    Error ParseX509Certs(const mbedtls_x509_crt* currentCrt, x509::Certificate& cert) const;
     Error GetX509CertExtensions(x509::Certificate& cert, const mbedtls_x509_crt* crt) const;
     Error GetX509CertData(x509::Certificate& cert, const mbedtls_x509_crt* crt) const;
     Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert) const;
