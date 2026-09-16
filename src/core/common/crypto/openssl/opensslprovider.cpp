@@ -516,8 +516,8 @@ int32_t DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PA
     return 1;
 }
 
-int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const uint8_t* tbs,
-    size_t tbslen) // NOSONAR cpp:S995 - fixed external API signature
+int32_t DgstSign(void* ctx, uint8_t* sig, // NOSONAR cpp:S995 - fixed external API signature
+    size_t* siglen, size_t sigsize, const uint8_t* tbs, size_t tbslen)
 {
     if (!ctx || !siglen || !tbs) {
         LOG_ERR() << "Invalid arguments: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument));
