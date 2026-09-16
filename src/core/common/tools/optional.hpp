@@ -104,11 +104,9 @@ public:
     {
         if (HasValue()) {
             // cppcheck-suppress invalidPointerCast
-            *reinterpret_cast<T*>(mBuffer) = value; // NOSONAR cpp:S3630 - fixed-capacity container needs to view its
-                                                    // raw storage buffer as T*; no heap allocator available
+            *reinterpret_cast<T*>(mBuffer) = value; // NOSONAR cpp:S3630
         } else {
-            ::new (static_cast<void*>(mBuffer)) T(value); // NOSONAR cpp:M23_329 - fixed-capacity container needs
-                                                          // placement new/explicit dtor; no heap allocator available
+            ::new (static_cast<void*>(mBuffer)) T(value); // NOSONAR cpp:M23_329
             mHasValue = true;
         }
     }
@@ -122,12 +120,10 @@ public:
     void EmplaceValue(Args... args)
     {
         if (HasValue()) {
-            GetValue().~T(); // NOSONAR cpp:M23_329 - fixed-capacity container needs placement new/explicit dtor; no
-                             // heap allocator available
+            GetValue().~T(); // NOSONAR cpp:M23_329
         }
 
-        ::new (static_cast<void*>(mBuffer)) T(args...); // NOSONAR cpp:M23_329 - fixed-capacity container needs
-                                                        // placement new/explicit dtor; no heap allocator available
+        ::new (static_cast<void*>(mBuffer)) T(args...); // NOSONAR cpp:M23_329
         mHasValue = true;
     }
 
