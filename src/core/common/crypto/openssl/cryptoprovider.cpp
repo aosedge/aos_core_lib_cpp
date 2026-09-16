@@ -846,7 +846,7 @@ Error SetSKID(const Array<uint8_t>& derSKID, X509* cert)
         uint8_t  md[EVP_MAX_MD_SIZE] {};
         uint32_t mdLen = 0;
 
-        if (X509_pubkey_digest(cert, EVP_sha1(), md, &mdLen) != 1) {
+        if (X509_pubkey_digest(cert, EVP_sha1(), md, &mdLen) != 1) { // NOSONAR cpp:S4790 - RFC 5280 keyIdentifier
             return OPENSSL_ERROR();
         }
 
@@ -1584,8 +1584,11 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
 
     static constexpr auto cDelims = ",/";
 
+    // NOSONAR justification (cpp:S886): "j" is intentionally recomputed by FindAny() every iteration and then used
+    // to advance "i" in the update clause; rewriting this as a while loop would require re-deriving "i = j + 1" on
+    // every "continue" path too, which is more error-prone than the current for-loop, not less.
     // Split the subject name into entries separated by comma or slash
-    for (size_t i = 0, j = 0; i < commonName.Size(); i = j + 1) {
+    for (size_t i = 0, j = 0; i < commonName.Size(); i = j + 1) { // NOSONAR cpp:S886
         Error err;
 
         // Find next cn entry
@@ -2474,7 +2477,7 @@ Error OpenSSLCryptoProvider::OpenSSLHash::Finalize(Array<uint8_t>& hash)
         return err;
     }
 
-    uint32_t size = static_cast<uint32_t>(hash.Size());
+    auto size = static_cast<uint32_t>(hash.Size());
     if (EVP_DigestFinal_ex(mMDCtx, hash.Get(), &size) != 1) {
         return OPENSSL_ERROR();
     }

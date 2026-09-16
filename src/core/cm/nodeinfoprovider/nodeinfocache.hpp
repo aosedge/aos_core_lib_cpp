@@ -95,6 +95,7 @@ public:
 private:
     void SetNodeInfo(UnitNodeInfo& info) const;
     void SetSMInfo(UnitNodeInfo& info) const;
+    void ResetSMInfo();
 
     Duration             mWaitTimeout;
     StaticString<cIDLen> mNodeID;

@@ -167,7 +167,8 @@ RetWithError<bool> FileExist(const String& path)
 
 Error MakeDir(const String& path)
 {
-    if (auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO); ret != 0 && errno != EEXIST) {
+    if (auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO); // NOSONAR cpp:S2612 - restricted by umask
+        ret != 0 && errno != EEXIST) {
         return errno;
     }
 

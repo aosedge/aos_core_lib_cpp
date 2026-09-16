@@ -106,7 +106,7 @@ inline typename RemoveRef<T>::type&& Move(T&& object) // NOSONAR cpp:M23_279 - t
  * @tparam T object to forward.
  */
 template <typename T>
-inline T&& Forward(typename RemoveRef<T>::type& object)
+inline T&& Forward(typename RemoveRef<T>::type& object) // NOSONAR cpp:M23_280
 {
     return static_cast<T&&>(object);
 }
