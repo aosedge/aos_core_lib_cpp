@@ -173,7 +173,7 @@ public:
     /**
      * Constructor.
      */
-    explicit ASN1Reader(Handler&& handler)
+    explicit ASN1Reader(Handler&& handler) // NOSONAR cpp:S5500
         : mHandler(Move(handler))
     {
     }
