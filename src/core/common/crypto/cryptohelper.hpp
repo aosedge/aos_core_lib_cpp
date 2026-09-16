@@ -7,6 +7,7 @@
 #ifndef AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 #define AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 
+#include <core/common/consts.hpp>
 #include <core/common/iamclient/itf/certprovider.hpp>
 #include <core/common/tools/thread.hpp>
 
@@ -201,7 +202,7 @@ private:
     StaticString<cURLLen>  mServiceDiscoveryURL;
     x509::CertificateChain mCACerts;
 
-    Semaphore     mSemaphore;
+    Semaphore     mSemaphore {cMaxNumConcurrentItems};
     AllocatorItf* mAllocator {};
 };
 
