@@ -208,8 +208,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     *availableRAM -= reqRAM;
-    auto restoreRAM
-        = DeferRelease(reinterpret_cast<int32_t*>(1), [&availableRAM, &reqRAM](int32_t*) { *availableRAM += reqRAM; });
+    auto restoreRAM = DeferRelease([&availableRAM, &reqRAM]() { *availableRAM += reqRAM; });
 
     // Adjust available CPU
     auto availableCPU = GetPtrToAvailableCPU(runtimeID);
@@ -222,8 +221,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     *availableCPU -= reqCPU;
-    auto restoreCPU
-        = DeferRelease(reinterpret_cast<int32_t*>(1), [&availableCPU, &reqCPU](int32_t*) { *availableCPU += reqCPU; });
+    auto restoreCPU = DeferRelease([&availableCPU, &reqCPU]() { *availableCPU += reqCPU; });
 
     // Adjust max number of instances
     auto maxNumInstances = GetPtrToMaxNumInstances(runtimeID);
@@ -236,12 +234,11 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     (*maxNumInstances)--;
-    auto restoreMaxNumInstances
-        = DeferRelease(reinterpret_cast<int32_t*>(1), [&maxNumInstances](int32_t*) { (*maxNumInstances)++; });
+    auto restoreMaxNumInstances = DeferRelease([&maxNumInstances]() { (*maxNumInstances)++; });
 
     // Adjust shared resources
     auto curIt            = reqResources.begin();
-    auto restoreResources = DeferRelease(reinterpret_cast<int32_t*>(1), [this, &reqResources, &curIt](int32_t*) {
+    auto restoreResources = DeferRelease([this, &reqResources, &curIt]() {
         for (auto restoreIt = reqResources.begin(); restoreIt != curIt; ++restoreIt) {
             auto availableResource = mAvailableResources.FindIf(
                 [restoreIt](const ResourceInfo& info) { return info.mName == restoreIt->mName; });
