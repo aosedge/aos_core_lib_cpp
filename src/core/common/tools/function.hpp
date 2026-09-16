@@ -24,7 +24,7 @@ constexpr auto cDefaultFunctionMaxSize = AOS_CONFIG_FUNCTION_MAX_SIZE;
 /**
  * Function instance.
  */
-class Function {
+class Function { // NOSONAR cpp:S3624 - copy ctor deleted, operator= kept for StaticFunction's converting ctor
 public:
     /**
      * Creates function.
@@ -186,7 +186,7 @@ private:
  * @tparam cFunctionMaxSize max function size.
  */
 template <size_t cFunctionMaxSize = cDefaultFunctionMaxSize>
-class StaticFunction : public Function {
+class StaticFunction : public Function { // NOSONAR cpp:S3624 - base dtor already destroys the placed object
 public:
     /**
      * Creates static function.
