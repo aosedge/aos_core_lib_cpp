@@ -113,6 +113,10 @@ Error Monitoring::Init(AllocatorItf& allocator, const Config& config,
 {
     LOG_DBG() << "Init monitoring";
 
+    if (!config.mPollPeriod || config.mAverageWindow < config.mPollPeriod) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
     mAllocator               = &allocator;
     mConfig                  = config;
     mNodeConfigProvider      = &nodeConfigProvider;
