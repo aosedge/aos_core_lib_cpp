@@ -15,8 +15,8 @@ namespace aos::monitoring {
  * Monitoring config.
  */
 struct Config {
-    Duration mPollPeriod    = AOS_CONFIG_MONITORING_POLL_PERIOD_SEC * Time::cSeconds;
-    Duration mAverageWindow = AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC * Time::cSeconds;
+    Duration mPollPeriod;
+    Duration mAverageWindow;
 };
 
 } // namespace aos::monitoring
