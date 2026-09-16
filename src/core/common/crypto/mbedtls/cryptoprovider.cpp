@@ -830,8 +830,8 @@ Error MbedTLSCryptoProvider::ASN1EncodeObjectIds(const Array<asn1::ObjectIdentif
 {
     (void)asn1Value.Resize(asn1Value.MaxSize());
 
-    uint8_t* start = asn1Value.Get();
-    uint8_t* p     = asn1Value.Get() + asn1Value.Size();
+    const uint8_t* start = asn1Value.Get();
+    uint8_t*       p     = asn1Value.Get() + asn1Value.Size();
 
     int32_t len = crypto::ASN1EncodeObjectIds(src, &p, start);
     if (len < 0) {
@@ -862,8 +862,8 @@ Error MbedTLSCryptoProvider::ASN1EncodeDERSequence(const Array<Array<uint8_t>>& 
 {
     (void)asn1Value.Resize(asn1Value.MaxSize());
 
-    uint8_t* start = asn1Value.Get();
-    uint8_t* p     = asn1Value.Get() + asn1Value.Size();
+    const uint8_t* start = asn1Value.Get();
+    uint8_t*       p     = asn1Value.Get() + asn1Value.Size();
 
     int32_t len = crypto::ASN1EncodeDERSequence(items, &p, start);
     if (len < 0) {
