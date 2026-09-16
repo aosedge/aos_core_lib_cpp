@@ -1022,16 +1022,16 @@ Error PKCS11Module::GetX509Cert(
     }
 
     if (objClass != CKO_CERTIFICATE) {
-        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", static_cast<int>(CKO_CERTIFICATE))
-                  << Log::Field("actual", static_cast<int>(objClass));
+        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", CKO_CERTIFICATE)
+                  << Log::Field("actual", objClass);
 
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
     // FindObject does not filter CKA_CERTIFICATE_TYPE.
     if (certType != CKC_X_509) {
-        LOG_ERR() << "PKCS11 certificate type mismatch" << Log::Field("expected", static_cast<int>(CKC_X_509))
-                  << Log::Field("actual", static_cast<int>(certType));
+        LOG_ERR() << "PKCS11 certificate type mismatch" << Log::Field("expected", CKC_X_509)
+                  << Log::Field("actual", certType);
 
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
