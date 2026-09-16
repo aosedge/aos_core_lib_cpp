@@ -35,7 +35,8 @@ public:
      */
     using Array::Array;
 
-    // TODO: automatically make const String from const char*.
+    // TODO: automatically make const String from const char*. // NOSONAR cpp:S1135 - not a oneliner, tracked as a
+    // known follow-up rather than done ad hoc here
     // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs string from C string.
@@ -729,11 +730,12 @@ public:
     {
         Clear();
 
-        // NOSONAR justification (cppsecurity:S5145): flagged because a traced value (e.g. a numeric PKCS11 slot ID)
-        // reaches one of "args"; only the fixed "format" literal controls what snprintf does with them, and a plain
-        // numeric %d argument cannot inject anything.
+        // NOSONAR justification: cppsecurity:S5145 is flagged because a traced value (e.g. a numeric PKCS11 slot ID)
+        // reaches one of "args"; only "format" controls what snprintf does with them, and a plain numeric %d
+        // argument cannot inject anything. cpp:S5281 (format string not a literal) is inherent to this being a
+        // general-purpose Format() helper - the format string is necessarily a runtime parameter, not a literal.
         // cppcheck-suppress wrongPrintfScanfArgNum
-        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...); // NOSONAR cppsecurity:S5145
+        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...); // NOSONAR cppsecurity:S5145 cpp:S5281
         if (ret < 0) {
             return ret;
         }

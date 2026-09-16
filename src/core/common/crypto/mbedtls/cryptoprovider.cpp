@@ -1310,14 +1310,6 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadBigInt(
     return {ErrorEnum::eNone, remaining};
 }
 
-(void)mbedtls_mpi_write_binary(&mpi, result.Get(), mpiLen);
-
-// Remaining data
-auto remaining = Array<uint8_t>(p, end - p);
-
-return {ErrorEnum::eNone, remaining};
-}
-
 asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadOID(
     const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ObjectIdentifier& oid)
 {
@@ -1944,7 +1936,7 @@ int32_t MbedTLSCryptoProvider::VerifyTime(void* data, mbedtls_x509_crt* crt, int
     return 0;
 }
 
-Error MbedTLSCryptoProvider::ParseX509Certs(const mbedtls_x509_crt* currentCrt, x509::Certificate& cert)
+Error MbedTLSCryptoProvider::ParseX509Certs(const mbedtls_x509_crt* currentCrt, x509::Certificate& cert) const
 {
     if (auto err = GetX509CertData(cert, currentCrt); !err.IsNone()) {
         return err;
@@ -2363,7 +2355,7 @@ Error MbedTLSCryptoProvider::WriteCSRPem(mbedtls_x509write_csr& csr, String& pem
         return AOS_ERROR_WRAP(ret);
     }
 
-    (void)pemCSR.Resize(strlen(pemCSR.CStr()));
+    (void)pemCSR.Resize(strlen(pemCSR.CStr())); // NOSONAR cpp:S5813 - mbedtls guarantees NUL-termination here
 
     return ErrorEnum::eNone;
 }

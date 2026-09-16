@@ -164,7 +164,9 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
     const auto& node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
-    if (auto err = mInstanceManager->ScheduleInstance(instance, *node, runtime->mRuntimeID); !err.IsNone()) {
+    if (auto err = mInstanceManager->ScheduleInstance(instance, *node, // NOSONAR cpp:S2259 - non-null on success
+            runtime->mRuntimeID);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't schedule instance"));
     }
 

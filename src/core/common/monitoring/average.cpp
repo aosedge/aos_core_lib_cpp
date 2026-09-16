@@ -36,7 +36,8 @@ template <typename T>
 void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
 {
     if (!isInitialized) {
-        value = newValue * static_cast<double>(window);
+        value = newValue * static_cast<double>(window); // NOSONAR cpp:S5276 - intentional float round-trip for
+                                                        // integral counters too
     } else {
         value -= GetValue(value, window);
         value += newValue;
