@@ -1004,7 +1004,7 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv4()
     }
 
     // The version of the UUID will be the lower 4 bits of cUUIDVersion
-    uuid[6] = (uuid[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    uuid[6] = (uuid[6] & 0x0f) | static_cast<uint8_t>((cUUIDVersion & 0xf) << 4);
     uuid[8] = (uuid[8] & 0x3f) | 0x80; // RFC 4122 variant
 
     return uuid;
@@ -1032,7 +1032,7 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
     uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDSize);
 
     // The version of the UUID will be the lower 4 bits of cUUIDVersion
-    result[6] = (result[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    result[6] = (result[6] & 0x0f) | static_cast<uint8_t>((cUUIDVersion & 0xf) << 4);
     result[8] = (result[8] & 0x3f) | 0x80; // RFC 4122 variant
 
     return result;

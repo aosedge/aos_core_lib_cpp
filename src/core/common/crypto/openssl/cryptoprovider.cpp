@@ -89,8 +89,12 @@ Error AddExtraExtensions(const Array<asn1::Extension>& extra, STACK_OF(X509_EXTE
 
         // Decode the ASN.1 sequence into STACK_OF(ASN1_OBJECT)
         const uint8_t* p = ext.mValue.Get();
-        auto eku = DeferRelease((SEQ_OID*)ASN1_item_d2i(nullptr, &p, ext.mValue.Size(), ASN1_ITEM_rptr(SEQ_OID)),
+        // NOSONAR justification (cpp:S3630): ASN1_item_d2i returns the unrelated opaque type ASN1_VALUE*; OpenSSL's
+        // API requires reinterpreting it as the requested item type.
+        // clang-format off
+        auto eku = DeferRelease(reinterpret_cast<SEQ_OID*>(ASN1_item_d2i(nullptr, &p, ext.mValue.Size(), ASN1_ITEM_rptr(SEQ_OID))), // NOSONAR cpp:S3630
             [](SEQ_OID* oids) { return sk_ASN1_OBJECT_pop_free(oids, ASN1_OBJECT_free); });
+        // clang-format on
 
         if (!eku) {
             return OPENSSL_ERROR();
@@ -954,7 +958,7 @@ Error SetIssuerAltNameURIs(const Array<StaticString<cURLLen>>& uris, X509* cert)
         // NOSONAR justification (cpp:M23_058): matches the fixed parameter type of the external C API.
         // clang-format off
         if (!ASN1_STRING_set(ia5.Get(), uri.CStr(), static_cast<int>(uri.Size()))) { // NOSONAR cpp:M23_058
-        // clang-format on
+            // clang-format on
             return OPENSSL_ERROR();
         }
 
@@ -1874,7 +1878,7 @@ RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv4()
     }
 
     // The version of the UUID will be the lower 4 bits of cUUIDVersion
-    uuid[6] = (uuid[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    uuid[6] = (uuid[6] & 0x0f) | static_cast<uint8_t>((cUUIDVersion & 0xf) << 4);
     uuid[8] = (uuid[8] & 0x3f) | 0x80; // RFC 4122 variant
 
     return uuid;
@@ -1900,7 +1904,7 @@ RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv5(const uuid::UUID& s
     uuid::UUID result = Array<uint8_t>(sha1.Get(), uuid::cUUIDSize);
 
     // The version of the UUID will be the lower 4 bits of cUUIDVersion
-    result[6] = (result[6] & 0x0f) | uint8_t((cUUIDVersion & 0xf) << 4);
+    result[6] = (result[6] & 0x0f) | static_cast<uint8_t>((cUUIDVersion & 0xf) << 4);
     result[8] = (result[8] & 0x3f) | 0x80; // RFC 4122 variant
 
     return result;
