@@ -474,16 +474,12 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
 
     Error err;
 
-    if (auto errStop = mNetMonitor->StopInstanceMonitoring(instanceID); !errStop.IsNone()) {
-        if (err.IsNone()) {
-            err = errStop;
-        }
+    if (auto errStop = mNetMonitor->StopInstanceMonitoring(instanceID); !errStop.IsNone() && err.IsNone()) {
+        err = errStop;
     }
 
-    if (auto errDelete = DeleteInstanceNetworkConfig(instanceID, networkID); !errDelete.IsNone()) {
-        if (err.IsNone()) {
-            err = errDelete;
-        }
+    if (auto errDelete = DeleteInstanceNetworkConfig(instanceID, networkID); !errDelete.IsNone() && err.IsNone()) {
+        err = errDelete;
     }
 
     {
