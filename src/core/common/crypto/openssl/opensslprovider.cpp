@@ -204,7 +204,7 @@ RetWithError<int32_t> GetECCurveBitLen(int32_t nid)
 RetWithError<HashEnum> GetHashAlg(const RSAPublicKey& pubKey)
 {
     auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr),
-        BN_free); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
+        BN_free); // NOSONAR cpp:M23_058
     if (!bn) {
         return {HashEnum::eNone, OPENSSL_ERROR()};
     }
@@ -343,14 +343,18 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
         const uint8_t* sData    = signature.Get() + halfSize;
 
         // Create BIGNUMs from r and s
-        auto r = DeferRelease(BN_bin2bn(rData, static_cast<int>(halfSize), nullptr),
-            BN_free); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
+        // NOSONAR justification (cpp:M23_058): matches the fixed parameter type of the external C API.
+        // clang-format off
+        auto r = DeferRelease(BN_bin2bn(rData, static_cast<int>(halfSize), nullptr), BN_free); // NOSONAR cpp:M23_058
+        // clang-format on
         if (!r) {
             return OPENSSL_ERROR();
         }
 
-        auto s = DeferRelease(BN_bin2bn(sData, static_cast<int>(halfSize), nullptr),
-            BN_free); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
+        // NOSONAR justification (cpp:M23_058): matches the fixed parameter type of the external C API.
+        // clang-format off
+        auto s = DeferRelease(BN_bin2bn(sData, static_cast<int>(halfSize), nullptr), BN_free); // NOSONAR cpp:M23_058
+        // clang-format on
         if (!s) {
             return OPENSSL_ERROR();
         }
@@ -640,68 +644,34 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
 
     *noCache = 0;
 
-    static const OSSL_DISPATCH cSignFunctions[]
-        = {{OSSL_FUNC_SIGNATURE_NEWCTX,
-               reinterpret_cast<void (*)(void)>(
-                   SignNewCtx)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
-                                 // every provider function as void(*)(void)
-            {OSSL_FUNC_SIGNATURE_FREECTX,
-                reinterpret_cast<void (*)(void)>(
-                    SignFreeCtx)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                   // stores every provider function as void(*)(void)
-
-            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT,
-                reinterpret_cast<void (*)(void)>(
-                    DgstSignInit)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                    // stores every provider function as void(*)(void)
-            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN,
-                reinterpret_cast<void (*)(void)>(
-                    DgstSign)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
-                                // every provider function as void(*)(void)
-
-            {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS,
-                reinterpret_cast<void (*)(void)>(
-                    SignatureGetCtxParams)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table,
-                                             // which stores every provider function as void(*)(void)
-            {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS,
-                reinterpret_cast<void (*)(void)>(
-                    SignatureGettableCtxParams)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH
-                                                  // table, which stores every provider function as void(*)(void)
-
-            OSSL_DISPATCH_END};
+    // NOSONAR justification (cpp:S3630, dispatch tables below): required to populate OpenSSL's OSSL_DISPATCH table,
+    // which stores every provider function as void(*)(void).
+    // clang-format off
+    static const OSSL_DISPATCH cSignFunctions[] = {
+        {OSSL_FUNC_SIGNATURE_NEWCTX, reinterpret_cast<void (*)(void)>(SignNewCtx)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_SIGNATURE_FREECTX, reinterpret_cast<void (*)(void)>(SignFreeCtx)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT, reinterpret_cast<void (*)(void)>(DgstSignInit)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_SIGNATURE_DIGEST_SIGN, reinterpret_cast<void (*)(void)>(DgstSign)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGetCtxParams)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGettableCtxParams)}, // NOSONAR cpp:S3630
+        OSSL_DISPATCH_END};
+    // clang-format on
 
     static const OSSL_ALGORITHM cSignAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cSignFunctions, "AOS Signature"}, OSSL_ALGORITHM_END};
 
-    static const OSSL_DISPATCH cKeyMgmFunctions[]
-        = {{OSSL_FUNC_KEYMGMT_NEW,
-               reinterpret_cast<void (*)(void)>(
-                   KeyMgmtNew)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
-                                 // every provider function as void(*)(void)
-            {OSSL_FUNC_KEYMGMT_FREE,
-                reinterpret_cast<void (*)(void)>(
-                    KeyMgmtFree)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                   // stores every provider function as void(*)(void)
-
-            {OSSL_FUNC_KEYMGMT_HAS,
-                reinterpret_cast<void (*)(void)>(
-                    KeyMgmtHas)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                  // stores every provider function as void(*)(void)
-            {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
-                reinterpret_cast<void (*)(void)>(
-                    KeyMgmtQuery)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                    // stores every provider function as void(*)(void)
-
-            {OSSL_FUNC_KEYMGMT_IMPORT,
-                reinterpret_cast<void (*)(void)>(
-                    KeyMgmtImport)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                     // stores every provider function as void(*)(void)
-            {OSSL_FUNC_KEYMGMT_IMPORT_TYPES,
-                reinterpret_cast<void (*)(void)>(
-                    KeyMgmtImportTypes)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table,
-                                          // which stores every provider function as void(*)(void)
-
-            OSSL_DISPATCH_END};
+    // NOSONAR justification (cpp:S3630, dispatch table below): required to populate OpenSSL's OSSL_DISPATCH table,
+    // which stores every provider function as void(*)(void).
+    // clang-format off
+    static const OSSL_DISPATCH cKeyMgmFunctions[] = {
+        {OSSL_FUNC_KEYMGMT_NEW, reinterpret_cast<void (*)(void)>(KeyMgmtNew)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_FREE, reinterpret_cast<void (*)(void)>(KeyMgmtFree)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_HAS, reinterpret_cast<void (*)(void)>(KeyMgmtHas)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, reinterpret_cast<void (*)(void)>(KeyMgmtQuery)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_IMPORT, reinterpret_cast<void (*)(void)>(KeyMgmtImport)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, reinterpret_cast<void (*)(void)>(KeyMgmtImportTypes)}, // NOSONAR cpp:S3630
+        OSSL_DISPATCH_END};
+    // clang-format on
 
     static const OSSL_ALGORITHM cKeyMgmAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cKeyMgmFunctions, "AOS Key Management"}, OSSL_ALGORITHM_END};
@@ -737,13 +707,10 @@ int32_t ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, co
     *provctx = OSSL_LIB_CTX_new();
 
     static const OSSL_DISPATCH provfns[]
-        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION,
-               reinterpret_cast<void (*)(void)>(
-                   ProviderQuery)}, // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which
-                                    // stores every provider function as void(*)(void)
-            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)},
-            OSSL_DISPATCH_END}; // NOSONAR cpp:S3630 - required to populate OpenSSL's OSSL_DISPATCH table, which stores
-                                // every provider function as void(*)(void)
+        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, reinterpret_cast<void (*)(void)>(ProviderQuery)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)}, // NOSONAR cpp:S3630
+            OSSL_DISPATCH_END};
+    // clang-format on
 
     *out = provfns;
 
@@ -806,8 +773,7 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
 {
     StaticArray<uint8_t, cECDSAParamsOIDSize> fullOID;
 
-    auto size = ASN1_object_size(0, static_cast<int>(rawOID.Size()),
-        V_ASN1_OBJECT); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
+    auto size = ASN1_object_size(0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT); // NOSONAR cpp:M23_058
     if (size <= 0) {
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
     }
@@ -817,8 +783,7 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
     }
 
     auto p = fullOID.Get();
-    ASN1_put_object(&p, 0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT,
-        V_ASN1_UNIVERSAL); // NOSONAR cpp:M23_058 - matches the fixed parameter type of the external C API
+    ASN1_put_object(&p, 0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT, V_ASN1_UNIVERSAL); // NOSONAR cpp:M23_058
     (void)memcpy(p, rawOID.Get(), rawOID.Size());
 
     return {fullOID, ErrorEnum::eNone};
