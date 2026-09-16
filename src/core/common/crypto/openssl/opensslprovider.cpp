@@ -203,8 +203,8 @@ RetWithError<int32_t> GetECCurveBitLen(int32_t nid)
 
 RetWithError<HashEnum> GetHashAlg(const RSAPublicKey& pubKey)
 {
-    auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr),
-        BN_free); // NOSONAR cpp:M23_058
+    auto keySize = static_cast<int>(pubKey.GetN().Size()); // NOSONAR cpp:M23_058
+    auto bn      = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), keySize, nullptr), BN_free);
     if (!bn) {
         return {HashEnum::eNone, OPENSSL_ERROR()};
     }
@@ -516,9 +516,8 @@ int32_t DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PA
     return 1;
 }
 
-// clang-format off
-int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const uint8_t* tbs, size_t tbslen) // NOSONAR cpp:S995 - fixed external API signature
-// clang-format on
+int32_t DgstSign(void* ctx, uint8_t* sig, size_t* siglen, size_t sigsize, const uint8_t* tbs,
+    size_t tbslen) // NOSONAR cpp:S995 - fixed external API signature
 {
     if (!ctx || !siglen || !tbs) {
         LOG_ERR() << "Invalid arguments: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument));
@@ -648,7 +647,6 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
             {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS,
                 reinterpret_cast<void (*)(void)>(SignatureGettableCtxParams)}, // NOSONAR cpp:S3630
             OSSL_DISPATCH_END};
-    // clang-format on
 
     static const OSSL_ALGORITHM cSignAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cSignFunctions, "AOS Signature"}, OSSL_ALGORITHM_END};
@@ -661,7 +659,6 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t*
         {OSSL_FUNC_KEYMGMT_IMPORT, reinterpret_cast<void (*)(void)>(KeyMgmtImport)}, // NOSONAR cpp:S3630
         {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, reinterpret_cast<void (*)(void)>(KeyMgmtImportTypes)}, // NOSONAR cpp:S3630
         OSSL_DISPATCH_END};
-    // clang-format on
 
     static const OSSL_ALGORITHM cKeyMgmAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cKeyMgmFunctions, "AOS Key Management"}, OSSL_ALGORITHM_END};
@@ -700,7 +697,6 @@ int32_t ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, co
         = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, reinterpret_cast<void (*)(void)>(ProviderQuery)}, // NOSONAR cpp:S3630
             {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)}, // NOSONAR cpp:S3630
             OSSL_DISPATCH_END};
-    // clang-format on
 
     *out = provfns;
 
