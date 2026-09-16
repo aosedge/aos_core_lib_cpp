@@ -769,8 +769,9 @@ inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2Uni
         {"proc", "/proc", "proc", ""},
         {"tmpfs", "/dev", "tmpfs", "nosuid,strictatime,mode=755,size=65536k"},
         {"devpts", "/dev/pts", "devpts", "nosuid,noexec,newinstance,ptmxmode=0666,mode=0620,gid=5"},
-        {"shm", "/dev/shm", "tmpfs", "nosuid,noexec,nodev,mode=1777,size=65536k"},
-        {"mqueue", "/dev/mqueue", "mqueue", "nosuid,noexec,nodev"},
+        {"shm", "/dev/shm", "tmpfs", "nosuid,noexec,nodev,mode=1777,size=65536k"}, // NOSONAR cpp:S5443 - standard OCI
+                                                                                   // default mount, sticky bit set
+        {"mqueue", "/dev/mqueue", "mqueue", "nosuid,noexec,nodev"}, // NOSONAR cpp:S5443 - standard OCI default mount
         {"sysfs", "/sys", "sysfs", "nosuid,noexec,nodev,ro"},
         {"cgroup", "/sys/fs/cgroup", "cgroup", "nosuid,noexec,nodev,relatime,ro"},
     };

@@ -699,7 +699,7 @@ Error ImageManager::InstallLayer(
         return err;
     }
 
-    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [&](const String* digest) {
+    auto releaseInstalling = DeferRelease(&descriptor.mDigest, [this](const String* digest) {
         if (auto releaseErr = ReleaseInstallingBlob(*digest); !releaseErr.IsNone()) {
             LOG_ERR() << "Can't release installing blob" << Log::Field("digest", *digest)
                       << Log::Field(AOS_ERROR_WRAP(releaseErr));
