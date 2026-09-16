@@ -68,7 +68,6 @@ public:
      */
     Error()
         : mErr(Enum::eNone)
-        , mErrno(0)
         , mFileName(nullptr)
         , mLineNumber(0)
     {
@@ -87,7 +86,6 @@ public:
     Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
         int32_t lineNumber = 0)
         : mErr(err)
-        , mErrno(0)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
@@ -349,7 +347,7 @@ private:
     };
 
     Enum        mErr;
-    int32_t     mErrno;
+    int32_t     mErrno = 0;
     const char* mFileName;
     int32_t     mLineNumber;
     char        mMessage[cMaxMessageLen];
