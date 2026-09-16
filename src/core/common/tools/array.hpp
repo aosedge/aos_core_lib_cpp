@@ -288,7 +288,8 @@ public:
      * @param item item to push.
      * @return Error.
      */
-    Error PushBack(T&& item)
+    Error PushBack(T&& item) // NOSONAR cpp:S5500 - this library's Move() plays the role of std::move, which is what
+                             // this rule actually looks for
     {
         if (mSize == mMaxSize) {
             return ErrorEnum::eNoMemory;

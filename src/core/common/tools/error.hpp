@@ -387,7 +387,7 @@ struct RetWithError {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(T&& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709 - enables "return value;"
+    RetWithError(T&& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709
         : mValue(Move(value))
         , mError(error)
     {
@@ -485,7 +485,7 @@ struct TieWrapper {
      * @return TieWrapper<T>&
      */
     template <typename U>
-    TieWrapper<T>& operator=(RetWithError<U>&& src)
+    TieWrapper<T>& operator=(RetWithError<U>&& src) // NOSONAR cpp:S5500
     {
         mValue = static_cast<T>(Move(src.mValue));
         mError = src.mError;
