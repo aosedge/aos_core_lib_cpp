@@ -77,7 +77,7 @@ public:
      * Move assignment operator for a DefaultDeleter of a derived class.
      */
     template <typename P>
-    DefaultDeleter& operator=(DefaultDeleter<P>&& other) noexcept
+    DefaultDeleter& operator=(DefaultDeleter<P>&& other) noexcept // NOSONAR cpp:S5500
     {
         mAllocator = other.GetAllocator();
 
@@ -138,7 +138,7 @@ public:
      * @param deleter functor destroying the object.
      *
      */
-    UniquePtr(T* ptr, Deleter&& deleter)
+    UniquePtr(T* ptr, Deleter&& deleter) // NOSONAR cpp:S5500
         : mObject(ptr)
         , mDeleter(Move(deleter))
     {
@@ -204,7 +204,7 @@ public:
      * @param ptr unique pointer to assign from.
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
-    UniquePtr& operator=(UniquePtr<P, D>&& ptr) noexcept
+    UniquePtr& operator=(UniquePtr<P, D>&& ptr) noexcept // NOSONAR cpp:S5500
     {
         Reset();
 
@@ -325,7 +325,7 @@ inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
 template <typename Deleter>
 class NoArgDeleterAdapter {
 public:
-    explicit NoArgDeleterAdapter(Deleter&& deleter)
+    explicit NoArgDeleterAdapter(Deleter&& deleter) // NOSONAR cpp:S5500
         : mDeleter(Move(deleter))
     {
     }
