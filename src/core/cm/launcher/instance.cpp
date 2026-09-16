@@ -22,7 +22,8 @@ Instance::Instance(
     , mImageInfoProvider(imageInfoProvider)
     , mAllocator(allocator)
 {
-    static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent;
+    static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent; // NOSONAR cpp:S3230 - needs Clear() calls below, not
+                                                                // just an init-list
 
     mStatus.mVersion        = info.mVersion;
     mStatus.mPreinstalled   = false;
