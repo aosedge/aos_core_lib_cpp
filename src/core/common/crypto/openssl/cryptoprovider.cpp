@@ -88,12 +88,10 @@ Error AddExtraExtensions(const Array<asn1::Extension>& extra, STACK_OF(X509_EXTE
         }
 
         // Decode the ASN.1 sequence into STACK_OF(ASN1_OBJECT)
-        const uint8_t* p = ext.mValue.Get();
-        // NOSONAR justification (cpp:S3630): ASN1_item_d2i returns the unrelated opaque type ASN1_VALUE*; OpenSSL's
-        // API requires reinterpreting it as the requested item type.
-        // clang-format off
-        auto eku = DeferRelease(reinterpret_cast<SEQ_OID*>(ASN1_item_d2i(nullptr, &p, ext.mValue.Size(), ASN1_ITEM_rptr(SEQ_OID))), // NOSONAR cpp:S3630
-            [](SEQ_OID* oids) { return sk_ASN1_OBJECT_pop_free(oids, ASN1_OBJECT_free); });
+        const uint8_t* p   = ext.mValue.Get();
+        auto           eku = DeferRelease(reinterpret_cast<SEQ_OID*>(ASN1_item_d2i(
+                                    nullptr, &p, ext.mValue.Size(), ASN1_ITEM_rptr(SEQ_OID))), // NOSONAR cpp:S3630
+                      [](SEQ_OID* oids) { return sk_ASN1_OBJECT_pop_free(oids, ASN1_OBJECT_free); });
         // clang-format on
 
         if (!eku) {
@@ -518,18 +516,16 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const RSAPublicKey& pubKey, OSSL_LIB_CTX
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    // NOSONAR justification (cpp:M23_058): matches the fixed parameter type of the external C API.
-    // clang-format off
-    auto n = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr), // NOSONAR cpp:M23_058
+    auto n = DeferRelease(
+        BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr), // NOSONAR cpp:M23_058
         BN_free);
     // clang-format on
     if (!n) {
         return {nullptr, OPENSSL_ERROR()};
     }
 
-    // NOSONAR justification (cpp:M23_058): matches the fixed parameter type of the external C API.
-    // clang-format off
-    auto e = DeferRelease(BN_bin2bn(pubKey.GetE().Get(), static_cast<int>(pubKey.GetE().Size()), nullptr), // NOSONAR cpp:M23_058
+    auto e = DeferRelease(
+        BN_bin2bn(pubKey.GetE().Get(), static_cast<int>(pubKey.GetE().Size()), nullptr), // NOSONAR cpp:M23_058
         BN_free);
     // clang-format on
     if (!e) {
@@ -955,10 +951,7 @@ Error SetIssuerAltNameURIs(const Array<StaticString<cURLLen>>& uris, X509* cert)
             return OPENSSL_ERROR();
         }
 
-        // NOSONAR justification (cpp:M23_058): matches the fixed parameter type of the external C API.
-        // clang-format off
         if (!ASN1_STRING_set(ia5.Get(), uri.CStr(), static_cast<int>(uri.Size()))) { // NOSONAR cpp:M23_058
-            // clang-format on
             return OPENSSL_ERROR();
         }
 
@@ -1584,11 +1577,9 @@ Error OpenSSLCryptoProvider::ASN1EncodeDN(const String& commonName, Array<uint8_
 
     static constexpr auto cDelims = ",/";
 
-    // NOSONAR justification (cpp:S886): "j" is intentionally recomputed by FindAny() every iteration and then used
-    // to advance "i" in the update clause; rewriting this as a while loop would require re-deriving "i = j + 1" on
-    // every "continue" path too, which is more error-prone than the current for-loop, not less.
     // Split the subject name into entries separated by comma or slash
-    for (size_t i = 0, j = 0; i < commonName.Size(); i = j + 1) { // NOSONAR cpp:S886
+    for (size_t i = 0, j = 0; i < commonName.Size(); i = j + 1) { // NOSONAR cpp:S886 - while-loop rewrite needs the
+                                                                  // same update repeated on every continue path
         Error err;
 
         // Find next cn entry

@@ -155,11 +155,9 @@ struct Pair {
      * @param @args arguments to create a second parameter.
      */
     template <typename... Args>
-    Pair(const F& f, Args&&... args) // NOSONAR cpp:S1709 - implicit conversion from the underlying/raw type is
-                                     // intentional, core to this type's value-semantics ergonomics
+    Pair(const F& f, Args&&... args) // NOSONAR cpp:S1709
         : mFirst(f)
-        , mSecond(Forward<Args>(args)...) // NOSONAR cpp:M23_279 - this library's Forward() plays the role of
-                                          // std::forward
+        , mSecond(Forward<Args>(args)...) // NOSONAR cpp:M23_279
     {
     }
 
