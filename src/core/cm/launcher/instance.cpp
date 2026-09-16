@@ -153,22 +153,16 @@ bool Instance::IsPlatformOk(const PlatformInfo& platformInfo) const
 
     // Optional params: architecture variant, OS, OS version, OS features
 
-    if (!mImageConfig->mOS.IsEmpty()) {
-        if (platformInfo.mOSInfo.mOS != mImageConfig->mOS) {
-            return false;
-        }
+    if (!mImageConfig->mOS.IsEmpty() && platformInfo.mOSInfo.mOS != mImageConfig->mOS) {
+        return false;
     }
 
-    if (!mImageConfig->mVariant.IsEmpty()) {
-        if (platformInfo.mArchInfo.mVariant != mImageConfig->mVariant) {
-            return false;
-        }
+    if (!mImageConfig->mVariant.IsEmpty() && platformInfo.mArchInfo.mVariant != mImageConfig->mVariant) {
+        return false;
     }
 
-    if (!mImageConfig->mOSVersion.IsEmpty()) {
-        if (platformInfo.mOSInfo.mVersion != mImageConfig->mOSVersion) {
-            return false;
-        }
+    if (!mImageConfig->mOSVersion.IsEmpty() && platformInfo.mOSInfo.mVersion != mImageConfig->mOSVersion) {
+        return false;
     }
 
     if (!mImageConfig->mOSFeatures.IsEmpty()) {
@@ -429,22 +423,18 @@ Error ServiceInstance::Remove()
     }
 
     if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
-        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        if (firstErr.IsNone()) {
-            firstErr = AOS_ERROR_WRAP(err);
-        }
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        if (firstErr.IsNone()) {
-            firstErr = AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        if (firstErr.IsNone()) {
-            firstErr = AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
     return firstErr;
@@ -582,10 +572,8 @@ size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
         requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (node.NeedBalancing()) {
-        if (mMonitoringData.mCPU > static_cast<double>(requestedCPU)) {
-            return static_cast<size_t>(mMonitoringData.mCPU);
-        }
+    if (node.NeedBalancing() && mMonitoringData.mCPU > static_cast<double>(requestedCPU)) {
+        return static_cast<size_t>(mMonitoringData.mCPU);
     }
 
     return requestedCPU;
@@ -610,10 +598,8 @@ size_t ServiceInstance::GetRequestedRAM(const NodeItf& node)
         requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (node.NeedBalancing()) {
-        if (mMonitoringData.mRAM > requestedRAM) {
-            return mMonitoringData.mRAM;
-        }
+    if (node.NeedBalancing() && mMonitoringData.mRAM > requestedRAM) {
+        return mMonitoringData.mRAM;
     }
 
     return requestedRAM;

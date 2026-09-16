@@ -332,12 +332,11 @@ void InstanceManager::ClearCacheIfLimitReached()
 {
     // Cache shares the allocator budget with active/scheduled instances. Drop the whole cache once the
     // allowed number of instances is reached.
-    if (mScheduledInstances.Size() + mActiveInstances.Size() + mCachedInstances.Size() < 2 * cMaxNumInstances - 1) {
-        // Storage can hold at most cMaxNumInstances instances (active + cached are persisted), so keep their
-        // total within that limit and drop the cache once it is reached.
-        if (mActiveInstances.Size() + mCachedInstances.Size() <= cMaxNumInstances) {
-            return;
-        }
+    // Storage can hold at most cMaxNumInstances instances (active + cached are persisted), so keep their
+    // total within that limit and drop the cache once it is reached.
+    if (mScheduledInstances.Size() + mActiveInstances.Size() + mCachedInstances.Size() < 2 * cMaxNumInstances - 1
+        && mActiveInstances.Size() + mCachedInstances.Size() <= cMaxNumInstances) {
+        return;
     }
 
     for (const auto& instance : mCachedInstances) {

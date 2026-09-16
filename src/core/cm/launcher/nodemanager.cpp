@@ -185,11 +185,9 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     node->NotifyInstanceStatusReceived();
 
-    if (node->IsConnected()) {
-        if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
-                LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
-            }
+    if (node->IsConnected() && mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
+        if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
@@ -324,10 +322,9 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
         }
 
         if (isRequestSent) {
-            if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
-                if (firstErr.IsNone()) {
-                    firstErr = AOS_ERROR_WRAP(err);
-                }
+            if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID);
+                !err.IsNone() && firstErr.IsNone()) {
+                firstErr = AOS_ERROR_WRAP(err);
             }
         }
     }
@@ -350,11 +347,10 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
 bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 {
     // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
-    if (info.mState != NodeStateEnum::eProvisioned && info.mState != NodeStateEnum::ePaused) {
-        if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
-            if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
-                LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
-            }
+    if (info.mState != NodeStateEnum::eProvisioned && info.mState != NodeStateEnum::ePaused
+        && mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
+        if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
