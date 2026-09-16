@@ -80,21 +80,33 @@ protected:
          *
          * @return Reference.
          */
-        Reference operator*() const { return *reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
+        Reference operator*() const
+        {
+            return *reinterpret_cast<Pointer>(mCurrentNode->mBuffer);
+        } // NOSONAR cpp:S3630 - fixed-capacity container needs to view its raw storage buffer as T*; no heap allocator
+          // available
 
         /**
          * Dereference operator.
          *
          * @return Pointer.
          */
-        Pointer operator&() const { return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
+        Pointer operator&() const
+        {
+            return reinterpret_cast<Pointer>(mCurrentNode->mBuffer);
+        } // NOSONAR cpp:S3630 - fixed-capacity container needs to view its raw storage buffer as T*; no heap allocator
+          // available
 
         /**
          * Dereference operator.
          *
          * @return Pointer.
          */
-        Pointer operator->() const { return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
+        Pointer operator->() const
+        {
+            return reinterpret_cast<Pointer>(mCurrentNode->mBuffer);
+        } // NOSONAR cpp:S3630 - fixed-capacity container needs to view its raw storage buffer as T*; no heap allocator
+          // available
 
         /**
          * Prefix increment operator.
