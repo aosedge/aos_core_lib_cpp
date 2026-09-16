@@ -330,7 +330,7 @@ public:
     {
     }
 
-    void operator()(int*) { mDeleter(); }
+    void operator()(int32_t*) { mDeleter(); }
 
 private:
     Deleter mDeleter;
@@ -341,14 +341,14 @@ private:
  *
  * @tparam Deleter type of the deleter.
  * @param deleter functor to be invoked at scope exit.
- * @return UniquePtr<int, NoArgDeleterAdapter<Deleter>>.
+ * @return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>.
  */
 template <typename Deleter>
-inline UniquePtr<int, NoArgDeleterAdapter<Deleter>> DeferRelease(Deleter&& deleter)
+inline UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>> DeferRelease(Deleter&& deleter)
 {
-    static int sSentinel;
+    static int32_t sSentinel;
 
-    return UniquePtr<int, NoArgDeleterAdapter<Deleter>>(
+    return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>(
         &sSentinel, NoArgDeleterAdapter<Deleter>(Forward<Deleter>(deleter)));
 }
 
