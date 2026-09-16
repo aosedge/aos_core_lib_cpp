@@ -346,7 +346,7 @@ private:
 template <typename Deleter>
 inline UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>> DeferRelease(Deleter&& deleter)
 {
-    static int32_t sSentinel;
+    static int32_t sSentinel; // NOSONAR cpp:M23_233 - used as a non-null placeholder
 
     return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>(
         &sSentinel, NoArgDeleterAdapter<Deleter>(Forward<Deleter>(deleter)));

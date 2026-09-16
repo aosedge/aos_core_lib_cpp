@@ -605,7 +605,7 @@ public:
         mShutdown = false;
 
         for (auto& thread : mThreads) {
-            auto err = thread.Run([this](void*) {
+            auto err = thread.Run([this](void*) { // NOSONAR cpp:S1188 - complexity rule, left as-is like cpp:S3776
                 StaticFunction<cMaxTaskSize> task;
 
                 while (true) {

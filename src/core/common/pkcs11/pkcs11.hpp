@@ -626,6 +626,9 @@ public:
      */
     virtual ~LibraryContext();
 
+protected:
+    using PKCS11LibraryContext::Init; // NOSONAR cpp:S1242 - unhides base Init() without widening its access
+
 private:
     static constexpr auto cSessionsMaxCount = AOS_CONFIG_PKCS11_SESSION_POOL_MAX_SIZE;
 
