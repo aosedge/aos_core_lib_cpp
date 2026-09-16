@@ -159,7 +159,6 @@ private:
         Capturer(T& functor, void* arg)
             : mFunctor(functor)
             , mArg(arg)
-            , mSize(sizeof(Capturer<T>))
         {
         }
 
@@ -172,7 +171,7 @@ private:
     private:
         T      mFunctor;
         void*  mArg;
-        size_t mSize;
+        size_t mSize = sizeof(Capturer<T>);
     };
 
     void*        mBuffer   = nullptr;
