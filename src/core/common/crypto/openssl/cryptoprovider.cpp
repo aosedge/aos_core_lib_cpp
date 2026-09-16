@@ -88,11 +88,10 @@ Error AddExtraExtensions(const Array<asn1::Extension>& extra, STACK_OF(X509_EXTE
         }
 
         // Decode the ASN.1 sequence into STACK_OF(ASN1_OBJECT)
-        const uint8_t* p   = ext.mValue.Get();
-        auto           eku = DeferRelease(reinterpret_cast<SEQ_OID*>(ASN1_item_d2i(
-                                    nullptr, &p, ext.mValue.Size(), ASN1_ITEM_rptr(SEQ_OID))), // NOSONAR cpp:S3630
-                      [](SEQ_OID* oids) { return sk_ASN1_OBJECT_pop_free(oids, ASN1_OBJECT_free); });
-        // clang-format on
+        const uint8_t* p        = ext.mValue.Get();
+        auto*          rawValue = ASN1_item_d2i(nullptr, &p, ext.mValue.Size(), ASN1_ITEM_rptr(SEQ_OID));
+        auto           eku      = DeferRelease(reinterpret_cast<SEQ_OID*>(rawValue), // NOSONAR cpp:S3630
+                           [](SEQ_OID* oids) { return sk_ASN1_OBJECT_pop_free(oids, ASN1_OBJECT_free); });
 
         if (!eku) {
             return OPENSSL_ERROR();
@@ -519,7 +518,6 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const RSAPublicKey& pubKey, OSSL_LIB_CTX
     auto n = DeferRelease(
         BN_bin2bn(pubKey.GetN().Get(), static_cast<int>(pubKey.GetN().Size()), nullptr), // NOSONAR cpp:M23_058
         BN_free);
-    // clang-format on
     if (!n) {
         return {nullptr, OPENSSL_ERROR()};
     }
@@ -527,7 +525,6 @@ RetWithError<EVP_PKEY*> GetEvpPublicKey(const RSAPublicKey& pubKey, OSSL_LIB_CTX
     auto e = DeferRelease(
         BN_bin2bn(pubKey.GetE().Get(), static_cast<int>(pubKey.GetE().Size()), nullptr), // NOSONAR cpp:M23_058
         BN_free);
-    // clang-format on
     if (!e) {
         return {nullptr, OPENSSL_ERROR()};
     }
@@ -777,7 +774,6 @@ Error SetSerial(const Array<uint8_t>& serial, X509* cert)
 
         auto bnSerialRaw = DeferRelease(BN_bin2bn(buf, static_cast<int>(serial.Size()), nullptr), // NOSONAR cpp:M23_058
             BN_free);
-        // clang-format on
         if (!bnSerialRaw) {
             return OPENSSL_ERROR();
         }
