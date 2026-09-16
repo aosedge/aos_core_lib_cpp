@@ -344,7 +344,7 @@ public:
     template <typename... Args>
     Error EmplaceBack(Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...); // NOSONAR cpp:M23_279
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
@@ -381,7 +381,7 @@ public:
     template <typename... Args>
     Error EmplaceFront(Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...); // NOSONAR cpp:M23_279
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
@@ -401,7 +401,7 @@ public:
     template <typename... Args>
     Error Emplace(ConstIterator pos, Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...); // NOSONAR cpp:M23_279
         if (!node) {
             return ErrorEnum::eNoMemory;
         }

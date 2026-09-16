@@ -199,7 +199,8 @@ private:
 template <typename Reader>
 ASN1Reader<Reader> MakeASN1Reader(Reader&& reader)
 {
-    return ASN1Reader<Reader>(Forward<Reader>(reader));
+    return ASN1Reader<Reader>(Forward<Reader>(reader)); // NOSONAR cpp:M23_279 - this library's Forward() plays the
+                                                        // role of std::forward
 }
 
 /**
