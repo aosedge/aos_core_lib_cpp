@@ -81,18 +81,16 @@ void Node::PrepareForBalancing(bool rebalancing)
     auto totalRAM = mInfo.mTotalRAM;
 
     // For nodes requiring rebalancing, we need to decrease resource consumption below the low threshold.
-    if (mNeedBalancing) {
-        if (mConfig.mAlertRules.HasValue()) {
-            const auto& alertRules = mConfig.mAlertRules.GetValue();
-            if (alertRules.mCPU.HasValue()) {
-                totalCPU = static_cast<size_t>(
-                    static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMinThreshold / 100.0);
-            }
+    if (mNeedBalancing && mConfig.mAlertRules.HasValue()) {
+        const auto& alertRules = mConfig.mAlertRules.GetValue();
+        if (alertRules.mCPU.HasValue()) {
+            totalCPU = static_cast<size_t>(
+                static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMinThreshold / 100.0);
+        }
 
-            if (alertRules.mRAM.HasValue()) {
-                totalRAM = static_cast<size_t>(
-                    static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMinThreshold / 100.0);
-            }
+        if (alertRules.mRAM.HasValue()) {
+            totalRAM = static_cast<size_t>(
+                static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMinThreshold / 100.0);
         }
     }
 
