@@ -1881,18 +1881,15 @@ Error ImageManager::SetItemsToInstalled(const Array<UpdateItemInfo>& itemsInfo, 
             return stored.mItemID == itemInfo.mItemID && stored.mVersion == itemInfo.mVersion;
         });
 
-        if (storedIt != storedItems.end()) {
-            if (storedIt->mState != ItemStateEnum::eInstalled) {
-                if (auto err
-                    = mStorage->UpdateItemState(storedIt->mItemID, storedIt->mVersion, ItemStateEnum::eInstalled);
-                    !err.IsNone()) {
-                    LOG_ERR() << "Failed to update item state to installed" << Log::Field("itemID", storedIt->mItemID)
-                              << Log::Field("version", storedIt->mVersion) << Log::Field(err);
-                }
-
-                NotifyItemStatusChanged(storedIt->mItemID, storedIt->mType, storedIt->mVersion,
-                    ItemStateEnum::eInstalled, ErrorEnum::eNone);
+        if (storedIt != storedItems.end() && storedIt->mState != ItemStateEnum::eInstalled) {
+            if (auto err = mStorage->UpdateItemState(storedIt->mItemID, storedIt->mVersion, ItemStateEnum::eInstalled);
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to update item state to installed" << Log::Field("itemID", storedIt->mItemID)
+                          << Log::Field("version", storedIt->mVersion) << Log::Field(err);
             }
+
+            NotifyItemStatusChanged(
+                storedIt->mItemID, storedIt->mType, storedIt->mVersion, ItemStateEnum::eInstalled, ErrorEnum::eNone);
         }
     }
 
