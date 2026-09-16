@@ -93,10 +93,9 @@ using RemoveConstType = typename RemoveConst<T>::type;
  * @tparam T object to move.
  */
 template <typename T>
-inline typename RemoveRef<T>::type&& Move(T&& object) // NOSONAR cpp:M23_279 - this function itself implements the
-                                                      // move idiom, it must not forward its argument
+inline typename RemoveRef<T>::type&& Move(T&& object)
 {
-    return static_cast<typename RemoveRef<T>::type&&>(object);
+    return static_cast<typename RemoveRef<T>::type&&>(object); // NOSONAR cpp:M23_279
 }
 
 /**
@@ -159,7 +158,8 @@ struct Pair {
     Pair(const F& f, Args&&... args) // NOSONAR cpp:S1709 - implicit conversion from the underlying/raw type is
                                      // intentional, core to this type's value-semantics ergonomics
         : mFirst(f)
-        , mSecond(Forward<Args>(args)...)
+        , mSecond(Forward<Args>(args)...) // NOSONAR cpp:M23_279 - this library's Forward() plays the role of
+                                          // std::forward
     {
     }
 
