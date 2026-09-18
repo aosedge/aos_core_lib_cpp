@@ -43,7 +43,7 @@ Error ImageManager::Init(AllocatorItf& allocator, const Config& config, StorageI
         return AOS_ERROR_WRAP(err);
     }
 
-    mBlobsInstallPath = fs::JoinPath(mConfig.mInstallPath, cBlobsDirName);
+    mBlobsInstallPath = fs::JoinPath(mConfig.mImagePath, cBlobsDirName);
 
     if (auto err = fs::MakeDirAll(mBlobsInstallPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
