@@ -16,7 +16,8 @@ namespace aos::cm::imagemanager {
  * Image manager configuration.
  */
 struct Config {
-    StaticString<cFilePathLen> mInstallPath;
+    StaticString<cFilePathLen> mImagePath;
+    size_t                     mPartLimit {};
     StaticString<cFilePathLen> mDownloadPath;
     Duration                   mUpdateItemTTL;
     Duration                   mRemoveOutdatedPeriod;
@@ -29,8 +30,9 @@ struct Config {
      */
     friend bool operator==(const Config& lhs, const Config& other)
     {
-        return lhs.mInstallPath == other.mInstallPath && lhs.mDownloadPath == other.mDownloadPath
-            && lhs.mUpdateItemTTL == other.mUpdateItemTTL && lhs.mRemoveOutdatedPeriod == other.mRemoveOutdatedPeriod;
+        return lhs.mImagePath == other.mImagePath && lhs.mPartLimit == other.mPartLimit
+            && lhs.mDownloadPath == other.mDownloadPath && lhs.mUpdateItemTTL == other.mUpdateItemTTL
+            && lhs.mRemoveOutdatedPeriod == other.mRemoveOutdatedPeriod;
     };
 
     /**
