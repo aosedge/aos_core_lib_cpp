@@ -43,7 +43,7 @@ protected:
 
     void SetUp() override
     {
-        mConfig.mInstallPath          = "/tmp/imagemanager_test/install";
+        mConfig.mImagePath            = "/tmp/imagemanager_test/install";
         mConfig.mDownloadPath         = "/tmp/imagemanager_test/download";
         mConfig.mUpdateItemTTL        = Time::cSeconds * 10;
         mConfig.mRemoveOutdatedPeriod = Time::cSeconds * 20;
@@ -59,7 +59,7 @@ protected:
 
     void TearDown() override
     {
-        fs::RemoveAll(mConfig.mInstallPath);
+        fs::RemoveAll(mConfig.mImagePath);
         fs::RemoveAll(mConfig.mDownloadPath);
     }
 
@@ -516,7 +516,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_BlobsAlreadyExistOnDisk)
     EXPECT_CALL(mStorageMock, GetAllItemsInfos(_)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
     EXPECT_CALL(mStorageMock, AddItem(_)).WillOnce(Return(ErrorEnum::eNone));
 
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
 
     auto indexPath    = fs::JoinPath(blobsDir, "aabb");
@@ -877,7 +877,7 @@ TEST_F(ImageManagerTest, DownloadUpdateItems_UnencryptedBlob_CopiesToInstall)
     EXPECT_EQ(statuses[0].mState, ItemStateEnum::ePending);
 
     ExpectFileRemoved(GetBlobDownloadPath());
-    ExpectFileSize(fs::JoinPath(mConfig.mInstallPath, "blobs/sha256", cBlobHash), cBlobSize);
+    ExpectFileSize(fs::JoinPath(mConfig.mImagePath, "blobs/sha256", cBlobHash), cBlobSize);
 }
 
 TEST_F(ImageManagerTest, DownloadUpdateItems_PartialDownload_AllocatesRemainingSize)
@@ -1587,7 +1587,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_Success)
         return ErrorEnum::eNone;
     }));
 
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
 
     auto indexPath    = fs::JoinPath(blobsDir, "1111");
@@ -1800,7 +1800,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_RemoveDifferentVersion)
         return ErrorEnum::eNone;
     }));
 
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
 
     auto indexPath    = fs::JoinPath(blobsDir, "4444");
@@ -1954,7 +1954,7 @@ TEST_F(ImageManagerTest, InstallUpdateItems_SetItemsToRemoved)
         }))
         .WillOnce(Invoke([](Array<ItemInfo>&) { return ErrorEnum::eNone; }));
 
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
 
     auto service2Index    = fs::JoinPath(blobsDir, "aaaa");
@@ -2074,7 +2074,7 @@ TEST_F(ImageManagerTest, RemoveItem_Success)
 
     EXPECT_CALL(mInstallSpaceAllocatorMock, RestoreOutdatedItem(_, _)).WillOnce(Return(ErrorEnum::eNone));
 
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
 
     auto index1Path    = fs::JoinPath(blobsDir, "1111");
@@ -2306,7 +2306,7 @@ TEST_F(ImageManagerTest, GetIndexDigest_WrongState)
 
 TEST_F(ImageManagerTest, GetBlobPath_Success)
 {
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "blobs", "sha256");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "blobs", "sha256");
     fs::MakeDirAll(blobsDir);
 
     StaticString<cFilePathLen> blobPath;
@@ -2333,7 +2333,7 @@ TEST_F(ImageManagerTest, GetBlobPath_NotFound)
 
 TEST_F(ImageManagerTest, GetBlobURL_Success)
 {
-    auto blobsDir = fs::JoinPath(mConfig.mInstallPath, "/blobs/sha256/");
+    auto blobsDir = fs::JoinPath(mConfig.mImagePath, "/blobs/sha256/");
     fs::MakeDirAll(blobsDir);
 
     StaticString<cFilePathLen> blobPath;
