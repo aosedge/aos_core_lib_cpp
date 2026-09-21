@@ -52,6 +52,18 @@ AES cipher interface for encrypting and decrypting data blocks using the AES alg
 - `EncryptBlock(input, output)`: Encrypts a data block
 - `DecryptBlock(input, output)`: Decrypts a data block
 - `Finalize(output)`: Finalizes encryption/decryption
+- `SetTag(tag)` / `GetTag(tag)`: Sets the expected tag of a GCM decoder / returns the tag of a GCM encoder
+
+**GCM note:** the API is streaming, so a GCM decoder returns plaintext from `DecryptBlock` before the authentication tag
+is verified in `Finalize`. That plaintext is unauthenticated: consumers must stage it (temporary file or buffer) and
+discard it if `SetTag` or `Finalize` fails. A cipher can't be used any more after `Finalize`, even if it failed.
+`CryptoHelper::Decrypt` does this for all modes: it decrypts into a newly created, owner-only permission file next to
+the output (unique name, never reusing an existing file or following a symlink as the last path component) and, only
+after a successful decryption, renames it to the output path, keeping the owner-only permission; a caller that needs a
+different policy sets it after `Decrypt` returns. On a failed decryption, the staged file is removed on a best-effort
+basis (a removal failure is reported instead of being hidden behind the original error, but does not stop the staged
+file from possibly remaining); an already existing output file is left untouched either way. The output directory
+must be trusted: symlinks in parent directories are resolved as usual.
 
 #### AESEncoderDecoderItf
 

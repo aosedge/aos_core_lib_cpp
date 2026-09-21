@@ -1057,19 +1057,16 @@ RetWithError<uuid::UUID> MbedTLSCryptoProvider::CreateUUIDv5(const uuid::UUID& s
     return result;
 }
 
-RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESEncoder(
-    const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv)
+template <typename Cipher>
+RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESCipher(
+    const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt)
 {
-    if (mode != "CBC") {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
-    }
-
-    auto cipher = MakeUnique<MbedTLSAESCipher>(mAllocator);
+    auto cipher = MakeUnique<Cipher>(mAllocator);
     if (!cipher) {
         return {{}, ErrorEnum::eNoMemory};
     }
 
-    auto err = cipher->Init(key, iv, true);
+    auto err = cipher->Init(key, iv, encrypt);
     if (!err.IsNone()) {
         return {{}, err};
     }
@@ -1077,24 +1074,30 @@ RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESEncoder(
     return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
 }
 
+RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESCipher(
+    const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt)
+{
+    if (mode == "CBC") {
+        return CreateAESCipher<MbedTLSAESCBCCipher>(key, iv, encrypt);
+    }
+
+    if (mode == "GCM") {
+        return CreateAESCipher<MbedTLSAESGCMCipher>(key, iv, encrypt);
+    }
+
+    return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+}
+
+RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESEncoder(
+    const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv)
+{
+    return CreateAESCipher(mode, key, iv, true);
+}
+
 RetWithError<UniquePtr<AESCipherItf>> MbedTLSCryptoProvider::CreateAESDecoder(
     const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv)
 {
-    if (mode != "CBC") {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
-    }
-
-    auto cipher = MakeUnique<MbedTLSAESCipher>(mAllocator);
-    if (!cipher) {
-        return {{}, ErrorEnum::eNoMemory};
-    }
-
-    auto err = cipher->Init(key, iv, false);
-    if (!err.IsNone()) {
-        return {{}, err};
-    }
-
-    return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
+    return CreateAESCipher(mode, key, iv, false);
 }
 
 Error MbedTLSCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc,
@@ -1583,85 +1586,79 @@ MbedTLSCryptoProvider::MBedTLSHash::~MBedTLSHash()
 }
 
 /***********************************************************************************************************************
- * MbedTLSAESCipher implementation
+ * MbedTLSAESCipher: common streaming
  **********************************************************************************************************************/
-
-static const mbedtls_cipher_info_t* GetAesCbcInfoByKeySize(size_t keySize)
-{
-    switch (keySize) {
-    case 16:
-        return mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_CBC);
-
-    case 24:
-        return mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_192_CBC);
-
-    case 32:
-        return mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CBC);
-
-    default:
-        return nullptr;
-    }
-}
 
 Error MbedTLSCryptoProvider::MbedTLSAESCipher::Init(const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt)
 {
-    if (iv.Size() != 16) {
+    if (iv.Size() != GetIVSize()) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    const mbedtls_cipher_info_t* info = GetAesCbcInfoByKeySize(key.Size());
+    // the cipher info exists only for the supported key sizes
+    const auto* info
+        = mbedtls_cipher_info_from_values(MBEDTLS_CIPHER_ID_AES, static_cast<int32_t>(key.Size() * 8), GetMode());
     if (!info) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
     mbedtls_cipher_init(&mCtx);
-    auto releaseCtx = DeferRelease(&mCtx, mbedtls_cipher_free);
 
-    int32_t ret = mbedtls_cipher_setup(&mCtx, info);
+    auto ret = mbedtls_cipher_setup(&mCtx, info);
+    if (ret == 0) {
+        ret = ConfigureContext(mCtx);
+    }
+
+    if (ret == 0) {
+        ret = mbedtls_cipher_setkey(
+            &mCtx, key.Get(), static_cast<int32_t>(key.Size() * 8), encrypt ? MBEDTLS_ENCRYPT : MBEDTLS_DECRYPT);
+    }
+
+    if (ret == 0) {
+        ret = mbedtls_cipher_set_iv(&mCtx, iv.Get(), iv.Size());
+    }
+
+    if (ret == 0) {
+        ret = mbedtls_cipher_reset(&mCtx);
+    }
+
     if (ret != 0) {
+        mbedtls_cipher_free(&mCtx);
+
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
-    ret = mbedtls_cipher_set_padding_mode(&mCtx, MBEDTLS_PADDING_PKCS7);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
-    }
-
-    // Set key (in bits)
-    ret = mbedtls_cipher_setkey(
-        &mCtx, key.Get(), static_cast<int32_t>(key.Size() * 8), encrypt ? MBEDTLS_ENCRYPT : MBEDTLS_DECRYPT);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
-    }
-
-    // Set IV
-    ret = mbedtls_cipher_set_iv(&mCtx, iv.Get(), iv.Size());
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
-    }
-
-    // Reset (prepare for update/finish)
-    ret = mbedtls_cipher_reset(&mCtx);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
-    }
-
-    mInfo        = info;
     mEncrypt     = encrypt;
     mInitialized = true;
 
-    (void)releaseCtx.Release();
+    return ErrorEnum::eNone;
+}
+
+int32_t MbedTLSCryptoProvider::MbedTLSAESCipher::ConfigureContext(mbedtls_cipher_context_t& ctx)
+{
+    (void)ctx;
+
+    return 0;
+}
+
+Error MbedTLSCryptoProvider::MbedTLSAESCipher::CheckDecryptInput(const Array<uint8_t>& input) const
+{
+    (void)input;
+
+    return ErrorEnum::eNone;
+}
+
+Error MbedTLSCryptoProvider::MbedTLSAESCipher::OnFinished(mbedtls_cipher_context_t& ctx, bool encrypt)
+{
+    (void)ctx;
+    (void)encrypt;
 
     return ErrorEnum::eNone;
 }
 
 Error MbedTLSCryptoProvider::MbedTLSAESCipher::EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
-    if (!mInitialized) {
-        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
-    }
-
-    if (!mEncrypt) {
+    if (!mInitialized || !mEncrypt) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
@@ -1669,38 +1666,29 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::EncryptBlock(const Array<uint8_t>
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    (void)output.Resize(output.MaxSize());
-
-    size_t  outLen = 0;
-    int32_t ret    = mbedtls_cipher_update(&mCtx, input.Get(), input.Size(), output.Get(), &outLen);
-    if (ret != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
-    }
-
-    (void)output.Resize(outLen);
-
-    return ErrorEnum::eNone;
+    return Update(input, output);
 }
 
 Error MbedTLSCryptoProvider::MbedTLSAESCipher::DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
-    if (!mInitialized) {
+    if (!mInitialized || mEncrypt) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    if (mEncrypt) {
-        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    if (auto err = CheckDecryptInput(input); !err.IsNone()) {
+        return err;
     }
 
-    if ((input.Size() % AESCipherItf::cBlockSize) != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
-    }
+    return Update(input, output);
+}
 
+Error MbedTLSCryptoProvider::MbedTLSAESCipher::Update(const Array<uint8_t>& input, Array<uint8_t>& output)
+{
     (void)output.Resize(output.MaxSize());
 
-    size_t  outLen = 0;
-    int32_t ret    = mbedtls_cipher_update(&mCtx, input.Get(), input.Size(), output.Get(), &outLen);
-    if (ret != 0) {
+    size_t outLen = 0;
+
+    if (mbedtls_cipher_update(&mCtx, input.Get(), input.Size(), output.Get(), &outLen) != 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);
     }
 
@@ -1711,40 +1699,108 @@ Error MbedTLSCryptoProvider::MbedTLSAESCipher::DecryptBlock(const Array<uint8_t>
 
 Error MbedTLSCryptoProvider::MbedTLSAESCipher::Finalize(Array<uint8_t>& output)
 {
-    if (!mInitialized || mInfo == nullptr) {
+    if (!mInitialized) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    if (auto err = output.Resize(output.MaxSize()); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    (void)output.Resize(output.MaxSize());
+
+    size_t outLen = 0;
+
+    auto err = mbedtls_cipher_finish(&mCtx, output.Get(), &outLen) == 0 ? Error(ErrorEnum::eNone)
+                                                                        : AOS_ERROR_WRAP(ErrorEnum::eFailed);
+
+    if (err.IsNone()) {
+        (void)output.Resize(outLen);
+
+        err = OnFinished(mCtx, mEncrypt);
     }
 
-    size_t  outLen = 0;
-    int32_t ret    = mbedtls_cipher_finish(&mCtx, output.Get(), &outLen);
-    if (ret != 0) {
-        mbedtls_cipher_free(&mCtx);
-        mInitialized = false;
-        mInfo        = nullptr;
+    // the cipher can't be used after it is finalized, even if the finalization failed (e.g. authentication)
+    Release();
 
-        return AOS_ERROR_WRAP(ErrorEnum::eFailed);
-    }
-
-    (void)output.Resize(outLen);
-
-    mbedtls_cipher_free(&mCtx);
-    mInitialized = false;
-    mInfo        = nullptr;
-
-    return ErrorEnum::eNone;
+    return err;
 }
 
-MbedTLSCryptoProvider::MbedTLSAESCipher::~MbedTLSAESCipher()
+void MbedTLSCryptoProvider::MbedTLSAESCipher::Release()
 {
     if (mInitialized) {
         mbedtls_cipher_free(&mCtx);
         mInitialized = false;
-        mInfo        = nullptr;
     }
+}
+
+MbedTLSCryptoProvider::MbedTLSAESCipher::~MbedTLSAESCipher()
+{
+    Release();
+}
+
+/***********************************************************************************************************************
+ * MbedTLSAESCBCCipher
+ **********************************************************************************************************************/
+
+int32_t MbedTLSCryptoProvider::MbedTLSAESCBCCipher::ConfigureContext(mbedtls_cipher_context_t& ctx)
+{
+    return mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
+}
+
+Error MbedTLSCryptoProvider::MbedTLSAESCBCCipher::CheckDecryptInput(const Array<uint8_t>& input) const
+{
+    if ((input.Size() % AESCipherItf::cBlockSize) != 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * MbedTLSAESGCMCipher
+ **********************************************************************************************************************/
+
+Error MbedTLSCryptoProvider::MbedTLSAESGCMCipher::SetTag(const Array<uint8_t>& tag)
+{
+    if (!IsInitialized() || IsEncrypt()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    if (tag.Size() != AESCipherItf::cGCMTagSize) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
+    mTag    = tag;
+    mTagSet = true;
+
+    return ErrorEnum::eNone;
+}
+
+Error MbedTLSCryptoProvider::MbedTLSAESGCMCipher::GetTag(Array<uint8_t>& tag)
+{
+    if (!IsEncrypt() || !mTagSet) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    return tag.Assign(mTag);
+}
+
+Error MbedTLSCryptoProvider::MbedTLSAESGCMCipher::OnFinished(mbedtls_cipher_context_t& ctx, bool encrypt)
+{
+    if (encrypt) {
+        (void)mTag.Resize(AESCipherItf::cGCMTagSize);
+
+        mTagSet = mbedtls_cipher_write_tag(&ctx, mTag.Get(), mTag.Size()) == 0;
+
+        return mTagSet ? Error(ErrorEnum::eNone) : AOS_ERROR_WRAP(ErrorEnum::eFailed);
+    }
+
+    if (!mTagSet) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    if (mbedtls_cipher_check_tag(&ctx, mTag.Get(), mTag.Size()) != 0) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "authentication failed"));
+    }
+
+    return ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************

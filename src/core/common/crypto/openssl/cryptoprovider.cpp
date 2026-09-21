@@ -1280,6 +1280,28 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     return {ErrorEnum::eNone, remaining};
 }
 
+Error GetOpenSSLError()
+{
+    return OPENSSL_ERROR();
+}
+
+template <typename Cipher>
+RetWithError<UniquePtr<AESCipherItf>> MakeAESCipher(
+    AllocatorItf* allocator, OSSL_LIB_CTX* libCtx, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt)
+{
+    auto cipher = MakeUnique<Cipher>(allocator);
+    if (!cipher) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    auto err = cipher->Init(libCtx, key, iv, encrypt);
+    if (!err.IsNone()) {
+        return {{}, err};
+    }
+
+    return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -1894,44 +1916,30 @@ RetWithError<uuid::UUID> OpenSSLCryptoProvider::CreateUUIDv5(const uuid::UUID& s
     return result;
 }
 
+RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESCipher(
+    const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt)
+{
+    if (mode == "CBC") {
+        return MakeAESCipher<OpenSSLAESCBCCipher>(mAllocator, mLibCtx, key, iv, encrypt);
+    }
+
+    if (mode == "GCM") {
+        return MakeAESCipher<OpenSSLAESGCMCipher>(mAllocator, mLibCtx, key, iv, encrypt);
+    }
+
+    return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+}
+
 RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESEncoder(
     const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv)
 {
-    if (mode != "CBC") {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
-    }
-
-    auto cipher = MakeUnique<OpenSSLAESCipher>(mAllocator);
-    if (!cipher) {
-        return {{}, ErrorEnum::eNoMemory};
-    }
-
-    auto err = cipher->Init(mLibCtx, key, iv, true);
-    if (!err.IsNone()) {
-        return {{}, err};
-    }
-
-    return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
+    return CreateAESCipher(mode, key, iv, true);
 }
 
 RetWithError<UniquePtr<AESCipherItf>> OpenSSLCryptoProvider::CreateAESDecoder(
     const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv)
 {
-    if (mode != "CBC") {
-        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
-    }
-
-    auto cipher = MakeUnique<OpenSSLAESCipher>(mAllocator);
-    if (!cipher) {
-        return {{}, ErrorEnum::eNoMemory};
-    }
-
-    auto err = cipher->Init(mLibCtx, key, iv, false);
-    if (!err.IsNone()) {
-        return {{}, err};
-    }
-
-    return {UniquePtr<AESCipherItf>(Move(cipher)), ErrorEnum::eNone};
+    return CreateAESCipher(mode, key, iv, false);
 }
 
 Error OpenSSLCryptoProvider::Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc,
@@ -2504,54 +2512,56 @@ OpenSSLCryptoProvider::OpenSSLHash::~OpenSSLHash()
     }
 }
 
+/***********************************************************************************************************************
+ * OpenSSLAESCipher: common streaming
+ **********************************************************************************************************************/
+
 Error OpenSSLCryptoProvider::OpenSSLAESCipher::Init(
     OSSL_LIB_CTX* libCtx, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt)
 {
-    if (iv.Size() != 16) {
+    if (iv.Size() != GetIVSize()) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    auto cipherType = DeferRelease<EVP_CIPHER>(nullptr, EVP_CIPHER_free);
-    switch (key.Size()) {
-    case 16:
-        cipherType.Reset(EVP_CIPHER_fetch(libCtx, "AES-128-CBC", nullptr));
-        break;
-
-    case 24:
-        cipherType.Reset(EVP_CIPHER_fetch(libCtx, "AES-192-CBC", nullptr));
-        break;
-
-    case 32:
-        cipherType.Reset(EVP_CIPHER_fetch(libCtx, "AES-256-CBC", nullptr));
-        break;
-
-    default:
+    if (key.Size() != 16 && key.Size() != 24 && key.Size() != 32) {
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    if (!cipherType) {
-        return OPENSSL_ERROR();
-    }
+    StaticString<sizeof("AES-256-GCM")> cipherName;
 
-    auto cipherCtx = DeferRelease<EVP_CIPHER_CTX>(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
-    if (!cipherCtx) {
-        return OPENSSL_ERROR();
-    }
+    (void)cipherName.Format("AES-%d-%s", static_cast<int32_t>(key.Size() * 8), GetModeName());
 
-    if (EVP_CipherInit_ex(cipherCtx.Get(), cipherType.Get(), nullptr, key.Get(), iv.Get(), encrypt ? 1 : 0) != 1) {
-        return OPENSSL_ERROR();
-    }
-
-    mCipherType = cipherType.Release();
-    mCipherCtx  = cipherCtx.Release();
+    mCipherType = EVP_CIPHER_fetch(libCtx, cipherName.CStr(), nullptr);
+    mCipherCtx  = EVP_CIPHER_CTX_new();
     mEncrypt    = encrypt;
 
+    if (!mCipherType || !mCipherCtx
+        || EVP_CipherInit_ex(mCipherCtx, mCipherType, nullptr, key.Get(), iv.Get(), encrypt ? 1 : 0) != 1) {
+        auto err = GetOpenSSLError();
+
+        Release();
+
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error OpenSSLCryptoProvider::OpenSSLAESCipher::CheckDecryptInput(const Array<uint8_t>& input) const
+{
+    (void)input;
+
+    return ErrorEnum::eNone;
+}
+
+Error OpenSSLCryptoProvider::OpenSSLAESCipher::OnEncryptFinalized()
+{
     return ErrorEnum::eNone;
 }
 
 Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
-    if (!mCipherCtx) {
+    if (!mCipherCtx || !mEncrypt) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
@@ -2559,33 +2569,30 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::EncryptBlock(const Array<uint8_t>
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    (void)output.Resize(output.MaxSize());
-
-    int32_t outLen = 0;
-    if (EVP_EncryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int32_t>(input.Size())) != 1) {
-        return OPENSSL_ERROR();
-    }
-
-    (void)output.Resize(outLen);
-
-    return ErrorEnum::eNone;
+    return Update(input, output);
 }
 
 Error OpenSSLCryptoProvider::OpenSSLAESCipher::DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output)
 {
-    if (!mCipherCtx) {
+    if (!mCipherCtx || mEncrypt) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    if ((input.Size() % AESCipherItf::cBlockSize) != 0) {
-        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    if (auto err = CheckDecryptInput(input); !err.IsNone()) {
+        return err;
     }
 
+    return Update(input, output);
+}
+
+Error OpenSSLCryptoProvider::OpenSSLAESCipher::Update(const Array<uint8_t>& input, Array<uint8_t>& output)
+{
     (void)output.Resize(output.MaxSize());
 
     int32_t outLen = 0;
-    if (EVP_DecryptUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int32_t>(input.Size())) != 1) {
-        return OPENSSL_ERROR();
+
+    if (EVP_CipherUpdate(mCipherCtx, output.Get(), &outLen, input.Get(), static_cast<int32_t>(input.Size())) != 1) {
+        return GetOpenSSLError();
     }
 
     (void)output.Resize(outLen);
@@ -2595,50 +2602,99 @@ Error OpenSSLCryptoProvider::OpenSSLAESCipher::DecryptBlock(const Array<uint8_t>
 
 Error OpenSSLCryptoProvider::OpenSSLAESCipher::Finalize(Array<uint8_t>& output)
 {
-    if (!mCipherCtx || !mCipherType) {
+    if (!mCipherCtx) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    if (mEncrypt) {
-        (void)output.Resize(output.MaxSize());
+    (void)output.Resize(output.MaxSize());
 
-        int32_t outLen = 0;
-        if (EVP_EncryptFinal_ex(mCipherCtx, output.Get(), &outLen) != 1) {
-            return OPENSSL_ERROR();
-        }
+    int32_t outLen = 0;
 
+    auto err = EVP_CipherFinal_ex(mCipherCtx, output.Get(), &outLen) == 1 ? Error(ErrorEnum::eNone) : GetOpenSSLError();
+
+    if (err.IsNone()) {
         (void)output.Resize(outLen);
-    } else {
-        (void)output.Resize(output.MaxSize());
 
-        int32_t outLen = 0;
-        if (EVP_DecryptFinal_ex(mCipherCtx, output.Get(), &outLen) != 1) {
-            return OPENSSL_ERROR();
-        }
-
-        (void)output.Resize(outLen);
+        err = mEncrypt ? OnEncryptFinalized() : Error(ErrorEnum::eNone);
     }
 
+    // the cipher can't be used after it is finalized, even if the finalization failed (e.g. authentication)
+    Release();
+
+    return err;
+}
+
+void OpenSSLCryptoProvider::OpenSSLAESCipher::Release()
+{
     EVP_CIPHER_CTX_free(mCipherCtx);
     mCipherCtx = nullptr;
 
     EVP_CIPHER_free(mCipherType);
     mCipherType = nullptr;
-
-    return ErrorEnum::eNone;
 }
 
 OpenSSLCryptoProvider::OpenSSLAESCipher::~OpenSSLAESCipher()
 {
-    if (mCipherCtx) {
-        EVP_CIPHER_CTX_free(mCipherCtx);
-        mCipherCtx = nullptr;
+    Release();
+}
+
+/***********************************************************************************************************************
+ * OpenSSLAESCBCCipher
+ **********************************************************************************************************************/
+
+Error OpenSSLCryptoProvider::OpenSSLAESCBCCipher::CheckDecryptInput(const Array<uint8_t>& input) const
+{
+    if ((input.Size() % AESCipherItf::cBlockSize) != 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    if (mCipherType) {
-        EVP_CIPHER_free(mCipherType);
-        mCipherType = nullptr;
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * OpenSSLAESGCMCipher
+ **********************************************************************************************************************/
+
+Error OpenSSLCryptoProvider::OpenSSLAESGCMCipher::SetTag(const Array<uint8_t>& tag)
+{
+    if (!GetContext() || IsEncrypt()) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
+
+    if (tag.Size() != AESCipherItf::cGCMTagSize) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
+
+    // the tag is passed as a mutable buffer
+    mTag = tag;
+
+    if (EVP_CIPHER_CTX_ctrl(GetContext(), EVP_CTRL_AEAD_SET_TAG, static_cast<int32_t>(mTag.Size()), mTag.Get()) != 1) {
+        return GetOpenSSLError();
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error OpenSSLCryptoProvider::OpenSSLAESGCMCipher::GetTag(Array<uint8_t>& tag)
+{
+    if (!IsEncrypt() || !mTagReady) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    return tag.Assign(mTag);
+}
+
+Error OpenSSLCryptoProvider::OpenSSLAESGCMCipher::OnEncryptFinalized()
+{
+    (void)mTag.Resize(AESCipherItf::cGCMTagSize);
+
+    if (EVP_CIPHER_CTX_ctrl(GetContext(), EVP_CTRL_AEAD_GET_TAG, static_cast<int32_t>(mTag.Size()), mTag.Get()) != 1) {
+        return GetOpenSSLError();
+    }
+
+    mTagReady = true;
+
+    return ErrorEnum::eNone;
 }
 
 Error OpenSSLCryptoProvider::OpenSSLRSAPrivKey::Init(EVP_PKEY* pkey)
