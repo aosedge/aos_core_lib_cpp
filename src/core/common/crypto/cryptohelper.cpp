@@ -13,6 +13,218 @@
 namespace aos::crypto {
 
 /***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+/**
+ * Decrypts a file with an AES decoder.
+ *
+ * The plaintext is staged in a newly created, unpredictably named, owner-only file, which becomes the decrypted file
+ * only after the whole content is processed: authenticated modes (GCM) return plaintext before the authentication tag
+ * is verified, and a failed decryption must not leave partial output behind. The decrypted file keeps the staged
+ * file's owner-only permission; a caller that needs a different policy sets it after Decrypt returns. The directory
+ * of the decrypted file must be trusted: only the last component of the staged path is protected from symlinks.
+ */
+class FileDecoder {
+public:
+    /**
+     * Constructor.
+     *
+     * @param allocator allocator to use for temporary objects.
+     * @param random    random generator used to name the staged file.
+     * @param decoder   AES decoder.
+     * @param tagSize   size of the authentication tag stored at the end of the file, 0 if the mode has no tag.
+     */
+    FileDecoder(AllocatorItf& allocator, RandomItf& random, AESCipherItf& decoder, size_t tagSize)
+        : mAllocator(allocator)
+        , mRandom(random)
+        , mDecoder(decoder)
+        , mTagSize(tagSize)
+    {
+    }
+
+    /**
+     * Decrypts a file.
+     *
+     * @param encryptedFile path to the encrypted file.
+     * @param decryptedFile path where the decrypted file will be written.
+     * @return Error.
+     */
+    Error Decode(const String& encryptedFile, const String& decryptedFile)
+    {
+        mBuffers = MakeUnique<Buffers>(&mAllocator);
+        if (!mBuffers) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        // errors of file operations have no location yet: they are wrapped once here
+        return AOS_ERROR_WRAP(DecodeFile(encryptedFile, decryptedFile));
+    }
+
+private:
+    /**
+     * Buffers used to process a file chunk by chunk.
+     */
+    struct Buffers {
+        StaticArray<uint8_t, cFileChunkSize>                             mRead;
+        StaticArray<uint8_t, cFileChunkSize + AESCipherItf::cGCMTagSize> mIn;
+        StaticArray<uint8_t, cFileChunkSize>                             mOut;
+    };
+
+    /**
+     * Decrypts a file into a staged file and moves the staged file to its final path on success.
+     *
+     * @param encryptedFile path to the encrypted file.
+     * @param decryptedFile path where the decrypted file will be written.
+     * @return Error.
+     */
+    Error DecodeFile(const String& encryptedFile, const String& decryptedFile)
+    {
+        constexpr size_t cStagedFileSuffixSize = 16;
+        // owner-only: the staged file holds unauthenticated plaintext, and this stays the decrypted file's
+        // permission too, since renaming it into place doesn't change it. A caller that wants a different policy
+        // sets it after Decrypt returns.
+        constexpr uint32_t cStagedFilePerm = 0600;
+
+        StaticString<cStagedFileSuffixSize * 2> suffix;
+
+        if (auto err = GenerateRandomString<cStagedFileSuffixSize>(suffix, mRandom); !err.IsNone()) {
+            return err;
+        }
+
+        StaticString<cFilePathLen> stagedFile;
+
+        if (auto err = stagedFile.Format("%s.%s.tmp", decryptedFile.CStr(), suffix.CStr()); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mInputFile.Open(encryptedFile, fs::File::Mode::Read); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mOutputFile.Open(stagedFile, fs::File::Mode::WriteNew, cStagedFilePerm); !err.IsNone()) {
+            return err;
+        }
+
+        auto err = Process();
+
+        if (err.IsNone()) {
+            err = mOutputFile.Close();
+        }
+
+        if (err.IsNone()) {
+            err = fs::Rename(stagedFile, decryptedFile);
+        }
+
+        if (!err.IsNone()) {
+            (void)mOutputFile.Close();
+
+            return DiscardStagedFile(stagedFile, err);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Reads the encrypted file chunk by chunk, decrypts it and writes the result to the staged file.
+     *
+     * @return Error.
+     */
+    Error Process()
+    {
+        auto& [readBlock, inBlock, outBlock] = *mBuffers;
+
+        // The authentication tag can only be recognized once the end of the file is reached, so the last tag-size
+        // bytes read are always held back.
+        StaticArray<uint8_t, AESCipherItf::cGCMTagSize> tail;
+
+        while (true) {
+            auto err = mInputFile.ReadBlock(readBlock);
+            if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
+                return err;
+            }
+
+            if (readBlock.IsEmpty()) {
+                break;
+            }
+
+            inBlock.Clear();
+            (void)inBlock.Append(tail).Append(readBlock);
+
+            if (inBlock.Size() <= mTagSize) {
+                tail = inBlock;
+
+                continue;
+            }
+
+            const auto dataSize = inBlock.Size() - mTagSize;
+
+            err = mDecoder.DecryptBlock(Array<uint8_t>(inBlock.Get(), dataSize), outBlock);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            err = mOutputFile.WriteBlock(outBlock);
+            if (!err.IsNone()) {
+                return err;
+            }
+
+            tail = Array<uint8_t>(inBlock.Get() + dataSize, mTagSize);
+        }
+
+        if (tail.Size() != mTagSize) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "file is too short to contain an auth tag"));
+        }
+
+        if (mTagSize != 0) {
+            if (auto err = mDecoder.SetTag(tail); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        // fails if the authentication tag doesn't match
+        if (auto err = mDecoder.Finalize(outBlock); !err.IsNone()) {
+            return err;
+        }
+
+        return mOutputFile.WriteBlock(outBlock);
+    }
+
+    /**
+     * Removes the staged file on a best-effort basis, so unauthenticated plaintext isn't left behind. If it can't be
+     * removed, that failure is reported instead of being hidden behind the original error, but the staged file can
+     * still remain.
+     *
+     * @param stagedFile path to the staged file.
+     * @param cause      error that caused the staged file to be discarded.
+     * @return Error.
+     */
+    Error DiscardStagedFile(const String& stagedFile, const Error& cause) const
+    {
+        if (auto err = fs::Remove(stagedFile); !err.IsNone()) {
+            LOG_ERR() << "Can't remove staged file" << Log::Field("path", stagedFile) << Log::Field(err)
+                      << Log::Field("cause", cause);
+
+            return Error(err, "can't remove unauthenticated data");
+        }
+
+        return cause;
+    }
+
+    AllocatorItf&      mAllocator;
+    RandomItf&         mRandom;
+    AESCipherItf&      mDecoder;
+    size_t             mTagSize;
+    UniquePtr<Buffers> mBuffers;
+    fs::File           mInputFile;
+    fs::File           mOutputFile;
+};
+
+} // namespace
+
+/***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
@@ -105,15 +317,14 @@ Error CryptoHelper::Decrypt(const String& encryptedFile, const String& decrypted
         return AOS_ERROR_WRAP(createDecoderErr);
     }
 
-    if (auto checkErr = CheckSessionKey(algName, sessionIV, sessionKey); !checkErr.IsNone()) {
+    if (auto checkErr = CheckSessionKey(algName, modeName, sessionIV, sessionKey); !checkErr.IsNone()) {
         return AOS_ERROR_WRAP(checkErr);
     }
 
-    if (auto decodeErr = DecodeFile(encryptedFile, decryptedFile, *decoder); !decodeErr.IsNone()) {
-        return AOS_ERROR_WRAP(decodeErr);
-    }
+    // GCM is authenticated and has no padding: the padding part of the algorithm name is not used.
+    const size_t tagSize = modeName == "GCM" ? AESCipherItf::cGCMTagSize : 0;
 
-    return ErrorEnum::eNone;
+    return FileDecoder(*mAllocator, *mCryptoProvider, *decoder, tagSize).Decode(encryptedFile, decryptedFile);
 }
 
 Error CryptoHelper::ValidateSigns(const String& decryptedPath, const SignInfo& signs,
@@ -321,21 +532,27 @@ Error CryptoHelper::DecodeSymAlgNames(const String& algString, String& algName, 
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::GetSymmetricAlgInfo(const String& algName, size_t& keySize, size_t& ivSize)
+Error CryptoHelper::GetSymmetricAlgInfo(
+    const String& algName, const String& modeName, size_t& keySize, size_t& ivSize) const
 {
+    if (modeName == "CBC") {
+        ivSize = AESCipherItf::cBlockSize;
+    } else if (modeName == "GCM") {
+        ivSize = AESCipherItf::cGCMIVSize;
+    } else {
+        return ErrorEnum::eNotSupported;
+    }
+
     if (algName == "AES128") {
         keySize = 16;
-        ivSize  = 16;
 
         return ErrorEnum::eNone;
     } else if (algName == "AES192") {
         keySize = 24;
-        ivSize  = 16;
 
         return ErrorEnum::eNone;
     } else if (algName == "AES256") {
         keySize = 32;
-        ivSize  = 16;
 
         return ErrorEnum::eNone;
     }
@@ -343,12 +560,13 @@ Error CryptoHelper::GetSymmetricAlgInfo(const String& algName, size_t& keySize, 
     return ErrorEnum::eNotSupported;
 }
 
-Error CryptoHelper::CheckSessionKey(
-    const String& symAlgName, const Array<uint8_t>& sessionIV, const Array<uint8_t>& sessionKey)
+Error CryptoHelper::CheckSessionKey(const String& symAlgName, const String& modeName, const Array<uint8_t>& sessionIV,
+    const Array<uint8_t>& sessionKey) const
 {
-    size_t keySize = 0, ivSize = 0;
+    size_t keySize = 0;
+    size_t ivSize  = 0;
 
-    auto err = GetSymmetricAlgInfo(symAlgName, keySize, ivSize);
+    auto err = GetSymmetricAlgInfo(symAlgName, modeName, keySize, ivSize);
     if (!err.IsNone()) {
         return err;
     }
@@ -359,78 +577,6 @@ Error CryptoHelper::CheckSessionKey(
 
     if (keySize != sessionKey.Size()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "invalid symmetric key"));
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder)
-{
-    auto inBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
-    if (!inBlock) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
-    if (!outBlock) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    fs::File inputFile, outputFile;
-
-    Error err = inputFile.Open(encryptedFile, fs::File::Mode::Read);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = outputFile.Open(decryptedFile, fs::File::Mode::Write);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    while (true) {
-        err = inputFile.ReadBlock(*inBlock);
-        if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (inBlock->IsEmpty()) {
-            break;
-        }
-
-        if ((inBlock->Size() % AESCipherItf::cBlockSize) != 0) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "file size is incorrect"));
-        }
-
-        err = decoder.DecryptBlock(*inBlock, *outBlock);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        err = outputFile.WriteBlock(*outBlock);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    err = decoder.Finalize(*outBlock);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = outputFile.WriteBlock(*outBlock);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = inputFile.Close();
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = outputFile.Close();
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
