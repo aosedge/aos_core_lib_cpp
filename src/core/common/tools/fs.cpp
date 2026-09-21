@@ -622,15 +622,27 @@ File::~File()
     (void)Close();
 }
 
-Error File::Open(const String& path, Mode mode)
+Error File::Open(const String& path, Mode mode, uint32_t perm)
 {
     if (auto err = Close(); !err.IsNone()) {
         return err;
     }
 
-    int32_t flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
+    int32_t flags = O_RDONLY;
 
-    mFd = open(path.CStr(), flags, 0644);
+    if (mode == Mode::Write) {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+    } else if (mode == Mode::WriteNew) {
+        flags = O_WRONLY | O_CREAT | O_EXCL;
+// Zephyr has no symlinks and doesn't implement O_NOFOLLOW
+#ifndef __ZEPHYR__
+        flags |= O_NOFOLLOW;
+#endif
+    } else {
+        // Mode::Read: nothing to add
+    }
+
+    mFd = open(path.CStr(), flags, perm);
     if (mFd < 0) {
         return Error(errno, "file open failed");
     }
