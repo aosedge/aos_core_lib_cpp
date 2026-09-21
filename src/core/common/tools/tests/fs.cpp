@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cerrno>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
@@ -343,6 +344,37 @@ TEST_F(FSTest, CopyFileReadFailureRemovesDestination)
     EXPECT_FALSE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
     EXPECT_FALSE(std::filesystem::exists(destination));
     EXPECT_TRUE(std::filesystem::exists(source));
+}
+
+TEST_F(FSTest, FileOpenWriteNew)
+{
+    const auto newFile      = cBaseTestDir / "file-write-new.txt";
+    const auto existingFile = cBaseTestDir / "file-write-new-existing.txt";
+    const auto symlink      = cBaseTestDir / "file-write-new-symlink.txt";
+    const auto symlinkDst   = cBaseTestDir / "file-write-new-symlink-dst.txt";
+
+    CreateFile(existingFile.c_str(), "existing");
+    std::filesystem::create_symlink(symlinkDst, symlink);
+
+    fs::File file;
+
+    // creates a new file with the requested permissions
+    const auto oldUmask = umask(0);
+
+    EXPECT_TRUE(file.Open(newFile.c_str(), fs::File::Mode::WriteNew, 0600).IsNone());
+    EXPECT_TRUE(file.Close().IsNone());
+    EXPECT_EQ(std::filesystem::status(newFile).permissions(), std::filesystem::perms(0600));
+
+    umask(oldUmask);
+
+    // never reuses an existing file
+    EXPECT_TRUE(file.Open(newFile.c_str(), fs::File::Mode::WriteNew).Is(EEXIST));
+    EXPECT_TRUE(file.Open(existingFile.c_str(), fs::File::Mode::WriteNew).Is(EEXIST));
+    CheckFile(existingFile.c_str(), "existing", 0666);
+
+    // never follows a symlink as the last path component, even a dangling one
+    EXPECT_FALSE(file.Open(symlink.c_str(), fs::File::Mode::WriteNew).IsNone());
+    EXPECT_FALSE(std::filesystem::exists(symlinkDst));
 }
 
 TEST_F(FSTest, ReadFile)

@@ -501,8 +501,13 @@ class File {
 public:
     /**
      * File open mode.
+     *
+     * Read     - opens an existing file for reading.
+     * Write    - creates the file or truncates an existing one.
+     * WriteNew - creates a new file, fails if the path already exists. The last path component is never followed if
+     *            it is a symlink. Parent directories are resolved as usual, so they must be trusted.
      */
-    enum class Mode { Read, Write };
+    enum class Mode { Read, Write, WriteNew };
 
     /**
      * Destructor.
@@ -513,10 +518,11 @@ public:
      * Opens a file in the specified mode.
      *
      * @param path path to the file.
-     * @param mode read or write mode.
+     * @param mode open mode.
+     * @param perm permissions of a created file (before the process umask is applied).
      * @return Error.
      */
-    Error Open(const String& path, Mode mode);
+    Error Open(const String& path, Mode mode, uint32_t perm = 0644);
 
     /**
      * Closes the file if open.
