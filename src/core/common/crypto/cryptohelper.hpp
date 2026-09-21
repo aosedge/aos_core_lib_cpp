@@ -118,7 +118,8 @@ public:
     Error GetServiceDiscoveryURLs(Array<StaticString<cURLLen>>& urls);
 
     /**
-     * Decrypts a file using provided decryption information.
+     * Decrypts a file using provided decryption information. The decrypted file is created only if the decryption
+     * (including the authentication tag check for authenticated modes) succeeds.
      *
      * @param encryptedPath   path to the encrypted file.
      * @param decryptedPath   path where the decrypted file will be written.
@@ -165,9 +166,9 @@ private:
     Error GetServiceDiscoveryFromOrganization(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls);
 
     Error DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName);
-    Error GetSymmetricAlgInfo(const String& algName, size_t& keySize, size_t& ivSize);
-    Error CheckSessionKey(const String& symAlgName, const Array<uint8_t>& sessionIV, const Array<uint8_t>& sessionKey);
-    Error DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder);
+    Error GetSymmetricAlgInfo(const String& algName, const String& modeName, size_t& keySize, size_t& ivSize) const;
+    Error CheckSessionKey(const String& symAlgName, const String& modeName, const Array<uint8_t>& sessionIV,
+        const Array<uint8_t>& sessionKey) const;
 
     Error AddCertificates(const Array<CertificateInfo>& cert, SignContext& ctx);
     Error AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx);
