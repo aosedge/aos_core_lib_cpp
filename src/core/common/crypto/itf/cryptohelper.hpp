@@ -185,7 +185,8 @@ public:
     virtual ~CryptoHelperItf() = default;
 
     /**
-     * Decrypts a file using provided decryption information.
+     * Decrypts a file using provided decryption information. The decrypted file is created only if the decryption
+     * (including the authentication tag check for authenticated modes) succeeds.
      *
      * @param encryptedPath   path to the encrypted file.
      * @param decryptedPath   path where the decrypted file will be written.
