@@ -554,8 +554,7 @@ TEST_P(CryptoProviderTest, ASN1DecodeOID)
 TEST_P(CryptoProviderTest, CreateUUIDv5)
 {
     uuid::UUID space;
-    Error      err = ErrorEnum::eNone;
-
+    Error      err;
     Tie(space, err) = uuid::StringToUUID("58ac9ca0-2086-4683-a1b8-ec4bc08e01b6");
     ASSERT_TRUE(err.IsNone());
 

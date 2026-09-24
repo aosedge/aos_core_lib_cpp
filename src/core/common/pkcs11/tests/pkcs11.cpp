@@ -81,7 +81,7 @@ TEST_F(PKCS11Test, Login)
 {
     constexpr auto cBadPIN = "user";
 
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.GetLibrary()->OpenSession(mSlotID, CKF_RW_SESSION | CKF_SERIAL_SESSION);
@@ -97,7 +97,7 @@ TEST_F(PKCS11Test, Login)
 
 TEST_F(PKCS11Test, SessionInfo)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
     SessionInfo               sessionInfo;
 
@@ -114,7 +114,7 @@ TEST_F(PKCS11Test, SessionInfo)
 
 TEST_F(PKCS11Test, CreateMultipleSessions)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session1, session2, session3;
 
     Tie(session1, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -134,7 +134,7 @@ TEST_F(PKCS11Test, CreateMultipleSessions)
 
 TEST_F(PKCS11Test, GenerateRSAKeyPairWithLabel)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session1, session2;
 
     Tie(session1, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -177,7 +177,7 @@ TEST_F(PKCS11Test, GenerateRSAKeyPairWithLabel)
 
 TEST_F(PKCS11Test, GenerateECDSAKeyPairWithLabel)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session1, session2;
 
     Tie(session1, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -228,7 +228,7 @@ TEST_F(PKCS11Test, GenerateECDSAKeyPairWithLabel)
 
 TEST_F(PKCS11Test, FindPrivateKey)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -265,7 +265,7 @@ TEST_F(PKCS11Test, FindPrivateKey)
 
 TEST_F(PKCS11Test, ImportCertificate)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -331,7 +331,7 @@ TEST_F(PKCS11Test, GenPIN)
 
 TEST_F(PKCS11Test, FindCertificateChain)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -377,7 +377,7 @@ TEST_F(PKCS11Test, FindCertificateChain)
 
 TEST_F(PKCS11Test, FindCertificateChainSelectsIssuerByAKI)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -431,7 +431,7 @@ TEST_F(PKCS11Test, FindCertificateChainSelectsIssuerByAKI)
 
 TEST_F(PKCS11Test, PKCS11RSAPrivateKeySign)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -470,7 +470,7 @@ TEST_F(PKCS11Test, PKCS11RSAPrivateKeySign)
 
 TEST_F(PKCS11Test, PKCS11ECDSAPrivateKeySign)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -508,7 +508,7 @@ TEST_F(PKCS11Test, PKCS11ECDSAPrivateKeySign)
 
 TEST_F(PKCS11Test, PKCS11RSAPrivateKeyDecrypt)
 {
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);

@@ -144,7 +144,7 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
     }
 
     pkcs11::SlotID                    slotID {};
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(slotID, err) = FindToken(*library, token);
@@ -243,7 +243,7 @@ namespace {
 
 Error FindUrlParam(const String& url, const String& paramName, String& paramValue)
 {
-    Error  err   = ErrorEnum::eNone;
+    Error  err;
     size_t start = 0;
     size_t end   = 0;
 
@@ -308,7 +308,7 @@ Error ParsePIN(const String& url, String& pin)
 
 Error ParseURLScheme(const String& url, String& scheme)
 {
-    Error  err = ErrorEnum::eNone;
+    Error  err;
     size_t pos = 0;
 
     Tie(pos, err) = url.FindSubstr(0, ":");

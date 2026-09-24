@@ -217,8 +217,7 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
     }
 
     if (cachedInfo == nullptr) {
-        Error err = ErrorEnum::eNone;
-
+        Error err;
         Tie(cachedInfo, err) = AddNodeInfoToCache(nodeInfo);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
