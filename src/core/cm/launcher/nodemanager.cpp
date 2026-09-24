@@ -228,9 +228,8 @@ Array<Node>& NodeManager::GetNodes()
 
 Error NodeManager::ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instances)
 {
-    Error firstErr = ErrorEnum::eNone;
-
-    auto overrideEnvVars = mOverrideEnvVarsProcessor->GetOverrideEnvVars();
+    Error firstErr;
+    auto  overrideEnvVars = mOverrideEnvVarsProcessor->GetOverrideEnvVars();
 
     for (auto& instance : instances) {
         if (auto [changed, err] = instance->OverrideEnvVars(*overrideEnvVars); !err.IsNone()) {
@@ -249,8 +248,7 @@ Error NodeManager::ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instan
 Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
     const Array<InstanceStatus>& runningInstances)
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     if (auto err = ApplyOverrideEnvVars(scheduledInstances); !err.IsNone()) {
         return err;
     }
@@ -296,8 +294,7 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
 Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
     const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     if (auto err = ApplyOverrideEnvVars(activeInstances); !err.IsNone()) {
         return err;
     }

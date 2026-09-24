@@ -25,7 +25,7 @@ TEST(UUIDTest, UUIDToString)
 
 TEST(UUIDTest, StringToUUID)
 {
-    Error   err = ErrorEnum::eNone;
+    Error   err;
     UUID    destination;
     uint8_t expected[uuid::cUUIDSize]
         = {0x01, 0x12, 0x23, 0x34, 0x45, 0x56, 0x67, 0x78, 0x89, 0x9A, 0xAB, 0xBC, 0xCD, 0xDE, 0xEF, 0xFF};
@@ -42,8 +42,7 @@ TEST(UUIDTest, TreatEmptyUUIDValid)
     EXPECT_EQ(UUIDToString(UUID {}), "00000000-0000-0000-0000-000000000000");
 
     UUID  result;
-    Error err = ErrorEnum::eNone;
-
+    Error err;
     // empty string produces 0... UUID
     Tie(result, err) = StringToUUID("");
     ASSERT_TRUE(err.IsNone());
