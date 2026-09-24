@@ -922,7 +922,7 @@ Error SetAKID(const Array<uint8_t>& derAKID, X509* cert, const x509::Certificate
 
 Error SetIssuerAltNameURIs(const Array<StaticString<cURLLen>>& uris, X509* cert)
 {
-    if (int32_t extIndex = X509_get_ext_by_NID(cert, NID_issuer_alt_name, -1); extIndex >= 0) {
+    if (auto extIndex = X509_get_ext_by_NID(cert, NID_issuer_alt_name, -1); extIndex >= 0) {
         return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
     }
 
@@ -1221,7 +1221,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
         }
     }
 
-    if (bool isConstructed = (ret & V_ASN1_CONSTRUCTED) != 0; !isConstructed) {
+    if (auto isConstructed = (ret & V_ASN1_CONSTRUCTED) != 0; !isConstructed) {
         return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "expected constructed ASN.1 element")), {}};
     }
 

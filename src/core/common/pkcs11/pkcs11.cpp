@@ -84,7 +84,7 @@ CK_UTF8CHAR_PTR ConvertToPKCS11UTF8CHARPTR(const char* src)
 
 Error ConvertFromPKCS11SlotInfo(const CK_SLOT_INFO& src, SlotInfo& dst)
 {
-    Error err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
+    auto err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
     if (!err.IsNone()) {
         return err;
     }
@@ -104,7 +104,7 @@ Error ConvertFromPKCS11SlotInfo(const CK_SLOT_INFO& src, SlotInfo& dst)
 
 Error ConvertFromPKCS11TokenInfo(const CK_TOKEN_INFO& src, TokenInfo& dst)
 {
-    Error err = ConvertFromPKCS11String(src.label, dst.mLabel);
+    auto err = ConvertFromPKCS11String(src.label, dst.mLabel);
     if (!err.IsNone()) {
         return err;
     }
@@ -140,7 +140,7 @@ Error ConvertFromPKCS11LibInfo(const CK_INFO& src, LibInfo& dst)
     ConvertFromPKCS11Version(src.cryptokiVersion, dst.mCryptokiVersion);
     ConvertFromPKCS11Version(src.libraryVersion, dst.mLibraryVersion);
 
-    Error err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
+    auto err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
     if (!err.IsNone()) {
         return err;
     }
@@ -327,8 +327,7 @@ Error LibraryContext::Init(AllocatorItf& allocator)
 
     mAllocator = &allocator;
 
-    Error err = ErrorEnum::eNone;
-
+    Error err;
     Tie(mFunctionList, err) = PKCS11LibraryContext::Init();
     if (!err.IsNone()) {
         return err;
@@ -467,7 +466,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
         }
     }
 
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = PKCS11OpenSession(slotID, flags);
@@ -643,7 +642,7 @@ Error SessionContext::GetAttributeValues(
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsAttributes;
 
-    if (Error err = BuildAttributes(types, values, pkcsAttributes); !err.IsNone()) {
+    if (auto err = BuildAttributes(types, values, pkcsAttributes); !err.IsNone()) {
         return err;
     }
 
@@ -659,12 +658,12 @@ Error SessionContext::FindObjects(const Array<ObjectAttribute>& templ, Array<Obj
 {
     LockGuard lock {mMutex};
 
-    if (Error initErr = FindObjectsInit(templ); !initErr.IsNone()) {
+    if (auto initErr = FindObjectsInit(templ); !initErr.IsNone()) {
         return initErr;
     }
 
-    Error findErr    = FindObjects(objects);
-    Error finalError = FindObjectsFinal();
+    auto findErr    = FindObjects(objects);
+    auto finalError = FindObjectsFinal();
 
     if (!findErr.IsNone()) {
         return findErr;
@@ -687,7 +686,7 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
 
-    if (Error err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
+    if (auto err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
         return {0, err};
     }
 
@@ -853,7 +852,7 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
 
-    if (Error err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
+    if (auto err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
         return err;
     }
 

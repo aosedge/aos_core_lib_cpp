@@ -124,7 +124,7 @@ void CheckArray(const Array<T>& actual, const std::initializer_list<U>& expected
 
 Error FindCertificates(test::SoftHSMEnv& pkcs11Env, Array<pkcs11::ObjectHandle>& objects)
 {
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(session, err) = pkcs11Env.OpenUserSession("", false);
@@ -142,7 +142,7 @@ Error FindCertificates(test::SoftHSMEnv& pkcs11Env, Array<pkcs11::ObjectHandle>&
 
 Error FindAllObjects(test::SoftHSMEnv& pkcs11Env, Array<pkcs11::ObjectHandle>& objects)
 {
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(session, err) = pkcs11Env.OpenUserSession("", false);
@@ -503,7 +503,7 @@ TEST_F(CerthandlerTest, RemoveInvalidPKCS11Objects)
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
 
     // open session
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
     StaticString<pkcs11::cPINLen>     userPIN;
 
