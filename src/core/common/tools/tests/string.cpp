@@ -329,7 +329,7 @@ TEST(StringTest, Trim)
 TEST(StringTest, FindSubstr)
 {
     StaticString<100> str = "Hello World!";
-    Error             err = ErrorEnum::eNone;
+    Error             err;
     size_t            pos = 0;
 
     Tie(pos, err) = str.FindSubstr(0, "World");
@@ -352,7 +352,7 @@ TEST(StringTest, FindSubstr)
 TEST(StringTest, FindAny)
 {
     StaticString<100> str = "Hello World!";
-    Error             err = ErrorEnum::eNone;
+    Error             err;
     size_t            pos = 0;
 
     Tie(pos, err) = str.FindAny(0, "!W");

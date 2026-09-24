@@ -307,9 +307,8 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
     mWatchedInstances.Back().mIdent = ident;
 
-    Error err = ErrorEnum::eNone;
-
-    auto stopWatchOnError = DeferRelease(&err, [this, &ident](const Error* releaseErr) {
+    Error err;
+    auto  stopWatchOnError = DeferRelease(&err, [this, &ident](const Error* releaseErr) {
         if (!releaseErr->IsNone()) {
             if (releaseErr->Is(ErrorEnum::eNotSupported)) {
                 LOG_DBG() << "Instance monitoring is not supported" << Log::Field("ident", ident);

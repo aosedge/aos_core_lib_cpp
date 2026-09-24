@@ -46,7 +46,7 @@ protected:
 
     void ImportCertificateChainToPKCS11(const Array<uint8_t>& caID, const Array<uint8_t>& clientID)
     {
-        Error                             err = ErrorEnum::eNone;
+        Error                             err;
         SharedPtr<pkcs11::SessionContext> session;
 
         Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -72,7 +72,7 @@ protected:
 
     void GeneratePrivateKey(const Array<uint8_t>& id)
     {
-        Error                             err = ErrorEnum::eNone;
+        Error                             err;
         SharedPtr<pkcs11::SessionContext> session;
 
         Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
@@ -240,8 +240,7 @@ TEST_F(CertloaderTest, FindPKCS11CertificateChain)
         + std::string(mPINSource);
 
     SharedPtr<x509::CertificateChain> chain;
-    Error                             error = ErrorEnum::eNone;
-
+    Error                             error;
     Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url.c_str());
     ASSERT_TRUE(error.IsNone());
     ASSERT_TRUE(chain);
@@ -275,8 +274,7 @@ TEST_F(CertloaderTest, FindPKCS11CertificateChainBadURL)
         + std::string(mPINSource);
 
     SharedPtr<x509::CertificateChain> chain;
-    Error                             error = ErrorEnum::eNone;
-
+    Error                             error;
     Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url.c_str());
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
 }
@@ -292,8 +290,7 @@ TEST_F(CertloaderTest, FindPKCS11PrivateKey)
         + std::string(mPINSource);
 
     SharedPtr<PrivateKeyItf> privKey;
-    Error                    error = ErrorEnum::eNone;
-
+    Error                    error;
     Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url.c_str());
     ASSERT_TRUE(error.IsNone());
     ASSERT_TRUE(privKey);
@@ -310,8 +307,7 @@ TEST_F(CertloaderTest, FindPKCS11PrivateKeyBadURL)
         + std::string(mPINSource);
 
     SharedPtr<PrivateKeyItf> privKey;
-    Error                    error = ErrorEnum::eNone;
-
+    Error                    error;
     Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL(url.c_str());
     ASSERT_TRUE(error.Is(ErrorEnum::eNotFound));
 }
@@ -321,8 +317,7 @@ TEST_F(CertloaderTest, FindCertificatesFromFile)
     const char* url = "file:" CERTIFICATES_DIR "/client-ca-chain.pem";
 
     SharedPtr<x509::CertificateChain> chain;
-    Error                             error = ErrorEnum::eNone;
-
+    Error                             error;
     Tie(chain, error) = mCertLoader.LoadCertsChainByURL(url);
     ASSERT_TRUE(error.IsNone());
     ASSERT_TRUE(chain);
