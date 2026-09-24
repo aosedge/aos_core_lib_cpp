@@ -217,7 +217,7 @@ public:
             }
         }
 
-        Error err = mOutdatedItems.PushBack(item);
+        auto err = mOutdatedItems.PushBack(item);
         if (!err.IsNone()) {
             mOutdatedItems.Sort(
                 [](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });

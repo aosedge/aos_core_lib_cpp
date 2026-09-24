@@ -17,8 +17,7 @@ namespace aos::cm::launcher {
 template <typename Predicate>
 Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Predicate predicate) const
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     for (auto instance = instances.begin(); instance != instances.end();) {
         if (predicate(*instance)) {
             if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
@@ -173,8 +172,7 @@ Array<InstanceStatus>& InstanceManager::GetRunningInstances()
 
 Error InstanceManager::UpdateStatus(const InstanceStatus& status)
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     auto& statuses = status.mPreinstalled ? mPreinstalledComponents : mRunningInstances;
 
     auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
@@ -498,8 +496,8 @@ Error InstanceManager::SetExpiredStatus() const
 
 Error InstanceManager::RemoveOutdatedInstances()
 {
-    Error firstErr = ErrorEnum::eNone;
-    auto  now      = Time::Now();
+    Error firstErr;
+    auto  now = Time::Now();
 
     for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
         if (now.Sub((*instance)->GetInfo().mTimestamp) >= mConfig.mInstanceTTL) {
@@ -540,8 +538,8 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
         return true;
     };
 
-    Error firstErr = RemoveInstances(mActiveInstances, activeCmp);
-    if (Error cachedErr = RemoveInstances(mCachedInstances, cachedCmp); firstErr.IsNone() && !cachedErr.IsNone()) {
+    auto firstErr = RemoveInstances(mActiveInstances, activeCmp);
+    if (auto cachedErr = RemoveInstances(mCachedInstances, cachedCmp); firstErr.IsNone() && !cachedErr.IsNone()) {
         firstErr = cachedErr;
     }
 
@@ -621,8 +619,7 @@ Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<
     (void)mPreinstalledComponents.RemoveIf(
         [&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
 
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     for (const auto& status : statuses) {
         if (auto err = SetStatus(status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
@@ -638,7 +635,7 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
         return SetStatus(mPreinstalledComponents, status);
     }
 
-    Error firstErr = ErrorEnum::eNone;
+    Error firstErr;
     if (auto err = SetStatus(mRunningInstances, status); !err.IsNone()) {
         firstErr = err;
     }

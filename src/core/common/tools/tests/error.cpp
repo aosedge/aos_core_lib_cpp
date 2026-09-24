@@ -137,7 +137,7 @@ TEST(ErrorTest, Messages)
 
 TEST(ErrorTest, Tie)
 {
-    Error err = ErrorEnum::eNone;
+    Error err;
     bool  val = false;
 
     Tie(val, err) = RetWithError<bool>(true, ErrorEnum::eFailed);

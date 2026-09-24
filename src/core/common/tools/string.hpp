@@ -538,7 +538,7 @@ public:
         dst.Clear();
 
         for (size_t i = 0; i < Size(); i += 2) {
-            Error   err  = ErrorEnum::eNone;
+            Error   err;
             uint8_t byte = 0;
 
             char hex[] = {(*this)[i], '0', '\0'};

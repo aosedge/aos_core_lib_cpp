@@ -75,8 +75,7 @@ Error PKCS11Module::Init(AllocatorItf& allocator, const String& certType, const 
 
 Error PKCS11Module::SetOwner(const String& password)
 {
-    Error err = ErrorEnum::eNone;
-
+    Error err;
     Tie(mSlotID, err) = GetSlotID();
     if (!err.IsNone()) {
         return err;
@@ -148,7 +147,7 @@ Error PKCS11Module::SetOwner(const String& password)
 
 Error PKCS11Module::Clear()
 {
-    Error err     = ErrorEnum::eNone;
+    Error err;
     bool  isOwned = false;
 
     Tie(isOwned, err) = IsOwned();
@@ -206,8 +205,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
     (void)password;
 
     PKCS11Module::PendingKey pendingKey;
-    Error                    err = ErrorEnum::eNone;
-
+    Error                    err;
     Tie(pendingKey.mUUID, err) = mCryptoProvider->CreateUUIDv4();
     if (!err.IsNone()) {
         return {nullptr, AOS_ERROR_WRAP(err)};
@@ -272,7 +270,7 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
 {
     (void)password;
 
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(session, err) = CreateSession(true, mUserPIN);
@@ -320,7 +318,7 @@ Error PKCS11Module::RemoveCert(const String& certURL, const String& password)
 {
     (void)password;
 
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(session, err) = CreateSession(true, mUserPIN);
@@ -343,7 +341,7 @@ Error PKCS11Module::RemoveKey(const String& keyURL, const String& password)
 {
     (void)password;
 
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(session, err) = CreateSession(true, mUserPIN);
@@ -375,7 +373,7 @@ Error PKCS11Module::RemoveKey(const String& keyURL, const String& password)
 Error PKCS11Module::ValidateCertificates(
     Array<StaticString<cURLLen>>& invalidCerts, Array<StaticString<cURLLen>>& invalidKeys, Array<CertInfo>& validCerts)
 {
-    Error                             err     = ErrorEnum::eNone;
+    Error                             err;
     bool                              isOwned = false;
     SharedPtr<pkcs11::SessionContext> session;
 
@@ -595,8 +593,7 @@ Error PKCS11Module::GenTeeUserPIN(const String& loginType, const String& idType,
     StaticString<pkcs11::cPINLen> userID;
     uuid::UUID                    teeSpace;
     uuid::UUID                    userSHA1;
-    Error                         err = ErrorEnum::eNone;
-
+    Error                         err;
     Tie(teeSpace, err) = uuid::StringToUUID(cTeeClientUUIDNs);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -636,8 +633,7 @@ Error PKCS11Module::GetUserPin(String& pin) const
 
 RetWithError<SharedPtr<pkcs11::SessionContext>> PKCS11Module::CreateSession(bool userLogin, const String& pin)
 {
-    Error err = ErrorEnum::eNone;
-
+    Error err;
     if (!mSession) {
         Tie(mSession, err) = mPKCS11->OpenSession(mSlotID, CKF_RW_SESSION | CKF_SERIAL_SESSION);
         if (!err.IsNone()) {
