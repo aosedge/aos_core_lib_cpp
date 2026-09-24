@@ -417,8 +417,7 @@ Error ServiceInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     if (auto err = mStorageState.Remove(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         firstErr = AOS_ERROR_WRAP(err);
     }

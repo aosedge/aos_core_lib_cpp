@@ -7,7 +7,7 @@ Error StorageStub::AddCertInfo(const String& certType, const CertInfo& certInfo)
     auto cell = FindCell(certType);
 
     if (cell == mStorage.end()) {
-        Error err = mStorage.EmplaceBack();
+        auto err = mStorage.EmplaceBack();
         if (!err.IsNone()) {
             return err;
         }
@@ -49,7 +49,7 @@ Error StorageStub::GetCertsInfo(const String& certType, Array<CertInfo>& certsIn
     certsInfo.Clear();
 
     for (const auto& cert : cell->mCertificates) {
-        Error err = certsInfo.PushBack(cert);
+        auto err = certsInfo.PushBack(cert);
         if (!err.IsNone()) {
             return err;
         }

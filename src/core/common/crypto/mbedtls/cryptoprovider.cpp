@@ -66,8 +66,7 @@ static int32_t ASN1EncodeDERSequence(const Array<Array<uint8_t>>& items, uint8_t
 
 static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, uint8_t** p, const uint8_t* start)
 {
-    size_t  len = 0;
-    int32_t ret = 0; // cppcheck-suppress variableScope
+    size_t len = 0;
 
     for (int32_t i = static_cast<int32_t>(oids.Size()) - 1; i >= 0; i--) {
         const auto& oid = oids[i];
@@ -78,15 +77,17 @@ static int32_t ASN1EncodeObjectIds(const Array<asn1::ObjectIdentifier>& oids, ui
             return oidRet;
         }
 
-        ret = mbedtls_asn1_write_oid(p, start, reinterpret_cast<const char*>(resOID.p), resOID.len);
+        auto writeRet = mbedtls_asn1_write_oid(p, start, reinterpret_cast<const char*>(resOID.p), resOID.len);
         mbedtls_free(resOID.p);
 
-        if (ret < 0) {
-            return ret;
+        if (writeRet < 0) {
+            return writeRet;
         }
 
-        len += ret;
+        len += writeRet;
     }
+
+    [[maybe_unused]] int32_t ret = 0;
 
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(p, start, len));
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(p, start, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED));
@@ -118,7 +119,7 @@ static Error ASN1RemoveTag(const Array<uint8_t>& src, Array<uint8_t>& dst, int32
         return ret;
     }
 
-    if (size_t tagAndLenSize = p - src.Get(); src.Size() - tagAndLenSize != len) {
+    if (auto tagAndLenSize = p - src.Get(); src.Size() - tagAndLenSize != len) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -321,7 +322,7 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     bool    isConstructed = false;
 
     // Parse ASN.1 header: tag + length, pointer moves to content start
-    if (Error err = GetASN1Object(&p, length, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
+    if (auto err = GetASN1Object(&p, length, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
         if (opt.mOptional) {
             return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
         }
@@ -1479,7 +1480,7 @@ asn1::ASN1ParseResult MbedTLSCryptoProvider::ReadRawValue(
     int32_t xclass        = 0;
     bool    isConstructed = false;
 
-    if (Error err = GetASN1Object(&p, len, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
+    if (auto err = GetASN1Object(&p, len, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
         if (opt.mOptional) {
             return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
         }
@@ -2510,8 +2511,7 @@ Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(
 
     StaticString<cTimeStrLen> notBefore;
     StaticString<cTimeStrLen> notAfter;
-    Error                     err = ErrorEnum::eNone;
-
+    Error                     err;
     Tie(notBefore, err) = asn1::ConvertTimeToASN1Str(templ.mNotBefore);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
