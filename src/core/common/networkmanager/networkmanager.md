@@ -39,12 +39,14 @@ Handler interface for deferred firewall update notifications. Used on both CM an
 
 **Methods:**
 
-- `OnPendingFirewallUpdate(nodeID, update)`: Called when pending firewall rules are resolved for an instance.
-  The update contains the instance identifier and the resolved firewall rules.
+- `OnPendingFirewallUpdate(nodeID, update)`: Called when the firewall rules of an instance change.
+  The update contains the instance identifier and the instance's whole current rule set, which replaces the rules
+  held by the receiver.
 
 ## Deferred Firewall Rules
 
 When an instance has `allowedConnections` to another instance that is not yet allocated, CM returns partial firewall
 rules (without the missing dependency). CM tracks these as pending connections. When the dependency instance is later
-allocated, CM resolves the pending rules and pushes them via `PendingUpdateHandlerItf::OnPendingFirewallUpdate`.
+allocated, re-allocated or released, CM re-resolves the rules of every instance that references it and pushes each
+instance's whole rule set via `PendingUpdateHandlerItf::OnPendingFirewallUpdate`.
 SM then applies only the firewall CNI plugin without restarting other network plugins.

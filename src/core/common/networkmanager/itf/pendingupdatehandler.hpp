@@ -18,10 +18,10 @@ namespace aos::networkmanager {
 /**
  * Pending firewall update.
  *
- * Carries the connections that have just become resolvable, not the instance's
- * whole rule set: a resolved connection is handed over once and is not kept
- * afterwards. A receiver has to merge these rules into what it already holds,
- * otherwise rules resolved by earlier updates are lost.
+ * Carries the instance's whole current rule set, resolved from all of its allowed
+ * connections against the current target addresses. A receiver has to replace the
+ * rules it holds for the instance with these, so rules to released or re-addressed
+ * targets are removed.
  */
 struct PendingFirewallUpdate {
     InstanceIdent                                   mInstanceIdent;
@@ -63,7 +63,7 @@ public:
     virtual ~PendingUpdateHandlerItf() = default;
 
     /**
-     * Called when pending firewall rules are resolved for an instance.
+     * Called when the firewall rules of an instance change.
      *
      * @param nodeID node ID where the instance resides.
      * @param update pending firewall update.

@@ -264,6 +264,17 @@ private:
     void               DeferFirewallUpdate(const aos::networkmanager::PendingFirewallUpdate& update);
     void               TakeDeferredFirewallRules(const InstanceIdent& instanceIdent, InstanceNetworkAllocation* params);
 
+    void  SetFirewallApplied(const String& instanceID, bool applied);
+    bool  SetPendingFirewallRules(const aos::networkmanager::PendingFirewallUpdate& update, InstanceNetworkInfo& info);
+    Error StoreFirewallRules(InstanceNetworkInfo& cachedInfo, const Array<FirewallRule>& rules);
+    void  ApplyPendingFirewallRules(const InstanceNetworkInfo& info);
+    bool  IsInstanceRunning(const String& instanceID, const String& networkID) const;
+
+    static void MergeDeferredFirewallRules(
+        const aos::networkmanager::PendingFirewallUpdate& deferred, InstanceNetworkAllocation& params);
+    static bool IsOutdatedFirewallUpdate(const aos::networkmanager::PendingFirewallUpdate& update, const String& ip);
+    static bool IsSameFirewallRules(const Array<FirewallRule>& current, const Array<FirewallRule>& rules);
+
     template <typename P>
     Error GenerateUniqueIfName(String& ifName, const String& ifPrefix, P&& isUnique)
     {
@@ -302,6 +313,7 @@ private:
     StaticArray<BatchEntry, cMaxNumInstances>                              mBatchEntries;
 
     StaticArray<aos::networkmanager::PendingFirewallUpdate, cMaxNumConcurrentItems> mDeferredFirewallUpdates;
+    StaticArray<StaticString<cIDLen>, cMaxNumInstances>                             mUnappliedFirewalls;
 
     mutable Mutex mMutex;
     AllocatorItf* mAllocator {};

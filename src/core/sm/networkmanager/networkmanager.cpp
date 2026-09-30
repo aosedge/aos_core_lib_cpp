@@ -546,6 +546,7 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
             instanceIdent = itInfo->mSecond.mNetworkConfig.mInstanceIdent;
             found         = true;
             (void)mInstanceNetworkInfos.Remove(instanceID);
+            (void)mUnappliedFirewalls.Remove(instanceID);
         }
     }
 
@@ -2121,16 +2122,7 @@ void NetworkManager::DeferFirewallUpdate(const aos::networkmanager::PendingFirew
             continue;
         }
 
-        for (const auto& rule : update.mFirewallRules) {
-            if (deferred.mFirewallRules.Contains(rule)) {
-                continue;
-            }
-
-            if (auto err = deferred.mFirewallRules.PushBack(rule); !err.IsNone()) {
-                LOG_ERR() << "Failed to defer firewall rule" << Log::Field("instanceIdent", update.mInstanceIdent)
-                          << Log::Field(err);
-            }
-        }
+        deferred = update;
 
         return;
     }
@@ -2149,21 +2141,34 @@ void NetworkManager::TakeDeferredFirewallRules(const InstanceIdent& instanceIden
         }
 
         if (params != nullptr) {
-            for (const auto& rule : it->mFirewallRules) {
-                if (params->mFirewallRules.Contains(rule)) {
-                    continue;
-                }
-
-                if (auto err = params->mFirewallRules.PushBack(rule); !err.IsNone()) {
-                    LOG_ERR() << "Failed to apply deferred firewall rule" << Log::Field("instanceIdent", instanceIdent)
-                              << Log::Field(err);
-                }
-            }
+            MergeDeferredFirewallRules(*it, *params);
         }
 
         (void)mDeferredFirewallUpdates.Erase(it);
 
         return;
+    }
+}
+
+void NetworkManager::MergeDeferredFirewallRules(
+    const aos::networkmanager::PendingFirewallUpdate& deferred, InstanceNetworkAllocation& params)
+{
+    if (IsOutdatedFirewallUpdate(deferred, params.mIP)) {
+        LOG_WRN() << "Dropping outdated deferred firewall update"
+                  << Log::Field("instanceIdent", deferred.mInstanceIdent) << Log::Field("ip", params.mIP);
+
+        return;
+    }
+
+    for (const auto& rule : deferred.mFirewallRules) {
+        if (params.mFirewallRules.Contains(rule)) {
+            continue;
+        }
+
+        if (auto err = params.mFirewallRules.PushBack(rule); !err.IsNone()) {
+            LOG_ERR() << "Failed to apply deferred firewall rule"
+                      << Log::Field("instanceIdent", deferred.mInstanceIdent) << Log::Field(err);
+        }
     }
 }
 
@@ -2180,89 +2185,138 @@ void NetworkManager::OnPendingFirewallUpdate(
     LOG_DBG() << "Received pending firewall update" << Log::Field("instanceIdent", update.mInstanceIdent)
               << Log::Field("rulesCount", update.mFirewallRules.Size());
 
-    StaticString<cIDLen> instanceID;
-    StaticString<cIDLen> networkID;
-    bool                 isRunning = false;
-
-    auto networkConfig = MakeUnique<InstanceNetworkConfig>(mAllocator);
-    if (!networkConfig) {
-        LOG_ERR() << "Failed to allocate network config" << Log::Field(ErrorEnum::eNoMemory);
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
+    if (!info) {
+        LOG_ERR() << "Failed to allocate instance network info" << Log::Field(ErrorEnum::eNoMemory);
 
         return;
     }
-
-    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(mAllocator);
-    if (!allocatedParams) {
-        LOG_ERR() << "Failed to allocate network allocation params" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    StaticString<cInterfaceLen> hostIfName;
 
     {
         LockGuard lock {mMutex};
 
-        for (const auto& item : mInstanceNetworkInfos) {
-            if (item.mSecond.mNetworkConfig.mInstanceIdent == update.mInstanceIdent) {
-                instanceID       = item.mFirst;
-                networkID        = item.mSecond.mNetworkID;
-                *networkConfig   = item.mSecond.mNetworkConfig;
-                *allocatedParams = item.mSecond.mAllocatedParams;
-                hostIfName       = item.mSecond.mHostIfName;
-
-                if (auto network = mRuntimeCache.Find(networkID); network != mRuntimeCache.end()) {
-                    isRunning = network->mSecond.Find(instanceID) != network->mSecond.end();
-                }
-
-                break;
-            }
-        }
-
-        if (instanceID.IsEmpty()) {
-            DeferFirewallUpdate(update);
-
+        if (!SetPendingFirewallRules(update, *info)) {
             return;
-        }
-
-        for (const auto& rule : update.mFirewallRules) {
-            if (allocatedParams->mFirewallRules.Contains(rule)) {
-                continue;
-            }
-
-            if (auto err = allocatedParams->mFirewallRules.PushBack(rule); !err.IsNone()) {
-                LOG_ERR() << "Failed to add firewall rule" << Log::Field("instanceID", instanceID) << Log::Field(err);
-
-                return;
-            }
-        }
-
-        auto info = MakeUnique<InstanceNetworkInfo>(
-            mAllocator, instanceID, networkID, *networkConfig, *allocatedParams, hostIfName);
-        if (!info) {
-            LOG_ERR() << "Failed to allocate instance network info" << Log::Field("instanceID", instanceID)
-                      << Log::Field(ErrorEnum::eNoMemory);
-
-            return;
-        }
-
-        if (auto err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
-            LOG_ERR() << "Failed to update instance network info" << Log::Field("instanceID", instanceID)
-                      << Log::Field(err);
-
-            return;
-        }
-
-        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            it->mSecond.mAllocatedParams.mFirewallRules = allocatedParams->mFirewallRules;
         }
     }
 
-    if (isRunning) {
-        if (auto err = UpdateInstanceFirewall(instanceID, networkID, *networkConfig, *allocatedParams); !err.IsNone()) {
-            LOG_ERR() << "Failed to update instance firewall" << Log::Field("instanceID", instanceID)
+    ApplyPendingFirewallRules(*info);
+}
+
+bool NetworkManager::SetPendingFirewallRules(
+    const aos::networkmanager::PendingFirewallUpdate& update, InstanceNetworkInfo& info)
+{
+    auto it = mInstanceNetworkInfos.FindIf(
+        [&update](const auto& item) { return item.mSecond.mNetworkConfig.mInstanceIdent == update.mInstanceIdent; });
+    if (it == mInstanceNetworkInfos.end()) {
+        DeferFirewallUpdate(update);
+
+        return false;
+    }
+
+    const auto& instanceID = it->mFirst;
+    const auto  isRunning  = IsInstanceRunning(instanceID, it->mSecond.mNetworkID);
+
+    if (IsOutdatedFirewallUpdate(update, it->mSecond.mAllocatedParams.mIP)) {
+        LOG_WRN() << "Ignoring outdated firewall update" << Log::Field("instanceID", instanceID)
+                  << Log::Field("ip", it->mSecond.mAllocatedParams.mIP);
+
+        return false;
+    }
+
+    const auto unchanged = IsSameFirewallRules(it->mSecond.mAllocatedParams.mFirewallRules, update.mFirewallRules);
+
+    if (unchanged && !mUnappliedFirewalls.Contains(instanceID)) {
+        LOG_DBG() << "Firewall rules unchanged" << Log::Field("instanceID", instanceID);
+
+        return false;
+    }
+
+    if (!isRunning) {
+        SetFirewallApplied(instanceID, false);
+    }
+
+    if (!unchanged) {
+        if (auto err = StoreFirewallRules(it->mSecond, update.mFirewallRules); !err.IsNone()) {
+            LOG_ERR() << "Failed to update instance network info" << Log::Field("instanceID", instanceID)
                       << Log::Field(err);
+
+            return false;
         }
+    }
+
+    info = it->mSecond;
+
+    return isRunning;
+}
+
+Error NetworkManager::StoreFirewallRules(InstanceNetworkInfo& cachedInfo, const Array<FirewallRule>& rules)
+{
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator, cachedInfo);
+    if (!info) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    info->mAllocatedParams.mFirewallRules = rules;
+
+    if (auto err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    cachedInfo.mAllocatedParams.mFirewallRules = rules;
+
+    return ErrorEnum::eNone;
+}
+
+void NetworkManager::ApplyPendingFirewallRules(const InstanceNetworkInfo& info)
+{
+    auto err = UpdateInstanceFirewall(info.mInstanceID, info.mNetworkID, info.mNetworkConfig, info.mAllocatedParams);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to update instance firewall" << Log::Field("instanceID", info.mInstanceID)
+                  << Log::Field(err);
+    }
+
+    LockGuard lock {mMutex};
+
+    SetFirewallApplied(info.mInstanceID, err.IsNone());
+}
+
+bool NetworkManager::IsInstanceRunning(const String& instanceID, const String& networkID) const
+{
+    auto network = mRuntimeCache.Find(networkID);
+
+    return network != mRuntimeCache.end() && network->mSecond.Find(instanceID) != network->mSecond.end();
+}
+
+bool NetworkManager::IsSameFirewallRules(const Array<FirewallRule>& current, const Array<FirewallRule>& rules)
+{
+    if (current.Size() != rules.Size()) {
+        return false;
+    }
+
+    return !rules.ContainsIf([&current](const FirewallRule& rule) { return !current.Contains(rule); });
+}
+
+bool NetworkManager::IsOutdatedFirewallUpdate(
+    const aos::networkmanager::PendingFirewallUpdate& update, const String& ip)
+{
+    return update.mFirewallRules.ContainsIf([&ip](const FirewallRule& rule) { return rule.mSrcIP != ip; });
+}
+
+void NetworkManager::SetFirewallApplied(const String& instanceID, bool applied)
+{
+    if (applied) {
+        (void)mUnappliedFirewalls.Remove(instanceID);
+
+        return;
+    }
+
+    if (mUnappliedFirewalls.Contains(instanceID)) {
+        return;
+    }
+
+    if (auto err = mUnappliedFirewalls.PushBack(instanceID); !err.IsNone()) {
+        LOG_ERR() << "Failed to track unapplied firewall" << Log::Field("instanceID", instanceID) << Log::Field(err);
     }
 }
 
