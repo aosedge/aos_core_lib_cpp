@@ -1256,6 +1256,26 @@ TEST_P(CryptoProviderTest, VerifyCACert)
     ASSERT_TRUE(ValidateCACert(cert).IsNone());
 }
 
+TEST_P(CryptoProviderTest, RSAPrivKeyRejectsAESDecryptionOptions)
+{
+    StaticString<cPrivKeyPEMLen> pem;
+
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client.key", pem).IsNone());
+
+    auto [key, err] = mCryptoProvider->PEMToX509PrivKey(pem);
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_TRUE(key);
+
+    StaticArray<uint8_t, 256> cipher;
+    StaticArray<uint8_t, 256> result;
+
+    ASSERT_TRUE(cipher.Resize(cipher.MaxSize(), 0).IsNone());
+
+    // AES-GCM/AES-CTR options only apply to a symmetric key: an RSA key rejects them without decrypting anything.
+    EXPECT_TRUE(key->Decrypt(cipher, DecryptionOptions {GCMDecryptionOptions {}}, result).Is(ErrorEnum::eNotSupported));
+    EXPECT_TRUE(key->Decrypt(cipher, DecryptionOptions {CTRDecryptionOptions {}}, result).Is(ErrorEnum::eNotSupported));
+}
+
 TEST_P(CryptoProviderTest, VerifyLeafCert)
 {
     StaticString<cCertPEMLen>         buff;

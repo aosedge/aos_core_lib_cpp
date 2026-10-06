@@ -2790,6 +2790,20 @@ Error OpenSSLCryptoProvider::OpenSSLRSAPrivKey::Decrypt(
             return ErrorEnum::eNone;
         }
 
+        Error Visit(const GCMDecryptionOptions& opts) const
+        {
+            (void)opts;
+
+            return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
+        }
+
+        Error Visit(const CTRDecryptionOptions& opts) const
+        {
+            (void)opts;
+
+            return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
+        }
+
     private:
         EVP_PKEY*             mPrivKey = nullptr;
         const Array<uint8_t>& mCipher;

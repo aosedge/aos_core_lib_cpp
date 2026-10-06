@@ -10,13 +10,15 @@ set(TARGET_NAME imagemanager_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES imagemanager.cpp)
+set(SOURCES blobdecryptor.cpp imagemanager.cpp)
 
 # ######################################################################################################################
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::sm::imagemanager aos::core::common::tests::utils GTest::gmock_main)
+set(LIBRARIES aos::core::common::tests::crypto aos::core::sm::imagemanager aos::core::common::tests::utils
+              GTest::gmock_main
+)
 
 # ######################################################################################################################
 # Target
