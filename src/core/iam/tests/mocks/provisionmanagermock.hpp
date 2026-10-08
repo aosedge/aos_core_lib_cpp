@@ -35,6 +35,8 @@ public:
     MOCK_METHOD(Error, CreateKey, (const String& certType, const String& subject, const String& password, String& csr),
         (override));
     MOCK_METHOD(Error, ApplyCert, (const String& certType, const String& pemCert, CertInfo& certInfo), (override));
+    MOCK_METHOD(
+        Error, UpdateRootCerts, (const Array<StaticString<crypto::cCertPEMLen>>&, Array<CertInfo>&), (override));
     MOCK_METHOD(Error, FinishProvisioning, (const String& password), (override));
     MOCK_METHOD(Error, Deprovision, (const String& password), (override));
 };

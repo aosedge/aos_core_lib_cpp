@@ -51,6 +51,27 @@ using ExtendedKeyUsageEnum = ExtendedKeyUsageType::Enum;
 using ExtendedKeyUsage     = EnumStringer<ExtendedKeyUsageType>;
 
 /**
+ * Certificate module type.
+ *
+ * - certKeyPair: CA-issued leaf cert/key pair (CSR / ApplyCert flow)
+ * - selfSigned: module generates its own self-signed certificate
+ * - rootCerts: trusted root CA certificates without private keys
+ */
+class CertModuleTypeType {
+public:
+    enum class Enum { eCertKeyPair, eSelfSigned, eRootCerts };
+
+    static Array<const char* const> GetStrings()
+    {
+        static const char* const sCertModuleTypeStrings[] = {"certKeyPair", "selfSigned", "rootCerts"};
+        return Array<const char* const>(sCertModuleTypeStrings, ArraySize(sCertModuleTypeStrings));
+    };
+};
+
+using CertModuleTypeEnum = CertModuleTypeType::Enum;
+using CertModuleType     = EnumStringer<CertModuleTypeType>;
+
+/**
  * Module configuration.
  */
 struct ModuleConfig {
@@ -75,9 +96,24 @@ struct ModuleConfig {
      */
     bool mSkipValidation {};
     /**
-     * Self-signed certificate flag.
+     * Certificate module type.
      */
-    bool mIsSelfSigned {};
+    CertModuleType mCertType {};
+
+    /**
+     * Compares module configs for equality.
+     */
+    friend bool operator==(const ModuleConfig& lhs, const ModuleConfig& rhs)
+    {
+        return lhs.mKeyType == rhs.mKeyType && lhs.mMaxCertificates == rhs.mMaxCertificates
+            && lhs.mExtendedKeyUsage == rhs.mExtendedKeyUsage && lhs.mAlternativeNames == rhs.mAlternativeNames
+            && lhs.mSkipValidation == rhs.mSkipValidation && lhs.mCertType == rhs.mCertType;
+    }
+
+    /**
+     * Compares module configs for inequality.
+     */
+    friend bool operator!=(const ModuleConfig& lhs, const ModuleConfig& rhs) { return !(lhs == rhs); }
 };
 
 /**
@@ -132,6 +168,19 @@ public:
      * @returns Error.
      */
     virtual Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) = 0;
+
+    /**
+     * Updates certificates for the module (replaces the whole set).
+     *
+     * @param certType certificate type.
+     * @param pemCerts certificates in PEM format.
+     * @param password owner password.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    virtual Error UpdateCerts(const String& certType, const Array<StaticString<crypto::cCertPEMLen>>& pemCerts,
+        const String& password, Array<CertInfo>& infos)
+        = 0;
 
     /**
      * Creates a self signed certificate.

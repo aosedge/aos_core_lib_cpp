@@ -8,12 +8,7 @@
 #ifndef AOS_CORE_IAM_CONFIG_HPP_
 #define AOS_CORE_IAM_CONFIG_HPP_
 
-/**
- * Max expected number of certificates per IAM certificate module.
- */
-#ifndef AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE
-#define AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE 5
-#endif
+#include <core/common/config.hpp>
 
 /**
  * Password max length.

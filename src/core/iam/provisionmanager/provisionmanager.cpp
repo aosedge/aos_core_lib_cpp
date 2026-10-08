@@ -63,7 +63,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
             return AOS_ERROR_WRAP(certModuleConfig.mError);
         }
 
-        if (certModuleConfig.mValue.mIsSelfSigned) {
+        if (certModuleConfig.mValue.mCertType == certhandler::CertModuleTypeEnum::eSelfSigned) {
             LOG_DBG() << "Create self signed cert" << Log::Field("type", certType);
 
             err = mCertHandler->CreateSelfSignedCert(certType, password);
@@ -111,7 +111,7 @@ RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
             return {certTypes, AOS_ERROR_WRAP(certModuleConfig.mError)};
         }
 
-        if (!certModuleConfig.mValue.mIsSelfSigned) {
+        if (certModuleConfig.mValue.mCertType == certhandler::CertModuleTypeEnum::eCertKeyPair) {
             ++it;
 
             continue;
@@ -135,6 +135,21 @@ Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert,
     LOG_DBG() << "Apply cert" << Log::Field("type", certType);
 
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
+}
+
+Error ProvisionManager::UpdateRootCerts(
+    const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos)
+{
+    LOG_DBG() << "Update root certs" << Log::Field("count", pemCerts.Size());
+
+    StaticString<cCertTypeLen> rootCertType;
+
+    if (auto err = mCertHandler->GetRootCertType(rootCertType); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // CryptoHelper loads the trust set only during Init; consumers must restart to pick up the new roots.
+    return AOS_ERROR_WRAP(mCertHandler->UpdateCerts(rootCertType, pemCerts, "", infos));
 }
 
 } // namespace aos::iam::provisionmanager

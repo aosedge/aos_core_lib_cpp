@@ -57,6 +57,14 @@ public:
     Error GetCertificate(const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert);
 
     /**
+     * Returns all certificates for this module.
+     *
+     * @param[out] infos result certificates.
+     * @return Error.
+     */
+    Error GetCertificates(Array<CertInfo>& infos);
+
+    /**
      * Owns the module.
      *
      * @param password certificate password.
@@ -99,6 +107,17 @@ public:
     Error ApplyCert(const String& pemCert, CertInfo& info);
 
     /**
+     * Updates certificates for this module (replaces the whole set).
+     *
+     * @param pemCerts certificates in PEM format.
+     * @param password owner password.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateCerts(
+        const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, const String& password, Array<CertInfo>& infos);
+
+    /**
      * Creates a self signed certificate.
      *
      * @param password owner password.
@@ -125,12 +144,19 @@ private:
     using CertificateChain      = StaticArray<crypto::x509::Certificate, crypto::cCertChainSize>;
     using SelfSignedCertificate = StaticString<crypto::cCertPEMLen>;
 
+    static bool HasCert(const Array<CertInfo>& infos, const Array<uint8_t>& issuer, const Array<uint8_t>& serial);
+
     Error ValidateConfig() const;
     Error RemoveInvalidCerts(const String& password);
     Error RemoveInvalidKeys(const String& password);
     Error TrimCerts(const String& password);
     Error CheckCertChain(const Array<crypto::x509::Certificate>& chain);
     Error SyncValidCerts(const Array<CertInfo>& validCert);
+    Error AddCert(const crypto::x509::Certificate& cert, const Array<CertInfo>& curCerts,
+        const Array<CertInfo>& newCerts, const String& password, CertInfo& resInfo);
+    Error RemoveCert(const CertInfo& info, const String& password);
+    Error CollectUpdateCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, const Array<CertInfo>& existing,
+        Array<crypto::x509::Certificate>& certs, size_t& newCertCount);
 
     crypto::x509::ProviderItf* mX509Provider {};
     HSMItf*                    mHSM {};

@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_IAMCLIENT_ITF_CERTHANDLER_HPP_
 #define AOS_CORE_COMMON_IAMCLIENT_ITF_CERTHANDLER_HPP_
 
-#include <core/common/types/common.hpp>
+#include <core/common/types/certificates.hpp>
 
 namespace aos::iamclient {
 
@@ -46,6 +46,24 @@ public:
      */
     virtual Error ApplyCert(const String& nodeID, const String& certType, const String& pemCert, CertInfo& certInfo)
         = 0;
+
+    /**
+     * Updates root certificates.
+     *
+     * @param nodeID node ID.
+     * @param pemCerts root certificates in PEM format.
+     * @returns Error.
+     */
+    virtual Error UpdateRootCerts(const String& nodeID, const Array<StaticString<crypto::cCertPEMLen>>& pemCerts) = 0;
+
+    /**
+     * Gets root certificate SHA-256 fingerprints.
+     *
+     * @param nodeID node ID.
+     * @param[out] fingerprints root certificate SHA-256 fingerprints.
+     * @returns Error.
+     */
+    virtual Error GetRootCerts(const String& nodeID, Array<SHA256Fingerprint>& fingerprints) = 0;
 };
 
 } // namespace aos::iamclient

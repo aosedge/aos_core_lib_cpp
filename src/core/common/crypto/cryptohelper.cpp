@@ -228,8 +228,7 @@ private:
 CryptoHelper::CryptoHelper() = default;
 
 Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& certProvider,
-    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL,
-    const String& caCert)
+    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL)
 {
     mAllocator           = &allocator;
     mCertProvider        = &certProvider;
@@ -237,23 +236,49 @@ Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& ce
     mCertLoader          = &certLoader;
     mServiceDiscoveryURL = serviceDiscoveryURL;
 
-    auto caCertsPEM = MakeUnique<StaticString<cCertPEMLen>>(mAllocator);
-    if (!caCertsPEM) {
+    return LoadRootCerts();
+}
+
+Error CryptoHelper::LoadRootCerts()
+{
+    StaticString<cCertTypeLen> rootCertType;
+
+    if (auto err = mCertProvider->GetRootCertType(rootCertType); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    auto certInfos = MakeUnique<StaticArray<CertInfo, cMaxRootCerts>>(mAllocator);
+    if (!certInfos) {
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = fs::ReadFileToString(caCert, *caCertsPEM); !err.IsNone()) {
+    if (auto err = mCertProvider->GetAllCerts(rootCertType, *certInfos); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mCryptoProvider->PEMToX509Certs(*caCertsPEM, mCACerts); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    mCACerts.Clear();
 
-    for (const auto& cert : mCACerts) {
-        if (auto err = ValidateCACert(cert); !err.IsNone()) {
+    for (const auto& certInfo : *certInfos) {
+        auto [certs, err] = mCertLoader->LoadCertsChainByURL(certInfo.mCertURL);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        for (const auto& cert : *certs) {
+            err = ValidateCACert(cert);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            err = mCACerts.PushBack(cert);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    if (mCACerts.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no root certificates found"));
     }
 
     return ErrorEnum::eNone;

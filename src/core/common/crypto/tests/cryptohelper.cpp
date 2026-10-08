@@ -25,7 +25,9 @@
 #endif
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/utils.hpp>
@@ -34,6 +36,8 @@
 #include "stubs/certprovider.hpp"
 
 using namespace testing;
+using namespace aos::tests::utils;
+using aos::tests::TestAllocator;
 
 namespace aos::crypto {
 
@@ -146,15 +150,15 @@ public:
         ASSERT_TRUE(mSoftHSMEnv.Init(mAllocator, cPIN, cLabel).IsNone());
         ASSERT_TRUE(mCertLoader.Init(mAllocator, *mCryptoProvider, mSoftHSMEnv.GetManager()).IsNone());
 
+        mCertProvider.AddCert("rootcerts", "rootCA");
+
         ASSERT_TRUE(
-            mCryptoHelper
-                .Init(mAllocator, mCertProvider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL, cCACert)
+            mCryptoHelper.Init(mAllocator, mCertProvider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
                 .IsNone());
     }
 
 protected:
     static constexpr auto cDefaultServiceDiscoveryURL = "http://service-discovery-url.html";
-    static constexpr auto cCACert                     = CRYPTOHELPER_CERTS_DIR "/rootCA.pem";
 
     static constexpr auto cLabel = "iam pkcs11 test slot";
     static constexpr auto cPIN   = "admin";
@@ -189,8 +193,7 @@ TEST_F(CryptoHelperTest, ServiceDiscoveryURLs)
         StaticArray<StaticString<cURLLen>, cMaxNumURLs> discoveryURLs;
 
         ASSERT_TRUE(mCryptoHelper.GetServiceDiscoveryURLs(discoveryURLs).IsNone());
-        ASSERT_EQ(discoveryURLs.Size(), 1);
-        EXPECT_EQ(url, discoveryURLs[0].CStr());
+        EXPECT_EQ(discoveryURLs, ConvertToArray({StaticString<cURLLen>(url.c_str())}));
     }
 }
 
@@ -540,18 +543,6 @@ private:
     AllocatorItf* mTestAllocator {};
 };
 
-// Allocator that can be switched to fail.
-class SwitchAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t size) override { return mFail ? nullptr : mHeap.Allocate(size); }
-    void  Free(void* data) override { mHeap.Free(data); }
-
-    bool mFail = false;
-
-private:
-    HeapAllocator mHeap;
-};
-
 // Limits the size of files the process can write while the object is alive.
 class FileSizeLimit {
 public:
@@ -599,10 +590,9 @@ protected:
         CryptoHelperGCMTest::SetUp();
 
         ASSERT_TRUE(mFaultyProvider.Init(mAllocator).IsNone());
-        ASSERT_TRUE(mFaultyHelper
-                        .Init(mSwitchAllocator, mCertProvider, mFaultyProvider, mCertLoader,
-                            cDefaultServiceDiscoveryURL, cCACert)
-                        .IsNone());
+        ASSERT_TRUE(
+            mFaultyHelper.Init(mTestAllocator, mCertProvider, mFaultyProvider, mCertLoader, cDefaultServiceDiscoveryURL)
+                .IsNone());
     }
 
     Error Decrypt(const std::string& decryptedPath = "")
@@ -669,7 +659,7 @@ protected:
 
     const uint8_t mZeroIV[cCBCIVSize] = {};
 
-    SwitchAllocator      mSwitchAllocator;
+    TestAllocator        mTestAllocator;
     FaultyCryptoProvider mFaultyProvider;
     CryptoHelper         mFaultyHelper;
 };
@@ -818,7 +808,7 @@ TEST_F(CryptoHelperDecryptFaultTest, DecryptFailsWhenInputCantBeRead)
 
 TEST_F(CryptoHelperDecryptFaultTest, DecryptFailsWithoutMemory)
 {
-    mSwitchAllocator.mFail = true;
+    mTestAllocator.FailAfter(0);
 
     EXPECT_TRUE(Decrypt().Is(ErrorEnum::eNoMemory));
     EXPECT_FALSE(std::filesystem::exists(mDecryptedPath));
@@ -952,6 +942,214 @@ TEST_F(CryptoHelperTest, DecryptMetadata)
 
     auto expected = ReadFileFromCrtDir("hello-world-cms.txt");
     EXPECT_EQ(std::vector<uint8_t>(output.begin(), output.end()), expected);
+}
+
+TEST_F(CryptoHelperTest, GetServiceDiscoveryURLsFallsBackWithoutOnlineCert)
+{
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> discoveryURLs;
+
+    ASSERT_TRUE(mCryptoHelper.GetServiceDiscoveryURLs(discoveryURLs).IsNone());
+    EXPECT_EQ(discoveryURLs, ConvertToArray({StaticString<cURLLen>(cDefaultServiceDiscoveryURL)}));
+}
+
+TEST_F(CryptoHelperTest, DecryptAcceptsAlgorithmNameWithoutModeAndPadding)
+{
+    constexpr auto cDecryptedFile = CRYPTOHELPER_AES_DIR "/decrypted.raw";
+    auto           info           = CreateDecryptionInfo("AES256", {1, 2, 3, 4, 5}, ReadFileFromAESDir("aes.key"));
+
+    mCertProvider.AddCert("offline", "offline1");
+
+    ASSERT_TRUE(mCryptoHelper.Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile, info).IsNone());
+    EXPECT_EQ(ReadFileFromAESDir("hello-world.txt"), ReadFileFromAESDir("decrypted.raw"));
+}
+
+TEST_F(CryptoHelperTest, DecryptRejectsUnsupportedSymmetricAlgorithm)
+{
+    constexpr auto cDecryptedFile = CRYPTOHELPER_AES_DIR "/decrypted.raw";
+    auto info = CreateDecryptionInfo("AES512/CBC/PKCS7PADDING", {1, 2, 3, 4, 5}, ReadFileFromAESDir("aes.key"));
+
+    EXPECT_TRUE(mCryptoHelper.Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile, info)
+                    .Is(ErrorEnum::eNotSupported));
+}
+
+TEST_F(CryptoHelperTest, DecryptRejectsMismatchedKeySize)
+{
+    constexpr auto cDecryptedFile = CRYPTOHELPER_AES_DIR "/decrypted.raw";
+    auto info = CreateDecryptionInfo("AES128/CBC/PKCS7PADDING", {1, 2, 3, 4, 5}, ReadFileFromAESDir("aes.key"));
+
+    EXPECT_TRUE(mCryptoHelper.Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile, info)
+                    .Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CryptoHelperTest, DecryptMetadataRejectsInvalidInput)
+{
+    StaticArray<uint8_t, cCloudMetadataSize> output;
+    const uint8_t                            garbage[] = {0x01, 0x02, 0x03, 0x04};
+
+    mCertProvider.AddCert("offline", "offline1");
+
+    EXPECT_FALSE(mCryptoHelper.DecryptMetadata(Array<uint8_t>(garbage, sizeof(garbage)), output).IsNone());
+}
+
+TEST_F(CryptoHelperTest, ValidateSignsAcceptsAlgNameDefaults)
+{
+    constexpr auto                       cDecryptedFile = CRYPTOHELPER_CERTS_DIR "/hello-world.txt";
+    auto                                 intermediateCA = CreateCert(*mCryptoProvider, "intermediateCA");
+    auto                                 secondaryCA    = CreateCert(*mCryptoProvider, "secondaryCA");
+    auto                                 offline1       = CreateCert(*mCryptoProvider, "offline1");
+    StaticArray<CertificateInfo, 10>     certs;
+    StaticArray<CertificateChainInfo, 1> chains;
+    auto                                 signs = CreateSigns("offline1", "RSA");
+
+    ASSERT_TRUE(certs.PushBack(offline1).IsNone());
+    ASSERT_TRUE(certs.PushBack(intermediateCA).IsNone());
+    ASSERT_TRUE(certs.PushBack(secondaryCA).IsNone());
+    ASSERT_TRUE(chains.PushBack(CreateCertChain("offline1", {"offline1", "intermediateCA", "secondaryCA"})).IsNone());
+
+    ASSERT_TRUE(mCryptoHelper.ValidateSigns(cDecryptedFile, signs, chains, certs).IsNone());
+}
+
+TEST_F(CryptoHelperTest, ValidateSignsRejectsUnsupportedHashVariants)
+{
+    constexpr auto                       cDecryptedFile = CRYPTOHELPER_CERTS_DIR "/hello-world.txt";
+    auto                                 intermediateCA = CreateCert(*mCryptoProvider, "intermediateCA");
+    auto                                 secondaryCA    = CreateCert(*mCryptoProvider, "secondaryCA");
+    auto                                 offline1       = CreateCert(*mCryptoProvider, "offline1");
+    StaticArray<CertificateInfo, 10>     certs;
+    StaticArray<CertificateChainInfo, 1> chains;
+
+    ASSERT_TRUE(certs.PushBack(offline1).IsNone());
+    ASSERT_TRUE(certs.PushBack(intermediateCA).IsNone());
+    ASSERT_TRUE(certs.PushBack(secondaryCA).IsNone());
+    ASSERT_TRUE(chains.PushBack(CreateCertChain("offline1", {"offline1", "intermediateCA", "secondaryCA"})).IsNone());
+
+    for (const auto* alg : {"RSA/SHA384/PKCS1v1_5", "RSA/SHA512/PKCS1v1_5", "RSA/SHA999/PKCS1v1_5"}) {
+        SCOPED_TRACE(alg);
+
+        auto signs = CreateSigns("offline1", alg);
+
+        EXPECT_FALSE(mCryptoHelper.ValidateSigns(cDecryptedFile, signs, chains, certs).IsNone());
+    }
+}
+
+TEST_F(CryptoHelperTest, ValidateSignsRejectsUnknownChain)
+{
+    constexpr auto                       cDecryptedFile = CRYPTOHELPER_CERTS_DIR "/hello-world.txt";
+    auto                                 offline1       = CreateCert(*mCryptoProvider, "offline1");
+    StaticArray<CertificateInfo, 10>     certs;
+    StaticArray<CertificateChainInfo, 1> chains;
+    auto                                 signs = CreateSigns("offline1", "RSA/SHA256/PKCS1v1_5");
+
+    ASSERT_TRUE(certs.PushBack(offline1).IsNone());
+    ASSERT_TRUE(chains.PushBack(CreateCertChain("missing-chain", {"offline1"})).IsNone());
+
+    EXPECT_FALSE(mCryptoHelper.ValidateSigns(cDecryptedFile, signs, chains, certs).IsNone());
+}
+
+TEST_F(CryptoHelperTest, ValidateSignsFailsWithoutMemory)
+{
+    TestAllocator                        testAllocator;
+    CryptoHelper                         helper;
+    constexpr auto                       cDecryptedFile = CRYPTOHELPER_CERTS_DIR "/hello-world.txt";
+    auto                                 offline1       = CreateCert(*mCryptoProvider, "offline1");
+    StaticArray<CertificateInfo, 10>     certs;
+    StaticArray<CertificateChainInfo, 1> chains;
+    auto                                 signs = CreateSigns("offline1", "RSA/SHA256/PKCS1v1_5");
+
+    ASSERT_TRUE(
+        helper.Init(testAllocator, mCertProvider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL).IsNone());
+
+    ASSERT_TRUE(certs.PushBack(offline1).IsNone());
+    ASSERT_TRUE(chains.PushBack(CreateCertChain("offline1", {"offline1"})).IsNone());
+
+    testAllocator.FailAfter(0);
+
+    EXPECT_TRUE(helper.ValidateSigns(cDecryptedFile, signs, chains, certs).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoHelperTest, DecryptMetadataFailsWithoutMemory)
+{
+    TestAllocator                            testAllocator;
+    CryptoHelper                             helper;
+    StaticArray<uint8_t, cCloudMetadataSize> output;
+    auto                                     inputData = ReadFileFromCrtDir("hello-world-cms.txt.offline1.cms");
+    auto                                     input     = Array<uint8_t>(inputData.data(), inputData.size());
+
+    ASSERT_TRUE(
+        helper.Init(testAllocator, mCertProvider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL).IsNone());
+
+    mCertProvider.AddCert("offline", "offline1");
+
+    testAllocator.FailAfter(0);
+
+    EXPECT_TRUE(helper.DecryptMetadata(input, output).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoHelperTest, InitFailsWhenRootCertsTypeMissing)
+{
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    ASSERT_TRUE(helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
+                    .Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CryptoHelperTest, InitFailsWhenNoRootCertificatesFound)
+{
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    provider.AddEmptyCertType("rootcerts");
+
+    ASSERT_TRUE(helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
+                    .Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CryptoHelperTest, InitFailsWhenRootCertChainCantLoad)
+{
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    provider.AddCertURL("rootcerts", "file:///nonexistent/root.pem");
+
+    ASSERT_FALSE(
+        helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL).IsNone());
+}
+
+TEST_F(CryptoHelperTest, InitFailsWhenRootCertIsNotCA)
+{
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    provider.AddCert("rootcerts", "online");
+
+    ASSERT_FALSE(
+        helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL).IsNone());
+}
+
+TEST_F(CryptoHelperTest, InitFailsWithoutMemory)
+{
+    TestAllocator    alloc;
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    provider.AddCert("rootcerts", "rootCA");
+
+    alloc.FailAfter(0);
+
+    ASSERT_TRUE(helper.Init(alloc, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
+                    .Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoHelperTest, InitFailsWhenTooManyRootCerts)
+{
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    provider.AddCertCopies("rootcerts", "rootCA", 6);
+
+    ASSERT_TRUE(helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
+                    .Is(ErrorEnum::eNoMemory));
 }
 
 } // namespace aos::crypto

@@ -150,6 +150,37 @@ Error CertHandler::GetCert(
     return ErrorEnum::eNone;
 }
 
+Error CertHandler::GetAllCerts(const String& certType, Array<CertInfo>& infos) const
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get all certificates" << Log::Field("type", certType);
+
+    auto* certModule = FindModule(certType);
+    if (certModule == nullptr) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    return AOS_ERROR_WRAP(certModule->GetCertificates(infos));
+}
+
+Error CertHandler::GetRootCertType(String& certType) const
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Get root certificate type";
+
+    for (const auto* certModule : mModules) {
+        if (certModule->GetModuleConfig().mCertType == CertModuleTypeEnum::eRootCerts) {
+            certType = certModule->GetCertType();
+
+            return ErrorEnum::eNone;
+        }
+    }
+
+    return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+}
+
 Error CertHandler::SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener)
 {
     LockGuard lock {mMutex};
@@ -191,6 +222,25 @@ Error CertHandler::UnsubscribeListener(iamclient::CertListenerItf& certListener)
     }
 
     return ErrorEnum::eNone;
+}
+
+Error CertHandler::UpdateCerts(const String& certType, const Array<StaticString<crypto::cCertPEMLen>>& pemCerts,
+    const String& password, Array<CertInfo>& infos)
+{
+    LockGuard lock {mMutex};
+
+    LOG_INF() << "Update certs" << Log::Field("type", certType) << Log::Field("count", pemCerts.Size());
+
+    auto* certModule = FindModule(certType);
+    if (certModule == nullptr) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    if (auto err = certModule->UpdateCerts(pemCerts, password, infos); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return UpdateCerts(*certModule);
 }
 
 Error CertHandler::CreateSelfSignedCert(const String& certType, const String& password)

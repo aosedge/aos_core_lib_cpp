@@ -89,6 +89,18 @@ public:
     Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) override;
 
     /**
+     * Updates certificates for the module (replaces the whole set).
+     *
+     * @param certType certificate type.
+     * @param pemCerts certificates in PEM format.
+     * @param password owner password.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateCerts(const String& certType, const Array<StaticString<crypto::cCertPEMLen>>& pemCerts,
+        const String& password, Array<CertInfo>& infos) override;
+
+    /**
      * Creates a self signed certificate.
      *
      * @param certType certificate type.
@@ -116,6 +128,23 @@ public:
      */
     Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
         CertInfo& resCert) const override;
+
+    /**
+     * Returns all certificates for the given type.
+     *
+     * @param certType certificate type.
+     * @param[out] infos result certificates.
+     * @returns Error.
+     */
+    Error GetAllCerts(const String& certType, Array<CertInfo>& infos) const override;
+
+    /**
+     * Returns the certificate type name of the root certificates module.
+     *
+     * @param[out] certType root certificate type name.
+     * @returns Error.
+     */
+    Error GetRootCertType(String& certType) const override;
 
     /**
      * Subscribes certificates listener.

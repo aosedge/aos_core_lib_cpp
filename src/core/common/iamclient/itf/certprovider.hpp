@@ -53,6 +53,23 @@ public:
         = 0;
 
     /**
+     * Returns all certificates for the given type.
+     *
+     * @param certType certificate type.
+     * @param[out] infos result certificates.
+     * @returns Error.
+     */
+    virtual Error GetAllCerts(const String& certType, Array<CertInfo>& infos) const = 0;
+
+    /**
+     * Returns the certificate type name of the root certificates module.
+     *
+     * @param[out] certType root certificate type name.
+     * @returns Error.
+     */
+    virtual Error GetRootCertType(String& certType) const = 0;
+
+    /**
      * Subscribes certificates listener.
      *
      * @param certType certificate type.

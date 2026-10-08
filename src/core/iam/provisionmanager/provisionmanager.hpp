@@ -67,6 +67,15 @@ public:
     Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) override;
 
     /**
+     * Updates root certificates.
+     *
+     * @param pemCerts root certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) override;
+
+    /**
      * Finishes provisioning.
      *
      * @param password password.

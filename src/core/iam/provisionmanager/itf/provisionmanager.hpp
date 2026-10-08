@@ -106,6 +106,15 @@ public:
     virtual Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) = 0;
 
     /**
+     * Updates root certificates.
+     *
+     * @param pemCerts root certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    virtual Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) = 0;
+
+    /**
      * Finishes provisioning.
      *
      * @param password password.
