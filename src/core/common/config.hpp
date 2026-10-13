@@ -748,7 +748,7 @@
  * Maximum size of input data for SHA1 hash calculation.
  */
 #ifndef AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE
-#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE 42
+#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE (AOS_CONFIG_TOOLS_UUID_SIZE + AOS_CONFIG_TYPES_ID_LEN)
 #endif
 
 /**
