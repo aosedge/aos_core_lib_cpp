@@ -126,8 +126,8 @@ TEST(StringTest, Basic)
     EXPECT_EQ(strErr, "error message (file1:123)");
 
     StaticString<128> strErrno;
-    EXPECT_TRUE(strErrno.Convert(Error(EAGAIN, "error message", "file1", 123)).IsNone());
-    EXPECT_EQ(strErrno, "error message [Resource temporarily unavailable] (file1:123)");
+    EXPECT_TRUE(strErrno.Convert(Error(42, "error message", "file1", 123)).IsNone());
+    EXPECT_EQ(strErrno, "error message [code: 42] (file1:123)");
 
     // Copy static string to static string
 

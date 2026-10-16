@@ -611,13 +611,17 @@ public:
             (void)Append(inErr.StrValue());
         }
 
-        if (auto strErrno = inErr.StrErrno(); strErrno && *strErrno) {
-            (void)Append(" [").Append(strErrno).Append("]");
+        char tmpBuf[16] {};
+
+        if (inErr.Code() != 0) {
+            if (auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.Code()); !err.IsNone()) {
+                return err;
+            }
+
+            (void)Append(" [code: ").Append(tmpBuf).Append("]");
         }
 
         if (inErr.FileName()) {
-            char tmpBuf[16] {};
-
             if (auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber()); !err.IsNone()) {
                 return err;
             }

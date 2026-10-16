@@ -102,7 +102,7 @@ public:
      */
     Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0) noexcept
         : mErr(err.mErr)
-        , mErrno(err.mErrno)
+        , mCode(err.mCode)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
@@ -131,8 +131,8 @@ public:
      */
     Error& operator=(const Error& err) noexcept
     {
-        mErr   = err.mErr;
-        mErrno = err.mErrno;
+        mErr  = err.mErr;
+        mCode = err.mCode;
 
         mFileName   = err.mFileName;
         mLineNumber = err.mLineNumber;
@@ -143,17 +143,17 @@ public:
     }
 
     /**
-     * Constructs error instance from both enum error and system errno value.
+     * Constructs error instance from both enum error and error code.
      *
      * @param err error enum.
-     * @param errNo system errno value.
+     * @param code error code (system errno, gRPC status code, process exit code etc.).
      * @param msg error message.
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(Enum err, int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
+    Error(Enum err, int32_t code, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
         : mErr(err)
-        , mErrno(errNo < 0 ? -errNo : errNo)
+        , mCode(code < 0 ? -code : code)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
@@ -162,16 +162,16 @@ public:
 
     // cppcheck-suppress noExplicitConstructor
     /**
-     * Constructs error instance from system errno value.
+     * Constructs error instance from error code.
      *
-     * @param errNo system errno value.
+     * @param code error code (system errno, gRPC status code, process exit code etc.).
      * @param msg error message.
      * @param fileName error file name.
      * @param lineNumber error line number.
      */
-    Error(int32_t errNo, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
+    Error(int32_t code, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
         int32_t lineNumber = 0)
-        : Error(errNo == 0 ? Enum::eNone : Enum::eRuntime, errNo, msg, fileName, lineNumber)
+        : Error(code == 0 ? Enum::eNone : Enum::eRuntime, code, msg, fileName, lineNumber)
     {
     }
 
@@ -190,8 +190,8 @@ public:
      */
     bool Is(const Error& err) const
     {
-        if (mErrno != 0) {
-            return mErrno == err.mErrno;
+        if (mCode != 0) {
+            return mCode == err.mCode;
         }
 
         return mErr == err.mErr;
@@ -212,10 +212,11 @@ public:
     const char* Message() const { return mMessage; }
 
     /**
-     * Returns errno
-     * @return int
+     * Returns error code.
+     *
+     * @return int32_t error code, 0 if not set.
      */
-    int32_t Errno() const { return mErrno; }
+    int32_t Code() const { return mCode; }
 
     /**
      * Returns error file name.
@@ -230,20 +231,6 @@ public:
      * @return int line number.
      */
     int32_t LineNumber() const { return mLineNumber; }
-
-    /**
-     * Returns errno string.
-     *
-     * @return const char* errno string.
-     */
-    const char* StrErrno() const
-    {
-        if (mErrno != 0) {
-            return strerror(mErrno);
-        }
-
-        return nullptr;
-    }
 
     /**
      * Returns error string.
@@ -347,7 +334,7 @@ private:
     };
 
     Enum        mErr;
-    int32_t     mErrno = 0;
+    int32_t     mCode = 0;
     const char* mFileName;
     int32_t     mLineNumber;
     char        mMessage[cMaxMessageLen];
