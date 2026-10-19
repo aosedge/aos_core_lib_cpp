@@ -210,7 +210,7 @@ public:
         LockGuard lock {mMutex};
 
         for (auto& outdatedItem : mOutdatedItems) {
-            if (outdatedItem.mID == item.mID) {
+            if (outdatedItem.mID == item.mID && outdatedItem.mVersion == item.mVersion) {
                 outdatedItem = item;
 
                 return ErrorEnum::eNone;
