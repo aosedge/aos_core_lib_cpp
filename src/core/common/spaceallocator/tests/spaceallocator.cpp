@@ -501,4 +501,145 @@ TEST_F(SpaceallocatorTest, ResizeSpaceInsufficientSpace)
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }
 
+TEST_F(SpaceallocatorTest, OutdatedItemsMultipleVersions)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+
+    const Time   now      = Time::Now();
+    const size_t itemSize = 128 * cKilobyte;
+
+    // both versions of the same item should be tracked independently
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "2.0.0", now.Add(-1 * Time::cHours)).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+
+    {
+        InSequence seq;
+
+        EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(itemSize, ErrorEnum::eNone)));
+        EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("2.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(itemSize, ErrorEnum::eNone)));
+    }
+
+    // the oldest version is removed first
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(itemSize);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    // then the newer one
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(itemSize);
+    ASSERT_TRUE(err2.IsNone());
+    ASSERT_NE(space2.Get(), nullptr);
+    ASSERT_TRUE(space2->Accept().IsNone());
+
+    // no outdated items left
+
+    auto [space3, err3] = mSpaceAllocator.AllocateSpace(itemSize);
+    EXPECT_EQ(err3, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space3.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RestoreOutdatedItemVersion)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+
+    const Time   now      = Time::Now();
+    const size_t itemSize = 128 * cKilobyte;
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "2.0.0", now.Add(-1 * Time::cHours)).IsNone());
+
+    // restoring one version should keep the other one outdated
+
+    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem("item1", "1.0.0").IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("2.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(itemSize, ErrorEnum::eNone)));
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(itemSize);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    // restored version must not be removed
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(itemSize);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, ReAddOutdatedItemUpdatesExisting)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+
+    const Time   now      = Time::Now();
+    const size_t itemSize = 128 * cKilobyte;
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", now.Add(-1 * Time::cHours)).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item2", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+
+    // re-adding the same ID and version updates the timestamp instead of adding a duplicate
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", now.Add(-3 * Time::cHours)).IsNone());
+
+    {
+        InSequence seq;
+
+        EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(itemSize, ErrorEnum::eNone)));
+        EXPECT_CALL(mRemover, RemoveItem(String("item2"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(itemSize, ErrorEnum::eNone)));
+    }
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(itemSize);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(itemSize);
+    ASSERT_TRUE(err2.IsNone());
+    ASSERT_NE(space2.Get(), nullptr);
+    ASSERT_TRUE(space2->Accept().IsNone());
+
+    // no duplicate of item1 is left
+
+    auto [space3, err3] = mSpaceAllocator.AllocateSpace(itemSize);
+    EXPECT_EQ(err3, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space3.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
 } // namespace aos::spaceallocator
