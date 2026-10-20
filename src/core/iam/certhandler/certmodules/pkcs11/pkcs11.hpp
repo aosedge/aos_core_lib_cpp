@@ -72,13 +72,13 @@ public:
      * Initializes module.
      *
      * @param allocator allocator to use for temporary objects.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param config module configuration.
      * @param pkcs11 reference to pkcs11 library context.
      * @param cryptoProvider reference to crypto provider interface.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const String& certType, const PKCS11ModuleConfig& config,
+    Error Init(AllocatorItf& allocator, const String& storageID, const PKCS11ModuleConfig& config,
         pkcs11::PKCS11Manager& pkcs11, crypto::CryptoProviderItf& cryptoProvider);
 
     /**
@@ -208,7 +208,7 @@ private:
     Error CreateInvalidURLs(const Array<SearchObject>& objects, Array<StaticString<cURLLen>>& urls);
     void  PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects) const;
 
-    StaticString<cCertTypeLen> mCertType;
+    StaticString<cStorageIDLen> mStorageID;
     PKCS11ModuleConfig         mConfig {};
 
     SharedPtr<pkcs11::LibraryContext> mPKCS11;
