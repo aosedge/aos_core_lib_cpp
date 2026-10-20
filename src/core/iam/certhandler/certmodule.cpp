@@ -17,11 +17,11 @@ namespace aos::iam::certhandler {
  * Public
  **********************************************************************************************************************/
 
-Error CertModule::Init(AllocatorItf& allocator, const String& certType, const ModuleConfig& config,
+Error CertModule::Init(AllocatorItf& allocator, const String& storageID, const ModuleConfig& config,
     crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage)
 {
     mAllocator    = &allocator;
-    mCertType     = certType;
+    mStorageID     = storageID;
     mModuleConfig = config;
     mX509Provider = &x509Provider;
     mHSM          = &hsm;
@@ -32,7 +32,7 @@ Error CertModule::Init(AllocatorItf& allocator, const String& certType, const Mo
     }
 
     if (mModuleConfig.mSkipValidation) {
-        LOG_WRN() << "Skip validation: type=" << GetCertType();
+        LOG_WRN() << "Skip validation: type=" << GetStorageID();
 
         return ErrorEnum::eNone;
     }
@@ -57,7 +57,7 @@ Error CertModule::GetCertificate(const Array<uint8_t>& issuer, const Array<uint8
     }
 
     if (serial.IsEmpty()) {
-        if (auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage); !err.IsNone()) {
+        if (auto err = mStorage->GetCertsInfo(GetStorageID(), *certsInStorage); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -104,7 +104,7 @@ Error CertModule::Clear()
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mStorage->RemoveAllCertsInfo(GetCertType());
+    err = mStorage->RemoveAllCertsInfo(GetStorageID());
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -163,7 +163,7 @@ Error CertModule::CreateCSR(const String& subjectCommonName, const crypto::Priva
             break;
 
         default:
-            LOG_WRN() << "Unexpected extended key usage: type=" << GetCertType()
+            LOG_WRN() << "Unexpected extended key usage: type=" << GetStorageID()
                       << ", value=" << extKeyUsage.ToString();
             break;
         }
@@ -222,7 +222,7 @@ Error CertModule::ApplyCert(const String& pemCert, CertInfo& info)
         return AOS_ERROR_WRAP(err);
     }
 
-    err = mStorage->AddCertInfo(GetCertType(), info);
+    err = mStorage->AddCertInfo(GetStorageID(), info);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -283,20 +283,20 @@ Error CertModule::CreateSelfSignedCert(const String& password)
 Error CertModule::ValidateConfig() const
 {
     if (mModuleConfig.mMaxCertificates == 0) {
-        LOG_ERR() << "Max certificates module config must be greater than 0: type=" << GetCertType();
+        LOG_ERR() << "Max certificates module config must be greater than 0: type=" << GetStorageID();
 
         return ErrorEnum::eInvalidArgument;
     }
 
     if (!mModuleConfig.mIsSelfSigned && mModuleConfig.mMaxCertificates < 2) {
         LOG_ERR() << "Max certificates module config must be set to at least 2 for non self signed modules: type="
-                  << GetCertType() << ", value=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates);
+                  << GetStorageID() << ", value=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates);
 
         return ErrorEnum::eInvalidArgument;
     }
 
     if (mModuleConfig.mMaxCertificates > cCertsPerModule) {
-        LOG_ERR() << "Max certificates module config exceeds application limit: type=" << GetCertType()
+        LOG_ERR() << "Max certificates module config exceeds application limit: type=" << GetStorageID()
                   << ", value=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates)
                   << ", limit=" << cCertsPerModule;
 
@@ -309,7 +309,7 @@ Error CertModule::ValidateConfig() const
 Error CertModule::RemoveInvalidCerts(const String& password)
 {
     for (const auto& url : mInvalidCerts) {
-        LOG_DBG() << "Remove invalid cert: type=" << GetCertType() << ", url=" << url;
+        LOG_DBG() << "Remove invalid cert: type=" << GetStorageID() << ", url=" << url;
 
         const auto err = mHSM->RemoveCert(url, password);
         if (!err.IsNone()) {
@@ -325,7 +325,7 @@ Error CertModule::RemoveInvalidCerts(const String& password)
 Error CertModule::RemoveInvalidKeys(const String& password)
 {
     for (const auto& url : mInvalidKeys) {
-        LOG_DBG() << "Remove invalid key: type=" << GetCertType() << ", url=" << url;
+        LOG_DBG() << "Remove invalid key: type=" << GetStorageID() << ", url=" << url;
 
         const auto err = mHSM->RemoveKey(url, password);
         if (!err.IsNone()) {
@@ -345,7 +345,7 @@ Error CertModule::TrimCerts(const String& password)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
+    auto err = mStorage->GetCertsInfo(GetStorageID(), *certsInStorage);
     if (!err.IsNone() && err != ErrorEnum::eNotFound) {
         return AOS_ERROR_WRAP(err);
     }
@@ -363,7 +363,7 @@ Error CertModule::TrimCerts(const String& password)
 
         assert(info != nullptr);
 
-        LOG_DBG() << "Trim certificate to allocate space for a new one: type=" << GetCertType()
+        LOG_DBG() << "Trim certificate to allocate space for a new one: type=" << GetStorageID()
                   << ", count=" << static_cast<int32_t>(certsInStorage->Size())
                   << ", max=" << static_cast<int32_t>(mModuleConfig.mMaxCertificates);
 
@@ -377,7 +377,7 @@ Error CertModule::TrimCerts(const String& password)
             return AOS_ERROR_WRAP(err);
         }
 
-        err = mStorage->RemoveCertInfo(GetCertType(), info->mCertURL);
+        err = mStorage->RemoveCertInfo(GetStorageID(), info->mCertURL);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -446,7 +446,7 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto err = mStorage->GetCertsInfo(GetCertType(), *certsInStorage);
+    auto err = mStorage->GetCertsInfo(GetStorageID(), *certsInStorage);
     if (!err.IsNone() && err != ErrorEnum::eNotFound) {
         return AOS_ERROR_WRAP(err);
     }
@@ -466,9 +466,9 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
         if (storedCert != nullptr) {
             (void)certsInStorage->Erase(storedCert);
         } else {
-            LOG_WRN() << "Add missing cert to DB: type=" << GetCertType() << ", certInfo=" << moduleCert;
+            LOG_WRN() << "Add missing cert to DB: type=" << GetStorageID() << ", certInfo=" << moduleCert;
 
-            err = mStorage->AddCertInfo(GetCertType(), moduleCert);
+            err = mStorage->AddCertInfo(GetStorageID(), moduleCert);
             if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
@@ -477,9 +477,9 @@ Error CertModule::SyncValidCerts(const Array<CertInfo>& validCerts)
 
     // Remove outdated certificates from storage.
     for (const auto& moduleCert : *certsInStorage) {
-        LOG_WRN() << "Remove invalid cert from DB: type=" << GetCertType() << ", certInfo=" << moduleCert;
+        LOG_WRN() << "Remove invalid cert from DB: type=" << GetStorageID() << ", certInfo=" << moduleCert;
 
-        err = mStorage->RemoveCertInfo(GetCertType(), moduleCert.mCertURL);
+        err = mStorage->RemoveCertInfo(GetStorageID(), moduleCert.mCertURL);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

@@ -25,7 +25,7 @@ using namespace testing;
 class CertModuleTest : public Test {
 protected:
     // cppcheck-suppress unusedStructMember
-    static constexpr auto cCertType   = "test-cert-type";
+    static constexpr auto cStorageID  = "test-cert-type";
     static constexpr auto cCertIssuer = "test-cert-issuer";
 
     void SetUp() override
@@ -60,7 +60,7 @@ TEST_F(CertModuleTest, InitSucceeds)
 {
     CertModule certModule;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 }
 
@@ -71,7 +71,7 @@ TEST_F(CertModuleTest, InitSelfSignedModuleSucceeds)
     mModuleConfig.mIsSelfSigned    = true;
     mModuleConfig.mMaxCertificates = 1;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 }
 
@@ -82,7 +82,7 @@ TEST_F(CertModuleTest, InitFailsOnOneMaxCertsConfigValueForNonSelfSignedModule)
     mModuleConfig.mIsSelfSigned    = false;
     mModuleConfig.mMaxCertificates = 1;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eInvalidArgument, err) << "Invalid argument expected: " << err.StrValue();
 }
 
@@ -92,7 +92,7 @@ TEST_F(CertModuleTest, InitFailsOnZeroMaxCertsConfigValue)
 
     mModuleConfig.mMaxCertificates = 0;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eInvalidArgument, err) << "Invalid argument expected: " << err.StrValue();
 }
 
@@ -102,7 +102,7 @@ TEST_F(CertModuleTest, InitFailsNoMemory)
 
     mModuleConfig.mMaxCertificates = cCertsPerModule + 1;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNoMemory, err) << "No memory expected: " << err.StrValue();
 }
 
@@ -112,7 +112,7 @@ TEST_F(CertModuleTest, ApplyCert)
 
     mModuleConfig.mSkipValidation = true;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 
     EXPECT_CALL(mX509Provider, ASN1DecodeDN).WillRepeatedly(Return(ErrorEnum::eNone));
@@ -139,7 +139,7 @@ TEST_F(CertModuleTest, ApplyCert)
 
     StaticArray<CertInfo, 1> certInfoArray;
 
-    err = mStorage.GetCertsInfo(cCertType, certInfoArray);
+    err = mStorage.GetCertsInfo(cStorageID, certInfoArray);
     ASSERT_TRUE(err.IsNone()) << "GetCertsInfo failed: " << err.StrValue();
 
     ASSERT_EQ(1, certInfoArray.Size());
@@ -152,10 +152,10 @@ TEST_F(CertModuleTest, ApplyCertOldCertsAreTrimmed)
 
     mModuleConfig.mSkipValidation = true;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 
-    err = mStorage.AddCertInfo(cCertType, mCertInfo);
+    err = mStorage.AddCertInfo(cStorageID, mCertInfo);
     ASSERT_TRUE(err.IsNone()) << "AddCertInfo failed: " << err.StrValue();
 
     EXPECT_CALL(mX509Provider, ASN1DecodeDN).WillRepeatedly(Return(ErrorEnum::eNone));
@@ -191,13 +191,13 @@ TEST_F(CertModuleTest, ApplyCertOldCertsAreTrimmedOnMaxCertsLimitReached)
     mModuleConfig.mSkipValidation  = true;
     mModuleConfig.mMaxCertificates = cCertsPerModule;
 
-    auto err = certModule.Init(mAllocator, cCertType, mModuleConfig, mX509Provider, mHSM, mStorage);
+    auto err = certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage);
     ASSERT_EQ(ErrorEnum::eNone, err) << "Init failed: " << err.StrValue();
 
     for (size_t i = 0; i < cCertsPerModule; ++i) {
         mCertInfo.mNotAfter = Time::Now().Add(Time::cHours * i);
 
-        err = mStorage.AddCertInfo(cCertType, mCertInfo);
+        err = mStorage.AddCertInfo(cStorageID, mCertInfo);
         ASSERT_TRUE(err.IsNone()) << "AddCertInfo failed: " << err.StrValue();
     }
 
@@ -228,7 +228,7 @@ TEST_F(CertModuleTest, ApplyCertOldCertsAreTrimmedOnMaxCertsLimitReached)
 
     StaticArray<CertInfo, cCertsPerModule> certInfoArray;
 
-    err = mStorage.GetCertsInfo(cCertType, certInfoArray);
+    err = mStorage.GetCertsInfo(cStorageID, certInfoArray);
     ASSERT_TRUE(err.IsNone()) << "GetCertsInfo failed: " << err.StrValue();
 
     ASSERT_EQ(cCertsPerModule, certInfoArray.Size());

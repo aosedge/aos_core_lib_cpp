@@ -42,24 +42,24 @@ public:
     /**
      * Returns certificate info.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param issuer issuer name.
      * @param serial serial number.
      * @param[out] resCert result certificate.
      * @returns Error.
      */
     virtual Error GetCert(
-        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
+        const String& storageID, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
         = 0;
 
     /**
      * Subscribes certificates listener.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error SubscribeListener(const String& certType, CertListenerItf& certListener) = 0;
+    virtual Error SubscribeListener(const String& storageID, CertListenerItf& certListener) = 0;
 
     /**
      * Unsubscribes certificate listener.

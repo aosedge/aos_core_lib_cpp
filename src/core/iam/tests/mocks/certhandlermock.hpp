@@ -18,7 +18,7 @@ namespace aos::iam::certhandler {
  */
 class CertHandlerMock : public CertHandlerItf {
 public:
-    MOCK_METHOD(Error, GetCertTypes, (Array<StaticString<cCertTypeLen>>&), (const override));
+    MOCK_METHOD(Error, GetStorageIDs, (Array<StaticString<cStorageIDLen>>&), (const override));
     MOCK_METHOD(Error, SetOwner, (const String&, const String&), (override));
     MOCK_METHOD(Error, Clear, (const String&), (override));
     MOCK_METHOD(Error, CreateKey, (const String&, const String&, const String&, String&), (override));

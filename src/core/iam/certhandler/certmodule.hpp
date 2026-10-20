@@ -29,14 +29,14 @@ public:
      * Initializes certificate module.
      *
      * @param allocator allocator to use for temporary objects.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param config module config.
      * @param x509Provider provider of x509 certificates, csr, keys.
      * @param hsm a reference to hardware security module.
      * @param storage a reference to certificate storage.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const String& certType, const ModuleConfig& config,
+    Error Init(AllocatorItf& allocator, const String& storageID, const ModuleConfig& config,
         crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage);
 
     /**
@@ -44,7 +44,7 @@ public:
      *
      * @return const String&.
      */
-    const String& GetCertType() const { return mCertType; }
+    const String& GetStorageID() const { return mStorageID; }
 
     /**
      * Returns information about certificate with specified issuer and serial number.
@@ -136,7 +136,7 @@ private:
     HSMItf*                    mHSM {};
     StorageItf*                mStorage {};
 
-    StaticString<cCertTypeLen> mCertType;
+    StaticString<cStorageIDLen> mStorageID;
     ModuleConfig               mModuleConfig {};
 
     StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts;
