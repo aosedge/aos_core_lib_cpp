@@ -63,7 +63,7 @@ Error ProvisionManager::StartProvisioning(const String& password)
             return AOS_ERROR_WRAP(certModuleConfig.mError);
         }
 
-        if (certModuleConfig.mValue.mIsSelfSigned) {
+        if (certModuleConfig.mValue.mCertType == certhandler::CertModuleTypeEnum::eSelfSigned) {
             LOG_DBG() << "Create self signed cert" << Log::Field("type", storageID);
 
             err = mCertHandler->CreateSelfSignedCert(storageID, password);
@@ -95,7 +95,7 @@ Error ProvisionManager::Deprovision(const String& password)
     return AOS_ERROR_WRAP(mCallback->OnDeprovision(password));
 }
 
-RetWithError<StorageIDs> ProvisionManager::GetCertTypes() const
+RetWithError<StorageIDs> ProvisionManager::GetCertKeyStorageIDs() const
 {
     LOG_DBG() << "Get cert types";
 
@@ -111,7 +111,7 @@ RetWithError<StorageIDs> ProvisionManager::GetCertTypes() const
             return {storageIDs, AOS_ERROR_WRAP(certModuleConfig.mError)};
         }
 
-        if (!certModuleConfig.mValue.mIsSelfSigned) {
+        if (certModuleConfig.mValue.mCertType == certhandler::CertModuleTypeEnum::eCertKeyPair) {
             ++it;
 
             continue;
@@ -135,6 +135,15 @@ Error ProvisionManager::ApplyCert(const String& storageID, const String& pemCert
     LOG_DBG() << "Apply cert" << Log::Field("type", storageID);
 
     return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(storageID, pemCert, certInfo));
+}
+
+Error ProvisionManager::UpdateRootCerts(
+    const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos)
+{
+    LOG_DBG() << "Update root certs" << Log::Field("count", pemCerts.Size());
+
+    // CryptoHelper loads the trust set only during Init; consumers must restart to pick up the new roots.
+    return AOS_ERROR_WRAP(mCertHandler->UpdateRootCerts(pemCerts, infos));
 }
 
 } // namespace aos::iam::provisionmanager
