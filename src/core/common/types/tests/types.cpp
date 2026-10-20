@@ -53,6 +53,77 @@ TEST(CommonTest, Types)
             {}, {}, InstanceStateEnum::eActive, ErrorEnum::eNone, "3.0.0"}));
 }
 
+TEST(CommonTest, NodeRootCertificatesComparison)
+{
+    NodeRootCertificates rootCert1;
+    NodeRootCertificates rootCert2;
+
+    rootCert1.mNodeID = "node0";
+    ASSERT_TRUE(rootCert1.mSHA256Fingerprints.EmplaceBack("fingerprint0").IsNone());
+
+    rootCert2 = rootCert1;
+
+    EXPECT_EQ(rootCert1, rootCert2);
+
+    rootCert2.mNodeID = "node1";
+
+    EXPECT_NE(rootCert1, rootCert2);
+}
+
+TEST(CommonTest, UnitRootCertificatesComparison)
+{
+    UnitRootCertificates rootCert1;
+    UnitRootCertificates rootCert2;
+
+    rootCert1.mCorrelationID = "correlation0";
+    rootCert1.mIsPartial     = true;
+    ASSERT_TRUE(rootCert1.mNodeCertificates.EmplaceBack().IsNone());
+    rootCert1.mNodeCertificates.Back().mNodeID = "node0";
+
+    rootCert2 = rootCert1;
+
+    EXPECT_EQ(rootCert1, rootCert2);
+
+    rootCert2.mIsPartial = false;
+
+    EXPECT_NE(rootCert1, rootCert2);
+}
+
+TEST(CommonTest, DesiredNodeRootCertificatesComparison)
+{
+    auto rootCert1 = std::make_unique<DesiredNodeRootCertificates>();
+    auto rootCert2 = std::make_unique<DesiredNodeRootCertificates>();
+
+    rootCert1->mNodeID = "node0";
+    ASSERT_TRUE(rootCert1->mCertificates.EmplaceBack("pem0").IsNone());
+
+    *rootCert2 = *rootCert1;
+
+    EXPECT_EQ(*rootCert1, *rootCert2);
+
+    rootCert2->mCertificates[0] = "pem1";
+
+    EXPECT_NE(*rootCert1, *rootCert2);
+}
+
+TEST(CommonTest, DesiredUnitRootCertificatesComparison)
+{
+    auto rootCert1 = std::make_unique<DesiredUnitRootCertificates>();
+    auto rootCert2 = std::make_unique<DesiredUnitRootCertificates>();
+
+    rootCert1->mCorrelationID = "correlation0";
+    ASSERT_TRUE(rootCert1->mNodeCertificates.EmplaceBack().IsNone());
+    rootCert1->mNodeCertificates.Back().mNodeID = "node0";
+
+    *rootCert2 = *rootCert1;
+
+    EXPECT_EQ(*rootCert1, *rootCert2);
+
+    rootCert2->mCorrelationID = "correlation1";
+
+    EXPECT_NE(*rootCert1, *rootCert2);
+}
+
 TEST(CommonTest, IsMainNodeReturnsFalseOnEmptyAttrs)
 {
     NodeInfo nodeInfo;
