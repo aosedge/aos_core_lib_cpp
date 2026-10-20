@@ -20,6 +20,8 @@ class CertHandlerMock : public CertHandlerItf {
 public:
     MOCK_METHOD(Error, CreateKey, (const String&, const String&, const String&, const String&, String&), (override));
     MOCK_METHOD(Error, ApplyCert, (const String&, const String&, const String&, CertInfo&), (override));
+    MOCK_METHOD(Error, UpdateRootCerts, (const String&, const Array<StaticString<crypto::cCertPEMLen>>&), (override));
+    MOCK_METHOD(Error, GetRootCerts, (const String&, Array<SHA256Fingerprint>&), (override));
 };
 
 } // namespace aos::iamclient
