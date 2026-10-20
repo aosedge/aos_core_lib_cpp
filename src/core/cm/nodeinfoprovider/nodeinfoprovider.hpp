@@ -111,7 +111,7 @@ public:
     Error OnSMInfoReceived(const SMInfo& info) override;
 
 private:
-    static constexpr auto cListenersSize = 4;
+    static constexpr auto cListenersSize = 5;
 
     void OnNodeInfoChanged(const NodeInfo& info) override;
 
