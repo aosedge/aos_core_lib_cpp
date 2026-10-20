@@ -18,7 +18,7 @@ namespace aos::iamclient {
  */
 class ProvisioningMock : public ProvisioningItf {
 public:
-    MOCK_METHOD(Error, GetCertTypes, (const String&, Array<StaticString<cCertTypeLen>>&), (const, override));
+    MOCK_METHOD(Error, GetCertKeyStorageIDs, (const String&, Array<StaticString<cStorageIDLen>>&), (const, override));
     MOCK_METHOD(Error, StartProvisioning, (const String&, const String&), (override));
     MOCK_METHOD(Error, FinishProvisioning, (const String&, const String&), (override));
     MOCK_METHOD(Error, Deprovision, (const String&, const String&), (override));
