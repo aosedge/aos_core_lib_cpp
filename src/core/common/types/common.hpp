@@ -242,7 +242,7 @@ constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
 /**
  * Certificate type name length.
  */
-constexpr auto cCertTypeLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
+constexpr auto cStorageIDLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
 
 /**
  * Bearer token len.
@@ -1268,7 +1268,7 @@ struct Mount {
  * General certificate information.
  */
 struct CertInfo {
-    StaticString<cCertTypeLen>                    mCertType;
+    StaticString<cStorageIDLen>                   mStorageID;
     StaticArray<uint8_t, crypto::cCertIssuerSize> mIssuer;
     StaticArray<uint8_t, crypto::cSerialNumSize>  mSerial;
     StaticString<cURLLen>                         mCertURL;

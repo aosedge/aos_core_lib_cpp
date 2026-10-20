@@ -25,26 +25,26 @@ public:
      * Creates key.
      *
      * @param nodeID node ID.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param subject subject.
      * @param password password.
      * @param[out] csr certificate signing request.
      * @returns Error.
      */
     virtual Error CreateKey(
-        const String& nodeID, const String& certType, const String& subject, const String& password, String& csr)
+        const String& nodeID, const String& storageID, const String& subject, const String& password, String& csr)
         = 0;
 
     /**
      * Applies certificate.
      *
      * @param nodeID node ID.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param pemCert certificate in PEM.
      * @param certInfo certificate info.
      * @returns Error.
      */
-    virtual Error ApplyCert(const String& nodeID, const String& certType, const String& pemCert, CertInfo& certInfo)
+    virtual Error ApplyCert(const String& nodeID, const String& storageID, const String& pemCert, CertInfo& certInfo)
         = 0;
 };
 
