@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -482,6 +483,26 @@ TEST_F(FSTest, WriteFile)
     CheckFile(existingFile.c_str(), text, 0664);
 
     fs::RemoveAll(newFile.c_str());
+    fs::RemoveAll(existingFile.c_str());
+}
+
+TEST_F(FSTest, WriteFileUpdatesFileInPlace)
+{
+    const auto existingFile = cBaseTestDir / "write-file-in-place.txt";
+
+    CreateFile(existingFile.c_str(), "long existing file content", 0600);
+
+    // Reader that keeps the file opened (e.g. bind mount) should see new content.
+    std::ifstream openedFile {existingFile};
+
+    const char           text[] = "Hello World";
+    const Array<uint8_t> data {reinterpret_cast<const uint8_t*>(text), strlen(text)};
+
+    EXPECT_TRUE(fs::WriteFile(existingFile.c_str(), data, 0600).IsNone());
+    CheckFile(existingFile.c_str(), text, 0600);
+
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(openedFile), {}), text);
+
     fs::RemoveAll(existingFile.c_str());
 }
 
