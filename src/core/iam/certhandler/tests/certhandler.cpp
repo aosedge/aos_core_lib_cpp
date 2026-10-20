@@ -165,10 +165,10 @@ RetWithError<StaticString<pkcs11::cPINLen>> ReadPIN(const String& file)
 }
 
 void ApplyCertificate(
-    CertHandler& handler, crypto::x509::ProviderItf& cryptoProvider, const String& certType, const String& pin)
+    CertHandler& handler, crypto::x509::ProviderItf& cryptoProvider, const String& storageID, const String& pin)
 {
     StaticString<crypto::cCSRPEMLen> csr;
-    ASSERT_TRUE(handler.CreateKey(certType, "Aos Core", pin, csr).IsNone());
+    ASSERT_TRUE(handler.CreateKey(storageID, "Aos Core", pin, csr).IsNone());
 
     // create certificate from CSR, CA priv key, CA cert
     StaticString<crypto::cPrivKeyPEMLen> caKey;
@@ -190,7 +190,7 @@ void ApplyCertificate(
     CertInfo certInfo;
 
     // fs::WriteStringToFile(CERTIFICATES_DIR "/client-out.pem", clientCertChain, 0666);
-    ASSERT_TRUE(handler.ApplyCertificate(certType, clientCertChain, certInfo).IsNone());
+    ASSERT_TRUE(handler.ApplyCertificate(storageID, clientCertChain, certInfo).IsNone());
     EXPECT_EQ(certInfo.mSerial, serial);
 }
 
@@ -198,16 +198,16 @@ void ApplyCertificate(
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(CerthandlerTest, GetCertTypes)
+TEST_F(CerthandlerTest, GetStorageIDs)
 {
     RegisterPKCS11Module("iam");
     RegisterPKCS11Module("sm");
 
-    StaticArray<StaticString<cCertTypeLen>, cMaxModulesCount> certTypes;
+    StaticArray<StaticString<cStorageIDLen>, cMaxModulesCount> storageIDs;
 
-    ASSERT_TRUE(mCertHandler->GetCertTypes(certTypes).IsNone());
+    ASSERT_TRUE(mCertHandler->GetStorageIDs(storageIDs).IsNone());
 
-    CheckArray(certTypes, {"iam", "sm"});
+    CheckArray(storageIDs, {"iam", "sm"});
 }
 
 TEST_F(CerthandlerTest, GetModuleConfig)
