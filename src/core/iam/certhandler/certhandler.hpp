@@ -89,6 +89,15 @@ public:
     Error ApplyCertificate(const String& storageID, const String& pemCert, CertInfo& info) override;
 
     /**
+     * Updates root certificates (replaces the whole set).
+     *
+     * @param pemCerts certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) override;
+
+    /**
      * Creates a self signed certificate.
      *
      * @param storageID certificate storage ID.
@@ -118,6 +127,14 @@ public:
         CertInfo& resCert) const override;
 
     /**
+     * Returns root certificates.
+     *
+     * @param[out] infos result certificates.
+     * @returns Error.
+     */
+    Error GetRootCerts(Array<CertInfo>& infos) const override;
+
+    /**
      * Subscribes certificates listener.
      *
      * @param storageID certificate storage ID.
@@ -125,6 +142,14 @@ public:
      * @returns Error.
      */
     Error SubscribeListener(const String& storageID, iamclient::CertListenerItf& certListener) override;
+
+    /**
+     * Subscribes root certificates listener.
+     *
+     * @param certListener certificate listener.
+     * @returns Error.
+     */
+    Error SubscribeRootCertsListener(iamclient::CertListenerItf& certListener) override;
 
     /**
      * Unsubscribes certificate listener.
@@ -143,20 +168,23 @@ private:
     static constexpr auto cIAMCertSubsMaxCount = AOS_CONFIG_CERTHANDLER_CERT_SUBS_MAX_COUNT;
 
     CertModule* FindModule(const String& storageID) const;
+    CertModule* FindRootModule() const;
+    Error       Subscribe(CertModule& certModule, iamclient::CertListenerItf& certListener);
     Error       UpdateCerts(CertModule& certModule);
 
     mutable Mutex                                     mMutex;
     StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
 
     struct CertListenerSubscription {
-        CertListenerSubscription(const String& storageID, const CertInfo& certInfo, iamclient::CertListenerItf* listener)
+        CertListenerSubscription(
+            const String& storageID, const CertInfo& certInfo, iamclient::CertListenerItf* listener)
             : mStorageID(storageID)
             , mCertInfo(certInfo)
             , mCertListener(listener)
         {
         }
 
-        StaticString<cStorageIDLen>  mStorageID;
+        StaticString<cStorageIDLen> mStorageID;
         CertInfo                    mCertInfo;
         iamclient::CertListenerItf* mCertListener {};
     };

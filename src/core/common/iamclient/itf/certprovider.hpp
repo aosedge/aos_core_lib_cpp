@@ -53,6 +53,14 @@ public:
         = 0;
 
     /**
+     * Returns root certificates.
+     *
+     * @param[out] infos result certificates.
+     * @returns Error.
+     */
+    virtual Error GetRootCerts(Array<CertInfo>& infos) const = 0;
+
+    /**
      * Subscribes certificates listener.
      *
      * @param storageID certificate storage ID.
@@ -60,6 +68,14 @@ public:
      * @returns Error.
      */
     virtual Error SubscribeListener(const String& storageID, CertListenerItf& certListener) = 0;
+
+    /**
+     * Subscribes root certificates listener.
+     *
+     * @param certListener certificate listener.
+     * @returns Error.
+     */
+    virtual Error SubscribeRootCertsListener(CertListenerItf& certListener) = 0;
 
     /**
      * Unsubscribes certificate listener.

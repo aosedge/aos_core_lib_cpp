@@ -8,10 +8,10 @@
 
 #include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
-#include <core/common/tools/heapallocator.hpp>
 
 #if defined(WITH_MBEDTLS)
 #include <core/common/tests/crypto/providers/mbedtlsfactory.hpp>
@@ -24,24 +24,9 @@
 #include "gcmtestvector.hpp"
 
 using namespace testing;
+using aos::tests::TestAllocator;
 
 namespace aos::crypto {
-
-namespace {
-
-// Allocator that can be switched to fail, to reach allocation-failure paths.
-class SwitchAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t size) override { return mFail ? nullptr : mHeap.Allocate(size); }
-    void  Free(void* data) override { mHeap.Free(data); }
-
-    bool mFail = false;
-
-private:
-    HeapAllocator mHeap;
-};
-
-} // namespace
 
 /***********************************************************************************************************************
  * Suite
@@ -65,7 +50,7 @@ public:
 protected:
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    SwitchAllocator mAllocator;
+    TestAllocator mAllocator;
 
     std::shared_ptr<CryptoFactoryItf> mFactory;
     CryptoProviderItf*                mCryptoProvider;
@@ -1132,14 +1117,14 @@ TEST_P(CryptoProviderTest, AES_CreateFailsWithoutMemory)
 
         const auto ivSize = String(mode) == "GCM" ? AESCipherItf::cGCMIVSize : AESCipherItf::cBlockSize;
 
-        mAllocator.mFail = true;
+        mAllocator.FailAfter(0);
 
         EXPECT_TRUE(mCryptoProvider->CreateAESEncoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize))
                         .mError.Is(ErrorEnum::eNoMemory));
         EXPECT_TRUE(mCryptoProvider->CreateAESDecoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize))
                         .mError.Is(ErrorEnum::eNoMemory));
 
-        mAllocator.mFail = false;
+        mAllocator.Reset();
 
         // the provider is still usable once the allocator recovers
         EXPECT_TRUE(

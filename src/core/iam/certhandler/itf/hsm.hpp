@@ -21,6 +21,9 @@ namespace aos::iam::certhandler {
  */
 constexpr auto cCertsPerModule = AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE;
 
+static_assert(cCertsPerModule >= 2 * crypto::cMaxRootCerts,
+    "cert module should be able to keep old and new root certificates during update");
+
 /**
  * Platform dependent secure certificate storage.
  */
@@ -64,6 +67,17 @@ public:
         = 0;
 
     /**
+     * Adds a certificate.
+     * On failure, rolls back the certificate added by this call.
+     *
+     * @param cert certificate to add.
+     * @param password owner password.
+     * @param[out] certInfo result certificate information.
+     * @return Error.
+     */
+    virtual Error AddCert(const crypto::x509::Certificate& cert, const String& password, CertInfo& certInfo) = 0;
+
+    /**
      * Removes certificate chain using top level certificate URL and password.
      *
      * @param certURL top level certificate URL.
@@ -84,14 +98,27 @@ public:
     /**
      * Returns valid/invalid certificates.
      *
+     * Validates cert/key pairs. Certificates or keys without a matching pair are reported as invalid.
+     *
      * @param[out] invalidCerts invalid certificate URLs.
      * @param[out] invalidKeys invalid key URLs.
      * @param[out] validCerts information about valid certificates.
      * @return Error.
      **/
-    virtual Error ValidateCertificates(Array<StaticString<cURLLen>>& invalidCerts,
+    virtual Error ValidateKeysCertificates(Array<StaticString<cURLLen>>& invalidCerts,
         Array<StaticString<cURLLen>>& invalidKeys, Array<CertInfo>& validCerts)
         = 0;
+
+    /**
+     * Returns every root certificate currently stored.
+     *
+     * Root certs have no private key, so there is no key-pair validation and no concept of an invalid
+     * certificate here. Do not use ValidateKeysCertificates for root modules.
+     *
+     * @param[out] validCerts result certificate information.
+     * @return Error.
+     */
+    virtual Error ValidateRootCertificates(Array<CertInfo>& validCerts) = 0;
 
     /**
      * Destroys object instance.
