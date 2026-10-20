@@ -766,6 +766,13 @@
 #endif
 
 /**
+ * Max number of trusted root certificates.
+ */
+#ifndef AOS_CONFIG_CRYPTO_MAX_NUM_ROOT_CERTS
+#define AOS_CONFIG_CRYPTO_MAX_NUM_ROOT_CERTS 8
+#endif
+
+/**
  * Number of certificate chains to be stored in crypto::CertLoader.
  */
 #ifndef AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT
