@@ -29,7 +29,9 @@ class CertProviderMock : public CertProviderItf {
 public:
     MOCK_METHOD(
         Error, GetCertKey, (const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo&), (const, override));
+    MOCK_METHOD(Error, GetRootCerts, (Array<CertInfo>&), (const, override));
     MOCK_METHOD(Error, SubscribeCertKeyListener, (const String&, CertKeyListenerItf&), (override));
+    MOCK_METHOD(Error, SubscribeRootCertsListener, (CertKeyListenerItf&), (override));
     MOCK_METHOD(Error, UnsubscribeListener, (CertKeyListenerItf&), (override));
 };
 

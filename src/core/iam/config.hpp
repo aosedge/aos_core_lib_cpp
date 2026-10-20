@@ -12,7 +12,7 @@
  * Max expected number of certificates per IAM certificate module.
  */
 #ifndef AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE
-#define AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE 5
+#define AOS_CONFIG_CERTHANDLER_CERTS_PER_MODULE 16
 #endif
 
 /**
