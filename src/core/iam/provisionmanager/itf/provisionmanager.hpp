@@ -82,7 +82,7 @@ public:
      *
      * @returns RetWithError<StorageIDs>.
      */
-    virtual RetWithError<StorageIDs> GetCertTypes() const = 0;
+    virtual RetWithError<StorageIDs> GetCertKeyStorageIDs() const = 0;
 
     /**
      * Creates key.
@@ -104,6 +104,15 @@ public:
      * @returns Error.
      */
     virtual Error ApplyCert(const String& storageID, const String& pemCert, CertInfo& certInfo) = 0;
+
+    /**
+     * Updates root certificates.
+     *
+     * @param pemCerts root certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    virtual Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) = 0;
 
     /**
      * Finishes provisioning.
