@@ -25,10 +25,10 @@ public:
      * Returns IAM cert types.
      *
      * @param nodeID node ID.
-     * @param[out] certTypes result certificate types.
+     * @param[out] storageIDs result certificate storage IDs.
      * @returns Error.
      */
-    virtual Error GetCertTypes(const String& nodeID, Array<StaticString<cCertTypeLen>>& certTypes) const = 0;
+    virtual Error GetCertKeyStorageIDs(const String& nodeID, Array<StaticString<cStorageIDLen>>& storageIDs) const = 0;
 
     /**
      * Starts node provisioning.
