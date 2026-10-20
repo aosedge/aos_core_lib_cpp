@@ -28,7 +28,9 @@ set(INSTALL_HEADERS
     aos_core_cm_unitconfig
 )
 
-set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_monitoring aos_core_cm_storagestate aos_core_cm_updatemanager)
+set(INSTALL_LIBRARIES aos_core_cm_alerts aos_core_cm_monitoring aos_core_cm_rootcerts aos_core_cm_storagestate
+                      aos_core_cm_updatemanager
+)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_cm_tests_mocks)
@@ -60,6 +62,7 @@ add_subdirectory(imagemanager)
 add_subdirectory(launcher)
 add_subdirectory(monitoring)
 add_subdirectory(nodeinfoprovider)
+add_subdirectory(rootcerts)
 add_subdirectory(smcontroller)
 add_subdirectory(storagestate)
 add_subdirectory(unitconfig)
