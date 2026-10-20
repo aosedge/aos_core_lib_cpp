@@ -34,39 +34,39 @@ Error ProvisionManager::StartProvisioning(const String& password)
         return AOS_ERROR_WRAP(err);
     }
 
-    CertTypes certTypes;
+    StorageIDs storageIDs;
 
-    err = mCertHandler->GetCertTypes(certTypes);
+    err = mCertHandler->GetStorageIDs(storageIDs);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    for (const auto& certType : certTypes) {
-        LOG_DBG() << "Clear cert storage" << Log::Field("type", certType);
+    for (const auto& storageID : storageIDs) {
+        LOG_DBG() << "Clear cert storage" << Log::Field("type", storageID);
 
-        err = mCertHandler->Clear(certType);
+        err = mCertHandler->Clear(storageID);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    for (const auto& certType : certTypes) {
-        LOG_DBG() << "Set owner" << Log::Field("type", certType);
+    for (const auto& storageID : storageIDs) {
+        LOG_DBG() << "Set owner" << Log::Field("type", storageID);
 
-        err = mCertHandler->SetOwner(certType, password);
+        err = mCertHandler->SetOwner(storageID, password);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        auto certModuleConfig = mCertHandler->GetModuleConfig(certType);
+        auto certModuleConfig = mCertHandler->GetModuleConfig(storageID);
         if (!certModuleConfig.mError.IsNone()) {
             return AOS_ERROR_WRAP(certModuleConfig.mError);
         }
 
         if (certModuleConfig.mValue.mIsSelfSigned) {
-            LOG_DBG() << "Create self signed cert" << Log::Field("type", certType);
+            LOG_DBG() << "Create self signed cert" << Log::Field("type", storageID);
 
-            err = mCertHandler->CreateSelfSignedCert(certType, password);
+            err = mCertHandler->CreateSelfSignedCert(storageID, password);
             if (!err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
@@ -95,20 +95,20 @@ Error ProvisionManager::Deprovision(const String& password)
     return AOS_ERROR_WRAP(mCallback->OnDeprovision(password));
 }
 
-RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
+RetWithError<StorageIDs> ProvisionManager::GetCertTypes() const
 {
     LOG_DBG() << "Get cert types";
 
-    CertTypes certTypes;
+    StorageIDs storageIDs;
 
-    if (auto err = mCertHandler->GetCertTypes(certTypes); !err.IsNone()) {
-        return {certTypes, AOS_ERROR_WRAP(err)};
+    if (auto err = mCertHandler->GetStorageIDs(storageIDs); !err.IsNone()) {
+        return {storageIDs, AOS_ERROR_WRAP(err)};
     }
 
-    for (auto it = certTypes.begin(); it != certTypes.end();) {
+    for (auto it = storageIDs.begin(); it != storageIDs.end();) {
         auto certModuleConfig = mCertHandler->GetModuleConfig(*it);
         if (!certModuleConfig.mError.IsNone()) {
-            return {certTypes, AOS_ERROR_WRAP(certModuleConfig.mError)};
+            return {storageIDs, AOS_ERROR_WRAP(certModuleConfig.mError)};
         }
 
         if (!certModuleConfig.mValue.mIsSelfSigned) {
@@ -117,24 +117,24 @@ RetWithError<CertTypes> ProvisionManager::GetCertTypes() const
             continue;
         }
 
-        it = certTypes.Erase(it);
+        it = storageIDs.Erase(it);
     }
 
-    return {certTypes, aos::ErrorEnum::eNone};
+    return {storageIDs, aos::ErrorEnum::eNone};
 }
 
-Error ProvisionManager::CreateKey(const String& certType, const String& subject, const String& password, String& csr)
+Error ProvisionManager::CreateKey(const String& storageID, const String& subject, const String& password, String& csr)
 {
-    LOG_DBG() << "Create key" << Log::Field("type", certType) << Log::Field("subject", subject);
+    LOG_DBG() << "Create key" << Log::Field("type", storageID) << Log::Field("subject", subject);
 
-    return AOS_ERROR_WRAP(mCertHandler->CreateKey(certType, subject, password, csr));
+    return AOS_ERROR_WRAP(mCertHandler->CreateKey(storageID, subject, password, csr));
 }
 
-Error ProvisionManager::ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo)
+Error ProvisionManager::ApplyCert(const String& storageID, const String& pemCert, CertInfo& certInfo)
 {
-    LOG_DBG() << "Apply cert" << Log::Field("type", certType);
+    LOG_DBG() << "Apply cert" << Log::Field("type", storageID);
 
-    return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(certType, pemCert, certInfo));
+    return AOS_ERROR_WRAP(mCertHandler->ApplyCertificate(storageID, pemCert, certInfo));
 }
 
 } // namespace aos::iam::provisionmanager

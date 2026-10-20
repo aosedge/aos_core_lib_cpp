@@ -88,67 +88,67 @@ public:
     /**
      * Returns IAM cert types.
      *
-     * @param[out] certTypes result certificate types.
+     * @param[out] storageIDs result certificate storage IDs.
      * @returns Error.
      */
-    virtual Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const = 0;
+    virtual Error GetStorageIDs(Array<StaticString<cStorageIDLen>>& storageIDs) const = 0;
 
     /**
      * Owns security storage.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param password owner password.
      * @returns Error.
      */
-    virtual Error SetOwner(const String& certType, const String& password) = 0;
+    virtual Error SetOwner(const String& storageID, const String& password) = 0;
 
     /**
      * Clears security storage.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @returns Error.
      */
-    virtual Error Clear(const String& certType) = 0;
+    virtual Error Clear(const String& storageID) = 0;
 
     /**
      * Creates key pair.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param subjectCommonName common name of the subject.
      * @param password owner password.
      * @param[out] pemCSR certificate signing request in PEM.
      * @returns Error.
      */
     virtual Error CreateKey(
-        const String& certType, const String& subjectCommonName, const String& password, String& pemCSR)
+        const String& storageID, const String& subjectCommonName, const String& password, String& pemCSR)
         = 0;
 
     /**
      * Applies certificate.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param pemCert certificate in a pem format.
      * @param[out] info result certificate information.
      * @returns Error.
      */
-    virtual Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) = 0;
+    virtual Error ApplyCertificate(const String& storageID, const String& pemCert, CertInfo& info) = 0;
 
     /**
      * Creates a self signed certificate.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param password owner password.
      * @returns Error.
      */
-    virtual Error CreateSelfSignedCert(const String& certType, const String& password) = 0;
+    virtual Error CreateSelfSignedCert(const String& storageID, const String& password) = 0;
 
     /**
      * Returns module configuration.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @returns RetWithError<ModuleConfig>.
      */
-    virtual RetWithError<ModuleConfig> GetModuleConfig(const String& certType) const = 0;
+    virtual RetWithError<ModuleConfig> GetModuleConfig(const String& storageID) const = 0;
 
     /**
      * Destroys certificate handler interface.

@@ -20,11 +20,11 @@ namespace aos::iam::certhandler {
  * Public
  **********************************************************************************************************************/
 
-Error PKCS11Module::Init(AllocatorItf& allocator, const String& certType, const PKCS11ModuleConfig& config,
+Error PKCS11Module::Init(AllocatorItf& allocator, const String& storageID, const PKCS11ModuleConfig& config,
     pkcs11::PKCS11Manager& pkcs11, crypto::CryptoProviderItf& cryptoProvider)
 {
     mAllocator      = &allocator;
-    mCertType       = certType;
+    mStorageID       = storageID;
     mConfig         = config;
     mCryptoProvider = &cryptoProvider;
 
@@ -221,7 +221,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
     switch (keyType.GetValue()) {
     case crypto::KeyTypeEnum::eRSA:
         Tie(pendingKey.mKey, err) = pkcs11::Utils(*mAllocator, session, *mCryptoProvider)
-                                        .GenerateRSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cRSAKeyLength);
+                                        .GenerateRSAKeyPairWithLabel(pendingKey.mUUID, mStorageID, cRSAKeyLength);
         if (!err.IsNone()) {
             return {nullptr, AOS_ERROR_WRAP(err)};
         }
@@ -229,14 +229,14 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
 
     case crypto::KeyTypeEnum::eECDSA:
         Tie(pendingKey.mKey, err) = pkcs11::Utils(*mAllocator, session, *mCryptoProvider)
-                                        .GenerateECDSAKeyPairWithLabel(pendingKey.mUUID, mCertType, cECSDACurveID);
+                                        .GenerateECDSAKeyPairWithLabel(pendingKey.mUUID, mStorageID, cECSDACurveID);
         if (!err.IsNone()) {
             return {nullptr, AOS_ERROR_WRAP(err)};
         }
         break;
 
     default:
-        LOG_ERR() << "Unsupported algorithm: certType=" << mCertType << ", keyType=" << keyType
+        LOG_ERR() << "Unsupported algorithm: storageID=" << mStorageID << ", keyType=" << keyType
                   << ", only RSA and ECDSA (secp384r1) are supported";
 
         return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
@@ -249,7 +249,7 @@ RetWithError<SharedPtr<crypto::PrivateKeyItf>> PKCS11Module::CreateKey(
     }
 
     if (mPendingKeys.Size() == mPendingKeys.MaxSize()) {
-        LOG_WRN() << "Max pending keys reached: Remove old: certType=" << mCertType;
+        LOG_WRN() << "Max pending keys reached: Remove old: storageID=" << mStorageID;
 
         auto oldKey = mPendingKeys.Front().mKey;
 
@@ -294,12 +294,12 @@ Error PKCS11Module::ApplyCert(const Array<crypto::x509::Certificate>& certChain,
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    err = CreateCertificateChain(session, curKey.GetValue().mUUID, mCertType, certChain);
+    err = CreateCertificateChain(session, curKey.GetValue().mUUID, mStorageID, certChain);
     if (!err.IsNone()) {
         return err;
     }
 
-    err = CreateURL(mCertType, curKey.GetValue().mUUID, certInfo.mCertURL);
+    err = CreateURL(mStorageID, curKey.GetValue().mUUID, certInfo.mCertURL);
     if (!err.IsNone()) {
         return err;
     }
@@ -377,7 +377,7 @@ Error PKCS11Module::ValidateCertificates(
     bool                              isOwned = false;
     SharedPtr<pkcs11::SessionContext> session;
 
-    LOG_DBG() << "Validate certificates: certType=" << mCertType;
+    LOG_DBG() << "Validate certificates: storageID=" << mStorageID;
 
     Tie(isOwned, err) = IsOwned();
     if (!err.IsNone() || !isOwned) {
@@ -396,7 +396,7 @@ Error PKCS11Module::ValidateCertificates(
 
     SearchObject filter;
 
-    filter.mLabel = mCertType;
+    filter.mLabel = mStorageID;
     filter.mType  = CKO_CERTIFICATE;
 
     err = FindObject(*session, filter, certificates);
@@ -1056,12 +1056,12 @@ Error PKCS11Module::CreateCertInfo(const crypto::x509::Certificate& cert, const 
     certInfo.mNotAfter = cert.mNotAfter;
     certInfo.mSerial   = cert.mSerial;
 
-    auto err = CreateURL(mCertType, certID, certInfo.mCertURL);
+    auto err = CreateURL(mStorageID, certID, certInfo.mCertURL);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    err = CreateURL(mCertType, keyID, certInfo.mKeyURL);
+    err = CreateURL(mStorageID, keyID, certInfo.mKeyURL);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -1074,7 +1074,7 @@ Error PKCS11Module::CreateInvalidURLs(const Array<SearchObject>& objects, Array<
     StaticString<cURLLen> url;
 
     for (const auto& cert : objects) {
-        auto err = CreateURL(mCertType, cert.mID, url);
+        auto err = CreateURL(mStorageID, cert.mID, url);
         if (!err.IsNone()) {
             return err;
         }
@@ -1091,7 +1091,7 @@ Error PKCS11Module::CreateInvalidURLs(const Array<SearchObject>& objects, Array<
 void PKCS11Module::PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects) const
 {
     for (const auto& object : objects) {
-        LOG_WRN() << "Invalid " << objectType << " found: certType=" << mCertType
+        LOG_WRN() << "Invalid " << objectType << " found: storageID=" << mStorageID
                   << ", id=" << uuid::UUIDToString(object.mID);
     }
 }
