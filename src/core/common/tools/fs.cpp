@@ -505,15 +505,27 @@ Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter)
 
 Error WriteFile(const String& fileName, const Array<uint8_t>& data, uint32_t perm)
 {
-    // zephyr doesn't support O_TRUNC flag. This is WA to trunc file if it exists.
-    auto err = Remove(fileName);
-    if (!err.IsNone()) {
-        return err;
-    }
+    Error err;
+    int   fd = -1;
 
-    auto fd = open(fileName.CStr(), O_CREAT | O_WRONLY, perm);
-    if (fd < 0) {
+#ifndef __ZEPHYR__
+    // Truncate existing file in place to keep its inode, owner and group.
+    fd = open(fileName.CStr(), O_CREAT | O_WRONLY | O_TRUNC, perm);
+    if (fd < 0 && errno != EACCES) {
         return Error(errno);
+    }
+#endif
+
+    if (fd < 0) {
+        // zephyr doesn't support O_TRUNC flag and existing file may be not writable. This is WA to trunc file.
+        if (err = Remove(fileName); !err.IsNone()) {
+            return err;
+        }
+
+        fd = open(fileName.CStr(), O_CREAT | O_WRONLY, perm);
+        if (fd < 0) {
+            return Error(errno);
+        }
     }
 
     size_t pos = 0;
