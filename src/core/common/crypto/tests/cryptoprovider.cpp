@@ -592,7 +592,7 @@ TEST_P(CryptoProviderTest, SHA256)
 
         ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
 
-        StaticString<cSHA256Size * 2> hashStr;
+        StaticString<cSHA256HexLen> hashStr;
         ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
 
         EXPECT_EQ(hashStr, String(testCase.mExpectedHash));
@@ -626,7 +626,7 @@ TEST_P(CryptoProviderTest, SHA3_256)
 
         ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
 
-        StaticString<cSHA256Size * 2> hashStr;
+        StaticString<cSHA256HexLen> hashStr;
         ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
 
         EXPECT_EQ(hashStr, String(testCase.mExpectedHash));
@@ -656,7 +656,7 @@ TEST_P(CryptoProviderTest, SHA256ByChunks)
 
     ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
 
-    aos::StaticString<cSHA256Size * 2> hashStr;
+    aos::StaticString<cSHA256HexLen> hashStr;
     ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
 
     EXPECT_EQ(hashStr, String("a98c0eb748fcf3c87b8d231c0866f20dd12202923de5e93696ee4a3ad3da91ec"));
