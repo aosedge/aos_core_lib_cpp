@@ -41,6 +41,7 @@ public:
     MOCK_METHOD(void, FreeSpace, (size_t), (override));
     MOCK_METHOD(Error, AddOutdatedItem, (const String&, const String&, const Time&), (override));
     MOCK_METHOD(Error, RestoreOutdatedItem, (const String&, const String&), (override));
+    MOCK_METHOD(RetWithError<size_t>, RemoveOutdatedItem, (), (override));
     MOCK_METHOD(Error, AllocateDone, (), (override));
 };
 
