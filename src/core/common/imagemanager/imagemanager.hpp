@@ -9,9 +9,11 @@
 
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
+#include <core/common/tools/array.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/noncopyable.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "itf/blobinfoprovider.hpp"
 #include "itf/itemstatusprovider.hpp"
@@ -49,26 +51,34 @@ public:
     virtual Error Stop();
 
     /**
-     * Retrieves deployable items statuses.
+     * Retrieves deployable items statuses. Reports one status per item version in the storage with its stored state,
+     * except a stored eInstalling state, which is reported as eFailed without error. mError is set only for eFailed
+     * items and is taken from the storage. mPreinstalled is always false. ePending is never reported.
+     *
+     * @note The statuses are appended to the output array, which is not cleared.
      *
      * @param[out] statuses list of deployable items statuses.
-     * @return Error.
+     * @return Error: eNoMemory if the statuses don't fit the output array, storage errors as is.
      */
     Error GetItemsStatuses(Array<UpdateItemStatus>& statuses) override;
 
     /**
-     * Subscribes status notifications.
+     * Subscribes status notifications. Can be called at any time, including from a listener callback.
      *
      * @param listener status listener.
-     * @return Error.
+     * @return Error: eAlreadyExist if the listener is already subscribed.
      */
     Error SubscribeListener(ItemStatusListenerItf& listener) override;
 
     /**
-     * Unsubscribes from status notifications.
+     * Unsubscribes from status notifications. Can be called at any time, including from a listener callback.
+     *
+     * @note A notification already in progress on another thread may still call the listener after
+     * UnsubscribeListener returns, so the listener must stay alive until the image manager is stopped or until the
+     * notification in progress returns.
      *
      * @param listener status listener.
-     * @return Error.
+     * @return Error: eNotFound if the listener is not subscribed.
      */
     Error UnsubscribeListener(ItemStatusListenerItf& listener) override;
 
@@ -202,9 +212,31 @@ protected:
      */
     spaceallocator::SpaceAllocatorItf& GetSpaceAllocator() const { return *mSpaceAllocator; }
 
+    /**
+     * Notifies subscribed listeners about item status change. The listeners are copied under the listeners mutex and
+     * called without any lock held, so a listener may subscribe or unsubscribe listeners from the callback. A listener
+     * unsubscribed during the notification may still receive the notification in progress. Must be called without the
+     * image manager mutex locked.
+     *
+     * @param status item status.
+     */
+    void NotifyItemStatusChanged(const UpdateItemStatus& status);
+
+    /**
+     * Notifies subscribed listeners about item removal from cache. The listeners are copied under the listeners mutex
+     * and called without any lock held, so a listener may subscribe or unsubscribe listeners from the callback. A
+     * listener unsubscribed during the notification may still receive the notification in progress. Must be called
+     * without the image manager mutex locked.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     */
+    void NotifyItemRemovedFromCache(const String& itemID, const String& version);
+
 private:
     static constexpr auto cBlobsFolder           = "blobs";
     static constexpr auto cSHA256DigestAlgorithm = "sha256";
+    static constexpr auto cMaxNumListeners       = 4;
 
     class ItemRemover : public spaceallocator::ItemRemoverItf {
     public:
@@ -241,6 +273,12 @@ private:
     oci::OCISpecItf*                   mOCISpec {};
     fs::FSPlatformItf*                 mFSPlatform {};
     AllocatorItf*                      mAllocator {};
+
+    Mutex                                                 mListenersMutex;
+    StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
+
+    // Guards the storage updates and reads that must be consistent.
+    Mutex mMutex;
 
     ItemRemover mItemRemover {*this};
 };
