@@ -31,7 +31,9 @@ set(INSTALL_HEADERS
     aos_core_common_version
 )
 
-set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_monitoring aos_core_common_pkcs11 aos_core_common_tools)
+set(INSTALL_LIBRARIES aos_core_common_crypto aos_core_common_imagemanager aos_core_common_monitoring
+                      aos_core_common_pkcs11 aos_core_common_tools
+)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_common_tests_mocks aos_core_common_tests_stubs)
@@ -61,6 +63,7 @@ add_subdirectory(crypto)
 add_subdirectory(downloader)
 add_subdirectory(logging)
 add_subdirectory(iamclient)
+add_subdirectory(imagemanager)
 add_subdirectory(instancestatusprovider)
 add_subdirectory(monitoring)
 add_subdirectory(networkmanager)
