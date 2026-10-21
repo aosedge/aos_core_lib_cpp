@@ -96,6 +96,14 @@ public:
      * @return RetWithError<StaticString<cDeviceNameLen>>.
      */
     virtual RetWithError<StaticString<cDeviceNameLen>> GetBlockDevice(const String& path) const = 0;
+
+    /**
+     * Flushes pending changes of the file system containing the given path.
+     *
+     * @param path path to file or directory on the file system.
+     * @return Error.
+     */
+    virtual Error Sync(const String& path) const = 0;
 };
 
 /**
