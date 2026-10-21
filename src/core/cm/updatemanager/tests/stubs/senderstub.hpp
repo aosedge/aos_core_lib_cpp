@@ -36,6 +36,21 @@ public:
         return ErrorEnum::eNone;
     }
 
+    /**
+     * Sends unit root certificates.
+     *
+     * @param unitRootCertificates unit root certificates.
+     * @return Error.
+     */
+    Error SendUnitRootCertificates(const UnitRootCertificates& unitRootCertificates) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mUnitRootCertificates = unitRootCertificates;
+
+        return ErrorEnum::eNone;
+    }
+
     const UnitStatus& WaitSendUnitStatus()
     {
         std::unique_lock lock {mMutex};
@@ -53,6 +68,7 @@ private:
     static constexpr std::chrono::milliseconds cWaitTimeout {5000};
 
     UnitStatus              mUnitStatus;
+    UnitRootCertificates    mUnitRootCertificates;
     bool                    mSendCalled {};
     std::mutex              mMutex;
     std::condition_variable mCondVar;

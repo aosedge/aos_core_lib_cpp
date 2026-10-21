@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_COMMON_TYPES_CERTIFICATES_HPP_
 #define AOS_CORE_COMMON_TYPES_CERTIFICATES_HPP_
 
+#include <core/common/crypto/itf/hash.hpp>
 #include <core/common/crypto/itf/x509.hpp>
 #include <core/common/tools/optional.hpp>
 
@@ -28,6 +29,21 @@ static constexpr auto cCertsPerNodeCount = static_cast<size_t>(CertTypeEnum::eNu
  * Maximum number of certificates per unit.
  */
 static constexpr auto cCertsPerUnitCount = cMaxNumNodes * cCertsPerNodeCount;
+
+/**
+ * SHA-256 digest hex string length.
+ */
+static constexpr auto cSHA256HexLen = crypto::cSHA256Size * 2;
+
+/**
+ * SHA-256 certificate fingerprint.
+ */
+using SHA256Fingerprint = StaticString<cSHA256HexLen>;
+
+/**
+ * SHA-256 certificate fingerprint array.
+ */
+using SHA256FingerprintArray = StaticArray<SHA256Fingerprint, crypto::cMaxRootCerts>;
 
 /**
  * Certificate identification.
@@ -327,6 +343,128 @@ struct InstallUnitCertsConfirmation : public Protocol {
      * @return bool.
      */
     friend bool operator!=(const InstallUnitCertsConfirmation& lhs, const InstallUnitCertsConfirmation& rhs)
+    {
+        return !(lhs == rhs);
+    };
+};
+
+/**
+ * Root certificates report for a node (unit → cloud).
+ */
+struct NodeRootCertificates {
+    StaticString<cIDLen>   mNodeID; /**< Node identifier. */
+    SHA256FingerprintArray mSHA256Fingerprints; /**< Root certificate SHA-256 fingerprints. */
+
+    /**
+     * Compares node root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator==(const NodeRootCertificates& lhs, const NodeRootCertificates& rhs)
+    {
+        return lhs.mNodeID == rhs.mNodeID && lhs.mSHA256Fingerprints == rhs.mSHA256Fingerprints;
+    };
+
+    /**
+     * Compares node root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator!=(const NodeRootCertificates& lhs, const NodeRootCertificates& rhs) { return !(lhs == rhs); };
+};
+
+/**
+ * Unit root certificates report (unit → cloud).
+ */
+struct UnitRootCertificates : public Protocol {
+    bool                                            mIsPartial {}; /**< Partial (not all nodes) indicator. */
+    StaticArray<NodeRootCertificates, cMaxNumNodes> mNodeCertificates; /**< Root certificates per node. */
+
+    /**
+     * Compares unit root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator==(const UnitRootCertificates& lhs, const UnitRootCertificates& rhs)
+    {
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mIsPartial == rhs.mIsPartial
+            && lhs.mNodeCertificates == rhs.mNodeCertificates;
+    };
+
+    /**
+     * Compares unit root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator!=(const UnitRootCertificates& lhs, const UnitRootCertificates& rhs) { return !(lhs == rhs); };
+};
+
+/**
+ * Desired root certificates for a node (cloud → unit).
+ */
+struct DesiredNodeRootCertificates {
+    StaticString<cIDLen>                                                  mNodeID; /**< Node identifier. */
+    StaticArray<StaticString<crypto::cCertPEMLen>, crypto::cMaxRootCerts> mCertificates; /**< Root certificates PEM. */
+
+    /**
+     * Compares desired node root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator==(const DesiredNodeRootCertificates& lhs, const DesiredNodeRootCertificates& rhs)
+    {
+        return lhs.mNodeID == rhs.mNodeID && lhs.mCertificates == rhs.mCertificates;
+    };
+
+    /**
+     * Compares desired node root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator!=(const DesiredNodeRootCertificates& lhs, const DesiredNodeRootCertificates& rhs)
+    {
+        return !(lhs == rhs);
+    };
+};
+
+/**
+ * Desired unit root certificates (cloud → unit).
+ */
+struct DesiredUnitRootCertificates : public Protocol {
+    StaticArray<DesiredNodeRootCertificates, cMaxNumNodes> mNodeCertificates; /**< Root certificates per node. */
+
+    /**
+     * Compares desired unit root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator==(const DesiredUnitRootCertificates& lhs, const DesiredUnitRootCertificates& rhs)
+    {
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mNodeCertificates == rhs.mNodeCertificates;
+    };
+
+    /**
+     * Compares desired unit root certificates.
+     *
+     * @param lhs certificates to compare.
+     * @param rhs certificates to compare with.
+     * @return bool.
+     */
+    friend bool operator!=(const DesiredUnitRootCertificates& lhs, const DesiredUnitRootCertificates& rhs)
     {
         return !(lhs == rhs);
     };

@@ -29,14 +29,14 @@ public:
      * Initializes certificate module.
      *
      * @param allocator allocator to use for temporary objects.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param config module config.
      * @param x509Provider provider of x509 certificates, csr, keys.
      * @param hsm a reference to hardware security module.
      * @param storage a reference to certificate storage.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const String& certType, const ModuleConfig& config,
+    Error Init(AllocatorItf& allocator, const String& storageID, const ModuleConfig& config,
         crypto::x509::ProviderItf& x509Provider, HSMItf& hsm, StorageItf& storage);
 
     /**
@@ -44,7 +44,7 @@ public:
      *
      * @return const String&.
      */
-    const String& GetCertType() const { return mCertType; }
+    const String& GetStorageID() const { return mStorageID; }
 
     /**
      * Returns information about certificate with specified issuer and serial number.
@@ -55,6 +55,14 @@ public:
      * @return Error.
      */
     Error GetCertificate(const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert);
+
+    /**
+     * Returns all certificates for this module.
+     *
+     * @param[out] infos result certificates.
+     * @return Error.
+     */
+    Error GetCertificates(Array<CertInfo>& infos);
 
     /**
      * Owns the module.
@@ -99,6 +107,17 @@ public:
     Error ApplyCert(const String& pemCert, CertInfo& info);
 
     /**
+     * Updates certificates for this module (replaces the whole set).
+     *
+     * @param pemCerts certificates in PEM format.
+     * @param password owner password.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateCerts(
+        const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, const String& password, Array<CertInfo>& infos);
+
+    /**
      * Creates a self signed certificate.
      *
      * @param password owner password.
@@ -125,19 +144,26 @@ private:
     using CertificateChain      = StaticArray<crypto::x509::Certificate, crypto::cCertChainSize>;
     using SelfSignedCertificate = StaticString<crypto::cCertPEMLen>;
 
+    static bool HasCert(const Array<CertInfo>& infos, const Array<uint8_t>& issuer, const Array<uint8_t>& serial);
+
     Error ValidateConfig() const;
     Error RemoveInvalidCerts(const String& password);
     Error RemoveInvalidKeys(const String& password);
     Error TrimCerts(const String& password);
     Error CheckCertChain(const Array<crypto::x509::Certificate>& chain);
     Error SyncValidCerts(const Array<CertInfo>& validCert);
+    Error AddCert(const crypto::x509::Certificate& cert, const Array<CertInfo>& curCerts,
+        const Array<CertInfo>& newCerts, const String& password, CertInfo& resInfo);
+    Error RemoveCert(const CertInfo& info, const String& password);
+    Error CollectUpdateCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, const Array<CertInfo>& existing,
+        Array<crypto::x509::Certificate>& certs, size_t& newCertCount);
 
     crypto::x509::ProviderItf* mX509Provider {};
     HSMItf*                    mHSM {};
     StorageItf*                mStorage {};
 
-    StaticString<cCertTypeLen> mCertType;
-    ModuleConfig               mModuleConfig {};
+    StaticString<cStorageIDLen> mStorageID;
+    ModuleConfig                mModuleConfig {};
 
     StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidCerts;
     StaticArray<StaticString<cURLLen>, cCertsPerModule> mInvalidKeys;

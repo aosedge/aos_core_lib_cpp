@@ -359,6 +359,13 @@
 #endif
 
 /**
+ * Max number of certificates per module / root trust set.
+ */
+#ifndef AOS_CONFIG_CERTS_PER_MODULE
+#define AOS_CONFIG_CERTS_PER_MODULE 5
+#endif
+
+/**
  * Node title len.
  */
 #ifndef AOS_CONFIG_TYPES_NODE_TITLE_LEN
