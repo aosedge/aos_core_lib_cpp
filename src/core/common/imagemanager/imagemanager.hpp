@@ -138,9 +138,10 @@ protected:
      *
      * @param digest blob digest.
      * @param path blob path.
-     * @return Error.
+     * @return Error: eInvalidArgument if digest is malformed, eNotSupported if digest algorithm is not sha256,
+     * eInvalidChecksum if blob checksum mismatches, the file info provider error if the blob file can't be read.
      */
-    Error ValidateBlob(const String& digest, const String& path);
+    Error ValidateBlob(const String& digest, const String& path) const;
 
     /**
      * Installs blob: allocates space of the blob size if it is not 0, downloads and validates the blob. On failure, the
@@ -203,6 +204,10 @@ protected:
     spaceallocator::SpaceAllocatorItf& GetSpaceAllocator() const { return *mSpaceAllocator; }
 
 private:
+    static constexpr auto cBlobsFolder           = "blobs";
+    static constexpr auto cSHA256DigestAlgorithm = "sha256";
+    static constexpr auto cBlobHashSize          = crypto::cSHA512Size;
+
     /**
      * Downloads blob. Called by InstallBlob, derived classes implement it but must not call it directly.
      *
@@ -229,6 +234,17 @@ private:
     };
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
+    void                 FinishInstallBlob(const String& path, spaceallocator::SpaceItf* space, const Error& err);
+
+    /**
+     * Splits digest into algorithm and hash.
+     *
+     * @param digest digest in format <algorithm>:<hash>.
+     * @param[out] algorithm digest algorithm.
+     * @param[out] hash digest hash.
+     * @return Error: eInvalidArgument if digest is malformed.
+     */
+    static Error ParseDigest(const String& digest, String& algorithm, String& hash);
 
     Config                             mConfig;
     StorageItf*                        mStorage {};
