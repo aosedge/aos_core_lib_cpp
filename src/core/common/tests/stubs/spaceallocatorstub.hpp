@@ -132,6 +132,13 @@ public:
     }
 
     /**
+     * Removes the oldest outdated item.
+     *
+     * @return RetWithError<size_t>.
+     */
+    RetWithError<size_t> RemoveOutdatedItem() override { return {0, ErrorEnum::eNotFound}; }
+
+    /**
      * Allocates done.
      *
      * @return Error.
