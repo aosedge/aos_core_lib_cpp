@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <string>
+
 #include <gtest/gtest.h>
 
 #include <core/common/spaceallocator/spaceallocator.hpp>
@@ -638,6 +640,394 @@ TEST_F(SpaceallocatorTest, ReAddOutdatedItemUpdatesExisting)
     auto [space3, err3] = mSpaceAllocator.AllocateSpace(itemSize);
     EXPECT_EQ(err3, ErrorEnum::eNoMemory);
     EXPECT_EQ(space3.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemNoItems)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(_, _)).Times(0);
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err, ErrorEnum::eNotFound);
+    EXPECT_EQ(size, 0U);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemOldestFirst)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    const Time now = Time::Now();
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", now.Add(-1 * Time::cHours)).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item2", "1.0.0", now.Add(-3 * Time::cHours)).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item3", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+
+    {
+        InSequence seq;
+
+        EXPECT_CALL(mRemover, RemoveItem(String("item2"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(32 * cKilobyte, ErrorEnum::eNone)));
+        EXPECT_CALL(mRemover, RemoveItem(String("item3"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(64 * cKilobyte, ErrorEnum::eNone)));
+        EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(128 * cKilobyte, ErrorEnum::eNone)));
+    }
+
+    // items are removed one by one starting from the oldest one
+
+    auto [size1, err1] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err1.IsNone());
+    EXPECT_EQ(size1, 32 * cKilobyte);
+
+    auto [size2, err2] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err2.IsNone());
+    EXPECT_EQ(size2, 64 * cKilobyte);
+
+    auto [size3, err3] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err3.IsNone());
+    EXPECT_EQ(size3, 128 * cKilobyte);
+
+    // no outdated items left
+
+    auto [size4, err4] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err4, ErrorEnum::eNotFound);
+    EXPECT_EQ(size4, 0U);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemRemoverErrorPartition)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    // no allocator limit: only the partition accounting is checked
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(30 * cKilobyte, ErrorEnum::eNone)));
+
+    // space1 is not accepted on purpose: the partition available size is not re-read from the file system
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(25 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(64 * cKilobyte, ErrorEnum::eFailed)));
+
+    // remover error is returned and the failed item is dropped from the outdated items
+
+    auto [size1, err2] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err2, ErrorEnum::eFailed);
+    EXPECT_EQ(size1, 0U);
+
+    auto [size2, err3] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err3, ErrorEnum::eNotFound);
+    EXPECT_EQ(size2, 0U);
+
+    // 5K is available: 10K doesn't fit, the size returned with the error must not be accounted
+
+    auto [space2, err4] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    EXPECT_EQ(err4, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemRemoverErrorAllocator)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    // allocator limit is 50K
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .WillRepeatedly(Return(RetWithError<size_t>(20 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    // space1 is not accepted on purpose: the allocated size is not re-read from the file system
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(25 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(64 * cKilobyte, ErrorEnum::eFailed)));
+
+    // remover error is returned and the failed item is dropped from the outdated items
+
+    auto [size1, err2] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err2, ErrorEnum::eFailed);
+    EXPECT_EQ(size1, 0U);
+
+    auto [size2, err3] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err3, ErrorEnum::eNotFound);
+    EXPECT_EQ(size2, 0U);
+
+    // 45K is allocated: 10K more exceeds the limit, the size returned with the error must not be accounted
+
+    auto [space2, err4] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    EXPECT_EQ(err4, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemOtherAllocatorUntouched)
+{
+    SpaceAllocator<5> allocator1;
+    SpaceAllocator<5> allocator2;
+
+    StrictMock<ItemRemoverMock> remover2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, mLimit, &remover2).IsNone());
+
+    const Time now = Time::Now();
+
+    // allocator2 item is older but belongs to another allocator sharing the partition
+
+    ASSERT_TRUE(allocator1.AddOutdatedItem("item1", "1.0.0", now.Add(-1 * Time::cHours)).IsNone());
+    ASSERT_TRUE(allocator2.AddOutdatedItem("item2", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(32 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [size1, err1] = allocator1.RemoveOutdatedItem();
+    ASSERT_TRUE(err1.IsNone());
+    EXPECT_EQ(size1, 32 * cKilobyte);
+
+    auto [size2, err2] = allocator1.RemoveOutdatedItem();
+    EXPECT_EQ(err2, ErrorEnum::eNotFound);
+    EXPECT_EQ(size2, 0U);
+
+    // allocator2 item is still there
+
+    EXPECT_CALL(remover2, RemoveItem(String("item2"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(64 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [size3, err3] = allocator2.RemoveOutdatedItem();
+    ASSERT_TRUE(err3.IsNone());
+    EXPECT_EQ(size3, 64 * cKilobyte);
+
+    auto [size4, err4] = allocator2.RemoveOutdatedItem();
+    EXPECT_EQ(err4, ErrorEnum::eNotFound);
+    EXPECT_EQ(size4, 0U);
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+    ASSERT_TRUE(allocator2.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemFreesSpace)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    // allocator limit is 50K
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .WillRepeatedly(Return(RetWithError<size_t>(20 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(25 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    // 45K is allocated: 10K more exceeds the limit
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(15 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_EQ(size, 15 * cKilobyte);
+
+    // freed size is taken into account without FreeSpace call
+
+    auto [space3, err3] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    ASSERT_TRUE(err3.IsNone());
+    ASSERT_NE(space3.Get(), nullptr);
+
+    // 40K is allocated: 15K more exceeds the limit, the freed size must not be accounted twice
+
+    auto [space4, err4] = mSpaceAllocator.AllocateSpace(15 * cKilobyte);
+    EXPECT_EQ(err4, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space4.Get(), nullptr);
+
+    // space1 is accepted only here on purpose: while it is not accepted, the allocated size is not re-read from the
+    // file system, so the allocator accounting is checked
+
+    ASSERT_TRUE(space3->Accept().IsNone());
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemFreesPartitionSpace)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    // no allocator limit: only the partition accounting is checked
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(30 * cKilobyte, ErrorEnum::eNone)));
+
+    // space1 is not accepted on purpose: the partition available size is not re-read from the file system
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(25 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    // 5K is available: 10K doesn't fit
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(15 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_EQ(size, 15 * cKilobyte);
+
+    // 20K is available now
+
+    auto [space3, err3] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    ASSERT_TRUE(err3.IsNone());
+    ASSERT_NE(space3.Get(), nullptr);
+
+    // 10K is available: 15K doesn't fit, the freed size must not be accounted twice
+
+    auto [space4, err4] = mSpaceAllocator.AllocateSpace(15 * cKilobyte);
+    EXPECT_EQ(err4, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space4.Get(), nullptr);
+
+    ASSERT_TRUE(space3->Accept().IsNone());
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemAfterRestore)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.RestoreOutdatedItem("item1", "1.0.0").IsNone());
+
+    // restored item must not be removed
+
+    EXPECT_CALL(mRemover, RemoveItem(_, _)).Times(0);
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err, ErrorEnum::eNotFound);
+    EXPECT_EQ(size, 0U);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemAfterEviction)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    const Time now = Time::Now();
+
+    // item0 is the oldest one
+
+    for (size_t i = 0; i < Partition::cMaxNumOutdatedItems; i++) {
+        const auto id = "item" + std::to_string(i);
+
+        ASSERT_TRUE(mSpaceAllocator
+                        .AddOutdatedItem(id.c_str(), "1.0.0",
+                            now.Add(-static_cast<int64_t>(Partition::cMaxNumOutdatedItems - i) * Time::cMinutes))
+                        .IsNone());
+    }
+
+    {
+        InSequence seq;
+
+        // the outdated items list is full: the oldest item is evicted on adding a new one
+        EXPECT_CALL(mRemover, RemoveItem(String("item0"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(32 * cKilobyte, ErrorEnum::eNone)));
+        // the next oldest item is removed after eviction
+        EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+            .WillOnce(Return(RetWithError<size_t>(64 * cKilobyte, ErrorEnum::eNone)));
+    }
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("itemNew", "1.0.0", now).IsNone());
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_EQ(size, 64 * cKilobyte);
 
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }
