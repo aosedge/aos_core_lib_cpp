@@ -9,9 +9,11 @@
 
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
+#include <core/common/tools/array.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/noncopyable.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "itf/blobinfoprovider.hpp"
 #include "itf/itemstatusprovider.hpp"
@@ -49,26 +51,34 @@ public:
     virtual Error Stop();
 
     /**
-     * Retrieves deployable items statuses.
+     * Retrieves deployable items statuses. Reports one status per item version in the storage with its stored state.
+     * mError is set only for eFailed items and is taken from the storage. mPreinstalled is always false. ePending is
+     * never reported.
+     *
+     * @note The statuses are appended to the output array, which is not cleared.
      *
      * @param[out] statuses list of deployable items statuses.
-     * @return Error.
+     * @return Error: eNoMemory if the statuses don't fit the output array, storage errors as is.
      */
     Error GetItemsStatuses(Array<UpdateItemStatus>& statuses) override;
 
     /**
-     * Subscribes status notifications.
+     * Subscribes status notifications. Can be called at any time, including from a listener callback.
      *
      * @param listener status listener.
-     * @return Error.
+     * @return Error: eAlreadyExist if the listener is already subscribed.
      */
     Error SubscribeListener(ItemStatusListenerItf& listener) override;
 
     /**
-     * Unsubscribes from status notifications.
+     * Unsubscribes from status notifications. Can be called at any time, including from a listener callback.
+     *
+     * @note A notification already in progress on another thread may still call the listener after
+     * UnsubscribeListener returns, so the listener must stay alive until the image manager is stopped or until the
+     * notification in progress returns.
      *
      * @param listener status listener.
-     * @return Error.
+     * @return Error: eNotFound if the listener is not subscribed.
      */
     Error UnsubscribeListener(ItemStatusListenerItf& listener) override;
 
@@ -207,6 +217,7 @@ private:
     static constexpr auto cBlobsFolder           = "blobs";
     static constexpr auto cSHA256DigestAlgorithm = "sha256";
     static constexpr auto cBlobHashSize          = crypto::cSHA512Size;
+    static constexpr auto cMaxNumListeners       = 4;
 
     /**
      * Downloads blob. Called by InstallBlob, derived classes implement it but must not call it directly.
@@ -235,6 +246,8 @@ private:
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
     void                 FinishInstallBlob(const String& path, spaceallocator::SpaceItf* space, const Error& err);
+    void                 NotifyItemStatusChanged(const UpdateItemStatus& status);
+    void                 NotifyItemRemovedFromCache(const String& itemID, const String& version);
 
     /**
      * Splits digest into algorithm and hash.
@@ -253,6 +266,12 @@ private:
     oci::OCISpecItf*                   mOCISpec {};
     fs::FSPlatformItf*                 mFSPlatform {};
     AllocatorItf*                      mAllocator {};
+
+    Mutex                                                 mListenersMutex;
+    StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
+
+    // Guards the storage updates and reads that must be consistent.
+    Mutex mMutex;
 
     ItemRemover mItemRemover {*this};
 };

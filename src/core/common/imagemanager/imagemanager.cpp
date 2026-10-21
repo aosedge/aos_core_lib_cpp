@@ -30,29 +30,69 @@ Error ImageManager::Stop()
 
 Error ImageManager::GetItemsStatuses(Array<UpdateItemStatus>& statuses)
 {
-    (void)statuses;
-
     LOG_DBG() << "Get items statuses";
 
-    return ErrorEnum::eNotSupported;
+    LockGuard lock {mMutex};
+
+    auto items = MakeUnique<StaticArray<DeployableItemInfo, cMaxNumStoredItems>>(mAllocator);
+    if (!items) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllDeployableItems(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        UpdateItemStatus status;
+
+        status.mItemID       = item.mItemID;
+        status.mType         = item.mType;
+        status.mVersion      = item.mVersion;
+        status.mPreinstalled = false;
+
+        status.mState = item.mState;
+
+        if (item.mState == ItemStateEnum::eFailed) {
+            status.mError = item.mError;
+        }
+
+        if (auto err = statuses.PushBack(status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::SubscribeListener(ItemStatusListenerItf& listener)
 {
-    (void)listener;
+    LockGuard lock {mListenersMutex};
 
     LOG_DBG() << "Subscribe listener";
 
-    return ErrorEnum::eNotSupported;
+    if (mListeners.Contains(&listener)) {
+        return AOS_ERROR_WRAP(ErrorEnum::eAlreadyExist);
+    }
+
+    if (auto err = mListeners.PushBack(&listener); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::UnsubscribeListener(ItemStatusListenerItf& listener)
 {
-    (void)listener;
+    LockGuard lock {mListenersMutex};
 
     LOG_DBG() << "Unsubscribe listener";
 
-    return ErrorEnum::eNotSupported;
+    if (mListeners.Remove(&listener) == 0) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::GetBlobPath(const String& digest, String& path) const
@@ -236,6 +276,42 @@ Error ImageManager::ValidateLayer(
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
+
+void ImageManager::NotifyItemStatusChanged(const UpdateItemStatus& status)
+{
+    LOG_DBG() << "Item status changed" << Log::Field("itemID", status.mItemID) << Log::Field("type", status.mType)
+              << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
+              << Log::Field(status.mError);
+
+    StaticArray<ItemStatusListenerItf*, cMaxNumListeners> listeners;
+
+    {
+        LockGuard lock {mListenersMutex};
+
+        listeners = mListeners;
+    }
+
+    for (auto* listener : listeners) {
+        listener->OnItemStatusChanged(status);
+    }
+}
+
+void ImageManager::NotifyItemRemovedFromCache(const String& itemID, const String& version)
+{
+    LOG_DBG() << "Item removed from cache" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    StaticArray<ItemStatusListenerItf*, cMaxNumListeners> listeners;
+
+    {
+        LockGuard lock {mListenersMutex};
+
+        listeners = mListeners;
+    }
+
+    for (auto* listener : listeners) {
+        listener->OnItemRemovedFromCache(itemID, version);
+    }
+}
 
 void ImageManager::FinishInstallBlob(const String& path, spaceallocator::SpaceItf* space, const Error& err)
 {
