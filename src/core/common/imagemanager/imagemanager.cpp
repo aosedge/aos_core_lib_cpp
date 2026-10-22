@@ -51,7 +51,10 @@ Error ImageManager::GetItemsStatuses(Array<UpdateItemStatus>& statuses)
         status.mVersion      = item.mVersion;
         status.mPreinstalled = false;
 
-        if (item.mState == ItemStateEnum::eInstalling) {
+        if (const auto* itemInProgress = FindItemInProgress(item.mItemID, item.mVersion);
+            itemInProgress != nullptr && itemInProgress->mNotified) {
+            status.mState = itemInProgress->mState;
+        } else if (item.mState == ItemStateEnum::eInstalling) {
             status.mState = ItemStateEnum::eFailed;
         } else {
             status.mState = item.mState;
@@ -148,10 +151,76 @@ Error ImageManager::Init(const Config& config, StorageItf& storage, spaceallocat
 
 Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
 {
-    LOG_DBG() << "Install item" << Log::Field("itemID", itemInfo.mItemID) << Log::Field("version", itemInfo.mVersion)
-              << Log::Field("rootDigest", itemInfo.mRootDigest);
+    LOG_INF() << "Install item" << Log::Field("itemID", itemInfo.mItemID) << Log::Field("version", itemInfo.mVersion)
+              << Log::Field("type", itemInfo.mType) << Log::Field("rootDigest", itemInfo.mRootDigest)
+              << Log::Field("isRootIndex", itemInfo.mIsRootIndex);
 
-    return ErrorEnum::eNotSupported;
+    StaticString<oci::cDigestLen> algorithm;
+    StaticString<oci::cDigestLen> hash;
+
+    if (auto err = ParseDigest(itemInfo.mRootDigest, algorithm, hash); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = AcquireItem(itemInfo.mItemID, itemInfo.mVersion, itemInfo.mType); !err.IsNone()) {
+        return err;
+    }
+
+    auto releaseItem = DeferRelease([this, &itemInfo]() { ReleaseItem(itemInfo.mItemID, itemInfo.mVersion); });
+
+    DeployableItemInfo item;
+    bool               wasRemoved = false;
+
+    if (auto err = StartItemInstall(itemInfo, item, wasRemoved); !err.IsNone()) {
+        LOG_ERR() << "Can't start item install" << Log::Field("itemID", itemInfo.mItemID)
+                  << Log::Field("version", itemInfo.mVersion) << Log::Field(err);
+
+        return err;
+    }
+
+    NotifyItemStatusChanged(
+        CreateItemStatus(itemInfo.mItemID, itemInfo.mType, itemInfo.mVersion, ItemStateEnum::eInstalling));
+
+    auto err = InstallItemBlobs(itemInfo, wasRemoved);
+
+    if (auto syncErr = mFSPlatform->Sync(mConfig.mImagePath); !syncErr.IsNone()) {
+        if (err.IsNone()) {
+            err = AOS_ERROR_WRAP(syncErr);
+        } else {
+            LOG_ERR() << "Can't sync image path" << Log::Field("path", mConfig.mImagePath)
+                      << Log::Field(AOS_ERROR_WRAP(syncErr));
+        }
+    }
+
+    if (err.IsNone()) {
+        err = SetItemState(item, ItemStateEnum::eInstalled);
+    }
+
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't install item" << Log::Field("itemID", itemInfo.mItemID)
+                  << Log::Field("version", itemInfo.mVersion) << Log::Field(err);
+
+        if (auto stateErr = SetItemState(item, ItemStateEnum::eFailed, err); !stateErr.IsNone()) {
+            LOG_ERR() << "Can't set item failed state" << Log::Field("itemID", itemInfo.mItemID)
+                      << Log::Field("version", itemInfo.mVersion) << Log::Field(stateErr);
+        }
+    } else {
+        LOG_INF() << "Item installed" << Log::Field("itemID", itemInfo.mItemID)
+                  << Log::Field("version", itemInfo.mVersion);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto* itemInProgress = FindItemInProgress(itemInfo.mItemID, itemInfo.mVersion); itemInProgress != nullptr) {
+            itemInProgress->mNotified = false;
+        }
+    }
+
+    NotifyItemStatusChanged(CreateItemStatus(itemInfo.mItemID, itemInfo.mType, itemInfo.mVersion,
+        err.IsNone() ? ItemStateEnum::eInstalled : ItemStateEnum::eFailed, err));
+
+    return err;
 }
 
 Error ImageManager::RemoveItem(const String& itemID, const String& version)
@@ -206,6 +275,27 @@ Error ImageManager::ValidateBlob(const String& digest, const String& path) const
 
 Error ImageManager::DownloadBlob(const String& digest, const String& path)
 {
+    bool             notify = false;
+    UpdateItemStatus status;
+
+    {
+        LockGuard lock {mMutex};
+
+        if (const auto* blob = FindBlobInProgress(digest); blob != nullptr) {
+            if (auto* item = FindItemInProgress(blob->mItemID, blob->mVersion);
+                item != nullptr && item->mNotified && item->mState == ItemStateEnum::eInstalling) {
+                item->mState = ItemStateEnum::eDownloading;
+
+                status = CreateItemStatus(item->mItemID, item->mType, item->mVersion, ItemStateEnum::eDownloading);
+                notify = true;
+            }
+        }
+    }
+
+    if (notify) {
+        NotifyItemStatusChanged(status);
+    }
+
     return DoDownloadBlob(digest, path);
 }
 
@@ -228,14 +318,18 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
         return AOS_ERROR_WRAP(err);
     }
 
-    auto [space, err] = GetSpaceAllocator().AllocateSpace(descriptor.mSize);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    UniquePtr<spaceallocator::SpaceItf> space;
+    Error                               err;
+
+    if (descriptor.mSize > 0) {
+        if (Tie(space, err) = GetSpaceAllocator().AllocateSpace(descriptor.mSize); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
-    err = DownloadBlob(descriptor.mDigest, path);
-
-    if (err.IsNone()) {
+    if (err = DownloadBlob(descriptor.mDigest, path); !err.IsNone()) {
+        err = AOS_ERROR_WRAP(err);
+    } else {
         err = ValidateBlob(descriptor.mDigest, path);
     }
 
@@ -246,15 +340,19 @@ Error ImageManager::InstallLayer(const oci::ContentDescriptor& descriptor, const
             LOG_ERR() << "Failed to remove layer blob" << Log::Field("path", path) << Log::Field(removeErr);
         }
 
-        if (auto releaseErr = space->Release(); !releaseErr.IsNone()) {
-            LOG_ERR() << "Failed to release space" << Log::Field(AOS_ERROR_WRAP(releaseErr));
+        if (space) {
+            if (auto releaseErr = space->Release(); !releaseErr.IsNone()) {
+                LOG_ERR() << "Failed to release space" << Log::Field(AOS_ERROR_WRAP(releaseErr));
+            }
         }
 
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
-    if (auto acceptErr = space->Accept(); !acceptErr.IsNone()) {
-        LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(acceptErr));
+    if (space) {
+        if (auto acceptErr = space->Accept(); !acceptErr.IsNone()) {
+            LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(acceptErr));
+        }
     }
 
     return ErrorEnum::eNone;
@@ -342,6 +440,500 @@ RetWithError<size_t> ImageManager::RemoveOutdatedItem(const String& itemID, cons
     LOG_DBG() << "Remove outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
     return {0, ErrorEnum::eNotSupported};
+}
+
+UpdateItemStatus ImageManager::CreateItemStatus(
+    const String& itemID, UpdateItemType type, const String& version, ItemStateEnum state, const Error& error)
+{
+    UpdateItemStatus status;
+
+    status.mItemID  = itemID;
+    status.mType    = type;
+    status.mVersion = version;
+    status.mState   = state;
+    status.mError   = error;
+
+    return status;
+}
+
+Error ImageManager::AcquireItem(const String& itemID, const String& version, UpdateItemType type)
+{
+    UniqueLock lock {mMutex};
+
+    if (auto err = mCondVar.Wait(
+            lock, [&]() { return FindItemInProgress(itemID, version) == nullptr && !mItemsInProgress.IsFull(); });
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    ItemInProgress item;
+
+    item.mItemID  = itemID;
+    item.mVersion = version;
+    item.mType    = type;
+
+    if (auto err = mItemsInProgress.PushBack(item); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void ImageManager::ReleaseItem(const String& itemID, const String& version)
+{
+    {
+        LockGuard lock {mMutex};
+
+        mItemsInProgress.RemoveIf(
+            [&](const ItemInProgress& item) { return item.mItemID == itemID && item.mVersion == version; });
+    }
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify condition variable" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+}
+
+ImageManager::ItemInProgress* ImageManager::FindItemInProgress(const String& itemID, const String& version)
+{
+    auto it = mItemsInProgress.FindIf(
+        [&](const ItemInProgress& item) { return item.mItemID == itemID && item.mVersion == version; });
+
+    return it != mItemsInProgress.end() ? it : nullptr;
+}
+
+Error ImageManager::LockBlob(const String& digest, const String& itemID, const String& version)
+{
+    UniqueLock lock {mMutex};
+
+    if (auto err
+        = mCondVar.Wait(lock, [&]() { return FindBlobInProgress(digest) == nullptr && !mBlobsInProgress.IsFull(); });
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    BlobInProgress blob;
+
+    blob.mDigest  = digest;
+    blob.mItemID  = itemID;
+    blob.mVersion = version;
+
+    if (auto err = mBlobsInProgress.PushBack(blob); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+bool ImageManager::TryLockBlob(const String& digest)
+{
+    LockGuard lock {mMutex};
+
+    if (FindBlobInProgress(digest) != nullptr || mBlobsInProgress.IsFull()) {
+        return false;
+    }
+
+    BlobInProgress blob;
+
+    blob.mDigest = digest;
+
+    return mBlobsInProgress.PushBack(blob).IsNone();
+}
+
+void ImageManager::UnlockBlob(const String& digest)
+{
+    {
+        LockGuard lock {mMutex};
+
+        mBlobsInProgress.RemoveIf([&](const BlobInProgress& blob) { return blob.mDigest == digest; });
+    }
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify condition variable" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+}
+
+ImageManager::BlobInProgress* ImageManager::FindBlobInProgress(const String& digest)
+{
+    auto it = mBlobsInProgress.FindIf([&](const BlobInProgress& blob) { return blob.mDigest == digest; });
+
+    return it != mBlobsInProgress.end() ? it : nullptr;
+}
+
+Error ImageManager::StartItemInstall(const InstallItemInfo& itemInfo, DeployableItemInfo& item, bool& wasRemoved)
+{
+    UniqueLock lock {mMutex};
+
+    auto err = mStorage->GetDeployableItem(itemInfo.mItemID, itemInfo.mVersion, item);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err.IsNone()) {
+        if (item.mRootDigest != itemInfo.mRootDigest) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "root digest mismatch"));
+        }
+
+        wasRemoved = item.mState == ItemStateEnum::eRemoved;
+
+        item.mState     = ItemStateEnum::eInstalling;
+        item.mTimestamp = Time::Now();
+        item.mError     = ErrorEnum::eNone;
+
+        if (err = mStorage->UpdateDeployableItem(item); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    } else {
+        while (true) {
+            size_t count = 0;
+
+            if (Tie(count, err) = mStorage->GetDeployableItemsCount(); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (count < cMaxNumStoredItems) {
+                break;
+            }
+
+            LOG_DBG() << "Storage is full, remove outdated item" << Log::Field("count", count);
+
+            (void)lock.Unlock();
+
+            auto [freedSize, removeErr] = GetSpaceAllocator().RemoveOutdatedItem();
+
+            (void)lock.Lock();
+
+            if (removeErr.Is(ErrorEnum::eNotFound)) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "storage is full"));
+            }
+
+            if (!removeErr.IsNone()) {
+                return AOS_ERROR_WRAP(removeErr);
+            }
+
+            LOG_DBG() << "Outdated item removed" << Log::Field("freedSize", freedSize);
+        }
+
+        wasRemoved = false;
+
+        item.mItemID     = itemInfo.mItemID;
+        item.mType       = itemInfo.mType;
+        item.mVersion    = itemInfo.mVersion;
+        item.mRootDigest = itemInfo.mRootDigest;
+        item.mState      = ItemStateEnum::eInstalling;
+        item.mTimestamp  = Time::Now();
+        item.mError      = ErrorEnum::eNone;
+
+        if (err = mStorage->AddDeployableItem(item); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (auto* itemInProgress = FindItemInProgress(itemInfo.mItemID, itemInfo.mVersion); itemInProgress != nullptr) {
+        itemInProgress->mNotified = true;
+        itemInProgress->mState    = ItemStateEnum::eInstalling;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallItemBlobs(const InstallItemInfo& itemInfo, bool wasRemoved)
+{
+    if (wasRemoved) {
+        if (auto err = GetSpaceAllocator().RestoreOutdatedItem(itemInfo.mItemID, itemInfo.mVersion); !err.IsNone()) {
+            if (!err.Is(ErrorEnum::eNotFound)) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            LOG_DBG() << "Outdated item not found" << Log::Field("itemID", itemInfo.mItemID)
+                      << Log::Field("version", itemInfo.mVersion);
+        }
+    }
+
+    if (!itemInfo.mIsRootIndex) {
+        return InstallManifest(itemInfo, itemInfo.mRootDigest, oci::cMediaTypeImageManifest, 0);
+    }
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = InstallMetadataBlob(itemInfo, itemInfo.mRootDigest, oci::cMediaTypeImageIndex, 0, path);
+        !err.IsNone()) {
+        return err;
+    }
+
+    auto index = MakeUnique<oci::ImageIndex>(mAllocator);
+    if (!index) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageIndex(path, *index); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& manifest : index->mManifests) {
+        if (auto err = InstallManifest(itemInfo, manifest.mDigest, manifest.mMediaType, manifest.mSize);
+            !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallManifest(
+    const InstallItemInfo& itemInfo, const String& digest, const String& mediaType, size_t size)
+{
+    LOG_DBG() << "Install manifest" << Log::Field("digest", digest);
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = InstallMetadataBlob(itemInfo, digest, mediaType, size, path); !err.IsNone()) {
+        return err;
+    }
+
+    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
+    if (!manifest) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageManifest(path, *manifest); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (itemInfo.mType == UpdateItemTypeEnum::eService && manifest->mConfig.mDigest.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "image config is missing"));
+    }
+
+    if (manifest->mItemConfig.HasValue()) {
+        const auto& itemConfig = *manifest->mItemConfig;
+
+        if (auto err = InstallMetadataBlob(itemInfo, itemConfig.mDigest, itemConfig.mMediaType, itemConfig.mSize, path);
+            !err.IsNone()) {
+            return err;
+        }
+    }
+
+    UniquePtr<oci::ImageConfig> imageConfig;
+
+    if (!manifest->mConfig.mDigest.IsEmpty()) {
+        const auto& config = manifest->mConfig;
+
+        if (auto err = InstallMetadataBlob(itemInfo, config.mDigest, config.mMediaType, config.mSize, path);
+            !err.IsNone()) {
+            return err;
+        }
+
+        if (itemInfo.mType == UpdateItemTypeEnum::eService) {
+            imageConfig = MakeUnique<oci::ImageConfig>(mAllocator);
+            if (!imageConfig) {
+                return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+            }
+
+            if (auto err = mOCISpec->LoadImageConfig(path, *imageConfig); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            if (imageConfig->mRootfs.mDiffIDs.Size() < manifest->mLayers.Size()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "diff ID is missing"));
+            }
+        }
+    }
+
+    for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
+        StaticString<oci::cDigestLen> diffID;
+
+        if (imageConfig) {
+            diffID = imageConfig->mRootfs.mDiffIDs[i];
+        }
+
+        if (auto err = InstallItemLayer(itemInfo, manifest->mLayers[i], diffID); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallMetadataBlob(
+    const InstallItemInfo& itemInfo, const String& digest, const String& mediaType, size_t size, String& path)
+{
+    LOG_DBG() << "Install metadata blob" << Log::Field("digest", digest) << Log::Field("mediaType", mediaType)
+              << Log::Field("size", size);
+
+    if (auto err = LockBlob(digest, itemInfo.mItemID, itemInfo.mVersion); !err.IsNone()) {
+        return err;
+    }
+
+    auto unlockBlob = DeferRelease([this, &digest]() { UnlockBlob(digest); });
+
+    ItemBlobInfo blob;
+
+    blob.mDigest    = digest;
+    blob.mMediaType = mediaType;
+    blob.mIsLayer   = false;
+
+    if (auto err = GetBlobPath(digest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = AddItemBlob(itemInfo, blob); !err.IsNone()) {
+        return err;
+    }
+
+    auto err = ValidateBlob(digest, path);
+    if (err.IsNone()) {
+        return ErrorEnum::eNone;
+    }
+
+    LOG_DBG() << "Blob is not valid" << Log::Field("digest", digest) << Log::Field(err);
+
+    bool exists = false;
+
+    if (Tie(exists, err) = fs::FileExist(path); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (exists) {
+        size_t removedSize = 0;
+
+        if (Tie(removedSize, err) = fs::CalculateSize(*mAllocator, path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (err = fs::RemoveAll(path); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (removedSize > 0) {
+            GetSpaceAllocator().FreeSpace(removedSize);
+        }
+    }
+
+    StaticString<cFilePathLen> parentPath;
+
+    if (err = fs::ParentPath(path, parentPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (err = fs::MakeDirAll(parentPath); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    UniquePtr<spaceallocator::SpaceItf> space;
+
+    if (size > 0) {
+        if (Tie(space, err) = GetSpaceAllocator().AllocateSpace(size); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (err = DownloadBlob(digest, path); !err.IsNone()) {
+        err = AOS_ERROR_WRAP(err);
+    } else {
+        err = ValidateBlob(digest, path);
+    }
+
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to install blob" << Log::Field("digest", digest) << Log::Field(err);
+
+        if (auto removeErr = fs::RemoveAll(path); !removeErr.IsNone()) {
+            LOG_ERR() << "Failed to remove blob" << Log::Field("path", path) << Log::Field(AOS_ERROR_WRAP(removeErr));
+        }
+
+        if (space) {
+            if (auto releaseErr = space->Release(); !releaseErr.IsNone()) {
+                LOG_ERR() << "Failed to release space" << Log::Field(AOS_ERROR_WRAP(releaseErr));
+            }
+        }
+
+        return err;
+    }
+
+    if (space) {
+        if (auto acceptErr = space->Accept(); !acceptErr.IsNone()) {
+            LOG_ERR() << "Can't accept space" << Log::Field(AOS_ERROR_WRAP(acceptErr));
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallItemLayer(
+    const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor, const String& diffID)
+{
+    LOG_DBG() << "Install item layer" << Log::Field("digest", descriptor.mDigest)
+              << Log::Field("mediaType", descriptor.mMediaType) << Log::Field("diffID", diffID);
+
+    if (auto err = LockBlob(descriptor.mDigest, itemInfo.mItemID, itemInfo.mVersion); !err.IsNone()) {
+        return err;
+    }
+
+    auto unlockBlob = DeferRelease([this, &descriptor]() { UnlockBlob(descriptor.mDigest); });
+
+    ItemBlobInfo blob;
+
+    blob.mDigest    = descriptor.mDigest;
+    blob.mMediaType = descriptor.mMediaType;
+    blob.mDiffID    = diffID;
+    blob.mIsLayer   = true;
+
+    StaticString<cFilePathLen> path;
+
+    if (auto err = GetBlobPath(descriptor.mDigest, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = AddItemBlob(itemInfo, blob); !err.IsNone()) {
+        return err;
+    }
+
+    auto err = ValidateLayer(descriptor, diffID, path);
+    if (err.IsNone()) {
+        return ErrorEnum::eNone;
+    }
+
+    LOG_DBG() << "Layer is not valid" << Log::Field("digest", descriptor.mDigest) << Log::Field(err);
+
+    size_t removedSize = 0;
+
+    if (Tie(removedSize, err) = RemoveLayer(descriptor.mDigest, descriptor.mMediaType, diffID, path); !err.IsNone()) {
+        return err;
+    }
+
+    if (removedSize > 0) {
+        GetSpaceAllocator().FreeSpace(removedSize);
+    }
+
+    if (err = InstallLayer(descriptor, diffID, path); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::AddItemBlob(const InstallItemInfo& itemInfo, const ItemBlobInfo& blob)
+{
+    LockGuard lock {mMutex};
+
+    if (auto err = mStorage->AddItemBlob(itemInfo.mItemID, itemInfo.mVersion, blob); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::SetItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error)
+{
+    LockGuard lock {mMutex};
+
+    item.mState     = state;
+    item.mTimestamp = Time::Now();
+    item.mError     = error;
+
+    if (auto err = mStorage->UpdateDeployableItem(item); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::ParseDigest(const String& digest, String& algorithm, String& hash)

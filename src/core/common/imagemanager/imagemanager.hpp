@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_COMMON_IMAGEMANAGER_IMAGEMANAGER_HPP_
 #define AOS_CORE_COMMON_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
+#include <core/common/consts.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
 #include <core/common/tools/array.hpp>
@@ -51,9 +52,11 @@ public:
     virtual Error Stop();
 
     /**
-     * Retrieves deployable items statuses. Reports one status per item version in the storage with its stored state,
-     * except a stored eInstalling state, which is reported as eFailed without error. mError is set only for eFailed
-     * items and is taken from the storage. mPreinstalled is always false. ePending is never reported.
+     * Retrieves deployable items statuses. Reports one status per item version in the storage. An item version being
+     * installed, whose eInstalling state is already notified, is reported with its last notified state (eInstalling or
+     * eDownloading) until its final state is notified. Otherwise the stored state is reported, except a stored
+     * eInstalling state, which is reported as eFailed without error. mError is set only for eFailed items and is taken
+     * from the storage. mPreinstalled is always false. ePending is never reported.
      *
      * @note The statuses are appended to the output array, which is not cleared.
      *
@@ -102,6 +105,10 @@ protected:
     /**
      * Initializes image manager. Derived classes call it from their own Init.
      *
+     * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
+     * oci::ImageIndex, one oci::ImageManifest and one oci::ImageConfig at the same time, plus one
+     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
+     *
      * @param config image manager config.
      * @param storage image manager storage.
      * @param spaceAllocator space allocator.
@@ -127,10 +134,16 @@ protected:
     };
 
     /**
-     * Installs item.
+     * Installs item. Waits while the same item version is being installed or removed, or while
+     * cMaxNumConcurrentItems items are being processed.
+     *
+     * @note The final eInstalled or eFailed status is notified while the item is still in progress, so a listener
+     * must not call InstallItem or RemoveItem synchronously from the callback.
      *
      * @param itemInfo item info.
-     * @return Error.
+     * @return Error: eInvalidArgument if the root digest is malformed, the item version is stored with a different
+     * root digest, the image config of a service is missing or a diff ID is missing in the image config, eNoMemory if
+     * the storage is full and there is no outdated item to remove, other errors as is.
      */
     Error InstallItem(const InstallItemInfo& itemInfo);
 
@@ -218,6 +231,9 @@ protected:
      * unsubscribed during the notification may still receive the notification in progress. Must be called without the
      * image manager mutex locked.
      *
+     * @note The final eInstalled or eFailed status of InstallItem is notified while the item is still in progress, so
+     * a listener must not call InstallItem or RemoveItem synchronously from the callback.
+     *
      * @param status item status.
      */
     void NotifyItemStatusChanged(const UpdateItemStatus& status);
@@ -237,6 +253,21 @@ private:
     static constexpr auto cBlobsFolder           = "blobs";
     static constexpr auto cSHA256DigestAlgorithm = "sha256";
     static constexpr auto cMaxNumListeners       = 4;
+    static constexpr auto cMaxNumBlobsInProgress = cMaxNumConcurrentItems + 2;
+
+    struct ItemInProgress {
+        StaticString<cIDLen>      mItemID;
+        StaticString<cVersionLen> mVersion;
+        UpdateItemType            mType;
+        bool                      mNotified {};
+        ItemStateEnum             mState {};
+    };
+
+    struct BlobInProgress {
+        StaticString<oci::cDigestLen> mDigest;
+        StaticString<cIDLen>          mItemID;
+        StaticString<cVersionLen>     mVersion;
+    };
 
     class ItemRemover : public spaceallocator::ItemRemoverItf {
     public:
@@ -255,6 +286,81 @@ private:
     };
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
+
+    static UpdateItemStatus CreateItemStatus(const String& itemID, UpdateItemType type, const String& version,
+        ItemStateEnum state, const Error& error = ErrorEnum::eNone);
+
+    /**
+     * Adds item to the list of the items in progress. Waits while the same item version is in the list or the list is
+     * full.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @param type item type.
+     * @return Error.
+     */
+    Error AcquireItem(const String& itemID, const String& version, UpdateItemType type);
+
+    /**
+     * Removes item from the list of the items in progress and wakes up the waiting threads.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     */
+    void ReleaseItem(const String& itemID, const String& version);
+
+    /**
+     * Finds item in the list of the items in progress. Must be called with mMutex locked.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @return ItemInProgress* item or nullptr if not found.
+     */
+    ItemInProgress* FindItemInProgress(const String& itemID, const String& version);
+
+    /**
+     * Adds blob to the list of the blobs being processed. Waits while the blob is in the list or the list is full.
+     *
+     * @param digest blob digest.
+     * @param itemID ID of the item that processes the blob.
+     * @param version version of the item that processes the blob.
+     * @return Error.
+     */
+    Error LockBlob(const String& digest, const String& itemID, const String& version);
+
+    /**
+     * Adds blob to the list of the blobs being processed without waiting. Used by the item blobs removal, which must
+     * not wait for the blobs being processed (see ItemRemoverItf::RemoveItem).
+     *
+     * @param digest blob digest.
+     * @return bool: false if the blob is already in the list or the list is full.
+     */
+    bool TryLockBlob(const String& digest);
+
+    /**
+     * Removes blob from the list of the blobs being processed and wakes up the waiting threads.
+     *
+     * @param digest blob digest.
+     */
+    void UnlockBlob(const String& digest);
+
+    /**
+     * Finds blob in the list of the blobs being processed. Must be called with mMutex locked.
+     *
+     * @param digest blob digest.
+     * @return BlobInProgress* blob or nullptr if not found.
+     */
+    BlobInProgress* FindBlobInProgress(const String& digest);
+
+    Error StartItemInstall(const InstallItemInfo& itemInfo, DeployableItemInfo& item, bool& wasRemoved);
+    Error InstallItemBlobs(const InstallItemInfo& itemInfo, bool wasRemoved);
+    Error InstallManifest(const InstallItemInfo& itemInfo, const String& digest, const String& mediaType, size_t size);
+    Error InstallMetadataBlob(
+        const InstallItemInfo& itemInfo, const String& digest, const String& mediaType, size_t size, String& path);
+    Error InstallItemLayer(
+        const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor, const String& diffID);
+    Error AddItemBlob(const InstallItemInfo& itemInfo, const ItemBlobInfo& blob);
+    Error SetItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
 
     /**
      * Splits digest into algorithm and hash.
@@ -277,8 +383,10 @@ private:
     Mutex                                                 mListenersMutex;
     StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
 
-    // Guards the storage updates and reads that must be consistent.
-    Mutex mMutex;
+    Mutex                                               mMutex;
+    ConditionalVariable                                 mCondVar;
+    StaticArray<ItemInProgress, cMaxNumConcurrentItems> mItemsInProgress;
+    StaticArray<BlobInProgress, cMaxNumBlobsInProgress> mBlobsInProgress;
 
     ItemRemover mItemRemover {*this};
 };
