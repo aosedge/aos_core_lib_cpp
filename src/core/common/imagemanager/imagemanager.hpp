@@ -45,7 +45,7 @@ public:
     virtual Error Start();
 
     /**
-     * Stops image manager. Waits until all items being installed are processed.
+     * Stops image manager. Waits until all InstallItem and RemoveItem calls in progress return.
      *
      * @return Error.
      */
@@ -54,8 +54,10 @@ public:
     /**
      * Retrieves deployable items statuses. Reports one status per item version in the storage. An item version being
      * installed, whose eInstalling state is already notified, is reported with its last notified state (eInstalling or
-     * eDownloading) until its final state is notified. Otherwise the stored state is reported. mError is set only for
-     * eFailed items and is taken from the storage. mPreinstalled is always false. ePending is never reported.
+     * eDownloading) until its final state is notified. An item version being removed, whose eRemoving state is already
+     * notified, is reported as eRemoving until its eRemoved state is set in the storage or the storage update fails.
+     * Otherwise the stored state is reported. mError is set only for eFailed items and is taken from the storage.
+     * mPreinstalled is always false. ePending is never reported.
      *
      * @note The statuses are appended to the output array, which is not cleared.
      *
@@ -67,8 +69,9 @@ public:
     /**
      * Subscribes status notifications. Can be called at any time, including from a listener callback.
      *
-     * @note The final eInstalled or eFailed status of InstallItem is notified while the item is still in progress, so
-     * a listener must not call InstallItem or RemoveItem synchronously from the callback.
+     * @note The final eInstalled or eFailed status of InstallItem and the eRemoving status of RemoveItem are notified
+     * while the item is still in progress, so a listener must not call InstallItem or RemoveItem synchronously from the
+     * callback.
      *
      * @param listener status listener.
      * @return Error: eAlreadyExist if the listener is already subscribed.
@@ -150,11 +153,18 @@ protected:
     Error InstallItem(const InstallItemInfo& itemInfo);
 
     /**
-     * Removes item.
+     * Removes item. Sets the item state to eRemoved in the storage, keeping the item blobs, and adds the item as
+     * outdated to the space allocator. If the item is already removed, adds it as outdated to the space allocator again
+     * with its stored timestamp, without notifications and storage update, so an item whose previous registration
+     * failed is registered. Waits while the same item version is being installed or removed, or while
+     * cMaxNumConcurrentItems items are being processed.
+     *
+     * @note The eRemoving status and the previous item status on the storage update failure are notified while the
+     * item is still in progress, so a listener must not call InstallItem or RemoveItem synchronously from the callback.
      *
      * @param itemID item ID.
      * @param version item version.
-     * @return Error.
+     * @return Error: eNotFound if the item version is not stored, other errors as is.
      */
     Error RemoveItem(const String& itemID, const String& version);
 
@@ -275,7 +285,7 @@ private:
     static UpdateItemStatus CreateItemStatus(const String& itemID, UpdateItemType type, const String& version,
         ItemStateEnum state, const Error& error = ErrorEnum::eNone);
 
-    Error           LockItem(const String& itemID, const String& version, UpdateItemType type);
+    Error           LockItem(const String& itemID, const String& version);
     void            UnlockItem(const String& itemID, const String& version);
     ItemInProgress* FindItemInProgress(const String& itemID, const String& version);
     Error           LockBlob(const String& digest, const String& itemID, const String& version);
