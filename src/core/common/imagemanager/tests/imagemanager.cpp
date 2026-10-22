@@ -226,7 +226,21 @@ public:
             return Error(ErrorEnum::eFailed, "get all failed");
         }
 
-        return StorageStub::GetAllDeployableItems(items);
+        auto err = StorageStub::GetAllDeployableItems(items);
+
+        std::function<void()> handler;
+
+        {
+            std::lock_guard lock {mCallsMutex};
+
+            handler = mGetAllHandler;
+        }
+
+        if (err.IsNone() && handler) {
+            handler();
+        }
+
+        return err;
     }
 
     Error RemoveDeployableItem(const String& itemID, const String& version) override
@@ -251,6 +265,14 @@ public:
         }
 
         return StorageStub::IsBlobUsed(digest);
+    }
+
+    // The handler is called after the items are read, so it can change the stored items after the snapshot.
+    void SetGetAllHandler(std::function<void()> handler)
+    {
+        std::lock_guard lock {mCallsMutex};
+
+        mGetAllHandler = std::move(handler);
     }
 
     void FailIsBlobUsed(const std::set<std::string>& digests)
@@ -285,6 +307,7 @@ private:
     std::mutex               mCallsMutex;
     std::vector<std::string> mIsBlobUsedCalls;
     std::set<std::string>    mFailIsBlobUsed;
+    std::function<void()>    mGetAllHandler;
 };
 
 /***********************************************************************************************************************
@@ -428,7 +451,7 @@ protected:
 
     Error InitImageManager(const String& imagePath = cTestImagePath)
     {
-        Config config {imagePath, 0, 10 * Time::cSeconds, mRemoveOutdatedPeriod};
+        Config config {imagePath, 0, mItemCacheTTL, mRemoveOutdatedPeriod};
 
         return mImageManager.Init(
             config, mStorage, mSpaceAllocator, mFileInfoProvider, mOCISpec, mFSPlatform, mAllocator);
@@ -456,6 +479,8 @@ protected:
 
     // The periodic cleanup doesn't run during the tests unless a test sets a short period.
     Duration mRemoveOutdatedPeriod {Time::cHours};
+    // The stored items don't expire during the tests unless a test sets an old timestamp or a short TTL.
+    Duration mItemCacheTTL {10 * Time::cSeconds};
 
     // mAllocator must be declared before any member that allocates from it, so it is destroyed after them, since
     // members are destroyed in reverse declaration order.
@@ -3789,6 +3814,498 @@ TEST_F(CommonImageManagerOrphanBlobsTest, StopWaitsForPeriodicCleanup)
 
     EXPECT_TRUE(stopErr.IsNone()) << tests::utils::ErrorToStr(stopErr);
     EXPECT_EQ(numCalls.load(), 2);
+}
+
+/***********************************************************************************************************************
+ * Expired items suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerExpiredItemsTest : public CommonImageManagerOrphanBlobsTest {
+protected:
+    static constexpr auto cBlobSize = crypto::cSHA256Size * 2;
+
+    void InitWithTTL(Duration ttl, Duration period = Time::cHours)
+    {
+        mItemCacheTTL = ttl;
+
+        InitWithPeriod(period);
+    }
+
+    void SetTimestamp(const char* itemID, const Time& timestamp)
+    {
+        auto item = GetStoredItem(itemID, cTestVersion);
+        ASSERT_TRUE(item.has_value());
+
+        item->mTimestamp = timestamp;
+
+        auto err = mStorage.UpdateDeployableItem(*item);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    void StoreExpiredItem(
+        const char* itemID, ItemStateEnum state, const std::vector<TestBlob>& blobs, Duration age = 2 * Time::cHours)
+    {
+        StoreItemWithBlobs(itemID, state, blobs);
+        SetTimestamp(itemID, Time::Now().Add(-age));
+    }
+
+    void ExpectKept(const char* itemID, ItemStateEnum state, const std::vector<TestBlob>& blobs)
+    {
+        auto item = GetStoredItem(itemID, cTestVersion);
+        ASSERT_TRUE(item.has_value()) << itemID;
+        EXPECT_EQ(item->mState, state) << itemID;
+        EXPECT_EQ(mStorage.GetBlobs(itemID, cTestVersion).size(), blobs.size()) << itemID;
+
+        for (const auto& blob : blobs) {
+            EXPECT_EQ(ReadFile(blob.mPath), blob.mHash) << itemID << " " << blob.mDigest;
+        }
+    }
+
+    void ExpectRemovedFromCache(const char* itemID, const std::vector<TestBlob>& blobs)
+    {
+        EXPECT_FALSE(GetStoredItem(itemID, cTestVersion).has_value()) << itemID;
+
+        for (const auto& blob : blobs) {
+            EXPECT_FALSE(FileExists(blob.mPath.c_str())) << itemID << " " << blob.mDigest;
+        }
+    }
+};
+
+TEST_F(CommonImageManagerExpiredItemsTest, StartRemovesExpiredItems)
+{
+    InitWithTTL(Time::cHours);
+
+    const auto blobA  = MakeTestBlob(1);
+    const auto blobB  = MakeTestBlob(2);
+    const auto shared = MakeTestBlob(3);
+    const auto blobC  = MakeTestBlob(4);
+    const auto blobD  = MakeTestBlob(5);
+    const auto blobE  = MakeTestBlob(6);
+
+    StoreExpiredItem("expired", ItemStateEnum::eRemoved, {blobA, blobB, shared});
+    StoreItemWithBlobs("fresh", ItemStateEnum::eRemoved, {blobC});
+    StoreExpiredItem("installed", ItemStateEnum::eInstalled, {shared, blobD});
+    StoreExpiredItem("failed", ItemStateEnum::eFailed, {blobE});
+
+    const auto expiredItem = GetStoredItem("expired", cTestVersion);
+    ASSERT_TRUE(expiredItem.has_value());
+
+    {
+        InSequence seq;
+
+        EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("expired"), String(cTestVersion), expiredItem->mTimestamp))
+            .WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("expired"), String(cTestVersion)))
+            .WillOnce(Return(ErrorEnum::eNone));
+    }
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("fresh"), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("fresh"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("installed"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("failed"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cBlobSize)).Times(2);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("expired"), String(cTestVersion))).Times(1);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ExpectRemovedFromCache("expired", {blobA, blobB});
+    EXPECT_EQ(ReadFile(shared.mPath), shared.mHash);
+
+    ExpectKept("fresh", ItemStateEnum::eRemoved, {blobC});
+    ExpectKept("installed", ItemStateEnum::eInstalled, {shared, blobD});
+    ExpectKept("failed", ItemStateEnum::eFailed, {blobE});
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, ZeroTTLDisablesExpiry)
+{
+    InitWithTTL(0, cShortPeriod);
+
+    const auto blob = MakeTestBlob(1);
+
+    StoreExpiredItem("expired", ItemStateEnum::eRemoved, {blob});
+
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(_, _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(WaitCleanups(3));
+
+    ExpectKept("expired", ItemStateEnum::eRemoved, {blob});
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, RestoreOutdatedItemErrors)
+{
+    InitWithTTL(Time::cHours);
+
+    const auto blobNotFound = MakeTestBlob(1);
+    const auto blobFailed   = MakeTestBlob(2);
+
+    StoreExpiredItem("notFound", ItemStateEnum::eRemoved, {blobNotFound});
+    StoreExpiredItem("failed", ItemStateEnum::eRemoved, {blobFailed});
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("notFound"), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("failed"), String(cTestVersion)))
+        .WillOnce(Return(Error(ErrorEnum::eFailed, "restore failed")));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cBlobSize)).Times(1);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("notFound"), String(cTestVersion))).Times(1);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("failed"), _)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ExpectRemovedFromCache("notFound", {blobNotFound});
+    ExpectKept("failed", ItemStateEnum::eRemoved, {blobFailed});
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, ItemChangedBeforeRemovalIsSkipped)
+{
+    InitWithTTL(Time::cHours);
+
+    const auto blobRemoved   = MakeTestBlob(1);
+    const auto blobInstalled = MakeTestBlob(2);
+
+    StoreExpiredItem("removed", ItemStateEnum::eRemoved, {blobRemoved});
+    StoreExpiredItem("installed", ItemStateEnum::eRemoved, {blobInstalled});
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    // The space allocator removes the item from the cache before RestoreOutdatedItem.
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("removed"), String(cTestVersion)))
+        .WillOnce(Invoke([this](const String& itemID, const String& version) {
+            EXPECT_TRUE(mStorage.RemoveDeployableItem(itemID, version).IsNone());
+
+            return ErrorEnum::eNotFound;
+        }));
+
+    // The item is installed again before RestoreOutdatedItem.
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("installed"), String(cTestVersion)))
+        .WillOnce(Invoke([this](const String& itemID, const String& version) {
+            DeployableItemInfo item;
+
+            EXPECT_TRUE(mStorage.GetDeployableItem(itemID, version, item).IsNone());
+
+            item.mState = ItemStateEnum::eInstalled;
+
+            EXPECT_TRUE(mStorage.UpdateDeployableItem(item).IsNone());
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(GetStoredItem("removed", cTestVersion).has_value());
+    EXPECT_EQ(ReadFile(blobRemoved.mPath), blobRemoved.mHash);
+    ExpectKept("installed", ItemStateEnum::eInstalled, {blobInstalled});
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, ItemReRemovedAfterSnapshotIsKept)
+{
+    InitWithTTL(Time::cHours);
+
+    const auto blobReRemoved = MakeTestBlob(1);
+    const auto blobExpired   = MakeTestBlob(2);
+
+    StoreExpiredItem("reRemoved", ItemStateEnum::eRemoved, {blobReRemoved});
+    StoreExpiredItem("expired", ItemStateEnum::eRemoved, {blobExpired});
+
+    const auto reRemovedItem = GetStoredItem("reRemoved", cTestVersion);
+    ASSERT_TRUE(reRemovedItem.has_value());
+
+    int  numGetAllCalls = 0;
+    Time newTimestamp;
+
+    // Start reads the stored items twice: to register the removed items and to remove the expired ones. After the
+    // second read, the item is installed and removed again, so its timestamp is refreshed.
+    mStorage.SetGetAllHandler([&]() {
+        if (++numGetAllCalls != 2) {
+            return;
+        }
+
+        newTimestamp = Time::Now();
+
+        SetTimestamp("reRemoved", newTimestamp);
+    });
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("reRemoved"), String(cTestVersion), reRemovedItem->mTimestamp))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("expired"), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("reRemoved"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("expired"), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cBlobSize)).Times(1);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("reRemoved"), _)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("expired"), String(cTestVersion))).Times(1);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(numGetAllCalls, 2);
+
+    ExpectKept("reRemoved", ItemStateEnum::eRemoved, {blobReRemoved});
+
+    auto item = GetStoredItem("reRemoved", cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mTimestamp, newTimestamp);
+
+    ExpectRemovedFromCache("expired", {blobExpired});
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, RemoveDeployableItemFails)
+{
+    InitWithTTL(Time::cHours);
+
+    const auto blob = MakeTestBlob(1);
+
+    StoreExpiredItem("expired", ItemStateEnum::eRemoved, {blob});
+
+    const auto expiredItem = GetStoredItem("expired", cTestVersion);
+    ASSERT_TRUE(expiredItem.has_value());
+
+    mStorage.mFailRemove = true;
+
+    {
+        InSequence seq;
+
+        EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("expired"), String(cTestVersion), expiredItem->mTimestamp))
+            .WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("expired"), String(cTestVersion)))
+            .WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("expired"), String(cTestVersion), expiredItem->mTimestamp))
+            .WillOnce(Return(ErrorEnum::eNone));
+    }
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ExpectKept("expired", ItemStateEnum::eRemoved, {blob});
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, ItemInProgressIsSkipped)
+{
+    constexpr auto cTTL = 100 * Time::cMilliseconds;
+
+    InitWithTTL(cTTL, cShortPeriod);
+
+    const auto blob = MakeTestBlob(1);
+
+    StoreItemWithBlobs(cTestItemID, ItemStateEnum::eInstalled, {blob});
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::promise<void> removedNotified;
+    std::promise<void> removedReleased;
+    auto               removedReleasedFuture = removedReleased.get_future();
+    std::atomic<int>   numRestoreCalls {0};
+
+    // The eRemoved status is notified while the item is still in progress.
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).WillRepeatedly(Invoke([&](const UpdateItemStatus& status) {
+        if (status.mState == ItemStateEnum::eRemoved) {
+            removedNotified.set_value();
+            removedReleasedFuture.wait();
+        }
+    }));
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Invoke([&](const String&, const String&) {
+            numRestoreCalls++;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cBlobSize)).Times(1);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion))).Times(1);
+
+    Error removeErr;
+
+    std::thread removeThread([&]() { removeErr = mImageManager.Remove(cTestItemID, cTestVersion); });
+
+    removedNotified.get_future().wait();
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+
+    // Wait until the item is expired and then for a few cleanups.
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    const auto cleanupsDone = WaitCleanups(3);
+
+    EXPECT_EQ(numRestoreCalls.load(), 0);
+    ExpectKept(cTestItemID, ItemStateEnum::eRemoved, {blob});
+
+    removedReleased.set_value();
+    removeThread.join();
+
+    ASSERT_TRUE(cleanupsDone);
+    ASSERT_TRUE(removeErr.IsNone()) << tests::utils::ErrorToStr(removeErr);
+
+    // The item is removed by the next cleanup.
+    ASSERT_TRUE(WaitFor([&]() { return !GetStoredItem(cTestItemID, cTestVersion).has_value(); }));
+    ASSERT_TRUE(WaitCleanups(1));
+
+    EXPECT_EQ(numRestoreCalls.load(), 1);
+    ExpectRemovedFromCache(cTestItemID, {blob});
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, PeriodicCleanupRemovesExpiredItemBeforeOrphanBlobs)
+{
+    constexpr auto cTTL = 300 * Time::cMilliseconds;
+
+    InitWithTTL(cTTL, cShortPeriod);
+
+    const auto blobA     = MakeTestBlob(1);
+    const auto blobB     = MakeTestBlob(2);
+    const auto usedBlob  = MakeTestBlob(3);
+    const auto startTime = Time::Now();
+
+    StoreItemWithBlobs("expired", ItemStateEnum::eRemoved, {blobA, blobB});
+    StoreItemWithBlobs("installed", ItemStateEnum::eInstalled, {usedBlob});
+
+    struct CleanupRecord {
+        bool   mItemStored;
+        size_t mIsBlobUsedCalls;
+    };
+
+    std::mutex                 recordsMutex;
+    std::vector<CleanupRecord> records;
+
+    // RemoveOrphanLayers is called at the end of each cleanup, after the orphan blobs are removed.
+    mImageManager.SetRemoveOrphanLayersHandler([&]() -> Error {
+        CleanupRecord record {GetStoredItem("expired", cTestVersion).has_value(), CountIsBlobUsedCalls(blobA.mDigest)};
+
+        std::lock_guard lock {recordsMutex};
+
+        records.push_back(record);
+
+        return ErrorEnum::eNone;
+    });
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("expired"), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("expired"), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cBlobSize)).Times(2);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("expired"), String(cTestVersion))).Times(1);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The item expires after Start.
+    if (Time::Now().Sub(startTime) < cTTL) {
+        EXPECT_TRUE(GetStoredItem("expired", cTestVersion).has_value());
+    }
+
+    ASSERT_TRUE(WaitFor([&]() { return !GetStoredItem("expired", cTestVersion).has_value(); }));
+    ASSERT_TRUE(WaitCleanups(2));
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    ExpectRemovedFromCache("expired", {blobA, blobB});
+    ExpectKept("installed", ItemStateEnum::eInstalled, {usedBlob});
+
+    std::lock_guard lock {recordsMutex};
+
+    auto firstRemoved
+        = std::find_if(records.begin(), records.end(), [](const CleanupRecord& record) { return !record.mItemStored; });
+
+    ASSERT_NE(firstRemoved, records.end());
+    ASSERT_NE(firstRemoved, records.begin());
+
+    const auto lastStored = std::prev(firstRemoved);
+
+    ASSERT_TRUE(lastStored->mItemStored);
+
+    // In the cleanup that removes the item, the blob is checked once by the expired item removal and is not seen by
+    // the orphan blobs removal. If the orphan blobs were removed first, the blob would be checked twice.
+    EXPECT_EQ(firstRemoved->mIsBlobUsedCalls - lastStored->mIsBlobUsedCalls, 1);
+    EXPECT_EQ(records.back().mIsBlobUsedCalls, firstRemoved->mIsBlobUsedCalls);
+}
+
+TEST_F(CommonImageManagerExpiredItemsTest, StopWaitsForExpiredItemsRemoval)
+{
+    constexpr auto cTTL = 100 * Time::cMilliseconds;
+
+    InitWithTTL(cTTL, cShortPeriod);
+
+    const auto blobA = MakeTestBlob(1);
+    const auto blobB = MakeTestBlob(2);
+
+    StoreItemWithBlobs("itemA", ItemStateEnum::eRemoved, {blobA});
+    StoreItemWithBlobs("itemB", ItemStateEnum::eRemoved, {blobB});
+
+    std::promise<void> removalStarted;
+    std::promise<void> removalReleased;
+    auto               removalReleasedFuture = removalReleased.get_future();
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("itemA"), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("itemB"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cBlobSize)).Times(1);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("itemA"), String(cTestVersion)))
+        .WillOnce(Invoke([&](const String&, const String&) {
+            removalStarted.set_value();
+            removalReleasedFuture.wait();
+        }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("itemB"), _)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // Both items expire at the same time after start, so they are removed in the same periodic cleanup.
+    const auto timestamp = Time::Now();
+
+    SetTimestamp("itemA", timestamp);
+    SetTimestamp("itemB", timestamp);
+
+    removalStarted.get_future().wait();
+
+    Error             stopErr;
+    std::atomic<bool> stopped {false};
+
+    std::thread stopThread([&]() {
+        stopErr = mImageManager.Stop();
+        stopped = true;
+    });
+
+    WaitStopping();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    EXPECT_FALSE(stopped.load());
+
+    removalReleased.set_value();
+    stopThread.join();
+
+    EXPECT_TRUE(stopErr.IsNone()) << tests::utils::ErrorToStr(stopErr);
+
+    // The removal stops after the item in progress: the next expired item is skipped.
+    ExpectRemovedFromCache("itemA", {blobA});
+    ExpectKept("itemB", ItemStateEnum::eRemoved, {blobB});
 }
 
 } // namespace aos::common::imagemanager

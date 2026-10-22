@@ -42,12 +42,14 @@ public:
      * Starts image manager. Sets the stored items in the eInstalling state, whose installation was interrupted, to
      * eRemoved with the current timestamp, keeping their blobs and blob references. Then removes the orphan blobs, the
      * blobs not used by any stored item and the files of the blobs folder that don't match a valid digest, and calls
-     * RemoveOrphanLayers. Then registers all stored items in the eRemoved state as outdated in the space allocator and
-     * starts the periodic cleanup, which removes the orphan blobs and calls RemoveOrphanLayers every
-     * mRemoveOutdatedPeriod. The periodic cleanup is not started if mRemoveOutdatedPeriod is 0. The errors of
-     * removing a single blob or of registering a single item are logged: the blob is removed by the next cleanup, the
-     * item is registered on the next start. No item status is notified. InstallItem and RemoveItem fail with
-     * eWrongState until Start succeeds.
+     * RemoveOrphanLayers. Then registers all stored items in the eRemoved state as outdated in the space allocator,
+     * removes the expired items, see RemoveExpiredItems, and starts the periodic cleanup, which removes the expired
+     * items, then the orphan blobs, and calls RemoveOrphanLayers every mRemoveOutdatedPeriod. The expired items are
+     * never removed if mItemCacheTTL is 0. The periodic cleanup is not started if mRemoveOutdatedPeriod is 0. The
+     * errors of removing a single blob or item or of registering a single item are logged: the blob or the item is
+     * removed by the next cleanup, the item is registered on the next start. No item status is notified, only
+     * OnItemRemovedFromCache for each removed expired item. InstallItem and RemoveItem fail with eWrongState until
+     * Start succeeds.
      *
      * @note Start must not be called concurrently with Start or Stop.
      *
@@ -126,8 +128,10 @@ protected:
      * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
      * oci::ImageIndex, one oci::ImageManifest and one oci::ImageConfig at the same time, plus one
      * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses, one
-     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for Start and one StaticArray<ItemBlobInfo, cMaxNumItemBlobs>
-     * for the item remover.
+     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for Start, which is also used by the expired items removal on
+     * start, one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for the periodic cleanup, one
+     * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover and one
+     * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the expired items removal.
      *
      * @param config image manager config.
      * @param storage image manager storage.
@@ -343,6 +347,40 @@ private:
     RetWithError<size_t> RemoveItemFromCache(const String& itemID, const String& version);
 
     /**
+     * Removes stored item in the eRemoved state and its blob references from the storage, keeping the blob files. Must
+     * be called with mMutex locked.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @param[out] blobs blobs referenced by the removed item.
+     * @return Error: eNotFound if the item is not stored, eWrongState if the item is not in the eRemoved state, storage
+     * errors as is.
+     */
+    Error RemoveStoredItem(const String& itemID, const String& version, Array<ItemBlobInfo>& blobs);
+
+    /**
+     * Removes expired items: the stored items in the eRemoved state whose timestamp is older than mItemCacheTTL. Does
+     * nothing if mItemCacheTTL is 0. Stops when the image manager is stopped. Errors are logged, and the next item is
+     * processed. Must be called while the caller is registered as a call in progress, see EnterCall.
+     *
+     * @param items buffer for the stored items, cleared before use.
+     */
+    void RemoveExpiredItems(Array<DeployableItemInfo>& items);
+
+    /**
+     * Removes expired item: skips it if it is in progress, otherwise re-reads it from the storage and skips it if it
+     * is no longer stored in the eRemoved state or is no longer expired, e.g. it was installed and removed again after
+     * the items were read. Otherwise removes it from the outdated items of the space allocator, removes it and its
+     * unused blobs from the cache, frees the space of the removed blobs and notifies OnItemRemovedFromCache. Skips the
+     * item if it is no longer stored in the eRemoved state. If the item can't be removed from the storage, adds it as
+     * outdated to the space allocator again with its stored timestamp. Errors are logged.
+     *
+     * @param item expired item.
+     * @param blobs buffer for the item blobs.
+     */
+    void RemoveExpiredItem(const DeployableItemInfo& item, Array<ItemBlobInfo>& blobs);
+
+    /**
      * Removes item blob if it is not processed by another item and not used by any stored item. Errors are logged.
      *
      * @param blob item blob info.
@@ -386,9 +424,10 @@ private:
     void RemoveInvalidBlobEntry(const String& path);
 
     /**
-     * Periodic cleanup timer callback. Removes the orphan blobs and calls RemoveOrphanLayers. Does nothing if the image
-     * manager is stopped or the previous cleanup is still in progress. The expired items are to be removed before the
-     * orphan blobs, so that the blobs left by them are removed in the same cleanup.
+     * Periodic cleanup timer callback. Removes the expired items, see RemoveExpiredItems, then the orphan blobs, and
+     * calls RemoveOrphanLayers. The expired items are removed before the orphan blobs, so that the blobs of the removed
+     * expired items that are left, e.g. after a failed blob removal, are removed in the same cleanup. Does nothing if
+     * the image manager is stopped or the previous cleanup is still in progress.
      */
     void PeriodicCleanup();
 
@@ -423,6 +462,16 @@ private:
      * @return Error: eWrongState if the image manager is stopped.
      */
     Error AcquireItem(const String& itemID, const String& version);
+
+    /**
+     * Adds item to the list of the items in progress without waiting.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @return bool: false if the image manager is stopped, the item version is already in the list or the list is
+     * full.
+     */
+    bool TryAcquireItem(const String& itemID, const String& version);
 
     /**
      * Removes item from the list of the items in progress and wakes up the waiting threads.
