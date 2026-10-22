@@ -15,6 +15,7 @@
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
+#include <core/common/tools/timer.hpp>
 
 #include "itf/blobinfoprovider.hpp"
 #include "itf/itemstatusprovider.hpp"
@@ -39,20 +40,28 @@ public:
 
     /**
      * Starts image manager. Sets the stored items in the eInstalling state, whose installation was interrupted, to
-     * eRemoved with the current timestamp, keeping their blobs and blob references. Then registers all stored items in
-     * the eRemoved state as outdated in the space allocator. The errors of registering a single item are logged, and
-     * the item is registered on the next start. No item status is notified. InstallItem and RemoveItem fail with
+     * eRemoved with the current timestamp, keeping their blobs and blob references. Then removes the orphan blobs, the
+     * blobs not used by any stored item and the files of the blobs folder that don't match a valid digest, and calls
+     * RemoveOrphanLayers. Then registers all stored items in the eRemoved state as outdated in the space allocator and
+     * starts the periodic cleanup, which removes the orphan blobs and calls RemoveOrphanLayers every
+     * mRemoveOutdatedPeriod. The periodic cleanup is not started if mRemoveOutdatedPeriod is 0. The errors of
+     * removing a single blob or of registering a single item are logged: the blob is removed by the next cleanup, the
+     * item is registered on the next start. No item status is notified. InstallItem and RemoveItem fail with
      * eWrongState until Start succeeds.
      *
-     * @return Error: eWrongState if the image manager is already started, storage errors as is.
+     * @note Start must not be called concurrently with Start or Stop.
+     *
+     * @return Error: eWrongState if the image manager is already started, eInvalidArgument if mRemoveOutdatedPeriod is
+     * not 0 and is not greater than the timer resolution, storage and timer errors as is.
      */
     virtual Error Start();
 
     /**
-     * Stops image manager. Waits until all InstallItem and RemoveItem calls in progress return. The calls waiting for
-     * the same item version, for a free slot of the items in progress or for a blob being processed by another item
-     * fail with eWrongState. InstallItem and RemoveItem called after Stop fail with eWrongState until Start is called
-     * again. Does nothing if the image manager is not started.
+     * Stops image manager. Stops the periodic cleanup, waiting for the cleanup in progress, and waits until all
+     * InstallItem and RemoveItem calls in progress return. The calls waiting for the same item version, for a free slot
+     * of the items in progress or for a blob being processed by another item fail with eWrongState. InstallItem and
+     * RemoveItem called after Stop fail with eWrongState until Start is called again. Does nothing if the image manager
+     * is not started.
      *
      * @return Error.
      */
@@ -240,6 +249,18 @@ protected:
     virtual Error ValidateLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, const String& path);
 
     /**
+     * Removes orphan layers. Called after the orphan blobs are removed: on start, when no item is being installed or
+     * removed, and in each periodic cleanup, when items can be installed or removed at the same time. Never called
+     * concurrently with itself. The default implementation does nothing. The SM image manager overrides it to remove
+     * the unpacked layers not used by any stored item, see IsLayerUsed of the SM storage, skipping the layers whose
+     * diff ID is being processed. Called without the image manager mutex locked, so it may call the space allocator,
+     * e.g. to free the space of the removed layers with FreeSpace. An error is logged and doesn't fail the caller.
+     *
+     * @return Error.
+     */
+    virtual Error RemoveOrphanLayers();
+
+    /**
      * Returns space allocator.
      *
      * @return spaceallocator::SpaceAllocatorItf&.
@@ -338,14 +359,55 @@ private:
     RetWithError<size_t> RemoveBlobFile(const String& path);
 
     /**
-     * Registers InstallItem or RemoveItem call in progress, so Stop waits until it returns.
+     * Removes orphan blobs: iterates the blobs folder <mImagePath>/blobs/<algorithm>/<hash> and removes the entries
+     * that don't match a valid blob digest and the blobs not used by any stored item. On start, when no item is being
+     * installed, the blobs are removed without locking them and the space allocator is not called. Otherwise, each
+     * blob is removed as an item blob (see RemoveItemBlob) and its space is freed with FreeSpace of the space
+     * allocator. Errors are logged, and the next entry is processed.
+     *
+     * @param onStart true if called from Start, false if called from the periodic cleanup.
+     */
+    void RemoveOrphanBlobs(bool onStart);
+
+    /**
+     * Removes blob file if the blob is not used by any stored item, without locking the blob and without calling the
+     * space allocator. Errors are logged.
+     *
+     * @param digest blob digest.
+     * @param path blob path.
+     */
+    void RemoveUnusedBlob(const String& digest, const String& path);
+
+    /**
+     * Removes entry of the blobs folder that doesn't match a valid blob digest. Errors are logged.
+     *
+     * @param path entry path.
+     */
+    void RemoveInvalidBlobEntry(const String& path);
+
+    /**
+     * Periodic cleanup timer callback. Removes the orphan blobs and calls RemoveOrphanLayers. Does nothing if the image
+     * manager is stopped or the previous cleanup is still in progress. The expired items are to be removed before the
+     * orphan blobs, so that the blobs left by them are removed in the same cleanup.
+     */
+    void PeriodicCleanup();
+
+    /**
+     * Waits until all calls in progress return.
+     *
+     * @return Error.
+     */
+    Error WaitActiveCalls();
+
+    /**
+     * Registers call in progress (InstallItem, RemoveItem or the periodic cleanup), so Stop waits until it returns.
      *
      * @return Error: eWrongState if the image manager is not started.
      */
     Error EnterCall();
 
     /**
-     * Unregisters InstallItem or RemoveItem call in progress and wakes up the waiting threads.
+     * Unregisters call in progress and wakes up the waiting threads.
      */
     void LeaveCall();
 
@@ -433,6 +495,32 @@ private:
      */
     static Error ParseDigest(const String& digest, String& algorithm, String& hash);
 
+    /**
+     * Checks whether character is lowercase alphanumeric.
+     *
+     * @param ch character.
+     * @return bool.
+     */
+    static bool IsLowerAlnum(char ch);
+
+    /**
+     * Checks whether digest algorithm matches OCI image spec digest grammar.
+     *
+     * @param algorithm digest algorithm.
+     * @return bool.
+     */
+    static bool IsValidDigestAlgorithm(const String& algorithm);
+
+    /**
+     * Creates digest from algorithm and hash and validates it.
+     *
+     * @param algorithm digest algorithm.
+     * @param hash digest hash.
+     * @param[out] digest digest in format <algorithm>:<hash>.
+     * @return Error: eInvalidArgument if digest is malformed or doesn't fit the output string.
+     */
+    static Error CreateDigest(const String& algorithm, const String& hash, String& digest);
+
     Config                             mConfig;
     StorageItf*                        mStorage {};
     spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
@@ -449,9 +537,11 @@ private:
     StaticArray<ItemInProgress, cMaxNumConcurrentItems> mItemsInProgress;
     StaticArray<BlobInProgress, cMaxNumBlobsInProgress> mBlobsInProgress;
     bool                                                mStarted {};
+    bool                                                mCleanupInProgress {};
     size_t                                              mNumActiveCalls {};
 
     ItemRemover mItemRemover {*this};
+    Timer       mTimer;
 };
 
 } // namespace aos::common::imagemanager

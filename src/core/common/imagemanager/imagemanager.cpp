@@ -54,6 +54,16 @@ Error ImageManager::Start()
 
             numInterrupted++;
         }
+    }
+
+    RemoveOrphanBlobs(true);
+
+    if (auto err = RemoveOrphanLayers(); !err.IsNone()) {
+        LOG_ERR() << "Can't remove orphan layers" << Log::Field(err);
+    }
+
+    {
+        LockGuard lock {mMutex};
 
         mStarted = true;
     }
@@ -76,6 +86,22 @@ Error ImageManager::Start()
         numOutdated++;
     }
 
+    if (mConfig.mRemoveOutdatedPeriod > 0) {
+        if (auto err = mTimer.Start(
+                mConfig.mRemoveOutdatedPeriod, [this](void*) { PeriodicCleanup(); }, false);
+            !err.IsNone()) {
+            LOG_ERR() << "Can't start periodic cleanup" << Log::Field(AOS_ERROR_WRAP(err));
+
+            {
+                LockGuard lock {mMutex};
+
+                mStarted = false;
+            }
+
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
     LOG_INF() << "Image manager started" << Log::Field("interruptedItems", numInterrupted)
               << Log::Field("outdatedItems", numOutdated);
 
@@ -86,22 +112,34 @@ Error ImageManager::Stop()
 {
     LOG_INF() << "Stop image manager";
 
-    UniqueLock lock {mMutex};
+    {
+        LockGuard lock {mMutex};
 
-    if (!mStarted) {
-        LOG_DBG() << "Image manager is not started";
+        if (!mStarted) {
+            LOG_DBG() << "Image manager is not started";
 
-        return ErrorEnum::eNone;
+            return ErrorEnum::eNone;
+        }
+
+        mStarted = false;
+
+        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
-    mStarted = false;
+    Error err;
 
-    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto timerErr = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !timerErr.IsNone()) {
+        err = AOS_ERROR_WRAP(timerErr);
     }
 
-    if (auto err = mCondVar.Wait(lock, [this]() { return mNumActiveCalls == 0; }); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (auto waitErr = WaitActiveCalls(); !waitErr.IsNone() && err.IsNone()) {
+        err = waitErr;
+    }
+
+    if (!err.IsNone()) {
+        return err;
     }
 
     LOG_INF() << "Image manager stopped";
@@ -545,6 +583,11 @@ RetWithError<size_t> ImageManager::RemoveLayer(
     return RemoveBlobFile(path);
 }
 
+Error ImageManager::RemoveOrphanLayers()
+{
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::ValidateLayer(
     const oci::ContentDescriptor& descriptor, const String& diffDigest, const String& path)
 {
@@ -728,6 +771,148 @@ RetWithError<size_t> ImageManager::RemoveBlobFile(const String& path)
     }
 
     return {size, ErrorEnum::eNone};
+}
+
+void ImageManager::RemoveOrphanBlobs(bool onStart)
+{
+    const auto blobsPath = fs::JoinPath(mConfig.mImagePath, cBlobsFolder);
+    size_t     freedSize = 0;
+
+    LOG_DBG() << "Remove orphan blobs" << Log::Field("path", blobsPath) << Log::Field("onStart", onStart);
+
+    auto algorithmIterator = fs::DirIterator(blobsPath);
+
+    while (algorithmIterator.Next()) {
+        const auto algorithmPath = fs::JoinPath(blobsPath, algorithmIterator->mPath);
+
+        if (!algorithmIterator->mIsDir || !IsValidDigestAlgorithm(algorithmIterator->mPath)) {
+            RemoveInvalidBlobEntry(algorithmPath);
+
+            continue;
+        }
+
+        auto hashIterator = fs::DirIterator(algorithmPath);
+
+        while (hashIterator.Next()) {
+            const auto blobPath = fs::JoinPath(algorithmPath, hashIterator->mPath);
+
+            StaticString<oci::cDigestLen> digest;
+
+            if (hashIterator->mIsDir || !CreateDigest(algorithmIterator->mPath, hashIterator->mPath, digest).IsNone()) {
+                RemoveInvalidBlobEntry(blobPath);
+
+                continue;
+            }
+
+            if (onStart) {
+                RemoveUnusedBlob(digest, blobPath);
+
+                continue;
+            }
+
+            ItemBlobInfo blob;
+
+            blob.mDigest  = digest;
+            blob.mIsLayer = false;
+
+            if (auto size = RemoveItemBlob(blob); size > 0) {
+                GetSpaceAllocator().FreeSpace(size);
+
+                freedSize += size;
+            }
+        }
+    }
+
+    LOG_DBG() << "Orphan blobs removed" << Log::Field("freedSize", freedSize);
+}
+
+void ImageManager::RemoveUnusedBlob(const String& digest, const String& path)
+{
+    bool  used = false;
+    Error err;
+
+    {
+        LockGuard lock {mMutex};
+
+        Tie(used, err) = mStorage->IsBlobUsed(digest);
+    }
+
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't check blob usage" << Log::Field("digest", digest) << Log::Field(AOS_ERROR_WRAP(err));
+
+        return;
+    }
+
+    if (used) {
+        return;
+    }
+
+    size_t size = 0;
+
+    if (Tie(size, err) = RemoveBlobFile(path); !err.IsNone()) {
+        LOG_ERR() << "Can't remove orphan blob" << Log::Field("digest", digest) << Log::Field(err);
+
+        return;
+    }
+
+    LOG_DBG() << "Orphan blob removed" << Log::Field("digest", digest) << Log::Field("size", size);
+}
+
+void ImageManager::RemoveInvalidBlobEntry(const String& path)
+{
+    LOG_WRN() << "Remove invalid blob entry" << Log::Field("path", path);
+
+    if (auto err = fs::RemoveAll(path); !err.IsNone()) {
+        LOG_ERR() << "Can't remove invalid blob entry" << Log::Field("path", path) << Log::Field(AOS_ERROR_WRAP(err));
+    }
+}
+
+void ImageManager::PeriodicCleanup()
+{
+    if (auto err = EnterCall(); !err.IsNone()) {
+        LOG_DBG() << "Skip periodic cleanup: image manager is stopped";
+
+        return;
+    }
+
+    auto leaveCall = DeferRelease([this]() { LeaveCall(); });
+
+    {
+        LockGuard lock {mMutex};
+
+        if (mCleanupInProgress) {
+            LOG_DBG() << "Skip periodic cleanup: previous cleanup is in progress";
+
+            return;
+        }
+
+        mCleanupInProgress = true;
+    }
+
+    auto resetCleanup = DeferRelease([this]() {
+        LockGuard lock {mMutex};
+
+        mCleanupInProgress = false;
+    });
+
+    LOG_DBG() << "Periodic cleanup";
+
+    RemoveOrphanBlobs(false);
+
+    if (auto err = RemoveOrphanLayers(); !err.IsNone()) {
+        LOG_ERR() << "Can't remove orphan layers" << Log::Field(err);
+    }
+}
+
+Error ImageManager::WaitActiveCalls()
+{
+    UniqueLock lock {mMutex};
+
+    if (auto err = mCondVar.Wait(lock, [this]() { return mNumActiveCalls == 0; }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::EnterCall()
@@ -1258,6 +1443,24 @@ Error ImageManager::SetItemState(DeployableItemInfo& item, ItemStateEnum state, 
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::CreateDigest(const String& algorithm, const String& hash, String& digest)
+{
+    if (algorithm.Size() + 1 + hash.Size() > digest.MaxSize()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+    }
+
+    if (auto err = digest.Assign(algorithm); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    digest.Append(":").Append(hash);
+
+    StaticString<oci::cDigestLen> parsedAlgorithm;
+    StaticString<oci::cDigestLen> parsedHash;
+
+    return ParseDigest(digest, parsedAlgorithm, parsedHash);
+}
+
 Error ImageManager::ParseDigest(const String& digest, String& algorithm, String& hash)
 {
     auto [pos, err] = digest.FindSubstr(0, ":");
@@ -1273,29 +1476,37 @@ Error ImageManager::ParseDigest(const String& digest, String& algorithm, String&
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
     }
 
-    // Allowed characters are taken from OCI image spec digest grammar: algorithm is [a-z0-9]+ separated by [+._-],
-    // encoded is [a-zA-Z0-9=_-]+. Uppercase is rejected in encoded part to keep digests canonical, so the same blob
-    // can't map to two different paths. Restricted character set also prevents path traversal as digest parts are
-    // used as path components.
-    const auto isLowerAlnum = [](char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'); };
-
-    if (!isLowerAlnum(algorithm[0])) {
+    if (!IsValidDigestAlgorithm(algorithm)) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
     }
 
-    for (const auto ch : algorithm) {
-        if (!(isLowerAlnum(ch) || ch == '+' || ch == '.' || ch == '_' || ch == '-')) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-        }
-    }
-
     for (const auto ch : hash) {
-        if (!(isLowerAlnum(ch) || ch == '=' || ch == '_' || ch == '-')) {
+        if (!(IsLowerAlnum(ch) || ch == '=' || ch == '_' || ch == '-')) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
         }
     }
 
     return ErrorEnum::eNone;
+}
+
+bool ImageManager::IsLowerAlnum(char ch)
+{
+    return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9');
+}
+
+bool ImageManager::IsValidDigestAlgorithm(const String& algorithm)
+{
+    if (algorithm.IsEmpty() || !IsLowerAlnum(algorithm[0])) {
+        return false;
+    }
+
+    for (const auto ch : algorithm) {
+        if (!(IsLowerAlnum(ch) || ch == '+' || ch == '.' || ch == '_' || ch == '-')) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 } // namespace aos::common::imagemanager

@@ -6,10 +6,12 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <future>
 #include <map>
 #include <memory>
@@ -242,9 +244,20 @@ public:
             std::lock_guard lock {mCallsMutex};
 
             mIsBlobUsedCalls.push_back(digest.CStr());
+
+            if (mFailIsBlobUsed.count(digest.CStr()) != 0) {
+                return {false, Error(ErrorEnum::eFailed, "is blob used failed")};
+            }
         }
 
         return StorageStub::IsBlobUsed(digest);
+    }
+
+    void FailIsBlobUsed(const std::set<std::string>& digests)
+    {
+        std::lock_guard lock {mCallsMutex};
+
+        mFailIsBlobUsed = digests;
     }
 
     std::vector<std::string> GetIsBlobUsedCalls()
@@ -271,6 +284,7 @@ public:
 private:
     std::mutex               mCallsMutex;
     std::vector<std::string> mIsBlobUsedCalls;
+    std::set<std::string>    mFailIsBlobUsed;
 };
 
 /***********************************************************************************************************************
@@ -352,9 +366,35 @@ public:
         return mValidateLayerCalls;
     }
 
+    Error RemoveOrphanLayers() override
+    {
+        std::function<Error()> handler;
+
+        {
+            std::lock_guard lock {mLayerCallsMutex};
+
+            handler = mRemoveOrphanLayersHandler;
+        }
+
+        mRemoveOrphanLayersCount++;
+
+        return handler ? handler() : ImageManager::RemoveOrphanLayers();
+    }
+
+    void SetRemoveOrphanLayersHandler(std::function<Error()> handler)
+    {
+        std::lock_guard lock {mLayerCallsMutex};
+
+        mRemoveOrphanLayersHandler = std::move(handler);
+    }
+
+    int GetRemoveOrphanLayersCount() const { return mRemoveOrphanLayersCount.load(); }
+
     MOCK_METHOD(Error, DoDownloadBlob, (const String& digest, const String& path), (override));
 
 private:
+    std::atomic<int>       mRemoveOrphanLayersCount {0};
+    std::function<Error()> mRemoveOrphanLayersHandler;
     std::mutex             mLayerCallsMutex;
     std::vector<LayerCall> mInstallLayerCalls;
     std::vector<LayerCall> mValidateLayerCalls;
@@ -388,7 +428,7 @@ protected:
 
     Error InitImageManager(const String& imagePath = cTestImagePath)
     {
-        Config config {imagePath, 0, 10 * Time::cSeconds, 5 * Time::cSeconds};
+        Config config {imagePath, 0, 10 * Time::cSeconds, mRemoveOutdatedPeriod};
 
         return mImageManager.Init(
             config, mStorage, mSpaceAllocator, mFileInfoProvider, mOCISpec, mFSPlatform, mAllocator);
@@ -413,6 +453,9 @@ protected:
                 return {Move(space), ErrorEnum::eNone};
             }));
     }
+
+    // The periodic cleanup doesn't run during the tests unless a test sets a short period.
+    Duration mRemoveOutdatedPeriod {Time::cHours};
 
     // mAllocator must be declared before any member that allocates from it, so it is destroyed after them, since
     // members are destroyed in reverse declaration order.
@@ -3257,11 +3300,12 @@ TEST_F(CommonImageManagerStartStopTest, StopFailsInstallWaitingForBlob)
     const auto manifestA   = AddManifest(1, 0, 1, false, {sharedLayer});
     const auto manifestB   = AddManifest(200, 0, 1, false, {sharedLayer});
 
+    // The blobs are created after Start, which removes the orphan blobs.
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+
     CreateValidBlobs(manifestA);
     CreateValidBlobs(manifestB);
     ASSERT_TRUE(fs::RemoveAll(sharedLayer.mPath.c_str()).IsNone());
-
-    ASSERT_TRUE(mImageManager.Start().IsNone());
 
     std::promise<void> downloadStarted;
     std::promise<void> downloadReleased;
@@ -3342,6 +3386,409 @@ TEST_F(CommonImageManagerStartStopTest, StopFailsInstallWaitingForBlob)
 
     EXPECT_EQ(statesB, std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eFailed}));
     EXPECT_EQ(ReadFile(sharedLayer.mPath), sharedLayer.mHash);
+}
+
+/***********************************************************************************************************************
+ * Orphan blobs suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerOrphanBlobsTest : public CommonImageManagerStartStopTest {
+protected:
+    static constexpr auto cShortPeriod = 50 * Time::cMilliseconds;
+
+    void InitWithPeriod(Duration period)
+    {
+        mRemoveOutdatedPeriod = period;
+
+        ASSERT_TRUE(InitImageManager().IsNone());
+    }
+
+    static bool WaitFor(
+        const std::function<bool()>& condition, std::chrono::milliseconds timeout = std::chrono::seconds(5))
+    {
+        const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+        while (!condition()) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return false;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        return true;
+    }
+
+    // Waits until the periodic cleanup is called at least count more times.
+    bool WaitCleanups(int count)
+    {
+        const auto target = mImageManager.GetRemoveOrphanLayersCount() + count;
+
+        return WaitFor([&]() { return mImageManager.GetRemoveOrphanLayersCount() >= target; });
+    }
+
+    void StoreItemWithBlobs(const char* itemID, ItemStateEnum state, const std::vector<TestBlob>& blobs)
+    {
+        AddStoredItem(itemID, cTestVersion, state);
+
+        for (const auto& blob : blobs) {
+            auto err = mStorage.AddItemBlob(itemID, cTestVersion, MakeBlobInfo(blob, cTestLayerType, true));
+            ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+            CreateFile(blob.mPath.c_str(), blob.mHash.c_str());
+        }
+    }
+
+    size_t CountIsBlobUsedCalls(const std::string& digest)
+    {
+        const auto calls = mStorage.GetIsBlobUsedCalls();
+
+        return std::count(calls.begin(), calls.end(), digest);
+    }
+
+    // Creates file atomically, so the periodic cleanup never sees it partially written.
+    static void CreateFileAtomically(const std::string& path, const std::string& content)
+    {
+        const auto tmpPath = std::string(cTestDir) + "/tmp/file";
+
+        CreateFile(tmpPath.c_str(), content.c_str());
+
+        auto err = fs::MakeDirAll(fs::Dir(path.c_str()));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        ASSERT_EQ(std::rename(tmpPath.c_str(), path.c_str()), 0) << std::strerror(errno);
+    }
+
+    static bool DirExists(const std::string& path)
+    {
+        auto [exists, err] = fs::DirExist(path.c_str());
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        return exists;
+    }
+
+    static std::string BlobsPath(const std::string& relPath = "")
+    {
+        return std::string(cTestImagePath) + "/blobs" + (relPath.empty() ? "" : "/" + relPath);
+    }
+};
+
+TEST_F(CommonImageManagerOrphanBlobsTest, StartRemovesOrphanBlobs)
+{
+    const auto installedBlob  = MakeTestBlob(1);
+    const auto failedBlob     = MakeTestBlob(2);
+    const auto removedBlob    = MakeTestBlob(3);
+    const auto installingBlob = MakeTestBlob(4);
+    const auto orphanBlob     = MakeTestBlob(5);
+    const auto hashDir        = MakeTestBlob(6);
+
+    StoreItemWithBlobs("installed", ItemStateEnum::eInstalled, {installedBlob});
+    StoreItemWithBlobs("failed", ItemStateEnum::eFailed, {failedBlob});
+    StoreItemWithBlobs("removed", ItemStateEnum::eRemoved, {removedBlob});
+    StoreItemWithBlobs("installing", ItemStateEnum::eInstalling, {installingBlob});
+
+    CreateFile(orphanBlob.mPath.c_str(), orphanBlob.mHash.c_str());
+
+    StaticString<crypto::cSHA256Size * 2> upperHash {MakeTestBlob(0xabc).mHash.c_str()};
+
+    const std::vector<std::string> invalidEntries = {
+        BlobsPath("sha256/") + upperHash.ToUpper().CStr(),
+        BlobsPath("sha256/invalid!name"),
+        BlobsPath("sha256/") + hashDir.mHash,
+        BlobsPath("stray"),
+        BlobsPath("SHA256/") + orphanBlob.mHash,
+    };
+
+    CreateFile(invalidEntries[0].c_str(), "content");
+    CreateFile(invalidEntries[1].c_str(), "content");
+    CreateFile((invalidEntries[2] + "/file").c_str(), "content");
+    CreateFile(invalidEntries[3].c_str(), "content");
+    CreateFile(invalidEntries[4].c_str(), "content");
+
+    size_t isBlobUsedCallsOnHook = 0;
+    bool   orphanExistsOnHook    = true;
+
+    mImageManager.SetRemoveOrphanLayersHandler([&]() -> Error {
+        isBlobUsedCallsOnHook = mStorage.GetIsBlobUsedCalls().size();
+        orphanExistsOnHook    = FileExists(orphanBlob.mPath.c_str());
+
+        return ErrorEnum::eNone;
+    });
+
+    EXPECT_CALL(mSpaceAllocator, AllocateSpace(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    for (const auto* blob : {&installedBlob, &failedBlob, &removedBlob, &installingBlob}) {
+        EXPECT_EQ(ReadFile(blob->mPath), blob->mHash) << blob->mDigest;
+        EXPECT_EQ(CountIsBlobUsedCalls(blob->mDigest), 1) << blob->mDigest;
+    }
+
+    EXPECT_FALSE(FileExists(orphanBlob.mPath.c_str()));
+    EXPECT_EQ(CountIsBlobUsedCalls(orphanBlob.mDigest), 1);
+    EXPECT_EQ(mStorage.GetIsBlobUsedCalls().size(), 5);
+
+    for (const auto& entry : invalidEntries) {
+        EXPECT_FALSE(FileExists(entry.c_str())) << entry;
+        EXPECT_FALSE(DirExists(entry)) << entry;
+    }
+
+    EXPECT_TRUE(DirExists(BlobsPath("sha256")));
+    EXPECT_FALSE(DirExists(BlobsPath("SHA256")));
+
+    EXPECT_EQ(mImageManager.GetRemoveOrphanLayersCount(), 1);
+    EXPECT_EQ(isBlobUsedCallsOnHook, 5);
+    EXPECT_FALSE(orphanExistsOnHook);
+
+    auto item = GetStoredItem("installing", cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, StartOrphanBlobErrorDoesNotFailStart)
+{
+    InitWithPeriod(cShortPeriod);
+
+    const auto failedBlob = MakeTestBlob(1);
+    const auto orphanBlob = MakeTestBlob(2);
+
+    CreateFile(failedBlob.mPath.c_str(), failedBlob.mHash.c_str());
+    CreateFile(orphanBlob.mPath.c_str(), orphanBlob.mHash.c_str());
+
+    mStorage.FailIsBlobUsed({failedBlob.mDigest});
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The blob that failed is kept and the next blob is processed.
+    EXPECT_TRUE(FileExists(failedBlob.mPath.c_str()));
+    EXPECT_FALSE(FileExists(orphanBlob.mPath.c_str()));
+
+    // The blob that failed is removed by the periodic cleanup.
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(failedBlob.mHash.size())).Times(1);
+
+    mStorage.FailIsBlobUsed({});
+
+    EXPECT_TRUE(WaitFor([&]() { return !FileExists(failedBlob.mPath.c_str()); }));
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, StartOrphanLayersErrorDoesNotFailStart)
+{
+    mImageManager.SetRemoveOrphanLayersHandler([]() -> Error { return Error(ErrorEnum::eFailed, "failed"); });
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mImageManager.GetRemoveOrphanLayersCount(), 1);
+
+    // The image manager is started.
+    err = mImageManager.Remove("unknown", cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, StartFailsIfTimerCantBeStarted)
+{
+    // The period not greater than the timer resolution is rejected by the timer.
+    InitWithPeriod(1);
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.Remove("unknown", cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    InitWithPeriod(Time::cHours);
+
+    err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, PeriodicCleanupRemovesOrphanBlobs)
+{
+    InitWithPeriod(cShortPeriod);
+
+    const auto usedBlob   = MakeTestBlob(1);
+    const auto orphanBlob = MakeTestBlob(2);
+    const auto invalid    = BlobsPath("sha256/invalid!name");
+
+    StoreItemWithBlobs("installed", ItemStateEnum::eInstalled, {usedBlob});
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(orphanBlob.mHash.size())).Times(1);
+
+    CreateFileAtomically(orphanBlob.mPath, orphanBlob.mHash);
+    CreateFileAtomically(invalid, "content");
+
+    ASSERT_TRUE(WaitFor([&]() { return !FileExists(orphanBlob.mPath.c_str()) && !FileExists(invalid.c_str()); }));
+
+    // The orphan layers are removed in each cleanup, and the used blob is never removed.
+    ASSERT_TRUE(WaitCleanups(3));
+
+    EXPECT_EQ(ReadFile(usedBlob.mPath), usedBlob.mHash);
+    EXPECT_GE(CountIsBlobUsedCalls(usedBlob.mDigest), 3);
+    EXPECT_EQ(CountIsBlobUsedCalls(orphanBlob.mDigest), 1);
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, PeriodicCleanupSkipsBlobLockedByInstall)
+{
+    InitWithPeriod(cShortPeriod);
+
+    const auto manifest = AddManifest(1, 1, 1);
+    const auto layer    = manifest.mLayers[0];
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    EXPECT_CALL(mImageManager, DoDownloadBlob(_, _))
+        .WillRepeatedly(Invoke([&](const String& digest, const String& path) {
+            auto downloadErr = DownloadTestBlob(digest, path);
+
+            if (digest == layer.mDigest.c_str()) {
+                downloadStarted.set_value();
+                downloadReleasedFuture.wait();
+            }
+
+            return downloadErr;
+        }));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    Error installErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    const auto cleanupsDone = WaitCleanups(3);
+
+    EXPECT_TRUE(FileExists(layer.mPath.c_str()));
+    EXPECT_EQ(CountIsBlobUsedCalls(layer.mDigest), 0);
+
+    downloadReleased.set_value();
+    installThread.join();
+
+    ASSERT_TRUE(cleanupsDone);
+    ASSERT_TRUE(installErr.IsNone()) << tests::utils::ErrorToStr(installErr);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+
+    ASSERT_TRUE(WaitCleanups(2));
+
+    EXPECT_EQ(ReadFile(layer.mPath), layer.mHash);
+    EXPECT_GE(CountIsBlobUsedCalls(layer.mDigest), 1);
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, NoPeriodicCleanupIfPeriodIsZero)
+{
+    InitWithPeriod(0);
+
+    const auto orphanBlob = MakeTestBlob(1);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    CreateFile(orphanBlob.mPath.c_str(), orphanBlob.mHash.c_str());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    EXPECT_TRUE(FileExists(orphanBlob.mPath.c_str()));
+    EXPECT_EQ(mImageManager.GetRemoveOrphanLayersCount(), 1);
+    EXPECT_TRUE(mStorage.GetIsBlobUsedCalls().empty());
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, StopStopsPeriodicCleanup)
+{
+    InitWithPeriod(cShortPeriod);
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(WaitCleanups(2));
+
+    err = mImageManager.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto count = mImageManager.GetRemoveOrphanLayersCount();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    EXPECT_EQ(mImageManager.GetRemoveOrphanLayersCount(), count);
+
+    // The periodic cleanup is restarted by Start.
+    err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(WaitCleanups(2));
+}
+
+TEST_F(CommonImageManagerOrphanBlobsTest, StopWaitsForPeriodicCleanup)
+{
+    InitWithPeriod(cShortPeriod);
+
+    std::promise<void> cleanupStarted;
+    std::promise<void> cleanupReleased;
+    auto               cleanupReleasedFuture = cleanupReleased.get_future();
+    std::atomic<int>   numCalls {0};
+
+    mImageManager.SetRemoveOrphanLayersHandler([&]() -> Error {
+        // The first call is done by Start, the second one by the periodic cleanup.
+        if (numCalls++ == 1) {
+            cleanupStarted.set_value();
+            cleanupReleasedFuture.wait();
+        }
+
+        return ErrorEnum::eNone;
+    });
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    cleanupStarted.get_future().wait();
+
+    // The next periods are skipped while the cleanup is in progress.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    EXPECT_EQ(numCalls.load(), 2);
+
+    Error             stopErr;
+    std::atomic<bool> stopped {false};
+
+    std::thread stopThread([&]() {
+        stopErr = mImageManager.Stop();
+        stopped = true;
+    });
+
+    WaitStopping();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    EXPECT_FALSE(stopped.load());
+
+    cleanupReleased.set_value();
+    stopThread.join();
+
+    EXPECT_TRUE(stopErr.IsNone()) << tests::utils::ErrorToStr(stopErr);
+    EXPECT_EQ(numCalls.load(), 2);
 }
 
 } // namespace aos::common::imagemanager
