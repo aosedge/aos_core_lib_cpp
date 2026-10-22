@@ -449,26 +449,7 @@ RetWithError<size_t> ImageManager::RemoveLayer(
     LOG_DBG() << "Remove layer" << Log::Field("digest", digest) << Log::Field("mediaType", mediaType)
               << Log::Field("diffID", diffID) << Log::Field("path", path);
 
-    auto [exists, err] = fs::FileExist(path);
-    if (!err.IsNone()) {
-        return {0, AOS_ERROR_WRAP(err)};
-    }
-
-    if (!exists) {
-        return {0, ErrorEnum::eNone};
-    }
-
-    size_t size = 0;
-
-    if (Tie(size, err) = fs::CalculateSize(*mAllocator, path); !err.IsNone()) {
-        return {0, AOS_ERROR_WRAP(err)};
-    }
-
-    if (err = fs::RemoveAll(path); !err.IsNone()) {
-        return {0, AOS_ERROR_WRAP(err)};
-    }
-
-    return {size, ErrorEnum::eNone};
+    return RemoveBlobFile(path);
 }
 
 Error ImageManager::ValidateLayer(
@@ -520,11 +501,140 @@ void ImageManager::NotifyItemRemovedFromCache(const String& itemID, const String
  * Private
  **********************************************************************************************************************/
 
-RetWithError<size_t> ImageManager::RemoveOutdatedItem(const String& itemID, const String& version)
+RetWithError<size_t> ImageManager::RemoveItemFromCache(const String& itemID, const String& version)
 {
-    LOG_DBG() << "Remove outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+    LOG_DBG() << "Remove item from cache" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    return {0, ErrorEnum::eNotSupported};
+    auto blobs = MakeUnique<StaticArray<ItemBlobInfo, cMaxNumItemBlobs>>(mAllocator);
+    if (!blobs) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        DeployableItemInfo item;
+
+        if (auto err = mStorage->GetDeployableItem(itemID, version, item); !err.IsNone()) {
+            if (err.Is(ErrorEnum::eNotFound)) {
+                LOG_DBG() << "Item not stored" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+                return {0, ErrorEnum::eNone};
+            }
+
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+
+        if (item.mState != ItemStateEnum::eRemoved || FindItemInProgress(itemID, version) != nullptr) {
+            LOG_DBG() << "Item is not outdated" << Log::Field("itemID", itemID) << Log::Field("version", version)
+                      << Log::Field("state", item.mState);
+
+            return {0, ErrorEnum::eNone};
+        }
+
+        if (auto err = mStorage->GetItemBlobs(itemID, version, *blobs); !err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+
+        if (auto err = mStorage->RemoveDeployableItem(itemID, version); !err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
+    }
+
+    size_t freedSize = 0;
+
+    for (const auto& blob : *blobs) {
+        freedSize += RemoveItemBlob(blob);
+    }
+
+    NotifyItemRemovedFromCache(itemID, version);
+
+    LOG_INF() << "Item removed from cache" << Log::Field("itemID", itemID) << Log::Field("version", version)
+              << Log::Field("freedSize", freedSize);
+
+    return {freedSize, ErrorEnum::eNone};
+}
+
+size_t ImageManager::RemoveItemBlob(const ItemBlobInfo& blob)
+{
+    if (!TryLockBlob(blob.mDigest)) {
+        LOG_DBG() << "Blob is being processed, skip" << Log::Field("digest", blob.mDigest);
+
+        return 0;
+    }
+
+    auto unlockBlob = DeferRelease([this, &blob]() { UnlockBlob(blob.mDigest); });
+
+    bool  used = false;
+    Error err;
+
+    {
+        LockGuard lock {mMutex};
+
+        Tie(used, err) = mStorage->IsBlobUsed(blob.mDigest);
+    }
+
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't check blob usage" << Log::Field("digest", blob.mDigest) << Log::Field(AOS_ERROR_WRAP(err));
+
+        return 0;
+    }
+
+    if (used) {
+        LOG_DBG() << "Blob is used, skip" << Log::Field("digest", blob.mDigest);
+
+        return 0;
+    }
+
+    StaticString<cFilePathLen> path;
+
+    if (err = GetBlobPath(blob.mDigest, path); !err.IsNone()) {
+        LOG_ERR() << "Can't get blob path" << Log::Field("digest", blob.mDigest) << Log::Field(err);
+
+        return 0;
+    }
+
+    size_t size = 0;
+
+    if (blob.mIsLayer) {
+        Tie(size, err) = RemoveLayer(blob.mDigest, blob.mMediaType, blob.mDiffID, path);
+    } else {
+        Tie(size, err) = RemoveBlobFile(path);
+    }
+
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't remove blob" << Log::Field("digest", blob.mDigest) << Log::Field(err);
+
+        return 0;
+    }
+
+    LOG_DBG() << "Blob removed" << Log::Field("digest", blob.mDigest) << Log::Field("size", size);
+
+    return size;
+}
+
+RetWithError<size_t> ImageManager::RemoveBlobFile(const String& path)
+{
+    auto [exists, err] = fs::FileExist(path);
+    if (!err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    if (!exists) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    size_t size = 0;
+
+    if (Tie(size, err) = fs::CalculateSize(*mAllocator, path); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    if (err = fs::RemoveAll(path); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    return {size, ErrorEnum::eNone};
 }
 
 UpdateItemStatus ImageManager::CreateItemStatus(

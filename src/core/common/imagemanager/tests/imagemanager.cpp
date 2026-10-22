@@ -218,6 +218,33 @@ public:
         return StorageStub::UpdateDeployableItem(item);
     }
 
+    Error RemoveDeployableItem(const String& itemID, const String& version) override
+    {
+        if (mFailRemove) {
+            return Error(ErrorEnum::eFailed, "remove failed");
+        }
+
+        return StorageStub::RemoveDeployableItem(itemID, version);
+    }
+
+    RetWithError<bool> IsBlobUsed(const String& digest) override
+    {
+        {
+            std::lock_guard lock {mCallsMutex};
+
+            mIsBlobUsedCalls.push_back(digest.CStr());
+        }
+
+        return StorageStub::IsBlobUsed(digest);
+    }
+
+    std::vector<std::string> GetIsBlobUsedCalls()
+    {
+        std::lock_guard lock {mCallsMutex};
+
+        return mIsBlobUsedCalls;
+    }
+
     std::vector<ItemBlobInfo> GetBlobs(const String& itemID, const String& version)
     {
         auto blobs = std::make_unique<StaticArray<ItemBlobInfo, cMaxNumItemBlobs>>();
@@ -229,6 +256,11 @@ public:
     }
 
     std::set<ItemStateEnum> mFailUpdateStates;
+    std::atomic<bool>       mFailRemove {false};
+
+private:
+    std::mutex               mCallsMutex;
+    std::vector<std::string> mIsBlobUsedCalls;
 };
 
 /***********************************************************************************************************************
@@ -241,7 +273,6 @@ public:
     using ImageManager::InstallItemInfo;
     using ImageManager::NotifyItemRemovedFromCache;
     using ImageManager::NotifyItemStatusChanged;
-    using ImageManager::RemoveLayer;
     using ImageManager::ValidateBlob;
 
     struct LayerCall {
@@ -276,6 +307,27 @@ public:
         return ImageManager::ValidateLayer(descriptor, diffDigest, path);
     }
 
+    RetWithError<size_t> RemoveLayer(
+        const String& digest, const String& mediaType, const String& diffID, const String& path) override
+    {
+        {
+            std::lock_guard lock {mLayerCallsMutex};
+
+            if (mFailRemoveLayers.count(digest.CStr()) != 0) {
+                return {0, Error(ErrorEnum::eFailed, "remove layer failed")};
+            }
+        }
+
+        return ImageManager::RemoveLayer(digest, mediaType, diffID, path);
+    }
+
+    void FailRemoveLayer(const std::string& digest)
+    {
+        std::lock_guard lock {mLayerCallsMutex};
+
+        mFailRemoveLayers.insert(digest);
+    }
+
     std::vector<LayerCall> GetInstallLayerCalls()
     {
         std::lock_guard lock {mLayerCallsMutex};
@@ -296,6 +348,7 @@ private:
     std::mutex             mLayerCallsMutex;
     std::vector<LayerCall> mInstallLayerCalls;
     std::vector<LayerCall> mValidateLayerCalls;
+    std::set<std::string>  mFailRemoveLayers;
 };
 
 } // namespace
@@ -2343,6 +2396,426 @@ TEST_F(CommonImageManagerRemoveTest, InstallRemovedItem)
     auto item = GetStoredItem(cTestItemID, cTestVersion);
     ASSERT_TRUE(item.has_value());
     EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
+/***********************************************************************************************************************
+ * Item remover suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerItemRemoverTest : public CommonImageManagerRemoveTest {
+protected:
+    void InstallAndRemoveItem(const TestManifest& manifest, const char* itemID = cTestItemID)
+    {
+        CreateValidBlobs(manifest);
+
+        auto err = mImageManager.Install(
+            MakeInstallInfo(manifest.mManifest, false, UpdateItemTypeEnum::eService, itemID, cTestVersion));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mImageManager.Remove(itemID, cTestVersion);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        ClearNotifiedStatuses();
+    }
+
+    static std::string GetBlobPath(const std::string& digest)
+    {
+        return std::string(cTestImagePath) + "/blobs/sha256/" + digest.substr(std::strlen("sha256:"));
+    }
+
+    static size_t GetBlobsSize(const std::vector<ItemBlobInfo>& blobs, const std::set<std::string>& exclude = {})
+    {
+        size_t size = 0;
+
+        for (const auto& blob : blobs) {
+            if (exclude.count(blob.mDigest.CStr()) == 0) {
+                size += ReadFile(GetBlobPath(blob.mDigest.CStr())).size();
+            }
+        }
+
+        return size;
+    }
+
+    void ExpectNoSpaceAllocatorCalls()
+    {
+        EXPECT_CALL(mSpaceAllocator, AllocateSpace(_)).Times(0);
+        EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+        EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
+        EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(_, _)).Times(0);
+        EXPECT_CALL(mSpaceAllocator, RemoveOutdatedItem()).Times(0);
+    }
+
+    void ExpectNotRemoved(const char* itemID, ItemStateEnum state, const std::vector<ItemBlobInfo>& blobs)
+    {
+        auto item = GetStoredItem(itemID, cTestVersion);
+        ASSERT_TRUE(item.has_value());
+        EXPECT_EQ(item->mState, state);
+        EXPECT_EQ(mStorage.GetBlobs(itemID, cTestVersion), blobs);
+
+        for (const auto& blob : blobs) {
+            EXPECT_TRUE(FileExists(GetBlobPath(blob.mDigest.CStr()).c_str())) << blob.mDigest.CStr();
+        }
+    }
+
+    void TestSharedBlobKept(ItemStateEnum otherState)
+    {
+        const auto sharedLayer = MakeTestBlob(500);
+        const auto manifestA   = AddManifest(1, 1, 2, false, {sharedLayer});
+        const auto manifestB   = AddManifest(200, 0, 1, false, {sharedLayer});
+
+        InstallAndRemoveItem(manifestA, "itemA");
+
+        CreateValidBlobs(manifestB);
+        ASSERT_TRUE(
+            mImageManager.Install(MakeInstallInfo(manifestB.mManifest, false, UpdateItemTypeEnum::eService, "itemB"))
+                .IsNone());
+
+        auto itemB = GetStoredItem("itemB", cTestVersion);
+        ASSERT_TRUE(itemB.has_value());
+
+        itemB->mState = otherState;
+        ASSERT_TRUE(mStorage.UpdateDeployableItem(*itemB).IsNone());
+
+        const auto blobsA = mStorage.GetBlobs("itemA", cTestVersion);
+        const auto blobsB = mStorage.GetBlobs("itemB", cTestVersion);
+
+        ASSERT_EQ(blobsA.size(), 4);
+
+        const auto expectedSize = GetBlobsSize(blobsA, {sharedLayer.mDigest});
+
+        ExpectNoSpaceAllocatorCalls();
+        EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+        EXPECT_CALL(mListener, OnItemRemovedFromCache(String("itemA"), String(cTestVersion))).Times(1);
+
+        auto [size, err] = mImageManager.GetItemRemover().RemoveItem("itemA", cTestVersion);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+        EXPECT_EQ(size, expectedSize);
+
+        EXPECT_FALSE(GetStoredItem("itemA", cTestVersion).has_value());
+
+        for (const auto& blob : blobsA) {
+            EXPECT_EQ(FileExists(GetBlobPath(blob.mDigest.CStr()).c_str()), blob.mDigest == sharedLayer.mDigest.c_str())
+                << blob.mDigest.CStr();
+        }
+
+        ExpectNotRemoved("itemB", otherState, blobsB);
+        EXPECT_EQ(ReadFile(sharedLayer.mPath), sharedLayer.mHash);
+    }
+};
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemRemovesAllBlobs)
+{
+    const auto manifest = AddManifest(1, 2, 2, true);
+
+    InstallAndRemoveItem(manifest);
+
+    const auto blobs = mStorage.GetBlobs(cTestItemID, cTestVersion);
+    ASSERT_EQ(blobs.size(), 5);
+
+    const auto expectedSize = GetBlobsSize(blobs);
+    EXPECT_GT(expectedSize, 0);
+
+    ExpectNoSpaceAllocatorCalls();
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion))).Times(1);
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, expectedSize);
+
+    for (const auto& blob : blobs) {
+        EXPECT_FALSE(FileExists(GetBlobPath(blob.mDigest.CStr()).c_str())) << blob.mDigest.CStr();
+    }
+
+    DeployableItemInfo item;
+
+    auto getErr = mStorage.GetDeployableItem(cTestItemID, cTestVersion, item);
+    EXPECT_TRUE(getErr.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(getErr);
+
+    EXPECT_FALSE(GetReportedState(cTestItemID, cTestVersion).has_value());
+    EXPECT_TRUE(GetNotifiedStatuses().empty());
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemKeepsBlobSharedWithInstalledItem)
+{
+    TestSharedBlobKept(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemKeepsBlobSharedWithFailedItem)
+{
+    TestSharedBlobKept(ItemStateEnum::eFailed);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemKeepsBlobSharedWithRemovedItem)
+{
+    TestSharedBlobKept(ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemSkipsBlobLockedByInstall)
+{
+    const auto sharedLayer = MakeTestBlob(500);
+    const auto manifestA   = AddManifest(1, 1, 2, false, {sharedLayer});
+    const auto manifestB   = AddManifest(200, 0, 1, false, {sharedLayer});
+
+    InstallAndRemoveItem(manifestA, "itemA");
+
+    const auto blobsA       = mStorage.GetBlobs("itemA", cTestVersion);
+    const auto expectedSize = GetBlobsSize(blobsA, {sharedLayer.mDigest});
+
+    ASSERT_EQ(blobsA.size(), 4);
+
+    CreateValidBlobs(manifestB);
+    // Corrupts the shared layer, so item B downloads it.
+    CreateFile(sharedLayer.mPath.c_str(), "corrupt");
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    EXPECT_CALL(mImageManager, DoDownloadBlob(String(sharedLayer.mDigest.c_str()), _))
+        .WillOnce(Invoke([&](const String& digest, const String& path) {
+            auto err = DownloadTestBlob(digest, path);
+
+            downloadStarted.set_value();
+            downloadReleasedFuture.wait();
+
+            return err;
+        }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("itemA"), String(cTestVersion))).Times(1);
+
+    Error errB;
+
+    std::thread threadB([&]() {
+        errB
+            = mImageManager.Install(MakeInstallInfo(manifestB.mManifest, false, UpdateItemTypeEnum::eService, "itemB"));
+    });
+
+    downloadStarted.get_future().wait();
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem("itemA", cTestVersion);
+
+    downloadReleased.set_value();
+    threadB.join();
+
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, expectedSize);
+
+    EXPECT_FALSE(GetStoredItem("itemA", cTestVersion).has_value());
+
+    for (const auto& blob : blobsA) {
+        EXPECT_EQ(FileExists(GetBlobPath(blob.mDigest.CStr()).c_str()), blob.mDigest == sharedLayer.mDigest.c_str())
+            << blob.mDigest.CStr();
+    }
+
+    // The locked blob is skipped before its usage is checked.
+    const auto isBlobUsedCalls = mStorage.GetIsBlobUsedCalls();
+    EXPECT_EQ(std::count(isBlobUsedCalls.begin(), isBlobUsedCalls.end(), sharedLayer.mDigest), 0);
+    EXPECT_EQ(isBlobUsedCalls.size(), 3);
+
+    ASSERT_TRUE(errB.IsNone()) << tests::utils::ErrorToStr(errB);
+
+    auto itemB = GetStoredItem("itemB", cTestVersion);
+    ASSERT_TRUE(itemB.has_value());
+    EXPECT_EQ(itemB->mState, ItemStateEnum::eInstalled);
+    EXPECT_EQ(ReadFile(sharedLayer.mPath), sharedLayer.mHash);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemBeingRemoved)
+{
+    InstallTestItem();
+
+    const auto blobs = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+    std::optional<RetWithError<size_t>> result;
+
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).WillRepeatedly(Invoke([&](const UpdateItemStatus& status) {
+        // The eRemoved state is notified while the item is still in progress.
+        if (status.mState == ItemStateEnum::eRemoved) {
+            result = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+        }
+    }));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->mError.IsNone()) << tests::utils::ErrorToStr(result->mError);
+    EXPECT_EQ(result->mValue, 0);
+
+    ExpectNotRemoved(cTestItemID, ItemStateEnum::eRemoved, blobs);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemBeingInstalled)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemoveItem(manifest);
+
+    const auto blobs = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+    // Corrupts the layer, so the install downloads it.
+    CreateFile(manifest.mLayers[0].mPath.c_str(), "corrupt");
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManager, DoDownloadBlob(_, _)).WillOnce(Invoke([&](const String& digest, const String& path) {
+        auto err = DownloadTestBlob(digest, path);
+
+        downloadStarted.set_value();
+        downloadReleasedFuture.wait();
+
+        return err;
+    }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    Error installErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+
+    downloadReleased.set_value();
+    installThread.join();
+
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    ASSERT_TRUE(installErr.IsNone()) << tests::utils::ErrorToStr(installErr);
+    ExpectNotRemoved(cTestItemID, ItemStateEnum::eInstalled, blobs);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemNotRemoved)
+{
+    for (const auto state : {ItemStateEnum::eInstalled, ItemStateEnum::eFailed, ItemStateEnum::eInstalling}) {
+        StoreItemWithBlob(state, UpdateItemTypeEnum::eService);
+        CreateFile(MakeTestBlob(1).mPath.c_str(), MakeTestBlob(1).mHash.c_str());
+
+        const auto blobs = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+        ExpectNoSpaceAllocatorCalls();
+        EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+        EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+        auto [size, err] = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+        EXPECT_EQ(size, 0);
+
+        ExpectNotRemoved(cTestItemID, state, blobs);
+
+        ASSERT_TRUE(mStorage.RemoveDeployableItem(cTestItemID, cTestVersion).IsNone());
+        Mock::VerifyAndClearExpectations(&mListener);
+    }
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemNotStored)
+{
+    ExpectNoSpaceAllocatorCalls();
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemStorageRemoveFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemoveItem(manifest);
+
+    const auto blobs = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+    mStorage.mFailRemove = true;
+
+    ExpectNoSpaceAllocatorCalls();
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    ExpectNotRemoved(cTestItemID, ItemStateEnum::eRemoved, blobs);
+    EXPECT_TRUE(mStorage.GetIsBlobUsedCalls().empty());
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemRemoveLayerFails)
+{
+    const auto manifest = AddManifest(1, 2, 2);
+
+    InstallAndRemoveItem(manifest);
+
+    const auto blobs        = mStorage.GetBlobs(cTestItemID, cTestVersion);
+    const auto failedLayer  = manifest.mLayers[0];
+    const auto expectedSize = GetBlobsSize(blobs, {failedLayer.mDigest});
+
+    ASSERT_EQ(blobs.size(), 4);
+
+    mImageManager.FailRemoveLayer(failedLayer.mDigest);
+
+    ExpectNoSpaceAllocatorCalls();
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion))).Times(1);
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, expectedSize);
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+
+    for (const auto& blob : blobs) {
+        EXPECT_EQ(FileExists(GetBlobPath(blob.mDigest.CStr()).c_str()), blob.mDigest == failedLayer.mDigest.c_str())
+            << blob.mDigest.CStr();
+    }
+}
+
+TEST_F(CommonImageManagerItemRemoverTest, RemoveItemFromAddOutdatedItem)
+{
+    const auto manifest = InstallTestItem();
+    const auto blobs    = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+    ASSERT_EQ(blobs.size(), 3);
+
+    const auto expectedSize = GetBlobsSize(blobs);
+
+    std::optional<RetWithError<size_t>> result;
+
+    {
+        InSequence seq;
+
+        EXPECT_CALL(mListener, OnItemStatusChanged(MakeStatus(ItemStateEnum::eRemoving)));
+        EXPECT_CALL(mListener, OnItemStatusChanged(MakeStatus(ItemStateEnum::eRemoved)));
+        EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+            .WillOnce(Invoke([&](const String& itemID, const String& version, const Time&) {
+                // The space allocator removes the outdated item synchronously, e.g. when its list is full.
+                result = mImageManager.GetItemRemover().RemoveItem(itemID, version);
+
+                return ErrorEnum::eNone;
+            }));
+        EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion)));
+    }
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->mError.IsNone()) << tests::utils::ErrorToStr(result->mError);
+    EXPECT_EQ(result->mValue, expectedSize);
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+    EXPECT_FALSE(GetReportedState(cTestItemID, cTestVersion).has_value());
+
+    for (const auto& blob : blobs) {
+        EXPECT_FALSE(FileExists(GetBlobPath(blob.mDigest.CStr()).c_str())) << blob.mDigest.CStr();
+    }
 }
 
 } // namespace aos::common::imagemanager

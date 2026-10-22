@@ -109,7 +109,8 @@ protected:
      *
      * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
      * oci::ImageIndex, one oci::ImageManifest and one oci::ImageConfig at the same time, plus one
-     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
+     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses and one
+     * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover.
      *
      * @param config image manager config.
      * @param storage image manager storage.
@@ -254,6 +255,9 @@ protected:
      * listener unsubscribed during the notification may still receive the notification in progress. Must be called
      * without the image manager mutex locked.
      *
+     * @note It is called from ItemRemoverItf::RemoveItem with the space allocator lock held, so a listener must not
+     * call the image manager or the space allocator from the callback.
+     *
      * @param itemID item ID.
      * @param version item version.
      */
@@ -288,14 +292,39 @@ private:
 
         RetWithError<size_t> RemoveItem(const String& id, const String& version) override
         {
-            return mImageManager.RemoveOutdatedItem(id, version);
+            return mImageManager.RemoveItemFromCache(id, version);
         }
 
     private:
         ImageManager& mImageManager;
     };
 
-    RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
+    /**
+     * Removes outdated item and its unused blobs from the cache. Does nothing if the item is not stored, is not in the
+     * eRemoved state or is in progress. Called by the space allocator with its lock held, so it never calls the space
+     * allocator and never waits for the blobs being processed.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @return RetWithError<size_t>: freed size, storage errors as is.
+     */
+    RetWithError<size_t> RemoveItemFromCache(const String& itemID, const String& version);
+
+    /**
+     * Removes item blob if it is not processed by another item and not used by any stored item. Errors are logged.
+     *
+     * @param blob item blob info.
+     * @return size_t: freed size.
+     */
+    size_t RemoveItemBlob(const ItemBlobInfo& blob);
+
+    /**
+     * Removes blob file.
+     *
+     * @param path blob path.
+     * @return RetWithError<size_t>: freed size, 0 if the file doesn't exist.
+     */
+    RetWithError<size_t> RemoveBlobFile(const String& path);
 
     static UpdateItemStatus CreateItemStatus(const String& itemID, UpdateItemType type, const String& version,
         ItemStateEnum state, const Error& error = ErrorEnum::eNone);
