@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_COMMON_IMAGEMANAGER_IMAGEMANAGER_HPP_
 #define AOS_CORE_COMMON_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
+#include <core/common/consts.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
 #include <core/common/tools/array.hpp>
@@ -51,9 +52,10 @@ public:
     virtual Error Stop();
 
     /**
-     * Retrieves deployable items statuses. Reports one status per item version in the storage with its stored state.
-     * mError is set only for eFailed items and is taken from the storage. mPreinstalled is always false. ePending is
-     * never reported.
+     * Retrieves deployable items statuses. Reports one status per item version in the storage. An item version being
+     * installed, whose eInstalling state is already notified, is reported with its last notified state (eInstalling or
+     * eDownloading) until its final state is notified. Otherwise the stored state is reported. mError is set only for
+     * eFailed items and is taken from the storage. mPreinstalled is always false. ePending is never reported.
      *
      * @note The statuses are appended to the output array, which is not cleared.
      *
@@ -64,6 +66,9 @@ public:
 
     /**
      * Subscribes status notifications. Can be called at any time, including from a listener callback.
+     *
+     * @note The final eInstalled or eFailed status of InstallItem is notified while the item is still in progress, so
+     * a listener must not call InstallItem or RemoveItem synchronously from the callback.
      *
      * @param listener status listener.
      * @return Error: eAlreadyExist if the listener is already subscribed.
@@ -113,6 +118,10 @@ protected:
     /**
      * Initializes image manager. Derived classes call it from their own Init.
      *
+     * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
+     * oci::ImageIndex, one oci::ImageManifest, one oci::ImageConfig and one blob hash buffer of cBlobHashSize at the
+     * same time, plus one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
+     *
      * @param config image manager config.
      * @param storage image manager storage.
      * @param spaceAllocator space allocator.
@@ -127,10 +136,16 @@ protected:
         AllocatorItf& allocator);
 
     /**
-     * Installs item.
+     * Installs item. Waits while the same item version is being installed or removed, or while
+     * cMaxNumConcurrentItems items are being processed.
+     *
+     * @note The final eInstalled or eFailed status is notified while the item is still in progress, so a listener
+     * must not call InstallItem or RemoveItem synchronously from the callback.
      *
      * @param itemInfo item info.
-     * @return Error.
+     * @return Error: eInvalidArgument if the root digest is malformed, the item version is stored with a different
+     * root digest or a diff ID is missing in the image config, eNoMemory if the storage is full and there is no
+     * outdated item to remove, other errors as is.
      */
     Error InstallItem(const InstallItemInfo& itemInfo);
 
@@ -154,16 +169,17 @@ protected:
     Error ValidateBlob(const String& digest, const String& path) const;
 
     /**
-     * Installs blob: allocates space of the blob size if it is not 0, downloads and validates the blob. On failure, the
-     * blob file is removed and the space is released. Derived classes must use this method to download blobs, e.g. from
-     * InstallLayer.
+     * Installs blob for the item. Locks the blob and stores the blob reference for the item. If the blob already
+     * exists and is valid, keeps it. Otherwise removes the existing blob, allocates space of the blob size if it is
+     * not 0, downloads and validates the blob. On failure, the blob file is removed and the space is released.
+     * Derived classes must use this method to download blobs, e.g. from InstallLayer.
      *
-     * @param digest blob digest.
+     * @param itemInfo item info.
+     * @param blob item blob info.
      * @param size blob size, 0 if unknown.
-     * @param path destination blob path.
      * @return Error.
      */
-    Error InstallBlob(const String& digest, size_t size, const String& path);
+    Error InstallBlob(const InstallItemInfo& itemInfo, const ItemBlobInfo& blob, size_t size);
 
     /**
      * Removes blob. Doesn't call the space allocator: the caller frees the returned size.
@@ -175,14 +191,16 @@ protected:
     RetWithError<size_t> RemoveBlob(const String& digest, const String& path);
 
     /**
-     * Installs layer.
+     * Installs layer of the item. Called by InstallItem for every layer. The default implementation calls InstallBlob.
+     * Derived classes must call InstallBlob to download the layer blob.
      *
+     * @param itemInfo item info.
      * @param descriptor layer descriptor.
      * @param diffDigest diff digest, empty if item has no image config.
-     * @param path layer blob path.
      * @return Error.
      */
-    virtual Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, const String& path);
+    virtual Error InstallLayer(
+        const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor, const String& diffDigest);
 
     /**
      * Removes layer.
@@ -197,16 +215,6 @@ protected:
         const String& digest, const String& mediaType, const String& diffID, const String& path);
 
     /**
-     * Validates layer.
-     *
-     * @param descriptor layer descriptor.
-     * @param diffDigest diff digest, empty if item has no image config.
-     * @param path layer blob path.
-     * @return Error.
-     */
-    virtual Error ValidateLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, const String& path);
-
-    /**
      * Returns space allocator.
      *
      * @return spaceallocator::SpaceAllocatorItf&.
@@ -218,6 +226,21 @@ private:
     static constexpr auto cSHA256DigestAlgorithm = "sha256";
     static constexpr auto cBlobHashSize          = crypto::cSHA512Size;
     static constexpr auto cMaxNumListeners       = 4;
+    static constexpr auto cMaxNumBlobsInProgress = cMaxNumConcurrentItems + 2;
+
+    struct ItemInProgress {
+        StaticString<cIDLen>      mItemID;
+        StaticString<cVersionLen> mVersion;
+        UpdateItemType            mType;
+        bool                      mNotified {};
+        ItemStateEnum             mState {};
+    };
+
+    struct BlobInProgress {
+        StaticString<oci::cDigestLen> mDigest;
+        StaticString<cIDLen>          mItemID;
+        StaticString<cVersionLen>     mVersion;
+    };
 
     /**
      * Downloads blob. Called by InstallBlob, derived classes implement it but must not call it directly.
@@ -249,14 +272,23 @@ private:
     void                 NotifyItemStatusChanged(const UpdateItemStatus& status);
     void                 NotifyItemRemovedFromCache(const String& itemID, const String& version);
 
-    /**
-     * Splits digest into algorithm and hash.
-     *
-     * @param digest digest in format <algorithm>:<hash>.
-     * @param[out] algorithm digest algorithm.
-     * @param[out] hash digest hash.
-     * @return Error: eInvalidArgument if digest is malformed.
-     */
+    static UpdateItemStatus CreateItemStatus(const String& itemID, UpdateItemType type, const String& version,
+        ItemStateEnum state, const Error& error = ErrorEnum::eNone);
+
+    Error           LockItem(const String& itemID, const String& version, UpdateItemType type);
+    void            UnlockItem(const String& itemID, const String& version);
+    ItemInProgress* FindItemInProgress(const String& itemID, const String& version);
+    Error           LockBlob(const String& digest, const String& itemID, const String& version);
+    bool            TryLockBlob(const String& digest);
+    void            UnlockBlob(const String& digest);
+    BlobInProgress* FindBlobInProgress(const String& digest);
+    Error           StartItemInstall(const InstallItemInfo& itemInfo, DeployableItemInfo& item, bool& wasRemoved);
+    Error           InstallItemBlobs(const InstallItemInfo& itemInfo);
+    Error           InstallManifestBlobs(
+                  const InstallItemInfo& itemInfo, const String& digest, const String& mediaType, size_t size);
+    Error AddItemBlob(const InstallItemInfo& itemInfo, const ItemBlobInfo& blob);
+    Error SetItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
+
     static Error ParseDigest(const String& digest, String& algorithm, String& hash);
 
     Config                             mConfig;
@@ -270,8 +302,10 @@ private:
     Mutex                                                 mListenersMutex;
     StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
 
-    // Guards the storage updates and reads that must be consistent.
-    Mutex mMutex;
+    Mutex                                               mMutex;
+    ConditionalVariable                                 mCondVar;
+    StaticArray<ItemInProgress, cMaxNumConcurrentItems> mItemsInProgress;
+    StaticArray<BlobInProgress, cMaxNumBlobsInProgress> mBlobsInProgress;
 
     ItemRemover mItemRemover {*this};
 };
