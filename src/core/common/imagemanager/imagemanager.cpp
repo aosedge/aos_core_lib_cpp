@@ -16,16 +16,97 @@ namespace aos::common::imagemanager {
 
 Error ImageManager::Start()
 {
-    LOG_DBG() << "Start image manager";
+    LOG_INF() << "Start image manager";
 
-    return ErrorEnum::eNotSupported;
+    auto items = MakeUnique<StaticArray<DeployableItemInfo, cMaxNumStoredItems>>(mAllocator);
+    if (!items) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    size_t numInterrupted = 0;
+
+    {
+        LockGuard lock {mMutex};
+
+        if (mStarted) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "image manager is already started"));
+        }
+
+        if (auto err = mStorage->GetAllDeployableItems(*items); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (auto& item : *items) {
+            if (item.mState != ItemStateEnum::eInstalling) {
+                continue;
+            }
+
+            LOG_DBG() << "Set interrupted item removed" << Log::Field("itemID", item.mItemID)
+                      << Log::Field("version", item.mVersion);
+
+            item.mState     = ItemStateEnum::eRemoved;
+            item.mTimestamp = Time::Now();
+            item.mError     = ErrorEnum::eNone;
+
+            if (auto err = mStorage->UpdateDeployableItem(item); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            numInterrupted++;
+        }
+
+        mStarted = true;
+    }
+
+    size_t numOutdated = 0;
+
+    for (const auto& item : *items) {
+        if (item.mState != ItemStateEnum::eRemoved) {
+            continue;
+        }
+
+        if (auto err = GetSpaceAllocator().AddOutdatedItem(item.mItemID, item.mVersion, item.mTimestamp);
+            !err.IsNone()) {
+            LOG_ERR() << "Can't add outdated item" << Log::Field("itemID", item.mItemID)
+                      << Log::Field("version", item.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
+
+            continue;
+        }
+
+        numOutdated++;
+    }
+
+    LOG_INF() << "Image manager started" << Log::Field("interruptedItems", numInterrupted)
+              << Log::Field("outdatedItems", numOutdated);
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::Stop()
 {
-    LOG_DBG() << "Stop image manager";
+    LOG_INF() << "Stop image manager";
 
-    return ErrorEnum::eNotSupported;
+    UniqueLock lock {mMutex};
+
+    if (!mStarted) {
+        LOG_DBG() << "Image manager is not started";
+
+        return ErrorEnum::eNone;
+    }
+
+    mStarted = false;
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mCondVar.Wait(lock, [this]() { return mNumActiveCalls == 0; }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LOG_INF() << "Image manager stopped";
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::GetItemsStatuses(Array<UpdateItemStatus>& statuses)
@@ -155,6 +236,12 @@ Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
               << Log::Field("type", itemInfo.mType) << Log::Field("rootDigest", itemInfo.mRootDigest)
               << Log::Field("isRootIndex", itemInfo.mIsRootIndex);
 
+    if (auto err = EnterCall(); !err.IsNone()) {
+        return err;
+    }
+
+    auto leaveCall = DeferRelease([this]() { LeaveCall(); });
+
     StaticString<oci::cDigestLen> algorithm;
     StaticString<oci::cDigestLen> hash;
 
@@ -226,6 +313,12 @@ Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
 Error ImageManager::RemoveItem(const String& itemID, const String& version)
 {
     LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    if (auto err = EnterCall(); !err.IsNone()) {
+        return err;
+    }
+
+    auto leaveCall = DeferRelease([this]() { LeaveCall(); });
 
     if (auto err = AcquireItem(itemID, version); !err.IsNone()) {
         return err;
@@ -637,6 +730,30 @@ RetWithError<size_t> ImageManager::RemoveBlobFile(const String& path)
     return {size, ErrorEnum::eNone};
 }
 
+Error ImageManager::EnterCall()
+{
+    LockGuard lock {mMutex};
+
+    if (!mStarted) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "image manager is not started"));
+    }
+
+    mNumActiveCalls++;
+
+    return ErrorEnum::eNone;
+}
+
+void ImageManager::LeaveCall()
+{
+    LockGuard lock {mMutex};
+
+    mNumActiveCalls--;
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify condition variable" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+}
+
 UpdateItemStatus ImageManager::CreateItemStatus(
     const String& itemID, UpdateItemType type, const String& version, ItemStateEnum state, const Error& error)
 {
@@ -655,10 +772,16 @@ Error ImageManager::AcquireItem(const String& itemID, const String& version)
 {
     UniqueLock lock {mMutex};
 
-    if (auto err = mCondVar.Wait(
-            lock, [&]() { return FindItemInProgress(itemID, version) == nullptr && !mItemsInProgress.IsFull(); });
+    if (auto err = mCondVar.Wait(lock,
+            [&]() {
+                return !mStarted || (FindItemInProgress(itemID, version) == nullptr && !mItemsInProgress.IsFull());
+            });
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (!mStarted) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "image manager is stopped"));
     }
 
     ItemInProgress item;
@@ -699,10 +822,14 @@ Error ImageManager::LockBlob(const String& digest, const String& itemID, const S
 {
     UniqueLock lock {mMutex};
 
-    if (auto err
-        = mCondVar.Wait(lock, [&]() { return FindBlobInProgress(digest) == nullptr && !mBlobsInProgress.IsFull(); });
-        !err.IsNone()) {
+    const auto isBlobFree = [&]() { return FindBlobInProgress(digest) == nullptr && !mBlobsInProgress.IsFull(); };
+
+    if (auto err = mCondVar.Wait(lock, [&]() { return !mStarted || isBlobFree(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    if (!isBlobFree()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "image manager is stopped"));
     }
 
     BlobInProgress blob;

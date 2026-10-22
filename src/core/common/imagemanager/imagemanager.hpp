@@ -38,14 +38,21 @@ public:
     virtual ~ImageManager() = default;
 
     /**
-     * Starts image manager.
+     * Starts image manager. Sets the stored items in the eInstalling state, whose installation was interrupted, to
+     * eRemoved with the current timestamp, keeping their blobs and blob references. Then registers all stored items in
+     * the eRemoved state as outdated in the space allocator. The errors of registering a single item are logged, and
+     * the item is registered on the next start. No item status is notified. InstallItem and RemoveItem fail with
+     * eWrongState until Start succeeds.
      *
-     * @return Error.
+     * @return Error: eWrongState if the image manager is already started, storage errors as is.
      */
     virtual Error Start();
 
     /**
-     * Stops image manager. Waits until all InstallItem and RemoveItem calls in progress return.
+     * Stops image manager. Waits until all InstallItem and RemoveItem calls in progress return. The calls waiting for
+     * the same item version, for a free slot of the items in progress or for a blob being processed by another item
+     * fail with eWrongState. InstallItem and RemoveItem called after Stop fail with eWrongState until Start is called
+     * again. Does nothing if the image manager is not started.
      *
      * @return Error.
      */
@@ -109,8 +116,9 @@ protected:
      *
      * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
      * oci::ImageIndex, one oci::ImageManifest and one oci::ImageConfig at the same time, plus one
-     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses and one
-     * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover.
+     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses, one
+     * StaticArray<DeployableItemInfo, cMaxNumStoredItems> for Start and one StaticArray<ItemBlobInfo, cMaxNumItemBlobs>
+     * for the item remover.
      *
      * @param config image manager config.
      * @param storage image manager storage.
@@ -141,12 +149,13 @@ protected:
      * cMaxNumConcurrentItems items are being processed.
      *
      * @note The final eInstalled or eFailed status is notified while the item is still in progress, so a listener
-     * must not call InstallItem or RemoveItem synchronously from the callback.
+     * must not call InstallItem, RemoveItem or Stop synchronously from the callback.
      *
      * @param itemInfo item info.
-     * @return Error: eInvalidArgument if the root digest is malformed, the item version is stored with a different
-     * root digest, the image config of a service is missing or a diff ID is missing in the image config, eNoMemory if
-     * the storage is full and there is no outdated item to remove, other errors as is.
+     * @return Error: eWrongState if the image manager is not started or is stopped while waiting, eInvalidArgument if
+     * the root digest is malformed, the item version is stored with a different root digest, the image config of a
+     * service is missing or a diff ID is missing in the image config, eNoMemory if the storage is full and there is no
+     * outdated item to remove, other errors as is.
      */
     Error InstallItem(const InstallItemInfo& itemInfo);
 
@@ -158,11 +167,13 @@ protected:
      * cMaxNumConcurrentItems items are being processed.
      *
      * @note The eRemoving status and the previous item status on the storage update failure are notified while the
-     * item is still in progress, so a listener must not call InstallItem or RemoveItem synchronously from the callback.
+     * item is still in progress, so a listener must not call InstallItem, RemoveItem or Stop synchronously from the
+     * callback.
      *
      * @param itemID item ID.
      * @param version item version.
-     * @return Error: eNotFound if the item version is not stored, other errors as is.
+     * @return Error: eWrongState if the image manager is not started or is stopped while waiting, eNotFound if the
+     * item version is not stored, other errors as is.
      */
     Error RemoveItem(const String& itemID, const String& version);
 
@@ -242,8 +253,8 @@ protected:
      * image manager mutex locked.
      *
      * @note The final eInstalled or eFailed status of InstallItem and the eRemoving status of RemoveItem are notified
-     * while the item is still in progress, so a listener must not call InstallItem or RemoveItem synchronously from the
-     * callback.
+     * while the item is still in progress, so a listener must not call InstallItem, RemoveItem or Stop synchronously
+     * from the callback.
      *
      * @param status item status.
      */
@@ -326,6 +337,18 @@ private:
      */
     RetWithError<size_t> RemoveBlobFile(const String& path);
 
+    /**
+     * Registers InstallItem or RemoveItem call in progress, so Stop waits until it returns.
+     *
+     * @return Error: eWrongState if the image manager is not started.
+     */
+    Error EnterCall();
+
+    /**
+     * Unregisters InstallItem or RemoveItem call in progress and wakes up the waiting threads.
+     */
+    void LeaveCall();
+
     static UpdateItemStatus CreateItemStatus(const String& itemID, UpdateItemType type, const String& version,
         ItemStateEnum state, const Error& error = ErrorEnum::eNone);
 
@@ -335,7 +358,7 @@ private:
      *
      * @param itemID item ID.
      * @param version item version.
-     * @return Error.
+     * @return Error: eWrongState if the image manager is stopped.
      */
     Error AcquireItem(const String& itemID, const String& version);
 
@@ -362,7 +385,7 @@ private:
      * @param digest blob digest.
      * @param itemID ID of the item that processes the blob.
      * @param version version of the item that processes the blob.
-     * @return Error.
+     * @return Error: eWrongState if the image manager is stopped while waiting.
      */
     Error LockBlob(const String& digest, const String& itemID, const String& version);
 
@@ -425,6 +448,8 @@ private:
     ConditionalVariable                                 mCondVar;
     StaticArray<ItemInProgress, cMaxNumConcurrentItems> mItemsInProgress;
     StaticArray<BlobInProgress, cMaxNumBlobsInProgress> mBlobsInProgress;
+    bool                                                mStarted {};
+    size_t                                              mNumActiveCalls {};
 
     ItemRemover mItemRemover {*this};
 };
