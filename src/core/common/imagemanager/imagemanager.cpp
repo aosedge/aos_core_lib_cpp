@@ -162,7 +162,7 @@ Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
         return err;
     }
 
-    if (auto err = AcquireItem(itemInfo.mItemID, itemInfo.mVersion, itemInfo.mType); !err.IsNone()) {
+    if (auto err = AcquireItem(itemInfo.mItemID, itemInfo.mVersion); !err.IsNone()) {
         return err;
     }
 
@@ -225,9 +225,94 @@ Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
 
 Error ImageManager::RemoveItem(const String& itemID, const String& version)
 {
-    LOG_DBG() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+    LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    return ErrorEnum::eNotSupported;
+    if (auto err = AcquireItem(itemID, version); !err.IsNone()) {
+        return err;
+    }
+
+    auto releaseItem = DeferRelease([this, &itemID, &version]() { ReleaseItem(itemID, version); });
+
+    DeployableItemInfo item;
+    ItemStateEnum      prevState {};
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto err = mStorage->GetDeployableItem(itemID, version, item); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (item.mState != ItemStateEnum::eRemoved) {
+            prevState = item.mState == ItemStateEnum::eInstalling ? ItemStateEnum::eFailed : item.mState.GetValue();
+
+            if (auto* itemInProgress = FindItemInProgress(itemID, version); itemInProgress != nullptr) {
+                itemInProgress->mType     = item.mType;
+                itemInProgress->mNotified = true;
+                itemInProgress->mState    = ItemStateEnum::eRemoving;
+            }
+        }
+    }
+
+    if (item.mState == ItemStateEnum::eRemoved) {
+        LOG_DBG() << "Item already removed, add it as outdated" << Log::Field("itemID", itemID)
+                  << Log::Field("version", version);
+
+        releaseItem.Reset();
+
+        if (auto err = GetSpaceAllocator().AddOutdatedItem(itemID, version, item.mTimestamp); !err.IsNone()) {
+            LOG_ERR() << "Can't add outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+
+            return AOS_ERROR_WRAP(err);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    NotifyItemStatusChanged(CreateItemStatus(itemID, item.mType, version, ItemStateEnum::eRemoving));
+
+    Error err;
+
+    {
+        LockGuard lock {mMutex};
+
+        item.mState     = ItemStateEnum::eRemoved;
+        item.mTimestamp = Time::Now();
+        item.mError     = ErrorEnum::eNone;
+
+        if (err = mStorage->UpdateDeployableItem(item); !err.IsNone()) {
+            err = AOS_ERROR_WRAP(err);
+        }
+
+        if (auto* itemInProgress = FindItemInProgress(itemID, version); itemInProgress != nullptr) {
+            itemInProgress->mNotified = false;
+        }
+    }
+
+    if (!err.IsNone()) {
+        LOG_ERR() << "Can't remove item" << Log::Field("itemID", itemID) << Log::Field("version", version)
+                  << Log::Field(err);
+
+        NotifyItemStatusChanged(CreateItemStatus(itemID, item.mType, version, prevState, err));
+
+        return err;
+    }
+
+    NotifyItemStatusChanged(CreateItemStatus(itemID, item.mType, version, ItemStateEnum::eRemoved));
+
+    releaseItem.Reset();
+
+    if (err = GetSpaceAllocator().AddOutdatedItem(itemID, version, item.mTimestamp); !err.IsNone()) {
+        LOG_ERR() << "Can't add outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version)
+                  << Log::Field(AOS_ERROR_WRAP(err));
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    LOG_INF() << "Item removed" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::ValidateBlob(const String& digest, const String& path) const
@@ -456,7 +541,7 @@ UpdateItemStatus ImageManager::CreateItemStatus(
     return status;
 }
 
-Error ImageManager::AcquireItem(const String& itemID, const String& version, UpdateItemType type)
+Error ImageManager::AcquireItem(const String& itemID, const String& version)
 {
     UniqueLock lock {mMutex};
 
@@ -470,7 +555,6 @@ Error ImageManager::AcquireItem(const String& itemID, const String& version, Upd
 
     item.mItemID  = itemID;
     item.mVersion = version;
-    item.mType    = type;
 
     if (auto err = mItemsInProgress.PushBack(item); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -629,6 +713,7 @@ Error ImageManager::StartItemInstall(const InstallItemInfo& itemInfo, Deployable
     }
 
     if (auto* itemInProgress = FindItemInProgress(itemInfo.mItemID, itemInfo.mVersion); itemInProgress != nullptr) {
+        itemInProgress->mType     = itemInfo.mType;
         itemInProgress->mNotified = true;
         itemInProgress->mState    = ItemStateEnum::eInstalling;
     }

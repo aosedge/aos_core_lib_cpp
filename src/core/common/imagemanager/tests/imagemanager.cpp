@@ -1942,4 +1942,407 @@ TEST_F(CommonImageManagerInstallTest, InstallSharedBlobConcurrently)
     EXPECT_EQ(ReadFile(sharedLayer.mPath), sharedLayer.mHash);
 }
 
+/***********************************************************************************************************************
+ * Remove item suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerRemoveTest : public CommonImageManagerInstallTest {
+protected:
+    TestManifest InstallTestItem()
+    {
+        auto manifest = AddManifest(1, 1, 1);
+
+        CreateValidBlobs(manifest);
+
+        auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        ClearNotifiedStatuses();
+
+        return manifest;
+    }
+
+    void StoreItemWithBlob(ItemStateEnum state, UpdateItemTypeEnum type, const Error& error = ErrorEnum::eNone)
+    {
+        auto item = CreateDeployableItem(cTestItemID, cTestVersion, state, error);
+
+        item.mType = type;
+
+        auto err = mStorage.AddDeployableItem(item);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mStorage.AddItemBlob(cTestItemID, cTestVersion, MakeBlobInfo(MakeTestBlob(1), cTestLayerType, true));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    void ClearNotifiedStatuses()
+    {
+        std::lock_guard lock {mStatusesMutex};
+
+        mStatuses.clear();
+    }
+
+    static UpdateItemStatus MakeStatus(ItemStateEnum state, UpdateItemTypeEnum type = UpdateItemTypeEnum::eService,
+        const Error& error = ErrorEnum::eNone)
+    {
+        auto status = CreateItemStatus(cTestItemID, cTestVersion, state);
+
+        status.mType  = type;
+        status.mError = error;
+
+        return status;
+    }
+
+    void ExpectRemoved(UpdateItemTypeEnum type, const std::vector<ItemBlobInfo>& blobs)
+    {
+        const auto startTime = Time::Now();
+        Time       outdatedTimestamp;
+
+        {
+            InSequence seq;
+
+            EXPECT_CALL(mListener, OnItemStatusChanged(MakeStatus(ItemStateEnum::eRemoving, type)));
+            EXPECT_CALL(mListener, OnItemStatusChanged(MakeStatus(ItemStateEnum::eRemoved, type)));
+            EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+                .WillOnce(Invoke([&outdatedTimestamp](const String&, const String&, const Time& timestamp) {
+                    outdatedTimestamp = timestamp;
+
+                    return ErrorEnum::eNone;
+                }));
+        }
+
+        auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_EQ(GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eRemoving, ItemStateEnum::eRemoved}));
+
+        auto item = GetStoredItem(cTestItemID, cTestVersion);
+        ASSERT_TRUE(item.has_value());
+        EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+        EXPECT_EQ(item->mType, type);
+        EXPECT_TRUE(item->mError.IsNone());
+        EXPECT_FALSE(item->mTimestamp < startTime);
+        EXPECT_EQ(item->mTimestamp, outdatedTimestamp);
+
+        EXPECT_EQ(mStorage.GetBlobs(cTestItemID, cTestVersion), blobs);
+        EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eRemoved);
+    }
+};
+
+TEST_F(CommonImageManagerRemoveTest, RemoveInstalledItem)
+{
+    const auto manifest = InstallTestItem();
+    const auto blobs    = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+    ASSERT_EQ(blobs.size(), 3);
+
+    ExpectRemoved(UpdateItemTypeEnum::eService, blobs);
+
+    for (const auto& layer : manifest.mLayers) {
+        EXPECT_TRUE(FileExists(layer.mPath.c_str()));
+    }
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveFailedItem)
+{
+    StoreItemWithBlob(ItemStateEnum::eFailed, UpdateItemTypeEnum::eComponent, Error(ErrorEnum::eFailed, "failed"));
+
+    ExpectRemoved(UpdateItemTypeEnum::eComponent, mStorage.GetBlobs(cTestItemID, cTestVersion));
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveInstallingItem)
+{
+    StoreItemWithBlob(ItemStateEnum::eInstalling, UpdateItemTypeEnum::eService);
+
+    ExpectRemoved(UpdateItemTypeEnum::eService, mStorage.GetBlobs(cTestItemID, cTestVersion));
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveNotStoredItem)
+{
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(mStorage.GetItems().empty());
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveRemovedItem)
+{
+    StoreItemWithBlob(ItemStateEnum::eRemoved, UpdateItemTypeEnum::eService);
+
+    const auto before = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(before.has_value());
+
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), before->mTimestamp))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+    EXPECT_EQ(item->mTimestamp, before->mTimestamp);
+    EXPECT_EQ(mStorage.GetBlobs(cTestItemID, cTestVersion).size(), 1);
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveRemovedItemAfterAddOutdatedItemFailure)
+{
+    InstallTestItem();
+
+    Time firstTimestamp;
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Invoke([&firstTimestamp](const String&, const String&, const Time& timestamp) {
+            firstTimestamp = timestamp;
+
+            return ErrorEnum::eNoMemory;
+        }));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eRemoving, ItemStateEnum::eRemoved}));
+
+    const auto removed = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(removed.has_value());
+    EXPECT_EQ(removed->mState, ItemStateEnum::eRemoved);
+    EXPECT_EQ(removed->mTimestamp, firstTimestamp);
+
+    const auto blobs = mStorage.GetBlobs(cTestItemID, cTestVersion);
+
+    Mock::VerifyAndClearExpectations(&mSpaceAllocator);
+    Mock::VerifyAndClearExpectations(&mListener);
+    ClearNotifiedStatuses();
+
+    // The second call registers the item with the stored timestamp, without notifications.
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), removed->mTimestamp))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(GetNotifiedStates().empty());
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+    EXPECT_EQ(item->mTimestamp, removed->mTimestamp);
+    EXPECT_EQ(mStorage.GetBlobs(cTestItemID, cTestVersion), blobs);
+    EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveStorageUpdateFails)
+{
+    InstallTestItem();
+
+    const auto before = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(before.has_value());
+
+    mStorage.mFailUpdateStates = {ItemStateEnum::eRemoved};
+
+    std::optional<ItemStateEnum> reportedOnPrevState;
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).WillRepeatedly(Invoke([&](const UpdateItemStatus& status) {
+        {
+            std::lock_guard lock {mStatusesMutex};
+
+            mStatuses.push_back(status);
+        }
+
+        if (status.mState == ItemStateEnum::eInstalled) {
+            reportedOnPrevState = GetReportedState(cTestItemID, cTestVersion);
+        }
+    }));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    auto statuses = GetNotifiedStatuses();
+    ASSERT_EQ(statuses.size(), 2);
+    EXPECT_EQ(statuses[0], MakeStatus(ItemStateEnum::eRemoving));
+    EXPECT_EQ(statuses[1], MakeStatus(ItemStateEnum::eInstalled, UpdateItemTypeEnum::eService, ErrorEnum::eFailed));
+    EXPECT_STREQ(statuses[1].mError.Message(), "update failed");
+
+    EXPECT_EQ(reportedOnPrevState, ItemStateEnum::eInstalled);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+    EXPECT_EQ(item->mTimestamp, before->mTimestamp);
+    EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eInstalled);
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveInstallingItemStorageUpdateFails)
+{
+    StoreItemWithBlob(ItemStateEnum::eInstalling, UpdateItemTypeEnum::eService);
+
+    mStorage.mFailUpdateStates = {ItemStateEnum::eRemoved};
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    auto statuses = GetNotifiedStatuses();
+    ASSERT_EQ(statuses.size(), 2);
+    EXPECT_EQ(statuses[0], MakeStatus(ItemStateEnum::eRemoving));
+    EXPECT_EQ(statuses[1], MakeStatus(ItemStateEnum::eFailed, UpdateItemTypeEnum::eService, ErrorEnum::eFailed));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalling);
+    EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eFailed);
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveAddOutdatedItemFails)
+{
+    InstallTestItem();
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNoMemory));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eRemoving, ItemStateEnum::eRemoved}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+    EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerRemoveTest, GetItemsStatusesDuringRemove)
+{
+    InstallTestItem();
+
+    std::optional<ItemStateEnum> reportedOnRemoving;
+
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).WillRepeatedly(Invoke([&](const UpdateItemStatus& status) {
+        if (status.mState == ItemStateEnum::eRemoving) {
+            reportedOnRemoving = GetReportedState(cTestItemID, cTestVersion);
+        }
+    }));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(reportedOnRemoving, ItemStateEnum::eRemoving);
+    EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerRemoveTest, AddOutdatedItemCalledAfterItemReleased)
+{
+    InstallTestItem();
+
+    std::optional<ItemStateEnum> reportedOnAdd;
+    std::future<Error>           nestedRemove;
+    bool                         nestedRemoveDone = false;
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Invoke([&](const String&, const String&, const Time&) {
+            reportedOnAdd = GetReportedState(cTestItemID, cTestVersion);
+
+            // RemoveItem of the same version waits while the item is in progress, so it completes only if the item
+            // is already released.
+            nestedRemove
+                = std::async(std::launch::async, [this]() { return mImageManager.Remove(cTestItemID, cTestVersion); });
+
+            nestedRemoveDone = nestedRemove.wait_for(std::chrono::seconds(10)) == std::future_status::ready;
+
+            return ErrorEnum::eNone;
+        }))
+        // The nested RemoveItem of the removed item adds it as outdated again.
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(reportedOnAdd, ItemStateEnum::eRemoved);
+    EXPECT_TRUE(nestedRemoveDone);
+    ASSERT_TRUE(nestedRemove.valid());
+
+    auto nestedErr = nestedRemove.get();
+    EXPECT_TRUE(nestedErr.IsNone()) << tests::utils::ErrorToStr(nestedErr);
+
+    EXPECT_EQ(GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eRemoving, ItemStateEnum::eRemoved}));
+}
+
+TEST_F(CommonImageManagerRemoveTest, RemoveWaitsForInstallOfSameVersion)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    EXPECT_CALL(mImageManager, DoDownloadBlob(_, _))
+        .WillOnce(Invoke([&](const String& digest, const String& path) {
+            downloadStarted.set_value();
+            downloadReleasedFuture.wait();
+
+            return DownloadTestBlob(digest, path);
+        }))
+        .WillRepeatedly(Invoke(DownloadTestBlob));
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _)).Times(1);
+
+    Error installErr, removeErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    std::thread removeThread([&]() { removeErr = mImageManager.Remove(cTestItemID, cTestVersion); });
+
+    // Gives the remove time to reach AcquireItem: without waiting there, it would notify eRemoving and fail the checks
+    // below.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    EXPECT_EQ(
+        GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eDownloading}));
+
+    downloadReleased.set_value();
+
+    installThread.join();
+    removeThread.join();
+
+    ASSERT_TRUE(installErr.IsNone()) << tests::utils::ErrorToStr(installErr);
+    ASSERT_TRUE(removeErr.IsNone()) << tests::utils::ErrorToStr(removeErr);
+
+    EXPECT_EQ(GetNotifiedStates(),
+        std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eDownloading, ItemStateEnum::eInstalled,
+            ItemStateEnum::eRemoving, ItemStateEnum::eRemoved}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerRemoveTest, InstallRemovedItem)
+{
+    const auto manifest = InstallTestItem();
+
+    ASSERT_TRUE(mImageManager.Remove(cTestItemID, cTestVersion).IsNone());
+
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(GetNotifiedStates(),
+        std::vector<ItemStateEnum>({ItemStateEnum::eRemoving, ItemStateEnum::eRemoved, ItemStateEnum::eInstalling,
+            ItemStateEnum::eInstalled}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
 } // namespace aos::common::imagemanager
