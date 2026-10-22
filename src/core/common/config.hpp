@@ -163,6 +163,18 @@
 #endif
 
 /**
+ * Chunk size used when streaming ciphertext into a multi-part PKCS11 decrypt operation (see
+ * aos::sm::imagemanager::BlobDecryptor). Deliberately smaller than AOS_CONFIG_TYPES_FILE_CHUNK_SIZE: some
+ * PKCS11 modules (e.g. a TEE-backed one with a limited shared memory budget) reject a single
+ * C_DecryptUpdate call above a certain size with CKR_DEVICE_MEMORY - empirically, one such module accepted
+ * up to ~34 KiB and rejected 36 KiB+. Override per platform if a target's PKCS11 module is known to allow
+ * more (or needs less).
+ */
+#ifndef AOS_CONFIG_IMAGEMANAGER_DECRYPT_CHUNK_SIZE
+#define AOS_CONFIG_IMAGEMANAGER_DECRYPT_CHUNK_SIZE 16 * 1024
+#endif
+
+/**
  * File system mount type len.
  */
 #ifndef AOS_CONFIG_TYPES_FS_MOUNT_TYPE_LEN

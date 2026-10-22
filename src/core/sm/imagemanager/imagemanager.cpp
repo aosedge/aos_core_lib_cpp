@@ -48,6 +48,24 @@ Error AddPathIfNotExist(Array<StaticString<cFilePathLen>>& list, const String& p
     return list.PushBack(path);
 }
 
+// A blob is in use if it's one of usedBlobs or a file staged next to one of them (<blob>.<suffix>, e.g. a blob
+// being decrypted in place): such a stage must not be removed while its blob is still being installed.
+bool IsUsedBlob(const Array<StaticString<cFilePathLen>>& usedBlobs, const String& path)
+{
+    for (const auto& usedBlob : usedBlobs) {
+        if (path == usedBlob) {
+            return true;
+        }
+
+        if (path.Size() > usedBlob.Size() && path[usedBlob.Size()] == '.'
+            && strncmp(path.CStr(), usedBlob.CStr(), usedBlob.Size()) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -57,7 +75,7 @@ Error AddPathIfNotExist(Array<StaticString<cFilePathLen>>& list, const String& p
 Error ImageManager::Init(AllocatorItf& allocator, const Config& config, BlobInfoProviderItf& blobInfoProvider,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
     fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
-    StorageItf& storage)
+    StorageItf& storage, BlobDecryptorItf& blobDecryptor)
 {
     LOG_DBG() << "Init image manager";
 
@@ -70,6 +88,7 @@ Error ImageManager::Init(AllocatorItf& allocator, const Config& config, BlobInfo
     mOCISpec          = &ociSpec;
     mImageHandler     = &imageHandler;
     mStorage          = &storage;
+    mBlobDecryptor    = &blobDecryptor;
 
     LOG_DBG() << "Config" << Log::Field("imagePath", mConfig.mImagePath) << Log::Field("partLimit", mConfig.mPartLimit)
               << Log::Field("updateItemTTL", mConfig.mUpdateItemTTL)
@@ -692,6 +711,40 @@ Error ImageManager::UnpackLayer(const String& path, const oci::ContentDescriptor
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::DecryptBlob(const String& path, size_t size)
+{
+    LOG_DBG() << "Decrypt blob" << Log::Field("path", path) << Log::Field("size", size);
+
+    // the decrypted output is staged next to the still present encrypted blob, so both exist at once until the
+    // staged file replaces the blob: reserve room for it. Once replaced, the plaintext (never larger than the
+    // ciphertext) fits in the blob's own, already accepted, reservation, so this one is always released.
+    UniquePtr<spaceallocator::SpaceItf> space;
+
+    if (size) {
+        Error err;
+
+        Tie(space, err) = mSpaceAllocator->AllocateSpace(size);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    auto releaseSpace = DeferRelease(&space, [](const UniquePtr<spaceallocator::SpaceItf>* stagingSpace) {
+        if (!*stagingSpace) {
+            return;
+        }
+
+        if (auto err = (*stagingSpace)->Release(); !err.IsNone()) {
+            LOG_ERR() << "Can't release staging space" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    });
+
+    // decrypted straight over the blob: BlobDecryptor stages the output and only renames it into place once it is
+    // authenticated, so there is no intermediate plaintext file of a fixed name to leave behind. A stage left by a
+    // crash is removed with the other orphans in the blobs folder.
+    return mBlobDecryptor->Decrypt(path, path);
+}
+
 Error ImageManager::InstallLayer(
     const oci::ContentDescriptor& descriptor, const String& diffDigest, InstallItem& installItem)
 {
@@ -749,7 +802,24 @@ Error ImageManager::InstallLayer(
         return err;
     }
 
-    err = UnpackLayer(path, descriptor, diffDigest);
+    LOG_DBG() << "Layer descriptor" << Log::Field("mediaType", descriptor.mMediaType)
+              << Log::Field("digest", descriptor.mDigest);
+
+    auto unpackDescriptor = descriptor;
+
+    if (unpackDescriptor.mMediaType == oci::cMediaTypeLayerTarGZipEncrypted) {
+        err = DecryptBlob(path, descriptor.mSize);
+        if (!err.IsNone()) {
+            return err;
+        }
+
+        err = unpackDescriptor.mMediaType.Assign(oci::cMediaTypeLayerTarGZip);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    err = UnpackLayer(path, unpackDescriptor, diffDigest);
     if (!err.IsNone()) {
         return err;
     }
@@ -1383,7 +1453,7 @@ RetWithError<size_t> ImageManager::RemoveOrphanBlobs(const Array<StaticString<cF
         while (blobIterator.Next()) {
             auto blobPath = fs::JoinPath(blobsPath, blobIterator->mPath);
 
-            if (auto it = usedBlobs.Find(blobPath); it != usedBlobs.end()) {
+            if (IsUsedBlob(usedBlobs, blobPath)) {
                 continue;
             }
 

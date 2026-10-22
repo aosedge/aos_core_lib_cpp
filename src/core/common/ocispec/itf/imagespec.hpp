@@ -57,6 +57,7 @@ constexpr auto cRootfsTypeLen = AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN;
  */
 constexpr auto cMediaTypeLayerTar                     = "application/vnd.oci.image.layer.v1.tar";
 constexpr auto cMediaTypeLayerTarGZip                 = "application/vnd.oci.image.layer.v1.tar+gzip";
+constexpr auto cMediaTypeLayerTarGZipEncrypted        = "application/vnd.aos.image.layer.enc.v1.aes256gcm+tar+gz";
 constexpr auto cMediaTypeEmptyBlob                    = "application/vnd.oci.empty.v1+json";
 constexpr auto cMediaTypeComponentFullTarGZip         = "application/vnd.aos.image.component.full.v1+gzip";
 constexpr auto cMediaTypeComponentFullSquashfs        = "application/vnd.aos.image.component.full.v1+squashfs";

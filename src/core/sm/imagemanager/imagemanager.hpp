@@ -15,6 +15,7 @@
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/timer.hpp>
 
+#include "itf/blobdecryptor.hpp"
 #include "itf/blobinfoprovider.hpp"
 #include "itf/imagehandler.hpp"
 #include "itf/imagemanager.hpp"
@@ -46,12 +47,13 @@ public:
      * @param ociSpec OCI spec interface.
      * @param imageHandler image handler.
      * @param storage image manager storage.
+     * @param blobDecryptor decryptor for layer blobs encrypted with a device-local key.
      * @return Error.
      */
     Error Init(AllocatorItf& allocator, const Config& config, BlobInfoProviderItf& blobInfoProvider,
         spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
         fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
-        StorageItf& storage);
+        StorageItf& storage, BlobDecryptorItf& blobDecryptor);
 
     /**
      * Starts image manager.
@@ -140,6 +142,7 @@ private:
     Error CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space);
     Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest);
     Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, InstallItem& installItem);
+    Error DecryptBlob(const String& path, size_t size);
     Error GetBlobURL(const String& digest, String& url) const;
     void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, const Error& err);
     Error WaitForInstallingBlob(const String& digest);
@@ -175,6 +178,7 @@ private:
     oci::OCISpecItf*                   mOCISpec {};
     ImageHandlerItf*                   mImageHandler {};
     StorageItf*                        mStorage {};
+    BlobDecryptorItf*                  mBlobDecryptor {};
 
     AllocatorItf* mAllocator {};
 

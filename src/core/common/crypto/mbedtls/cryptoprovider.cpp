@@ -1874,6 +1874,20 @@ Error MbedTLSCryptoProvider::MbedTLSRSAPrivKey::Decrypt(
             return ErrorEnum::eNone;
         }
 
+        Error Visit(const GCMDecryptionOptions& opts) const
+        {
+            (void)opts;
+
+            return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
+        }
+
+        Error Visit(const CTRDecryptionOptions& opts) const
+        {
+            (void)opts;
+
+            return AOS_ERROR_WRAP(ErrorEnum::eNotSupported);
+        }
+
         mbedtls_pk_context*       mPrivKey = nullptr;
         mbedtls_ctr_drbg_context* mDRBG    = nullptr;
 
