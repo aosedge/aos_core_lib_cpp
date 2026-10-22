@@ -609,6 +609,156 @@ TEST_F(LauncherTest, StopInstancesWithExpiredOfflineTTL)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(LauncherTest, InstallUpdateItemFailed)
+{
+    const std::vector cInstanceInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 1, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 2, "2.0.0", "runtime1"),
+    };
+    const Array<InstanceInfo> cInstances(cInstanceInfos.data(), cInstanceInfos.size());
+    const Error               cInstallError(ErrorEnum::eFailed, "update item install failed");
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec,
+        mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mImageManager, InstallUpdateItem).Times(2).WillRepeatedly(Invoke([&](const auto& item) {
+        return item.mVersion == "1.0.0" ? cInstallError : Error(ErrorEnum::eNone);
+    }));
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+    EXPECT_CALL(mRuntime1, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).Times(1).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mNetworkManager, StartInstanceNetwork).Times(1).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.UpdateInstances({}, cInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_EQ(mReceivedStatuses.Size(), cInstances.Size());
+
+    for (const auto& status : mReceivedStatuses) {
+        if (status.mVersion == "1.0.0") {
+            EXPECT_EQ(status.mState, InstanceStateEnum::eFailed);
+            EXPECT_EQ(status.mError, cInstallError);
+        } else {
+            EXPECT_EQ(status.mState, InstanceStateEnum::eActive);
+        }
+    }
+
+    ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mImageManager));
+    ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mRuntime0));
+
+    EXPECT_CALL(mImageManager, InstallUpdateItem).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .Times(2)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mNetworkManager, StartInstanceNetwork).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(cInstanceInfos.data(), 2));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_EQ(mReceivedStatuses.Size(), cInstances.Size());
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, InstanceStateEnum::eActive);
+        EXPECT_TRUE(status.mError.IsNone());
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime0, Stop).WillOnce(Return(ErrorEnum::eNone));
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, InstalledItemsReadFailedAndFailedInstanceRemoved)
+{
+    const std::vector cInstanceInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+    };
+    const Array<InstanceInfo> cInstances(cInstanceInfos.data(), cInstanceInfos.size());
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mSender, mStorage, mOCISpec,
+        mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mImageManager, GetAllInstalledItems).WillOnce(Invoke([](auto& items) {
+        (void)items.EmplaceBack(
+            imagemanager::UpdateItemStatus {"item0", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled});
+
+        return ErrorEnum::eFailed;
+    }));
+    EXPECT_CALL(mImageManager, InstallUpdateItem).Times(2).WillRepeatedly(Invoke([](const auto& item) {
+        return item.mID == "item0" ? ErrorEnum::eFailed : ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+    EXPECT_CALL(mRuntime1, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    err = mLauncher.UpdateInstances({}, cInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_EQ(mReceivedStatuses.Size(), 2);
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, status.mItemID == "item0" ? InstanceStateEnum::eFailed : InstanceStateEnum::eActive);
+    }
+
+    auto storedInstances = std::make_unique<InstanceInfoArray>();
+    err                  = mStorage.GetAllInstancesInfos(*storedInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_EQ(storedInstances->Size(), 1);
+    EXPECT_EQ((*storedInstances)[0].mItemID, "item1");
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mNetworkManager, ReleaseInstanceNetwork).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManager, GetAllInstalledItems).WillOnce(Return(ErrorEnum::eNone));
+    const InstanceIdent cStopInstance = cInstanceInfos[0];
+    err                               = mLauncher.UpdateInstances(Array<InstanceIdent>(&cStopInstance, 1), {});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mItemID, "item1");
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    EXPECT_CALL(mRuntime1, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(LauncherTest, UpdateInstances)
 {
     const std::vector cStoredInfos = {

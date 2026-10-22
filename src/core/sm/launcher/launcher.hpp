@@ -170,6 +170,10 @@ private:
         StaticString<cVersionLen> mVersion;
     };
 
+    struct InstallItem : imagemanager::UpdateItemInfo {
+        Error mError;
+    };
+
     static constexpr auto cOIDNamespace      = "6ba7b812-9dad-11d1-80b4-00c04fd430c8";
     static constexpr auto cThreadTaskSize    = 512;
     static constexpr auto cMaxNumSubscribers = 4;
@@ -190,7 +194,8 @@ private:
     void  StopAllInstances();
     void  StopAllNetworks();
     Error PrepareInstance(InstanceData& instanceData);
-    void  PrepareInstances(const Array<InstanceInfo>& startInstances);
+    void  PrepareInstances(
+         const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems, const Error& installError);
     void  StartNetworks(const Array<InstanceInfo>& startInstances);
     Error AddStartNetworkTask(InstanceData& instanceData);
     void  StartInstances(const Array<InstanceInfo>& startInstances);
@@ -203,7 +208,7 @@ private:
     void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
          Array<UpdateItemInfo>& removeItems);
     void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
-    void  InstallUpdateItems(const Array<InstanceInfo>& startInstances);
+    Error InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
     Error                       ReleaseInstance(const InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
