@@ -9,6 +9,8 @@
 #include <gtest/gtest.h>
 
 #include <core/common/crypto/cryptoutils.hpp>
+#include <core/common/tools/fs.hpp>
+#include <core/common/types/common.hpp>
 
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/utils/log.hpp>
@@ -75,6 +77,71 @@ TEST_F(CryptoutilsTest, CalculateFileHashNoFile)
     auto err = CalculateFileHash(
         String("file-not-exists"), crypto::HashEnum::eSHA256, mCryptoFactory.GetHashProvider(), hash);
     ASSERT_FALSE(err.IsNone());
+}
+
+TEST_F(CryptoutilsTest, GetSystemIDFromCert)
+{
+    StaticString<cIDLen> systemID;
+
+    ASSERT_TRUE(GetSystemIDFromCert("urn:aos:unit:test-unit", systemID).IsNone());
+    EXPECT_STREQ(systemID.CStr(), "test-unit");
+}
+
+TEST_F(CryptoutilsTest, GetSystemIDFromOnlineCertPEM)
+{
+    StaticString<cCertPEMLen> pem;
+
+    ASSERT_TRUE(fs::ReadFileToString(CRYPTOHELPER_CERTS_DIR "/online.pem", pem).IsNone())
+        << "Failed to read generated cert: " << CRYPTOHELPER_CERTS_DIR "/online.pem";
+
+    x509::CertificateChain chain;
+
+    ASSERT_TRUE(mCryptoFactory.GetCryptoProvider().PEMToX509Certs(pem, chain).IsNone());
+    ASSERT_FALSE(chain.IsEmpty());
+    ASSERT_FALSE(chain[0].mSubjectURLs.IsEmpty()) << "SAN URIs were not parsed from certificate";
+
+    StaticString<cIDLen> systemID;
+    Error                err = ErrorEnum::eNotFound;
+
+    for (const auto& uri : chain[0].mSubjectURLs) {
+        err = GetSystemIDFromCert(uri, systemID);
+        if (err.IsNone()) {
+            break;
+        }
+    }
+
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_STREQ(systemID.CStr(), "c183de63-e2b7-4776-90e0-b7c9b8f740e8");
+}
+
+TEST_F(CryptoutilsTest, GetSystemIDFromCertNotFound)
+{
+    StaticString<cIDLen> systemID;
+
+    EXPECT_TRUE(GetSystemIDFromCert("urn:aos:domain:aosedge.io", systemID).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(GetSystemIDFromCert("prefix:urn:aos:unit:test-unit", systemID).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(GetSystemIDFromCert(cSystemIDURNPrefix, systemID).Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CryptoutilsTest, GetSystemIDFromCertNoMemory)
+{
+    StaticString<4> systemID;
+
+    EXPECT_TRUE(GetSystemIDFromCert("urn:aos:unit:test-unit", systemID).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoutilsTest, PEMToX509CertsSubjectURLsOverflow)
+{
+    for (const auto* name : {"onlineSanTooManyURIs", "onlineSanLongURI"}) {
+        StaticString<cCertPEMLen> pem;
+        const auto                path = std::string(CRYPTOHELPER_CERTS_DIR "/") + name + ".pem";
+
+        ASSERT_TRUE(fs::ReadFileToString(path.c_str(), pem).IsNone()) << "Failed to read generated cert: " << path;
+
+        x509::CertificateChain chain;
+
+        EXPECT_TRUE(mCryptoFactory.GetCryptoProvider().PEMToX509Certs(pem, chain).Is(ErrorEnum::eNoMemory)) << name;
+    }
 }
 
 } // namespace aos::crypto
