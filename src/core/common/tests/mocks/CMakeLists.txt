@@ -24,6 +24,7 @@ set(HEADERS
     fsmock.hpp
     identprovidermock.hpp
     instancestatusprovidermock.hpp
+    itemstatuslistenermock.hpp
     logprovidermock.hpp
     monitoringmock.hpp
     nodehandlermock.hpp
