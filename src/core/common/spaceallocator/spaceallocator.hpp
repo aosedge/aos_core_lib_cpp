@@ -260,6 +260,41 @@ public:
         }
     }
 
+    /**
+     * Removes the oldest outdated item of the space allocator.
+     *
+     * The item is removed from the outdated items list whatever the result of the item remover. The freed size is
+     * accounted in the partition only: the allocator free callback is not called, the caller must account the freed
+     * size in the space allocator.
+     *
+     * @param spaceAllocator space allocator the item belongs to.
+     * @return RetWithError<size_t>: freed size, eNotFound if there is no outdated item to remove.
+     */
+    RetWithError<size_t> RemoveOutdatedItem(const SpaceAllocatorItf* spaceAllocator)
+    {
+        LockGuard lock {mMutex};
+
+        mOutdatedItems.Sort([](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
+
+        auto oldestItem = mOutdatedItems.FindIf(
+            [spaceAllocator](const OutdatedItem& item) { return item.mSpaceAllocator == spaceAllocator; });
+        if (oldestItem == mOutdatedItems.end()) {
+            return {0, Error(ErrorEnum::eNotFound, "no outdated item")};
+        }
+
+        auto [size, err] = oldestItem->mRemover->RemoveItem(oldestItem->mID, oldestItem->mVersion);
+
+        mOutdatedItems.Erase(oldestItem);
+
+        if (!err.IsNone()) {
+            return {0, err};
+        }
+
+        mAvailableSize += size;
+
+        return {size, ErrorEnum::eNone};
+    }
+
     static constexpr size_t cMaxNumOutdatedItems = AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS;
 
     StaticString<cFilePathLen>                      mMountPoint;
@@ -541,6 +576,23 @@ public:
         mPartition->RestoreOutdatedItem(id, version);
 
         return ErrorEnum::eNone;
+    }
+
+    /**
+     * Removes the oldest outdated item.
+     *
+     * @return RetWithError<size_t>: freed size, eNotFound if there is no outdated item to remove.
+     */
+    RetWithError<size_t> RemoveOutdatedItem() override
+    {
+        auto [size, err] = mPartition->RemoveOutdatedItem(this);
+        if (!err.IsNone()) {
+            return {0, err};
+        }
+
+        Free(size);
+
+        return {size, ErrorEnum::eNone};
     }
 
 private:
