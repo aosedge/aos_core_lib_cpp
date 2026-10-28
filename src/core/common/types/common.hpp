@@ -25,6 +25,16 @@ namespace aos {
 constexpr auto cIDLen = AOS_CONFIG_TYPES_ID_LEN;
 
 /**
+ * Hardware ID len.
+ */
+constexpr auto cHardwareIDLen = AOS_CONFIG_TYPES_HARDWARE_ID_LEN;
+
+/**
+ * UUID namespace used to derive Node ID from Hardware ID (UUIDv5).
+ */
+constexpr auto cNodeIDNamespaceUUID = "b3f1c8a2-4e7d-4f9a-9c1b-2d5e6f7a8b9c";
+
+/**
  * Version max len.
  */
 constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;

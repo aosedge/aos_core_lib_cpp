@@ -137,12 +137,36 @@ extendedKeyUsage=serverAuth,clientAuth
 subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test,IP:127.0.0.1,IP:::1"
     )
 
+    # Same pattern as offline CNs ({id}-offline): id is the part before the -online suffix.
+    set(ONLINE_SYSTEM_ID "c183de63-e2b7-4776-90e0-b7c9b8f740e8")
+
     set(ONLINE_CERT_EXT
         "basicConstraints=CA:FALSE
 keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth,clientAuth
-subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test,IP:127.0.0.1,IP:::1
+subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test,IP:127.0.0.1,IP:::1,URI:urn:aos:unit:${ONLINE_SYSTEM_ID}
 issuerAltName=URI:https://www.mytest.com"
+    )
+
+    # cMaxNumURLs + 1 SAN URIs to check URI array overflow.
+    set(SAN_URIS "URI:urn:aos:unit:1")
+    foreach(i RANGE 2 9)
+        string(APPEND SAN_URIS ",URI:urn:aos:unit:${i}")
+    endforeach()
+
+    set(SAN_TOO_MANY_URIS_EXT
+        "basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+subjectAltName=${SAN_URIS}"
+    )
+
+    # SAN URI longer than cURLLen to check URI length overflow.
+    string(REPEAT "a" 600 SAN_LONG_URI_VALUE)
+
+    set(SAN_LONG_URI_EXT
+        "basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+subjectAltName=URI:urn:aos:unit:${SAN_LONG_URI_VALUE}"
     )
 
     function(write_ext_file NAME CONTENT)
@@ -313,11 +337,13 @@ subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test
     )
     make_leaf(
         online
-        "/C=UA/O=staging-fusion.westeurope.cloudapp.azure.com/OU=OEM Test unit model/CN=c183de63-e2b7-4776-90e0-b7c9b8f740e8-online/L=Kyiv"
+        "/C=UA/O=staging-fusion.westeurope.cloudapp.azure.com/OU=OEM Test unit model/CN=${ONLINE_SYSTEM_ID}-online/L=Kyiv"
         ${ONLINE_CERT_EXT}
     )
     make_leaf(onlineTest1 "/C=UA/O=Test1/OU=OEM Test1/CN=test1/L=Kyiv" ${DEFAULT_EXT})
     make_leaf(onlineTest2 "/C=UA/OU=OEM Test2/CN=test2/L=Kyiv" ${DEFAULT_EXT})
+    make_leaf(onlineSanTooManyURIs "/C=UA/O=Test/CN=onlineSanTooManyURIs" ${SAN_TOO_MANY_URIS_EXT})
+    make_leaf(onlineSanLongURI "/C=UA/O=Test/CN=onlineSanLongURI" ${SAN_LONG_URI_EXT})
 
     message(STATUS "All certificates and keys generated successfully in ${OUTPUT_DIR}")
 

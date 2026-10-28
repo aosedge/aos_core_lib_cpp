@@ -107,6 +107,13 @@
 #endif
 
 /**
+ * Hardware ID len.
+ */
+#ifndef AOS_CONFIG_TYPES_HARDWARE_ID_LEN
+#define AOS_CONFIG_TYPES_HARDWARE_ID_LEN 100
+#endif
+
+/**
  * Max number of subjects.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_SUBJECTS
@@ -748,7 +755,7 @@
  * Maximum size of input data for SHA1 hash calculation.
  */
 #ifndef AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE
-#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE 42
+#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE (AOS_CONFIG_TOOLS_UUID_SIZE + AOS_CONFIG_TYPES_HARDWARE_ID_LEN)
 #endif
 
 /**
