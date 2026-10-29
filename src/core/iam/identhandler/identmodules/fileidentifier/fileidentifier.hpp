@@ -22,6 +22,8 @@ namespace aos::iam::identhandler {
 
 /**
  * File identifier.
+ *
+ * Reads unit model, version and subjects from files.
  */
 class FileIdentifier : public IdentModuleItf {
 public:
@@ -48,12 +50,12 @@ public:
     Error Stop() override { return ErrorEnum::eNone; };
 
     /**
-     * Returns System info.
+     * Returns unit model info.
      *
-     * @param[out] info result system info.
+     * @param[out] info result unit model info.
      * @returns Error.
      */
-    Error GetSystemInfo(SystemInfo& info) override;
+    Error GetUnitModelInfo(UnitModelInfo& info) override;
 
     /**
      * Returns subjects.
@@ -65,15 +67,13 @@ public:
 
 private:
     static constexpr auto cModelVersionDelimiter = ';';
-    static constexpr auto cMaxNumSubscribers     = 4;
 
-    Error ReadSystemId();
     Error ReadUnitModel();
     Error ReadSubjects();
 
     Mutex                                              mMutex;
     FileIdentifierConfig                               mConfig;
-    SystemInfo                                         mSystemInfo;
+    UnitModelInfo                                      mUnitModelInfo;
     StaticArray<StaticString<cIDLen>, cMaxNumSubjects> mSubjects;
 };
 

@@ -14,13 +14,15 @@ namespace aos::iam::identhandler {
 
 /**
  * Ident module interface.
+ *
+ * Provides unit model, version and subjects. System ID is provided by ident handler.
  */
-class IdentModuleItf : public iamclient::IdentProviderItf {
+class IdentModuleItf {
 public:
     /**
      * Destructor.
      */
-    ~IdentModuleItf() override = default;
+    virtual ~IdentModuleItf() = default;
 
     /**
      * Starts ident module.
@@ -37,12 +39,28 @@ public:
     virtual Error Stop() = 0;
 
     /**
+     * Returns unit model info.
+     *
+     * @param[out] info result unit model info.
+     * @returns Error.
+     */
+    virtual Error GetUnitModelInfo(UnitModelInfo& info) = 0;
+
+    /**
+     * Returns subjects.
+     *
+     * @param[out] subjects result subjects.
+     * @returns Error.
+     */
+    virtual Error GetSubjects(Array<StaticString<cIDLen>>& subjects) = 0;
+
+    /**
      * Subscribes subjects listener.
      *
      * @param subjectsListener subjects listener.
      * @returns Error.
      */
-    Error SubscribeListener(iamclient::SubjectsListenerItf& subjectsListener) override
+    virtual Error SubscribeListener(iamclient::SubjectsListenerItf& subjectsListener)
     {
         LockGuard lock {mMutex};
 
@@ -59,7 +77,7 @@ public:
      * @param subjectsListener subjects listener.
      * @returns Error.
      */
-    Error UnsubscribeListener(iamclient::SubjectsListenerItf& subjectsListener) override
+    virtual Error UnsubscribeListener(iamclient::SubjectsListenerItf& subjectsListener)
     {
         LockGuard lock {mMutex};
 
