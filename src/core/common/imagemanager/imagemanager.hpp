@@ -12,6 +12,7 @@
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/noncopyable.hpp>
+#include <core/common/tools/thread.hpp>
 
 #include "itf/blobinfoprovider.hpp"
 #include "itf/itemstatusprovider.hpp"
@@ -50,15 +51,20 @@ public:
     virtual Error Stop();
 
     /**
-     * Retrieves deployable items statuses. Reports one status per item version in the storage.
+     * Retrieves deployable items statuses. Reports one status per item version in the storage with its stored state.
+     *
+     * @note The statuses are appended to the output array, which is not cleared.
      *
      * @param[out] statuses list of deployable items statuses.
-     * @return Error.
+     * @return Error: eNoMemory if the statuses don't fit the output array, storage errors as is.
      */
     Error GetItemsStatuses(Array<UpdateItemStatus>& statuses) override;
 
     /**
      * Subscribes status notifications.
+     *
+     * @note Must not be called from a listener notification callback: listeners are notified under the listeners
+     * lock, so the call deadlocks.
      *
      * @param listener status listener.
      * @return Error: eAlreadyExist if the listener is already subscribed.
@@ -67,6 +73,9 @@ public:
 
     /**
      * Unsubscribes from status notifications.
+     *
+     * @note Must not be called from a listener notification callback: listeners are notified under the listeners
+     * lock, so the call deadlocks.
      *
      * @param listener status listener.
      * @return Error: eNotFound if the listener is not subscribed.
@@ -103,6 +112,8 @@ protected:
 
     /**
      * Initializes image manager. Derived classes call it from their own Init.
+     *
+     * @note The allocator must provide one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
      *
      * @param config image manager config.
      * @param downloadBlobInfoProvider download blob info provider.
@@ -260,6 +271,9 @@ private:
     oci::OCISpecItf*                   mOCISpec {};
     fs::FSPlatformItf*                 mFSPlatform {};
     AllocatorItf*                      mAllocator {};
+
+    Mutex                                                 mListenersMutex;
+    StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
 
     ItemRemover mItemRemover {*this};
 };
