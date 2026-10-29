@@ -26,11 +26,9 @@ namespace {
  * Static
  **********************************************************************************************************************/
 
-constexpr auto cSystemIDPath  = "systemID";
 constexpr auto cUnitModelPath = "unitModel";
 constexpr auto cVersionPath   = "unitVersion";
 constexpr auto cSubjectsPath  = "subjects";
-constexpr auto cSystemID      = "systemID";
 constexpr auto cUnitModel     = "unitModel";
 constexpr auto cUnitVersion   = "1.0.0";
 constexpr auto cSubjects      = R"(subject1
@@ -49,10 +47,6 @@ protected:
     {
         tests::utils::InitLog();
 
-        if (std::ofstream f(cSystemIDPath); f) {
-            f << cSystemID;
-        }
-
         if (std::ofstream f(cUnitModelPath); f) {
             f << cUnitModel << ";" << cUnitVersion;
         }
@@ -62,7 +56,6 @@ protected:
         }
 
         mConfig.mUnitModelPath = cUnitModelPath;
-        mConfig.mSystemIDPath  = cSystemIDPath;
         mConfig.mSubjectsPath  = cSubjectsPath;
     }
 
@@ -96,19 +89,9 @@ TEST_F(FileIdentifierTest, InitFailsOnUnitVersionFileError)
             f << fileContents;
         }
 
-        const auto err = identifier.Init(FileIdentifierConfig {});
+        const auto err = identifier.Init(mConfig);
         EXPECT_FALSE(err.IsNone()) << tests::utils::ErrorToStr(err);
     }
-}
-
-TEST_F(FileIdentifierTest, InitFailsOnSystemIDFileMissing)
-{
-    FileIdentifier identifier;
-
-    fs::Remove(cSystemIDPath);
-
-    auto err = identifier.Init(mConfig);
-    ASSERT_EQ(err.Value(), ErrorEnum::eRuntime) << tests::utils::ErrorToStr(err);
 }
 
 TEST_F(FileIdentifierTest, InitFailsOnUnitModelFileMissing)
@@ -171,21 +154,20 @@ TEST_F(FileIdentifierTest, EmptySubjectsOnSubjectLenExceedsAppLimit)
     EXPECT_TRUE(subjects.IsEmpty()) << "Expected empty subjects array, but got size: " << subjects.Size();
 }
 
-TEST_F(FileIdentifierTest, GetSystemInfo)
+TEST_F(FileIdentifierTest, GetUnitModelInfo)
 {
     FileIdentifier identifier;
 
     auto err = identifier.Init(mConfig);
     ASSERT_TRUE(err.IsNone()) << err.Message();
 
-    auto systemInfo = std::make_unique<SystemInfo>();
+    UnitModelInfo unitModelInfo;
 
-    err = identifier.GetSystemInfo(*systemInfo);
+    err = identifier.GetUnitModelInfo(unitModelInfo);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    ASSERT_STREQ(systemInfo->mSystemID.CStr(), cSystemID);
-    ASSERT_STREQ(systemInfo->mUnitModel.CStr(), cUnitModel);
-    ASSERT_STREQ(systemInfo->mVersion.CStr(), cUnitVersion);
+    ASSERT_STREQ(unitModelInfo.mUnitModel.CStr(), cUnitModel);
+    ASSERT_STREQ(unitModelInfo.mVersion.CStr(), cUnitVersion);
 }
 
 TEST_F(FileIdentifierTest, GetSubjects)
@@ -204,6 +186,28 @@ TEST_F(FileIdentifierTest, GetSubjects)
     ASSERT_STREQ(subjects[0].CStr(), "subject1");
     ASSERT_STREQ(subjects[1].CStr(), "subject2");
     ASSERT_STREQ(subjects[2].CStr(), "subject3");
+}
+
+TEST_F(FileIdentifierTest, SubscribeUnsubscribeListener)
+{
+    FileIdentifier identifier;
+
+    auto err = identifier.Init(mConfig);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    iamclient::SubjectsListenerMock listener;
+
+    err = identifier.SubscribeListener(listener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = identifier.SubscribeListener(listener);
+    EXPECT_TRUE(err.Is(ErrorEnum::eAlreadyExist)) << tests::utils::ErrorToStr(err);
+
+    err = identifier.UnsubscribeListener(listener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = identifier.UnsubscribeListener(listener);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 }
 
 } // namespace aos::iam::identhandler
