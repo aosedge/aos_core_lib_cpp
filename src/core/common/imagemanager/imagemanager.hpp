@@ -7,9 +7,11 @@
 #ifndef AOS_CORE_COMMON_IMAGEMANAGER_IMAGEMANAGER_HPP_
 #define AOS_CORE_COMMON_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
+#include <core/common/consts.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
 #include <core/common/tools/fs.hpp>
+#include <core/common/tools/list.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
@@ -51,7 +53,12 @@ public:
     virtual Error Stop();
 
     /**
-     * Retrieves deployable items statuses. Reports one status per item version in the storage with its stored state.
+     * Retrieves deployable items statuses. Reports one status per item version in the storage. An item version being
+     * installed, whose eInstalling state is already notified, is reported with its last notified state (eInstalling or
+     * eDownloading) until its final state is notified. An item version being removed, whose eRemoving state is already
+     * notified, is reported as eRemoving until its eRemoved state is set in the storage or the storage update fails.
+     * Otherwise the stored state is reported. mError is set only for eFailed items and is taken from the storage.
+     * mPreinstalled is always false. ePending is never reported.
      *
      * @note The statuses are appended to the output array, which is not cleared.
      *
@@ -113,7 +120,9 @@ protected:
     /**
      * Initializes image manager. Derived classes call it from their own Init.
      *
-     * @note The allocator must provide one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
+     * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
+     * oci::ImageIndex, one oci::ImageManifest, one oci::ImageConfig and one blob hash buffer of cBlobHashSize at the
+     * same time, plus one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
      *
      * @param config image manager config.
      * @param downloadBlobInfoProvider download blob info provider.
@@ -133,8 +142,13 @@ protected:
      * Installs item. Waits while the same item version is being installed or removed, or while
      * cMaxNumConcurrentItems items are being processed.
      *
+     * @note The final eInstalled or eFailed status is notified while the item is still in progress, so a listener
+     * must not call InstallItem or RemoveItem synchronously from the callback.
+     *
      * @param itemInfo item info.
-     * @return Error.
+     * @return Error: eInvalidArgument if the root digest is malformed, the item version is stored with a different
+     * root digest or a diff ID is missing in the image config, eNoMemory if the storage is full and there is no
+     * outdated item to remove, other errors as is.
      */
     Error InstallItem(const InstallItemInfo& itemInfo);
 
@@ -188,9 +202,12 @@ private:
     virtual Error CancelDownload(const String& digest) = 0;
 
     /**
-     * Validates installed layer. Called by the image manager after the layer blob is validated, derived classes can
-     * override it to validate unpacked layer data. Returns eNotSupported by default, which the image manager treats as
-     * nothing to do (skip).
+     * Validates installed layer. Called by the image manager before the layer blob is validated, derived classes can
+     * override it to validate unpacked layer data. If it succeeds, the layer blob is not validated. Any error other
+     * than eNotSupported means the unpacked layer data is missing or invalid: the image manager calls RemoveLayer and
+     * UnpackLayer for the layer. Returns eNotSupported by default, which the image manager treats as the layer is kept
+     * as packed blob only (skip): RemoveLayer and UnpackLayer are not called. Derived classes which override
+     * UnpackLayer must override ValidateLayer and RemoveLayer as well.
      *
      * @param path layer blob path.
      * @param descriptor layer descriptor.
@@ -207,9 +224,9 @@ private:
     }
 
     /**
-     * Unpacks installed layer. Called by the image manager after the layer blob is installed, derived classes can
-     * override it to unpack layer data. Returns eNotSupported by default, which the image manager treats as nothing to
-     * do (skip).
+     * Unpacks installed layer. Called by the image manager after the layer blob is installed if ValidateLayer fails,
+     * derived classes can override it to unpack layer data. Returns eNotSupported by default, which the image manager
+     * treats as nothing to do (skip).
      *
      * @param path layer blob path.
      * @param descriptor layer descriptor.
@@ -226,9 +243,9 @@ private:
     }
 
     /**
-     * Removes installed layer. Called by the image manager before the layer blob is removed, derived classes can
-     * override it to remove unpacked layer data. Returns eNotSupported by default, which the image manager treats as
-     * nothing to do (skip).
+     * Removes installed layer. Called by the image manager before the layer is unpacked if ValidateLayer fails, and
+     * before the layer blob is removed, derived classes can override it to remove unpacked layer data. Returns
+     * eNotSupported by default, which the image manager treats as nothing to do (skip).
      *
      * @param path layer blob path.
      * @param descriptor layer descriptor.
@@ -263,6 +280,41 @@ private:
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
 
+    Error                ValidateBlob(const String& path, const String& digest, size_t size = 0);
+    Error                GetBlobInfo(const String& digest, BlobInfo& info);
+    Error                DownloadItemBlob(const InstallItemInfo& itemInfo, const String& path, const String& digest);
+    RetWithError<size_t> RemoveBlob(const String& path, const String& digest);
+    Error                RemoveItemBlob(
+                       const String& path, const oci::ContentDescriptor& descriptor, bool isLayer = false, const String& diffID = "");
+    Error InstallItemBlob(const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor, String& path);
+    Error InstallLayerBlob(
+        const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor, const String& diffID);
+    Error ProcessBlob(const InstallItemInfo& itemInfo, const String& path, const oci::ContentDescriptor& descriptor);
+    Error ProcessLayer(const InstallItemInfo& itemInfo, const String& path, const oci::ContentDescriptor& descriptor,
+        const String& diffID);
+    Error InstallItemBlobs(const InstallItemInfo& itemInfo);
+    Error InstallManifestBlobs(const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor);
+    Error StartItemInstall(const InstallItemInfo& itemInfo, DeployableItemInfo& storedInfo);
+    Error AddItemBlob(const String& itemID, const String& version, const oci::ContentDescriptor& descriptor,
+        bool isLayer = false, const String& diffID = "");
+
+    Error SetInProgressItemState(
+        const InstallItemInfo& itemInfo, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
+    Error SetStoredItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
+
+    void NotifyItemStatusChanged(const UpdateItemStatus& status);
+
+    Error             LockItem(const String& itemID, const String& version);
+    void              UnlockItem(const String& itemID, const String& version);
+    UpdateItemStatus* FindInProgressItem(const String& itemID, const String& version);
+    Error             LockBlob(const String& digest);
+    void              UnlockBlob(const String& digest);
+
+    bool IsBlobInProgress(const String& digest) const
+    {
+        return mBlobsInProgress.Find(digest) != mBlobsInProgress.end();
+    }
+
     Config                             mConfig;
     DownloadBlobInfoProviderItf*       mBlobInfoProvider {};
     StorageItf*                        mStorage {};
@@ -274,6 +326,11 @@ private:
 
     Mutex                                                 mListenersMutex;
     StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
+
+    Mutex                                                             mMutex;
+    ConditionalVariable                                               mCondVar;
+    StaticList<UpdateItemStatus, cMaxNumConcurrentItems>              mItemsInProgress;
+    StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mBlobsInProgress;
 
     ItemRemover mItemRemover {*this};
 };

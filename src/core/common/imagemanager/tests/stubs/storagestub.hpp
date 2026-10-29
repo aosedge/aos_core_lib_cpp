@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <set>
 #include <vector>
 
 #include <core/common/imagemanager/itf/storage.hpp>
@@ -36,6 +37,10 @@ public:
     Error UpdateDeployableItem(const DeployableItemInfo& item) override
     {
         std::lock_guard lock {mMutex};
+
+        if (mFailUpdateStates.count(item.mState.GetValue()) != 0) {
+            return Error(ErrorEnum::eFailed, "update failed");
+        }
 
         auto it = Find(item.mItemID, item.mVersion);
         if (it == mItems.end()) {
@@ -153,6 +158,25 @@ public:
         return items;
     }
 
+    std::vector<ItemBlobInfo> GetBlobs(const String& itemID, const String& version)
+    {
+        std::lock_guard lock {mMutex};
+
+        auto it = Find(itemID, version);
+        if (it == mItems.end()) {
+            return {};
+        }
+
+        return it->mBlobs;
+    }
+
+    void SetFailUpdateStates(const std::set<ItemStateEnum>& states)
+    {
+        std::lock_guard lock {mMutex};
+
+        mFailUpdateStates = states;
+    }
+
 private:
     struct Item {
         DeployableItemInfo        mInfo;
@@ -167,6 +191,8 @@ private:
 
     std::mutex        mMutex;
     std::vector<Item> mItems;
+    // Item states which UpdateDeployableItem fails to set.
+    std::set<ItemStateEnum> mFailUpdateStates;
 };
 
 } // namespace aos::common::imagemanager
