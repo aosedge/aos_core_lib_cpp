@@ -60,6 +60,7 @@ public:
         eNotSupported,
         eEOF,
         eCanceled,
+        eIntegrity,
         eNumErrors
     };
 
@@ -328,6 +329,7 @@ private:
             "not supported",
             "EOF",
             "canceled",
+            "integrity error",
         };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
