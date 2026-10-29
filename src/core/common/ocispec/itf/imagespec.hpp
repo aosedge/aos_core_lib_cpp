@@ -53,6 +53,12 @@ constexpr auto cMaxNumLayers = AOS_CONFIG_OCISPEC_MAX_NUM_LAYERS;
 constexpr auto cRootfsTypeLen = AOS_CONFIG_OCISPEC_ROOTFS_TYPE_LEN;
 
 /**
+ * OCI image media type constants.
+ */
+constexpr auto cMediaTypeImageIndex    = "application/vnd.oci.image.index.v1+json";
+constexpr auto cMediaTypeImageManifest = "application/vnd.oci.image.manifest.v1+json";
+
+/**
  * OCI layer media type constants.
  */
 constexpr auto cMediaTypeLayerTar                     = "application/vnd.oci.image.layer.v1.tar";
