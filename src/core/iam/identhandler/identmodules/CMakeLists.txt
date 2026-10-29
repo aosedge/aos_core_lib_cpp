@@ -15,4 +15,5 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_identmodules)
 # Cert modules
 # ######################################################################################################################
 
+add_subdirectory(certidentifier)
 add_subdirectory(fileidentifier)
