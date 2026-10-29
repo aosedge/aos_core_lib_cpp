@@ -260,12 +260,54 @@ static constexpr auto cAttrMainNode = "MainNode";
 static constexpr auto cAttrAosComponents = "AosComponents";
 
 /**
- * System info.
+ * Unit model info.
  */
-struct SystemInfo {
-    StaticString<cIDLen>        mSystemID;
+struct UnitModelInfo {
     StaticString<cUnitModelLen> mUnitModel;
     StaticString<cVersionLen>   mVersion;
+
+    /**
+     * Compares unit model info.
+     *
+     * @param rhs unit model info to compare with.
+     * @return bool.
+     */
+    bool operator==(const UnitModelInfo& rhs) const { return mUnitModel == rhs.mUnitModel && mVersion == rhs.mVersion; }
+
+    /**
+     * Compares unit model info.
+     *
+     * @param rhs unit model info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UnitModelInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * System info.
+ */
+struct SystemInfo : UnitModelInfo {
+    StaticString<cIDLen> mSystemID;
+
+    /**
+     * Compares system info.
+     *
+     * @param rhs system info to compare with.
+     * @return bool.
+     */
+    bool operator==(const SystemInfo& rhs) const
+    {
+        return mSystemID == rhs.mSystemID
+            && static_cast<const UnitModelInfo&>(*this) == static_cast<const UnitModelInfo&>(rhs);
+    }
+
+    /**
+     * Compares system info.
+     *
+     * @param rhs system info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const SystemInfo& rhs) const { return !operator==(rhs); }
 };
 
 /**
