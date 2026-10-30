@@ -14,7 +14,7 @@ set(TARGET_NAME mocks)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS fileservermock.hpp nodeconfighandlermock.hpp nodeinfoprovidermock.hpp)
+set(HEADERS fileservermock.hpp nodeconfighandlermock.hpp nodeinfoprovidermock.hpp rootcertsmock.hpp)
 
 # ######################################################################################################################
 # Target

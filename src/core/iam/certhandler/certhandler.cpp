@@ -24,19 +24,19 @@ Error CertHandler::RegisterModule(CertModule& certModule)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Register module: type=" << certModule.GetCertType();
+    LOG_INF() << "Register module: type=" << certModule.GetStorageID();
 
     return AOS_ERROR_WRAP(mModules.PushBack(&certModule));
 }
 
-Error CertHandler::GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const
+Error CertHandler::GetStorageIDs(Array<StaticString<cStorageIDLen>>& storageIDs) const
 {
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Get all registered IAM certificate types";
 
     for (const auto certModule : mModules) {
-        auto err = certTypes.PushBack(certModule->GetCertType());
+        auto err = storageIDs.PushBack(certModule->GetStorageID());
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err.Value());
         }
@@ -45,13 +45,13 @@ Error CertHandler::GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) co
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::SetOwner(const String& certType, const String& password)
+Error CertHandler::SetOwner(const String& storageID, const String& password)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Set owner" << Log::Field("type", certType);
+    LOG_INF() << "Set owner" << Log::Field("type", storageID);
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -63,13 +63,13 @@ Error CertHandler::SetOwner(const String& certType, const String& password)
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::Clear(const String& certType)
+Error CertHandler::Clear(const String& storageID)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Clear" << Log::Field("type", certType);
+    LOG_INF() << "Clear" << Log::Field("type", storageID);
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -82,13 +82,13 @@ Error CertHandler::Clear(const String& certType)
 }
 
 Error CertHandler::CreateKey(
-    const String& certType, const String& subjectCommonName, const String& password, String& pemCSR)
+    const String& storageID, const String& subjectCommonName, const String& password, String& pemCSR)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Create key" << Log::Field("type", certType) << Log::Field("subject", subjectCommonName);
+    LOG_INF() << "Create key" << Log::Field("type", storageID) << Log::Field("subject", subjectCommonName);
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -105,13 +105,13 @@ Error CertHandler::CreateKey(
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info)
+Error CertHandler::ApplyCertificate(const String& storageID, const String& pemCert, CertInfo& info)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Apply cert" << Log::Field("type", certType);
+    LOG_INF() << "Apply cert" << Log::Field("type", storageID);
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -124,7 +124,7 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& pemCer
 }
 
 Error CertHandler::GetCert(
-    const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
+    const String& storageID, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
 {
     LockGuard lock {mMutex};
 
@@ -135,9 +135,9 @@ Error CertHandler::GetCert(
         return AOS_ERROR_WRAP(err);
     }
 
-    LOG_DBG() << "Get certificate" << Log::Field("type", certType) << Log::Field("serial", serialInHex);
+    LOG_DBG() << "Get certificate" << Log::Field("type", storageID) << Log::Field("serial", serialInHex);
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -150,33 +150,46 @@ Error CertHandler::GetCert(
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener)
+Error CertHandler::GetRootCerts(Array<CertInfo>& infos) const
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Subscribe certificate listener" << Log::Field("type", certType);
+    LOG_DBG() << "Get root certificates";
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindRootModule();
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto certInfo = MakeUnique<CertInfo>(mAllocator);
-    if (!certInfo) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    return AOS_ERROR_WRAP(certModule->GetCertificates(infos));
+}
+
+Error CertHandler::SubscribeListener(const String& storageID, iamclient::CertListenerItf& certListener)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Subscribe certificate listener" << Log::Field("type", storageID);
+
+    auto* certModule = FindModule(storageID);
+    if (certModule == nullptr) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto err = certModule->GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    return Subscribe(*certModule, certListener);
+}
+
+Error CertHandler::SubscribeRootCertsListener(iamclient::CertListenerItf& certListener)
+{
+    LockGuard lock {mMutex};
+
+    LOG_DBG() << "Subscribe root certificates listener";
+
+    auto* certModule = FindRootModule();
+    if (certModule == nullptr) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    err = mCertListenerSubscriptions.EmplaceBack(certType, *certInfo, &certListener);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
+    return Subscribe(*certModule, certListener);
 }
 
 Error CertHandler::UnsubscribeListener(iamclient::CertListenerItf& certListener)
@@ -193,13 +206,31 @@ Error CertHandler::UnsubscribeListener(iamclient::CertListenerItf& certListener)
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::CreateSelfSignedCert(const String& certType, const String& password)
+Error CertHandler::UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos)
 {
     LockGuard lock {mMutex};
 
-    LOG_INF() << "Create self signed cert" << Log::Field("type", certType);
+    LOG_INF() << "Update root certs" << Log::Field("count", pemCerts.Size());
 
-    auto* certModule = FindModule(certType);
+    auto* certModule = FindRootModule();
+    if (certModule == nullptr) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
+    }
+
+    if (auto err = certModule->UpdateCerts(pemCerts, "", infos); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return UpdateCerts(*certModule);
+}
+
+Error CertHandler::CreateSelfSignedCert(const String& storageID, const String& password)
+{
+    LockGuard lock {mMutex};
+
+    LOG_INF() << "Create self signed cert" << Log::Field("type", storageID);
+
+    auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -211,11 +242,11 @@ Error CertHandler::CreateSelfSignedCert(const String& certType, const String& pa
     return UpdateCerts(*certModule);
 }
 
-RetWithError<ModuleConfig> CertHandler::GetModuleConfig(const String& certType) const
+RetWithError<ModuleConfig> CertHandler::GetModuleConfig(const String& storageID) const
 {
     LockGuard lock {mMutex};
 
-    const auto* certModule = FindModule(certType);
+    const auto* certModule = FindModule(storageID);
     if (certModule == nullptr) {
         return {ModuleConfig(), AOS_ERROR_WRAP(ErrorEnum::eNotFound)};
     }
@@ -232,12 +263,40 @@ CertHandler::~CertHandler()
  * Private
  **********************************************************************************************************************/
 
-CertModule* CertHandler::FindModule(const String& certType) const
+CertModule* CertHandler::FindModule(const String& storageID) const
 {
-    auto certModule
-        = mModules.FindIf([certType](const CertModule* certModule) { return certModule->GetCertType() == certType; });
+    auto certModule = mModules.FindIf(
+        [storageID](const CertModule* certModule) { return certModule->GetStorageID() == storageID; });
 
     return certModule != mModules.end() ? *certModule : nullptr;
+}
+
+CertModule* CertHandler::FindRootModule() const
+{
+    auto certModule = mModules.FindIf([](const CertModule* certModule) {
+        return certModule->GetModuleConfig().mCertType == CertModuleTypeEnum::eRootCerts;
+    });
+
+    return certModule != mModules.end() ? *certModule : nullptr;
+}
+
+Error CertHandler::Subscribe(CertModule& certModule, iamclient::CertListenerItf& certListener)
+{
+    auto certInfo = MakeUnique<CertInfo>(mAllocator);
+    if (!certInfo) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), *certInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mCertListenerSubscriptions.EmplaceBack(certModule.GetStorageID(), *certInfo, &certListener);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error CertHandler::UpdateCerts(CertModule& certModule)
@@ -252,12 +311,12 @@ Error CertHandler::UpdateCerts(CertModule& certModule)
     }
 
     for (auto& subscription : mCertListenerSubscriptions) {
-        if (subscription.mCertType != certModule.GetCertType()) {
+        if (subscription.mStorageID != certModule.GetStorageID()) {
             continue;
         }
 
         if (subscription.mCertInfo != *certInfo) {
-            LOG_INF() << "Cert changed" << Log::Field("type", subscription.mCertType);
+            LOG_INF() << "Cert changed" << Log::Field("type", subscription.mStorageID);
 
             subscription.mCertListener->OnCertChanged(*certInfo);
             subscription.mCertInfo = *certInfo;

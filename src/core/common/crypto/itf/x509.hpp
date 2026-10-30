@@ -98,6 +98,11 @@ constexpr auto cSubjectCommonNameLen = AOS_CONFIG_CRYPTO_SUBJECT_COMMON_NAME_LEN
 constexpr auto cCertChainSize = AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE;
 
 /**
+ * Max number of trusted root certificates.
+ */
+constexpr auto cMaxRootCerts = AOS_CONFIG_CRYPTO_MAX_ROOT_CERTS;
+
+/**
  * Number of certificate chains to be stored in crypto::CertLoader.
  */
 constexpr auto cCertChainsCount = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT;

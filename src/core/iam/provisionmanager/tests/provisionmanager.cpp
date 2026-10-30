@@ -7,6 +7,7 @@
 
 #include <gmock/gmock.h>
 
+#include <core/common/tests/utils/utils.hpp>
 #include <core/iam/provisionmanager/provisionmanager.hpp>
 #include <core/iam/tests/mocks/certhandlermock.hpp>
 #include <core/iam/tests/mocks/provisionmanagermock.hpp>
@@ -14,6 +15,7 @@
 using namespace testing;
 using namespace aos::iam;
 using namespace aos::iam::provisionmanager;
+using namespace aos::tests::utils;
 
 /***********************************************************************************************************************
  * Suite
@@ -34,27 +36,27 @@ protected:
 
 TEST_F(ProvisionManagerTest, StartProvisioningSucceeds)
 {
-    CertTypes generatedCertTypes;
+    StorageIDs generatedStorageIDs;
 
-    generatedCertTypes.EmplaceBack("certType1");
-    generatedCertTypes.EmplaceBack("certType2");
-    generatedCertTypes.EmplaceBack("certType3");
-    generatedCertTypes.EmplaceBack("diskEncryption");
+    generatedStorageIDs.EmplaceBack("storageID1");
+    generatedStorageIDs.EmplaceBack("storageID2");
+    generatedStorageIDs.EmplaceBack("storageID3");
+    generatedStorageIDs.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
-    EXPECT_CALL(mCertHandler, GetCertTypes)
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedStorageIDs), Return(aos::ErrorEnum::eNone)));
 
     certhandler::ModuleConfig moduleConfig1;
     certhandler::ModuleConfig moduleConfig2;
     certhandler::ModuleConfig moduleConfig3;
     certhandler::ModuleConfig moduleConfig4;
 
-    moduleConfig1.mIsSelfSigned = false;
-    moduleConfig2.mIsSelfSigned = false;
-    moduleConfig3.mIsSelfSigned = true;
-    moduleConfig4.mIsSelfSigned = true;
+    moduleConfig1.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eCertKeyPair;
+    moduleConfig2.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eCertKeyPair;
+    moduleConfig3.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eSelfSigned;
+    moduleConfig4.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eSelfSigned;
 
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).Times(4);
@@ -74,17 +76,17 @@ TEST_F(ProvisionManagerTest, StartProvisioningSucceeds)
 
 TEST_F(ProvisionManagerTest, StartProvisioningFails)
 {
-    CertTypes generatedCertTypes;
+    StorageIDs generatedStorageIDs;
 
-    generatedCertTypes.EmplaceBack("certType1");
-    generatedCertTypes.EmplaceBack("certType2");
-    generatedCertTypes.EmplaceBack("certType3");
-    generatedCertTypes.EmplaceBack("diskEncryption");
+    generatedStorageIDs.EmplaceBack("storageID1");
+    generatedStorageIDs.EmplaceBack("storageID2");
+    generatedStorageIDs.EmplaceBack("storageID3");
+    generatedStorageIDs.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
-    EXPECT_CALL(mCertHandler, GetCertTypes)
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedStorageIDs), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mCertHandler, Clear).WillOnce(Return(aos::ErrorEnum::eFailed));
     EXPECT_CALL(mCertHandler, SetOwner).Times(0);
@@ -93,9 +95,9 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
-    EXPECT_CALL(mCertHandler, GetCertTypes)
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedStorageIDs), Return(aos::ErrorEnum::eNone)));
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).WillOnce(Return(aos::ErrorEnum::eFailed));
     EXPECT_CALL(mCertHandler, GetModuleConfig).Times(0);
@@ -106,17 +108,17 @@ TEST_F(ProvisionManagerTest, StartProvisioningFails)
 
 TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
 {
-    CertTypes generatedCertTypes;
+    StorageIDs generatedStorageIDs;
 
-    generatedCertTypes.EmplaceBack("certType1");
-    generatedCertTypes.EmplaceBack("certType2");
-    generatedCertTypes.EmplaceBack("certType3");
-    generatedCertTypes.EmplaceBack("diskEncryption");
+    generatedStorageIDs.EmplaceBack("storageID1");
+    generatedStorageIDs.EmplaceBack("storageID2");
+    generatedStorageIDs.EmplaceBack("storageID3");
+    generatedStorageIDs.EmplaceBack("diskEncryption");
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
-    EXPECT_CALL(mCertHandler, GetCertTypes)
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedStorageIDs), Return(aos::ErrorEnum::eNone)));
 
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).Times(4);
@@ -126,10 +128,10 @@ TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
     certhandler::ModuleConfig moduleConfig3;
     certhandler::ModuleConfig moduleConfig4;
 
-    moduleConfig1.mIsSelfSigned = false;
-    moduleConfig2.mIsSelfSigned = false;
-    moduleConfig3.mIsSelfSigned = true;
-    moduleConfig4.mIsSelfSigned = true;
+    moduleConfig1.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eCertKeyPair;
+    moduleConfig2.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eCertKeyPair;
+    moduleConfig3.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eSelfSigned;
+    moduleConfig4.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eSelfSigned;
 
     EXPECT_CALL(mCertHandler, GetModuleConfig)
         .Times(4)
@@ -146,9 +148,9 @@ TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 
     EXPECT_CALL(mCallback, OnStartProvisioning).Times(1);
-    EXPECT_CALL(mCertHandler, GetCertTypes)
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
         .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
+        .WillOnce(DoAll(SetArgReferee<0>(generatedStorageIDs), Return(aos::ErrorEnum::eNone)));
     EXPECT_CALL(mCertHandler, Clear).Times(4);
     EXPECT_CALL(mCertHandler, SetOwner).Times(4);
     EXPECT_CALL(mCertHandler, GetModuleConfig)
@@ -164,29 +166,30 @@ TEST_F(ProvisionManagerTest, StartProvisioningDiscEncryptionFails)
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
 
-TEST_F(ProvisionManagerTest, GetCertTypes)
+TEST_F(ProvisionManagerTest, GetCertKeyStorageIDs)
 {
-    CertTypes generatedCertTypes;
-
-    generatedCertTypes.EmplaceBack("certType1");
-    generatedCertTypes.EmplaceBack("certType2");
-    generatedCertTypes.EmplaceBack("certType3");
-    generatedCertTypes.EmplaceBack("diskEncryption");
-
-    EXPECT_CALL(mCertHandler, GetCertTypes)
-        .Times(1)
-        .WillOnce(DoAll(SetArgReferee<0>(generatedCertTypes), Return(aos::ErrorEnum::eNone)));
-
+    StorageIDs                generatedStorageIDs;
+    StorageIDs                expectedStorageIDs;
     certhandler::ModuleConfig moduleConfig1;
     certhandler::ModuleConfig moduleConfig2;
     certhandler::ModuleConfig moduleConfig3;
     certhandler::ModuleConfig moduleConfig4;
 
-    moduleConfig1.mIsSelfSigned = false;
-    moduleConfig2.mIsSelfSigned = false;
-    moduleConfig3.mIsSelfSigned = true;
-    moduleConfig4.mIsSelfSigned = true;
+    generatedStorageIDs.EmplaceBack("storageID1");
+    generatedStorageIDs.EmplaceBack("storageID2");
+    generatedStorageIDs.EmplaceBack("storageID3");
+    generatedStorageIDs.EmplaceBack("diskEncryption");
+    ASSERT_TRUE(expectedStorageIDs.EmplaceBack("storageID1").IsNone());
+    ASSERT_TRUE(expectedStorageIDs.EmplaceBack("storageID2").IsNone());
 
+    moduleConfig1.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eCertKeyPair;
+    moduleConfig2.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eCertKeyPair;
+    moduleConfig3.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eSelfSigned;
+    moduleConfig4.mCertType = aos::iam::certhandler::CertModuleTypeEnum::eSelfSigned;
+
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
+        .Times(1)
+        .WillOnce(DoAll(SetArgReferee<0>(generatedStorageIDs), Return(aos::ErrorEnum::eNone)));
     EXPECT_CALL(mCertHandler, GetModuleConfig)
         .Times(4)
         .WillOnce(Return(aos::RetWithError<certhandler::ModuleConfig>(moduleConfig1)))
@@ -194,12 +197,8 @@ TEST_F(ProvisionManagerTest, GetCertTypes)
         .WillOnce(Return(aos::RetWithError<certhandler::ModuleConfig>(moduleConfig3)))
         .WillOnce(Return(aos::RetWithError<certhandler::ModuleConfig>(moduleConfig4)));
 
-    auto certTypes = mProvisionManager.GetCertTypes();
-
-    EXPECT_TRUE(certTypes.mError.IsNone());
-    EXPECT_EQ(certTypes.mValue.Size(), 2);
-    EXPECT_EQ(certTypes.mValue[0], "certType1");
-    EXPECT_EQ(certTypes.mValue[1], "certType2");
+    auto storageIDs = mProvisionManager.GetCertKeyStorageIDs();
+    EXPECT_EQ(storageIDs, aos::RetWithError<StorageIDs>(expectedStorageIDs));
 }
 
 TEST_F(ProvisionManagerTest, FinishProvisioning)
@@ -225,7 +224,7 @@ TEST_F(ProvisionManagerTest, CreateKey)
 
     aos::StaticString<aos::crypto::cCSRPEMLen> csr;
 
-    auto err = mProvisionManager.CreateKey("certType", "subject", "password", csr);
+    auto err = mProvisionManager.CreateKey("storageID", "subject", "password", csr);
     EXPECT_TRUE(err.IsNone()) << err.Message();
     EXPECT_EQ(csr, generatedCsr);
 }
@@ -236,7 +235,7 @@ TEST_F(ProvisionManagerTest, CreateKeyFails)
 
     aos::StaticString<aos::crypto::cCSRPEMLen> csr;
 
-    auto err = mProvisionManager.CreateKey("certType", "subject", "password", csr);
+    auto err = mProvisionManager.CreateKey("storageID", "subject", "password", csr);
     EXPECT_TRUE(!err.IsNone()) << err.Message();
 }
 
@@ -262,7 +261,7 @@ TEST_F(ProvisionManagerTest, ApplyCert)
 
     aos::CertInfo certInfo;
 
-    auto err = mProvisionManager.ApplyCert("certType", "pemCert", certInfo);
+    auto err = mProvisionManager.ApplyCert("storageID", "pemCert", certInfo);
     EXPECT_TRUE(err.IsNone()) << err.Message();
     EXPECT_EQ(certInfo, generatedCertInfo);
 }
@@ -278,4 +277,34 @@ TEST_F(ProvisionManagerTest, Deprovision)
 
     err = mProvisionManager.Deprovision("password");
     EXPECT_TRUE(!err.IsNone()) << err.Message();
+}
+
+TEST_F(ProvisionManagerTest, UpdateRootCertsSucceeds)
+{
+    aos::StaticArray<aos::StaticString<aos::crypto::cCertPEMLen>, 1> pemCerts;
+    aos::CertInfo                                                    certInfo;
+    aos::StaticArray<aos::CertInfo, 1>                               generatedCerts;
+    aos::StaticArray<aos::CertInfo, 1>                               infos;
+
+    ASSERT_TRUE(pemCerts.EmplaceBack("pem-root-cert").IsNone());
+    certInfo.mCertURL = "root-cert-url";
+    ASSERT_TRUE(generatedCerts.PushBack(certInfo).IsNone());
+
+    EXPECT_CALL(mCertHandler, UpdateRootCerts(_, _))
+        .WillOnce(DoAll(SetArgReferee<1>(generatedCerts), Return(aos::ErrorEnum::eNone)));
+
+    EXPECT_TRUE(mProvisionManager.UpdateRootCerts(pemCerts, infos).IsNone());
+    EXPECT_EQ(infos, ConvertToArray({certInfo}));
+}
+
+TEST_F(ProvisionManagerTest, UpdateRootCertsFails)
+{
+    aos::StaticArray<aos::StaticString<aos::crypto::cCertPEMLen>, 1> pemCerts;
+    aos::StaticArray<aos::CertInfo, 1>                               infos;
+
+    ASSERT_TRUE(pemCerts.EmplaceBack("pem-root-cert").IsNone());
+
+    EXPECT_CALL(mCertHandler, UpdateRootCerts(_, _)).WillOnce(Return(aos::ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mProvisionManager.UpdateRootCerts(pemCerts, infos).Is(aos::ErrorEnum::eFailed));
 }

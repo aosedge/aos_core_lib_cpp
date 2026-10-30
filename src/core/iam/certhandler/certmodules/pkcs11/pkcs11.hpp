@@ -72,13 +72,13 @@ public:
      * Initializes module.
      *
      * @param allocator allocator to use for temporary objects.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param config module configuration.
      * @param pkcs11 reference to pkcs11 library context.
      * @param cryptoProvider reference to crypto provider interface.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const String& certType, const PKCS11ModuleConfig& config,
+    Error Init(AllocatorItf& allocator, const String& storageID, const PKCS11ModuleConfig& config,
         pkcs11::PKCS11Manager& pkcs11, crypto::CryptoProviderItf& cryptoProvider);
 
     /**
@@ -117,6 +117,16 @@ public:
     Error ApplyCert(const Array<crypto::x509::Certificate>& certChain, CertInfo& certInfo, String& password) override;
 
     /**
+     * Adds a certificate.
+     *
+     * @param cert certificate to add.
+     * @param password owner password.
+     * @param[out] certInfo result certificate information.
+     * @return Error.
+     */
+    Error AddCert(const crypto::x509::Certificate& cert, const String& password, CertInfo& certInfo) override;
+
+    /**
      * Removes certificate chain using top level certificate URL and password.
      *
      * @param certURL top level certificate URL.
@@ -142,8 +152,16 @@ public:
      * @param[out] validCerts information about valid certificates.
      * @return Error.
      */
-    Error ValidateCertificates(Array<StaticString<cURLLen>>& invalidCerts, Array<StaticString<cURLLen>>& invalidKeys,
-        Array<CertInfo>& validCerts) override;
+    Error ValidateKeysCertificates(Array<StaticString<cURLLen>>& invalidCerts,
+        Array<StaticString<cURLLen>>& invalidKeys, Array<CertInfo>& validCerts) override;
+
+    /**
+     * Returns every root certificate currently stored.
+     *
+     * @param[out] validCerts result certificate information.
+     * @return Error.
+     */
+    Error ValidateRootCertificates(Array<CertInfo>& validCerts) override;
 
 private:
     static constexpr auto cEnvLoginType    = "CKTEEC_LOGIN_TYPE";
@@ -199,7 +217,9 @@ private:
     Error ParseURL(const String& url, String& label, Array<uint8_t>& id) const;
 
     Error GetValidInfo(const pkcs11::SessionContext& session, Array<SearchObject>& certs, Array<SearchObject>& privKeys,
-        Array<SearchObject>& pubKeys, Array<CertInfo>& resCerts);
+        Array<SearchObject>& pubKeys, Array<CertInfo>& infos);
+    Error GetValidRootInfo(
+        const pkcs11::SessionContext& session, const Array<SearchObject>& certs, Array<CertInfo>& infos);
     SearchObject* FindObjectByID(Array<SearchObject>& array, const Array<uint8_t>& id);
     Error         GetX509Cert(
                 const pkcs11::SessionContext& session, pkcs11::ObjectHandle object, crypto::x509::Certificate& cert);
@@ -208,8 +228,8 @@ private:
     Error CreateInvalidURLs(const Array<SearchObject>& objects, Array<StaticString<cURLLen>>& urls);
     void  PrintInvalidObjects(const String& objectType, const Array<SearchObject>& objects) const;
 
-    StaticString<cCertTypeLen> mCertType;
-    PKCS11ModuleConfig         mConfig {};
+    StaticString<cStorageIDLen> mStorageID;
+    PKCS11ModuleConfig          mConfig {};
 
     SharedPtr<pkcs11::LibraryContext> mPKCS11;
     crypto::CryptoProviderItf*        mCryptoProvider {};

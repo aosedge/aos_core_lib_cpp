@@ -62,7 +62,7 @@ public:
 /**
  * Certificate types.
  */
-using CertTypes = aos::StaticArray<StaticString<cCertTypeLen>, certhandler::cIAMCertModulesMaxCount>;
+using StorageIDs = aos::StaticArray<StaticString<cStorageIDLen>, certhandler::cIAMCertModulesMaxCount>;
 
 /**
  * ProvisionManager interface.
@@ -80,30 +80,39 @@ public:
     /**
      * Gets certificate types.
      *
-     * @returns RetWithError<CertTypes>.
+     * @returns RetWithError<StorageIDs>.
      */
-    virtual RetWithError<CertTypes> GetCertTypes() const = 0;
+    virtual RetWithError<StorageIDs> GetCertKeyStorageIDs() const = 0;
 
     /**
      * Creates key.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param subject subject.
      * @param password password.
      * @param csr certificate signing request.
      * @returns Error.
      */
-    virtual Error CreateKey(const String& certType, const String& subject, const String& password, String& csr) = 0;
+    virtual Error CreateKey(const String& storageID, const String& subject, const String& password, String& csr) = 0;
 
     /**
      * Applies certificate.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param pemCert certificate in PEM.
      * @param certInfo certificate info.
      * @returns Error.
      */
-    virtual Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) = 0;
+    virtual Error ApplyCert(const String& storageID, const String& pemCert, CertInfo& certInfo) = 0;
+
+    /**
+     * Updates root certificates.
+     *
+     * @param pemCerts root certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    virtual Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) = 0;
 
     /**
      * Finishes provisioning.
