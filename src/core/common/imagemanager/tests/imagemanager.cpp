@@ -64,6 +64,8 @@ constexpr auto cTestVersion     = "1.0.0";
 constexpr auto cImageConfigType = "application/vnd.oci.image.config.v1+json";
 constexpr auto cItemConfigType  = "application/vnd.aos.item.config.v1+json";
 constexpr auto cInstallBlobSize = 64;
+constexpr auto cItemCacheTTL    = 10 * Time::cSeconds;
+constexpr auto cWaitTimeout     = std::chrono::seconds(5);
 
 // Same as the image manager private constants.
 constexpr auto cMaxNumStoredItems = cMaxNumUpdateItems * 2;
@@ -274,13 +276,16 @@ protected:
 
     void TearDown() override
     {
-        auto err = fs::RemoveAll(cTestDir);
+        auto err = mImageManager.Stop();
+        EXPECT_TRUE(err.IsNone()) << "Failed to stop image manager: " << tests::utils::ErrorToStr(err);
+
+        err = fs::RemoveAll(cTestDir);
         EXPECT_TRUE(err.IsNone()) << "Failed to remove test dir: " << tests::utils::ErrorToStr(err);
     }
 
-    Error InitImageManager(const String& imagePath = cTestImagePath)
+    Error InitImageManager(const String& imagePath = cTestImagePath, Duration removeOutdatedPeriod = 5 * Time::cSeconds)
     {
-        Config config {imagePath, 0, 10 * Time::cSeconds, 5 * Time::cSeconds};
+        Config config {imagePath, 0, cItemCacheTTL, removeOutdatedPeriod};
 
         return mImageManager.Init(
             config, mBlobInfoProvider, mStorage, mSpaceAllocator, mFileInfoProvider, mOCISpec, mFSPlatform, mAllocator);
@@ -2343,6 +2348,268 @@ TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveDeployableItemFails)
     auto item = GetStoredItem(cTestItemID, cTestVersion);
     ASSERT_TRUE(item.has_value());
     EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+/***********************************************************************************************************************
+ * Expired items suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerExpiredTest : public CommonImageManagerRemoveOutdatedTest {
+protected:
+    void SetUp() override
+    {
+        CommonImageManagerRemoveOutdatedTest::SetUp();
+
+        ON_CALL(mSpaceAllocator, RestoreOutdatedItem(_, _)).WillByDefault(Return(ErrorEnum::eNone));
+    }
+
+    // Installs and removes the item, then makes it expired.
+    void AddExpiredItem(const TestManifest& manifest, const char* itemID = cTestItemID)
+    {
+        InstallAndRemove(manifest, itemID);
+
+        auto item = GetStoredItem(itemID, cTestVersion);
+        ASSERT_TRUE(item.has_value());
+
+        item->mTimestamp = Time::Now().Add(-2 * cItemCacheTTL);
+
+        ASSERT_TRUE(mStorage.UpdateDeployableItem(*item).IsNone());
+    }
+
+    // Returns future which is set when the item is removed from the cache.
+    std::future<void> ExpectRemovedFromCache(const char* itemID = cTestItemID)
+    {
+        auto removed = std::make_shared<std::promise<void>>();
+
+        EXPECT_CALL(mListener, OnItemRemovedFromCache(String(itemID), String(cTestVersion)))
+            .WillOnce(Invoke([removed](const String&, const String&) { removed->set_value(); }));
+
+        return removed->get_future();
+    }
+};
+
+TEST_F(CommonImageManagerExpiredTest, RemoveExpiredItemsOnStart)
+{
+    const auto expired    = AddManifest(1, 1, 1);
+    const auto notExpired = AddManifest(200, 1, 1);
+    const auto installed  = AddManifest(400, 1, 1);
+
+    AddExpiredItem(expired);
+    InstallAndRemove(notExpired, "item2");
+
+    auto err = mImageManager.Install(
+        MakeInstallInfo(installed.mManifest, false, UpdateItemTypeEnum::eService, "item3", cTestVersion));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("item2"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String("item3"), _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(3 * cInstallBlobSize));
+
+    auto removed = ExpectRemovedFromCache();
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(removed.wait_for(cWaitTimeout), std::future_status::ready);
+
+    // The item is removed from the cache before the listener is notified, the space is freed after it.
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+    EXPECT_FALSE(FileExists(expired.mManifest.mPath.c_str()));
+    EXPECT_TRUE(GetStoredItem("item2", cTestVersion).has_value());
+    EXPECT_TRUE(GetStoredItem("item3", cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerExpiredTest, RemoveExpiredItemsPeriodically)
+{
+    ASSERT_TRUE(InitImageManager(cTestImagePath, 100 * Time::cMilliseconds).IsNone());
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+
+    const auto manifest = AddManifest(1, 1, 1);
+
+    auto removed = ExpectRemovedFromCache();
+
+    AddExpiredItem(manifest);
+
+    ASSERT_EQ(removed.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerExpiredTest, SkipItemInProgress)
+{
+    const auto manifestA = AddManifest(1, 1, 1);
+    const auto manifestB = AddManifest(200, 1, 1);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifestA.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    InstallAndRemove(manifestB, "item2");
+
+    ASSERT_TRUE(InitImageManager(cTestImagePath, 100 * Time::cMilliseconds).IsNone());
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+
+    auto removedB = ExpectRemovedFromCache("item2");
+
+    // Item A may be removed in a later period, after RemoveItem returns.
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion))).Times(AnyNumber());
+
+    std::future_status removedBStatus  = std::future_status::timeout;
+    bool               storedAOnRemove = false;
+
+    // Item A is in progress while RemoveItem adds it as outdated: both items are made expired, so the expired items
+    // removal skips item A and removes item B.
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Invoke([&](const String&, const String&, const Time&) {
+            for (const auto* itemID : {cTestItemID, "item2"}) {
+                auto item = GetStoredItem(itemID, cTestVersion);
+                EXPECT_TRUE(item.has_value());
+
+                item->mTimestamp = Time::Now().Add(-2 * cItemCacheTTL);
+
+                EXPECT_TRUE(mStorage.UpdateDeployableItem(*item).IsNone());
+            }
+
+            removedBStatus  = removedB.wait_for(cWaitTimeout);
+            storedAOnRemove = GetStoredItem(cTestItemID, cTestVersion).has_value();
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_EQ(removedBStatus, std::future_status::ready);
+    EXPECT_TRUE(storedAOnRemove);
+    EXPECT_FALSE(GetStoredItem("item2", cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerExpiredTest, RemoveExpiredItemFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    AddExpiredItem(manifest);
+
+    const auto storedItem = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(storedItem.has_value());
+
+    mStorage.SetFailRemoveItem(true);
+
+    auto added = std::make_shared<std::promise<void>>();
+
+    // The item stays in the eRemoved state, so it is added as outdated again.
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), storedItem->mTimestamp))
+        .WillOnce(Return(ErrorEnum::eNone))
+        .WillOnce(Invoke([added](const String&, const String&, const Time&) {
+            added->set_value();
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(added->get_future().wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+    EXPECT_TRUE(FileExists(manifest.mManifest.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerExpiredTest, SkipItemRemovedAgain)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    AddExpiredItem(manifest);
+
+    Time               newTimestamp;
+    std::promise<void> restored;
+
+    // The item is installed and removed again after the expired items are read, before the item is locked.
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Invoke([&](const String& itemID, const String& version) -> Error {
+            restored.set_value();
+
+            auto item = GetStoredItem(itemID, version);
+            EXPECT_TRUE(item.has_value());
+
+            item->mTimestamp = newTimestamp = Time::Now();
+
+            EXPECT_TRUE(mStorage.UpdateDeployableItem(*item).IsNone());
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    std::vector<Time> outdatedTimestamps;
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillRepeatedly(Invoke([&](const String&, const String&, const Time& timestamp) {
+            outdatedTimestamps.push_back(timestamp);
+
+            return ErrorEnum::eNone;
+        }));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(restored.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+
+    // Stop waits until the expired items removal is finished.
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    // The item is registered as outdated on start and added as outdated again with its new timestamp.
+    ASSERT_EQ(outdatedTimestamps.size(), 2);
+    EXPECT_EQ(outdatedTimestamps[1], newTimestamp);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+    EXPECT_TRUE(FileExists(manifest.mManifest.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerExpiredTest, SkipItemInstalledAgain)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    AddExpiredItem(manifest);
+
+    std::promise<void> restored;
+
+    // The item is installed again after the expired items are read, before the item is locked.
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Invoke([&](const String& itemID, const String& version) -> Error {
+            restored.set_value();
+
+            auto item = GetStoredItem(itemID, version);
+            EXPECT_TRUE(item.has_value());
+
+            item->mState = ItemStateEnum::eInstalled;
+
+            EXPECT_TRUE(mStorage.UpdateDeployableItem(*item).IsNone());
+
+            return ErrorEnum::eNotFound;
+        }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    // Only the registration of the outdated item on start.
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(restored.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+    EXPECT_TRUE(FileExists(manifest.mManifest.mPath.c_str()));
 }
 
 } // namespace aos::common::imagemanager

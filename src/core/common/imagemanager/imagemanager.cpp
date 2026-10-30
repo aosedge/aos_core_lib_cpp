@@ -103,6 +103,34 @@ Error ImageManager::Start()
         }
     }
 
+    {
+        LockGuard lock {mMutex};
+
+        mClose = false;
+        // The expired items are removed on start, after the outdated items are registered.
+        mRemoveExpiredItems = true;
+    }
+
+    if (auto err = mTimer.Start(
+            mConfig.mRemoveOutdatedPeriod,
+            [this](void*) {
+                LockGuard lock {mMutex};
+
+                mRemoveExpiredItems = true;
+
+                if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+                    LOG_ERR() << "Can't notify condition variable" << Log::Field(err);
+                }
+            },
+            false);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mThread.Run([this](void*) { ProcessExpiredItems(); }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
 }
 
@@ -110,7 +138,27 @@ Error ImageManager::Stop()
 {
     LOG_DBG() << "Stop image manager";
 
-    return ErrorEnum::eNotSupported;
+    Error stopErr;
+
+    if (auto err = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        mClose = true;
+
+        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify condition variable" << Log::Field(err);
+        }
+    }
+
+    if (auto err = mThread.Join(); !err.IsNone() && stopErr.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    return stopErr;
 }
 
 Error ImageManager::GetItemsStatuses(Array<UpdateItemStatus>& statuses)
@@ -687,38 +735,167 @@ RetWithError<size_t> ImageManager::RemoveOutdatedItem(const String& itemID, cons
         return {0, ErrorEnum::eNone};
     }
 
+    return RemoveItemFromCache(itemID, version);
+}
+
+RetWithError<size_t> ImageManager::RemoveItemFromCache(const String& itemID, const String& version)
+{
     auto blobs = MakeUnique<StaticArray<ItemBlobInfo, cMaxNumItemBlobs>>(mAllocator);
     if (!blobs) {
         return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (err = mStorage->GetItemBlobs(itemID, version, *blobs); !err.IsNone()) {
+    if (auto err = mStorage->GetItemBlobs(itemID, version, *blobs); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
-    if (err = mStorage->RemoveDeployableItem(itemID, version); !err.IsNone()) {
+    if (auto err = mStorage->RemoveDeployableItem(itemID, version); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
     size_t freedSize = 0;
 
     for (const auto& blob : *blobs) {
-        size_t blobSize = 0;
-
         // The blob which is failed to remove becomes orphan and is removed by the orphan blobs cleanup.
-        if (Tie(blobSize, err) = RemoveUnusedItemBlob(blob); !err.IsNone()) {
+        auto [blobSize, err] = RemoveUnusedItemBlob(blob);
+        if (!err.IsNone()) {
             LOG_ERR() << "Failed to remove item blob" << Log::Field("digest", blob.mDigest) << Log::Field(err);
         }
 
         freedSize += blobSize;
     }
 
-    LOG_INF() << "Outdated item removed" << Log::Field("itemID", itemID) << Log::Field("version", version)
+    LOG_INF() << "Item removed from cache" << Log::Field("itemID", itemID) << Log::Field("version", version)
               << Log::Field("freedSize", freedSize);
 
     NotifyItemRemovedFromCache(itemID, version);
 
     return {freedSize, ErrorEnum::eNone};
+}
+
+void ImageManager::ProcessExpiredItems()
+{
+    while (true) {
+        {
+            UniqueLock lock {mMutex};
+
+            if (auto err = mCondVar.Wait(lock, [this]() { return mClose || mRemoveExpiredItems; }); !err.IsNone()) {
+                LOG_ERR() << "Wait failed" << Log::Field(err);
+
+                continue;
+            }
+
+            if (mClose) {
+                break;
+            }
+
+            mRemoveExpiredItems = false;
+        }
+
+        if (auto err = RemoveExpiredItems(); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove expired items" << Log::Field(err);
+        }
+    }
+}
+
+Error ImageManager::RemoveExpiredItems()
+{
+    LOG_DBG() << "Remove expired items";
+
+    auto items = MakeUnique<StaticArray<DeployableItemInfo, cMaxNumStoredItems>>(mAllocator);
+    if (!items) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllDeployableItems(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (const auto& item : *items) {
+        if (!IsItemExpired(item)) {
+            continue;
+        }
+
+        // The failed item stays in the eRemoved state and is checked again in the next period.
+        if (auto err = RemoveExpiredItem(item.mItemID, item.mVersion); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove expired item" << Log::Field("itemID", item.mItemID)
+                      << Log::Field("version", item.mVersion) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+bool ImageManager::IsItemExpired(const DeployableItemInfo& item) const
+{
+    return item.mState == ItemStateEnum::eRemoved && Time::Now().Sub(item.mTimestamp) >= mConfig.mItemCacheTTL;
+}
+
+Error ImageManager::RemoveExpiredItem(const String& itemID, const String& version)
+{
+    LOG_DBG() << "Remove expired item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    // The item being installed or removed is skipped: after it, the item is either not removed or not expired, and
+    // otherwise it is checked again in the next period.
+    if (!TryLockItem(itemID, version)) {
+        LOG_DBG() << "Can't lock expired item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+        return ErrorEnum::eNone;
+    }
+
+    auto unlockItem = DeferRelease([this, &itemID, &version]() { UnlockItem(itemID, version); });
+
+    auto err = mSpaceAllocator->RestoreOutdatedItem(itemID, version);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        LOG_ERR() << "Failed to restore outdated item" << Log::Field(err);
+    }
+
+    const auto restored = err.IsNone();
+
+    DeployableItemInfo item;
+
+    // The item which stays in the eRemoved state is added as outdated again.
+    const auto addOutdatedItem = [&]() {
+        if (!restored) {
+            return;
+        }
+
+        if (auto addErr = mSpaceAllocator->AddOutdatedItem(itemID, version, item.mTimestamp); !addErr.IsNone()) {
+            LOG_ERR() << "Failed to add outdated item" << Log::Field(addErr);
+        }
+    };
+
+    // If the storage can't be read, the item is checked again in the next period.
+    if (err = mStorage->GetDeployableItem(itemID, version, item); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // The items are read before the item is locked: in the meantime, the space allocator could remove the item from
+    // the cache, or the item could be installed again.
+    if (err.Is(ErrorEnum::eNotFound) || item.mState != ItemStateEnum::eRemoved) {
+        return ErrorEnum::eNone;
+    }
+
+    // The item could also be installed and removed again, so it is not expired anymore.
+    if (!IsItemExpired(item)) {
+        addOutdatedItem();
+
+        return ErrorEnum::eNone;
+    }
+
+    size_t freedSize = 0;
+
+    if (Tie(freedSize, err) = RemoveItemFromCache(itemID, version); !err.IsNone()) {
+        addOutdatedItem();
+
+        return err;
+    }
+
+    if (freedSize > 0) {
+        mSpaceAllocator->FreeSpace(freedSize);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 RetWithError<size_t> ImageManager::RemoveUnusedItemBlob(const ItemBlobInfo& blob)

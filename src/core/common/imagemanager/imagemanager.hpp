@@ -15,6 +15,7 @@
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
+#include <core/common/tools/timer.hpp>
 
 #include "itf/blobinfoprovider.hpp"
 #include "itf/iteminfoprovider.hpp"
@@ -41,15 +42,16 @@ public:
     /**
      * Starts image manager. Sets the items whose install was interrupted (left in the eInstalling state) to the
      * eRemoved state, keeping their blobs, and adds all the items in the eRemoved state as outdated to the space
-     * allocator. No item status is notified.
+     * allocator. No item status is notified. Then starts removing the expired items, i.e. the items in the eRemoved
+     * state for longer than mItemCacheTTL, right away and every mRemoveOutdatedPeriod. The items being installed or
+     * removed are skipped.
      *
      * @return Error: storage errors as is. Errors of adding an outdated item are only logged.
      */
     virtual Error Start();
 
     /**
-     * Stops image manager. Cancels all items being installed and waits until all InstallItem and RemoveItem calls in
-     * progress return.
+     * Stops image manager. Stops removing the expired items and waits until the removal in progress is finished.
      *
      * @return Error.
      */
@@ -135,8 +137,9 @@ protected:
      *
      * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
      * oci::ImageIndex, one oci::ImageManifest, one oci::ImageConfig and one blob hash buffer of cBlobHashSize at the
-     * same time, plus one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for Start and GetItemsStatuses and one
-     * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover.
+     * same time, plus two StaticArray<DeployableItemInfo, cMaxNumStoredItems> for Start or the expired items removal
+     * and GetItemsStatuses, and two StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover and the expired
+     * items removal.
      *
      * @param config image manager config.
      * @param blobInfoProvider blob info provider.
@@ -201,8 +204,9 @@ private:
     static constexpr auto cMaxNumStoredItems = cMaxNumUpdateItems * 2;
     static constexpr auto cMaxNumItemBlobs   = 1 + oci::cMaxNumManifests * (3 + oci::cMaxNumLayers);
     static constexpr auto cRetryTimeout      = Time::cSeconds * 2;
-    // One extra slot for the item remover, which is called synchronously by the space allocator and must not wait.
-    static constexpr auto cMaxNumItemsInProgress = cMaxNumConcurrentItems + 1;
+    // Extra slots for the item remover and the expired items removal, which don't wait for the items and blobs. The
+    // item remover is called synchronously by the space allocator, so it must not wait or take the slot of another one.
+    static constexpr auto cMaxNumInProgress = cMaxNumConcurrentItems + 2;
 
     /**
      * Downloads blob. Called by InstallItem, derived classes implement it but must not call it directly.
@@ -299,6 +303,11 @@ private:
     };
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
+    RetWithError<size_t> RemoveItemFromCache(const String& itemID, const String& version);
+    void                 ProcessExpiredItems();
+    Error                RemoveExpiredItems();
+    Error                RemoveExpiredItem(const String& itemID, const String& version);
+    bool                 IsItemExpired(const DeployableItemInfo& item) const;
     RetWithError<size_t> RemoveUnusedItemBlob(const ItemBlobInfo& blob);
 
     Error                ValidateBlob(const String& path, const String& digest, size_t size = 0);
@@ -356,10 +365,15 @@ private:
 
     Mutex mStorageMutex;
 
-    Mutex                                                             mMutex;
-    ConditionalVariable                                               mCondVar;
-    StaticList<UpdateItemStatus, cMaxNumItemsInProgress>              mItemsInProgress;
-    StaticList<StaticString<oci::cDigestLen>, cMaxNumItemsInProgress> mBlobsInProgress;
+    Mutex                                                        mMutex;
+    ConditionalVariable                                          mCondVar;
+    StaticList<UpdateItemStatus, cMaxNumInProgress>              mItemsInProgress;
+    StaticList<StaticString<oci::cDigestLen>, cMaxNumInProgress> mBlobsInProgress;
+
+    Timer    mTimer;
+    Thread<> mThread;
+    bool     mClose {};
+    bool     mRemoveExpiredItems {};
 
     ItemRemover mItemRemover {*this};
 };
