@@ -107,8 +107,8 @@ Error ImageManager::Start()
         LockGuard lock {mMutex};
 
         mClose = false;
-        // The expired items are removed on start, after the outdated items are registered.
-        mRemoveExpiredItems = true;
+        // The cleanup is done on start, after the outdated items are registered.
+        mRunCleanup = true;
     }
 
     if (auto err = mTimer.Start(
@@ -116,7 +116,7 @@ Error ImageManager::Start()
             [this](void*) {
                 LockGuard lock {mMutex};
 
-                mRemoveExpiredItems = true;
+                mRunCleanup = true;
 
                 if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
                     LOG_ERR() << "Can't notify condition variable" << Log::Field(err);
@@ -127,7 +127,7 @@ Error ImageManager::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mThread.Run([this](void*) { ProcessExpiredItems(); }); !err.IsNone()) {
+    if (auto err = mThread.Run([this](void*) { ProcessCleanup(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -773,13 +773,13 @@ RetWithError<size_t> ImageManager::RemoveItemFromCache(const String& itemID, con
     return {freedSize, ErrorEnum::eNone};
 }
 
-void ImageManager::ProcessExpiredItems()
+void ImageManager::ProcessCleanup()
 {
     while (true) {
         {
             UniqueLock lock {mMutex};
 
-            if (auto err = mCondVar.Wait(lock, [this]() { return mClose || mRemoveExpiredItems; }); !err.IsNone()) {
+            if (auto err = mCondVar.Wait(lock, [this]() { return mClose || mRunCleanup; }); !err.IsNone()) {
                 LOG_ERR() << "Wait failed" << Log::Field(err);
 
                 continue;
@@ -789,13 +789,114 @@ void ImageManager::ProcessExpiredItems()
                 break;
             }
 
-            mRemoveExpiredItems = false;
+            mRunCleanup = false;
         }
 
         if (auto err = RemoveExpiredItems(); !err.IsNone()) {
             LOG_ERR() << "Failed to remove expired items" << Log::Field(err);
         }
+
+        size_t freedSize = 0;
+
+        auto [blobsSize, blobsErr] = RemoveOrphanBlobs();
+        if (!blobsErr.IsNone()) {
+            LOG_ERR() << "Failed to remove orphan blobs" << Log::Field(blobsErr);
+        }
+
+        freedSize += blobsSize;
+
+        auto [layersSize, layersErr] = RemoveOrphanLayers();
+        if (!layersErr.IsNone() && !layersErr.Is(ErrorEnum::eNotSupported)) {
+            LOG_ERR() << "Failed to remove orphan layers" << Log::Field(layersErr);
+        }
+
+        freedSize += layersSize;
+
+        // The size of the blobs and layers removed before an error is freed as well.
+        if (freedSize > 0) {
+            mSpaceAllocator->FreeSpace(freedSize);
+        }
     }
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphanBlobs()
+{
+    LOG_DBG() << "Remove orphan blobs";
+
+    const auto blobsPath = fs::JoinPath(mConfig.mImagePath, cBlobsFolder);
+    size_t     freedSize = 0;
+    Error      firstErr;
+
+    // The blob which is failed to remove is logged and removed in the next period, the first error is returned.
+    const auto removeBlob = [&](const String& path, const String& digest) {
+        auto [size, err] = RemoveOrphanBlob(path, digest);
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to remove orphan blob" << Log::Field("path", path) << Log::Field(err);
+
+            if (firstErr.IsNone()) {
+                firstErr = err;
+            }
+        }
+
+        freedSize += size;
+    };
+
+    for (auto algIt = fs::DirIterator(blobsPath); algIt.Next();) {
+        const auto algPath = fs::JoinPath(blobsPath, algIt->mPath);
+
+        // The blobs folder contains only the algorithm folders.
+        if (!algIt->mIsDir) {
+            removeBlob(algPath, "");
+
+            continue;
+        }
+
+        for (auto blobIt = fs::DirIterator(algPath); blobIt.Next();) {
+            StaticString<oci::cDigestLen> digest;
+
+            // The digest is left empty if it doesn't fit, so the file is removed as invalid.
+            if (algIt->mPath.Size() + 1 + blobIt->mPath.Size() <= digest.MaxSize()) {
+                digest.Append(algIt->mPath).Append(":").Append(blobIt->mPath);
+            }
+
+            removeBlob(fs::JoinPath(algPath, blobIt->mPath), digest);
+        }
+    }
+
+    return {freedSize, firstErr};
+}
+
+RetWithError<size_t> ImageManager::RemoveOrphanBlob(const String& path, const String& digest)
+{
+    StaticString<oci::cDigestLen> algorithm;
+    StaticString<oci::cDigestLen> hash;
+
+    // The file which doesn't match a valid digest is not a blob and is removed.
+    if (digest.IsEmpty() || !ParseDigest(digest, algorithm, hash).IsNone()) {
+        LOG_WRN() << "Remove invalid blob file" << Log::Field("path", path);
+
+        return RemoveBlob(path, digest);
+    }
+
+    // A locked blob is being processed by an item being installed, so it is in use.
+    if (!TryLockBlob(digest)) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    auto unlockBlob = DeferRelease([this, &digest]() { UnlockBlob(digest); });
+
+    auto [used, err] = mStorage->IsBlobUsed(digest);
+    if (!err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    if (used) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    LOG_DBG() << "Remove orphan blob" << Log::Field("digest", digest);
+
+    return RemoveBlob(path, digest);
 }
 
 Error ImageManager::RemoveExpiredItems()

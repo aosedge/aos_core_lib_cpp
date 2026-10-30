@@ -43,15 +43,16 @@ public:
      * Starts image manager. Sets the items whose install was interrupted (left in the eInstalling state) to the
      * eRemoved state, keeping their blobs, and adds all the items in the eRemoved state as outdated to the space
      * allocator. No item status is notified. Then starts removing the expired items, i.e. the items in the eRemoved
-     * state for longer than mItemCacheTTL, right away and every mRemoveOutdatedPeriod. The items being installed or
-     * removed are skipped.
+     * state for longer than mItemCacheTTL, and then the orphan blobs, i.e. the blobs not used by any item, right away
+     * and every mRemoveOutdatedPeriod. The items and blobs being processed are skipped.
      *
      * @return Error: storage errors as is. Errors of adding an outdated item are only logged.
      */
     virtual Error Start();
 
     /**
-     * Stops image manager. Stops removing the expired items and waits until the removal in progress is finished.
+     * Stops image manager. Stops removing the expired items and the orphan blobs and waits until the removal in
+     * progress is finished.
      *
      * @return Error.
      */
@@ -286,6 +287,16 @@ private:
         return {0, ErrorEnum::eNotSupported};
     }
 
+    /**
+     * Removes orphan unpacked layers, i.e. the unpacked layers not used by any layer blob. Called by the image manager
+     * after the orphan blobs are removed, on start and every mRemoveOutdatedPeriod, derived classes which keep the
+     * unpacked layers override it. Returns eNotSupported by default, which the image manager treats as nothing to do
+     * (skip). The image manager frees the returned size in the space allocator, so derived classes must not do it.
+     *
+     * @return RetWithError<size_t>: size of the removed orphan layers, freed even if an error is returned.
+     */
+    virtual RetWithError<size_t> RemoveOrphanLayers() { return {0, ErrorEnum::eNotSupported}; }
+
     class ItemRemover : public spaceallocator::ItemRemoverItf {
     public:
         explicit ItemRemover(ImageManager& imageManager)
@@ -304,10 +315,12 @@ private:
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
     RetWithError<size_t> RemoveItemFromCache(const String& itemID, const String& version);
-    void                 ProcessExpiredItems();
+    void                 ProcessCleanup();
     Error                RemoveExpiredItems();
     Error                RemoveExpiredItem(const String& itemID, const String& version);
     bool                 IsItemExpired(const DeployableItemInfo& item) const;
+    RetWithError<size_t> RemoveOrphanBlobs();
+    RetWithError<size_t> RemoveOrphanBlob(const String& path, const String& digest);
     RetWithError<size_t> RemoveUnusedItemBlob(const ItemBlobInfo& blob);
 
     Error                ValidateBlob(const String& path, const String& digest, size_t size = 0);
@@ -373,7 +386,7 @@ private:
     Timer    mTimer;
     Thread<> mThread;
     bool     mClose {};
-    bool     mRemoveExpiredItems {};
+    bool     mRunCleanup {};
 
     ItemRemover mItemRemover {*this};
 };

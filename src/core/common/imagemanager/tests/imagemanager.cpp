@@ -246,6 +246,7 @@ public:
         (const String& path, const oci::ContentDescriptor& descriptor, const String& diffID), (override));
     MOCK_METHOD((RetWithError<size_t>), RemoveLayer,
         (const String& path, const oci::ContentDescriptor& descriptor, const String& diffID), (override));
+    MOCK_METHOD((RetWithError<size_t>), RemoveOrphanLayers, (), (override));
 
 private:
     std::mutex             mLayerCallsMutex;
@@ -271,6 +272,8 @@ protected:
         ON_CALL(mImageManager, CheckLayer(_, _, _)).WillByDefault(Return(ErrorEnum::eNotSupported));
         ON_CALL(mImageManager, UnpackLayer(_, _, _)).WillByDefault(Return(ErrorEnum::eNotSupported));
         ON_CALL(mImageManager, RemoveLayer(_, _, _))
+            .WillByDefault(Return(RetWithError<size_t>(0, ErrorEnum::eNotSupported)));
+        ON_CALL(mImageManager, RemoveOrphanLayers())
             .WillByDefault(Return(RetWithError<size_t>(0, ErrorEnum::eNotSupported)));
     }
 
@@ -2610,6 +2613,177 @@ TEST_F(CommonImageManagerExpiredTest, SkipItemInstalledAgain)
     ASSERT_TRUE(item.has_value());
     EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
     EXPECT_TRUE(FileExists(manifest.mManifest.mPath.c_str()));
+}
+
+/***********************************************************************************************************************
+ * Orphan blobs suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerOrphanTest : public CommonImageManagerExpiredTest {
+protected:
+    // Returns future which is set when the orphan layers are removed the given number of times.
+    std::future<void> ExpectCleanups(
+        int count, RetWithError<size_t> layersResult = RetWithError<size_t>(0, ErrorEnum::eNotSupported))
+    {
+        auto finished = std::make_shared<std::promise<void>>();
+        auto counter  = std::make_shared<std::atomic<int>>(0);
+
+        EXPECT_CALL(mImageManager, RemoveOrphanLayers())
+            .WillRepeatedly(Invoke([finished, counter, count, layersResult]() {
+                if (++(*counter) == count) {
+                    finished->set_value();
+                }
+
+                return layersResult;
+            }));
+
+        return finished->get_future();
+    }
+};
+
+TEST_F(CommonImageManagerOrphanTest, RemoveOrphanBlobsOnStart)
+{
+    const auto installed = AddManifest(1, 1, 1);
+    const auto removed   = AddManifest(200, 1, 1);
+    const auto orphan    = MakeTestBlob(900);
+
+    auto err = mImageManager.Install(MakeInstallInfo(installed.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    InstallAndRemove(removed, "item2");
+
+    const std::vector<std::string> invalidFiles = {
+        std::string(cTestImagePath) + "/blobs/file",
+        std::string(cTestImagePath) + "/blobs/sha256/NOTHEX",
+        std::string(cTestImagePath) + "/blobs/SHA256/" + orphan.mHash,
+    };
+
+    CreateFile(orphan.mPath.c_str(), orphan.mHash.c_str());
+
+    for (const auto& path : invalidFiles) {
+        CreateFile(path.c_str(), "x");
+    }
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cInstallBlobSize + invalidFiles.size()));
+
+    auto finished = ExpectCleanups(1);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_FALSE(FileExists(orphan.mPath.c_str()));
+
+    for (const auto& path : invalidFiles) {
+        EXPECT_FALSE(FileExists(path.c_str())) << path;
+    }
+
+    // The blobs used by the installed and removed items are kept.
+    for (const auto* manifest : {&installed, &removed}) {
+        for (const auto* blob : {&manifest->mManifest, &manifest->mImageConfig, &manifest->mLayers[0]}) {
+            EXPECT_TRUE(FileExists(blob->mPath.c_str())) << blob->mDigest;
+        }
+    }
+}
+
+TEST_F(CommonImageManagerOrphanTest, RemoveOrphanBlobsPeriodically)
+{
+    const auto orphan = MakeTestBlob(900);
+
+    ASSERT_TRUE(InitImageManager(cTestImagePath, 100 * Time::cMilliseconds).IsNone());
+
+    std::promise<void> firstCleanup;
+    std::promise<void> secondCleanup;
+    std::atomic<int>   cleanups {0};
+
+    EXPECT_CALL(mImageManager, RemoveOrphanLayers()).WillRepeatedly(Invoke([&]() {
+        auto count = ++cleanups;
+
+        if (count == 1) {
+            firstCleanup.set_value();
+        } else if (count == 2) {
+            secondCleanup.set_value();
+        }
+
+        return RetWithError<size_t>(0, ErrorEnum::eNone);
+    }));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(firstCleanup.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+
+    // The orphan blob appears after the cleanup on start.
+    CreateFile(orphan.mPath.c_str(), orphan.mHash.c_str());
+
+    ASSERT_EQ(secondCleanup.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_FALSE(FileExists(orphan.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerOrphanTest, RemoveOrphanBlobsAfterExpiredItems)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    AddExpiredItem(manifest);
+
+    // The blobs of the expired item are removed with the item, so nothing is left for the orphan blobs removal.
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(3 * cInstallBlobSize));
+
+    auto removed  = ExpectRemovedFromCache();
+    auto finished = ExpectCleanups(1);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_EQ(removed.wait_for(std::chrono::seconds(0)), std::future_status::ready);
+
+    for (const auto* blob : {&manifest.mManifest, &manifest.mImageConfig, &manifest.mLayers[0]}) {
+        EXPECT_FALSE(FileExists(blob->mPath.c_str())) << blob->mDigest;
+    }
+}
+
+TEST_F(CommonImageManagerOrphanTest, FreeOrphanBlobsAndLayers)
+{
+    const auto orphan = MakeTestBlob(900);
+
+    CreateFile(orphan.mPath.c_str(), orphan.mHash.c_str());
+
+    // The size of the orphan blobs and layers is freed at once.
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cInstallBlobSize + 10));
+
+    auto finished = ExpectCleanups(1, RetWithError<size_t>(10, ErrorEnum::eNone));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+
+    // Stop waits until the space is freed.
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_FALSE(FileExists(orphan.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerOrphanTest, RemoveOrphanLayersFails)
+{
+    // The size of the layers removed before the error is freed as well.
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(10));
+
+    auto finished = ExpectCleanups(1, RetWithError<size_t>(10, ErrorEnum::eFailed));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerOrphanTest, NothingToFree)
+{
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    auto finished = ExpectCleanups(1);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
 }
 
 } // namespace aos::common::imagemanager
