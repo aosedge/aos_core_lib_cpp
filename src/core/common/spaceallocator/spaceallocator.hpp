@@ -617,15 +617,20 @@ private:
 
         LockGuard lock {mPartition->mMutex};
 
-        Free(oldSize);
+        const auto deltaSize = static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize);
 
-        if (auto err = Allocate(newSize); !err.IsNone()) {
+        if (deltaSize < 0) {
+            Free(oldSize - newSize);
+
+            return mPartition->Resize(deltaSize);
+        }
+
+        if (auto err = Reserve(newSize - oldSize); !err.IsNone()) {
             return err;
         }
 
-        if (auto err = mPartition->Resize(static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize));
-            !err.IsNone()) {
-            Free(newSize);
+        if (auto err = mPartition->Resize(deltaSize); !err.IsNone()) {
+            Free(newSize - oldSize);
 
             return err;
         }
@@ -664,6 +669,21 @@ private:
             return ErrorEnum::eNone;
         }
 
+        if (auto err = Reserve(size); !err.IsNone()) {
+            return err;
+        }
+
+        mAllocationCount++;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error Reserve(size_t size)
+    {
+        if (mLimitPercent == 0) {
+            return ErrorEnum::eNone;
+        }
+
         if (mAllocationCount == 0) {
             if (auto err = UpdateSizes(); !err.IsNone()) {
                 return err;
@@ -682,7 +702,6 @@ private:
         }
 
         mAllocatedSize += size;
-        mAllocationCount++;
 
         return ErrorEnum::eNone;
     }
