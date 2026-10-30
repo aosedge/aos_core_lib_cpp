@@ -252,7 +252,9 @@ Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
         if (auto setStateErr = SetStoredItemState(storedInfo, ItemStateEnum::eFailed, err); !setStateErr.IsNone()) {
             LOG_ERR() << "Failed to set stored item state" << Log::Field(setStateErr);
 
-            if (setStateErr = SetInProgressItemState(itemInfo, ItemStateEnum::eFailed, err); !setStateErr.IsNone()) {
+            if (setStateErr = SetInProgressItemState(
+                    itemInfo.mItemID, itemInfo.mVersion, itemInfo.mType, ItemStateEnum::eFailed, err);
+                !setStateErr.IsNone()) {
                 LOG_ERR() << "Failed to set in-progress item state" << Log::Field(setStateErr);
             }
         }
@@ -263,9 +265,43 @@ Error ImageManager::InstallItem(const InstallItemInfo& itemInfo)
 
 Error ImageManager::RemoveItem(const String& itemID, const String& version)
 {
-    LOG_DBG() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+    LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    return ErrorEnum::eNotSupported;
+    if (auto err = LockItem(itemID, version); !err.IsNone()) {
+        return err;
+    }
+
+    auto unlockItem = DeferRelease([this, &itemID, &version]() { UnlockItem(itemID, version); });
+
+    DeployableItemInfo storedInfo;
+
+    if (auto err = mStorage->GetDeployableItem(itemID, version, storedInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (storedInfo.mState == ItemStateEnum::eRemoved) {
+        LOG_DBG() << "Item already removed" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+        return ErrorEnum::eNone;
+    }
+
+    const UpdateItemStatus prevStatus = storedInfo; // NOSONAR cpp:S5912 - intentional copy of the base part only
+
+    if (auto err = SetInProgressItemState(itemID, version, storedInfo.mType, ItemStateEnum::eRemoving); !err.IsNone()) {
+        LOG_ERR() << "Failed to set in-progress item state" << Log::Field(err);
+    }
+
+    if (auto err = SetStoredItemState(storedInfo, ItemStateEnum::eRemoved); !err.IsNone()) {
+        RestoreRemovingItemState(prevStatus, err);
+
+        return err;
+    }
+
+    if (auto err = mSpaceAllocator->AddOutdatedItem(itemID, version, storedInfo.mTimestamp); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::Cancel()
@@ -392,7 +428,8 @@ Error ImageManager::DownloadItemBlob(const InstallItemInfo& itemInfo, const Stri
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = SetInProgressItemState(itemInfo, ItemStateEnum::eDownloading); !err.IsNone()) {
+    if (err = SetInProgressItemState(itemInfo.mItemID, itemInfo.mVersion, itemInfo.mType, ItemStateEnum::eDownloading);
+        !err.IsNone()) {
         LOG_ERR() << "Failed to set in-progress item state" << Log::Field(err);
     }
 
@@ -749,7 +786,8 @@ Error ImageManager::StartItemInstall(const InstallItemInfo& itemInfo, Deployable
         return AOS_ERROR_WRAP(err);
     }
 
-    if (err = SetInProgressItemState(itemInfo, ItemStateEnum::eInstalling); !err.IsNone()) {
+    if (err = SetInProgressItemState(itemInfo.mItemID, itemInfo.mVersion, itemInfo.mType, ItemStateEnum::eInstalling);
+        !err.IsNone()) {
         LOG_ERR() << "Failed to set in-progress item state" << Log::Field(err);
     }
 
@@ -868,7 +906,8 @@ Error ImageManager::AddItemBlob(const String& itemID, const String& version, con
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::SetInProgressItemState(const InstallItemInfo& itemInfo, ItemStateEnum state, const Error& error)
+Error ImageManager::SetInProgressItemState(
+    const String& itemID, const String& version, const UpdateItemType& type, ItemStateEnum state, const Error& error)
 {
     UpdateItemStatus status;
     bool             stateChanged = false;
@@ -876,14 +915,14 @@ Error ImageManager::SetInProgressItemState(const InstallItemInfo& itemInfo, Item
     {
         LockGuard lock {mMutex};
 
-        auto itemInProgress = FindInProgressItem(itemInfo.mItemID, itemInfo.mVersion);
+        auto itemInProgress = FindInProgressItem(itemID, version);
         if (!itemInProgress) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "item not in progress"));
         }
 
         stateChanged = itemInProgress->mState != state;
 
-        itemInProgress->mType  = itemInfo.mType;
+        itemInProgress->mType  = type;
         itemInProgress->mState = state;
         itemInProgress->mError = error;
 
@@ -895,6 +934,25 @@ Error ImageManager::SetInProgressItemState(const InstallItemInfo& itemInfo, Item
     }
 
     return ErrorEnum::eNone;
+}
+
+void ImageManager::RestoreRemovingItemState(const UpdateItemStatus& prevStatus, const Error& error)
+{
+    {
+        LockGuard lock {mMutex};
+
+        // The stored state is reported again once the item is not being removed.
+        if (auto itemInProgress = FindInProgressItem(prevStatus.mItemID, prevStatus.mVersion); itemInProgress) {
+            itemInProgress->mState = ItemStateEnum::eUnknown;
+            itemInProgress->mError = ErrorEnum::eNone;
+        }
+    }
+
+    auto status = prevStatus;
+
+    status.mError = error;
+
+    NotifyItemStatusChanged(status);
 }
 
 Error ImageManager::SetStoredItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error)
