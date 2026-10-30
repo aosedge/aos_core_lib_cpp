@@ -93,6 +93,25 @@ public:
     Error SetUpdateNodeStatus(const String& nodeID, const Error& updateErr);
 
 private:
+    struct ItemInstance {
+        InstanceIdent             mIdent;
+        StaticString<cVersionLen> mVersion;
+        InstanceState             mState;
+        Error                     mError;
+    };
+
+    struct FailedItem {
+        StaticString<cIDLen>      mItemID;
+        StaticString<cVersionLen> mVersion;
+    };
+
+    struct ItemInstancesState {
+        const ItemInstance* mInstance {};
+        size_t              mNumInstances {};
+        size_t              mNumFailed {};
+        Error               mError;
+    };
+
     // nodeinfoprovider::NodeInfoListenerItf implementation
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
@@ -120,7 +139,13 @@ private:
     Error SetInstancesStatus();
     Error SetUnitSubjects();
     Error SetItemsForPreinstalledInstances();
-    void  LogUnitStatus();
+    Error SetItemsForFailedInstances();
+    Error UpdateItemInstance(const InstanceStatus& status);
+    Error SetItemState(const ItemInstance& instance, ItemState state, const Error& error, bool addItem);
+
+    ItemInstancesState GetItemInstancesState(const String& itemID, const String& version) const;
+
+    void LogUnitStatus();
 
     iamclient::IdentProviderItf*           mIdentProvider {};
     unitconfig::UnitConfigItf*             mUnitConfig {};
@@ -133,6 +158,8 @@ private:
     Mutex                                             mMutex;
     UnitStatus                                        mUnitStatus;
     StaticArray<UnitInstanceStatus, cMaxNumInstances> mUnitInstancesStatuses;
+    StaticArray<ItemInstance, cMaxNumInstances>       mItemInstances;
+    StaticArray<FailedItem, cMaxNumUpdateItems>       mFailedItems;
     AllocatorItf*                                     mAllocator {};
     bool                                              mCloudConnected {};
     bool                                              mIsStatusProcessing {};

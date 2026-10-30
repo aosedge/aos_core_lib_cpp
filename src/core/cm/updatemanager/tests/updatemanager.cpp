@@ -724,6 +724,175 @@ TEST_F(UpdateManagerTest, SendUnitStatusWithPreinstalledItems)
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 }
 
+TEST_F(UpdateManagerTest, ItemIsFailedIfAllInstancesFailed)
+{
+    auto unitStatus = std::make_unique<UnitStatus>();
+
+    mConnectionListener->OnConnect();
+
+    *unitStatus = mSenderStub.WaitSendUnitStatus();
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, 2>>();
+
+    for (size_t i = 0; i < 2; i++) {
+        statuses->EmplaceBack();
+
+        auto& status = statuses->Back();
+
+        status.mItemID    = "item1";
+        status.mSubjectID = "subject1";
+        status.mInstance  = i;
+        status.mType      = UpdateItemTypeEnum::eComponent;
+        status.mVersion   = "1.0.0";
+        status.mState     = InstanceStateEnum::eActive;
+    }
+
+    mInstanceStatusListener->OnInstancesStatusesChanged(*statuses);
+
+    *unitStatus = mSenderStub.WaitSendUnitStatus();
+
+    EXPECT_FALSE(unitStatus->mUpdateItems.HasValue());
+
+    // Only one instance failed: the item stays installed.
+
+    const auto failure = Error(ErrorEnum::eFailed, "update failed");
+
+    (*statuses)[0].mState = InstanceStateEnum::eFailed;
+    (*statuses)[0].mError = failure;
+
+    mInstanceStatusListener->OnInstancesStatusesChanged(Array<InstanceStatus> {&(*statuses)[0], 1});
+
+    *unitStatus = mSenderStub.WaitSendUnitStatus();
+
+    EXPECT_FALSE(unitStatus->mUpdateItems.HasValue());
+
+    // Delta status contains the last instance only, but the item is checked against all instances.
+
+    (*statuses)[1].mState = InstanceStateEnum::eFailed;
+    (*statuses)[1].mError = failure;
+
+    mInstanceStatusListener->OnInstancesStatusesChanged(Array<InstanceStatus> {&(*statuses)[1], 1});
+
+    *unitStatus = mSenderStub.WaitSendUnitStatus();
+
+    ASSERT_TRUE(unitStatus->mUpdateItems.HasValue());
+    ASSERT_EQ(unitStatus->mUpdateItems->Size(), 1u);
+    EXPECT_EQ((*unitStatus->mUpdateItems)[0].mItemID, "item1");
+    EXPECT_EQ((*unitStatus->mUpdateItems)[0].mVersion, "1.0.0");
+    EXPECT_EQ((*unitStatus->mUpdateItems)[0].mType, UpdateItemTypeEnum::eComponent);
+    EXPECT_EQ((*unitStatus->mUpdateItems)[0].mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE((*unitStatus->mUpdateItems)[0].mError.Is(ErrorEnum::eFailed));
+
+    // The failed item is reported once.
+
+    mInstanceStatusListener->OnInstancesStatusesChanged(Array<InstanceStatus> {&(*statuses)[1], 1});
+
+    *unitStatus = mSenderStub.WaitSendUnitStatus();
+
+    EXPECT_FALSE(unitStatus->mUpdateItems.HasValue());
+
+    // Item is installed again as soon as one instance is not failed.
+
+    (*statuses)[0].mState = InstanceStateEnum::eActivating;
+    (*statuses)[0].mError = ErrorEnum::eNone;
+
+    mInstanceStatusListener->OnInstancesStatusesChanged(Array<InstanceStatus> {&(*statuses)[0], 1});
+
+    *unitStatus = mSenderStub.WaitSendUnitStatus();
+
+    ASSERT_TRUE(unitStatus->mUpdateItems.HasValue());
+    ASSERT_EQ(unitStatus->mUpdateItems->Size(), 1u);
+    EXPECT_EQ((*unitStatus->mUpdateItems)[0].mState, ItemStateEnum::eInstalled);
+    EXPECT_TRUE((*unitStatus->mUpdateItems)[0].mError.IsNone());
+}
+
+TEST_F(UpdateManagerTest, ItemFailureInFullUnitStatus)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    CreateUpdateItemStatus(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eComponent, "1.0.0");
+    CreateUpdateItemStatus(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eComponent, "1.0.0");
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item3", UpdateItemTypeEnum::eComponent, "1.0.0", ItemStateEnum::eFailed);
+    CreateUpdateItemStatus(*expectedUnitStatus, "item4", UpdateItemTypeEnum::eComponent, "1.0.0");
+
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eComponent, "subject1", "1.0.0", 2,
+        InstanceStateEnum::eFailed);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eComponent, "subject1", "1.0.0", 1,
+        InstanceStateEnum::eActive);
+    CreateInstancesStatuses(*expectedUnitStatus, "item3", UpdateItemTypeEnum::eComponent, "subject1", "1.0.0", 1,
+        InstanceStateEnum::eFailed);
+    CreateInstancesStatuses(*expectedUnitStatus, "item4", UpdateItemTypeEnum::eComponent, "subject1", "1.0.0", 1,
+        InstanceStateEnum::eInactive);
+
+    EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_)).WillOnce(Invoke([&](Array<UpdateItemStatus>& statuses) {
+        return statuses.Assign(expectedUnitStatus->mUpdateItems.GetValue());
+    }));
+
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        return ErrorEnum::eNone;
+    }));
+
+    mConnectionListener->OnConnect();
+
+    // Item with all instances failed is failed. Item failed by the image manager keeps its state.
+
+    ChangeUpdateItemStatus(*expectedUnitStatus, "item1", "1.0.0", ItemStateEnum::eFailed);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, SameDesiredStatusIsNotAppliedForFailedComponent)
+{
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    mConnectionListener->OnConnect();
+    mSenderStub.WaitSendUnitStatus();
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eComponent, "1.0.0");
+
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+
+    EXPECT_CALL(mImageManagerMock, GetUpdateItemsStatuses(_))
+        .WillRepeatedly(Invoke([](Array<UpdateItemStatus>& statuses) {
+            statuses.EmplaceBack();
+
+            auto& status = statuses.Back();
+
+            status.mItemID  = "item1";
+            status.mType    = UpdateItemTypeEnum::eComponent;
+            status.mVersion = "1.0.0";
+            status.mState   = ItemStateEnum::eInstalled;
+
+            return ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([](Array<InstanceStatus>& statuses) {
+        statuses.EmplaceBack();
+
+        auto& status = statuses.Back();
+
+        status.mItemID    = "item1";
+        status.mSubjectID = "subject1";
+        status.mType      = UpdateItemTypeEnum::eComponent;
+        status.mVersion   = "1.0.0";
+        status.mState     = InstanceStateEnum::eFailed;
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_CALL(mImageManagerMock, DownloadUpdateItems(_, _, _, _)).Times(0);
+    EXPECT_CALL(mLauncherMock, RunInstances(_, _)).Times(0);
+    EXPECT_CALL(mImageManagerMock, InstallUpdateItems(_, _)).Times(0);
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
 {
     auto expectedUnitStatus = std::make_unique<UnitStatus>();
