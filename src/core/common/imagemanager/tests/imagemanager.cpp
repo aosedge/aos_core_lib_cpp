@@ -1477,6 +1477,115 @@ TEST_F(CommonImageManagerInstallTest, InstallStoredItemDoesNotRestoreOutdatedIte
     EXPECT_TRUE(item->mError.IsNone());
 }
 
+TEST_F(CommonImageManagerInstallTest, InstallStorageFullRemovesOutdatedItem)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    for (size_t i = 0; i < cMaxNumStoredItems - 1; ++i) {
+        AddStoredItem(("item" + std::to_string(i + 100)).c_str(), cTestVersion, ItemStateEnum::eInstalled);
+    }
+
+    AddStoredItem("outdated", cTestVersion, ItemStateEnum::eRemoved);
+
+    EXPECT_CALL(mSpaceAllocator, RemoveOutdatedItem()).WillOnce(Invoke([this]() {
+        return mImageManager.GetItemRemover().RemoveItem("outdated", cTestVersion);
+    }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String("outdated"), String(cTestVersion)));
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mStorage.GetItems().size(), cMaxNumStoredItems);
+    EXPECT_FALSE(GetStoredItem("outdated", cTestVersion).has_value());
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallStorageFullOutdatedItemSkipped)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    for (size_t i = 0; i < cMaxNumStoredItems - 1; ++i) {
+        AddStoredItem(("item" + std::to_string(i + 100)).c_str(), cTestVersion, ItemStateEnum::eInstalled);
+    }
+
+    AddStoredItem("outdated", cTestVersion, ItemStateEnum::eRemoved);
+
+    // The first outdated item is skipped by the item remover, so the next one is removed.
+    EXPECT_CALL(mSpaceAllocator, RemoveOutdatedItem())
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eNone)))
+        .WillOnce(Invoke([this]() { return mImageManager.GetItemRemover().RemoveItem("outdated", cTestVersion); }));
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mStorage.GetItems().size(), cMaxNumStoredItems);
+    EXPECT_FALSE(GetStoredItem("outdated", cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallStorageFullNoOutdatedItem)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    for (size_t i = 0; i < cMaxNumStoredItems; ++i) {
+        AddStoredItem(("item" + std::to_string(i + 100)).c_str(), cTestVersion, ItemStateEnum::eInstalled);
+    }
+
+    const auto storedItems = mStorage.GetItems();
+
+    EXPECT_CALL(mSpaceAllocator, RemoveOutdatedItem()).WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eNotFound)));
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).Times(0);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mStorage.GetItems(), storedItems);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallStorageFullRemoveOutdatedItemFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    for (size_t i = 0; i < cMaxNumStoredItems; ++i) {
+        AddStoredItem(("item" + std::to_string(i + 100)).c_str(), cTestVersion, ItemStateEnum::eRemoved);
+    }
+
+    const auto storedItems = mStorage.GetItems();
+
+    EXPECT_CALL(mSpaceAllocator, RemoveOutdatedItem()).WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)));
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).Times(0);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mStorage.GetItems(), storedItems);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallStoredItemStorageFull)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    StoreItem(cTestItemID, cTestVersion, manifest.mManifest.mDigest.c_str(), ItemStateEnum::eFailed);
+
+    for (size_t i = 0; i < cMaxNumStoredItems - 1; ++i) {
+        AddStoredItem(("item" + std::to_string(i + 100)).c_str(), cTestVersion, ItemStateEnum::eInstalled);
+    }
+
+    // The stored item already has its storage record.
+    EXPECT_CALL(mSpaceAllocator, RemoveOutdatedItem()).Times(0);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
 TEST_F(CommonImageManagerInstallTest, InstallDownloadFails)
 {
     const auto manifest = AddManifest(1, 2, 2);

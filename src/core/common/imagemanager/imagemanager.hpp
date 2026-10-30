@@ -316,6 +316,7 @@ private:
     Error InstallItemBlobs(const InstallItemInfo& itemInfo);
     Error InstallManifestBlobs(const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor);
     Error StartItemInstall(const InstallItemInfo& itemInfo, DeployableItemInfo& storedInfo);
+    Error AddStoredItem(const DeployableItemInfo& item);
     Error AddItemBlob(const String& itemID, const String& version, const oci::ContentDescriptor& descriptor,
         bool isLayer = false, const String& diffID = "");
 
@@ -352,6 +353,8 @@ private:
 
     Mutex                                                 mListenersMutex;
     StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
+
+    Mutex mStorageMutex;
 
     Mutex                                                             mMutex;
     ConditionalVariable                                               mCondVar;

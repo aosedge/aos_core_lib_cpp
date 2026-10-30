@@ -930,13 +930,49 @@ Error ImageManager::StartItemInstall(const InstallItemInfo& itemInfo, Deployable
     storedInfo.mTimestamp  = Time::Now();
     storedInfo.mError      = ErrorEnum::eNone;
 
-    if (err = mStorage->AddDeployableItem(storedInfo); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    if (err = AddStoredItem(storedInfo); !err.IsNone()) {
+        return err;
     }
 
     if (err = SetInProgressItemState(itemInfo.mItemID, itemInfo.mVersion, itemInfo.mType, ItemStateEnum::eInstalling);
         !err.IsNone()) {
         LOG_ERR() << "Failed to set in-progress item state" << Log::Field(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::AddStoredItem(const DeployableItemInfo& item)
+{
+    // Serializes the storage count check with adding the item, so concurrent installs don't exceed the storage limit.
+    // The item remover doesn't take this mutex, so it can be held while the space allocator is called.
+    LockGuard lock {mStorageMutex};
+
+    while (true) {
+        auto [count, err] = mStorage->GetDeployableItemsCount();
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (count < cMaxNumStoredItems) {
+            break;
+        }
+
+        LOG_DBG() << "Storage is full, remove outdated item" << Log::Field("count", count);
+
+        // The space allocator drops the outdated item whatever the result, so the loop ends when no outdated item is
+        // left.
+        if (err = mSpaceAllocator->RemoveOutdatedItem().mError; !err.IsNone()) {
+            if (err.Is(ErrorEnum::eNotFound)) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "storage is full"));
+            }
+
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    if (auto err = mStorage->AddDeployableItem(item); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
