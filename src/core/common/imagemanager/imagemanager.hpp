@@ -17,6 +17,7 @@
 #include <core/common/tools/thread.hpp>
 
 #include "itf/blobinfoprovider.hpp"
+#include "itf/iteminfoprovider.hpp"
 #include "itf/itemstatusprovider.hpp"
 #include "itf/storage.hpp"
 
@@ -30,7 +31,7 @@ namespace aos::common::imagemanager {
  * Implements the part of the image manager shared by CM and SM. CM and SM image managers are derived from this class
  * and specialize blob download and layer handling.
  */
-class ImageManager : public ItemStatusProviderItf, public LocalBlobInfoProviderItf, private NonCopyable {
+class ImageManager : public ItemStatusProviderItf, public ItemInfoProviderItf, private NonCopyable {
 public:
     /**
      * Destructor.
@@ -101,6 +102,16 @@ public:
     Error GetBlobPath(const String& digest, String& path) const override;
 
     /**
+     * Returns unpacked layer path. Returns eNotSupported by default, as the common image manager doesn't keep the
+     * unpacked layers.
+     *
+     * @param diffID layer diff ID.
+     * @param[out] path unpacked layer path.
+     * @return Error.
+     */
+    Error GetLayerPath(const String& diffID, String& path) const override;
+
+    /**
      * Returns item remover which should be passed to the space allocator to remove outdated items.
      *
      * @return spaceallocator::ItemRemoverItf&.
@@ -128,7 +139,7 @@ protected:
      * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover.
      *
      * @param config image manager config.
-     * @param downloadBlobInfoProvider download blob info provider.
+     * @param blobInfoProvider blob info provider.
      * @param storage image manager storage.
      * @param spaceAllocator space allocator.
      * @param fileInfoProvider file info provider.
@@ -137,7 +148,7 @@ protected:
      * @param allocator allocator for temporary objects.
      * @return Error.
      */
-    Error Init(const Config& config, DownloadBlobInfoProviderItf& downloadBlobInfoProvider, StorageItf& storage,
+    Error Init(const Config& config, BlobInfoProviderItf& blobInfoProvider, StorageItf& storage,
         spaceallocator::SpaceAllocatorItf& spaceAllocator, fs::FileInfoProviderItf& fileInfoProvider,
         oci::OCISpecItf& ociSpec, fs::FSPlatformItf& fsPlatform, AllocatorItf& allocator);
 
@@ -331,7 +342,7 @@ private:
     }
 
     Config                             mConfig;
-    DownloadBlobInfoProviderItf*       mBlobInfoProvider {};
+    BlobInfoProviderItf*               mBlobInfoProvider {};
     StorageItf*                        mStorage {};
     spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
     fs::FileInfoProviderItf*           mFileInfoProvider {};

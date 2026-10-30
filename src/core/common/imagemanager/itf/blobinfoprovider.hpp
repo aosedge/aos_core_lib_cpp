@@ -14,12 +14,12 @@ namespace aos::common::imagemanager {
 /**
  * Interface that provides download blob info.
  */
-class DownloadBlobInfoProviderItf {
+class BlobInfoProviderItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~DownloadBlobInfoProviderItf() = default;
+    virtual ~BlobInfoProviderItf() = default;
 
     /**
      * Returns blob info.
@@ -29,26 +29,6 @@ public:
      * @return Error.
      */
     virtual Error GetBlobInfo(const String& digest, BlobInfo& blobInfo) = 0;
-};
-
-/**
- * Interface that provides local blob info.
- */
-class LocalBlobInfoProviderItf {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~LocalBlobInfoProviderItf() = default;
-
-    /**
-     * Returns local blob path.
-     *
-     * @param digest blob digest.
-     * @param[out] path local blob path.
-     * @return Error.
-     */
-    virtual Error GetBlobPath(const String& digest, String& path) const = 0;
 };
 
 } // namespace aos::common::imagemanager

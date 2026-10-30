@@ -296,7 +296,7 @@ protected:
     // mAllocator must be declared before any member that allocates from it, so it is destroyed after them, since
     // members are destroyed in reverse declaration order.
     HeapAllocator                                mAllocator;
-    NiceMock<DownloadBlobInfoProviderMock>       mBlobInfoProvider;
+    NiceMock<BlobInfoProviderMock>               mBlobInfoProvider;
     StorageStub                                  mStorage;
     NiceMock<spaceallocator::SpaceAllocatorMock> mSpaceAllocator;
     NiceMock<fs::FileInfoProviderMock>           mFileInfoProvider;
@@ -341,6 +341,16 @@ TEST_F(CommonImageManagerTest, GetBlobPath)
     EXPECT_EQ(path, cTestBlobPath);
 
     EXPECT_FALSE(FileExists(path));
+}
+
+TEST_F(CommonImageManagerTest, GetLayerPathNotSupported)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+
+    StaticString<cFilePathLen> path;
+
+    auto err = mImageManager.GetLayerPath(cTestDigest, path);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotSupported)) << tests::utils::ErrorToStr(err);
 }
 
 TEST_F(CommonImageManagerTest, GetBlobPathMalformedDigest)

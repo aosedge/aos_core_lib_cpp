@@ -193,11 +193,19 @@ Error ImageManager::GetBlobPath(const String& digest, String& path) const
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::GetLayerPath(const String& diffID, String& path) const
+{
+    (void)diffID;
+    (void)path;
+
+    return ErrorEnum::eNotSupported;
+}
+
 /***********************************************************************************************************************
  * Protected
  **********************************************************************************************************************/
 
-Error ImageManager::Init(const Config& config, DownloadBlobInfoProviderItf& blobInfoProvider, StorageItf& storage,
+Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProvider, StorageItf& storage,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, fs::FileInfoProviderItf& fileInfoProvider,
     oci::OCISpecItf& ociSpec, fs::FSPlatformItf& fsPlatform, AllocatorItf& allocator)
 {
