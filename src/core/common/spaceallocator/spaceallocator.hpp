@@ -290,6 +290,18 @@ public:
         return {freedSize, ErrorEnum::eNone};
     }
 
+    /**
+     * Removes the outdated items of the space allocator from the outdated items list without removing the items.
+     *
+     * @param spaceAllocator space allocator the items belong to.
+     * @return void.
+     */
+    void ClearOutdatedItems(const SpaceAllocatorItf* spaceAllocator)
+    {
+        mOutdatedItems.RemoveIf(
+            [spaceAllocator](const OutdatedItem& item) { return item.mSpaceAllocator == spaceAllocator; });
+    }
+
     static constexpr size_t cMaxNumOutdatedItems = AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS;
 
     StaticString<cFilePathLen>                      mMountPoint;
@@ -449,6 +461,12 @@ public:
 
         if (auto errRemovePartLimit = mPartition->RemoveLimit(mLimitPercent); !errRemovePartLimit.IsNone()) {
             err = errRemovePartLimit;
+        }
+
+        {
+            LockGuard partitionLock {mPartition->mMutex};
+
+            mPartition->ClearOutdatedItems(this);
         }
 
         mPartition->mAllocatorCount--;
