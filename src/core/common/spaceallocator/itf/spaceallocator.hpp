@@ -19,6 +19,9 @@ public:
     /**
      * Removes item.
      *
+     * It is called with the space allocator lock held, so the implementation must not call the methods of any space
+     * allocator of the same partition and must not take a lock that is held by a caller of the space allocator methods.
+     *
      * @param id item id.
      * @param version item version.
      * @return RetWithError<size_t>.
