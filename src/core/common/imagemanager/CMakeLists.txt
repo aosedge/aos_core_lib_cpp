@@ -20,7 +20,7 @@ set(SOURCES imagemanager.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS config.hpp imagemanager.hpp itf/blobinfoprovider.hpp itf/itemstatusprovider.hpp itf/storage.hpp)
+set(HEADERS config.hpp imagemanager.hpp itf/blobinfoprovider.hpp itf/iteminfoprovider.hpp itf/itemstatusprovider.hpp itf/storage.hpp)
 
 # ######################################################################################################################
 # Libraries
