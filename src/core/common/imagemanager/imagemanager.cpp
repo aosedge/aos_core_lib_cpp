@@ -147,9 +147,9 @@ Error ImageManager::Stop()
 {
     LOG_DBG() << "Stop image manager";
 
-    Error stopErr;
+    auto stopErr = Cancel();
 
-    if (auto err = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
+    if (auto err = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
@@ -391,9 +391,30 @@ Error ImageManager::RemoveItem(const String& itemID, const String& version)
 
 Error ImageManager::Cancel()
 {
+    // Serialized, otherwise one call can reset the context while another one still waits for the items.
+    LockGuard cancelLock {mCancelMutex};
+
     LOG_DBG() << "Cancel";
 
-    return ErrorEnum::eNotSupported;
+    // The items started while Cancel waits are canceled as well, so Cancel doesn't wait for their install.
+    if (auto err = mCancelContext.Cancel(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    UniqueLock lock {mMutex};
+
+    Error cancelErr;
+
+    // The items waiting in LockItem are not in progress yet, but they were requested before this cancel.
+    if (auto err = mCondVar.Wait(lock, [this]() { return mItemsInProgress.IsEmpty() && mNumItemsWaiting == 0; });
+        !err.IsNone()) {
+        cancelErr = AOS_ERROR_WRAP(err);
+    }
+
+    // Reset under the lock, so the items started after it are not canceled.
+    mCancelContext.Reset();
+
+    return cancelErr;
 }
 
 /***********************************************************************************************************************
@@ -480,8 +501,6 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& info)
 {
     while (true) {
         if (auto err = mBlobInfoProvider->GetBlobInfo(digest, info); !err.IsNone()) {
-            UniqueLock<Mutex> lock(mMutex);
-
             LOG_ERR() << "Failed to get blob info" << Log::Field("digest", digest) << Log::Field(err);
 
             // The provider is available, but it doesn't have the blob: retrying doesn't help.
@@ -489,7 +508,7 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& info)
                 return AOS_ERROR_WRAP(err);
             }
 
-            if (err = mCondVar.Wait(lock, cRetryTimeout); !err.IsNone() && err != ErrorEnum::eTimeout) {
+            if (err = mCancelContext.Wait(cRetryTimeout); !err.Is(ErrorEnum::eTimeout)) {
                 return AOS_ERROR_WRAP(err);
             }
 
@@ -531,7 +550,7 @@ Error ImageManager::DownloadItemBlob(const InstallItemInfo& itemInfo, const Stri
 
     LOG_DBG() << "Download blob" << Log::Field("digest", digest) << Log::Field("size", blobInfo->mSize);
 
-    err = DownloadBlob(path, *blobInfo);
+    err = DownloadBlob(mCancelContext, path, *blobInfo);
 
     // Done on a failed download as well, as the partial file may stay if it can't be removed.
     if (auto resizeErr = ResizeBlobSpace(*space, path); !resizeErr.IsNone() && err.IsNone()) {
@@ -585,6 +604,10 @@ Error ImageManager::InstallItemBlob(
     LOG_DBG() << "Install blob" << Log::Field("digest", descriptor.mDigest)
               << Log::Field("mediaType", descriptor.mMediaType) << Log::Field("size", descriptor.mSize);
 
+    if (auto err = mCancelContext.Err(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     if (auto err = GetBlobPath(descriptor.mDigest, path); !err.IsNone()) {
         return err;
     }
@@ -612,6 +635,10 @@ Error ImageManager::InstallLayerBlob(
     LOG_DBG() << "Install layer blob" << Log::Field("digest", descriptor.mDigest)
               << Log::Field("mediaType", descriptor.mMediaType) << Log::Field("size", descriptor.mSize)
               << Log::Field("diffID", diffID);
+
+    if (auto err = mCancelContext.Err(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     StaticString<cFilePathLen> path;
 
@@ -1114,21 +1141,29 @@ Error ImageManager::LockItem(const String& itemID, const String& version)
 {
     UniqueLock lock {mMutex};
 
-    if (auto err = mCondVar.Wait(lock,
-            [&]() {
-                return FindInProgressItem(itemID, version) == nullptr
-                    && mItemsInProgress.Size() < cMaxNumConcurrentItems;
-            });
-        !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    mNumItemsWaiting++;
+
+    auto err = mCondVar.Wait(lock, [&]() {
+        return FindInProgressItem(itemID, version) == nullptr && mItemsInProgress.Size() < cMaxNumConcurrentItems;
+    });
+
+    mNumItemsWaiting--;
+
+    if (err.IsNone()) {
+        UpdateItemStatus item;
+
+        item.mItemID  = itemID;
+        item.mVersion = version;
+
+        err = mItemsInProgress.PushBack(item);
     }
 
-    UpdateItemStatus item;
+    if (!err.IsNone()) {
+        // Cancel may wait for this item.
+        if (auto notifyErr = mCondVar.NotifyAll(); !notifyErr.IsNone()) {
+            LOG_ERR() << "Can't notify condition variable" << Log::Field(notifyErr);
+        }
 
-    item.mItemID  = itemID;
-    item.mVersion = version;
-
-    if (auto err = mItemsInProgress.PushBack(item); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1188,6 +1223,11 @@ Error ImageManager::LockBlob(const String& digest)
     if (auto err = mCondVar.Wait(
             lock, [&]() { return !IsBlobInProgress(digest) && mBlobsInProgress.Size() < cMaxNumConcurrentItems; });
         !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // The item could be canceled while it was waiting for the blob.
+    if (auto err = mCancelContext.Err(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
