@@ -14,6 +14,7 @@ set(SOURCES
     allocator.cpp
     array.cpp
     buffer.cpp
+    cancelcontext.cpp
     enum.cpp
     error.cpp
     fs.cpp
