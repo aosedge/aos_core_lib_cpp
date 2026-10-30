@@ -1092,6 +1092,38 @@ TEST_F(SpaceallocatorTest, RemoveOutdatedItemAfterEviction)
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }
 
+TEST_F(SpaceallocatorTest, CloseClearsOutdatedItems)
+{
+    SpaceAllocator<5> allocator1;
+    SpaceAllocator<5> allocator2;
+
+    StrictMock<ItemRemoverMock> remover2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, mLimit, &remover2).IsNone());
+
+    ASSERT_TRUE(allocator1.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(10 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [space, err] = allocator2.AllocateSpace(20 * cKilobyte);
+    EXPECT_EQ(err, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space.Get(), nullptr);
+
+    auto [size, removeErr] = allocator2.RemoveOutdatedItem();
+    EXPECT_EQ(removeErr, ErrorEnum::eNotFound);
+    EXPECT_EQ(size, 0U);
+
+    ASSERT_TRUE(allocator2.Close().IsNone());
+}
+
 TEST_F(SpaceallocatorTest, RemoveOutdatedItemAccountingIsAtomic)
 {
     constexpr size_t cTotalSize = 100 * cKilobyte;
