@@ -154,11 +154,15 @@ protected:
 
     /**
      * Removes item. Sets the item state to eRemoved in the storage, keeping the item blobs, and adds the item as
-     * outdated to the space allocator.
+     * outdated to the space allocator. Waits while the same item version is being installed or removed, or while
+     * cMaxNumConcurrentItems items are being processed. Does nothing if the item is already in the eRemoved state.
+     *
+     * @note The eRemoved status is notified while the item is still in progress, so a listener must not call
+     * InstallItem or RemoveItem synchronously from the callback.
      *
      * @param itemID item ID.
      * @param version item version.
-     * @return Error.
+     * @return Error: eNotFound if the item version is not stored, other errors as is.
      */
     Error RemoveItem(const String& itemID, const String& version);
 
@@ -298,8 +302,9 @@ private:
     Error AddItemBlob(const String& itemID, const String& version, const oci::ContentDescriptor& descriptor,
         bool isLayer = false, const String& diffID = "");
 
-    Error SetInProgressItemState(
-        const InstallItemInfo& itemInfo, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
+    Error SetInProgressItemState(const String& itemID, const String& version, UpdateItemType type, ItemStateEnum state,
+        const Error& error = ErrorEnum::eNone);
+    void  RestoreRemovingItemState(const UpdateItemStatus& prevStatus, const Error& error);
     Error SetStoredItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
 
     void NotifyItemStatusChanged(const UpdateItemStatus& status);
