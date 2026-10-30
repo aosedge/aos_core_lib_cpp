@@ -392,6 +392,108 @@ TEST_F(CommonImageManagerTest, SubscribeUnsubscribeListener)
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(CommonImageManagerTest, StartRemovesInterruptedItemsAndAddsOutdatedItems)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+    ASSERT_TRUE(mImageManager.SubscribeListener(mListener).IsNone());
+
+    AddStoredItem("item1", "1.0.0", ItemStateEnum::eInstalled);
+    AddStoredItem("item1", "2.0.0", ItemStateEnum::eInstalling);
+    AddStoredItem("item2", "1.0.0", ItemStateEnum::eRemoved);
+
+    ASSERT_TRUE(
+        mStorage.AddItemBlob("item1", "2.0.0", ItemBlobInfo {{cTestLayerType, cTestDigest, 1}, true, ""}).IsNone());
+    AddStoredItem("item3", "1.0.0", ItemStateEnum::eFailed, Error(ErrorEnum::eFailed, "download failed"));
+    AddStoredItem("item4", "1.0.0", ItemStateEnum::eRemoved);
+
+    std::map<std::string, DeployableItemInfo> storedItems;
+
+    for (const auto& [itemID, version] : std::vector<std::pair<const char*, const char*>>(
+             {{"item1", "1.0.0"}, {"item2", "1.0.0"}, {"item3", "1.0.0"}, {"item4", "1.0.0"}})) {
+        DeployableItemInfo item;
+
+        ASSERT_TRUE(mStorage.GetDeployableItem(itemID, version, item).IsNone());
+
+        storedItems[std::string(itemID) + ":" + version] = item;
+    }
+
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
+    EXPECT_CALL(
+        mSpaceAllocator, AddOutdatedItem(String("item2"), String("1.0.0"), storedItems["item2:1.0.0"].mTimestamp))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(
+        mSpaceAllocator, AddOutdatedItem(String("item4"), String("1.0.0"), storedItems["item4:1.0.0"].mTimestamp))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    Time interruptedTimestamp;
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("item1"), String("2.0.0"), _))
+        .WillOnce(Invoke([&](const String&, const String&, const Time& timestamp) {
+            interruptedTimestamp = timestamp;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    DeployableItemInfo item;
+
+    ASSERT_TRUE(mStorage.GetDeployableItem("item1", "2.0.0", item).IsNone());
+    EXPECT_EQ(item.mState, ItemStateEnum::eRemoved);
+    EXPECT_TRUE(item.mError.IsNone()) << tests::utils::ErrorToStr(item.mError);
+    EXPECT_EQ(item.mTimestamp, interruptedTimestamp);
+
+    // The blob references of the interrupted item are kept.
+    auto blobs = std::make_unique<StaticArray<ItemBlobInfo, cMaxNumItemBlobs>>();
+
+    ASSERT_TRUE(mStorage.GetItemBlobs("item1", "2.0.0", *blobs).IsNone());
+    EXPECT_EQ(blobs->Size(), 1);
+
+    // The other items are not changed.
+    for (const auto& [key, storedItem] : storedItems) {
+        ASSERT_TRUE(mStorage.GetDeployableItem(storedItem.mItemID, storedItem.mVersion, item).IsNone());
+        EXPECT_EQ(item, storedItem) << key;
+    }
+}
+
+TEST_F(CommonImageManagerTest, StartAddOutdatedItemFails)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+
+    AddStoredItem("item1", "1.0.0", ItemStateEnum::eRemoved);
+    AddStoredItem("item2", "1.0.0", ItemStateEnum::eRemoved);
+
+    // The failed item is only logged and the next items are still added.
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("item1"), String("1.0.0"), _))
+        .WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("item2"), String("1.0.0"), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerTest, StartUpdateItemFails)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+
+    AddStoredItem("item1", "1.0.0", ItemStateEnum::eInstalling);
+
+    mStorage.SetFailUpdateStates({ItemStateEnum::eRemoved});
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    DeployableItemInfo item;
+
+    ASSERT_TRUE(mStorage.GetDeployableItem("item1", "1.0.0", item).IsNone());
+    EXPECT_EQ(item.mState, ItemStateEnum::eInstalling);
+}
+
 TEST_F(CommonImageManagerTest, GetItemsStatusesEmpty)
 {
     ASSERT_TRUE(InitImageManager().IsNone());
@@ -1923,6 +2025,201 @@ TEST_F(CommonImageManagerRemoveTest, RemoveWaitsForInstall)
     EXPECT_EQ(GetNotifiedStates(),
         std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eDownloading, ItemStateEnum::eInstalled,
             ItemStateEnum::eRemoving, ItemStateEnum::eRemoved}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+/***********************************************************************************************************************
+ * Remove outdated item suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerRemoveOutdatedTest : public CommonImageManagerInstallTest {
+protected:
+    void SetUp() override
+    {
+        CommonImageManagerInstallTest::SetUp();
+
+        ON_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).WillByDefault(Return(ErrorEnum::eNone));
+    }
+
+    void InstallAndRemove(const TestManifest& manifest, const char* itemID = cTestItemID)
+    {
+        auto err = mImageManager.Install(
+            MakeInstallInfo(manifest.mManifest, false, UpdateItemTypeEnum::eService, itemID, cTestVersion));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mImageManager.Remove(itemID, cTestVersion);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    RetWithError<size_t> RemoveOutdated(const char* itemID = cTestItemID)
+    {
+        return mImageManager.GetItemRemover().RemoveItem(itemID, cTestVersion);
+    }
+};
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveUnusedBlobs)
+{
+    const auto sharedLayer = MakeTestBlob(500);
+    const auto manifest    = AddManifest(1, 1, 2, false, {sharedLayer});
+    const auto other       = AddManifest(200, 0, 1, false, {sharedLayer});
+
+    InstallAndRemove(manifest);
+    InstallAndRemove(other, "item2");
+
+    const auto& ownLayer = manifest.mLayers[1];
+
+    EXPECT_CALL(
+        mImageManager, RemoveLayer(String(ownLayer.mPath.c_str()), _, String(manifest.mDiffIDs[1].mDigest.c_str())))
+        .WillOnce(Return(RetWithError<size_t>(10, ErrorEnum::eNone)));
+    EXPECT_CALL(mImageManager, RemoveLayer(String(sharedLayer.mPath.c_str()), _, _)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion)));
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).Times(0);
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    auto [size, err] = RemoveOutdated();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // Manifest, image config and own layer blobs plus the unpacked layer data.
+    EXPECT_EQ(size, 3 * cInstallBlobSize + 10);
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+
+    for (const auto* blob : {&manifest.mManifest, &manifest.mImageConfig, &ownLayer}) {
+        EXPECT_FALSE(FileExists(blob->mPath.c_str())) << blob->mDigest;
+    }
+
+    // The shared layer is used by item2.
+    EXPECT_TRUE(FileExists(sharedLayer.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, SkipNotRemovedItem)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eInstalled);
+
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto [size, err] = RemoveOutdated();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+    EXPECT_TRUE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+
+    // Not stored item is already removed from the cache.
+    Tie(size, err) = RemoveOutdated("item2");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, SkipItemInProgress)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eInstalled);
+
+    std::optional<RetWithError<size_t>> removeResult;
+
+    // The item is already in the eRemoved state in the storage, but it is still being removed by RemoveItem.
+    EXPECT_CALL(mListener, OnItemStatusChanged(_)).WillRepeatedly(Invoke([&](const UpdateItemStatus& status) {
+        if (status.mState == ItemStateEnum::eRemoved) {
+            removeResult = RemoveOutdated();
+        }
+    }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto err = mImageManager.Remove(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(removeResult.has_value());
+    EXPECT_TRUE(removeResult->mError.IsNone()) << tests::utils::ErrorToStr(removeResult->mError);
+    EXPECT_EQ(removeResult->mValue, 0);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, SkipLockedBlob)
+{
+    const auto sharedLayer = MakeTestBlob(500);
+    const auto manifest    = AddManifest(1, 0, 1, false, {sharedLayer});
+    const auto other       = AddManifest(200, 0, 1, false, {sharedLayer});
+
+    InstallAndRemove(manifest);
+
+    ASSERT_TRUE(fs::RemoveAll(sharedLayer.mPath.c_str()).IsNone());
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).WillRepeatedly(Invoke(DownloadTestBlob));
+    EXPECT_CALL(mImageManager, DownloadBlob(String(sharedLayer.mPath.c_str()), _))
+        .WillOnce(Invoke([&](const String& path, const BlobInfo& blobInfo) {
+            downloadStarted.set_value();
+            downloadReleasedFuture.wait();
+
+            return DownloadTestBlob(path, blobInfo);
+        }));
+
+    Error installErr;
+
+    std::thread installThread([&]() {
+        installErr
+            = mImageManager.Install(MakeInstallInfo(other.mManifest, false, UpdateItemTypeEnum::eService, "item2"));
+    });
+
+    downloadStarted.get_future().wait();
+
+    // The shared layer is locked by item2 being downloaded: the item remover doesn't wait for it.
+    auto [size, err] = RemoveOutdated();
+
+    downloadReleased.set_value();
+    installThread.join();
+
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 2 * cInstallBlobSize);
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+
+    ASSERT_TRUE(installErr.IsNone()) << tests::utils::ErrorToStr(installErr);
+    EXPECT_EQ(ReadFile(sharedLayer.mPath), sharedLayer.mHash);
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveLayerFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemove(manifest);
+
+    EXPECT_CALL(mImageManager, RemoveLayer(_, _, _)).WillOnce(Return(RetWithError<size_t>(10, ErrorEnum::eFailed)));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion)));
+
+    auto [size, err] = RemoveOutdated();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The layer blob is still removed, the failed unpacked layer data is not counted.
+    EXPECT_EQ(size, 3 * cInstallBlobSize);
+    EXPECT_FALSE(FileExists(manifest.mLayers[0].mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveDeployableItemFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemove(manifest);
+
+    mStorage.SetFailRemoveItem(true);
+
+    EXPECT_CALL(mImageManager, RemoveLayer(_, _, _)).Times(0);
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(_, _)).Times(0);
+
+    auto [size, err] = RemoveOutdated();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    // No blob is removed and the item stays in the eRemoved state.
+    for (const auto* blob : {&manifest.mManifest, &manifest.mImageConfig, &manifest.mLayers[0]}) {
+        EXPECT_TRUE(FileExists(blob->mPath.c_str())) << blob->mDigest;
+    }
 
     auto item = GetStoredItem(cTestItemID, cTestVersion);
     ASSERT_TRUE(item.has_value());

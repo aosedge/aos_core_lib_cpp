@@ -77,7 +77,33 @@ Error ImageManager::Start()
 {
     LOG_DBG() << "Start image manager";
 
-    return ErrorEnum::eNotSupported;
+    auto items = MakeUnique<StaticArray<DeployableItemInfo, cMaxNumStoredItems>>(mAllocator);
+    if (!items) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mStorage->GetAllDeployableItems(*items); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    for (auto& item : *items) {
+        if (item.mState == ItemStateEnum::eInstalling) {
+            if (auto err = RemoveInterruptedItem(item); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        if (item.mState != ItemStateEnum::eRemoved) {
+            continue;
+        }
+
+        if (auto err = mSpaceAllocator->AddOutdatedItem(item.mItemID, item.mVersion, item.mTimestamp); !err.IsNone()) {
+            LOG_ERR() << "Failed to add outdated item" << Log::Field("itemID", item.mItemID)
+                      << Log::Field("version", item.mVersion) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error ImageManager::Stop()
@@ -305,6 +331,17 @@ void ImageManager::NotifyItemStatusChanged(const UpdateItemStatus& status)
 
     for (auto* listener : mListeners) {
         listener->OnItemStatusChanged(status);
+    }
+}
+
+void ImageManager::NotifyItemRemovedFromCache(const String& itemID, const String& version)
+{
+    LockGuard lock {mListenersMutex};
+
+    LOG_DBG() << "Item removed from cache" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+    for (auto* listener : mListeners) {
+        listener->OnItemRemovedFromCache(itemID, version);
     }
 }
 
@@ -618,15 +655,120 @@ RetWithError<size_t> ImageManager::RemoveOutdatedItem(const String& itemID, cons
 {
     LOG_DBG() << "Remove outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
-    return {0, ErrorEnum::eNotSupported};
+    // The item remover is called with the space allocator lock held, so it never waits for the item or its blobs: the
+    // waiting thread may hold them. The item which can't be locked is skipped.
+    if (!TryLockItem(itemID, version)) {
+        LOG_DBG() << "Can't lock outdated item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+        return {0, ErrorEnum::eNone};
+    }
+
+    auto unlockItem = DeferRelease([this, &itemID, &version]() { UnlockItem(itemID, version); });
+
+    DeployableItemInfo item;
+
+    auto err = mStorage->GetDeployableItem(itemID, version, item);
+    if (!err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    // The item could be removed from the cache or installed again after it was added as outdated.
+    if (err.Is(ErrorEnum::eNotFound) || item.mState != ItemStateEnum::eRemoved) {
+        LOG_DBG() << "Outdated item is not removed" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+        return {0, ErrorEnum::eNone};
+    }
+
+    auto blobs = MakeUnique<StaticArray<ItemBlobInfo, cMaxNumItemBlobs>>(mAllocator);
+    if (!blobs) {
+        return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+    }
+
+    if (err = mStorage->GetItemBlobs(itemID, version, *blobs); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    if (err = mStorage->RemoveDeployableItem(itemID, version); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    size_t freedSize = 0;
+
+    for (const auto& blob : *blobs) {
+        size_t blobSize = 0;
+
+        // The blob which is failed to remove becomes orphan and is removed by the orphan blobs cleanup.
+        if (Tie(blobSize, err) = RemoveUnusedItemBlob(blob); !err.IsNone()) {
+            LOG_ERR() << "Failed to remove item blob" << Log::Field("digest", blob.mDigest) << Log::Field(err);
+        }
+
+        freedSize += blobSize;
+    }
+
+    LOG_INF() << "Outdated item removed" << Log::Field("itemID", itemID) << Log::Field("version", version)
+              << Log::Field("freedSize", freedSize);
+
+    NotifyItemRemovedFromCache(itemID, version);
+
+    return {freedSize, ErrorEnum::eNone};
+}
+
+RetWithError<size_t> ImageManager::RemoveUnusedItemBlob(const ItemBlobInfo& blob)
+{
+    // A locked blob is being processed by an item being installed, so it is in use. The blob which can't be locked is
+    // kept and becomes orphan if it is not used.
+    if (!TryLockBlob(blob.mDigest)) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    auto unlockBlob = DeferRelease([this, &blob]() { UnlockBlob(blob.mDigest); });
+
+    auto [used, err] = mStorage->IsBlobUsed(blob.mDigest);
+    if (!err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    if (used) {
+        return {0, ErrorEnum::eNone};
+    }
+
+    StaticString<cFilePathLen> path;
+
+    if (err = GetBlobPath(blob.mDigest, path); !err.IsNone()) {
+        return {0, err};
+    }
+
+    size_t layerSize = 0;
+
+    if (blob.mIsLayer) {
+        if (Tie(layerSize, err) = RemoveLayer(path, blob, blob.mDiffID);
+            !err.IsNone() && !err.Is(ErrorEnum::eNotSupported)) {
+            LOG_ERR() << "Failed to remove layer" << Log::Field("digest", blob.mDigest) << Log::Field(err);
+        }
+
+        if (!err.IsNone()) {
+            layerSize = 0;
+        }
+    }
+
+    size_t blobSize = 0;
+
+    if (Tie(blobSize, err) = RemoveBlob(path, blob.mDigest); !err.IsNone()) {
+        return {layerSize, err};
+    }
+
+    return {layerSize + blobSize, ErrorEnum::eNone};
 }
 
 Error ImageManager::LockItem(const String& itemID, const String& version)
 {
     UniqueLock lock {mMutex};
 
-    if (auto err = mCondVar.Wait(
-            lock, [&]() { return FindInProgressItem(itemID, version) == nullptr && !mItemsInProgress.IsFull(); });
+    if (auto err = mCondVar.Wait(lock,
+            [&]() {
+                return FindInProgressItem(itemID, version) == nullptr
+                    && mItemsInProgress.Size() < cMaxNumConcurrentItems;
+            });
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -641,6 +783,32 @@ Error ImageManager::LockItem(const String& itemID, const String& version)
     }
 
     return ErrorEnum::eNone;
+}
+
+bool ImageManager::TryLockItem(const String& itemID, const String& version)
+{
+    LockGuard lock {mMutex};
+
+    if (FindInProgressItem(itemID, version) != nullptr) {
+        return false;
+    }
+
+    if (mItemsInProgress.IsFull()) {
+        LOG_ERR() << "Items in progress list is full" << Log::Field("itemID", itemID) << Log::Field("version", version);
+
+        return false;
+    }
+
+    UpdateItemStatus item;
+
+    item.mItemID  = itemID;
+    item.mVersion = version;
+
+    if (auto err = mItemsInProgress.PushBack(item); !err.IsNone()) {
+        return false;
+    }
+
+    return true;
 }
 
 void ImageManager::UnlockItem(const String& itemID, const String& version)
@@ -669,7 +837,8 @@ Error ImageManager::LockBlob(const String& digest)
 {
     UniqueLock lock {mMutex};
 
-    if (auto err = mCondVar.Wait(lock, [&]() { return !IsBlobInProgress(digest) && !mBlobsInProgress.IsFull(); });
+    if (auto err = mCondVar.Wait(
+            lock, [&]() { return !IsBlobInProgress(digest) && mBlobsInProgress.Size() < cMaxNumConcurrentItems; });
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -679,6 +848,27 @@ Error ImageManager::LockBlob(const String& digest)
     }
 
     return ErrorEnum::eNone;
+}
+
+bool ImageManager::TryLockBlob(const String& digest)
+{
+    LockGuard lock {mMutex};
+
+    if (IsBlobInProgress(digest)) {
+        return false;
+    }
+
+    if (mBlobsInProgress.IsFull()) {
+        LOG_ERR() << "Blobs in progress list is full" << Log::Field("digest", digest);
+
+        return false;
+    }
+
+    if (auto err = mBlobsInProgress.PushBack(digest); !err.IsNone()) {
+        return false;
+    }
+
+    return true;
 }
 
 void ImageManager::UnlockBlob(const String& digest)
@@ -878,6 +1068,24 @@ Error ImageManager::SetInProgressItemState(
 
     if (stateChanged) {
         NotifyItemStatusChanged(status);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::RemoveInterruptedItem(DeployableItemInfo& item)
+{
+    LOG_WRN() << "Remove interrupted item" << Log::Field("itemID", item.mItemID)
+              << Log::Field("version", item.mVersion);
+
+    // The install was interrupted rather than failed, so the item is kept in the cache with its blobs as outdated.
+    // The item status is not notified on start, it is reported by GetItemsStatuses.
+    item.mState     = ItemStateEnum::eRemoved;
+    item.mTimestamp = Time::Now();
+    item.mError     = ErrorEnum::eNone;
+
+    if (auto err = mStorage->UpdateDeployableItem(item); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;

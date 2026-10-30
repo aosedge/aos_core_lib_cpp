@@ -56,6 +56,10 @@ public:
     {
         std::lock_guard lock {mMutex};
 
+        if (mFailRemoveItem) {
+            return Error(ErrorEnum::eFailed, "remove failed");
+        }
+
         auto it = Find(itemID, version);
         if (it == mItems.end()) {
             return ErrorEnum::eNotFound;
@@ -177,6 +181,13 @@ public:
         mFailUpdateStates = states;
     }
 
+    void SetFailRemoveItem(bool fail)
+    {
+        std::lock_guard lock {mMutex};
+
+        mFailRemoveItem = fail;
+    }
+
 private:
     struct Item {
         DeployableItemInfo        mInfo;
@@ -193,6 +204,8 @@ private:
     std::vector<Item> mItems;
     // Item states which UpdateDeployableItem fails to set.
     std::set<ItemStateEnum> mFailUpdateStates;
+    // Makes RemoveDeployableItem fail.
+    bool mFailRemoveItem {};
 };
 
 } // namespace aos::common::imagemanager

@@ -38,9 +38,11 @@ public:
     virtual ~ImageManager() = default;
 
     /**
-     * Starts image manager.
+     * Starts image manager. Sets the items whose install was interrupted (left in the eInstalling state) to the
+     * eRemoved state, keeping their blobs, and adds all the items in the eRemoved state as outdated to the space
+     * allocator. No item status is notified.
      *
-     * @return Error.
+     * @return Error: storage errors as is. Errors of adding an outdated item are only logged.
      */
     virtual Error Start();
 
@@ -122,7 +124,8 @@ protected:
      *
      * @note The allocator must provide, per concurrent InstallItem (up to cMaxNumConcurrentItems), one
      * oci::ImageIndex, one oci::ImageManifest, one oci::ImageConfig and one blob hash buffer of cBlobHashSize at the
-     * same time, plus one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for GetItemsStatuses.
+     * same time, plus one StaticArray<DeployableItemInfo, cMaxNumStoredItems> for Start and GetItemsStatuses and one
+     * StaticArray<ItemBlobInfo, cMaxNumItemBlobs> for the item remover.
      *
      * @param config image manager config.
      * @param downloadBlobInfoProvider download blob info provider.
@@ -187,6 +190,8 @@ private:
     static constexpr auto cMaxNumStoredItems = cMaxNumUpdateItems * 2;
     static constexpr auto cMaxNumItemBlobs   = 1 + oci::cMaxNumManifests * (3 + oci::cMaxNumLayers);
     static constexpr auto cRetryTimeout      = Time::cSeconds * 2;
+    // One extra slot for the item remover, which is called synchronously by the space allocator and must not wait.
+    static constexpr auto cMaxNumItemsInProgress = cMaxNumConcurrentItems + 1;
 
     /**
      * Downloads blob. Called by InstallItem, derived classes implement it but must not call it directly.
@@ -283,6 +288,7 @@ private:
     };
 
     RetWithError<size_t> RemoveOutdatedItem(const String& itemID, const String& version);
+    RetWithError<size_t> RemoveUnusedItemBlob(const ItemBlobInfo& blob);
 
     Error                ValidateBlob(const String& path, const String& digest, size_t size = 0);
     Error                GetBlobInfo(const String& digest, BlobInfo& info);
@@ -304,15 +310,19 @@ private:
 
     Error SetInProgressItemState(const String& itemID, const String& version, UpdateItemType type, ItemStateEnum state,
         const Error& error = ErrorEnum::eNone);
+    Error RemoveInterruptedItem(DeployableItemInfo& item);
     void  RestoreRemovingItemState(const UpdateItemStatus& prevStatus, const Error& error);
     Error SetStoredItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
 
     void NotifyItemStatusChanged(const UpdateItemStatus& status);
+    void NotifyItemRemovedFromCache(const String& itemID, const String& version);
 
     Error             LockItem(const String& itemID, const String& version);
+    bool              TryLockItem(const String& itemID, const String& version);
     void              UnlockItem(const String& itemID, const String& version);
     UpdateItemStatus* FindInProgressItem(const String& itemID, const String& version);
     Error             LockBlob(const String& digest);
+    bool              TryLockBlob(const String& digest);
     void              UnlockBlob(const String& digest);
 
     bool IsBlobInProgress(const String& digest) const
@@ -334,8 +344,8 @@ private:
 
     Mutex                                                             mMutex;
     ConditionalVariable                                               mCondVar;
-    StaticList<UpdateItemStatus, cMaxNumConcurrentItems>              mItemsInProgress;
-    StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mBlobsInProgress;
+    StaticList<UpdateItemStatus, cMaxNumItemsInProgress>              mItemsInProgress;
+    StaticList<StaticString<oci::cDigestLen>, cMaxNumItemsInProgress> mBlobsInProgress;
 
     ItemRemover mItemRemover {*this};
 };
