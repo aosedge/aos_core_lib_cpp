@@ -24,6 +24,7 @@ set(HEADERS
     algorithm.hpp
     array.hpp
     buffer.hpp
+    cancelcontext.hpp
     config.hpp
     enum.hpp
     error.hpp
