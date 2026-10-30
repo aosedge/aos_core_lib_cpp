@@ -10,6 +10,7 @@
 #include <core/common/consts.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/spaceallocator/itf/spaceallocator.hpp>
+#include <core/common/tools/cancelcontext.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/list.hpp>
 #include <core/common/tools/memory.hpp>
@@ -185,7 +186,10 @@ protected:
     Error RemoveItem(const String& itemID, const String& version);
 
     /**
-     * Cancels all items being installed. Waits until all InstallItem and RemoveItem calls in progress return.
+     * Cancels all items being installed: cancels the cancel context passed to DownloadBlob and makes the items fail
+     * with eCanceled before the next blob. Doesn't cancel RemoveItem. Waits until all InstallItem and RemoveItem calls
+     * in progress return, the items started while it waits are canceled as well. InstallItem called after Cancel
+     * returns is not affected.
      *
      * @return Error.
      */
@@ -210,21 +214,15 @@ private:
     static constexpr auto cMaxNumInProgress = cMaxNumConcurrentItems + 2;
 
     /**
-     * Downloads blob. Called by InstallItem, derived classes implement it but must not call it directly.
+     * Downloads blob. Called by InstallItem, derived classes implement it but must not call it directly. The download
+     * checks the cancel context periodically, also before it is started, and returns eCanceled if it is canceled.
      *
+     * @param ctx cancel context.
      * @param path destination blob path.
      * @param blobInfo blob information.
      * @return Error.
      */
-    virtual Error DownloadBlob(const String& path, const BlobInfo& blobInfo) = 0;
-
-    /**
-     * Cancels ongoing blob download.
-     *
-     * @param digest blob digest.
-     * @return Error: eNotFound if no download is in progress for the blob.
-     */
-    virtual Error CancelDownload(const String& digest) = 0;
+    virtual Error DownloadBlob(CancelContext& ctx, const String& path, const BlobInfo& blobInfo) = 0;
 
     /**
      * Validates installed layer. Called by the image manager before the layer blob is validated, derived classes can
@@ -381,6 +379,7 @@ private:
     Mutex                                                        mMutex;
     ConditionalVariable                                          mCondVar;
     StaticList<UpdateItemStatus, cMaxNumInProgress>              mItemsInProgress;
+    CancelContext                                                mCancelContext;
     StaticList<StaticString<oci::cDigestLen>, cMaxNumInProgress> mBlobsInProgress;
 
     Timer    mTimer;

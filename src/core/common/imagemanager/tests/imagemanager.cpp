@@ -219,6 +219,7 @@ public:
 
     Error Install(const InstallItemInfo& itemInfo) { return InstallItem(itemInfo); }
     Error Remove(const String& itemID, const String& version) { return RemoveItem(itemID, version); }
+    Error CancelItems() { return Cancel(); }
 
     Error ValidateLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffID) override
     {
@@ -238,8 +239,17 @@ public:
         return mValidateLayerCalls;
     }
 
-    MOCK_METHOD(Error, DownloadBlob, (const String& path, const BlobInfo& blobInfo), (override));
-    MOCK_METHOD(Error, CancelDownload, (const String& digest), (override));
+    Error DownloadBlob(CancelContext& ctx, const String& path, const BlobInfo& blobInfo) override
+    {
+        mDownloadContext = &ctx;
+
+        return DownloadBlob(path, blobInfo);
+    }
+
+    // Returns the cancel context of the download in progress, called from the DownloadBlob action.
+    CancelContext& GetDownloadContext() { return *mDownloadContext; }
+
+    MOCK_METHOD(Error, DownloadBlob, (const String& path, const BlobInfo& blobInfo));
     MOCK_METHOD(
         Error, CheckLayer, (const String& path, const oci::ContentDescriptor& descriptor, const String& diffID));
     MOCK_METHOD(Error, UnpackLayer,
@@ -251,6 +261,7 @@ public:
 private:
     std::mutex             mLayerCallsMutex;
     std::vector<LayerCall> mValidateLayerCalls;
+    CancelContext*         mDownloadContext {};
 };
 
 } // namespace
@@ -2784,6 +2795,228 @@ TEST_F(CommonImageManagerOrphanTest, NothingToFree)
     ASSERT_TRUE(mImageManager.Start().IsNone());
     ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
     ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+/***********************************************************************************************************************
+ * Cancel suite
+ **********************************************************************************************************************/
+
+class CommonImageManagerCancelTest : public CommonImageManagerInstallTest { };
+
+TEST_F(CommonImageManagerCancelTest, CancelDownloadInProgress)
+{
+    const auto  manifest = AddManifest(1, 1, 1);
+    const auto& layer    = manifest.mLayers[0];
+
+    // The manifest and image config are valid, the layer is downloaded.
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(layer.mPath.c_str()).IsNone());
+
+    std::promise<void> downloadStarted;
+
+    // The download waits on the cancel context and returns its error.
+    EXPECT_CALL(mImageManager, DownloadBlob(String(layer.mPath.c_str()), _))
+        .WillOnce(Invoke([&](const String& path, const BlobInfo&) -> Error {
+            downloadStarted.set_value();
+
+            auto err = mImageManager.GetDownloadContext().Wait();
+
+            EXPECT_TRUE(fs::WriteStringToFile(path, "partial", 0600).IsNone());
+
+            return err;
+        }));
+
+    Error installErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    auto err = mImageManager.CancelItems();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // Cancel returns after the install.
+    installThread.join();
+
+    EXPECT_TRUE(installErr.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(installErr);
+    EXPECT_EQ(GetNotifiedStates(),
+        std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eDownloading, ItemStateEnum::eFailed}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE(item->mError.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(item->mError);
+
+    // The blobs processed before the cancel are kept, the partially downloaded blob is removed and its space released.
+    EXPECT_TRUE(FileExists(manifest.mManifest.mPath.c_str()));
+    EXPECT_FALSE(FileExists(layer.mPath.c_str()));
+    EXPECT_EQ(mReleaseCount.load(), 1);
+}
+
+TEST_F(CommonImageManagerCancelTest, CancelBeforeNextBlob)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    std::promise<void> downloadStarted;
+
+    // The manifest download is finished though Cancel is called, so the next blob is not downloaded.
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).WillOnce(Invoke([&](const String& path, const BlobInfo& blobInfo) {
+        downloadStarted.set_value();
+
+        EXPECT_TRUE(mImageManager.GetDownloadContext().Wait().Is(ErrorEnum::eCanceled));
+
+        return DownloadTestBlob(path, blobInfo);
+    }));
+
+    Error installErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    auto err = mImageManager.CancelItems();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    installThread.join();
+
+    EXPECT_TRUE(installErr.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(installErr);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+
+    // The downloaded manifest is kept in the cache.
+    EXPECT_EQ(ReadFile(manifest.mManifest.mPath), manifest.mManifest.mHash);
+    EXPECT_EQ(mAcceptCount.load(), 1);
+}
+
+TEST_F(CommonImageManagerCancelTest, CancelGetBlobInfoRetry)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    std::promise<void> getBlobInfoCalled;
+    std::atomic<bool>  called {false};
+
+    EXPECT_CALL(mBlobInfoProvider, GetBlobInfo(_, _)).WillRepeatedly(Invoke([&](const String&, BlobInfo&) {
+        if (!called.exchange(true)) {
+            getBlobInfoCalled.set_value();
+        }
+
+        return ErrorEnum::eFailed;
+    }));
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).Times(0);
+
+    Error installErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    getBlobInfoCalled.get_future().wait();
+
+    const auto start = std::chrono::steady_clock::now();
+
+    auto err = mImageManager.CancelItems();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    installThread.join();
+
+    // The retry wait is interrupted instead of waiting for the retry timeout.
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+    EXPECT_TRUE(installErr.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(installErr);
+}
+
+TEST_F(CommonImageManagerCancelTest, CancelWaitsForRemoveItem)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eInstalled);
+
+    std::promise<void> removeStarted;
+    std::promise<void> removeReleased;
+    auto               removeReleasedFuture = removeReleased.get_future();
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Invoke([&](const String&, const String&, const Time&) {
+            removeStarted.set_value();
+            removeReleasedFuture.wait();
+
+            return ErrorEnum::eNone;
+        }));
+
+    Error removeErr;
+
+    std::thread removeThread([&]() { removeErr = mImageManager.Remove(cTestItemID, cTestVersion); });
+
+    removeStarted.get_future().wait();
+
+    std::atomic<bool> cancelReturned {false};
+    Error             cancelErr;
+
+    std::thread cancelThread([&]() {
+        cancelErr      = mImageManager.CancelItems();
+        cancelReturned = true;
+    });
+
+    // RemoveItem is not canceled, Cancel waits until it returns.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_FALSE(cancelReturned.load());
+
+    removeReleased.set_value();
+
+    removeThread.join();
+    cancelThread.join();
+
+    ASSERT_TRUE(removeErr.IsNone()) << tests::utils::ErrorToStr(removeErr);
+    ASSERT_TRUE(cancelErr.IsNone()) << tests::utils::ErrorToStr(cancelErr);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerCancelTest, InstallAfterCancel)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    auto err = mImageManager.CancelItems();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
+TEST_F(CommonImageManagerCancelTest, CancelBeforeDownloadStarts)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    Error       cancelErr;
+    std::thread cancelThread;
+
+    // Cancel is called after the blob is checked for cancel, but before its download is started.
+    EXPECT_CALL(mBlobInfoProvider, GetBlobInfo(_, _)).WillOnce(Invoke([&](const String& digest, BlobInfo& info) {
+        cancelThread = std::thread([&]() { cancelErr = mImageManager.CancelItems(); });
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        return GetTestBlobInfo(digest, info);
+    }));
+
+    // The download gets the canceled context, so the cancel is not lost.
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).WillOnce(Invoke([&](const String&, const BlobInfo&) {
+        return mImageManager.GetDownloadContext().Err();
+    }));
+
+    auto installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+
+    cancelThread.join();
+
+    ASSERT_TRUE(cancelErr.IsNone()) << tests::utils::ErrorToStr(cancelErr);
+    EXPECT_TRUE(installErr.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(installErr);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
 }
 
 } // namespace aos::common::imagemanager

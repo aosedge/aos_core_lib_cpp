@@ -138,9 +138,9 @@ Error ImageManager::Stop()
 {
     LOG_DBG() << "Stop image manager";
 
-    Error stopErr;
+    auto stopErr = Cancel();
 
-    if (auto err = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone()) {
+    if (auto err = mTimer.Stop(Timer::StopMode::WaitForCallbacks); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
@@ -370,7 +370,23 @@ Error ImageManager::Cancel()
 {
     LOG_DBG() << "Cancel";
 
-    return ErrorEnum::eNotSupported;
+    // The items started while Cancel waits are canceled as well, so Cancel doesn't wait for their install.
+    if (auto err = mCancelContext.Cancel(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    UniqueLock lock {mMutex};
+
+    Error cancelErr;
+
+    if (auto err = mCondVar.Wait(lock, [this]() { return mItemsInProgress.IsEmpty(); }); !err.IsNone()) {
+        cancelErr = AOS_ERROR_WRAP(err);
+    }
+
+    // Reset under the lock, so the items started after it are not canceled.
+    mCancelContext.Reset();
+
+    return cancelErr;
 }
 
 /***********************************************************************************************************************
@@ -457,11 +473,9 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& info)
 {
     while (true) {
         if (auto err = mBlobInfoProvider->GetBlobInfo(digest, info); !err.IsNone()) {
-            UniqueLock<Mutex> lock(mMutex);
-
             LOG_ERR() << "Failed to get blob info" << Log::Field("digest", digest) << Log::Field(err);
 
-            if (err = mCondVar.Wait(lock, cRetryTimeout); !err.IsNone() && err != ErrorEnum::eTimeout) {
+            if (err = mCancelContext.Wait(cRetryTimeout); !err.Is(ErrorEnum::eTimeout)) {
                 return AOS_ERROR_WRAP(err);
             }
 
@@ -503,7 +517,7 @@ Error ImageManager::DownloadItemBlob(const InstallItemInfo& itemInfo, const Stri
 
     LOG_DBG() << "Download blob" << Log::Field("digest", digest) << Log::Field("size", blobInfo->mSize);
 
-    if (err = DownloadBlob(path, *blobInfo); !err.IsNone()) {
+    if (err = DownloadBlob(mCancelContext, path, *blobInfo); !err.IsNone()) {
         if (auto removeErr = RemoveBlob(path, digest).mError; !removeErr.IsNone()) {
             LOG_ERR() << "Failed to remove blob" << Log::Field("digest", digest) << Log::Field(removeErr);
         }
@@ -527,6 +541,10 @@ Error ImageManager::InstallItemBlob(
 {
     LOG_DBG() << "Install blob" << Log::Field("digest", descriptor.mDigest)
               << Log::Field("mediaType", descriptor.mMediaType) << Log::Field("size", descriptor.mSize);
+
+    if (auto err = mCancelContext.Err(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (auto err = GetBlobPath(descriptor.mDigest, path); !err.IsNone()) {
         return err;
@@ -555,6 +573,10 @@ Error ImageManager::InstallLayerBlob(
     LOG_DBG() << "Install layer blob" << Log::Field("digest", descriptor.mDigest)
               << Log::Field("mediaType", descriptor.mMediaType) << Log::Field("size", descriptor.mSize)
               << Log::Field("diffID", diffID);
+
+    if (auto err = mCancelContext.Err(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     StaticString<cFilePathLen> path;
 
