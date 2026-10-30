@@ -14,19 +14,11 @@
 namespace aos::common::imagemanager {
 
 /**
- * Download blob info provider mock.
+ * Blob info provider mock.
  */
-class DownloadBlobInfoProviderMock : public DownloadBlobInfoProviderItf {
+class BlobInfoProviderMock : public BlobInfoProviderItf {
 public:
     MOCK_METHOD(Error, GetBlobInfo, (const String& digest, BlobInfo& blobInfo), (override));
-};
-
-/**
- * Local blob info provider mock.
- */
-class LocalBlobInfoProviderMock : public LocalBlobInfoProviderItf {
-public:
-    MOCK_METHOD(Error, GetBlobPath, (const String& digest, String& path), (const, override));
 };
 
 } // namespace aos::common::imagemanager
