@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <atomic>
+#include <chrono>
 #include <string>
+#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -12,10 +15,67 @@
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
 #include <core/common/tools/heapallocator.hpp>
+#include <core/common/tools/thread.hpp>
 
 using namespace testing;
 
 namespace aos::spaceallocator {
+
+namespace {
+
+/***********************************************************************************************************************
+ * Consts
+ **********************************************************************************************************************/
+
+constexpr auto cWaitTimeout  = 5 * Time::cSeconds;
+constexpr auto cBlockTimeout = std::chrono::milliseconds(100);
+
+/***********************************************************************************************************************
+ * Helpers
+ **********************************************************************************************************************/
+
+class BlockingRemover {
+public:
+    RetWithError<size_t> Remove(size_t size)
+    {
+        UniqueLock lock {mMutex};
+
+        mEntered = true;
+        mCondVar.NotifyAll();
+
+        if (auto err = mCondVar.Wait(lock, cWaitTimeout, [this] { return mReleased; }); !err.IsNone()) {
+            return {0, err};
+        }
+
+        return {size, ErrorEnum::eNone};
+    }
+
+    Error WaitEntered()
+    {
+        UniqueLock lock {mMutex};
+
+        return mCondVar.Wait(lock, cWaitTimeout, [this] { return mEntered; });
+    }
+
+    void Release()
+    {
+        {
+            LockGuard lock {mMutex};
+
+            mReleased = true;
+        }
+
+        mCondVar.NotifyAll();
+    }
+
+private:
+    Mutex               mMutex;
+    ConditionalVariable mCondVar;
+    bool                mEntered {};
+    bool                mReleased {};
+};
+
+} // namespace
 
 /***********************************************************************************************************************
  * Suite
@@ -501,6 +561,91 @@ TEST_F(SpaceallocatorTest, ResizeSpaceInsufficientSpace)
 
     ASSERT_TRUE(space->Release().IsNone());
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, ResizeSpaceKeepsAllocationCount)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<size_t>(10 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    auto [space1, err1] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    ASSERT_TRUE(space1->Resize(20 * cKilobyte).IsNone());
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+    ASSERT_TRUE(err2.IsNone());
+    ASSERT_NE(space2.Get(), nullptr);
+
+    ASSERT_TRUE(space2->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, ResizeSpaceRollbackOnPartitionError)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+
+    SpaceAllocator<5> allocator1;
+    SpaceAllocator<5> allocator2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath)).WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    auto [space2, err2] = allocator2.AllocateSpace(60 * cKilobyte);
+    ASSERT_TRUE(err2.IsNone());
+    ASSERT_NE(space2.Get(), nullptr);
+
+    auto [space1, err1] = allocator1.AllocateSpace(10 * cKilobyte);
+    ASSERT_TRUE(err1.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    EXPECT_EQ(space1->Resize(45 * cKilobyte), ErrorEnum::eNoMemory);
+    EXPECT_EQ(space1->Size(), 10 * cKilobyte);
+
+    ASSERT_TRUE(space2->Release().IsNone());
+
+    auto [space3, err3] = allocator1.AllocateSpace(45 * cKilobyte);
+    EXPECT_EQ(err3, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space3.Get(), nullptr);
+
+    auto [space4, err4] = allocator1.AllocateSpace(40 * cKilobyte);
+    ASSERT_TRUE(err4.IsNone());
+    ASSERT_NE(space4.Get(), nullptr);
+
+    ASSERT_TRUE(space4->Accept().IsNone());
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+    ASSERT_TRUE(allocator2.Close().IsNone());
 }
 
 TEST_F(SpaceallocatorTest, OutdatedItemsMultipleVersions)
@@ -1028,6 +1173,211 @@ TEST_F(SpaceallocatorTest, RemoveOutdatedItemAfterEviction)
     auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
     ASSERT_TRUE(err.IsNone());
     EXPECT_EQ(size, 64 * cKilobyte);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, CloseClearsOutdatedItems)
+{
+    SpaceAllocator<5> allocator1;
+    SpaceAllocator<5> allocator2;
+
+    StrictMock<ItemRemoverMock> remover2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, mLimit, &remover2).IsNone());
+
+    ASSERT_TRUE(allocator1.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(10 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [space, err] = allocator2.AllocateSpace(20 * cKilobyte);
+    EXPECT_EQ(err, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space.Get(), nullptr);
+
+    auto [size, removeErr] = allocator2.RemoveOutdatedItem();
+    EXPECT_EQ(removeErr, ErrorEnum::eNotFound);
+    EXPECT_EQ(size, 0U);
+
+    ASSERT_TRUE(allocator2.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, RemoveOutdatedItemAccountingIsAtomic)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+    constexpr size_t cItemSize  = 15 * cKilobyte;
+
+    SpaceAllocator<5> mSpaceAllocator;
+    BlockingRemover   blockingRemover;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .WillRepeatedly(Return(RetWithError<size_t>(25 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("item1", "1.0.0", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item1"), String("1.0.0")))
+        .WillOnce(
+            Invoke([&blockingRemover](const String&, const String&) { return blockingRemover.Remove(cItemSize); }));
+
+    size_t   removedSize = 0;
+    Error    removeErr;
+    Thread<> removeThread;
+
+    ASSERT_TRUE(removeThread
+                    .Run([&](void*) {
+                        auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+
+                        removedSize = size;
+                        removeErr   = err;
+                    })
+                    .IsNone());
+
+    EXPECT_TRUE(blockingRemover.WaitEntered().IsNone());
+
+    std::atomic_bool    allocated {false};
+    UniquePtr<SpaceItf> space1;
+    Error               allocateErr;
+    Thread<>            allocateThread;
+
+    EXPECT_TRUE(allocateThread
+                    .Run([&](void*) {
+                        auto [space, err] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+
+                        space1      = Move(space);
+                        allocateErr = err;
+                        allocated   = true;
+                    })
+                    .IsNone());
+
+    std::this_thread::sleep_for(cBlockTimeout);
+
+    EXPECT_FALSE(allocated.load());
+
+    blockingRemover.Release();
+
+    ASSERT_TRUE(removeThread.Join().IsNone());
+    ASSERT_TRUE(allocateThread.Join().IsNone());
+
+    ASSERT_TRUE(removeErr.IsNone());
+    EXPECT_EQ(removedSize, cItemSize);
+
+    ASSERT_TRUE(allocateErr.IsNone());
+    ASSERT_NE(space1.Get(), nullptr);
+
+    auto [space2, err2] = mSpaceAllocator.AllocateSpace(15 * cKilobyte + 1);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    auto [space3, err3] = mSpaceAllocator.AllocateSpace(15 * cKilobyte);
+    ASSERT_TRUE(err3.IsNone());
+    ASSERT_NE(space3.Get(), nullptr);
+
+    ASSERT_TRUE(space3->Accept().IsNone());
+    ASSERT_TRUE(space1->Accept().IsNone());
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, OutdatedItemsListIsConsistentDuringEviction)
+{
+    constexpr size_t cTotalSize = 100 * cKilobyte;
+    constexpr size_t cItemSize  = 15 * cKilobyte;
+
+    SpaceAllocator<5> mSpaceAllocator;
+    BlockingRemover   blockingRemover;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, 50, &mRemover).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .WillRepeatedly(Return(RetWithError<size_t>(45 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(cTotalSize, ErrorEnum::eNone)));
+
+    const Time now = Time::Now();
+
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("itemA", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem("itemB", "1.0.0", now.Add(-1 * Time::cHours)).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("itemA"), String("1.0.0")))
+        .WillOnce(
+            Invoke([&blockingRemover](const String&, const String&) { return blockingRemover.Remove(cItemSize); }));
+
+    UniquePtr<SpaceItf> space;
+    Error               allocateErr;
+    Thread<>            allocateThread;
+
+    ASSERT_TRUE(allocateThread
+                    .Run([&](void*) {
+                        auto [allocatedSpace, err] = mSpaceAllocator.AllocateSpace(10 * cKilobyte);
+
+                        space       = Move(allocatedSpace);
+                        allocateErr = err;
+                    })
+                    .IsNone());
+
+    EXPECT_TRUE(blockingRemover.WaitEntered().IsNone());
+
+    std::atomic_bool updated {false};
+    Error            restoreErr;
+    Error            addErr;
+    Thread<>         updateThread;
+
+    EXPECT_TRUE(updateThread
+                    .Run([&](void*) {
+                        restoreErr = mSpaceAllocator.RestoreOutdatedItem("itemB", "1.0.0");
+                        addErr     = mSpaceAllocator.AddOutdatedItem("itemC", "1.0.0", now);
+                        updated    = true;
+                    })
+                    .IsNone());
+
+    std::this_thread::sleep_for(cBlockTimeout);
+
+    EXPECT_FALSE(updated.load());
+
+    blockingRemover.Release();
+
+    ASSERT_TRUE(allocateThread.Join().IsNone());
+    ASSERT_TRUE(updateThread.Join().IsNone());
+
+    ASSERT_TRUE(allocateErr.IsNone());
+    ASSERT_NE(space.Get(), nullptr);
+
+    ASSERT_TRUE(restoreErr.IsNone());
+    ASSERT_TRUE(addErr.IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String("itemC"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(64 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [size1, err1] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err1.IsNone());
+    EXPECT_EQ(size1, 64 * cKilobyte);
+
+    auto [size2, err2] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err2, ErrorEnum::eNotFound);
+    EXPECT_EQ(size2, 0U);
+
+    ASSERT_TRUE(space->Accept().IsNone());
 
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }

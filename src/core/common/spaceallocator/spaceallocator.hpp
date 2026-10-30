@@ -35,6 +35,10 @@ struct OutdatedItem {
 
 /**
  * Partition.
+ *
+ * Partition methods must be called with the partition mutex locked, except AddLimit and RemoveLimit which are
+ * protected by the partitions mutex. The partition mutex also protects the state of the space allocators sharing the
+ * partition.
  */
 class Partition {
 public:
@@ -51,8 +55,6 @@ public:
      */
     Error AddLimit(size_t limit)
     {
-        LockGuard lock {mMutex};
-
         if (mLimit + limit > cMaxLimit) {
             return Error(ErrorEnum::eNoMemory, "partition limit exceeded");
         }
@@ -70,8 +72,6 @@ public:
      */
     Error RemoveLimit(size_t limit)
     {
-        LockGuard lock {mMutex};
-
         if (mLimit < limit) {
             return Error(ErrorEnum::eNoMemory, "partition limit exceeded");
         }
@@ -89,8 +89,6 @@ public:
      */
     Error Allocate(size_t size)
     {
-        LockGuard lock {mMutex};
-
         if (mAllocationCount == 0) {
             auto [availableSize, err] = mPlatformFS->GetAvailableSize(mMountPoint);
             if (!err.IsNone()) {
@@ -101,16 +99,9 @@ public:
         }
 
         if (size > mAvailableSize) {
-            if (mOutdatedItems.Size() == 0) {
-                return Error(ErrorEnum::eNoMemory, "not enough space");
-            }
-
-            auto [freedSize, err] = RemoveOutdatedItems(size - mAvailableSize);
-            if (!err.IsNone()) {
+            if (auto err = RemoveOutdatedItems(size - mAvailableSize).mError; !err.IsNone()) {
                 return err;
             }
-
-            mAvailableSize += freedSize;
 
             if (size > mAvailableSize) {
                 return Error(ErrorEnum::eNoMemory, "not enough space");
@@ -129,16 +120,7 @@ public:
      * @param size size to free.
      * @return void.
      */
-    void Free(size_t size)
-    {
-        LockGuard lock {mMutex};
-
-        if (mAllocationCount == 0) {
-            return;
-        }
-
-        mAvailableSize += size;
-    }
+    void Free(size_t size) { mAvailableSize += size; }
 
     /**
      * Allocate done.
@@ -147,8 +129,6 @@ public:
      */
     Error Done()
     {
-        LockGuard lock {mMutex};
-
         if (mAllocationCount == 0) {
             return Error(ErrorEnum::eNotFound, "no allocation");
         }
@@ -167,8 +147,6 @@ public:
      */
     Error Resize(int64_t deltaSize)
     {
-        LockGuard lock {mMutex};
-
         if (deltaSize <= 0) {
             mAvailableSize += static_cast<size_t>(-deltaSize);
 
@@ -178,16 +156,9 @@ public:
         const auto extra = static_cast<size_t>(deltaSize);
 
         if (extra > mAvailableSize) {
-            if (mOutdatedItems.Size() == 0) {
-                return Error(ErrorEnum::eNoMemory, "not enough space");
-            }
-
-            auto [freedSize, err] = RemoveOutdatedItems(extra - mAvailableSize);
-            if (!err.IsNone()) {
+            if (auto err = RemoveOutdatedItems(extra - mAvailableSize).mError; !err.IsNone()) {
                 return err;
             }
-
-            mAvailableSize += freedSize;
 
             if (extra > mAvailableSize) {
                 return Error(ErrorEnum::eNoMemory, "not enough space");
@@ -207,8 +178,6 @@ public:
      */
     Error AddOutdatedItem(const OutdatedItem& item)
     {
-        LockGuard lock {mMutex};
-
         for (auto& outdatedItem : mOutdatedItems) {
             if (outdatedItem.mID == item.mID && outdatedItem.mVersion == item.mVersion) {
                 outdatedItem = item;
@@ -219,18 +188,13 @@ public:
 
         auto err = mOutdatedItems.PushBack(item);
         if (!err.IsNone()) {
-            mOutdatedItems.Sort(
-                [](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
+            SortOutdatedItems();
 
             auto& oldestItem = mOutdatedItems[0];
 
-            auto [size, removeErr] = oldestItem.mRemover->RemoveItem(oldestItem.mID, oldestItem.mVersion);
-            if (!removeErr.IsNone()) {
+            if (auto removeErr = RemoveItem(oldestItem).mError; !removeErr.IsNone()) {
                 return removeErr;
             }
-
-            oldestItem.mFreeCallback(reinterpret_cast<void*>(size));
-            mAvailableSize += size;
 
             oldestItem = item;
 
@@ -249,8 +213,6 @@ public:
      */
     void RestoreOutdatedItem(const String& id, const String& version)
     {
-        LockGuard lock {mMutex};
-
         for (size_t i = 0; i < mOutdatedItems.Size(); i++) {
             if (mOutdatedItems[i].mID == id && mOutdatedItems[i].mVersion == version) {
                 mOutdatedItems.Erase(mOutdatedItems.begin() + i);
@@ -263,18 +225,15 @@ public:
     /**
      * Removes the oldest outdated item of the space allocator.
      *
-     * The item is removed from the outdated items list whatever the result of the item remover. The freed size is
-     * accounted in the partition only: the allocator free callback is not called, the caller must account the freed
-     * size in the space allocator.
+     * The item is removed from the outdated items list whatever the result of the item remover. On success, the freed
+     * size is accounted in the partition and in the space allocator the item belongs to.
      *
      * @param spaceAllocator space allocator the item belongs to.
      * @return RetWithError<size_t>: freed size, eNotFound if there is no outdated item to remove.
      */
     RetWithError<size_t> RemoveOutdatedItem(const SpaceAllocatorItf* spaceAllocator)
     {
-        LockGuard lock {mMutex};
-
-        mOutdatedItems.Sort([](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
+        SortOutdatedItems();
 
         auto oldestItem = mOutdatedItems.FindIf(
             [spaceAllocator](const OutdatedItem& item) { return item.mSpaceAllocator == spaceAllocator; });
@@ -282,7 +241,7 @@ public:
             return {0, Error(ErrorEnum::eNotFound, "no outdated item")};
         }
 
-        auto [size, err] = oldestItem->mRemover->RemoveItem(oldestItem->mID, oldestItem->mVersion);
+        auto [size, err] = RemoveItem(*oldestItem);
 
         mOutdatedItems.Erase(oldestItem);
 
@@ -290,9 +249,57 @@ public:
             return {0, err};
         }
 
-        mAvailableSize += size;
-
         return {size, ErrorEnum::eNone};
+    }
+
+    /**
+     * Removes outdated items starting from the oldest one until the requested size is freed.
+     *
+     * The freed size of each removed item is accounted in the partition and in the space allocator the item belongs
+     * to. On item remover error, the already removed items stay removed and the failed item stays in the list.
+     *
+     * @param size size to free.
+     * @param spaceAllocator if set, only items of this space allocator are removed.
+     * @return RetWithError<size_t>: freed size.
+     */
+    RetWithError<size_t> RemoveOutdatedItems(size_t size, const SpaceAllocatorItf* spaceAllocator = nullptr)
+    {
+        SortOutdatedItems();
+
+        size_t freedSize = 0;
+
+        for (size_t i = 0; freedSize < size && i < mOutdatedItems.Size();) {
+            auto& item = mOutdatedItems[i];
+
+            if (spaceAllocator != nullptr && item.mSpaceAllocator != spaceAllocator) {
+                i++;
+
+                continue;
+            }
+
+            auto [itemSize, err] = RemoveItem(item);
+            if (!err.IsNone()) {
+                return {freedSize, err};
+            }
+
+            freedSize += itemSize;
+
+            mOutdatedItems.Erase(mOutdatedItems.begin() + i);
+        }
+
+        return {freedSize, ErrorEnum::eNone};
+    }
+
+    /**
+     * Removes the outdated items of the space allocator from the outdated items list without removing the items.
+     *
+     * @param spaceAllocator space allocator the items belong to.
+     * @return void.
+     */
+    void ClearOutdatedItems(const SpaceAllocatorItf* spaceAllocator)
+    {
+        mOutdatedItems.RemoveIf(
+            [spaceAllocator](const OutdatedItem& item) { return item.mSpaceAllocator == spaceAllocator; });
     }
 
     static constexpr size_t cMaxNumOutdatedItems = AOS_CONFIG_SPACEALLOCATOR_MAX_OUTDATED_ITEMS;
@@ -302,39 +309,31 @@ public:
     size_t                                          mAllocatorCount {};
     fs::FSPlatformItf*                              mPlatformFS {};
     StaticArray<OutdatedItem, cMaxNumOutdatedItems> mOutdatedItems;
+    Mutex                                           mMutex {};
 
 private:
     static constexpr size_t cMaxLimit = 100;
 
-    RetWithError<size_t> RemoveOutdatedItems(size_t size)
+    void SortOutdatedItems()
     {
         mOutdatedItems.Sort([](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
+    }
 
-        size_t freedSize = 0;
-        size_t i         = 0;
-
-        for (; freedSize < size && i < mOutdatedItems.Size(); i++) {
-            auto& item = mOutdatedItems[i];
-
-            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID, item.mVersion);
-            if (!err.IsNone()) {
-                return {freedSize, err};
-            }
-
-            item.mFreeCallback(reinterpret_cast<void*>(itemSize));
-            freedSize += itemSize;
+    RetWithError<size_t> RemoveItem(OutdatedItem& item)
+    {
+        auto [size, err] = item.mRemover->RemoveItem(item.mID, item.mVersion);
+        if (!err.IsNone()) {
+            return {0, err};
         }
 
-        if (i > 0) {
-            mOutdatedItems.Erase(mOutdatedItems.begin(), mOutdatedItems.begin() + i);
-        }
+        item.mFreeCallback(reinterpret_cast<void*>(size));
+        mAvailableSize += size;
 
-        return {freedSize, ErrorEnum::eNone};
+        return {size, ErrorEnum::eNone};
     }
 
     size_t mAllocationCount {};
     size_t mAvailableSize {};
-    Mutex  mMutex {};
 };
 
 /**
@@ -464,6 +463,12 @@ public:
             err = errRemovePartLimit;
         }
 
+        {
+            LockGuard partitionLock {mPartition->mMutex};
+
+            mPartition->ClearOutdatedItems(this);
+        }
+
         mPartition->mAllocatorCount--;
 
         if (mPartition->mAllocatorCount != 0) {
@@ -486,6 +491,8 @@ public:
      */
     RetWithError<UniquePtr<SpaceItf>> AllocateSpace(size_t size) override
     {
+        LockGuard lock {mPartition->mMutex};
+
         auto err = Allocate(size);
         if (!err.IsNone()) {
             return {nullptr, err};
@@ -493,6 +500,7 @@ public:
 
         if (err = mPartition->Allocate(size); !err.IsNone()) {
             Free(size);
+            Done();
 
             return {nullptr, err};
         }
@@ -500,7 +508,9 @@ public:
         auto space = MakeUnique<Space>(mAllocator, size, this);
         if (!space) {
             mPartition->Free(size);
+            mPartition->Done();
             Free(size);
+            Done();
 
             return {nullptr, ErrorEnum::eNoMemory};
         }
@@ -516,6 +526,8 @@ public:
      */
     void FreeSpace(size_t size) override
     {
+        LockGuard lock {mPartition->mMutex};
+
         Free(size);
 
         mPartition->Free(size);
@@ -528,6 +540,8 @@ public:
      */
     Error AllocateDone() override
     {
+        LockGuard lock {mPartition->mMutex};
+
         if (auto err = Done(); !err.IsNone()) {
             return err;
         }
@@ -561,6 +575,8 @@ public:
         item.mFreeCallback
             = aos::StaticFunction<> {[this](void* sizePtr) { this->Free(reinterpret_cast<size_t>(sizePtr)); }};
 
+        LockGuard lock {mPartition->mMutex};
+
         return mPartition->AddOutdatedItem(item);
     }
 
@@ -573,6 +589,8 @@ public:
      */
     Error RestoreOutdatedItem(const String& id, const String& version) override
     {
+        LockGuard lock {mPartition->mMutex};
+
         mPartition->RestoreOutdatedItem(id, version);
 
         return ErrorEnum::eNone;
@@ -585,14 +603,9 @@ public:
      */
     RetWithError<size_t> RemoveOutdatedItem() override
     {
-        auto [size, err] = mPartition->RemoveOutdatedItem(this);
-        if (!err.IsNone()) {
-            return {0, err};
-        }
+        LockGuard lock {mPartition->mMutex};
 
-        Free(size);
-
-        return {size, ErrorEnum::eNone};
+        return mPartition->RemoveOutdatedItem(this);
     }
 
 private:
@@ -602,15 +615,22 @@ private:
             return ErrorEnum::eNone;
         }
 
-        Free(oldSize);
+        LockGuard lock {mPartition->mMutex};
 
-        if (auto err = Allocate(newSize); !err.IsNone()) {
+        const auto deltaSize = static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize);
+
+        if (deltaSize < 0) {
+            Free(oldSize - newSize);
+
+            return mPartition->Resize(deltaSize);
+        }
+
+        if (auto err = Reserve(newSize - oldSize); !err.IsNone()) {
             return err;
         }
 
-        if (auto err = mPartition->Resize(static_cast<int64_t>(newSize) - static_cast<int64_t>(oldSize));
-            !err.IsNone()) {
-            Free(newSize);
+        if (auto err = mPartition->Resize(deltaSize); !err.IsNone()) {
+            Free(newSize - oldSize);
 
             return err;
         }
@@ -624,7 +644,6 @@ private:
         partition.mPlatformFS = mPlatformFS;
     }
 
-    // called with mMutex locked
     Error UpdateSizes()
     {
         auto [totalSize, totalSizeErr] = mPlatformFS->GetTotalSize(mPartition->mMountPoint);
@@ -646,8 +665,21 @@ private:
 
     Error Allocate(size_t size)
     {
-        LockGuard lock {mMutex};
+        if (mLimitPercent == 0) {
+            return ErrorEnum::eNone;
+        }
 
+        if (auto err = Reserve(size); !err.IsNone()) {
+            return err;
+        }
+
+        mAllocationCount++;
+
+        return ErrorEnum::eNone;
+    }
+
+    Error Reserve(size_t size)
+    {
         if (mLimitPercent == 0) {
             return ErrorEnum::eNone;
         }
@@ -659,26 +691,9 @@ private:
         }
 
         if (mAllocatedSize + size > mSizeLimit) {
-            size_t outdatedCount = 0;
-            for (const auto& item : mPartition->mOutdatedItems) {
-                if (item.mSpaceAllocator == this) {
-                    outdatedCount++;
-                }
-            }
-
-            if (outdatedCount == 0) {
-                return Error(ErrorEnum::eNoMemory, "allocator limit exceeded");
-            }
-
-            auto [freedSize, err] = RemoveOutdatedItems(mAllocatedSize + size - mSizeLimit);
-            if (!err.IsNone()) {
+            if (auto err = mPartition->RemoveOutdatedItems(mAllocatedSize + size - mSizeLimit, this).mError;
+                !err.IsNone()) {
                 return err;
-            }
-
-            if (freedSize > mAllocatedSize) {
-                mAllocatedSize = 0;
-            } else {
-                mAllocatedSize -= freedSize;
             }
 
             if (mAllocatedSize + size > mSizeLimit) {
@@ -687,64 +702,25 @@ private:
         }
 
         mAllocatedSize += size;
-        mAllocationCount++;
 
         return ErrorEnum::eNone;
     }
 
-    RetWithError<size_t> RemoveOutdatedItems(size_t size)
-    {
-        mPartition->mOutdatedItems.Sort(
-            [](const OutdatedItem& a, const OutdatedItem& b) { return a.mTimestamp < b.mTimestamp; });
-
-        size_t freedSize = 0;
-        size_t i         = 0;
-
-        for (auto& item : mPartition->mOutdatedItems) {
-            if (item.mSpaceAllocator != this || freedSize >= size) {
-                mPartition->mOutdatedItems[i] = item;
-                i++;
-
-                continue;
-            }
-
-            auto [itemSize, err] = item.mRemover->RemoveItem(item.mID, item.mVersion);
-            if (!err.IsNone()) {
-                return {freedSize, err};
-            }
-
-            item.mPartition->Free(itemSize);
-            freedSize += itemSize;
-        }
-
-        if (i < mPartition->mOutdatedItems.Size()) {
-            mPartition->mOutdatedItems.Erase(mPartition->mOutdatedItems.begin() + i, mPartition->mOutdatedItems.end());
-        }
-
-        return {freedSize, ErrorEnum::eNone};
-    }
-
     void Free(size_t size)
     {
-        LockGuard lock {mMutex};
-
         if (mLimitPercent == 0) {
             return;
         }
 
-        if (mAllocationCount > 0) {
-            if (size < mAllocatedSize) {
-                mAllocatedSize -= size;
-            } else {
-                mAllocatedSize = 0;
-            }
+        if (size < mAllocatedSize) {
+            mAllocatedSize -= size;
+        } else {
+            mAllocatedSize = 0;
         }
     }
 
     Error Done()
     {
-        LockGuard lock {mMutex};
-
         if (mLimitPercent == 0) {
             return ErrorEnum::eNone;
         }
@@ -767,7 +743,6 @@ private:
     ItemRemoverItf*            mRemover {};
     fs::FSPlatformItf*         mPlatformFS {};
     Partition*                 mPartition {};
-    Mutex                      mMutex;
 };
 
 } // namespace aos::spaceallocator
