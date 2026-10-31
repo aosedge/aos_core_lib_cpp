@@ -508,6 +508,23 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
 RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path);
 
 /**
+ * Returns file modification time.
+ *
+ * @param path file path.
+ * @return RetWithError<Time>.
+ */
+RetWithError<Time> GetFileMTime(const String& path);
+
+/**
+ * Sets file modification time.
+ *
+ * @param path file path.
+ * @param time modification time.
+ * @return Error.
+ */
+Error SetFileMTime(const String& path, const Time& time);
+
+/**
  * File class.
  */
 class File : private NonCopyable {
