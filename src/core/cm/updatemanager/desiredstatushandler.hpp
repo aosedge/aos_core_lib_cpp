@@ -9,7 +9,9 @@
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
 #include <core/cm/launcher/itf/launcher.hpp>
+#include <core/common/consts.hpp>
 #include <core/common/iamclient/itf/nodehandler.hpp>
+#include <core/common/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/types/desiredstatus.hpp>
@@ -35,14 +37,15 @@ public:
      * @param nodeHandler node handler.
      * @param unitConfig unit config interface.
      * @param imageManager image manager.
+     * @param itemStatusProvider item status provider.
      * @param launcher launcher interface.
      * @param unitStatusHandler unit status handler.
      * @param storage storage interface.
      * @return Error.
      */
     Error Init(AllocatorItf& allocator, iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
-        imagemanager::ImageManagerItf& imageManager, launcher::LauncherItf& launcher,
-        UnitStatusHandler& unitStatusHandler, StorageItf& storage);
+        imagemanager::ImageManagerItf& imageManager, common::imagemanager::ItemStatusProviderItf& itemStatusProvider,
+        launcher::LauncherItf& launcher, UnitStatusHandler& unitStatusHandler, StorageItf& storage);
 
     /**
      * Starts desired status handler.
@@ -75,7 +78,8 @@ private:
     void  Run();
     void  LogDesiredStatus(const DesiredStatus& desiredStatus) const;
     void  SetState(const UpdateState& state);
-    Error DownloadUpdateItems();
+    Error InstallUpdateItems();
+    void  InstallItem(const UpdateItemInfo& item);
     Error InstallDesiredStatus();
     Error LaunchInstances();
     Error WaitInstancesActive();
@@ -87,18 +91,20 @@ private:
     bool  IsUpdateItemsRequired(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const;
 
-    iamclient::NodeHandlerItf*     mNodeHandler {};
-    unitconfig::UnitConfigItf*     mUnitConfig {};
-    imagemanager::ImageManagerItf* mImageManager {};
-    launcher::LauncherItf*         mLauncher {};
-    UnitStatusHandler*             mUnitStatusHandler {};
-    StorageItf*                    mStorage {};
+    iamclient::NodeHandlerItf*                   mNodeHandler {};
+    unitconfig::UnitConfigItf*                   mUnitConfig {};
+    imagemanager::ImageManagerItf*               mImageManager {};
+    common::imagemanager::ItemStatusProviderItf* mItemStatusProvider {};
+    launcher::LauncherItf*                       mLauncher {};
+    UnitStatusHandler*                           mUnitStatusHandler {};
+    StorageItf*                                  mStorage {};
 
-    Mutex               mMutex;
-    ConditionalVariable mCondVar;
-    Thread<>            mThread;
-    DesiredStatus       mCurrentDesiredStatus;
-    DesiredStatus       mPendingDesiredStatus;
+    Mutex                                                  mMutex;
+    ConditionalVariable                                    mCondVar;
+    Thread<>                                               mThread;
+    ThreadPool<cMaxNumConcurrentItems, cMaxNumUpdateItems> mInstallThreadPool;
+    DesiredStatus                                          mCurrentDesiredStatus;
+    DesiredStatus                                          mPendingDesiredStatus;
 
     bool        mIsRunning {};
     bool        mHasPendingDesiredStatus {};
