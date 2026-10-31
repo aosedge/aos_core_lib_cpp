@@ -27,6 +27,7 @@ set(HEADERS
     instancestatusprovidermock.hpp
     iteminfoprovidermock.hpp
     itemstatuslistenermock.hpp
+    itemstatusprovidermock.hpp
     logprovidermock.hpp
     monitoringmock.hpp
     nodehandlermock.hpp
